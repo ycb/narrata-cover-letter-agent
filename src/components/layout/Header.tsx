@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { User, Settings, LogOut, Zap, FileText, Target } from "lucide-react";
+import { User, Settings, LogOut, Zap, FileText, Target, Briefcase } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface HeaderProps {
   currentPage?: string;
@@ -21,9 +22,17 @@ export const Header = ({ currentPage }: HeaderProps) => {
           </div>
           
           <nav className="hidden md:flex items-center gap-6">
-            <Button variant="ghost" className={currentPage === 'dashboard' ? 'bg-accent-light' : ''}>
-              <Target className="h-4 w-4" />
-              Dashboard
+            <Button variant="ghost" className={currentPage === 'dashboard' ? 'bg-accent-light' : ''} asChild>
+              <Link to="/dashboard">
+                <Target className="h-4 w-4" />
+                Dashboard
+              </Link>
+            </Button>
+            <Button variant="ghost" className={currentPage === 'work-history' ? 'bg-accent-light' : ''} asChild>
+              <Link to="/work-history">
+                <Briefcase className="h-4 w-4" />
+                Work History
+              </Link>
             </Button>
             <Button variant="ghost" className={currentPage === 'library' ? 'bg-accent-light' : ''}>
               <FileText className="h-4 w-4" />
