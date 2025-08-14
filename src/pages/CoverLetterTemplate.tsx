@@ -6,11 +6,67 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Upload, Save, ArrowLeft, Plus, GripVertical, Trash2 } from "lucide-react";
+import { Upload, Save, ArrowLeft, Plus, GripVertical, Trash2, Edit, FileText } from "lucide-react";
 import { Header } from "@/components/layout/Header";
+import { Link } from "react-router-dom";
 import type { CoverLetterSection, CoverLetterTemplate } from "@/types/workHistory";
 
-// Mock template data
+// Mock template blurbs for different sections
+const mockTemplateBlurbs = {
+  intro: [
+    {
+      id: "intro-1",
+      title: "Standard Professional Opening",
+      content: "I am writing to express my strong interest in the [Position] role at [Company]. With my background in [Industry/Field], I am excited about the opportunity to contribute to your team's success."
+    },
+    {
+      id: "intro-2", 
+      title: "Passionate Connection",
+      content: "I was thrilled to discover the [Position] opening at [Company], as it perfectly aligns with my passion for [Industry/Field] and my career goals in [Specific Area]."
+    },
+    {
+      id: "intro-3",
+      title: "Referral Opening",
+      content: "I was referred to this [Position] opportunity at [Company] by [Referral Name], who spoke highly of your team and the innovative work you're doing in [Industry/Field]."
+    }
+  ],
+  closer: [
+    {
+      id: "closer-1",
+      title: "Standard Professional Close",
+      content: "I would welcome the opportunity to discuss how my background and passion can contribute to your team's continued success. Thank you for your time and consideration."
+    },
+    {
+      id: "closer-2",
+      title: "Eager Follow-up",
+      content: "I am excited about the possibility of joining your team and would love to discuss how I can help [Company] achieve its goals. I look forward to hearing from you soon."
+    },
+    {
+      id: "closer-3",
+      title: "Value-focused Close",
+      content: "I am confident that my skills and experience would be valuable additions to your team. I would appreciate the opportunity to discuss how I can contribute to [Company]'s continued growth and success."
+    }
+  ],
+  signature: [
+    {
+      id: "signature-1",
+      title: "Professional",
+      content: "Sincerely,\n[Your Name]"
+    },
+    {
+      id: "signature-2",
+      title: "Warm Professional",
+      content: "Best regards,\n[Your Name]"
+    },
+    {
+      id: "signature-3",
+      title: "Respectful",
+      content: "Respectfully,\n[Your Name]"
+    }
+  ]
+};
+
+// Mock template data with default static content
 const mockTemplate: CoverLetterTemplate = {
   id: "template-1",
   name: "Professional Template",
@@ -18,11 +74,8 @@ const mockTemplate: CoverLetterTemplate = {
     {
       id: "intro",
       type: "intro" as const,
-      isStatic: false,
-      blurbCriteria: {
-        tags: ["introduction", "passion"],
-        goals: ["engagement"]
-      },
+      isStatic: true,
+      staticContent: "I am writing to express my strong interest in the [Position] role at [Company]. With my background in [Industry/Field], I am excited about the opportunity to contribute to your team's success.",
       order: 1
     },
     {
@@ -30,8 +83,7 @@ const mockTemplate: CoverLetterTemplate = {
       type: "paragraph" as const,
       isStatic: false,
       blurbCriteria: {
-        tags: ["experience", "technical"],
-        goals: ["showcase-skills"]
+        goals: ["showcase relevant experience and technical skills"]
       },
       order: 2
     },
@@ -40,8 +92,7 @@ const mockTemplate: CoverLetterTemplate = {
       type: "paragraph" as const,
       isStatic: false,
       blurbCriteria: {
-        tags: ["achievements", "impact"],
-        goals: ["prove-value"]
+        goals: ["highlight achievements and quantifiable impact"]
       },
       order: 3
     },
@@ -49,7 +100,7 @@ const mockTemplate: CoverLetterTemplate = {
       id: "closer",
       type: "closer" as const,
       isStatic: true,
-      staticContent: "I would welcome the opportunity to discuss how my background and passion can contribute to your team's continued success.",
+      staticContent: "I would welcome the opportunity to discuss how my background and passion can contribute to your team's continued success. Thank you for your time and consideration.",
       order: 4
     },
     {
@@ -67,6 +118,8 @@ const mockTemplate: CoverLetterTemplate = {
 const CoverLetterTemplate = () => {
   const [template, setTemplate] = useState(mockTemplate);
   const [isEditing, setIsEditing] = useState(false);
+  const [selectedSection, setSelectedSection] = useState<string | null>(null);
+  const [showBlurbSelector, setShowBlurbSelector] = useState(false);
 
   const getSectionTypeLabel = (type: string) => {
     switch (type) {
@@ -93,8 +146,7 @@ const CoverLetterTemplate = () => {
       type: 'paragraph',
       isStatic: false,
       blurbCriteria: {
-        tags: [],
-        goals: []
+        goals: ["describe the purpose of this paragraph"]
       },
       order: template.sections.length + 1
     };
@@ -103,6 +155,20 @@ const CoverLetterTemplate = () => {
       ...prev,
       sections: [...prev.sections, newSection]
     }));
+  };
+
+  const selectBlurbForSection = (sectionId: string, blurbContent: string) => {
+    updateSection(sectionId, { 
+      isStatic: true, 
+      staticContent: blurbContent,
+      blurbCriteria: undefined
+    });
+    setShowBlurbSelector(false);
+    setSelectedSection(null);
+  };
+
+  const getAvailableBlurbs = (sectionType: string) => {
+    return mockTemplateBlurbs[sectionType as keyof typeof mockTemplateBlurbs] || [];
   };
 
   const removeSection = (sectionId: string) => {
@@ -120,18 +186,18 @@ const CoverLetterTemplate = () => {
         <div className="max-w-4xl mx-auto">
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-4">
-              <Button variant="outline" size="sm" className="flex items-center gap-2">
-                <ArrowLeft className="h-4 w-4" />
-                Back to Cover Letters
-              </Button>
-              <div>
-                <h1 className="text-3xl font-bold text-foreground">Cover Letter Template</h1>
-                <p className="text-muted-foreground">Configure your template structure</p>
-              </div>
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">Cover Letter Template</h1>
+              <p className="text-muted-foreground">Configure your template structure and content</p>
             </div>
             
             <div className="flex gap-3">
+              <Button variant="outline" className="flex items-center gap-2" asChild>
+                <Link to="/cover-letters">
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to Cover Letters
+                </Link>
+              </Button>
               <Button variant="outline" className="flex items-center gap-2">
                 <Upload className="h-4 w-4" />
                 Upload Template
@@ -210,56 +276,58 @@ const CoverLetterTemplate = () => {
                 
                 <CardContent>
                   {section.isStatic ? (
-                    <div>
-                      <Label htmlFor={`content-${section.id}`}>Content</Label>
-                      <Textarea
-                        id={`content-${section.id}`}
-                        value={section.staticContent || ''}
-                        onChange={(e) => updateSection(section.id, { staticContent: e.target.value })}
-                        disabled={!isEditing}
-                        rows={3}
-                        className="mt-2"
-                      />
-                    </div>
-                  ) : (
                     <div className="space-y-4">
                       <div>
-                        <Label htmlFor={`tags-${section.id}`}>Required Tags</Label>
-                        <Input
-                          id={`tags-${section.id}`}
-                          value={section.blurbCriteria?.tags.join(', ') || ''}
-                          onChange={(e) => updateSection(section.id, {
-                            blurbCriteria: {
-                              ...section.blurbCriteria!,
-                              tags: e.target.value.split(',').map(tag => tag.trim()).filter(Boolean)
-                            }
-                          })}
-                          placeholder="e.g., technical, leadership, problem-solving"
+                        <Label htmlFor={`content-${section.id}`}>Content</Label>
+                        <Textarea
+                          id={`content-${section.id}`}
+                          value={section.staticContent || ''}
+                          onChange={(e) => updateSection(section.id, { staticContent: e.target.value })}
                           disabled={!isEditing}
+                          rows={3}
                           className="mt-2"
                         />
                       </div>
                       
+                      {isEditing && (section.type === 'intro' || section.type === 'closer' || section.type === 'signature') && (
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedSection(section.id);
+                              setShowBlurbSelector(true);
+                            }}
+                            className="flex items-center gap-2"
+                          >
+                            <FileText className="h-4 w-4" />
+                            Choose Different Blurb
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
                       <div>
                         <Label htmlFor={`goals-${section.id}`}>Content Goals</Label>
-                        <Input
+                        <Textarea
                           id={`goals-${section.id}`}
-                          value={section.blurbCriteria?.goals.join(', ') || ''}
+                          value={section.blurbCriteria?.goals.join('\n') || ''}
                           onChange={(e) => updateSection(section.id, {
                             blurbCriteria: {
-                              ...section.blurbCriteria!,
-                              goals: e.target.value.split(',').map(goal => goal.trim()).filter(Boolean)
+                              goals: e.target.value.split('\n').map(goal => goal.trim()).filter(Boolean)
                             }
                           })}
-                          placeholder="e.g., showcase-skills, prove-value, demonstrate-fit"
+                          placeholder="Describe the purpose and goals for this paragraph..."
                           disabled={!isEditing}
+                          rows={2}
                           className="mt-2"
                         />
                       </div>
                       
                       <div className="pt-2">
                         <Badge variant="outline" className="text-xs">
-                          Blurb matching will find relevant content based on tags and goals
+                          LLM will suggest best matching blurbs based on job description and goals
                         </Badge>
                       </div>
                     </div>
@@ -281,6 +349,46 @@ const CoverLetterTemplate = () => {
               </Card>
             )}
           </div>
+
+          {/* Blurb Selector Modal */}
+          {showBlurbSelector && selectedSection && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+              <Card className="w-full max-w-2xl max-h-[80vh] overflow-hidden">
+                <CardHeader>
+                  <CardTitle>Choose a Blurb</CardTitle>
+                  <CardDescription>
+                    Select a pre-written blurb for your {getSectionTypeLabel(template.sections.find(s => s.id === selectedSection)?.type || '')} section
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="overflow-y-auto">
+                  <div className="space-y-3">
+                    {getAvailableBlurbs(template.sections.find(s => s.id === selectedSection)?.type || '').map((blurb) => (
+                      <Card key={blurb.id} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                        <CardContent className="p-4">
+                          <h4 className="font-medium mb-2">{blurb.title}</h4>
+                          <p className="text-sm text-muted-foreground mb-3">{blurb.content}</p>
+                          <Button 
+                            size="sm" 
+                            onClick={() => selectBlurbForSection(selectedSection, blurb.content)}
+                          >
+                            Use This Blurb
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </CardContent>
+                <div className="flex justify-end gap-2 p-6 pt-0">
+                  <Button variant="outline" onClick={() => {
+                    setShowBlurbSelector(false);
+                    setSelectedSection(null);
+                  }}>
+                    Cancel
+                  </Button>
+                </div>
+              </Card>
+            </div>
+          )}
         </div>
       </main>
     </div>

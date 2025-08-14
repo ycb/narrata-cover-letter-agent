@@ -56,8 +56,7 @@ export interface CoverLetterSection {
   isStatic: boolean; // true = static text, false = uses blurb matching
   staticContent?: string; // for static sections
   blurbCriteria?: {
-    tags: string[];
-    goals: string[];
+    goals: string[]; // content goals/purpose for this section
   }; // for dynamic sections
   order: number;
 }
