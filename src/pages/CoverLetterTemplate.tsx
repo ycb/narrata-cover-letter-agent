@@ -409,7 +409,7 @@ const CoverLetterTemplate = () => {
                           
                           {isEditing && (
                             <div className="flex gap-2">
-                              {(section.type === 'intro' || section.type === 'closer' || section.type === 'signature') ? (
+                              {section.type === 'intro' || section.type === 'closer' || section.type === 'signature' ? (
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -420,7 +420,7 @@ const CoverLetterTemplate = () => {
                                   className="flex items-center gap-2"
                                 >
                                   <FileText className="h-4 w-4" />
-                                  Choose Different Blurb
+                                  Choose Template Blurb
                                 </Button>
                               ) : (
                                 <Button
