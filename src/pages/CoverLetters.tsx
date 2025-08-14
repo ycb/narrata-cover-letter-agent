@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { FileText, Plus, Search, Calendar, Target, Edit, Eye } from "lucide-react";
 import { Header } from "@/components/layout/Header";
+import { Link } from "react-router-dom";
 
 // Mock data for demonstration
 const mockCoverLetters = [
@@ -79,13 +80,17 @@ const CoverLetters = () => {
             </div>
             
             <div className="flex gap-3">
-              <Button variant="outline" className="flex items-center gap-2">
-                <Target className="h-4 w-4" />
-                Manage Template
+              <Button variant="outline" className="flex items-center gap-2" asChild>
+                <Link to="/cover-letter-template">
+                  <Target className="h-4 w-4" />
+                  Manage Template
+                </Link>
               </Button>
-              <Button className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                New Cover Letter
+              <Button className="flex items-center gap-2" asChild>
+                <Link to="/cover-letter-create">
+                  <Plus className="h-4 w-4" />
+                  New Cover Letter
+                </Link>
               </Button>
             </div>
           </div>
@@ -166,9 +171,11 @@ const CoverLetters = () => {
                   <p className="text-muted-foreground mb-4">
                     {searchTerm ? "No letters match your search criteria." : "Start by creating your first cover letter."}
                   </p>
-                  <Button className="flex items-center gap-2">
-                    <Plus className="h-4 w-4" />
-                    New Cover Letter
+                  <Button className="flex items-center gap-2" asChild>
+                    <Link to="/cover-letter-create">
+                      <Plus className="h-4 w-4" />
+                      New Cover Letter
+                    </Link>
                   </Button>
                 </CardContent>
               </Card>
