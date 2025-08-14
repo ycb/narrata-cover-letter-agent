@@ -31,7 +31,7 @@ export interface WorkHistoryBlurb {
   lastUsed?: string;
 }
 
-export interface CoverLetterTemplate {
+export interface LegacyCoverLetterTemplate {
   id: string;
   name: string;
   type: 'introduction' | 'closer' | 'signature';
@@ -48,4 +48,59 @@ export interface TemplateBlurb {
   tags: string[];
   timesUsed: number;
   lastUsed?: string;
+}
+
+export interface CoverLetterSection {
+  id: string;
+  type: 'intro' | 'paragraph' | 'closer' | 'signature';
+  isStatic: boolean; // true = static text, false = uses blurb matching
+  staticContent?: string; // for static sections
+  blurbCriteria?: {
+    tags: string[];
+    goals: string[];
+  }; // for dynamic sections
+  order: number;
+}
+
+export interface CoverLetterTemplate {
+  id: string;
+  name: string;
+  sections: CoverLetterSection[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface JobDescription {
+  id: string;
+  url?: string;
+  content: string;
+  company: string;
+  role: string;
+  extractedRequirements: string[];
+  createdAt: string;
+}
+
+export interface CoverLetter {
+  id: string;
+  templateId: string;
+  jobDescriptionId: string;
+  sections: CoverLetterGeneratedSection[];
+  llmFeedback: {
+    goNoGo: 'go' | 'no-go' | 'needs-work';
+    score: number;
+    matchedBlurbs: string[]; // blurb IDs
+    gaps: string[];
+    suggestions: string[];
+  };
+  status: 'draft' | 'reviewed' | 'finalized';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CoverLetterGeneratedSection {
+  id: string;
+  sectionId: string; // references CoverLetterSection
+  content: string;
+  usedBlurbs?: string[]; // blurb IDs used to generate this section
+  isModified: boolean; // has user manually edited
 }

@@ -34,9 +34,11 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 Work History
               </Link>
             </Button>
-            <Button variant="ghost" className={currentPage === 'library' ? 'bg-accent-light' : ''}>
-              <FileText className="h-4 w-4" />
-              Blurb Library
+            <Button variant="ghost" className={currentPage === 'cover-letters' ? 'bg-accent-light' : ''} asChild>
+              <Link to="/cover-letters">
+                <FileText className="h-4 w-4" />
+                Cover Letters
+              </Link>
             </Button>
           </nav>
         </div>
