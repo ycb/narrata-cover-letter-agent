@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Link } from "react-router-dom";
 import { 
   Zap, 
   Target, 
@@ -60,11 +61,15 @@ const Landing = () => {
           </div>
           
           <div className="flex items-center gap-4">
-            <Button variant="ghost">Sign In</Button>
+            <Link to="/signin">
+              <Button variant="ghost">Sign In</Button>
+            </Link>
             <Button variant="ghost" onClick={() => window.location.href = '/dashboard'}>
               Dashboard
             </Button>
-            <Button variant="brand">Get Started</Button>
+            <Link to="/signup">
+              <Button variant="brand">Get Started</Button>
+            </Link>
           </div>
         </div>
       </header>
@@ -90,15 +95,17 @@ const Landing = () => {
             Human-controlled AI that never invents achievements you don't have.
           </p>
           
-          <div className="flex items-center justify-center gap-4 mb-12">
-            <Button variant="brand" size="lg" className="gap-2">
-              Start Building Your Library
-              <ArrowRight className="h-5 w-5" />
-            </Button>
-            <Button variant="outline" size="lg">
-              Watch Demo
-            </Button>
-          </div>
+           <div className="flex items-center justify-center gap-4 mb-12">
+             <Link to="/signup">
+               <Button variant="brand" size="lg" className="gap-2">
+                 Start Building Your Library
+                 <ArrowRight className="h-5 w-5" />
+               </Button>
+             </Link>
+             <Button variant="outline" size="lg">
+               Watch Demo
+             </Button>
+           </div>
 
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-16">
@@ -209,10 +216,12 @@ const Landing = () => {
             <p className="text-xl opacity-90 mb-8 max-w-2xl mx-auto">
               Join hundreds of PMs, designers, and marketers who've transformed their job application process.
             </p>
-            <Button variant="secondary" size="lg" className="gap-2">
-              Get Started Free
-              <ArrowRight className="h-5 w-5" />
-            </Button>
+             <Link to="/signup">
+               <Button variant="secondary" size="lg" className="gap-2">
+                 Get Started Free
+                 <ArrowRight className="h-5 w-5" />
+               </Button>
+             </Link>
           </CardContent>
         </Card>
       </section>
