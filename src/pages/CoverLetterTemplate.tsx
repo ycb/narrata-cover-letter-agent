@@ -489,6 +489,26 @@ const CoverLetterTemplate = () => {
                 </CardHeader>
                 <CardContent className="overflow-y-auto">
                   <div className="space-y-3">
+                    {/* Add New Button */}
+                    <Card className="border-dashed">
+                      <CardContent className="p-4 text-center">
+                        <Button 
+                          variant="outline"
+                          onClick={() => {
+                            const sectionType = template.sections.find(s => s.id === selectedSection)?.type as 'intro' | 'closer' | 'signature';
+                            setShowBlurbSelector(false);
+                            setSelectedSection(null);
+                            handleCreateBlurb(sectionType);
+                          }}
+                          className="flex items-center gap-2"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Create New {getSectionTypeLabel(template.sections.find(s => s.id === selectedSection)?.type || '')} Blurb
+                        </Button>
+                      </CardContent>
+                    </Card>
+                    
+                    {/* Existing Blurbs */}
                     {getAvailableBlurbs(template.sections.find(s => s.id === selectedSection)?.type || '').map((blurb) => (
                       <Card key={blurb.id} className="cursor-pointer hover:bg-muted/50 transition-colors">
                         <CardContent className="p-4">
