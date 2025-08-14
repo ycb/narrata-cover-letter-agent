@@ -8,35 +8,68 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
+    /* Brand Colors - Professional & Trustworthy */
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 215 25% 15%;
 
+    /* Card System */
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 215 25% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 215 25% 15%;
 
-    --primary: 222.2 47.4% 11.2%;
+    /* Primary Brand - Deep Professional Blue */
+    --primary: 215 85% 25%;
     --primary-foreground: 210 40% 98%;
+    --primary-light: 215 85% 35%;
+    --primary-lighter: 215 70% 50%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Secondary - Modern Purple */
+    --secondary: 255 65% 95%;
+    --secondary-foreground: 255 40% 25%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Intelligent Purple Accent */
+    --accent: 255 40% 25%;
+    --accent-foreground: 255 65% 95%;
+    --accent-light: 255 50% 85%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Status Colors */
+    --success: 145 65% 35%;
+    --success-foreground: 145 65% 95%;
+    --success-light: 145 50% 90%;
 
-    --destructive: 0 84.2% 60.2%;
+    --warning: 35 85% 55%;
+    --warning-foreground: 35 25% 15%;
+    --warning-light: 35 65% 90%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 15% 45%;
+
+    --destructive: 0 75% 55%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    /* Borders & Inputs */
+    --border: 215 20% 90%;
+    --input: 215 20% 95%;
+    --ring: 215 85% 35%;
 
-    --radius: 0.5rem;
+    /* Confidence Indicator Colors */
+    --confidence-high: 145 65% 35%;
+    --confidence-medium: 35 85% 55%;
+    --confidence-low: 0 75% 55%;
+
+    /* Gradients */
+    --gradient-brand: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
+    --gradient-subtle: linear-gradient(180deg, hsl(var(--background)), hsl(var(--muted)));
+    --gradient-success: linear-gradient(135deg, hsl(var(--success)), hsl(var(--success-light)));
+
+    /* Shadows */
+    --shadow-soft: 0 2px 10px -3px hsl(var(--primary) / 0.1);
+    --shadow-medium: 0 8px 30px -12px hsl(var(--primary) / 0.15);
+    --shadow-strong: 0 20px 40px -12px hsl(var(--primary) / 0.25);
+
+    --radius: 0.75rem;
 
     --sidebar-background: 0 0% 98%;
 
