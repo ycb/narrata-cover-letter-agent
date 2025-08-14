@@ -11,7 +11,8 @@ import { Header } from "@/components/layout/Header";
 import { Link } from "react-router-dom";
 import { TemplateBlurbMaster, type TemplateBlurb } from "@/components/template-blurbs/TemplateBlurbMaster";
 import { TemplateBlurbDetail } from "@/components/template-blurbs/TemplateBlurbDetail";
-import type { CoverLetterSection, CoverLetterTemplate } from "@/types/workHistory";
+import { WorkHistoryBlurbSelector } from "@/components/work-history/WorkHistoryBlurbSelector";
+import type { CoverLetterSection, CoverLetterTemplate, WorkHistoryBlurb } from "@/types/workHistory";
 
 // Mock template blurbs library
 const mockTemplateBlurbs: TemplateBlurb[] = [
@@ -147,6 +148,7 @@ const CoverLetterTemplate = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const [showBlurbSelector, setShowBlurbSelector] = useState(false);
+  const [showWorkHistorySelector, setShowWorkHistorySelector] = useState(false);
   const [showBlurbLibrary, setShowBlurbLibrary] = useState(false);
   const [editingBlurb, setEditingBlurb] = useState<TemplateBlurb | null>(null);
   const [creatingBlurbType, setCreatingBlurbType] = useState<'intro' | 'closer' | 'signature' | null>(null);
@@ -246,6 +248,18 @@ const CoverLetterTemplate = () => {
   const handleSelectBlurbFromLibrary = (blurb: TemplateBlurb) => {
     if (selectedSection) {
       selectBlurbForSection(selectedSection, blurb);
+    }
+  };
+
+  const handleSelectWorkHistoryBlurb = (blurb: WorkHistoryBlurb) => {
+    if (selectedSection) {
+      updateSection(selectedSection, { 
+        isStatic: true, 
+        staticContent: blurb.content,
+        blurbCriteria: undefined
+      });
+      setShowWorkHistorySelector(false);
+      setSelectedSection(null);
     }
   };
 
@@ -393,20 +407,35 @@ const CoverLetterTemplate = () => {
                             />
                           </div>
                           
-                          {isEditing && (section.type === 'intro' || section.type === 'closer' || section.type === 'signature') && (
+                          {isEditing && (
                             <div className="flex gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedSection(section.id);
-                                  setShowBlurbSelector(true);
-                                }}
-                                className="flex items-center gap-2"
-                              >
-                                <FileText className="h-4 w-4" />
-                                Choose Different Blurb
-                              </Button>
+                              {(section.type === 'intro' || section.type === 'closer' || section.type === 'signature') ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedSection(section.id);
+                                    setShowBlurbSelector(true);
+                                  }}
+                                  className="flex items-center gap-2"
+                                >
+                                  <FileText className="h-4 w-4" />
+                                  Choose Different Blurb
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedSection(section.id);
+                                    setShowWorkHistorySelector(true);
+                                  }}
+                                  className="flex items-center gap-2"
+                                >
+                                  <FileText className="h-4 w-4" />
+                                  Choose Work History Blurb
+                                </Button>
+                              )}
                             </div>
                           )}
                         </div>
@@ -535,6 +564,17 @@ const CoverLetterTemplate = () => {
                 </div>
               </Card>
             </div>
+          )}
+
+          {/* Work History Blurb Selector */}
+          {showWorkHistorySelector && selectedSection && (
+            <WorkHistoryBlurbSelector
+              onSelectBlurb={handleSelectWorkHistoryBlurb}
+              onCancel={() => {
+                setShowWorkHistorySelector(false);
+                setSelectedSection(null);
+              }}
+            />
           )}
         </div>
       </main>
