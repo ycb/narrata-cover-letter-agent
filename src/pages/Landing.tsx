@@ -61,6 +61,9 @@ const Landing = () => {
           
           <div className="flex items-center gap-4">
             <Button variant="ghost">Sign In</Button>
+            <Button variant="ghost" onClick={() => window.location.href = '/dashboard'}>
+              Dashboard
+            </Button>
             <Button variant="brand">Get Started</Button>
           </div>
         </div>
