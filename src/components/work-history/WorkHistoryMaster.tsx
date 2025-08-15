@@ -32,6 +32,19 @@ export const WorkHistoryMaster = ({
     return `${start} - ${end}`;
   };
 
+  // Auto-expand accordion if a role is selected but its company isn't expanded
+  const getExpandedCompanies = () => {
+    const expanded = [];
+    if (selectedCompany) {
+      expanded.push(selectedCompany.id);
+    }
+    // If a role is selected but from a different company than selectedCompany, expand that too
+    if (selectedRole && selectedRole.companyId !== selectedCompany?.id) {
+      expanded.push(selectedRole.companyId);
+    }
+    return expanded;
+  };
+
   return (
     <Card className="h-full flex flex-col">
       <CardHeader className="pb-4">
@@ -42,7 +55,7 @@ export const WorkHistoryMaster = ({
       </CardHeader>
       
       <CardContent className="flex-1 overflow-auto px-0">
-        <Accordion type="multiple" className="w-full">
+        <Accordion type="multiple" value={getExpandedCompanies()} className="w-full">
           {companies.map((company) => (
             <AccordionItem key={company.id} value={company.id} className="border-x-0">
               <AccordionTrigger 
