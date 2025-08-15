@@ -135,8 +135,8 @@ export function AddLinkToBlurbModal({
             />
           </div>
 
-          <Tabs defaultValue="existing" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+          <Tabs defaultValue="existing">
+            <TabsList>
               <TabsTrigger value="existing">Use Existing Link</TabsTrigger>
               <TabsTrigger value="new">Add New Link</TabsTrigger>
             </TabsList>
