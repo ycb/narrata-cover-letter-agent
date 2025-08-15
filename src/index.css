@@ -19,7 +19,22 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 215 25% 15%;
 
-    /* Primary Brand - Deep Professional Blue */
+    /* CTA Design System - Clear Hierarchy */
+    --cta-primary: 215 85% 25%;
+    --cta-primary-foreground: 210 40% 98%;
+    --cta-primary-hover: 215 85% 30%;
+    
+    --cta-secondary: transparent;
+    --cta-secondary-foreground: 215 85% 25%;
+    --cta-secondary-border: 215 85% 25%;
+    --cta-secondary-hover: 215 85% 25%;
+    --cta-secondary-hover-foreground: 210 40% 98%;
+    
+    --cta-tertiary: transparent;
+    --cta-tertiary-foreground: 215 85% 25%;
+    --cta-tertiary-hover: 215 85% 95%;
+
+    /* Legacy Brand Colors */
     --primary: 215 85% 25%;
     --primary-foreground: 210 40% 98%;
     --primary-light: 215 85% 35%;
@@ -98,6 +113,22 @@ All colors MUST be HSL.
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
+    /* Dark mode CTA System */
+    --cta-primary: 217.2 91.2% 59.8%;
+    --cta-primary-foreground: 222.2 84% 4.9%;
+    --cta-primary-hover: 217.2 91.2% 65%;
+    
+    --cta-secondary: transparent;
+    --cta-secondary-foreground: 217.2 91.2% 59.8%;
+    --cta-secondary-border: 217.2 91.2% 59.8%;
+    --cta-secondary-hover: 217.2 91.2% 59.8%;
+    --cta-secondary-hover-foreground: 222.2 84% 4.9%;
+    
+    --cta-tertiary: transparent;
+    --cta-tertiary-foreground: 217.2 91.2% 59.8%;
+    --cta-tertiary-hover: 217.2 32.6% 17.5%;
+
+    /* Legacy Colors */
     --primary: 210 40% 98%;
     --primary-foreground: 222.2 47.4% 11.2%;
 

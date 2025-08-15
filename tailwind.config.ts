@@ -34,6 +34,19 @@ export default {
 				ring: 'hsl(var(--ring))',
 				background: 'hsl(var(--background))',
 				foreground: 'hsl(var(--foreground))',
+				cta: {
+					primary: 'hsl(var(--cta-primary))',
+					'primary-foreground': 'hsl(var(--cta-primary-foreground))',
+					'primary-hover': 'hsl(var(--cta-primary-hover))',
+					secondary: 'hsl(var(--cta-secondary))',
+					'secondary-foreground': 'hsl(var(--cta-secondary-foreground))',
+					'secondary-border': 'hsl(var(--cta-secondary-border))',
+					'secondary-hover': 'hsl(var(--cta-secondary-hover))',
+					'secondary-hover-foreground': 'hsl(var(--cta-secondary-hover-foreground))',
+					tertiary: 'hsl(var(--cta-tertiary))',
+					'tertiary-foreground': 'hsl(var(--cta-tertiary-foreground))',
+					'tertiary-hover': 'hsl(var(--cta-tertiary-hover))'
+				},
 				primary: {
 					DEFAULT: 'hsl(var(--primary))',
 					foreground: 'hsl(var(--primary-foreground))',
