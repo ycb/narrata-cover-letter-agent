@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+// Removed tabs import - using custom tab styling
 import { ExternalLink, Plus, X, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { ExternalLink as ExternalLinkType } from "@/types/workHistory";
@@ -30,6 +30,7 @@ export function AddLinkToBlurbModal({
   const [newLabel, setNewLabel] = useState("");
   const [newTags, setNewTags] = useState<string[]>([]);
   const [newTagInput, setNewTagInput] = useState("");
+  const [activeTab, setActiveTab] = useState<'existing' | 'new'>('existing');
   const { toast } = useToast();
 
   const handleAddNewTag = () => {
@@ -135,148 +136,171 @@ export function AddLinkToBlurbModal({
             />
           </div>
 
-          <Tabs defaultValue="existing">
-            <TabsList>
-              <TabsTrigger value="existing">Use Existing Link</TabsTrigger>
-              <TabsTrigger value="new">Add New Link</TabsTrigger>
-            </TabsList>
+          <div className="w-full">
+            <div className="flex items-center justify-center gap-8 py-2">
+              <button
+                onClick={() => setActiveTab('existing')}
+                className={`text-sm transition-colors px-3 pb-2 ${
+                  activeTab === 'existing' 
+                    ? 'font-bold text-foreground border-b-4 border-cta-primary' 
+                    : 'font-medium text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Use Existing Link
+              </button>
+              <button
+                onClick={() => setActiveTab('new')}
+                className={`text-sm transition-colors px-3 pb-2 ${
+                  activeTab === 'new' 
+                    ? 'font-bold text-foreground border-b-4 border-cta-primary' 
+                    : 'font-medium text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Add New Link
+              </button>
+            </div>
             
-            <TabsContent value="existing" className="space-y-4">
-              {existingLinks.length > 0 ? (
-                <div className="space-y-3">
-                  {existingLinks.map((link) => (
-                    <Card 
-                      key={link.id} 
-                      className={`cursor-pointer hover:bg-muted/50 transition-colors ${
-                        selectedLinkId === link.id ? 'ring-2 ring-primary' : ''
-                      }`}
-                      onClick={() => setSelectedLinkId(link.id)}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h5 className="font-medium text-foreground truncate">
-                                {link.label}
-                              </h5>
-                              {selectedLinkId === link.id && (
-                                <Check className="h-4 w-4 text-primary" />
-                              )}
-                            </div>
-                            
-                            <p className="text-xs text-muted-foreground truncate mb-2">
-                              {link.url}
-                            </p>
-                            
-                            {link.tags.length > 0 && (
-                              <div className="flex flex-wrap gap-1">
-                                {link.tags.map((tag) => (
-                                  <Badge key={tag} variant="secondary" className="text-xs">
-                                    {tag}
-                                  </Badge>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                          
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              window.open(link.url, '_blank', 'noopener,noreferrer');
-                            }}
-                            className="ml-4 hover:bg-accent"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center text-muted-foreground py-8">
-                  <p>No external links available yet.</p>
-                  <p className="text-sm">Use the "Add New Link" tab to create one.</p>
-                </div>
-              )}
-              
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={handleClose}>
-                  Cancel
-                </Button>
-                <Button onClick={handleInsertExisting} disabled={!displayText.trim() || !selectedLinkId}>
-                  Insert Link
-                </Button>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="new" className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="newUrl">URL</Label>
-                <Input
-                  id="newUrl"
-                  type="url"
-                  value={newUrl}
-                  onChange={(e) => setNewUrl(e.target.value)}
-                  placeholder="https://example.com/your-case-study"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="newLabel">Label</Label>
-                <Input
-                  id="newLabel"
-                  value={newLabel}
-                  onChange={(e) => setNewLabel(e.target.value)}
-                  placeholder="e.g., Product Strategy Framework - Medium Article"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="newTags">Tags (Optional)</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="newTags"
-                    value={newTagInput}
-                    onChange={(e) => setNewTagInput(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Add a tag and press Enter"
-                  />
-                  <Button type="button" onClick={handleAddNewTag} size="sm">
-                    Add
-                  </Button>
-                </div>
-                
-                {newTags.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {newTags.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="text-xs">
-                        {tag}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveNewTag(tag)}
-                          className="ml-1 hover:text-destructive"
+            {/* Content based on active tab */}
+            <div className="mt-6 space-y-4">
+              {activeTab === 'existing' ? (
+                <>
+                  {existingLinks.length > 0 ? (
+                    <div className="space-y-3">
+                      {existingLinks.map((link) => (
+                        <Card 
+                          key={link.id} 
+                          className={`cursor-pointer hover:bg-muted/50 transition-colors ${
+                            selectedLinkId === link.id ? 'ring-2 ring-primary' : ''
+                          }`}
+                          onClick={() => setSelectedLinkId(link.id)}
                         >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    ))}
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <h5 className="font-medium text-foreground truncate">
+                                    {link.label}
+                                  </h5>
+                                  {selectedLinkId === link.id && (
+                                    <Check className="h-4 w-4 text-primary" />
+                                  )}
+                                </div>
+                                
+                                <p className="text-xs text-muted-foreground truncate mb-2">
+                                  {link.url}
+                                </p>
+                                
+                                {link.tags.length > 0 && (
+                                  <div className="flex flex-wrap gap-1">
+                                    {link.tags.map((tag) => (
+                                      <Badge key={tag} variant="secondary" className="text-xs">
+                                        {tag}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.open(link.url, '_blank', 'noopener,noreferrer');
+                                }}
+                                className="ml-4 hover:bg-accent"
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center text-muted-foreground py-8">
+                      <p>No external links available yet.</p>
+                      <p className="text-sm">Use the "Add New Link" tab to create one.</p>
+                    </div>
+                  )}
+                  
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={handleClose}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleInsertExisting} disabled={!displayText.trim() || !selectedLinkId}>
+                      Insert Link
+                    </Button>
                   </div>
-                )}
-              </div>
-              
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={handleClose}>
-                  Cancel
-                </Button>
-                <Button onClick={handleInsertNew} disabled={!displayText.trim() || !newUrl.trim() || !newLabel.trim()}>
-                  Create & Insert Link
-                </Button>
-              </div>
-            </TabsContent>
-          </Tabs>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="newUrl">URL</Label>
+                    <Input
+                      id="newUrl"
+                      type="url"
+                      value={newUrl}
+                      onChange={(e) => setNewUrl(e.target.value)}
+                      placeholder="https://example.com/your-case-study"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="newLabel">Label</Label>
+                    <Input
+                      id="newLabel"
+                      value={newLabel}
+                      onChange={(e) => setNewLabel(e.target.value)}
+                      placeholder="e.g., Product Strategy Framework - Medium Article"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="newTags">Tags (Optional)</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="newTags"
+                        value={newTagInput}
+                        onChange={(e) => setNewTagInput(e.target.value)}
+                        onKeyPress={handleKeyPress}
+                        placeholder="Add a tag and press Enter"
+                      />
+                      <Button type="button" onClick={handleAddNewTag} size="sm">
+                        Add
+                      </Button>
+                    </div>
+                    
+                    {newTags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {newTags.map((tag) => (
+                          <Badge key={tag} variant="secondary" className="text-xs">
+                            {tag}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveNewTag(tag)}
+                              className="ml-1 hover:text-destructive"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={handleClose}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleInsertNew} disabled={!displayText.trim() || !newUrl.trim() || !newLabel.trim()}>
+                      Create & Insert Link
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
