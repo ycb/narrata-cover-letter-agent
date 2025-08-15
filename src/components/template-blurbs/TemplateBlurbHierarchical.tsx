@@ -137,7 +137,7 @@ export const TemplateBlurbHierarchical = ({
               Organize and manage your reusable content by section type
             </p>
           </div>
-          <Button onClick={() => onCreateBlurb()} className="flex items-center gap-2">
+          <Button onClick={() => onCreateBlurb('intro')} className="flex items-center gap-2">
             <Plus className="h-4 w-4" />
             New Blurb
           </Button>
