@@ -35,13 +35,13 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
             id: "blurb-1",
             roleId: "1-1",
             title: "Product Strategy Leadership",
-            content: "As Product Lead at TechCorp [Product Strategy Framework - Medium Article] I built a high-performing product team from ground up, hiring and managing 8 product professionals while launching MVP in record 6 months using our proprietary [Analytics Dashboard - Open Source Project] system.",
+            content: "As Product Lead at [TechCorp] I built a high-performing product team from ground up, hiring and managing 8 product professionals while launching MVP in record 6 months.",
             status: "approved",
             confidence: "high",
             tags: ["Product Management", "Strategy", "Results"],
             timesUsed: 8,
             lastUsed: "2024-01-15",
-            linkedExternalLinks: ["link-1", "link-2"]
+            linkedExternalLinks: ["link-1"]
           }
         ],
         externalLinks: [

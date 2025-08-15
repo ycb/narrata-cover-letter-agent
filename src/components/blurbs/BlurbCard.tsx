@@ -44,36 +44,30 @@ export const BlurbCard = ({
   const renderContentWithLinks = (content: string, linkIds: string[], availableLinks: Array<{id: string; label: string; url: string}>) => {
     if (linkIds.length === 0) return content;
     
-    let renderedContent = content;
-    linkIds.forEach(linkId => {
-      const link = availableLinks.find(l => l.id === linkId);
-      if (link) {
-        const linkPattern = new RegExp(`\\[${link.label}\\]`, 'gi');
-        renderedContent = renderedContent.replace(linkPattern, `[${link.label}]`);
-      }
-    });
+    // Find the primary linked external link for company/role reference
+    const primaryLink = linkIds.length > 0 ? availableLinks.find(l => l.id === linkIds[0]) : null;
     
-    // Split content by link references and render with actual links
-    const parts = renderedContent.split(/(\[[^\]]+\])/g);
+    if (!primaryLink) return content;
+    
+    // Replace [CompanyName] or [RoleName] patterns with clickable links
+    const linkPattern = /\[([^\]]+)\]/g;
+    const parts = content.split(linkPattern);
+    
     return parts.map((part, index) => {
-      const linkMatch = part.match(/\[([^\]]+)\]/);
-      if (linkMatch) {
-        const linkLabel = linkMatch[1];
-        const link = availableLinks.find(l => l.label === linkLabel);
-        if (link) {
-          return (
-            <a
-              key={index}
-              href={link.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline"
-            >
-              {linkLabel}
-              <ExternalLink className="h-3 w-3" />
-            </a>
-          );
-        }
+      // If this is an odd index, it's the content inside brackets
+      if (index % 2 === 1) {
+        return (
+          <a
+            key={index}
+            href={primaryLink.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline font-medium"
+          >
+            {part}
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        );
       }
       return part;
     });
@@ -101,6 +95,15 @@ export const BlurbCard = ({
         <div className="text-muted-foreground mb-4 line-clamp-3">
           {renderContentWithLinks(content, linkedExternalLinks, externalLinks)}
         </div>
+        
+        {linkedExternalLinks.length > 0 && (
+          <div className="mb-4">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <ExternalLink className="h-3 w-3" />
+              <span>Case Study: {externalLinks.find(link => link.id === linkedExternalLinks[0])?.label}</span>
+            </div>
+          </div>
+        )}
         
         <div className="flex flex-wrap gap-1 mb-4">
           {tags.map((tag) => (
