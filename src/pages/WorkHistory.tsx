@@ -94,8 +94,12 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
 ];
 
 export default function WorkHistory() {
-  const [selectedCompany, setSelectedCompany] = useState<WorkHistoryCompany | null>(null);
-  const [selectedRole, setSelectedRole] = useState<WorkHistoryRole | null>(null);
+  // Auto-select first company and its first role on page load
+  const firstCompany = sampleWorkHistory.length > 0 ? sampleWorkHistory[0] : null;
+  const firstRole = firstCompany?.roles.length > 0 ? firstCompany.roles[0] : null;
+  
+  const [selectedCompany, setSelectedCompany] = useState<WorkHistoryCompany | null>(firstCompany);
+  const [selectedRole, setSelectedRole] = useState<WorkHistoryRole | null>(firstRole);
 
   const handleCompanySelect = (company: WorkHistoryCompany) => {
     setSelectedCompany(company);
