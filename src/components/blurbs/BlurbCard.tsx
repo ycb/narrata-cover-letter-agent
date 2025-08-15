@@ -97,11 +97,10 @@ export const BlurbCard = ({
         
         {linkedExternalLinks.length > 0 && (
           <div className="mb-4">
-            <div className="border-t pt-3">
-              <Badge variant="outline" className="text-xs">
-                {externalLinks.find(link => link.id === linkedExternalLinks[0])?.label}
-              </Badge>
-            </div>
+            <Badge variant="outline" className="text-xs">
+              {externalLinks.find(link => link.id === linkedExternalLinks[0])?.label}
+            </Badge>
+            <div className="border-t mt-3"></div>
           </div>
         )}
         
