@@ -4,6 +4,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BlurbCard } from "@/components/blurbs/BlurbCard";
 import { Plus, ExternalLink as ExternalLinkIcon } from "lucide-react";
+import { AddBlurbModal } from "./AddBlurbModal";
+import { AddExternalLinkModal } from "./AddExternalLinkModal";
 import type { WorkHistoryRole, WorkHistoryBlurb, ExternalLink } from "@/types/workHistory";
 
 interface WorkHistoryDetailTabsProps {
@@ -12,15 +14,17 @@ interface WorkHistoryDetailTabsProps {
 
 export function WorkHistoryDetailTabs({ selectedRole }: WorkHistoryDetailTabsProps) {
   const [activeTab, setActiveTab] = useState<'blurbs' | 'links'>('blurbs');
+  const [addBlurbModalOpen, setAddBlurbModalOpen] = useState(false);
+  const [addLinkModalOpen, setAddLinkModalOpen] = useState(false);
   const blurbs = selectedRole.blurbs;
   const externalLinks = selectedRole.externalLinks;
 
   const handleAddBlurb = () => {
-    console.log("Add blurb for role:", selectedRole.id);
+    setAddBlurbModalOpen(true);
   };
 
   const handleAddExternalLink = () => {
-    console.log("Add external link for role:", selectedRole.id);
+    setAddLinkModalOpen(true);
   };
 
   return (
@@ -162,6 +166,26 @@ export function WorkHistoryDetailTabs({ selectedRole }: WorkHistoryDetailTabsPro
           </div>
         )}
       </div>
+      
+      <AddBlurbModal 
+        open={addBlurbModalOpen}
+        onOpenChange={setAddBlurbModalOpen}
+        roleId={selectedRole.id}
+        onBlurbAdded={() => {
+          // Refresh data or handle state update
+          console.log("Blurb added, refreshing data...");
+        }}
+      />
+      
+      <AddExternalLinkModal 
+        open={addLinkModalOpen}
+        onOpenChange={setAddLinkModalOpen}
+        roleId={selectedRole.id}
+        onLinkAdded={() => {
+          // Refresh data or handle state update
+          console.log("Link added, refreshing data...");
+        }}
+      />
     </div>
   );
 }
