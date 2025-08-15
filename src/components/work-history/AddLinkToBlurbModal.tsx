@@ -23,6 +23,8 @@ export function AddLinkToBlurbModal({
   existingLinks, 
   onLinkInserted 
 }: AddLinkToBlurbModalProps) {
+  console.log("AddLinkToBlurbModal render - open:", open, "existingLinks:", existingLinks?.length);
+  
   const [displayText, setDisplayText] = useState("");
   const [selectedLinkId, setSelectedLinkId] = useState("");
   const [newUrl, setNewUrl] = useState("");

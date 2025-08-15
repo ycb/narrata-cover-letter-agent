@@ -116,7 +116,10 @@ export function AddBlurbModal({ open, onOpenChange, roleId, existingLinks, onBlu
                 type="button" 
                 variant="outline" 
                 size="sm"
-                onClick={() => setAddLinkModalOpen(true)}
+                onClick={() => {
+                  console.log("Add Link button clicked");
+                  setAddLinkModalOpen(true);
+                }}
               >
                 <Link className="h-3 w-3 mr-1" />
                 Add Link
@@ -177,7 +180,10 @@ export function AddBlurbModal({ open, onOpenChange, roleId, existingLinks, onBlu
         
         <AddLinkToBlurbModal
           open={addLinkModalOpen}
-          onOpenChange={setAddLinkModalOpen}
+          onOpenChange={(open) => {
+            console.log("AddLinkToBlurbModal onOpenChange:", open);
+            setAddLinkModalOpen(open);
+          }}
           existingLinks={existingLinks}
           onLinkInserted={handleInsertLink}
         />
