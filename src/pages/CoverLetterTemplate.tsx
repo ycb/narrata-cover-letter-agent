@@ -548,16 +548,17 @@ const CoverLetterTemplate = () => {
                     
                     {/* Existing Blurbs */}
                     {getAvailableBlurbs(template.sections.find(s => s.id === selectedSection)?.type || '').map((blurb) => (
-                      <Card key={blurb.id} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <Card 
+                        key={blurb.id} 
+                        className="cursor-pointer hover:bg-muted/50 transition-colors border-2 hover:border-primary/20"
+                        onClick={() => selectBlurbForSection(selectedSection, blurb)}
+                      >
                         <CardContent className="p-4">
                           <h4 className="font-medium mb-2">{blurb.title}</h4>
                           <p className="text-sm text-muted-foreground mb-3">{blurb.content}</p>
-                          <Button 
-                            size="sm" 
-                            onClick={() => selectBlurbForSection(selectedSection, blurb)}
-                          >
-                            Use This Blurb
-                          </Button>
+                          <div className="text-xs text-muted-foreground">
+                            Click to select this blurb
+                          </div>
                         </CardContent>
                       </Card>
                     ))}

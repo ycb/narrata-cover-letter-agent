@@ -285,8 +285,8 @@ export const WorkHistoryBlurbSelector = ({
                 {selectedRole.blurbs.map((blurb) => (
                   <Card 
                     key={blurb.id}
-                    className={`cursor-pointer hover:bg-muted/50 transition-colors ${
-                      selectedBlurbId === blurb.id ? 'ring-2 ring-primary' : ''
+                    className={`cursor-pointer hover:bg-muted/50 transition-colors border-2 hover:border-primary/20 ${
+                      selectedBlurbId === blurb.id ? 'ring-2 ring-primary border-primary' : ''
                     }`}
                     onClick={() => onSelectBlurb(blurb)}
                   >
@@ -325,9 +325,9 @@ export const WorkHistoryBlurbSelector = ({
                           </div>
                         </div>
                         
-                        <Button size="sm" className="ml-4">
-                          Select This Blurb
-                        </Button>
+                        <div className="ml-4 text-xs text-muted-foreground">
+                          Click to select
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
