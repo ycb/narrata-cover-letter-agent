@@ -300,24 +300,22 @@ const CoverLetterTemplate = () => {
             <div className="flex items-center justify-center gap-8 py-2">
               <button
                 onClick={() => setView('template')}
-                className={`flex items-center gap-2 text-sm transition-colors px-3 pb-2 ${
+                className={`text-sm transition-colors px-3 pb-2 ${
                   view === 'template' 
                     ? 'font-bold text-foreground border-b-4 border-cta-primary' 
                     : 'font-medium text-muted-foreground hover:text-foreground'
                 }`}
               >
-                <FileText className="h-4 w-4" />
                 Template
               </button>
               <button
                 onClick={() => setView('library')}
-                className={`flex items-center gap-2 text-sm transition-colors px-3 pb-2 ${
+                className={`text-sm transition-colors px-3 pb-2 ${
                   view === 'library' 
                     ? 'font-bold text-foreground border-b-4 border-cta-primary' 
                     : 'font-medium text-muted-foreground hover:text-foreground'
                 }`}
               >
-                <Library className="h-4 w-4" />
                 Blurb Library
               </button>
             </div>
