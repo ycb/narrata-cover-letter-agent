@@ -294,7 +294,7 @@ const CoverLetterTemplate = () => {
       />
       
       {/* Tabs */}
-      <div className="border-b bg-background">
+      <div className="bg-background">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
             <div className="flex items-center justify-center gap-8 py-4">
@@ -320,15 +320,6 @@ const CoverLetterTemplate = () => {
                 <Library className="h-4 w-4" />
                 Blurb Library
               </button>
-            </div>
-            
-            {/* Tab Description */}
-            <div className="text-sm text-muted-foreground text-center pb-4">
-              {view === 'template' ? (
-                <span>Configure your template structure</span>
-              ) : (
-                <span>Configure your template content</span>
-              )}
             </div>
           </div>
         </div>
