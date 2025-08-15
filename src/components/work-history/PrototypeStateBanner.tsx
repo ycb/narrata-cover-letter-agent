@@ -50,8 +50,6 @@ export function PrototypeStateBanner() {
             Marketing Site
           </button>
           
-          <span className="text-gray-400">Web App</span>
-          
           <button
             className={`px-3 py-1 rounded ${
               getCurrentState() === 'existing-user' 
