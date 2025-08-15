@@ -147,7 +147,7 @@ export function AddLinkToBlurbModal({
                   {existingLinks.map((link) => (
                     <Card 
                       key={link.id} 
-                      className={`cursor-pointer transition-all hover:shadow-md ${
+                      className={`cursor-pointer hover:bg-muted/50 transition-colors ${
                         selectedLinkId === link.id ? 'ring-2 ring-primary' : ''
                       }`}
                       onClick={() => setSelectedLinkId(link.id)}
