@@ -186,7 +186,7 @@ export function AddLinkToBlurbModal({
                               e.stopPropagation();
                               window.open(link.url, '_blank', 'noopener,noreferrer');
                             }}
-                            className="ml-4"
+                            className="ml-4 hover:bg-accent"
                           >
                             <ExternalLink className="h-4 w-4" />
                           </Button>
