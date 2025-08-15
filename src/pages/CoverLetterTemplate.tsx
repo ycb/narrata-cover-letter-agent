@@ -382,7 +382,18 @@ const CoverLetterTemplate = () => {
                             <Switch
                               id={`static-${section.id}`}
                               checked={section.isStatic}
-                              onCheckedChange={(checked) => updateSection(section.id, { isStatic: checked })}
+                              onCheckedChange={(checked) => {
+                                updateSection(section.id, { isStatic: checked });
+                                // If toggling to dynamic (not static), show blurb selector
+                                if (!checked) {
+                                  setSelectedSection(section.id);
+                                  if (section.type === 'intro' || section.type === 'closer' || section.type === 'signature') {
+                                    setShowBlurbSelector(true);
+                                  } else {
+                                    setShowWorkHistorySelector(true);
+                                  }
+                                }
+                              }}
                             />
                           </div>
                           
@@ -412,36 +423,6 @@ const CoverLetterTemplate = () => {
                               rows={3}
                               className="mt-2"
                             />
-                          </div>
-                          
-                          <div className="flex gap-2">
-                            {section.type === 'intro' || section.type === 'closer' || section.type === 'signature' ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedSection(section.id);
-                                  setShowBlurbSelector(true);
-                                }}
-                                className="flex items-center gap-2"
-                              >
-                                <FileText className="h-4 w-4" />
-                                Choose Template Blurb
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedSection(section.id);
-                                  setShowWorkHistorySelector(true);
-                                }}
-                                className="flex items-center gap-2"
-                              >
-                                <FileText className="h-4 w-4" />
-                                Choose Work History Blurb
-                              </Button>
-                            )}
                           </div>
                         </div>
                       ) : (
@@ -518,10 +499,25 @@ const CoverLetterTemplate = () => {
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
               <Card className="w-full max-w-2xl max-h-[80vh] overflow-hidden">
                 <CardHeader>
-                  <CardTitle>Choose a Blurb</CardTitle>
-                  <CardDescription>
-                    Select a pre-written blurb for your {getSectionTypeLabel(template.sections.find(s => s.id === selectedSection)?.type || '')} section
-                  </CardDescription>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Choose a Blurb</CardTitle>
+                      <CardDescription>
+                        Select a pre-written blurb for your {getSectionTypeLabel(template.sections.find(s => s.id === selectedSection)?.type || '')} section
+                      </CardDescription>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setShowBlurbSelector(false);
+                        setSelectedSection(null);
+                      }}
+                      className="h-8 w-8 p-0"
+                    >
+                      ×
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="overflow-y-auto">
                   <div className="space-y-3">

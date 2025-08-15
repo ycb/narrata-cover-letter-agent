@@ -156,12 +156,24 @@ export const WorkHistoryBlurbSelector = ({
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <Card className="w-full max-w-4xl max-h-[80vh] overflow-hidden">
         <CardHeader>
-          <CardTitle>Select Work History Blurb</CardTitle>
-          <CardDescription>
-            Choose a blurb from your work history to use as static content
-          </CardDescription>
-          <div className="text-sm text-muted-foreground">
-            {breadcrumbPath()}
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Select Work History Blurb</CardTitle>
+              <CardDescription>
+                Choose a blurb from your work history to use as static content
+              </CardDescription>
+              <div className="text-sm text-muted-foreground">
+                {breadcrumbPath()}
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onCancel}
+              className="h-8 w-8 p-0"
+            >
+              ×
+            </Button>
           </div>
         </CardHeader>
         
