@@ -171,6 +171,7 @@ export function WorkHistoryDetailTabs({ selectedRole }: WorkHistoryDetailTabsPro
         open={addBlurbModalOpen}
         onOpenChange={setAddBlurbModalOpen}
         roleId={selectedRole.id}
+        existingLinks={externalLinks}
         onBlurbAdded={() => {
           // Refresh data or handle state update
           console.log("Blurb added, refreshing data...");

@@ -1,25 +1,30 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { X } from "lucide-react";
+import { X, Link } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { AddLinkToBlurbModal } from "./AddLinkToBlurbModal";
+import type { ExternalLink } from "@/types/workHistory";
 
 interface AddBlurbModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   roleId: string;
+  existingLinks: ExternalLink[];
   onBlurbAdded?: () => void;
 }
 
-export function AddBlurbModal({ open, onOpenChange, roleId, onBlurbAdded }: AddBlurbModalProps) {
+export function AddBlurbModal({ open, onOpenChange, roleId, existingLinks, onBlurbAdded }: AddBlurbModalProps) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
+  const [addLinkModalOpen, setAddLinkModalOpen] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
 
   const handleAddTag = () => {
@@ -31,6 +36,22 @@ export function AddBlurbModal({ open, onOpenChange, roleId, onBlurbAdded }: AddB
 
   const handleRemoveTag = (tagToRemove: string) => {
     setTags(tags.filter(tag => tag !== tagToRemove));
+  };
+
+  const handleInsertLink = (linkText: string) => {
+    if (textareaRef.current) {
+      const textarea = textareaRef.current;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const newContent = content.substring(0, start) + linkText + content.substring(end);
+      setContent(newContent);
+      
+      // Set cursor position after the inserted link
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + linkText.length, start + linkText.length);
+      }, 0);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -89,8 +110,20 @@ export function AddBlurbModal({ open, onOpenChange, roleId, onBlurbAdded }: AddB
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="content">Content</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="content">Content</Label>
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm"
+                onClick={() => setAddLinkModalOpen(true)}
+              >
+                <Link className="h-3 w-3 mr-1" />
+                Add Link
+              </Button>
+            </div>
             <Textarea
+              ref={textareaRef}
               id="content"
               value={content}
               onChange={(e) => setContent(e.target.value)}
@@ -141,6 +174,13 @@ export function AddBlurbModal({ open, onOpenChange, roleId, onBlurbAdded }: AddB
             </Button>
           </div>
         </form>
+        
+        <AddLinkToBlurbModal
+          open={addLinkModalOpen}
+          onOpenChange={setAddLinkModalOpen}
+          existingLinks={existingLinks}
+          onLinkInserted={handleInsertLink}
+        />
       </DialogContent>
     </Dialog>
   );
