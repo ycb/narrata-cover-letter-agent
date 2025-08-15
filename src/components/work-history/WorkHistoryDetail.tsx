@@ -70,7 +70,7 @@ export const WorkHistoryDetail = ({ selectedCompany, selectedRole }: WorkHistory
                   </div>
                   <div className="flex items-center gap-1">
                     <FileText className="h-4 w-4" />
-                    {selectedRole.blurbs.length} blurbs
+                    {selectedRole.blurbs.length} blurb{selectedRole.blurbs.length !== 1 ? 's' : ''}
                   </div>
                 </div>
 
@@ -187,7 +187,10 @@ export const WorkHistoryDetail = ({ selectedCompany, selectedRole }: WorkHistory
                   </div>
                   <div className="flex items-center gap-1">
                     <FileText className="h-4 w-4" />
-                    {selectedCompany.roles.reduce((total, role) => total + role.blurbs.length, 0)} total blurbs
+                    {(() => {
+                      const totalBlurbs = selectedCompany.roles.reduce((total, role) => total + role.blurbs.length, 0);
+                      return `${totalBlurbs} total blurb${totalBlurbs !== 1 ? 's' : ''}`;
+                    })()}
                   </div>
                 </div>
               </div>
@@ -240,7 +243,7 @@ export const WorkHistoryDetail = ({ selectedCompany, selectedRole }: WorkHistory
                         </div>
                       </div>
                       <Badge variant="outline">
-                        {role.blurbs.length} blurbs
+                        {role.blurbs.length} blurb{role.blurbs.length !== 1 ? 's' : ''}
                       </Badge>
                     </div>
                     
