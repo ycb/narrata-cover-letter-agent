@@ -334,7 +334,15 @@ const CoverLetterTemplate = () => {
               {/* Template Settings */}
               <Card className="mb-6">
                 <CardHeader>
-                  <CardTitle>Template Settings</CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Template Settings</CardTitle>
+                    <Link 
+                      to="/cover-letters" 
+                      className="text-sm text-muted-foreground hover:text-foreground underline"
+                    >
+                      Upload New Cover Letter
+                    </Link>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
@@ -345,14 +353,6 @@ const CoverLetterTemplate = () => {
                         value={template.name}
                         onChange={(e) => setTemplate(prev => ({ ...prev, name: e.target.value }))}
                       />
-                    </div>
-                    <div className="pt-2">
-                      <Link 
-                        to="/cover-letters" 
-                        className="text-sm text-cta-tertiary-foreground hover:text-cta-primary underline"
-                      >
-                        Upload New Cover Letter
-                      </Link>
                     </div>
                   </div>
                 </CardContent>
