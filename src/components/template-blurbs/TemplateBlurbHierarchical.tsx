@@ -181,8 +181,9 @@ export const TemplateBlurbHierarchical = ({
           <Accordion 
             type="single" 
             value={expandedType} 
-            onValueChange={setExpandedType}
+            onValueChange={(value) => setExpandedType(value === expandedType ? undefined : value)}
             className="space-y-2"
+            collapsible
           >
             {groupedBlurbs.map((group) => {
               const config = getTypeConfig(group.type);
