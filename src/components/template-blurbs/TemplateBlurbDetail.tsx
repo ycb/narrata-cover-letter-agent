@@ -28,6 +28,7 @@ export const TemplateBlurbDetail = ({
     title: blurb?.title || '',
     content: blurb?.content || '',
     type: blurb?.type || type || 'intro',
+    tags: blurb?.tags || [],
     isDefault: blurb?.isDefault || false
   });
 
@@ -37,6 +38,7 @@ export const TemplateBlurbDetail = ({
         title: blurb.title,
         content: blurb.content,
         type: blurb.type,
+        tags: blurb.tags || [],
         isDefault: blurb.isDefault || false
       });
     } else if (type) {
@@ -139,6 +141,24 @@ export const TemplateBlurbDetail = ({
           />
         </div>
 
+        {/* Tags */}
+        <div>
+          <Label htmlFor="blurb-tags">Tags</Label>
+          <Input
+            id="blurb-tags"
+            value={formData.tags.join(', ')}
+            onChange={(e) => setFormData(prev => ({ 
+              ...prev, 
+              tags: e.target.value.split(',').map(tag => tag.trim()).filter(Boolean)
+            }))}
+            placeholder="e.g., professional, passionate, technical"
+            className="mt-2"
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            Separate tags with commas. Tags help with matching blurbs to job requirements.
+          </p>
+        </div>
+
         {/* Content */}
         <div>
           <div className="flex items-center justify-between mb-2">
@@ -199,6 +219,15 @@ export const TemplateBlurbDetail = ({
                   </Badge>
                 )}
               </div>
+              {formData.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {formData.tags.map((tag, index) => (
+                    <Badge key={index} variant="secondary" className="text-xs">
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              )}
               <h4 className="font-medium mb-2">{formData.title || 'Untitled Blurb'}</h4>
               <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                 {formData.content || 'No content yet...'}

@@ -22,6 +22,7 @@ const mockTemplateBlurbs: TemplateBlurb[] = [
     type: "intro",
     title: "Standard Professional Opening",
     content: "I am writing to express my strong interest in the [Position] role at [Company]. With my background in [Industry/Field], I am excited about the opportunity to contribute to your team's success.",
+    tags: ["professional", "standard", "interest", "background"],
     isDefault: true,
     createdAt: "2024-01-01T00:00:00Z",
     updatedAt: "2024-01-01T00:00:00Z"
@@ -31,6 +32,7 @@ const mockTemplateBlurbs: TemplateBlurb[] = [
     type: "intro",
     title: "Passionate Connection",
     content: "I was thrilled to discover the [Position] opening at [Company], as it perfectly aligns with my passion for [Industry/Field] and my career goals in [Specific Area].",
+    tags: ["passion", "thrilled", "alignment", "career goals"],
     createdAt: "2024-01-01T00:00:00Z",
     updatedAt: "2024-01-01T00:00:00Z"
   },
@@ -39,6 +41,7 @@ const mockTemplateBlurbs: TemplateBlurb[] = [
     type: "intro",
     title: "Referral Opening",
     content: "I was referred to this [Position] opportunity at [Company] by [Referral Name], who spoke highly of your team and the innovative work you're doing in [Industry/Field].",
+    tags: ["referral", "recommendation", "networking", "innovation"],
     createdAt: "2024-01-01T00:00:00Z",
     updatedAt: "2024-01-01T00:00:00Z"
   },
@@ -47,6 +50,7 @@ const mockTemplateBlurbs: TemplateBlurb[] = [
     type: "closer",
     title: "Standard Professional Close",
     content: "I would welcome the opportunity to discuss how my background and passion can contribute to your team's continued success. Thank you for your time and consideration.",
+    tags: ["professional", "discussion", "contribution", "gratitude"],
     isDefault: true,
     createdAt: "2024-01-01T00:00:00Z",
     updatedAt: "2024-01-01T00:00:00Z"
@@ -56,6 +60,7 @@ const mockTemplateBlurbs: TemplateBlurb[] = [
     type: "closer",
     title: "Eager Follow-up",
     content: "I am excited about the possibility of joining your team and would love to discuss how I can help [Company] achieve its goals. I look forward to hearing from you soon.",
+    tags: ["excitement", "team", "goals", "follow-up"],
     createdAt: "2024-01-01T00:00:00Z",
     updatedAt: "2024-01-01T00:00:00Z"
   },
@@ -64,6 +69,7 @@ const mockTemplateBlurbs: TemplateBlurb[] = [
     type: "closer",
     title: "Value-focused Close",
     content: "I am confident that my skills and experience would be valuable additions to your team. I would appreciate the opportunity to discuss how I can contribute to [Company]'s continued growth and success.",
+    tags: ["confidence", "value", "skills", "growth"],
     createdAt: "2024-01-01T00:00:00Z",
     updatedAt: "2024-01-01T00:00:00Z"
   },
@@ -72,6 +78,7 @@ const mockTemplateBlurbs: TemplateBlurb[] = [
     type: "signature",
     title: "Professional",
     content: "Sincerely,\n[Your Name]",
+    tags: ["formal", "professional", "traditional"],
     isDefault: true,
     createdAt: "2024-01-01T00:00:00Z",
     updatedAt: "2024-01-01T00:00:00Z"
@@ -81,6 +88,7 @@ const mockTemplateBlurbs: TemplateBlurb[] = [
     type: "signature",
     title: "Warm Professional",
     content: "Best regards,\n[Your Name]",
+    tags: ["warm", "professional", "friendly"],
     createdAt: "2024-01-01T00:00:00Z",
     updatedAt: "2024-01-01T00:00:00Z"
   },
@@ -89,6 +97,7 @@ const mockTemplateBlurbs: TemplateBlurb[] = [
     type: "signature",
     title: "Respectful",
     content: "Respectfully,\n[Your Name]",
+    tags: ["respectful", "formal", "courteous"],
     createdAt: "2024-01-01T00:00:00Z",
     updatedAt: "2024-01-01T00:00:00Z"
   }
@@ -231,6 +240,7 @@ const CoverLetterTemplate = () => {
         type: blurbData.type!,
         title: blurbData.title!,
         content: blurbData.content!,
+        tags: blurbData.tags || [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
@@ -502,7 +512,6 @@ const CoverLetterTemplate = () => {
                 ...blurb,
                 status: 'approved' as const,
                 confidence: 'high' as const,
-                tags: [],
                 timesUsed: 0
               }))}
               selectedBlurbId={undefined}

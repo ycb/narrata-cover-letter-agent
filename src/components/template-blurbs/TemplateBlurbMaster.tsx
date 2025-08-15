@@ -10,6 +10,7 @@ export interface TemplateBlurb {
   type: 'intro' | 'closer' | 'signature';
   title: string;
   content: string;
+  tags: string[];
   isDefault?: boolean;
   createdAt: string;
   updatedAt: string;
@@ -57,7 +58,8 @@ export const TemplateBlurbMaster = ({
 
   const filteredBlurbs = blurbs.filter(blurb => {
     const matchesSearch = blurb.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         blurb.content.toLowerCase().includes(searchTerm.toLowerCase());
+                         blurb.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (blurb.tags && blurb.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())));
     const matchesType = typeFilter === "all" || blurb.type === typeFilter;
     return matchesSearch && matchesType;
   });
@@ -175,6 +177,16 @@ export const TemplateBlurbMaster = ({
                         <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
                           {blurb.content}
                         </p>
+                        
+                        {blurb.tags && blurb.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mb-2">
+                            {blurb.tags.map((tag, index) => (
+                              <Badge key={index} variant="secondary" className="text-xs">
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                         
                         <p className="text-xs text-muted-foreground">
                           Updated {new Date(blurb.updatedAt).toLocaleDateString()}
