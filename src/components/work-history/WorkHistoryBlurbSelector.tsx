@@ -167,12 +167,10 @@ export const WorkHistoryBlurbSelector = ({
               </div>
             </div>
             <Button
-              variant="ghost"
-              size="sm"
+              variant="outline"
               onClick={onCancel}
-              className="h-8 w-8 p-0"
             >
-              ×
+              Cancel
             </Button>
           </div>
         </CardHeader>
@@ -338,12 +336,6 @@ export const WorkHistoryBlurbSelector = ({
             )}
           </div>
         </CardContent>
-        
-        <div className="flex justify-end gap-2 p-6 pt-0">
-          <Button variant="outline" onClick={onCancel}>
-            Cancel
-          </Button>
-        </div>
       </Card>
     </div>
   );

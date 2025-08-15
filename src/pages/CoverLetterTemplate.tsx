@@ -514,16 +514,14 @@ const CoverLetterTemplate = () => {
                         Select a pre-written blurb for your {getSectionTypeLabel(template.sections.find(s => s.id === selectedSection)?.type || '')} section
                       </CardDescription>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
+                    <Button 
+                      variant="outline" 
                       onClick={() => {
                         setShowBlurbSelector(false);
                         setSelectedSection(null);
                       }}
-                      className="h-8 w-8 p-0"
                     >
-                      ×
+                      Cancel
                     </Button>
                   </div>
                 </CardHeader>
@@ -565,14 +563,6 @@ const CoverLetterTemplate = () => {
                     ))}
                   </div>
                 </CardContent>
-                <div className="flex justify-end gap-2 p-6 pt-0">
-                  <Button variant="outline" onClick={() => {
-                    setShowBlurbSelector(false);
-                    setSelectedSection(null);
-                  }}>
-                    Cancel
-                  </Button>
-                </div>
               </Card>
             </div>
           )}
