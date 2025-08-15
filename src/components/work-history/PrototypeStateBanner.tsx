@@ -39,8 +39,6 @@ export function PrototypeStateBanner() {
             Viewing: {getCurrentState() === 'marketing' ? '' : `WA: ${getCurrentState() === 'existing-user' ? 'EU' : 'NUO'}`}
           </span>
           
-          <div className="w-px h-4 bg-gray-600"></div>
-          
           <button
             className={`px-3 py-1 rounded ${
               getCurrentState() === 'marketing' 
