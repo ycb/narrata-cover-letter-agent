@@ -157,7 +157,6 @@ const CoverLetterTemplate = () => {
   const navigate = useNavigate();
   const [template, setTemplate] = useState(mockTemplate);
   const [templateBlurbs, setTemplateBlurbs] = useState<TemplateBlurb[]>(mockTemplateBlurbs);
-  const [isEditing, setIsEditing] = useState(false);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const [showBlurbSelector, setShowBlurbSelector] = useState(false);
   const [showWorkHistorySelector, setShowWorkHistorySelector] = useState(false);
@@ -310,10 +309,6 @@ const CoverLetterTemplate = () => {
                 >
                   Upload New Cover Letter
                 </Link>
-                <Button className="flex items-center gap-2" onClick={() => setIsEditing(!isEditing)}>
-                  <Edit className="h-4 w-4" />
-                  {isEditing ? 'Save Changes' : 'Edit Template'}
-                </Button>
               </div>
 
               {/* Template Name */}
@@ -329,7 +324,6 @@ const CoverLetterTemplate = () => {
                         id="template-name"
                         value={template.name}
                         onChange={(e) => setTemplate(prev => ({ ...prev, name: e.target.value }))}
-                        disabled={!isEditing}
                       />
                     </div>
                   </div>
@@ -363,11 +357,10 @@ const CoverLetterTemplate = () => {
                               id={`static-${section.id}`}
                               checked={section.isStatic}
                               onCheckedChange={(checked) => updateSection(section.id, { isStatic: checked })}
-                              disabled={!isEditing}
                             />
                           </div>
                           
-                          {isEditing && section.type === 'paragraph' && (
+                          {section.type === 'paragraph' && (
                             <Button
                               variant="outline"
                               size="sm"
@@ -390,43 +383,40 @@ const CoverLetterTemplate = () => {
                               id={`content-${section.id}`}
                               value={section.staticContent || ''}
                               onChange={(e) => updateSection(section.id, { staticContent: e.target.value })}
-                              disabled={!isEditing}
                               rows={3}
                               className="mt-2"
                             />
                           </div>
                           
-                          {isEditing && (
-                            <div className="flex gap-2">
-                              {section.type === 'intro' || section.type === 'closer' || section.type === 'signature' ? (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedSection(section.id);
-                                    setShowBlurbSelector(true);
-                                  }}
-                                  className="flex items-center gap-2"
-                                >
-                                  <FileText className="h-4 w-4" />
-                                  Choose Template Blurb
-                                </Button>
-                              ) : (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedSection(section.id);
-                                    setShowWorkHistorySelector(true);
-                                  }}
-                                  className="flex items-center gap-2"
-                                >
-                                  <FileText className="h-4 w-4" />
-                                  Choose Work History Blurb
-                                </Button>
-                              )}
-                            </div>
-                          )}
+                          <div className="flex gap-2">
+                            {section.type === 'intro' || section.type === 'closer' || section.type === 'signature' ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedSection(section.id);
+                                  setShowBlurbSelector(true);
+                                }}
+                                className="flex items-center gap-2"
+                              >
+                                <FileText className="h-4 w-4" />
+                                Choose Template Blurb
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedSection(section.id);
+                                  setShowWorkHistorySelector(true);
+                                }}
+                                className="flex items-center gap-2"
+                              >
+                                <FileText className="h-4 w-4" />
+                                Choose Work History Blurb
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       ) : (
                         <div className="space-y-4">
@@ -441,7 +431,6 @@ const CoverLetterTemplate = () => {
                                 }
                               })}
                               placeholder="Describe the purpose and goals for this paragraph..."
-                              disabled={!isEditing}
                               rows={2}
                               className="mt-2"
                             />
@@ -458,18 +447,16 @@ const CoverLetterTemplate = () => {
                   </Card>
                 ))}
                 
-                {isEditing && (
-                  <Card className="border-dashed">
-                    <CardContent className="py-8">
-                      <div className="text-center">
-                        <Button onClick={addSection} className="flex items-center gap-2">
-                          <Plus className="h-4 w-4" />
-                          Add Body Paragraph
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+                <Card className="border-dashed">
+                  <CardContent className="py-8">
+                    <div className="text-center">
+                      <Button onClick={addSection} className="flex items-center gap-2">
+                        <Plus className="h-4 w-4" />
+                        Add Body Paragraph
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             </>
           ) : view === 'library' && (editingBlurb || creatingBlurbType) ? (

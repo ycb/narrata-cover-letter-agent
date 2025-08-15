@@ -21,7 +21,7 @@ export const TemplateBanner = ({ view, onViewChange, onDone }: TemplateBannerPro
           </div>
           
           {/* Tabs */}
-          <div className="flex items-center gap-1 mb-4">
+          <div className="flex items-center justify-center gap-1 mb-4">
             <Button
               variant={view === 'template' ? 'default' : 'ghost'}
               onClick={() => onViewChange('template')}
@@ -31,7 +31,6 @@ export const TemplateBanner = ({ view, onViewChange, onDone }: TemplateBannerPro
               <FileText className="h-4 w-4" />
               Template
             </Button>
-            <span className="text-muted-foreground mx-2">|</span>
             <Button
               variant={view === 'library' ? 'default' : 'ghost'}
               onClick={() => onViewChange('library')}
@@ -44,7 +43,7 @@ export const TemplateBanner = ({ view, onViewChange, onDone }: TemplateBannerPro
           </div>
           
           {/* Descriptions */}
-          <div className="text-sm text-muted-foreground">
+          <div className="text-sm text-muted-foreground text-center">
             {view === 'template' ? (
               <span>Configure your template structure</span>
             ) : (
