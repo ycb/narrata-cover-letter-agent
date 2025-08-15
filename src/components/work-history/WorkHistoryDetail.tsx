@@ -17,9 +17,14 @@ import type { WorkHistoryCompany, WorkHistoryRole } from "@/types/workHistory";
 interface WorkHistoryDetailProps {
   selectedCompany: WorkHistoryCompany | null;
   selectedRole: WorkHistoryRole | null;
+  onRoleSelect?: (role: WorkHistoryRole) => void;
 }
 
-export const WorkHistoryDetail = ({ selectedCompany, selectedRole }: WorkHistoryDetailProps) => {
+export const WorkHistoryDetail = ({ 
+  selectedCompany, 
+  selectedRole,
+  onRoleSelect
+}: WorkHistoryDetailProps) => {
   const formatDateRange = (startDate: string, endDate?: string) => {
     const start = new Date(startDate).toLocaleDateString('en-US', { 
       year: 'numeric', 
@@ -233,7 +238,10 @@ export const WorkHistoryDetail = ({ selectedCompany, selectedRole }: WorkHistory
               {selectedCompany.roles.map((role, index) => (
                 <div key={role.id}>
                   {index > 0 && <Separator className="mb-4" />}
-                  <div className="space-y-3">
+                  <div 
+                    className="space-y-3 cursor-pointer hover:bg-muted/50 p-3 rounded-lg transition-colors"
+                    onClick={() => onRoleSelect?.(role)}
+                  >
                     <div className="flex items-start justify-between">
                       <div>
                         <h3 className="font-medium text-lg">{role.title}</h3>

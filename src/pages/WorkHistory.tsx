@@ -153,6 +153,7 @@ export default function WorkHistory() {
             <WorkHistoryDetail
               selectedCompany={selectedCompany}
               selectedRole={selectedRole}
+              onRoleSelect={handleRoleSelect}
             />
           </div>
         </div>
