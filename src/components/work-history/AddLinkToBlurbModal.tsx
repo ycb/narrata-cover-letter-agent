@@ -5,9 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ExternalLink, Plus, X } from "lucide-react";
+import { ExternalLink, Plus, X, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { ExternalLink as ExternalLinkType } from "@/types/workHistory";
 
@@ -141,31 +140,58 @@ export function AddLinkToBlurbModal({
             <TabsContent value="existing" className="space-y-4">
               {existingLinks.length > 0 ? (
                 <div className="space-y-3">
-                  <RadioGroup value={selectedLinkId} onValueChange={setSelectedLinkId}>
-                    {existingLinks.map((link) => (
-                      <div key={link.id} className="flex items-center space-x-2">
-                        <RadioGroupItem value={link.id} id={link.id} />
-                        <Card className="flex-1 p-3 cursor-pointer hover:bg-accent" onClick={() => setSelectedLinkId(link.id)}>
-                          <div className="space-y-2">
-                            <div className="flex items-start justify-between">
-                              <h4 className="font-medium text-sm">{link.label}</h4>
-                              <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                  {existingLinks.map((link) => (
+                    <Card 
+                      key={link.id} 
+                      className={`p-4 cursor-pointer transition-all hover:shadow-md ${
+                        selectedLinkId === link.id 
+                          ? 'ring-2 ring-primary bg-primary/5' 
+                          : 'hover:bg-accent/50'
+                      }`}
+                      onClick={() => setSelectedLinkId(link.id)}
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start gap-3 flex-1 min-w-0">
+                            <div className="mt-1">
+                              {selectedLinkId === link.id ? (
+                                <div className="h-4 w-4 rounded-full bg-primary flex items-center justify-center">
+                                  <Check className="h-2.5 w-2.5 text-primary-foreground" />
+                                </div>
+                              ) : (
+                                <div className="h-4 w-4 rounded-full border-2 border-muted-foreground" />
+                              )}
                             </div>
-                            <p className="text-xs text-muted-foreground truncate">{link.url}</p>
-                            {link.tags.length > 0 && (
-                              <div className="flex flex-wrap gap-1">
-                                {link.tags.map((tag) => (
-                                  <Badge key={tag} variant="outline" className="text-xs">
-                                    {tag}
-                                  </Badge>
-                                ))}
-                              </div>
-                            )}
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-medium text-sm">{link.label}</h4>
+                              <p className="text-xs text-muted-foreground truncate mt-1">{link.url}</p>
+                            </div>
                           </div>
-                        </Card>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(link.url, '_blank', 'noopener,noreferrer');
+                            }}
+                            className="shrink-0"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        
+                        {link.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 ml-7">
+                            {link.tags.map((tag) => (
+                              <Badge key={tag} variant="outline" className="text-xs">
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    ))}
-                  </RadioGroup>
+                    </Card>
+                  ))}
                 </div>
               ) : (
                 <div className="text-center text-muted-foreground py-8">
