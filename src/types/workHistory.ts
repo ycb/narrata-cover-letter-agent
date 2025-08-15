@@ -38,6 +38,7 @@ export interface WorkHistoryBlurb {
   tags: string[];
   timesUsed: number;
   lastUsed?: string;
+  linkedExternalLinks?: string[]; // IDs of external links referenced in content
 }
 
 export interface LegacyCoverLetterTemplate {

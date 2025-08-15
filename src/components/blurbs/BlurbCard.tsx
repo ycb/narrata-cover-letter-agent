@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, CheckCircle, Clock, AlertCircle, Edit, Copy } from "lucide-react";
+import { MoreHorizontal, CheckCircle, Clock, AlertCircle, Edit, Copy, ExternalLink } from "lucide-react";
 
 interface BlurbCardProps {
   id: string;
@@ -12,6 +12,8 @@ interface BlurbCardProps {
   tags: string[];
   lastUsed?: string;
   timesUsed: number;
+  linkedExternalLinks?: string[];
+  externalLinks?: Array<{id: string; label: string; url: string}>;
 }
 
 export const BlurbCard = ({ 
@@ -21,7 +23,9 @@ export const BlurbCard = ({
   confidence, 
   tags, 
   lastUsed, 
-  timesUsed 
+  timesUsed,
+  linkedExternalLinks = [],
+  externalLinks = []
 }: BlurbCardProps) => {
   const statusConfig = {
     approved: { icon: CheckCircle, color: 'bg-success-light text-success', label: 'Approved' },
@@ -36,6 +40,44 @@ export const BlurbCard = ({
   };
 
   const StatusIcon = statusConfig[status].icon;
+
+  const renderContentWithLinks = (content: string, linkIds: string[], availableLinks: Array<{id: string; label: string; url: string}>) => {
+    if (linkIds.length === 0) return content;
+    
+    let renderedContent = content;
+    linkIds.forEach(linkId => {
+      const link = availableLinks.find(l => l.id === linkId);
+      if (link) {
+        const linkPattern = new RegExp(`\\[${link.label}\\]`, 'gi');
+        renderedContent = renderedContent.replace(linkPattern, `[${link.label}]`);
+      }
+    });
+    
+    // Split content by link references and render with actual links
+    const parts = renderedContent.split(/(\[[^\]]+\])/g);
+    return parts.map((part, index) => {
+      const linkMatch = part.match(/\[([^\]]+)\]/);
+      if (linkMatch) {
+        const linkLabel = linkMatch[1];
+        const link = availableLinks.find(l => l.label === linkLabel);
+        if (link) {
+          return (
+            <a
+              key={index}
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline"
+            >
+              {linkLabel}
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          );
+        }
+      }
+      return part;
+    });
+  };
 
   return (
     <Card className="shadow-soft hover:shadow-medium transition-all duration-200 group">
@@ -56,7 +98,9 @@ export const BlurbCard = ({
       </CardHeader>
       
       <CardContent className="pt-0">
-        <p className="text-muted-foreground mb-4 line-clamp-3">{content}</p>
+        <div className="text-muted-foreground mb-4 line-clamp-3">
+          {renderContentWithLinks(content, linkedExternalLinks, externalLinks)}
+        </div>
         
         <div className="flex flex-wrap gap-1 mb-4">
           {tags.map((tag) => (

@@ -66,17 +66,23 @@ export function WorkHistoryDetailTabs({ selectedRole }: WorkHistoryDetailTabsPro
             <div className="space-y-4 overflow-y-auto max-h-[calc(100vh-400px)]">
               {blurbs.length > 0 ? (
                 blurbs.map((blurb) => (
-                  <BlurbCard
-                    key={blurb.id}
-                    id={blurb.id}
-                    title={blurb.title}
-                    content={blurb.content}
-                    tags={blurb.tags}
-                    confidence={blurb.confidence}
-                    timesUsed={blurb.timesUsed}
-                    lastUsed={blurb.lastUsed}
-                    status={blurb.status}
-                  />
+                    <BlurbCard
+                      key={blurb.id}
+                      id={blurb.id}
+                      title={blurb.title}
+                      content={blurb.content}
+                      tags={blurb.tags}
+                      confidence={blurb.confidence}
+                      timesUsed={blurb.timesUsed}
+                      lastUsed={blurb.lastUsed}
+                      status={blurb.status}
+                      linkedExternalLinks={blurb.linkedExternalLinks}
+                      externalLinks={externalLinks.map(link => ({
+                        id: link.id,
+                        label: link.label,
+                        url: link.url
+                      }))}
+                    />
                 ))
               ) : (
                 <Card className="p-8 text-center border-dashed">
