@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ExternalLink, Plus, X, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -147,53 +147,51 @@ export function AddLinkToBlurbModal({
                   {existingLinks.map((link) => (
                     <Card 
                       key={link.id} 
-                      className={`p-4 cursor-pointer transition-all border-2 hover:border-primary/20 hover:bg-accent/30 ${
-                        selectedLinkId === link.id 
-                          ? 'border-primary bg-primary/5 shadow-sm' 
-                          : 'border-border hover:shadow-sm'
+                      className={`cursor-pointer transition-all hover:shadow-md ${
+                        selectedLinkId === link.id ? 'ring-2 ring-primary' : ''
                       }`}
                       onClick={() => setSelectedLinkId(link.id)}
                     >
-                      <div className="space-y-3">
+                      <CardContent className="p-4">
                         <div className="flex items-start justify-between">
-                          <div className="flex items-start gap-3 flex-1 min-w-0">
-                            <div className="mt-1">
-                              {selectedLinkId === link.id ? (
-                                <div className="h-4 w-4 rounded-full bg-primary flex items-center justify-center ring-2 ring-primary/20">
-                                  <Check className="h-2.5 w-2.5 text-primary-foreground" />
-                                </div>
-                              ) : (
-                                <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/50" />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-2">
+                              <h5 className="font-medium text-foreground truncate">
+                                {link.label}
+                              </h5>
+                              {selectedLinkId === link.id && (
+                                <Check className="h-4 w-4 text-primary" />
                               )}
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-medium text-sm text-foreground">{link.label}</h4>
-                              <p className="text-xs text-muted-foreground truncate mt-1">{link.url}</p>
-                            </div>
+                            
+                            <p className="text-xs text-muted-foreground truncate mb-2">
+                              {link.url}
+                            </p>
+                            
+                            {link.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {link.tags.map((tag) => (
+                                  <Badge key={tag} variant="secondary" className="text-xs">
+                                    {tag}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
                           </div>
+                          
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
                             onClick={(e) => {
                               e.stopPropagation();
                               window.open(link.url, '_blank', 'noopener,noreferrer');
                             }}
-                            className="shrink-0 h-8 w-8 p-0 hover:bg-accent"
+                            className="ml-4"
                           >
-                            <ExternalLink className="h-3 w-3" />
+                            <ExternalLink className="h-4 w-4" />
                           </Button>
                         </div>
-                        
-                        {link.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1 ml-7">
-                            {link.tags.map((tag) => (
-                              <Badge key={tag} variant="outline" className="text-xs">
-                                {tag}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                      </CardContent>
                     </Card>
                   ))}
                 </div>
