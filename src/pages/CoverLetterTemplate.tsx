@@ -331,17 +331,7 @@ const CoverLetterTemplate = () => {
           {/* Content Area */}
           {view === 'template' ? (
             <>
-              {/* Template Actions */}
-              <div className="flex justify-end items-center gap-4 mb-6">
-                <Link 
-                  to="/cover-letters" 
-                  className="text-sm text-muted-foreground hover:text-foreground underline"
-                >
-                  Upload New Cover Letter
-                </Link>
-              </div>
-
-              {/* Template Name */}
+              {/* Template Settings */}
               <Card className="mb-6">
                 <CardHeader>
                   <CardTitle>Template Settings</CardTitle>
@@ -355,6 +345,14 @@ const CoverLetterTemplate = () => {
                         value={template.name}
                         onChange={(e) => setTemplate(prev => ({ ...prev, name: e.target.value }))}
                       />
+                    </div>
+                    <div className="pt-2">
+                      <Link 
+                        to="/cover-letters" 
+                        className="text-sm text-cta-tertiary-foreground hover:text-cta-primary underline"
+                      >
+                        Upload New Cover Letter
+                      </Link>
                     </div>
                   </div>
                 </CardContent>
