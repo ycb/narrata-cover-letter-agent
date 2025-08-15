@@ -297,7 +297,7 @@ const CoverLetterTemplate = () => {
       <div className="bg-background">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
-            <div className="flex items-center justify-center gap-8 py-4">
+            <div className="flex items-center justify-center gap-8 py-2">
               <button
                 onClick={() => setView('template')}
                 className={`flex items-center gap-2 text-sm transition-colors ${
@@ -325,7 +325,7 @@ const CoverLetterTemplate = () => {
         </div>
       </div>
       
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-6">
         <div className="max-w-4xl mx-auto">
 
           {/* Content Area */}
