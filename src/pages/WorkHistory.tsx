@@ -4,6 +4,7 @@ import { WorkHistoryMaster } from "@/components/work-history/WorkHistoryMaster";
 import { WorkHistoryDetail } from "@/components/work-history/WorkHistoryDetail";
 import { DataSourcesStatus } from "@/components/work-history/DataSourcesStatus";
 import { WorkHistoryOnboarding } from "@/components/work-history/WorkHistoryOnboarding";
+import { PrototypeStateBanner } from "@/components/work-history/PrototypeStateBanner";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import type { WorkHistoryCompany, WorkHistoryRole } from "@/types/workHistory";
@@ -166,10 +167,24 @@ export default function WorkHistory() {
     console.log("Replace resume");
   };
 
+  // Prototype state handlers
+  const handleToggleLinkedIn = () => {
+    setLinkedInConnected(!linkedInConnected);
+  };
+
+  const handleToggleResume = () => {
+    setResumeUploaded(!resumeUploaded);
+  };
+
+  const handleResetAll = () => {
+    setLinkedInConnected(false);
+    setResumeUploaded(false);
+  };
+
   const hasWorkHistory = workHistory.length > 0;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-32">
       <Header />
       
       <main className="container mx-auto px-4 py-8">
@@ -206,7 +221,7 @@ export default function WorkHistory() {
         )}
 
         {hasWorkHistory ? (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-280px)]">
             {/* Master Panel */}
             <div className="lg:col-span-1">
               <WorkHistoryMaster
@@ -234,6 +249,15 @@ export default function WorkHistory() {
           />
         )}
       </main>
+
+      {/* Prototype State Banner */}
+      <PrototypeStateBanner
+        linkedInConnected={linkedInConnected}
+        resumeUploaded={resumeUploaded}
+        onToggleLinkedIn={handleToggleLinkedIn}
+        onToggleResume={handleToggleResume}
+        onResetAll={handleResetAll}
+      />
     </div>
   );
 }
