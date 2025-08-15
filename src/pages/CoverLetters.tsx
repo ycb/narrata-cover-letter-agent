@@ -80,10 +80,9 @@ const CoverLetters = () => {
             </div>
             
             <div className="flex gap-3">
-              <Button variant="outline" className="flex items-center gap-2" asChild>
+              <Button variant="outline" asChild>
                 <Link to="/cover-letter-template">
-                  <Target className="h-4 w-4" />
-                  Manage Template
+                  Edit Template
                 </Link>
               </Button>
               <Button className="flex items-center gap-2" asChild>
