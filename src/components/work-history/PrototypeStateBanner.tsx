@@ -11,6 +11,20 @@ export function PrototypeStateBanner() {
     navigate('/');
   };
 
+  const handleNewUser = () => {
+    if (location.pathname === '/') {
+      navigate('/work-history');
+    }
+    setPrototypeState('new-user');
+  };
+
+  const handleExistingUser = () => {
+    if (location.pathname === '/') {
+      navigate('/work-history');
+    }
+    setPrototypeState('existing-user');
+  };
+
   // Determine current state based on route and prototype state
   const getCurrentState = () => {
     if (location.pathname === '/') return 'marketing';
@@ -18,57 +32,43 @@ export function PrototypeStateBanner() {
   };
   
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-slate-900 border-t-2 border-orange-400 shadow-2xl">
-      <div className="container mx-auto px-4 py-3">
-        <div className="flex items-center justify-center gap-3">
-          {/* Prototype indicator */}
-          <div className="flex items-center gap-2 text-orange-400 font-mono text-xs">
-            <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
-            PROTOTYPE CONTROLS
-          </div>
-          
-          <div className="w-px h-6 bg-slate-600"></div>
-          
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-gray-800 border-t border-gray-600">
+      <div className="container mx-auto px-4 py-2">
+        <div className="flex items-center justify-center gap-3 text-sm">
           <button
-            className={`px-4 py-2 text-sm font-mono border transition-colors ${
+            className={`px-3 py-1 rounded ${
               getCurrentState() === 'marketing' 
-                ? 'bg-orange-500 text-white border-orange-500' 
-                : 'bg-slate-800 text-slate-300 border-slate-600 hover:bg-slate-700'
+                ? 'bg-blue-600 text-white' 
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
             }`}
             onClick={handleMarketingSite}
           >
             Marketing Site
           </button>
           
-          <div className="text-slate-500 font-mono text-sm">Web App:</div>
+          <span className="text-gray-400">Web App:</span>
           
           <button
-            className={`px-4 py-2 text-sm font-mono border transition-colors ${
+            className={`px-3 py-1 rounded ${
               getCurrentState() === 'new-user' 
-                ? 'bg-orange-500 text-white border-orange-500' 
-                : 'bg-slate-800 text-slate-300 border-slate-600 hover:bg-slate-700'
+                ? 'bg-blue-600 text-white' 
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
             }`}
-            onClick={() => setPrototypeState('new-user')}
+            onClick={handleNewUser}
           >
             New User Onboarding
           </button>
           
           <button
-            className={`px-4 py-2 text-sm font-mono border transition-colors ${
+            className={`px-3 py-1 rounded ${
               getCurrentState() === 'existing-user' 
-                ? 'bg-orange-500 text-white border-orange-500' 
-                : 'bg-slate-800 text-slate-300 border-slate-600 hover:bg-slate-700'
+                ? 'bg-blue-600 text-white' 
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
             }`}
-            onClick={() => setPrototypeState('existing-user')}
+            onClick={handleExistingUser}
           >
             Existing User
           </button>
-          
-          <div className="w-px h-6 bg-slate-600"></div>
-          
-          <div className="text-slate-500 font-mono text-xs">
-            v0.1.0-demo
-          </div>
         </div>
       </div>
     </div>
