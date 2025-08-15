@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, CheckCircle, Clock, AlertCircle, Edit, Copy, ExternalLink } from "lucide-react";
+import { MoreHorizontal, CheckCircle, Clock, AlertCircle, Edit, Copy } from "lucide-react";
 
 interface BlurbCardProps {
   id: string;
@@ -62,10 +62,9 @@ export const BlurbCard = ({
             href={primaryLink.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline font-medium"
+            className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
           >
             {part}
-            <ExternalLink className="h-3 w-3" />
           </a>
         );
       }
@@ -98,9 +97,10 @@ export const BlurbCard = ({
         
         {linkedExternalLinks.length > 0 && (
           <div className="mb-4">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <ExternalLink className="h-3 w-3" />
-              <span>Case Study: {externalLinks.find(link => link.id === linkedExternalLinks[0])?.label}</span>
+            <div className="border-t pt-3">
+              <Badge variant="outline" className="text-xs">
+                {externalLinks.find(link => link.id === linkedExternalLinks[0])?.label}
+              </Badge>
             </div>
           </div>
         )}
