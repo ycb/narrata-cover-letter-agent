@@ -15,7 +15,7 @@ export const TemplateBanner = ({ view, onViewChange, onDone }: TemplateBannerPro
           {/* Header with Done button */}
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-xl font-semibold">Editing Cover Letter Template</h1>
-            <Button onClick={onDone} size="sm">
+            <Button onClick={onDone} variant="cta-primary" size="sm">
               Done
             </Button>
           </div>
@@ -23,7 +23,7 @@ export const TemplateBanner = ({ view, onViewChange, onDone }: TemplateBannerPro
           {/* Tabs */}
           <div className="flex items-center justify-center gap-1 mb-4">
             <Button
-              variant={view === 'template' ? 'default' : 'ghost'}
+              variant={view === 'template' ? 'cta-secondary' : 'ghost'}
               onClick={() => onViewChange('template')}
               className="flex items-center gap-2"
               size="sm"
@@ -32,7 +32,7 @@ export const TemplateBanner = ({ view, onViewChange, onDone }: TemplateBannerPro
               Template
             </Button>
             <Button
-              variant={view === 'library' ? 'default' : 'ghost'}
+              variant={view === 'library' ? 'cta-secondary' : 'ghost'}
               onClick={() => onViewChange('library')}
               className="flex items-center gap-2"
               size="sm"
