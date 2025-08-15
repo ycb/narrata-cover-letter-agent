@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -146,10 +147,10 @@ export function AddLinkToBlurbModal({
                   {existingLinks.map((link) => (
                     <Card 
                       key={link.id} 
-                      className={`p-4 cursor-pointer transition-all hover:shadow-md ${
+                      className={`p-4 cursor-pointer transition-all border-2 hover:border-primary/20 hover:bg-accent/30 ${
                         selectedLinkId === link.id 
-                          ? 'ring-2 ring-primary bg-primary/5' 
-                          : 'hover:bg-accent/50'
+                          ? 'border-primary bg-primary/5 shadow-sm' 
+                          : 'border-border hover:shadow-sm'
                       }`}
                       onClick={() => setSelectedLinkId(link.id)}
                     >
@@ -158,15 +159,15 @@ export function AddLinkToBlurbModal({
                           <div className="flex items-start gap-3 flex-1 min-w-0">
                             <div className="mt-1">
                               {selectedLinkId === link.id ? (
-                                <div className="h-4 w-4 rounded-full bg-primary flex items-center justify-center">
+                                <div className="h-4 w-4 rounded-full bg-primary flex items-center justify-center ring-2 ring-primary/20">
                                   <Check className="h-2.5 w-2.5 text-primary-foreground" />
                                 </div>
                               ) : (
-                                <div className="h-4 w-4 rounded-full border-2 border-muted-foreground" />
+                                <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/50" />
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <h4 className="font-medium text-sm">{link.label}</h4>
+                              <h4 className="font-medium text-sm text-foreground">{link.label}</h4>
                               <p className="text-xs text-muted-foreground truncate mt-1">{link.url}</p>
                             </div>
                           </div>
@@ -177,7 +178,7 @@ export function AddLinkToBlurbModal({
                               e.stopPropagation();
                               window.open(link.url, '_blank', 'noopener,noreferrer');
                             }}
-                            className="shrink-0"
+                            className="shrink-0 h-8 w-8 p-0 hover:bg-accent"
                           >
                             <ExternalLink className="h-3 w-3" />
                           </Button>
