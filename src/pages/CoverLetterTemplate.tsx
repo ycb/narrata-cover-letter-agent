@@ -590,12 +590,12 @@ const CoverLetterTemplate = () => {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle>Upload New Cover Letter</CardTitle>
-                    <Button
-                      variant="outline"
+                    <button
                       onClick={() => setShowUploadModal(false)}
+                      className="text-sm text-cta-tertiary-foreground hover:text-cta-primary underline"
                     >
                       Cancel
-                    </Button>
+                    </button>
                   </div>
                 </CardHeader>
                 <CardContent>
