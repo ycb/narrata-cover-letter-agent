@@ -42,6 +42,22 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
             timesUsed: 8,
             lastUsed: "2024-01-15"
           }
+        ],
+        externalLinks: [
+          {
+            id: "link-1",
+            roleId: "1-1",
+            url: "https://medium.com/@example/product-strategy-guide",
+            label: "Product Strategy Framework - Medium Article",
+            tags: ["Product Management", "Strategy", "Thought Leadership"]
+          },
+          {
+            id: "link-2",
+            roleId: "1-1",
+            url: "https://github.com/example/product-dashboard",
+            label: "Analytics Dashboard - Open Source Project",
+            tags: ["Analytics", "Open Source", "Dashboard"]
+          }
         ]
       },
       {
@@ -56,7 +72,8 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
           "Implemented data-driven decision making process",
           "Reduced time-to-market by 25%"
         ],
-        blurbs: []
+        blurbs: [],
+        externalLinks: []
       }
     ]
   },
@@ -89,6 +106,15 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
             tags: ["Leadership", "Team Building", "MVP"],
             timesUsed: 12,
             lastUsed: "2024-01-10"
+          }
+        ],
+        externalLinks: [
+          {
+            id: "link-3",
+            roleId: "2-1",
+            url: "https://techcrunch.com/2020/05/15/startup-xyz-raises-series-a",
+            label: "Series A Funding Announcement - TechCrunch",
+            tags: ["Press", "Funding", "Startup"]
           }
         ]
       }

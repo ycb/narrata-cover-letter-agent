@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { BlurbCard } from "@/components/blurbs/BlurbCard";
+import { WorkHistoryDetailTabs } from "@/components/work-history/WorkHistoryDetailTabs";
 import { 
   Building2, 
   Calendar, 
@@ -73,10 +73,10 @@ export const WorkHistoryDetail = ({
                     <Calendar className="h-4 w-4" />
                     {formatDateRange(selectedRole.startDate, selectedRole.endDate)}
                   </div>
-                  <div className="flex items-center gap-1">
-                    <FileText className="h-4 w-4" />
-                    {selectedRole.blurbs.length} blurb{selectedRole.blurbs.length !== 1 ? 's' : ''}
-                  </div>
+              <div className="flex items-center gap-1">
+                <FileText className="h-4 w-4" />
+                {selectedRole.blurbs.length} blurb{selectedRole.blurbs.length !== 1 ? 's' : ''} • {selectedRole.externalLinks.length} link{selectedRole.externalLinks.length !== 1 ? 's' : ''}
+              </div>
                 </div>
 
                 {selectedRole.description && (
@@ -84,9 +84,9 @@ export const WorkHistoryDetail = ({
                 )}
               </div>
               
-              <Button>
+              <Button variant="secondary" size="sm">
                 <Plus className="h-4 w-4 mr-2" />
-                Add Blurb
+                Add Role
               </Button>
             </div>
           </CardHeader>
@@ -131,39 +131,10 @@ export const WorkHistoryDetail = ({
           </Card>
         )}
 
-        {/* Blurbs Section */}
+        {/* Tabs for Associated Blurbs and External Links */}
         <Card className="flex-1 flex flex-col">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Associated Blurbs</CardTitle>
-              <Badge variant="outline">
-                {selectedRole.blurbs.length} total
-              </Badge>
-            </div>
-          </CardHeader>
-          
-          <CardContent className="flex-1 overflow-auto">
-            {selectedRole.blurbs.length > 0 ? (
-              <div className="space-y-4">
-                {selectedRole.blurbs.map((blurb) => (
-                  <BlurbCard key={blurb.id} {...blurb} />
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-center">
-                <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium text-foreground mb-2">
-                  No Blurbs Yet
-                </h3>
-                <p className="text-muted-foreground mb-4">
-                  Create your first blurb for this role
-                </p>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Blurb
-                </Button>
-              </div>
-            )}
+          <CardContent className="flex-1 p-6">
+            <WorkHistoryDetailTabs selectedRole={selectedRole} />
           </CardContent>
         </Card>
       </div>

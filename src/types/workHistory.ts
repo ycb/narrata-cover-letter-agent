@@ -17,6 +17,15 @@ export interface WorkHistoryRole {
   tags: string[];
   achievements: string[];
   blurbs: WorkHistoryBlurb[];
+  externalLinks: ExternalLink[];
+}
+
+export interface ExternalLink {
+  id: string;
+  roleId: string;
+  url: string;
+  label: string;
+  tags: string[];
 }
 
 export interface WorkHistoryBlurb {

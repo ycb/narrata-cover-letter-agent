@@ -48,7 +48,8 @@ const mockWorkHistory: WorkHistoryCompany[] = [
             timesUsed: 8,
             lastUsed: "2024-01-10"
           }
-        ]
+        ],
+        externalLinks: []
       },
       {
         id: "role-2",
@@ -71,7 +72,8 @@ const mockWorkHistory: WorkHistoryCompany[] = [
             timesUsed: 6,
             lastUsed: "2024-01-05"
           }
-        ]
+        ],
+        externalLinks: []
       }
     ]
   },
@@ -103,7 +105,8 @@ const mockWorkHistory: WorkHistoryCompany[] = [
             timesUsed: 4,
             lastUsed: "2023-12-20"
           }
-        ]
+        ],
+        externalLinks: []
       }
     ]
   }
