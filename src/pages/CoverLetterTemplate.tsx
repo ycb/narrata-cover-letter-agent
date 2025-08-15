@@ -428,12 +428,10 @@ const CoverLetterTemplate = () => {
                       {section.isStatic ? (
                         <div className="space-y-4">
                           <div className="flex items-center justify-between">
-                            <Label className="text-sm font-medium">
+                            <Badge variant="secondary" className="text-sm font-medium px-3 py-1">
                               {getBlurbTitleByContent(section.staticContent || '', section.type)}
-                            </Label>
-                            <Button
-                              variant="outline"
-                              size="sm"
+                            </Badge>
+                            <button
                               onClick={() => {
                                 setSelectedSection(section.id);
                                 if (section.type === 'intro' || section.type === 'closer' || section.type === 'signature') {
@@ -442,10 +440,10 @@ const CoverLetterTemplate = () => {
                                   setShowWorkHistorySelector(true);
                                 }
                               }}
-                              className="h-8"
+                              className="text-sm text-cta-tertiary-foreground hover:text-cta-primary underline"
                             >
                               Edit
-                            </Button>
+                            </button>
                           </div>
                           <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded border">
                             {section.staticContent}
