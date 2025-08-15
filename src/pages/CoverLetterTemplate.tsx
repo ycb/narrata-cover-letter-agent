@@ -288,56 +288,55 @@ const CoverLetterTemplate = () => {
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">Cover Letter Template</h1>
-              <p className="text-muted-foreground">Configure your template structure and content</p>
-            </div>
-            
-            <div className="flex gap-3">
-              <Button variant="outline" className="flex items-center gap-2" asChild>
+          <div className="mb-8">
+            <div className="flex items-center gap-4 mb-2">
+              <Button variant="outline" size="sm" className="flex items-center gap-2" asChild>
                 <Link to="/cover-letters">
                   <ArrowLeft className="h-4 w-4" />
-                  Back to Cover Letters
+                  Back
                 </Link>
               </Button>
-              
-              <div className="flex gap-2">
-                <Button
-                  variant={view === 'template' ? 'default' : 'outline'}
-                  onClick={() => setView('template')}
-                  className="flex items-center gap-2"
-                >
-                  <FileText className="h-4 w-4" />
-                  Template
-                </Button>
-                <Button
-                  variant={view === 'library' ? 'default' : 'outline'}
-                  onClick={() => setView('library')}
-                  className="flex items-center gap-2"
-                >
-                  <Library className="h-4 w-4" />
-                  Blurb Library
-                </Button>
-              </div>
-              
-              <Button variant="outline" className="flex items-center gap-2">
-                <Upload className="h-4 w-4" />
-                Upload Template
+              <h1 className="text-3xl font-bold text-foreground">Cover Letter Template</h1>
+            </div>
+            <p className="text-muted-foreground">Configure your template structure and content</p>
+            
+            <div className="flex gap-2 mt-6">
+              <Button
+                variant={view === 'template' ? 'default' : 'outline'}
+                onClick={() => setView('template')}
+                className="flex items-center gap-2"
+              >
+                <FileText className="h-4 w-4" />
+                Template
               </Button>
-              
-              {view === 'template' && (
-                <Button className="flex items-center gap-2" onClick={() => setIsEditing(!isEditing)}>
-                  <Save className="h-4 w-4" />
-                  {isEditing ? 'Save Changes' : 'Edit Template'}
-                </Button>
-              )}
+              <Button
+                variant={view === 'library' ? 'default' : 'outline'}
+                onClick={() => setView('library')}
+                className="flex items-center gap-2"
+              >
+                <Library className="h-4 w-4" />
+                Blurb Library
+              </Button>
             </div>
           </div>
 
           {/* Content Area */}
           {view === 'template' ? (
             <>
+              {/* Template Actions */}
+              <div className="flex justify-end items-center gap-4 mb-6">
+                <Link 
+                  to="/cover-letters" 
+                  className="text-sm text-muted-foreground hover:text-foreground underline"
+                >
+                  Upload New Cover Letter
+                </Link>
+                <Button className="flex items-center gap-2" onClick={() => setIsEditing(!isEditing)}>
+                  <Edit className="h-4 w-4" />
+                  {isEditing ? 'Save Changes' : 'Edit Template'}
+                </Button>
+              </div>
+
               {/* Template Name */}
               <Card className="mb-6">
                 <CardHeader>
