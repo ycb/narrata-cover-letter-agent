@@ -223,13 +223,11 @@ const CoverLetterTemplate = () => {
   const handleCreateBlurb = (type: 'intro' | 'closer' | 'signature') => {
     setCreatingBlurbType(type);
     setEditingBlurb(null);
-    setView('library');
   };
 
   const handleEditBlurb = (blurb: TemplateBlurb) => {
     setEditingBlurb(blurb);
     setCreatingBlurbType(null);
-    setView('library');
   };
 
   const handleSaveBlurb = (blurbData: Partial<TemplateBlurb>) => {
@@ -255,7 +253,6 @@ const CoverLetterTemplate = () => {
     
     setEditingBlurb(null);
     setCreatingBlurbType(null);
-    setView('template');
   };
 
   const handleDeleteBlurb = (blurbId: string) => {
@@ -472,32 +469,40 @@ const CoverLetterTemplate = () => {
                 </Card>
               </div>
             </>
-          ) : view === 'library' && (editingBlurb || creatingBlurbType) ? (
-            <TemplateBlurbDetail
-              blurb={editingBlurb}
-              isEditing={true}
-              onSave={handleSaveBlurb}
-              onCancel={() => {
-                setEditingBlurb(null);
-                setCreatingBlurbType(null);
-                setView('template');
-              }}
-              type={creatingBlurbType}
-            />
           ) : (
-            <TemplateBlurbHierarchical
-              blurbs={templateBlurbs.map(blurb => ({
-                ...blurb,
-                status: 'approved' as const,
-                confidence: 'high' as const,
-                timesUsed: 0
-              }))}
-              selectedBlurbId={undefined}
-              onSelectBlurb={handleSelectBlurbFromLibrary}
-              onCreateBlurb={handleCreateBlurb}
-              onEditBlurb={handleEditBlurb}
-              onDeleteBlurb={handleDeleteBlurb}
-            />
+            <>
+              <TemplateBlurbHierarchical
+                blurbs={templateBlurbs.map(blurb => ({
+                  ...blurb,
+                  status: 'approved' as const,
+                  confidence: 'high' as const,
+                  timesUsed: 0
+                }))}
+                selectedBlurbId={undefined}
+                onSelectBlurb={handleSelectBlurbFromLibrary}
+                onCreateBlurb={handleCreateBlurb}
+                onEditBlurb={handleEditBlurb}
+                onDeleteBlurb={handleDeleteBlurb}
+              />
+              
+              {/* Create/Edit Blurb Modal */}
+              {(editingBlurb || creatingBlurbType) && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                  <div className="w-full max-w-2xl max-h-[80vh] overflow-auto">
+                    <TemplateBlurbDetail
+                      blurb={editingBlurb}
+                      isEditing={true}
+                      onSave={handleSaveBlurb}
+                      onCancel={() => {
+                        setEditingBlurb(null);
+                        setCreatingBlurbType(null);
+                      }}
+                      type={creatingBlurbType}
+                    />
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {/* Blurb Selector Modal */}
