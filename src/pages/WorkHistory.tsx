@@ -99,7 +99,12 @@ export default function WorkHistory() {
 
   const handleCompanySelect = (company: WorkHistoryCompany) => {
     setSelectedCompany(company);
-    setSelectedRole(null);
+    // If company has only one role, automatically select it
+    if (company.roles.length === 1) {
+      setSelectedRole(company.roles[0]);
+    } else {
+      setSelectedRole(null);
+    }
   };
 
   const handleRoleSelect = (role: WorkHistoryRole) => {
