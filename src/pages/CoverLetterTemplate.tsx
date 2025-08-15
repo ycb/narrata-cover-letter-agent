@@ -290,10 +290,49 @@ const CoverLetterTemplate = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <TemplateBanner
-        view={view}
-        onViewChange={setView}
         onDone={handleDone}
       />
+      
+      {/* Tabs */}
+      <div className="border-b bg-background">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-center justify-center gap-8 py-4">
+              <button
+                onClick={() => setView('template')}
+                className={`flex items-center gap-2 text-sm transition-colors ${
+                  view === 'template' 
+                    ? 'font-bold text-foreground border-b-2 border-cta-primary pb-1' 
+                    : 'font-medium text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <FileText className="h-4 w-4" />
+                Template
+              </button>
+              <button
+                onClick={() => setView('library')}
+                className={`flex items-center gap-2 text-sm transition-colors ${
+                  view === 'library' 
+                    ? 'font-bold text-foreground border-b-2 border-cta-primary pb-1' 
+                    : 'font-medium text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Library className="h-4 w-4" />
+                Blurb Library
+              </button>
+            </div>
+            
+            {/* Tab Description */}
+            <div className="text-sm text-muted-foreground text-center pb-4">
+              {view === 'template' ? (
+                <span>Configure your template structure</span>
+              ) : (
+                <span>Configure your template content</span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
       
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
