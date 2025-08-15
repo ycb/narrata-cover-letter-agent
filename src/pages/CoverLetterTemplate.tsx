@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Upload, Save, ArrowLeft, Plus, GripVertical, Trash2, Edit, FileText, Library } from "lucide-react";
 import { Header } from "@/components/layout/Header";
 import { Link } from "react-router-dom";
-import { TemplateBlurbMaster, type TemplateBlurb } from "@/components/template-blurbs/TemplateBlurbMaster";
+import { TemplateBlurbHierarchical } from "@/components/template-blurbs/TemplateBlurbHierarchical";
+import { type TemplateBlurb } from "@/components/template-blurbs/TemplateBlurbMaster";
 import { TemplateBlurbDetail } from "@/components/template-blurbs/TemplateBlurbDetail";
 import { WorkHistoryBlurbSelector } from "@/components/work-history/WorkHistoryBlurbSelector";
 import type { CoverLetterSection, CoverLetterTemplate, WorkHistoryBlurb } from "@/types/workHistory";
@@ -496,8 +497,14 @@ const CoverLetterTemplate = () => {
               type={creatingBlurbType}
             />
           ) : (
-            <TemplateBlurbMaster
-              blurbs={templateBlurbs}
+            <TemplateBlurbHierarchical
+              blurbs={templateBlurbs.map(blurb => ({
+                ...blurb,
+                status: 'approved' as const,
+                confidence: 'high' as const,
+                tags: [],
+                timesUsed: 0
+              }))}
               selectedBlurbId={undefined}
               onSelectBlurb={handleSelectBlurbFromLibrary}
               onCreateBlurb={handleCreateBlurb}
