@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { PrototypeProvider } from "@/contexts/PrototypeContext";
 import { PrototypeStateBanner } from "@/components/work-history/PrototypeStateBanner";
 import Landing from "./pages/Landing";
@@ -19,11 +19,8 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 function AppLayout() {
-  const location = useLocation();
-  const isLandingPage = location.pathname === '/';
-
   return (
-    <div className={isLandingPage ? '' : 'pb-20'}>
+    <div className="pb-16">
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/dashboard" element={<Dashboard />} />
@@ -38,8 +35,8 @@ function AppLayout() {
         <Route path="*" element={<NotFound />} />
       </Routes>
       
-      {/* Show prototype banner on all pages except landing */}
-      {!isLandingPage && <PrototypeStateBanner />}
+      {/* Show prototype banner on all pages */}
+      <PrototypeStateBanner />
     </div>
   );
 }
