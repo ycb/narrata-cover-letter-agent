@@ -125,10 +125,6 @@ export default function WorkHistory() {
           </div>
           
           <div className="flex gap-3">
-            <Button variant="outline">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Role
-            </Button>
             <Button>
               <Plus className="h-4 w-4 mr-2" />
               Add Company
