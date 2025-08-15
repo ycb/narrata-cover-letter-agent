@@ -97,12 +97,11 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
 ];
 
 export default function WorkHistory() {
-  // Data sources state
-  const [linkedInConnected, setLinkedInConnected] = useState(false);
-  const [resumeUploaded, setResumeUploaded] = useState(false);
+  // Prototype state management
+  const [prototypeState, setPrototypeState] = useState<'marketing' | 'new-user' | 'existing-user'>('new-user');
   
-  // For demo purposes, let's simulate empty state when no data sources are connected
-  const workHistory = (linkedInConnected || resumeUploaded) ? sampleWorkHistory : [];
+  // For existing user state, simulate having data
+  const workHistory = prototypeState === 'existing-user' ? sampleWorkHistory : [];
   
   // Auto-select first company and its first role on page load
   const firstCompany = workHistory.length > 0 ? workHistory[0] : null;
@@ -111,14 +110,14 @@ export default function WorkHistory() {
   const [selectedCompany, setSelectedCompany] = useState<WorkHistoryCompany | null>(firstCompany);
   const [selectedRole, setSelectedRole] = useState<WorkHistoryRole | null>(firstRole);
 
-  // Update selected items when work history changes (due to data source connections)
+  // Update selected items when prototype state changes
   useEffect(() => {
     const newFirstCompany = workHistory.length > 0 ? workHistory[0] : null;
     const newFirstRole = newFirstCompany?.roles.length > 0 ? newFirstCompany.roles[0] : null;
     
     setSelectedCompany(newFirstCompany);
     setSelectedRole(newFirstRole);
-  }, [workHistory.length, linkedInConnected, resumeUploaded]);
+  }, [prototypeState, workHistory.length]);
 
   const handleCompanySelect = (company: WorkHistoryCompany) => {
     setSelectedCompany(company);
@@ -134,16 +133,14 @@ export default function WorkHistory() {
     setSelectedRole(role);
   };
 
-  // Data source handlers
+  // Data source handlers (for existing user state)
   const handleConnectLinkedIn = () => {
     // TODO: Implement LinkedIn OAuth flow
-    setLinkedInConnected(true);
     console.log("Connect LinkedIn");
   };
 
   const handleUploadResume = () => {
     // TODO: Implement resume upload
-    setResumeUploaded(true);
     console.log("Upload resume");
   };
 
@@ -153,7 +150,6 @@ export default function WorkHistory() {
   };
 
   const handleRemoveLinkedInConnection = () => {
-    setLinkedInConnected(false);
     console.log("Remove LinkedIn connection");
   };
 
@@ -167,24 +163,37 @@ export default function WorkHistory() {
     console.log("Replace resume");
   };
 
-  // Prototype state handlers
-  const handleToggleLinkedIn = () => {
-    setLinkedInConnected(!linkedInConnected);
-  };
-
-  const handleToggleResume = () => {
-    setResumeUploaded(!resumeUploaded);
-  };
-
-  const handleResetAll = () => {
-    setLinkedInConnected(false);
-    setResumeUploaded(false);
+  const handlePrototypeStateChange = (state: 'marketing' | 'new-user' | 'existing-user') => {
+    setPrototypeState(state);
   };
 
   const hasWorkHistory = workHistory.length > 0;
 
+  // If marketing state, show a simple marketing placeholder
+  if (prototypeState === 'marketing') {
+    return (
+      <div className="min-h-screen bg-background pb-20">
+        <Header />
+        <main className="container mx-auto px-4 py-8">
+          <div className="flex items-center justify-center min-h-[600px]">
+            <div className="text-center space-y-4">
+              <h1 className="text-4xl font-bold text-foreground">Marketing Site</h1>
+              <p className="text-muted-foreground text-lg">
+                This would be your marketing/landing page
+              </p>
+            </div>
+          </div>
+        </main>
+        <PrototypeStateBanner
+          currentState={prototypeState}
+          onStateChange={handlePrototypeStateChange}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-background pb-32">
+    <div className="min-h-screen bg-background pb-20">
       <Header />
       
       <main className="container mx-auto px-4 py-8">
@@ -206,11 +215,11 @@ export default function WorkHistory() {
           )}
         </div>
 
-        {/* Data Sources Status - only show when there's work history */}
-        {hasWorkHistory && (
+        {/* Data Sources Status - only show for existing user with work history */}
+        {prototypeState === 'existing-user' && hasWorkHistory && (
           <DataSourcesStatus
-            linkedInConnected={linkedInConnected}
-            resumeUploaded={resumeUploaded}
+            linkedInConnected={true}
+            resumeUploaded={true}
             onConnectLinkedIn={handleConnectLinkedIn}
             onUploadResume={handleUploadResume}
             onViewLinkedInProfile={handleViewLinkedInProfile}
@@ -252,11 +261,8 @@ export default function WorkHistory() {
 
       {/* Prototype State Banner */}
       <PrototypeStateBanner
-        linkedInConnected={linkedInConnected}
-        resumeUploaded={resumeUploaded}
-        onToggleLinkedIn={handleToggleLinkedIn}
-        onToggleResume={handleToggleResume}
-        onResetAll={handleResetAll}
+        currentState={prototypeState}
+        onStateChange={handlePrototypeStateChange}
       />
     </div>
   );
