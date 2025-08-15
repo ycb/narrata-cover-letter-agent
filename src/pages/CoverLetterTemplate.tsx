@@ -164,6 +164,7 @@ const CoverLetterTemplate = () => {
   const [editingBlurb, setEditingBlurb] = useState<TemplateBlurb | null>(null);
   const [creatingBlurbType, setCreatingBlurbType] = useState<'intro' | 'closer' | 'signature' | null>(null);
   const [view, setView] = useState<'template' | 'library'>('template');
+  const [showUploadModal, setShowUploadModal] = useState(false);
 
   const getBlurbTitleByContent = (content: string, sectionType: string) => {
     const blurb = templateBlurbs.find(b => b.content === content && b.type === sectionType);
@@ -336,12 +337,12 @@ const CoverLetterTemplate = () => {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle>Template Settings</CardTitle>
-                    <Link 
-                      to="/cover-letters" 
+                    <button 
+                      onClick={() => setShowUploadModal(true)}
                       className="text-sm text-muted-foreground hover:text-foreground underline"
                     >
                       Upload New Cover Letter
-                    </Link>
+                    </button>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -580,6 +581,52 @@ const CoverLetterTemplate = () => {
                 setSelectedSection(null);
               }}
             />
+          )}
+
+          {/* Upload Modal */}
+          {showUploadModal && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+              <Card className="w-full max-w-md">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Upload New Cover Letter</CardTitle>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowUploadModal(false)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-6">
+                    Free plans are limited to one template. Uploading a new cover letter will replace your existing content and overwrite your existing selections.
+                  </p>
+                  <div className="flex gap-3">
+                    <Button 
+                      variant="cta-primary" 
+                      className="flex-1"
+                      asChild
+                    >
+                      <Link to="/cover-letters">
+                        I understand, proceed
+                      </Link>
+                    </Button>
+                    <Button 
+                      variant="cta-secondary" 
+                      className="flex-1"
+                      onClick={() => {
+                        // TODO: Add navigation to pricing page
+                        console.log('Navigate to paid plans');
+                        setShowUploadModal(false);
+                      }}
+                    >
+                      Explore paid plans
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           )}
         </div>
       </main>
