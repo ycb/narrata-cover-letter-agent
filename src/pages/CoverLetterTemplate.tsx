@@ -8,7 +8,8 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Upload, Save, ArrowLeft, Plus, GripVertical, Trash2, Edit, FileText, Library } from "lucide-react";
 import { Header } from "@/components/layout/Header";
-import { Link } from "react-router-dom";
+import { TemplateBanner } from "@/components/layout/TemplateBanner";
+import { Link, useNavigate } from "react-router-dom";
 import { TemplateBlurbHierarchical } from "@/components/template-blurbs/TemplateBlurbHierarchical";
 import { type TemplateBlurb } from "@/components/template-blurbs/TemplateBlurbMaster";
 import { TemplateBlurbDetail } from "@/components/template-blurbs/TemplateBlurbDetail";
@@ -153,6 +154,7 @@ const mockTemplate: CoverLetterTemplate = {
 };
 
 const CoverLetterTemplate = () => {
+  const navigate = useNavigate();
   const [template, setTemplate] = useState(mockTemplate);
   const [templateBlurbs, setTemplateBlurbs] = useState<TemplateBlurb[]>(mockTemplateBlurbs);
   const [isEditing, setIsEditing] = useState(false);
@@ -281,42 +283,21 @@ const CoverLetterTemplate = () => {
     }));
   };
 
+  const handleDone = () => {
+    navigate('/cover-letters');
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
+      <TemplateBanner
+        view={view}
+        onViewChange={setView}
+        onDone={handleDone}
+      />
       
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          {/* Header */}
-          <div className="mb-8">
-            <Button variant="outline" size="sm" className="flex items-center gap-2 mb-4 w-fit" asChild>
-              <Link to="/cover-letters">
-                <ArrowLeft className="h-4 w-4" />
-                Back
-              </Link>
-            </Button>
-            <h1 className="text-3xl font-bold text-foreground mb-2">Cover Letter Template</h1>
-            <p className="text-muted-foreground">Configure your template structure and content</p>
-            
-            <div className="flex gap-2 mt-6">
-              <Button
-                variant={view === 'template' ? 'default' : 'outline'}
-                onClick={() => setView('template')}
-                className="flex items-center gap-2"
-              >
-                <FileText className="h-4 w-4" />
-                Template
-              </Button>
-              <Button
-                variant={view === 'library' ? 'default' : 'outline'}
-                onClick={() => setView('library')}
-                className="flex items-center gap-2"
-              >
-                <Library className="h-4 w-4" />
-                Blurb Library
-              </Button>
-            </div>
-          </div>
 
           {/* Content Area */}
           {view === 'template' ? (
