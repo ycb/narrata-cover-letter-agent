@@ -289,7 +289,7 @@ const CoverLetterTemplate = () => {
         <div className="max-w-4xl mx-auto">
           {/* Header */}
           <div className="mb-8">
-            <Button variant="outline" size="sm" className="flex items-center gap-2 mb-4" asChild>
+            <Button variant="outline" size="sm" className="flex items-center gap-2 mb-4 w-fit" asChild>
               <Link to="/cover-letters">
                 <ArrowLeft className="h-4 w-4" />
                 Back
