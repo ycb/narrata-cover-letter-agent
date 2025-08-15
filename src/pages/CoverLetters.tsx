@@ -80,7 +80,7 @@ const CoverLetters = () => {
             </div>
             
             <div className="flex gap-3">
-              <Button variant="outline" asChild>
+              <Button variant="secondary" asChild>
                 <Link to="/cover-letter-template">
                   Edit Template
                 </Link>
@@ -148,11 +148,11 @@ const CoverLetters = () => {
                     </div>
                     
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" className="flex items-center gap-2">
+                      <Button variant="tertiary" size="sm" className="flex items-center gap-2">
                         <Eye className="h-4 w-4" />
                         View
                       </Button>
-                      <Button variant="outline" size="sm" className="flex items-center gap-2">
+                      <Button variant="tertiary" size="sm" className="flex items-center gap-2">
                         <Edit className="h-4 w-4" />
                         Edit
                       </Button>

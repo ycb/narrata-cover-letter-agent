@@ -153,9 +153,9 @@ export function AddExternalLinkModal({ open, onOpenChange, roleId, onLinkAdded }
           </div>
           
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
+                            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
+                  Cancel
+                </Button>
             <Button type="submit">
               Add Link
             </Button>

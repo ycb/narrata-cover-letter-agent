@@ -62,10 +62,10 @@ const Landing = () => {
           
           <div className="flex items-center gap-4">
             <Link to="/signin">
-              <Button variant="ghost">Login</Button>
+              <Button variant="tertiary">Login</Button>
             </Link>
             <Link to="/signup">
-              <Button variant="brand">Get Started</Button>
+              <Button variant="primary">Get Started</Button>
             </Link>
           </div>
         </div>
@@ -94,12 +94,12 @@ const Landing = () => {
           
            <div className="flex items-center justify-center gap-4 mb-12">
              <Link to="/signup">
-               <Button variant="brand" size="lg" className="gap-2">
+               <Button variant="primary" size="lg" className="gap-2">
                  Start Building Your Library
                  <ArrowRight className="h-5 w-5" />
                </Button>
              </Link>
-             <Button variant="outline" size="lg">
+             <Button variant="secondary" size="lg">
                Watch Demo
              </Button>
            </div>

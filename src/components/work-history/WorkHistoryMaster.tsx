@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Building2, Calendar, ChevronRight, FileText } from "lucide-react";
+import { Building2, Calendar, ChevronRight, FileText, Link } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { WorkHistoryCompany, WorkHistoryRole } from "@/types/workHistory";
 
@@ -60,7 +60,7 @@ export const WorkHistoryMaster = ({
             <AccordionItem key={company.id} value={company.id} className="border-x-0">
               <AccordionTrigger 
                 className={cn(
-                  "px-6 py-4 hover:no-underline hover:bg-muted/50 transition-colors",
+                  "px-6 py-4 hover:no-underline hover:bg-muted/30 hover:text-foreground transition-colors",
                   selectedCompany?.id === company.id && "bg-accent/20"
                 )}
                 onClick={() => onCompanySelect(company)}
@@ -83,7 +83,7 @@ export const WorkHistoryMaster = ({
                       key={role.id}
                       variant="ghost"
                       className={cn(
-                        "w-full px-6 py-4 h-auto justify-start text-left rounded-none hover:bg-muted/50",
+                        "w-full px-6 py-4 h-auto justify-start text-left rounded-none hover:bg-muted/30 hover:text-foreground transition-colors",
                         selectedRole?.id === role.id && "bg-primary/10 border-r-2 border-primary"
                       )}
                       onClick={() => onRoleSelect(role)}
@@ -93,9 +93,20 @@ export const WorkHistoryMaster = ({
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2">
                             <h4 className="font-medium text-sm truncate">{role.title}</h4>
-                            <Badge variant="secondary" className="text-xs shrink-0">
-                              {role.blurbs.length}
-                            </Badge>
+                            <div className="flex items-center gap-1 shrink-0">
+                              {role.blurbs.length > 0 && (
+                                <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                                  <FileText className="h-3 w-3" />
+                                  {role.blurbs.length}
+                                </Badge>
+                              )}
+                              {role.externalLinks.length > 0 && (
+                                <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                                  <Link className="h-3 w-3" />
+                                  {role.externalLinks.length}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                           <div className="flex items-center gap-2 mt-1">
                             <Calendar className="h-3 w-3 text-muted-foreground" />
@@ -103,14 +114,7 @@ export const WorkHistoryMaster = ({
                               {formatDateRange(role.startDate, role.endDate)}
                             </span>
                           </div>
-                          {role.blurbs.length > 0 && (
-                            <div className="flex items-center gap-1 mt-1">
-                              <FileText className="h-3 w-3 text-muted-foreground" />
-                              <span className="text-xs text-muted-foreground">
-                                {role.blurbs.length} blurb{role.blurbs.length !== 1 ? 's' : ''}
-                              </span>
-                            </div>
-                          )}
+
                         </div>
                       </div>
                     </Button>

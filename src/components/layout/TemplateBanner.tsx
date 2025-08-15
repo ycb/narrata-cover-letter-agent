@@ -9,9 +9,9 @@ export const TemplateBanner = ({ onDone }: { onDone: () => void }) => {
           {/* Header with Done button */}
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-semibold">Editing Cover Letter Template</h1>
-            <Button onClick={onDone} variant="cta-primary" size="sm">
-              Done
-            </Button>
+                    <Button onClick={onDone} variant="primary" size="sm">
+          Done
+        </Button>
           </div>
         </div>
       </div>

@@ -163,15 +163,15 @@ export const TemplateBlurbHierarchical = ({
               {searchTerm ? 'Try adjusting your search terms' : 'Get started by creating your first template blurb'}
             </p>
             <div className="flex gap-2 justify-center">
-              <Button onClick={() => onCreateBlurb('intro')} variant="outline">
+              <Button onClick={() => onCreateBlurb('intro')} variant="secondary">
                 <Plus className="h-4 w-4 mr-2" />
                 Introduction
               </Button>
-              <Button onClick={() => onCreateBlurb('closer')} variant="outline">
+              <Button onClick={() => onCreateBlurb('closer')} variant="secondary">
                 <Plus className="h-4 w-4 mr-2" />
                 Closing
               </Button>
-              <Button onClick={() => onCreateBlurb('signature')} variant="outline">
+              <Button onClick={() => onCreateBlurb('signature')} variant="secondary">
                 <Plus className="h-4 w-4 mr-2" />
                 Signature
               </Button>

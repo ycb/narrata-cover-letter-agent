@@ -61,7 +61,7 @@ export function WorkHistoryDetailTabs({ selectedRole }: WorkHistoryDetailTabsPro
           <div className="space-y-4 h-full">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold">Associated Blurbs</h3>
-              <Button onClick={handleAddBlurb} size="sm">
+              <Button variant="primary" onClick={handleAddBlurb} size="sm">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Blurb
               </Button>
@@ -95,7 +95,7 @@ export function WorkHistoryDetailTabs({ selectedRole }: WorkHistoryDetailTabsPro
                     <p className="text-sm mb-4">
                       Create blurbs from your achievements and experiences in this role.
                     </p>
-                    <Button onClick={handleAddBlurb}>
+                    <Button variant="primary" onClick={handleAddBlurb}>
                       <Plus className="h-4 w-4 mr-2" />
                       Add Your First Blurb
                     </Button>
@@ -108,7 +108,7 @@ export function WorkHistoryDetailTabs({ selectedRole }: WorkHistoryDetailTabsPro
           <div className="space-y-4 h-full">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold">External Links</h3>
-              <Button onClick={handleAddExternalLink} size="sm">
+              <Button variant="primary" onClick={handleAddExternalLink} size="sm">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Link
               </Button>
@@ -155,7 +155,7 @@ export function WorkHistoryDetailTabs({ selectedRole }: WorkHistoryDetailTabsPro
                     <p className="text-sm mb-4">
                       Add links to case studies, portfolio pieces, articles, or other relevant work.
                     </p>
-                    <Button onClick={handleAddExternalLink}>
+                    <Button variant="primary" onClick={handleAddExternalLink}>
                       <Plus className="h-4 w-4 mr-2" />
                       Add Your First Link
                     </Button>

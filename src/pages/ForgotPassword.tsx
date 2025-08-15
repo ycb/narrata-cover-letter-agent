@@ -56,12 +56,12 @@ const ForgotPassword = () => {
                 </div>
 
                 <div className="space-y-3 pt-4">
-                  <Button variant="brand" className="w-full" onClick={() => setIsSubmitted(false)}>
+                  <Button variant="primary" className="w-full" onClick={() => setIsSubmitted(false)}>
                     Resend Email
                   </Button>
                   
                   <Link to="/signin">
-                    <Button variant="ghost" className="w-full gap-2">
+                    <Button variant="tertiary" className="w-full gap-2">
                       <ArrowLeft className="h-4 w-4" />
                       Back to Sign In
                     </Button>
@@ -89,12 +89,12 @@ const ForgotPassword = () => {
                   </p>
                 </div>
 
-                <Button type="submit" className="w-full" variant="brand" size="lg">
+                <Button type="submit" className="w-full" variant="primary" size="lg">
                   Send Reset Link
                 </Button>
 
                 <Link to="/signin">
-                  <Button variant="ghost" className="w-full gap-2">
+                  <Button variant="tertiary" className="w-full gap-2">
                     <ArrowLeft className="h-4 w-4" />
                     Back to Sign In
                   </Button>

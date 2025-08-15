@@ -44,11 +44,6 @@ export const Header = ({ currentPage }: HeaderProps) => {
         </div>
 
         <div className="flex items-center gap-4">
-          <Badge variant="secondary" className="bg-success-light text-success">
-            <div className="h-2 w-2 rounded-full bg-success mr-2" />
-            Truth-Based
-          </Badge>
-          
           <Button variant="ghost" size="icon">
             <Settings className="h-4 w-4" />
           </Button>

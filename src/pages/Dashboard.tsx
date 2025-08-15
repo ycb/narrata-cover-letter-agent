@@ -119,9 +119,9 @@ const Dashboard = () => {
                         className="pl-9 w-64"
                       />
                     </div>
-                    <Button variant="outline" size="icon">
-                      <Filter className="h-4 w-4" />
-                    </Button>
+                                <Button variant="tertiary" size="icon">
+              <Filter className="h-4 w-4" />
+            </Button>
                   </div>
                 </div>
               </CardHeader>
@@ -130,7 +130,7 @@ const Dashboard = () => {
                   <BlurbCard key={blurb.id} {...blurb} />
                 ))}
                 <div className="pt-4">
-                  <Button variant="outline" className="w-full">
+                  <Button variant="secondary" className="w-full">
                     View All Blurbs
                     <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
@@ -147,15 +147,15 @@ const Dashboard = () => {
                 <CardTitle className="text-lg">Quick Actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button variant="outline" className="w-full justify-start">
+                <Button variant="secondary" className="w-full justify-start">
                   <Plus className="h-4 w-4 mr-2" />
                   Add New Blurb
                 </Button>
-                <Button variant="outline" className="w-full justify-start">
+                <Button variant="secondary" className="w-full justify-start">
                   <Briefcase className="h-4 w-4 mr-2" />
                   Update Work History
                 </Button>
-                <Button variant="outline" className="w-full justify-start">
+                <Button variant="secondary" className="w-full justify-start">
                   <Award className="h-4 w-4 mr-2" />
                   View PM Assessment
                 </Button>

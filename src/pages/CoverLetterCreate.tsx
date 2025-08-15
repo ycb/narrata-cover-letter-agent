@@ -86,7 +86,7 @@ const CoverLetterCreate = () => {
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-4">
-              <Button variant="outline" size="sm" className="flex items-center gap-2">
+              <Button variant="secondary" size="sm" className="flex items-center gap-2">
                 <ArrowLeft className="h-4 w-4" />
                 Back to Cover Letters
               </Button>
@@ -221,10 +221,10 @@ const CoverLetterCreate = () => {
                       <div className="flex items-center justify-between">
                         <CardTitle>Generated Cover Letter</CardTitle>
                         <div className="flex gap-2">
-                          <Button variant="outline" size="sm">
+                          <Button variant="secondary" size="sm">
                             <RefreshCw className="h-4 w-4" />
                           </Button>
-                          <Button variant="outline" size="sm">
+                          <Button variant="secondary" size="sm">
                             <Save className="h-4 w-4" />
                           </Button>
                         </div>
@@ -255,7 +255,7 @@ const CoverLetterCreate = () => {
                   </Card>
 
                   <div className="flex gap-3">
-                    <Button variant="outline" className="flex-1">
+                    <Button variant="secondary" className="flex-1">
                       Save Draft
                     </Button>
                     <Button className="flex-1 flex items-center gap-2">

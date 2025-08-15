@@ -117,12 +117,12 @@ export const BlurbCard = ({
           {lastUsed && <span>Last used {lastUsed}</span>}
         </div>
         
-        <div className="flex gap-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Button size="sm" variant="outline">
+        <div className="flex gap-2 mt-4">
+          <Button size="sm" variant="tertiary">
             <Edit className="h-3 w-3 mr-1" />
             Edit
           </Button>
-          <Button size="sm" variant="outline">
+          <Button size="sm" variant="tertiary">
             <Copy className="h-3 w-3 mr-1" />
             Copy
           </Button>

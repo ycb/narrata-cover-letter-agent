@@ -63,7 +63,7 @@ export function WorkHistoryOnboarding({
                 </p>
               </div>
               <Button 
-                variant="outline" 
+                variant="secondary" 
                 onClick={onUploadResume}
                 className="w-full group-hover:bg-muted transition-colors"
               >

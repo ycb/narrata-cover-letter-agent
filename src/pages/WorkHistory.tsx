@@ -176,18 +176,9 @@ export default function WorkHistory() {
     console.log("View LinkedIn profile");
   };
 
-  const handleRemoveLinkedInConnection = () => {
-    console.log("Remove LinkedIn connection");
-  };
-
   const handleViewResume = () => {
-    // TODO: Open resume viewer
+    // TODO: Open resume viewer with replace option
     console.log("View resume");
-  };
-
-  const handleReplaceResume = () => {
-    // TODO: Implement resume replacement
-    console.log("Replace resume");
   };
 
   const hasWorkHistory = workHistory.length > 0;
@@ -207,7 +198,7 @@ export default function WorkHistory() {
           
           {hasWorkHistory && (
             <div className="flex gap-3">
-              <Button>
+              <Button variant="primary">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Company
               </Button>
@@ -223,9 +214,7 @@ export default function WorkHistory() {
             onConnectLinkedIn={handleConnectLinkedIn}
             onUploadResume={handleUploadResume}
             onViewLinkedInProfile={handleViewLinkedInProfile}
-            onRemoveLinkedInConnection={handleRemoveLinkedInConnection}
             onViewResume={handleViewResume}
-            onReplaceResume={handleReplaceResume}
           />
         )}
 

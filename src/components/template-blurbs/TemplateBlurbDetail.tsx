@@ -98,7 +98,7 @@ export const TemplateBlurbDetail = ({
           </div>
           
           <div className="flex gap-2">
-            <Button variant="outline" onClick={onCancel}>
+            <Button variant="secondary" onClick={onCancel}>
               <X className="h-4 w-4 mr-2" />
               Cancel
             </Button>

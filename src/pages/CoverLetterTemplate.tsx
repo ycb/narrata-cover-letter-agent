@@ -410,7 +410,7 @@ const CoverLetterTemplate = () => {
                           
                           {section.type === 'paragraph' && (
                             <Button
-                              variant="outline"
+                              variant="secondary"
                               size="sm"
                               onClick={() => removeSection(section.id)}
                               className="text-destructive hover:text-destructive"
@@ -519,7 +519,7 @@ const CoverLetterTemplate = () => {
                       </CardDescription>
                     </div>
                     <Button 
-                      variant="outline" 
+                      variant="tertiary" 
                       onClick={() => {
                         setShowBlurbSelector(false);
                         setSelectedSection(null);
@@ -535,7 +535,7 @@ const CoverLetterTemplate = () => {
                     <Card className="border-dashed">
                       <CardContent className="p-4 text-center">
                         <Button 
-                          variant="outline"
+                          variant="secondary"
                           onClick={() => {
                             const sectionType = template.sections.find(s => s.id === selectedSection)?.type as 'intro' | 'closer' | 'signature';
                             setShowBlurbSelector(false);
@@ -604,7 +604,7 @@ const CoverLetterTemplate = () => {
                   </p>
                   <div className="flex gap-3">
                     <Button 
-                      variant="cta-primary" 
+                      variant="primary" 
                       className="flex-1"
                       asChild
                     >
@@ -613,7 +613,7 @@ const CoverLetterTemplate = () => {
                       </Link>
                     </Button>
                     <Button 
-                      variant="cta-secondary" 
+                      variant="secondary" 
                       className="flex-1"
                       onClick={() => {
                         // TODO: Add navigation to pricing page

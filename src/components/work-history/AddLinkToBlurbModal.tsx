@@ -225,7 +225,7 @@ export function AddLinkToBlurbModal({
                   )}
                   
                   <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={handleClose}>
+                    <Button variant="secondary" onClick={handleClose}>
                       Cancel
                     </Button>
                     <Button onClick={handleInsertExisting} disabled={!displayText.trim() || !selectedLinkId}>
@@ -290,7 +290,7 @@ export function AddLinkToBlurbModal({
                   </div>
                   
                   <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={handleClose}>
+                    <Button variant="secondary" onClick={handleClose}>
                       Cancel
                     </Button>
                     <Button onClick={handleInsertNew} disabled={!displayText.trim() || !newUrl.trim() || !newLabel.trim()}>
