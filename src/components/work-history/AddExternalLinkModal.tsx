@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -92,6 +92,9 @@ export function AddExternalLinkModal({ open, onOpenChange, roleId, onLinkAdded }
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Add External Link</DialogTitle>
+          <DialogDescription>
+            Add a new external link to reference in your blurbs and achievements.
+          </DialogDescription>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">

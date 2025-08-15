@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -96,6 +96,9 @@ export function AddBlurbModal({ open, onOpenChange, roleId, existingLinks, onBlu
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Add New Blurb</DialogTitle>
+          <DialogDescription>
+            Create a new blurb to describe your achievements and experiences.
+          </DialogDescription>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -116,10 +119,7 @@ export function AddBlurbModal({ open, onOpenChange, roleId, existingLinks, onBlu
                 type="button" 
                 variant="outline" 
                 size="sm"
-                onClick={() => {
-                  console.log("Add Link button clicked");
-                  setAddLinkModalOpen(true);
-                }}
+                onClick={() => setAddLinkModalOpen(true)}
               >
                 <Link className="h-3 w-3 mr-1" />
                 Add Link
@@ -180,10 +180,7 @@ export function AddBlurbModal({ open, onOpenChange, roleId, existingLinks, onBlu
         
         <AddLinkToBlurbModal
           open={addLinkModalOpen}
-          onOpenChange={(open) => {
-            console.log("AddLinkToBlurbModal onOpenChange:", open);
-            setAddLinkModalOpen(open);
-          }}
+          onOpenChange={setAddLinkModalOpen}
           existingLinks={existingLinks}
           onLinkInserted={handleInsertLink}
         />

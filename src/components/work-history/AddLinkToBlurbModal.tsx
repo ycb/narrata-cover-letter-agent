@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,8 +23,6 @@ export function AddLinkToBlurbModal({
   existingLinks, 
   onLinkInserted 
 }: AddLinkToBlurbModalProps) {
-  console.log("AddLinkToBlurbModal render - open:", open, "existingLinks:", existingLinks?.length);
-  
   const [displayText, setDisplayText] = useState("");
   const [selectedLinkId, setSelectedLinkId] = useState("");
   const [newUrl, setNewUrl] = useState("");
@@ -120,6 +118,9 @@ export function AddLinkToBlurbModal({
       <DialogContent className="sm:max-w-[700px]">
         <DialogHeader>
           <DialogTitle>Add Link to Blurb</DialogTitle>
+          <DialogDescription>
+            Choose display text and select an existing link or create a new one to insert into your blurb.
+          </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4">
