@@ -383,15 +383,23 @@ const CoverLetterTemplate = () => {
                               id={`static-${section.id}`}
                               checked={section.isStatic}
                               onCheckedChange={(checked) => {
-                                updateSection(section.id, { isStatic: checked });
-                                // If toggling to dynamic (not static), show blurb selector
-                                if (!checked) {
+                                if (checked) {
+                                  // If turning static ON, show blurb selector first
                                   setSelectedSection(section.id);
                                   if (section.type === 'intro' || section.type === 'closer' || section.type === 'signature') {
                                     setShowBlurbSelector(true);
                                   } else {
                                     setShowWorkHistorySelector(true);
                                   }
+                                } else {
+                                  // If turning static OFF, just update the section
+                                  updateSection(section.id, { 
+                                    isStatic: false, 
+                                    staticContent: undefined,
+                                    blurbCriteria: {
+                                      goals: ["describe the purpose of this paragraph"]
+                                    }
+                                  });
                                 }
                               }}
                             />
