@@ -35,6 +35,12 @@ export function PrototypeStateBanner() {
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-gray-800 border-t border-gray-600">
       <div className="container mx-auto px-4 py-2">
         <div className="flex items-center justify-center gap-3 text-sm">
+          <span className="text-gray-400">
+            Viewing: {getCurrentState() === 'marketing' ? 'MS' : `WA: ${getCurrentState() === 'existing-user' ? 'EU' : 'NUO'}`}
+          </span>
+          
+          <div className="w-px h-4 bg-gray-600"></div>
+          
           <button
             className={`px-3 py-1 rounded ${
               getCurrentState() === 'marketing' 
