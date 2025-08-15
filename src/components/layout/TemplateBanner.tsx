@@ -21,25 +21,29 @@ export const TemplateBanner = ({ view, onViewChange, onDone }: TemplateBannerPro
           </div>
           
           {/* Tabs */}
-          <div className="flex items-center justify-center gap-1 mb-4">
-            <Button
-              variant={view === 'template' ? 'cta-secondary' : 'ghost'}
+          <div className="flex items-center justify-center gap-8 mb-4">
+            <button
               onClick={() => onViewChange('template')}
-              className="flex items-center gap-2"
-              size="sm"
+              className={`flex items-center gap-2 text-sm transition-colors ${
+                view === 'template' 
+                  ? 'font-bold text-foreground border-b-2 border-cta-primary pb-1' 
+                  : 'font-medium text-muted-foreground hover:text-foreground'
+              }`}
             >
               <FileText className="h-4 w-4" />
               Template
-            </Button>
-            <Button
-              variant={view === 'library' ? 'cta-secondary' : 'ghost'}
+            </button>
+            <button
               onClick={() => onViewChange('library')}
-              className="flex items-center gap-2"
-              size="sm"
+              className={`flex items-center gap-2 text-sm transition-colors ${
+                view === 'library' 
+                  ? 'font-bold text-foreground border-b-2 border-cta-primary pb-1' 
+                  : 'font-medium text-muted-foreground hover:text-foreground'
+              }`}
             >
               <Library className="h-4 w-4" />
               Blurb Library
-            </Button>
+            </button>
           </div>
           
           {/* Descriptions */}
