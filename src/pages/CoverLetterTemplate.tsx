@@ -165,6 +165,11 @@ const CoverLetterTemplate = () => {
   const [creatingBlurbType, setCreatingBlurbType] = useState<'intro' | 'closer' | 'signature' | null>(null);
   const [view, setView] = useState<'template' | 'library'>('template');
 
+  const getBlurbTitleByContent = (content: string, sectionType: string) => {
+    const blurb = templateBlurbs.find(b => b.content === content && b.type === sectionType);
+    return blurb?.title || 'Custom Content';
+  };
+
   const getSectionTypeLabel = (type: string) => {
     switch (type) {
       case 'intro': return 'Introduction';
@@ -422,15 +427,28 @@ const CoverLetterTemplate = () => {
                     <CardContent>
                       {section.isStatic ? (
                         <div className="space-y-4">
-                          <div>
-                            <Label htmlFor={`content-${section.id}`}>Content</Label>
-                            <Textarea
-                              id={`content-${section.id}`}
-                              value={section.staticContent || ''}
-                              onChange={(e) => updateSection(section.id, { staticContent: e.target.value })}
-                              rows={3}
-                              className="mt-2"
-                            />
+                          <div className="flex items-center justify-between">
+                            <Label className="text-sm font-medium">
+                              {getBlurbTitleByContent(section.staticContent || '', section.type)}
+                            </Label>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedSection(section.id);
+                                if (section.type === 'intro' || section.type === 'closer' || section.type === 'signature') {
+                                  setShowBlurbSelector(true);
+                                } else {
+                                  setShowWorkHistorySelector(true);
+                                }
+                              }}
+                              className="h-8"
+                            >
+                              Edit
+                            </Button>
+                          </div>
+                          <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded border">
+                            {section.staticContent}
                           </div>
                         </div>
                       ) : (
