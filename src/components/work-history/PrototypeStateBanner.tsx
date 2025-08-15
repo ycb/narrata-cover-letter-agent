@@ -41,18 +41,7 @@ export function PrototypeStateBanner() {
           
           <div className="w-px h-4 bg-gray-600"></div>
           
-          <button
-            className={`px-3 py-1 rounded ${
-              getCurrentState() === 'marketing' 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-            }`}
-            onClick={handleMarketingSite}
-          >
-            Marketing Site
-          </button>
-          
-          <span className="text-gray-400">Web App:</span>
+          <span className="text-gray-400">Web App</span>
           
           <button
             className={`px-3 py-1 rounded ${
