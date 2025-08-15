@@ -451,26 +451,8 @@ const CoverLetterTemplate = () => {
                         </div>
                       ) : (
                         <div className="space-y-4">
-                          <div>
-                            <Label htmlFor={`goals-${section.id}`}>Content Goals</Label>
-                            <Textarea
-                              id={`goals-${section.id}`}
-                              value={section.blurbCriteria?.goals.join('\n') || ''}
-                              onChange={(e) => updateSection(section.id, {
-                                blurbCriteria: {
-                                  goals: e.target.value.split('\n').map(goal => goal.trim()).filter(Boolean)
-                                }
-                              })}
-                              placeholder="Describe the purpose and goals for this paragraph..."
-                              rows={2}
-                              className="mt-2"
-                            />
-                          </div>
-                          
-                          <div className="pt-2">
-                            <Badge variant="outline" className="text-xs">
-                              LLM will suggest best matching blurbs based on job description and goals
-                            </Badge>
+                          <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded border">
+                            Use best matching {getSectionTypeLabel(section.type).toLowerCase()} blurb based on job description and goals
                           </div>
                         </div>
                       )}
