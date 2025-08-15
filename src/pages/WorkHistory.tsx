@@ -4,7 +4,7 @@ import { WorkHistoryMaster } from "@/components/work-history/WorkHistoryMaster";
 import { WorkHistoryDetail } from "@/components/work-history/WorkHistoryDetail";
 import { DataSourcesStatus } from "@/components/work-history/DataSourcesStatus";
 import { WorkHistoryOnboarding } from "@/components/work-history/WorkHistoryOnboarding";
-import { PrototypeStateBanner } from "@/components/work-history/PrototypeStateBanner";
+import { usePrototype } from "@/contexts/PrototypeContext";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import type { WorkHistoryCompany, WorkHistoryRole } from "@/types/workHistory";
@@ -97,8 +97,8 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
 ];
 
 export default function WorkHistory() {
-  // Prototype state management
-  const [prototypeState, setPrototypeState] = useState<'marketing' | 'new-user' | 'existing-user'>('new-user');
+  // Use global prototype state
+  const { prototypeState } = usePrototype();
   
   // For existing user state, simulate having data
   const workHistory = prototypeState === 'existing-user' ? sampleWorkHistory : [];
@@ -163,37 +163,10 @@ export default function WorkHistory() {
     console.log("Replace resume");
   };
 
-  const handlePrototypeStateChange = (state: 'marketing' | 'new-user' | 'existing-user') => {
-    setPrototypeState(state);
-  };
-
   const hasWorkHistory = workHistory.length > 0;
 
-  // If marketing state, show a simple marketing placeholder
-  if (prototypeState === 'marketing') {
-    return (
-      <div className="min-h-screen bg-background pb-20">
-        <Header />
-        <main className="container mx-auto px-4 py-8">
-          <div className="flex items-center justify-center min-h-[600px]">
-            <div className="text-center space-y-4">
-              <h1 className="text-4xl font-bold text-foreground">Marketing Site</h1>
-              <p className="text-muted-foreground text-lg">
-                This would be your marketing/landing page
-              </p>
-            </div>
-          </div>
-        </main>
-        <PrototypeStateBanner
-          currentState={prototypeState}
-          onStateChange={handlePrototypeStateChange}
-        />
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-background">
       <Header />
       
       <main className="container mx-auto px-4 py-8">
@@ -258,12 +231,6 @@ export default function WorkHistory() {
           />
         )}
       </main>
-
-      {/* Prototype State Banner */}
-      <PrototypeStateBanner
-        currentState={prototypeState}
-        onStateChange={handlePrototypeStateChange}
-      />
     </div>
   );
 }
