@@ -36,7 +36,7 @@ export function PrototypeStateBanner() {
       <div className="container mx-auto px-4 py-2">
         <div className="flex items-center justify-center gap-3 text-sm">
           <span className="text-gray-400">
-            Viewing: {getCurrentState() === 'marketing' ? 'Marketing Site' : ''}
+            Viewing: {getCurrentState() === 'marketing' ? 'Marketing Site' : getCurrentState() === 'existing-user' ? 'Existing User' : 'New User Onboarding'}
           </span>
           
           <button

@@ -10,20 +10,35 @@ import {
   Plus, 
   Target,
   Tags,
-  User
+  User,
+  MoreHorizontal,
+  Edit,
+  Copy,
+  Files,
+  Trash2
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { WorkHistoryCompany, WorkHistoryRole } from "@/types/workHistory";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface WorkHistoryDetailProps {
   selectedCompany: WorkHistoryCompany | null;
   selectedRole: WorkHistoryRole | null;
   onRoleSelect?: (role: WorkHistoryRole) => void;
+  onAddRole?: () => void;
 }
 
 export const WorkHistoryDetail = ({ 
   selectedCompany, 
   selectedRole,
-  onRoleSelect
+  onRoleSelect,
+  onAddRole,
 }: WorkHistoryDetailProps) => {
   const formatDateRange = (startDate: string, endDate?: string) => {
     const start = new Date(startDate).toLocaleDateString('en-US', { 
@@ -73,10 +88,10 @@ export const WorkHistoryDetail = ({
                     <Calendar className="h-4 w-4" />
                     {formatDateRange(selectedRole.startDate, selectedRole.endDate)}
                   </div>
-              <div className="flex items-center gap-1">
-                <FileText className="h-4 w-4" />
-                {selectedRole.blurbs.length} blurb{selectedRole.blurbs.length !== 1 ? 's' : ''} • {selectedRole.externalLinks.length} link{selectedRole.externalLinks.length !== 1 ? 's' : ''}
-              </div>
+                  <div className="flex items-center gap-1">
+                    <FileText className="h-4 w-4" />
+                    {selectedRole.blurbs.length} blurb{selectedRole.blurbs.length !== 1 ? 's' : ''} • {selectedRole.externalLinks.length} link{selectedRole.externalLinks.length !== 1 ? 's' : ''}
+                  </div>
                 </div>
 
                 {selectedRole.description && (
@@ -84,59 +99,84 @@ export const WorkHistoryDetail = ({
                 )}
               </div>
               
-              <Button variant="primary" size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Role
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="h-8 w-8 p-0">
+                    <span className="sr-only">Open menu</span>
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={onAddRole}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit Role
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem>
+                    <Trash2 className="mr-2 h-4 w-4 text-red-500" />
+                    Delete Role
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </CardHeader>
-        </Card>
-
-        {/* Role Tags */}
-        {selectedRole.tags.length > 0 && (
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-2 mb-3">
-                <Tags className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Role Tags</span>
+          
+          <CardContent className="pt-0">
+            {/* Role Tags */}
+            {selectedRole.tags.length > 0 && (
+              <div className="mb-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <Tags className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Role Tags</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {selectedRole.tags.map((tag) => (
+                    <Badge key={tag} variant="secondary">
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {selectedRole.tags.map((tag) => (
-                  <Badge key={tag} variant="secondary">
-                    {tag}
-                  </Badge>
-                ))}
+            )}
+            
+            {/* Key Achievements */}
+            {selectedRole.achievements.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <Target className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Key Achievements</span>
+                </div>
+                <ul className="space-y-2">
+                  {selectedRole.achievements.map((achievement, index) => (
+                    <li key={index} className="flex items-start gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-primary mt-2 shrink-0" />
+                      <span className="text-sm text-foreground">{achievement}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Achievements */}
-        {selectedRole.achievements.length > 0 && (
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Target className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Key Achievements</span>
-              </div>
-              <ul className="space-y-2">
-                {selectedRole.achievements.map((achievement, index) => (
-                  <li key={index} className="flex items-start gap-2">
-                    <div className="h-1.5 w-1.5 rounded-full bg-primary mt-2 shrink-0" />
-                    <span className="text-sm text-foreground">{achievement}</span>
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Tabs for Associated Blurbs and External Links */}
-        <Card className="flex-1 flex flex-col">
-          <CardContent className="flex-1 p-6">
-            <WorkHistoryDetailTabs selectedRole={selectedRole} />
+            )}
           </CardContent>
         </Card>
+
+        {/* Tabs for Associated Blurbs and External Links */}
+        <div className="bg-background">
+          <div className="container mx-auto px-4">
+            <div className="max-w-4xl mx-auto">
+              <Tabs defaultValue="blurbs" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="blurbs">Associated Blurbs ({selectedRole?.blurbs.length || 0})</TabsTrigger>
+                  <TabsTrigger value="links">External Links ({selectedRole?.externalLinks.length || 0})</TabsTrigger>
+                </TabsList>
+                
+                {/* Tab Content - No outer card wrapper */}
+                <div className="mt-6">
+                  <WorkHistoryDetailTabs selectedRole={selectedRole} />
+                </div>
+              </Tabs>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -145,6 +185,7 @@ export const WorkHistoryDetail = ({
   if (selectedCompany) {
     return (
       <div className="space-y-6 h-full flex flex-col">
+        {/* Company Card */}
         <Card>
           <CardHeader>
             <div className="flex items-start justify-between">
@@ -171,34 +212,53 @@ export const WorkHistoryDetail = ({
                 </div>
               </div>
               
-              <Button variant="primary">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Role
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="h-8 w-8 p-0">
+                    <span className="sr-only">Open menu</span>
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={onAddRole}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Role
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit Company
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <Trash2 className="mr-2 h-4 w-4 text-red-500" />
+                    Delete Company
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </CardHeader>
+          
+          <CardContent className="pt-0">
+            {/* Company Tags */}
+            {selectedCompany.tags.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Tags className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Company Tags</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {selectedCompany.tags.map((tag) => (
+                    <Badge key={tag} variant="secondary">
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
         </Card>
 
-        {/* Company Tags */}
-        {selectedCompany.tags.length > 0 && (
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-2 mb-3">
-                <Tags className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Company Tags</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {selectedCompany.tags.map((tag) => (
-                  <Badge key={tag} variant="secondary">
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Roles Overview */}
+        {/* Roles Overview Card */}
         <Card className="flex-1 flex flex-col">
           <CardHeader>
             <CardTitle>Roles at {selectedCompany.name}</CardTitle>

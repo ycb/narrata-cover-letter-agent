@@ -12,6 +12,7 @@ interface WorkHistoryMasterProps {
   selectedRole: WorkHistoryRole | null;
   onCompanySelect: (company: WorkHistoryCompany) => void;
   onRoleSelect: (role: WorkHistoryRole) => void;
+  onAddRole?: () => void;
 }
 
 export const WorkHistoryMaster = ({
@@ -19,7 +20,8 @@ export const WorkHistoryMaster = ({
   selectedCompany,
   selectedRole,
   onCompanySelect,
-  onRoleSelect
+  onRoleSelect,
+  onAddRole
 }: WorkHistoryMasterProps) => {
   const formatDateRange = (startDate: string, endDate?: string) => {
     const start = new Date(startDate).toLocaleDateString('en-US', { 
@@ -48,10 +50,21 @@ export const WorkHistoryMaster = ({
   return (
     <Card className="h-full flex flex-col">
       <CardHeader className="pb-4">
-        <h2 className="text-xl font-semibold">Companies & Roles</h2>
-        <p className="text-sm text-muted-foreground">
-          Select a company or role to view details
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold">Companies & Roles</h2>
+            <p className="text-sm text-muted-foreground">
+              Select a company or role to view details
+            </p>
+          </div>
+          {selectedCompany && onAddRole && (
+            <Button variant="outline" size="sm" onClick={onAddRole}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Role
+            </Button>
+          )}
+
+        </div>
       </CardHeader>
       
       <CardContent className="flex-1 overflow-auto px-0">

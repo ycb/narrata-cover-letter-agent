@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { PrototypeProvider } from "@/contexts/PrototypeContext";
 import { PrototypeStateBanner } from "@/components/work-history/PrototypeStateBanner";
+import { Header } from "@/components/layout/Header";
 import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
 import WorkHistory from "./pages/WorkHistory";
@@ -21,6 +22,8 @@ const queryClient = new QueryClient();
 function AppLayout() {
   return (
     <div className="pb-16">
+      {/* Global Header - show on all authenticated pages */}
+      <Header />
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/dashboard" element={<Dashboard />} />

@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { Header } from "@/components/layout/Header";
 import { WorkHistoryMaster } from "@/components/work-history/WorkHistoryMaster";
 import { WorkHistoryDetail } from "@/components/work-history/WorkHistoryDetail";
 import { DataSourcesStatus } from "@/components/work-history/DataSourcesStatus";
 import { WorkHistoryOnboarding } from "@/components/work-history/WorkHistoryOnboarding";
+import { AddCompanyModal } from "@/components/work-history/AddCompanyModal";
+import { AddRoleModal } from "@/components/work-history/AddRoleModal";
 import { usePrototype } from "@/contexts/PrototypeContext";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -50,14 +51,18 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
             roleId: "1-1",
             url: "https://medium.com/@example/product-strategy-guide",
             label: "Product Strategy Framework - Medium Article",
-            tags: ["Product Management", "Strategy", "Thought Leadership"]
+            tags: ["Product Management", "Strategy", "Thought Leadership"],
+            timesUsed: 5,
+            lastUsed: "2024-01-20"
           },
           {
             id: "link-2",
             roleId: "1-1",
             url: "https://github.com/example/product-dashboard",
             label: "Analytics Dashboard - Open Source Project",
-            tags: ["Analytics", "Open Source", "Dashboard"]
+            tags: ["Analytics", "Open Source", "Dashboard"],
+            timesUsed: 3,
+            lastUsed: "2024-01-15"
           }
         ]
       },
@@ -115,7 +120,9 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
             roleId: "2-1",
             url: "https://techcrunch.com/2020/05/15/startup-xyz-raises-series-a",
             label: "Series A Funding Announcement - TechCrunch",
-            tags: ["Press", "Funding", "Startup"]
+            tags: ["Press", "Funding", "Startup"],
+            timesUsed: 2,
+            lastUsed: "2024-01-10"
           }
         ]
       }
@@ -136,6 +143,10 @@ export default function WorkHistory() {
   
   const [selectedCompany, setSelectedCompany] = useState<WorkHistoryCompany | null>(firstCompany);
   const [selectedRole, setSelectedRole] = useState<WorkHistoryRole | null>(firstRole);
+
+  // Modal state
+  const [isAddCompanyModalOpen, setIsAddCompanyModalOpen] = useState(false);
+  const [isAddRoleModalOpen, setIsAddRoleModalOpen] = useState(false);
 
   // Update selected items when prototype state changes
   useEffect(() => {
@@ -158,6 +169,19 @@ export default function WorkHistory() {
 
   const handleRoleSelect = (role: WorkHistoryRole) => {
     setSelectedRole(role);
+  };
+
+  // Modal handlers
+  const handleAddCompany = () => {
+    // TODO: Implement actual company creation logic
+    console.log("Company added successfully");
+    setIsAddCompanyModalOpen(false);
+  };
+
+  const handleAddRole = () => {
+    // TODO: Implement actual role creation logic
+    console.log("Role added successfully");
+    setIsAddRoleModalOpen(false);
   };
 
   // Data source handlers (for existing user state)
@@ -185,8 +209,6 @@ export default function WorkHistory() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
-      
       <main className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -198,7 +220,7 @@ export default function WorkHistory() {
           
           {hasWorkHistory && (
             <div className="flex gap-3">
-              <Button variant="primary">
+              <Button variant="primary" onClick={() => setIsAddCompanyModalOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Company
               </Button>
@@ -237,6 +259,7 @@ export default function WorkHistory() {
                 selectedCompany={selectedCompany}
                 selectedRole={selectedRole}
                 onRoleSelect={handleRoleSelect}
+                onAddRole={() => setIsAddRoleModalOpen(true)}
               />
             </div>
           </div>
@@ -246,6 +269,20 @@ export default function WorkHistory() {
             onUploadResume={handleUploadResume}
           />
         )}
+
+        {/* Modals */}
+        <AddCompanyModal
+          open={isAddCompanyModalOpen}
+          onOpenChange={setIsAddCompanyModalOpen}
+          onCompanyAdded={handleAddCompany}
+        />
+        
+        <AddRoleModal
+          open={isAddRoleModalOpen}
+          onOpenChange={setIsAddRoleModalOpen}
+          company={selectedCompany}
+          onRoleAdded={handleAddRole}
+        />
       </main>
     </div>
   );

@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Upload, Save, ArrowLeft, Plus, GripVertical, Trash2, Edit, FileText, Library } from "lucide-react";
-import { Header } from "@/components/layout/Header";
 import { TemplateBanner } from "@/components/layout/TemplateBanner";
 import { Link, useNavigate } from "react-router-dom";
 import { TemplateBlurbHierarchical } from "@/components/template-blurbs/TemplateBlurbHierarchical";
@@ -153,21 +153,23 @@ const mockTemplate: CoverLetterTemplate = {
   updatedAt: "2024-01-01"
 };
 
-const CoverLetterTemplate = () => {
+export default function CoverLetterTemplate() {
   const navigate = useNavigate();
-  const [template, setTemplate] = useState(mockTemplate);
+  const [template, setTemplate] = useState<CoverLetterTemplate>(mockTemplate);
   const [templateBlurbs, setTemplateBlurbs] = useState<TemplateBlurb[]>(mockTemplateBlurbs);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const [showBlurbSelector, setShowBlurbSelector] = useState(false);
-  const [showWorkHistorySelector, setShowWorkHistorySelector] = useState(false);
-  const [showBlurbLibrary, setShowBlurbLibrary] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showBlurbDetail, setShowBlurbDetail] = useState(false);
+  const [selectedBlurb, setSelectedBlurb] = useState<TemplateBlurb | null>(null);
+  const [editingSection, setEditingSection] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState("");
   const [editingBlurb, setEditingBlurb] = useState<TemplateBlurb | null>(null);
   const [creatingBlurbType, setCreatingBlurbType] = useState<'intro' | 'closer' | 'signature' | null>(null);
-  const [view, setView] = useState<'template' | 'library'>('template');
-  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showWorkHistorySelector, setShowWorkHistorySelector] = useState(false);
 
   const getBlurbTitleByContent = (content: string, sectionType: string) => {
-    const blurb = templateBlurbs.find(b => b.content === content && b.type === sectionType);
+    const blurb = mockTemplateBlurbs.find(b => b.content === content && b.type === sectionType);
     return blurb?.title || 'Custom Content';
   };
 
@@ -218,11 +220,10 @@ const CoverLetterTemplate = () => {
   };
 
   const getAvailableBlurbs = (sectionType: string) => {
-    return templateBlurbs.filter(blurb => blurb.type === sectionType);
+    return mockTemplateBlurbs.filter(blurb => blurb.type === sectionType);
   };
 
   const handleCreateBlurb = (type: 'intro' | 'closer' | 'signature') => {
-    setCreatingBlurbType(type);
     setEditingBlurb(null);
   };
 
@@ -291,7 +292,6 @@ const CoverLetterTemplate = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
       <TemplateBanner
         onDone={handleDone}
       />
@@ -300,338 +300,299 @@ const CoverLetterTemplate = () => {
       <div className="bg-background">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
-            <div className="flex items-center justify-center gap-8 py-2">
-              <button
-                onClick={() => setView('template')}
-                className={`text-sm transition-colors px-3 pb-2 ${
-                  view === 'template' 
-                    ? 'font-bold text-foreground border-b-4 border-cta-primary' 
-                    : 'font-medium text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                Template
-              </button>
-              <button
-                onClick={() => setView('library')}
-                className={`text-sm transition-colors px-3 pb-2 ${
-                  view === 'library' 
-                    ? 'font-bold text-foreground border-b-4 border-cta-primary' 
-                    : 'font-medium text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                Blurb Library
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <main className="container mx-auto px-4 pb-6">
-        <div className="max-w-4xl mx-auto">
-
-          {/* Content Area */}
-          {view === 'template' ? (
-            <>
-              {/* Template Settings */}
-              <Card className="mb-6">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle>Template Settings</CardTitle>
-                    <button 
-                      onClick={() => setShowUploadModal(true)}
-                      className="text-sm text-muted-foreground hover:text-foreground underline"
-                    >
-                      Upload New Cover Letter
-                    </button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="template-name">Template Name</Label>
-                      <Input
-                        id="template-name"
-                        value={template.name}
-                        onChange={(e) => setTemplate(prev => ({ ...prev, name: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Sections */}
-              <div className="space-y-4">
-                {template.sections.map((section, index) => (
-                  <Card key={section.id} className="relative">
+            <Tabs defaultValue="template" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="template">Template</TabsTrigger>
+                <TabsTrigger value="library">Blurb Library</TabsTrigger>
+              </TabsList>
+              
+              {/* Content Area */}
+              <TabsContent value="template">
+                <div className="mt-6">
+                  {/* Template Settings */}
+                  <Card className="mb-6">
                     <CardHeader>
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <GripVertical className="h-5 w-5 text-muted-foreground" />
-                          <div>
-                            <CardTitle className="text-lg">
-                              {getSectionTypeLabel(section.type)} {section.type === 'paragraph' ? `${index}` : ''}
-                            </CardTitle>
-                            <CardDescription>
-                              {section.isStatic ? 'Static content' : 'Dynamic blurb matching'}
-                            </CardDescription>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-2">
-                            <Label htmlFor={`static-${section.id}`} className="text-sm">
-                              Static
-                            </Label>
-                            <Switch
-                              id={`static-${section.id}`}
-                              checked={section.isStatic}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  // If turning static ON, show blurb selector first
-                                  setSelectedSection(section.id);
-                                  if (section.type === 'intro' || section.type === 'closer' || section.type === 'signature') {
-                                    setShowBlurbSelector(true);
-                                  } else {
-                                    setShowWorkHistorySelector(true);
-                                  }
-                                } else {
-                                  // If turning static OFF, just update the section
-                                  updateSection(section.id, { 
-                                    isStatic: false, 
-                                    staticContent: undefined,
-                                    blurbCriteria: {
-                                      goals: ["describe the purpose of this paragraph"]
-                                    }
-                                  });
-                                }
-                              }}
-                            />
-                          </div>
-                          
-                          {section.type === 'paragraph' && (
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => removeSection(section.id)}
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
+                        <CardTitle>Template Settings</CardTitle>
+                        <button 
+                          onClick={() => setShowUploadModal(true)}
+                          className="text-sm text-muted-foreground hover:text-foreground underline"
+                        >
+                          Upload New Cover Letter
+                        </button>
                       </div>
                     </CardHeader>
-                    
                     <CardContent>
-                      {section.isStatic ? (
-                        <div className="space-y-4">
-                          <div className="flex items-center justify-between">
-                            <Badge variant="secondary" className="text-sm font-medium px-3 py-1">
-                              {getBlurbTitleByContent(section.staticContent || '', section.type)}
-                            </Badge>
-                            <button
-                              onClick={() => {
-                                setSelectedSection(section.id);
-                                if (section.type === 'intro' || section.type === 'closer' || section.type === 'signature') {
-                                  setShowBlurbSelector(true);
-                                } else {
-                                  setShowWorkHistorySelector(true);
-                                }
-                              }}
-                              className="text-sm text-cta-tertiary-foreground hover:text-cta-primary underline"
-                            >
-                              Edit
-                            </button>
-                          </div>
-                          <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded border">
-                            {section.staticContent}
-                          </div>
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="template-name">Template Name</Label>
+                          <Input
+                            id="template-name"
+                            value={template.name}
+                            onChange={(e) => setTemplate(prev => ({ ...prev, name: e.target.value }))}
+                          />
                         </div>
-                      ) : (
-                        <div className="space-y-4">
-                          <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded border">
-                            Use best matching {getSectionTypeLabel(section.type).toLowerCase()} blurb based on job description and goals
-                          </div>
-                        </div>
-                      )}
+                      </div>
                     </CardContent>
                   </Card>
-                ))}
-                
-                <Card className="border-dashed">
-                  <CardContent className="py-8">
-                    <div className="text-center">
-                      <Button onClick={addSection} className="flex items-center gap-2">
-                        <Plus className="h-4 w-4" />
-                        Add Body Paragraph
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </>
-          ) : (
-            <>
-              <TemplateBlurbHierarchical
-                blurbs={templateBlurbs.map(blurb => ({
-                  ...blurb,
-                  status: 'approved' as const,
-                  confidence: 'high' as const,
-                  timesUsed: 0
-                }))}
-                selectedBlurbId={undefined}
-                onSelectBlurb={handleSelectBlurbFromLibrary}
-                onCreateBlurb={handleCreateBlurb}
-                onEditBlurb={handleEditBlurb}
-                onDeleteBlurb={handleDeleteBlurb}
-              />
-              
-              {/* Create/Edit Blurb Modal */}
-              {(editingBlurb || creatingBlurbType) && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                  <div className="w-full max-w-2xl max-h-[80vh] overflow-auto">
-                    <TemplateBlurbDetail
-                      blurb={editingBlurb}
-                      isEditing={true}
-                      onSave={handleSaveBlurb}
-                      onCancel={() => {
-                        setEditingBlurb(null);
-                        setCreatingBlurbType(null);
-                      }}
-                      type={creatingBlurbType}
-                    />
-                  </div>
-                </div>
-              )}
-            </>
-          )}
 
-          {/* Blurb Selector Modal */}
-          {showBlurbSelector && selectedSection && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-              <Card className="w-full max-w-2xl max-h-[80vh] overflow-hidden">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle>Choose a Blurb</CardTitle>
-                      <CardDescription>
-                        Select a pre-written blurb for your {getSectionTypeLabel(template.sections.find(s => s.id === selectedSection)?.type || '')} section
-                      </CardDescription>
-                    </div>
-                    <Button 
-                      variant="tertiary" 
-                      onClick={() => {
-                        setShowBlurbSelector(false);
-                        setSelectedSection(null);
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="overflow-y-auto">
-                  <div className="space-y-3">
-                    {/* Add New Button */}
-                    <Card className="border-dashed">
-                      <CardContent className="p-4 text-center">
-                        <Button 
-                          variant="secondary"
-                          onClick={() => {
-                            const sectionType = template.sections.find(s => s.id === selectedSection)?.type as 'intro' | 'closer' | 'signature';
-                            setShowBlurbSelector(false);
-                            setSelectedSection(null);
-                            handleCreateBlurb(sectionType);
-                          }}
-                          className="flex items-center gap-2"
-                        >
-                          <Plus className="h-4 w-4" />
-                          Create New {getSectionTypeLabel(template.sections.find(s => s.id === selectedSection)?.type || '')} Blurb
-                        </Button>
-                      </CardContent>
-                    </Card>
-                    
-                    {/* Existing Blurbs */}
-                    {getAvailableBlurbs(template.sections.find(s => s.id === selectedSection)?.type || '').map((blurb) => (
-                      <Card 
-                        key={blurb.id} 
-                        className="cursor-pointer hover:bg-muted/50 transition-colors"
-                        onClick={() => selectBlurbForSection(selectedSection, blurb)}
-                      >
-                        <CardContent className="p-4">
-                          <h4 className="font-medium mb-2">{blurb.title}</h4>
-                          <p className="text-sm text-muted-foreground mb-3">{blurb.content}</p>
-                          <div className="text-xs text-muted-foreground">
-                            Click to select this blurb
+                  {/* Sections */}
+                  <div className="space-y-4">
+                    {template.sections.map((section, index) => (
+                      <Card key={section.id} className="relative">
+                        <CardHeader>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <GripVertical className="h-5 w-5 text-muted-foreground" />
+                              <div>
+                                <CardTitle className="text-lg">
+                                  {getSectionTypeLabel(section.type)} {section.type === 'paragraph' ? `${index}` : ''}
+                                </CardTitle>
+                                <CardDescription>
+                                  {section.isStatic ? 'Static content' : 'Dynamic blurb matching'}
+                                </CardDescription>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-2">
+                                <Label htmlFor={`static-${section.id}`} className="text-sm">
+                                  Static
+                                </Label>
+                                <Switch
+                                  id={`static-${section.id}`}
+                                  checked={section.isStatic}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      // If turning static ON, show blurb selector first
+                                      setSelectedSection(section.id);
+                                      if (section.type === 'intro' || section.type === 'closer' || section.type === 'signature') {
+                                        setShowBlurbSelector(true);
+                                      } else {
+                                        setShowWorkHistorySelector(true);
+                                      }
+                                    } else {
+                                      // If turning static OFF, just update the section
+                                      updateSection(section.id, { 
+                                        isStatic: false, 
+                                        staticContent: undefined,
+                                        blurbCriteria: {
+                                          goals: ["describe the purpose of this paragraph"]
+                                        }
+                                      });
+                                    }
+                                  }}
+                                />
+                              </div>
+                              
+                              {section.isStatic && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingSection(section.id);
+                                    setEditingContent(section.staticContent || '');
+                                  }}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              )}
+                              
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setTemplate(prev => ({
+                                    ...prev,
+                                    sections: prev.sections.filter(s => s.id !== section.id)
+                                  }));
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
+                        </CardHeader>
+                        
+                        <CardContent>
+                          {section.isStatic ? (
+                            <div>
+                              <div className="mb-3">
+                                <Badge variant="secondary" className="mb-2">
+                                  {getBlurbTitleByContent(section.staticContent || '', section.type)}
+                                </Badge>
+                                <div className="text-sm text-muted-foreground">
+                                  {section.staticContent}
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-sm text-muted-foreground">
+                              Use best matching body paragraph blurb based on job description and goals
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     ))}
                   </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+                  
+                  <Button 
+                    variant="secondary" 
+                    onClick={addSection}
+                    className="mt-4"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Section
+                  </Button>
+                </div>
+              </TabsContent>
 
-          {/* Work History Blurb Selector */}
-          {showWorkHistorySelector && selectedSection && (
-            <WorkHistoryBlurbSelector
-              onSelectBlurb={handleSelectWorkHistoryBlurb}
-              onCancel={() => {
-                setShowWorkHistorySelector(false);
-                setSelectedSection(null);
-              }}
-            />
-          )}
-
-          {/* Upload Modal */}
-          {showUploadModal && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-              <Card className="w-full max-w-md">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle>Upload New Cover Letter</CardTitle>
-                    <button
-                      onClick={() => setShowUploadModal(false)}
-                      className="text-sm text-cta-tertiary-foreground hover:text-cta-primary underline"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground mb-6">
-                    Free plans are limited to one template. Uploading a new cover letter will replace your existing content and overwrite your existing selections.
-                  </p>
-                  <div className="flex gap-3">
-                    <Button 
-                      variant="primary" 
-                      className="flex-1"
-                      asChild
-                    >
-                      <Link to="/cover-letters">
-                        I understand, proceed
-                      </Link>
-                    </Button>
-                    <Button 
-                      variant="secondary" 
-                      className="flex-1"
-                      onClick={() => {
-                        // TODO: Add navigation to pricing page
-                        console.log('Navigate to paid plans');
-                        setShowUploadModal(false);
-                      }}
-                    >
-                      Explore paid plans
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+              <TabsContent value="library">
+                <div className="mt-6">
+                  <TemplateBlurbHierarchical
+                    blurbs={mockTemplateBlurbs.map(blurb => ({
+                      ...blurb,
+                      status: 'approved' as const,
+                      confidence: 'high' as const,
+                      timesUsed: 5,
+                      lastUsed: '2024-01-15',
+                      linkedExternalLinks: [],
+                      externalLinks: []
+                    }))}
+                    onEditBlurb={handleEditBlurb}
+                    onDeleteBlurb={(id) => {
+                      setTemplateBlurbs(prev => prev.filter(blurb => blurb.id !== id));
+                    }}
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
         </div>
-      </main>
+      </div>
+      
+      {/* Blurb Selector Modal */}
+      {showBlurbSelector && selectedSection && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-2xl max-h-[80vh] overflow-hidden">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Choose a Blurb</CardTitle>
+                  <CardDescription>
+                    Select a pre-written blurb for your {getSectionTypeLabel(template.sections.find(s => s.id === selectedSection)?.type || '')} section
+                  </CardDescription>
+                </div>
+                <Button 
+                  variant="tertiary" 
+                  onClick={() => {
+                    setShowBlurbSelector(false);
+                    setSelectedSection(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="overflow-y-auto">
+              <div className="space-y-3">
+                {/* Add New Button */}
+                <Card className="border-dashed">
+                  <CardContent className="p-4 text-center">
+                    <Button 
+                      variant="secondary"
+                      onClick={() => {
+                        const sectionType = template.sections.find(s => s.id === selectedSection)?.type as 'intro' | 'closer' | 'signature';
+                        setShowBlurbSelector(false);
+                        setSelectedSection(null);
+                        handleCreateBlurb(sectionType);
+                      }}
+                      className="flex items-center gap-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Create New {getSectionTypeLabel(template.sections.find(s => s.id === selectedSection)?.type || '')} Blurb
+                    </Button>
+                  </CardContent>
+                </Card>
+                
+                {/* Existing Blurbs */}
+                {getAvailableBlurbs(template.sections.find(s => s.id === selectedSection)?.type || '').map((blurb) => (
+                  <Card 
+                    key={blurb.id} 
+                    className="cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => selectBlurbForSection(selectedSection, blurb)}
+                  >
+                    <CardContent className="p-4">
+                      <h4 className="font-medium mb-2">{blurb.title}</h4>
+                      <p className="text-sm text-muted-foreground mb-3">{blurb.content}</p>
+                      <div className="text-xs text-muted-foreground">
+                        Click to select this blurb
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Work History Blurb Selector */}
+      {showWorkHistorySelector && selectedSection && (
+        <WorkHistoryBlurbSelector
+          onSelectBlurb={handleSelectWorkHistoryBlurb}
+          onCancel={() => {
+            setShowWorkHistorySelector(false);
+            setSelectedSection(null);
+          }}
+        />
+      )}
+
+      {/* Upload Modal */}
+      {showUploadModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Upload New Cover Letter</CardTitle>
+                <button
+                  onClick={() => setShowUploadModal(false)}
+                  className="text-sm text-cta-tertiary-foreground hover:text-cta-primary underline"
+                >
+                  Cancel
+                </button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-6">
+                Free plans are limited to one template. Uploading a new cover letter will replace your existing content and overwrite your existing selections.
+              </p>
+              <div className="flex gap-3">
+                <Button 
+                  variant="primary" 
+                  className="flex-1"
+                  asChild
+                >
+                  <Link to="/cover-letters">
+                    I understand, proceed
+                  </Link>
+                </Button>
+                <Button 
+                  variant="secondary" 
+                  className="flex-1"
+                  onClick={() => {
+                    // TODO: Add navigation to pricing page
+                    console.log('Navigate to paid plans');
+                    setShowUploadModal(false);
+                  }}
+                >
+                  Explore paid plans
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };
-
-export default CoverLetterTemplate;

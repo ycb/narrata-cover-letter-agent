@@ -7,7 +7,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, LinkIcon, Upload, Wand2, RefreshCw, Save, Send } from "lucide-react";
-import { Header } from "@/components/layout/Header";
 
 const CoverLetterCreate = () => {
   const [jobDescriptionMethod, setJobDescriptionMethod] = useState<'url' | 'paste'>('url');
@@ -79,9 +78,7 @@ const CoverLetterCreate = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
-      
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-8">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
           <div className="flex items-center justify-between mb-8">

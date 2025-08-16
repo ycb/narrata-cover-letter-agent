@@ -1,4 +1,3 @@
-import { Header } from "@/components/layout/Header";
 import { StatsCard } from "@/components/dashboard/StatsCard";
 import { BlurbCard } from "@/components/blurbs/BlurbCard";
 import { Button } from "@/components/ui/button";
@@ -54,8 +53,6 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
-      <Header currentPage="dashboard" />
-      
       <main className="container py-8">
         {/* Welcome Section */}
         <div className="mb-8">

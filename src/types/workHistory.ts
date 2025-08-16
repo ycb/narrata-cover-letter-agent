@@ -26,6 +26,8 @@ export interface ExternalLink {
   url: string;
   label: string;
   tags: string[];
+  timesUsed?: number;
+  lastUsed?: string;
 }
 
 export interface WorkHistoryBlurb {

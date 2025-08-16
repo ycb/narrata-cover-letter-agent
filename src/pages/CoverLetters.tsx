@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { FileText, Plus, Search, Calendar, Target, Edit, Eye } from "lucide-react";
-import { Header } from "@/components/layout/Header";
 import { Link } from "react-router-dom";
 
 // Mock data for demonstration
@@ -68,8 +67,6 @@ const CoverLetters = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header currentPage="cover-letters" />
-      
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
           {/* Header Section */}

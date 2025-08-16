@@ -1,13 +1,26 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { User, Settings, LogOut, Zap, FileText, Target, Briefcase } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { cn } from "@/lib/utils";
 
 interface HeaderProps {
   currentPage?: string;
 }
 
 export const Header = ({ currentPage }: HeaderProps) => {
+  const location = useLocation();
+  
+  // Determine current page based on pathname
+  const getCurrentPage = (pathname: string): string => {
+    if (pathname === "/dashboard") return "dashboard";
+    if (pathname === "/work-history") return "work-history";
+    if (pathname === "/cover-letters" || pathname === "/cover-letter-template" || pathname === "/cover-letter-create") return "cover-letters";
+    return "";
+  };
+
+  const activePage = getCurrentPage(location.pathname);
+
   return (
     <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
       <div className="container flex h-16 items-center justify-between">
@@ -21,25 +34,46 @@ export const Header = ({ currentPage }: HeaderProps) => {
             </span>
           </div>
           
-          <nav className="hidden md:flex items-center gap-6">
-            <Button variant="ghost" className={currentPage === 'dashboard' ? 'bg-accent-light' : ''} asChild>
-              <Link to="/dashboard">
+          {/* Clean Navigation */}
+          <nav className="hidden md:flex">
+            <div className="flex items-center">
+              <Link 
+                to="/dashboard"
+                className={cn(
+                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors hover:text-foreground",
+                  activePage === "dashboard" 
+                    ? "text-foreground border-b-2 border-primary" 
+                    : "text-muted-foreground"
+                )}
+              >
                 <Target className="h-4 w-4" />
                 Dashboard
               </Link>
-            </Button>
-            <Button variant="ghost" className={currentPage === 'work-history' ? 'bg-accent-light' : ''} asChild>
-              <Link to="/work-history">
+              <Link 
+                to="/work-history"
+                className={cn(
+                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors hover:text-foreground",
+                  activePage === "work-history" 
+                    ? "text-foreground border-b-2 border-primary" 
+                    : "text-muted-foreground"
+                )}
+              >
                 <Briefcase className="h-4 w-4" />
                 Work History
               </Link>
-            </Button>
-            <Button variant="ghost" className={currentPage === 'cover-letters' ? 'bg-accent-light' : ''} asChild>
-              <Link to="/cover-letters">
+              <Link 
+                to="/cover-letters"
+                className={cn(
+                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors hover:text-foreground",
+                  activePage === "cover-letters" 
+                    ? "text-foreground border-b-2 border-primary" 
+                    : "text-muted-foreground"
+                )}
+              >
                 <FileText className="h-4 w-4" />
                 Cover Letters
               </Link>
-            </Button>
+            </div>
           </nav>
         </div>
 

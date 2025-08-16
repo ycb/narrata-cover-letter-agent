@@ -3,12 +3,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { 
   MoreHorizontal, 
-  Link, 
   Tag, 
   Edit, 
   Copy, 
   Files, 
-  Trash2 
+  Trash2,
+  ExternalLink as ExternalLinkIcon
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -17,82 +17,38 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import type { ExternalLink } from "@/types/workHistory";
 
-interface BlurbCardProps {
+interface LinkCardProps {
   id: string;
-  title: string;
-  content: string;
-  status: 'approved' | 'draft' | 'needs-review';
-  confidence: 'high' | 'medium' | 'low';
+  label: string;
+  url: string;
   tags: string[];
+  timesUsed?: number;
   lastUsed?: string;
-  timesUsed: number;
-  linkedExternalLinks?: string[];
-  externalLinks?: Array<{id: string; label: string; url: string}>;
   onEdit?: (id: string) => void;
   onCopy?: (id: string) => void;
   onDuplicate?: (id: string) => void;
   onDelete?: (id: string) => void;
 }
 
-export const BlurbCard = ({ 
+export const LinkCard = ({ 
   id,
-  title, 
-  content, 
-  status, 
-  confidence, 
+  label, 
+  url, 
   tags, 
-  lastUsed, 
-  timesUsed,
-  linkedExternalLinks = [],
-  externalLinks = [],
+  timesUsed = 0,
+  lastUsed,
   onEdit,
   onCopy,
   onDuplicate,
   onDelete
-}: BlurbCardProps) => {
-  const confidenceColors = {
-    high: 'bg-confidence-high',
-    medium: 'bg-confidence-medium', 
-    low: 'bg-confidence-low'
-  };
-
-  const renderContentWithLinks = (content: string, linkIds: string[], availableLinks: Array<{id: string; label: string; url: string}>) => {
-    if (linkIds.length === 0) return content;
-    
-    // Find the primary linked external link for company/role reference
-    const primaryLink = linkIds.length > 0 ? availableLinks.find(l => l.id === linkIds[0]) : null;
-    
-    if (!primaryLink) return content;
-    
-    // Replace [CompanyName] or [RoleName] patterns with clickable links
-    const linkPattern = /\[([^\]]+)\]/g;
-    const parts = content.split(linkPattern);
-    
-    return parts.map((part, index) => {
-      // If this is an odd index, it's the content inside brackets
-      if (index % 2 === 1) {
-        return (
-          <a
-            key={index}
-            href={primaryLink.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
-          >
-            {part}
-          </a>
-        );
-      }
-      return part;
-    });
-  };
-
+}: LinkCardProps) => {
   return (
     <Card className="shadow-soft hover:shadow-medium transition-all duration-200 group">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
-          <h3 className="font-semibold text-lg">{title}</h3>
+          <h3 className="font-semibold text-lg">{label}</h3>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
@@ -123,24 +79,20 @@ export const BlurbCard = ({
       </CardHeader>
       
       <CardContent className="pt-0">
-        <div className="text-muted-foreground mb-4 line-clamp-3">
-          {renderContentWithLinks(content, linkedExternalLinks, externalLinks)}
+        {/* URL */}
+        <div className="mb-4">
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1"
+          >
+            {url}
+            <ExternalLinkIcon className="h-3 w-3" />
+          </a>
         </div>
         
-        {linkedExternalLinks.length > 0 && (
-          <div className="mb-4">
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-2 shrink-0">
-                <Link className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium text-muted-foreground">External Link</span>
-              </div>
-              <Badge variant="outline" className="text-xs">
-                {externalLinks.find(link => link.id === linkedExternalLinks[0])?.label}
-              </Badge>
-            </div>
-          </div>
-        )}
-        
+        {/* Tags section with icon-as-label pattern */}
         {tags.length > 0 && (
           <div className="mb-4">
             <div className="flex items-center gap-3 flex-wrap">
@@ -159,7 +111,8 @@ export const BlurbCard = ({
           </div>
         )}
         
-        <div className="border-t pt-3 mb-3">
+        {/* Metadata section with divider */}
+        <div className="border-t pt-3">
           <div className="flex items-center justify-between text-sm text-muted-foreground">
             <span>Used {timesUsed} times</span>
             {lastUsed && <span>Last used {lastUsed}</span>}
