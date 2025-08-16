@@ -91,7 +91,7 @@ export const TemplateBlurbDetail = ({
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-4">
               <FileText className="h-5 w-5" />
               {blurb ? 'Edit' : 'Create'} {getSectionTypeLabel(formData.type)} Blurb
             </CardTitle>

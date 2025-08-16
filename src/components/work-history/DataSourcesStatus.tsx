@@ -28,7 +28,7 @@ export function DataSourcesStatus({
         <h3 className="text-sm font-medium text-muted-foreground">Data Sources</h3>
         <div className="flex items-center gap-4">
           {/* LinkedIn Status */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground w-16">LinkedIn</span>
             {linkedInConnected ? (
               <button
@@ -51,7 +51,7 @@ export function DataSourcesStatus({
           </div>
 
           {/* Resume Status */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground w-16">Resume</span>
             {resumeUploaded ? (
               <button

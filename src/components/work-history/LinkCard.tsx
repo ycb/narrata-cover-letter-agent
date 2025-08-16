@@ -95,7 +95,7 @@ export const LinkCard = ({
         {/* Tags section with icon-as-label pattern */}
         {tags.length > 0 && (
           <div className="mb-4">
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-4 flex-wrap">
               <div className="flex items-center gap-2 shrink-0">
                 <Tag className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium text-muted-foreground">Tags</span>

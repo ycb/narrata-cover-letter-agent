@@ -51,7 +51,7 @@ const Landing = () => {
       {/* Header */}
       <header className="container py-6">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             <div className="h-8 w-8 rounded-lg bg-gradient-brand flex items-center justify-center">
               <Zap className="h-4 w-4 text-primary-foreground" />
             </div>

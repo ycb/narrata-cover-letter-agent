@@ -202,7 +202,7 @@ export const WorkHistoryBlurbSelector = ({
                   >
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-4">
                           <Building className="h-5 w-5 text-muted-foreground" />
                           <div>
                             <h4 className="font-medium">{company.name}</h4>
@@ -246,7 +246,7 @@ export const WorkHistoryBlurbSelector = ({
                   >
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-4">
                           <User className="h-5 w-5 text-muted-foreground" />
                           <div>
                             <h4 className="font-medium">{role.title}</h4>

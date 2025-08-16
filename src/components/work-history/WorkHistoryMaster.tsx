@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Building2, Calendar, ChevronRight, FileText, Link } from "lucide-react";
+import { Building2, Calendar, ChevronRight, FileText, Link, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { WorkHistoryCompany, WorkHistoryRole } from "@/types/workHistory";
 
@@ -58,7 +58,7 @@ export const WorkHistoryMaster = ({
             </p>
           </div>
           {selectedCompany && onAddRole && (
-            <Button variant="outline" size="sm" onClick={onAddRole}>
+            <Button variant="secondary" size="sm" onClick={onAddRole}>
               <Plus className="h-4 w-4 mr-2" />
               Add Role
             </Button>
@@ -104,23 +104,23 @@ export const WorkHistoryMaster = ({
                       <div className="flex items-center gap-3 w-full">
                         <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <h4 className="font-medium text-sm truncate">{role.title}</h4>
-                            <div className="flex items-center gap-1 shrink-0">
-                              {role.blurbs.length > 0 && (
-                                <Badge variant="secondary" className="text-xs flex items-center gap-1">
-                                  <FileText className="h-3 w-3" />
-                                  {role.blurbs.length}
-                                </Badge>
-                              )}
-                              {role.externalLinks.length > 0 && (
-                                <Badge variant="secondary" className="text-xs flex items-center gap-1">
-                                  <Link className="h-3 w-3" />
-                                  {role.externalLinks.length}
-                                </Badge>
-                              )}
-                            </div>
+                                                  <div className="flex items-center justify-between gap-4">
+                          <h4 className="font-medium text-sm truncate">{role.title}</h4>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {role.blurbs.length > 0 && (
+                              <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                                <FileText className="h-3 w-3" />
+                                {role.blurbs.length}
+                              </Badge>
+                            )}
+                            {role.externalLinks.length > 0 && (
+                              <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                                <Link className="h-3 w-3" />
+                                {role.externalLinks.length}
+                              </Badge>
+                            )}
                           </div>
+                        </div>
                           <div className="flex items-center gap-2 mt-1">
                             <Calendar className="h-3 w-3 text-muted-foreground" />
                             <span className="text-xs text-muted-foreground">

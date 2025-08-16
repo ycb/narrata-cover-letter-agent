@@ -7,14 +7,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Upload, Save, ArrowLeft, Plus, GripVertical, Trash2, Edit, FileText, Library } from "lucide-react";
+import { Upload, Save, ArrowLeft, Plus, GripVertical, Trash2, Edit, FileText, Library, MoreHorizontal, Copy, Clock } from "lucide-react";
 import { TemplateBanner } from "@/components/layout/TemplateBanner";
 import { Link, useNavigate } from "react-router-dom";
 import { TemplateBlurbHierarchical } from "@/components/template-blurbs/TemplateBlurbHierarchical";
 import { type TemplateBlurb } from "@/components/template-blurbs/TemplateBlurbMaster";
 import { TemplateBlurbDetail } from "@/components/template-blurbs/TemplateBlurbDetail";
 import { WorkHistoryBlurbSelector } from "@/components/work-history/WorkHistoryBlurbSelector";
+import { SectionInsertButton } from "@/components/template-blurbs/SectionInsertButton";
 import type { CoverLetterSection, CoverLetterTemplate, WorkHistoryBlurb } from "@/types/workHistory";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 // Mock template blurbs library
 const mockTemplateBlurbs: TemplateBlurb[] = [
@@ -192,7 +194,7 @@ export default function CoverLetterTemplate() {
     }));
   };
 
-  const addSection = () => {
+  const addSection = (insertAfterIndex?: number) => {
     const newSection: CoverLetterSection = {
       id: `paragraph-${Date.now()}`,
       type: 'paragraph',
@@ -203,10 +205,20 @@ export default function CoverLetterTemplate() {
       order: template.sections.length + 1
     };
     
-    setTemplate(prev => ({
-      ...prev,
-      sections: [...prev.sections, newSection]
-    }));
+    setTemplate(prev => {
+      if (insertAfterIndex === -1) {
+        // Insert at the beginning
+        return { ...prev, sections: [newSection, ...prev.sections] };
+      } else if (insertAfterIndex !== undefined) {
+        // Insert at specific position
+        const newSections = [...prev.sections];
+        newSections.splice(insertAfterIndex + 1, 0, newSection);
+        return { ...prev, sections: newSections };
+      } else {
+        // Add to end (existing behavior)
+        return { ...prev, sections: [...prev.sections, newSection] };
+      }
+    });
   };
 
   const selectBlurbForSection = (sectionId: string, blurb: TemplateBlurb) => {
@@ -310,16 +322,52 @@ export default function CoverLetterTemplate() {
               <TabsContent value="template">
                 <div className="mt-6">
                   {/* Template Settings */}
-                  <Card className="mb-6">
+                  <Card>
                     <CardHeader>
                       <div className="flex items-center justify-between">
                         <CardTitle>Template Settings</CardTitle>
-                        <button 
-                          onClick={() => setShowUploadModal(true)}
-                          className="text-sm text-muted-foreground hover:text-foreground underline"
-                        >
-                          Upload New Cover Letter
-                        </button>
+                        <div className="flex items-center gap-4">
+                          <Button 
+                            variant="secondary" 
+                            size="sm"
+                            onClick={() => setShowUploadModal(true)}
+                          >
+                            <Upload className="h-4 w-4 mr-2" />
+                            Upload New Cover Letter
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <span className="sr-only">Open menu</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => {
+                                // TODO: Implement duplicate template
+                                console.log('Duplicate template');
+                              }}>
+                                <Copy className="mr-2 h-4 w-4" />
+                                Duplicate Template
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                // TODO: Implement export template
+                                console.log('Export template');
+                              }}>
+                                <FileText className="mr-2 h-4 w-4" />
+                                Export Template
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => {
+                                // TODO: Implement template history
+                                console.log('View template history');
+                              }}>
+                                <Clock className="mr-2 h-4 w-4" />
+                                Template History
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </div>
                     </CardHeader>
                     <CardContent>
@@ -330,120 +378,176 @@ export default function CoverLetterTemplate() {
                             id="template-name"
                             value={template.name}
                             onChange={(e) => setTemplate(prev => ({ ...prev, name: e.target.value }))}
+                            placeholder="Enter template name..."
                           />
                         </div>
                       </div>
                     </CardContent>
                   </Card>
 
+                  {/* Insert Button at Top (if sections exist) */}
+                  {template.sections.length > 0 && (
+                    <SectionInsertButton
+                      onClick={() => addSection(-1)}
+                      variant="default"
+                    />
+                  )}
+                  
                   {/* Sections */}
-                  <div className="space-y-4">
+                  <div>
                     {template.sections.map((section, index) => (
-                      <Card key={section.id} className="relative">
-                        <CardHeader>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <GripVertical className="h-5 w-5 text-muted-foreground" />
-                              <div>
-                                <CardTitle className="text-lg">
-                                  {getSectionTypeLabel(section.type)} {section.type === 'paragraph' ? `${index}` : ''}
-                                </CardTitle>
-                                <CardDescription>
-                                  {section.isStatic ? 'Static content' : 'Dynamic blurb matching'}
-                                </CardDescription>
-                              </div>
-                            </div>
-                            
-                            <div className="flex items-center gap-3">
-                              <div className="flex items-center gap-2">
-                                <Label htmlFor={`static-${section.id}`} className="text-sm">
-                                  Static
-                                </Label>
-                                <Switch
-                                  id={`static-${section.id}`}
-                                  checked={section.isStatic}
-                                  onCheckedChange={(checked) => {
-                                    if (checked) {
-                                      // If turning static ON, show blurb selector first
-                                      setSelectedSection(section.id);
-                                      if (section.type === 'intro' || section.type === 'closer' || section.type === 'signature') {
-                                        setShowBlurbSelector(true);
-                                      } else {
-                                        setShowWorkHistorySelector(true);
-                                      }
-                                    } else {
-                                      // If turning static OFF, just update the section
-                                      updateSection(section.id, { 
-                                        isStatic: false, 
-                                        staticContent: undefined,
-                                        blurbCriteria: {
-                                          goals: ["describe the purpose of this paragraph"]
-                                        }
-                                      });
-                                    }
-                                  }}
-                                />
-                              </div>
-                              
-                              {section.isStatic && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    setEditingSection(section.id);
-                                    setEditingContent(section.staticContent || '');
-                                  }}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                              )}
-                              
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setTemplate(prev => ({
-                                    ...prev,
-                                    sections: prev.sections.filter(s => s.id !== section.id)
-                                  }));
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        </CardHeader>
-                        
-                        <CardContent>
-                          {section.isStatic ? (
-                            <div>
-                              <div className="mb-3">
-                                <Badge variant="secondary" className="mb-2">
-                                  {getBlurbTitleByContent(section.staticContent || '', section.type)}
-                                </Badge>
-                                <div className="text-sm text-muted-foreground">
-                                  {section.staticContent}
+                      <div key={section.id}>
+                        <Card className="relative">
+                          <CardHeader>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <GripVertical className="h-5 w-5 text-muted-foreground" />
+                                <div>
+                                  <CardTitle className="text-lg">
+                                    {getSectionTypeLabel(section.type)} {section.type === 'paragraph' ? `${index}` : ''}
+                                  </CardTitle>
+                                  <CardDescription>
+                                    {section.isStatic ? 'Static content' : 'Dynamic blurb matching'}
+                                  </CardDescription>
                                 </div>
                               </div>
+                              
+                              <div className="flex items-center gap-4">
+                                {/* Static Toggle - Always Visible */}
+                                <div className="flex items-center gap-2">
+                                  <Label htmlFor={`static-${section.id}`} className="text-sm">
+                                    Static
+                                  </Label>
+                                  <Switch
+                                    id={`static-${section.id}`}
+                                    checked={section.isStatic}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        // If turning static ON, show blurb selector first
+                                        setSelectedSection(section.id);
+                                        if (section.type === 'intro' || section.type === 'closer' || section.type === 'signature') {
+                                          setShowBlurbSelector(true);
+                                        } else {
+                                          setShowWorkHistorySelector(true);
+                                        }
+                                      } else {
+                                        // If turning static OFF, just update the section
+                                        updateSection(section.id, { 
+                                          isStatic: false, 
+                                          staticContent: undefined,
+                                          blurbCriteria: {
+                                            goals: ["describe the purpose of this paragraph"]
+                                          }
+                                        });
+                                      }
+                                    }}
+                                  />
+                                </div>
+                                
+                                {/* Overflow Menu for Other Actions */}
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                      <span className="sr-only">Open menu</span>
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    {section.isStatic && (
+                                      <DropdownMenuItem onClick={() => {
+                                        setEditingSection(section.id);
+                                        setEditingContent(section.staticContent || '');
+                                      }}>
+                                        <Edit className="mr-2 h-4 w-4" />
+                                        Edit Content
+                                      </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuItem onClick={() => {
+                                      // TODO: Implement duplicate section
+                                      console.log('Duplicate section:', section.id);
+                                    }}>
+                                      <Copy className="mr-2 h-4 w-4" />
+                                      Duplicate Section
+                                    </DropdownMenuItem>
+                                    {section.type === 'paragraph' && (
+                                      <>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem onClick={() => {
+                                          setTemplate(prev => ({
+                                            ...prev,
+                                            sections: prev.sections.filter(s => s.id !== section.id)
+                                          }));
+                                        }} className="text-destructive">
+                                          <Trash2 className="mr-2 h-4 w-4" />
+                                          Delete Section
+                                        </DropdownMenuItem>
+                                      </>
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
                             </div>
-                          ) : (
-                            <div className="text-sm text-muted-foreground">
-                              Use best matching body paragraph blurb based on job description and goals
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
+                          </CardHeader>
+                          
+                          <CardContent>
+                            {section.isStatic ? (
+                              <div>
+                                <div className="mb-3">
+                                  <Badge variant="secondary" className="mb-2">
+                                    {getBlurbTitleByContent(section.staticContent || '', section.type)}
+                                  </Badge>
+                                  <div className="text-sm text-muted-foreground">
+                                    {section.staticContent}
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-sm text-muted-foreground">
+                                Use best matching body paragraph blurb based on job description and goals
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                        
+                        {/* Insert Button Between Sections */}
+                        {index < template.sections.length - 1 && (
+                          <SectionInsertButton
+                            onClick={() => addSection(index)}
+                            variant="subtle"
+                          />
+                        )}
+                      </div>
                     ))}
                   </div>
                   
-                  <Button 
-                    variant="secondary" 
-                    onClick={addSection}
-                    className="mt-4"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Section
-                  </Button>
+                  {/* Bottom Add Section Button - Only show if no sections exist */}
+                  {template.sections.length === 0 ? (
+                    <div className="text-center py-12">
+                      <div className="mb-4">
+                        <div className="h-16 w-16 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-4">
+                          <Plus className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                        <h3 className="text-lg font-semibold mb-2">No sections yet</h3>
+                        <p className="text-muted-foreground mb-6">
+                          Start building your cover letter template by adding your first section
+                        </p>
+                      </div>
+                      <Button 
+                        variant="primary" 
+                        onClick={() => addSection()}
+                        size="lg"
+                        className="flex items-center gap-2"
+                      >
+                        <Plus className="h-5 w-5" />
+                        Add Your First Section
+                      </Button>
+                    </div>
+                  ) : (
+                    <SectionInsertButton
+                      onClick={() => addSection()}
+                      variant="subtle"
+                    />
+                  )}
                 </div>
               </TabsContent>
 
@@ -459,6 +563,9 @@ export default function CoverLetterTemplate() {
                       linkedExternalLinks: [],
                       externalLinks: []
                     }))}
+                    selectedBlurbId={undefined}
+                    onSelectBlurb={handleSelectBlurbFromLibrary}
+                    onCreateBlurb={handleCreateBlurb}
                     onEditBlurb={handleEditBlurb}
                     onDeleteBlurb={(id) => {
                       setTemplateBlurbs(prev => prev.filter(blurb => blurb.id !== id));

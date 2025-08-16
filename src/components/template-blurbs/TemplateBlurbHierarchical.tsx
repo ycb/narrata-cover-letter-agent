@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, Edit, Trash2, FileText, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { Search, Plus, Edit, Trash2, FileText, Clock, CheckCircle, AlertCircle, MoreHorizontal, Copy } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Label } from "@/components/ui/label";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 interface TemplateBlurb {
   id: string;
@@ -25,6 +27,7 @@ interface BlurbTypeGroup {
   type: 'intro' | 'closer' | 'signature';
   label: string;
   description: string;
+  icon: React.ComponentType<{ className?: string }>;
   blurbs: TemplateBlurb[];
 }
 
@@ -47,6 +50,7 @@ export const TemplateBlurbHierarchical = ({
 }: TemplateBlurbHierarchicalProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedType, setExpandedType] = useState<string>();
+  const [sortBy, setSortBy] = useState<'usage' | 'date' | 'alphabetical-asc' | 'alphabetical-desc'>('usage');
 
   const getTypeConfig = (type: 'intro' | 'closer' | 'signature') => {
     const configs = {
@@ -87,9 +91,27 @@ export const TemplateBlurbHierarchical = ({
     return colors[confidence];
   };
 
+  // Sort blurbs based on selected criteria
+  const sortBlurbs = (blurbs: TemplateBlurb[]) => {
+    return [...blurbs].sort((a, b) => {
+      switch (sortBy) {
+        case 'usage':
+          return (b.timesUsed || 0) - (a.timesUsed || 0);
+        case 'date':
+          return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+        case 'alphabetical-asc':
+          return a.title.localeCompare(b.title);
+        case 'alphabetical-desc':
+          return b.title.localeCompare(a.title);
+        default:
+          return 0;
+      }
+    });
+  };
+
   // Group blurbs by type and filter by search
-  const groupedBlurbs: BlurbTypeGroup[] = ['intro', 'closer', 'signature'].map(type => {
-    const typeBlurbs = blurbs.filter(blurb => {
+  const groupedBlurbs: BlurbTypeGroup[] = (['intro', 'closer', 'signature'] as const).map((type) => {
+    let typeBlurbs = blurbs.filter(blurb => {
       const matchesType = blurb.type === type;
       const matchesSearch = searchTerm === '' || 
         blurb.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -98,175 +120,123 @@ export const TemplateBlurbHierarchical = ({
       return matchesType && matchesSearch;
     });
 
-    const config = getTypeConfig(type as 'intro' | 'closer' | 'signature');
-    
+    // Sort the filtered blurbs
+    typeBlurbs = sortBlurbs(typeBlurbs);
+
+    const config = getTypeConfig(type);
     return {
-      type: type as 'intro' | 'closer' | 'signature',
+      type,
       label: config.label,
       description: config.description,
+      icon: config.icon,
       blurbs: typeBlurbs
     };
-  }).filter(group => group.blurbs.length > 0 || searchTerm === '');
+  });
 
-  // Auto-expand if only one type has results
-  React.useEffect(() => {
-    const typesWithBlurbs = groupedBlurbs.filter(group => group.blurbs.length > 0);
-    if (typesWithBlurbs.length === 1 && !expandedType) {
-      setExpandedType(typesWithBlurbs[0].type);
-    }
-  }, [groupedBlurbs, expandedType]);
-
-  const formatDateRange = (dateStr: string) => {
-    try {
-      return new Date(dateStr).toLocaleDateString('en-US', { 
-        month: 'short', 
-        year: 'numeric' 
-      });
-    } catch {
-      return dateStr;
-    }
-  };
+  const totalBlurbs = groupedBlurbs.reduce((total, group) => total + group.blurbs.length, 0);
+  const hasResults = totalBlurbs > 0;
 
   return (
-    <Card className="h-full flex flex-col">
-      <CardHeader className="pb-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-xl">Template Blurb Library</CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">
-              Organize and manage your reusable content by section type
-            </p>
-          </div>
-          <Button onClick={() => onCreateBlurb('intro')} className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            New Blurb
-          </Button>
-        </div>
-
+    <div className="space-y-6">
+      {/* Enhanced Search and Filter Bar */}
+      <div className="space-y-4">
+        {/* Search Bar */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search blurbs, tags, or content..."
+            placeholder="Search blurbs by title, content, or tags..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
           />
         </div>
-      </CardHeader>
 
-      <CardContent className="flex-1 overflow-auto">
-        {groupedBlurbs.length === 0 ? (
-          <div className="text-center py-12">
-            <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No blurbs found</h3>
-            <p className="text-muted-foreground mb-6">
-              {searchTerm ? 'Try adjusting your search terms' : 'Get started by creating your first template blurb'}
-            </p>
-            <div className="flex gap-2 justify-center">
-              <Button onClick={() => onCreateBlurb('intro')} variant="secondary">
-                <Plus className="h-4 w-4 mr-2" />
-                Introduction
-              </Button>
-              <Button onClick={() => onCreateBlurb('closer')} variant="secondary">
-                <Plus className="h-4 w-4 mr-2" />
-                Closing
-              </Button>
-              <Button onClick={() => onCreateBlurb('signature')} variant="secondary">
-                <Plus className="h-4 w-4 mr-2" />
-                Signature
-              </Button>
+        {/* Filters and Sort */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            {/* Sort Options */}
+            <div className="flex items-center gap-2">
+              <Label htmlFor="sort-by" className="text-sm font-medium">Sort by:</Label>
+              <select
+                id="sort-by"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="text-sm border border-border rounded-md px-2 py-1 bg-background"
+              >
+                <option value="usage">Most Used</option>
+                <option value="date">Recently Updated</option>
+                <option value="alphabetical-asc">A → Z</option>
+                <option value="alphabetical-desc">Z → A</option>
+              </select>
             </div>
           </div>
-        ) : (
-          <Accordion 
-            type="single" 
-            value={expandedType} 
-            onValueChange={(value) => setExpandedType(value === expandedType ? undefined : value)}
-            className="space-y-2"
-            collapsible
-          >
-            {groupedBlurbs.map((group) => {
-              const config = getTypeConfig(group.type);
-              const Icon = config.icon;
-              
-              return (
-                <AccordionItem key={group.type} value={group.type} className="border rounded-lg">
-                  <AccordionTrigger className="px-4 py-3 hover:no-underline">
-                    <div className="flex items-center gap-3 text-left">
-                      <Icon className="h-5 w-5 text-primary" />
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold">{group.label}</span>
-                          <Badge variant="secondary" className="text-xs">
-                            {group.blurbs.length} {group.blurbs.length === 1 ? 'blurb' : 'blurbs'}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground">{group.description}</p>
-                      </div>
+
+          {/* Results Count */}
+          <div className="text-sm text-muted-foreground">
+            {hasResults ? `${totalBlurbs} blurbs found` : 'No blurbs found'}
+          </div>
+        </div>
+      </div>
+
+      {/* Blurb Groups */}
+      {hasResults ? (
+        <Accordion type="single" collapsible value={expandedType} onValueChange={setExpandedType}>
+          {groupedBlurbs.map((group) => (
+            <AccordionItem key={group.type} value={group.type} className="border rounded-lg">
+              <AccordionTrigger className="px-4 py-3 hover:no-underline">
+                <div className="flex items-center justify-between w-full pr-4">
+                  <div className="flex items-center gap-3">
+                    <group.icon className="h-5 w-5 text-muted-foreground" />
+                    <div className="text-left">
+                      <h3 className="font-semibold">{group.label}</h3>
+                      <p className="text-sm text-muted-foreground">{group.description}</p>
                     </div>
-                  </AccordionTrigger>
-                  
-                  <AccordionContent className="px-4 pb-4">
-                    <div className="space-y-3">
-                      {group.blurbs.map((blurb) => {
-                        const statusConfig = getStatusConfig(blurb.status);
-                        const StatusIcon = statusConfig.icon;
-                        const isSelected = selectedBlurbId === blurb.id;
-                        
-                        return (
-                          <Card 
-                            key={blurb.id}
-                            className={cn(
-                              "cursor-pointer transition-all duration-200 hover:shadow-medium",
-                              isSelected && "ring-2 ring-primary shadow-medium"
-                            )}
-                            onClick={() => onSelectBlurb(blurb)}
-                          >
-                            <CardContent className="p-4">
-                              <div className="flex items-start justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                  <Badge className={statusConfig.color}>
-                                    <StatusIcon className="h-3 w-3 mr-1" />
-                                    {statusConfig.label}
-                                  </Badge>
-                                  <div 
-                                    className={`h-2 w-2 rounded-full ${getConfidenceColor(blurb.confidence)}`} 
-                                    title={`${blurb.confidence} confidence`} 
-                                  />
-                                </div>
-                                <div className="flex gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onEditBlurb(blurb);
-                                    }}
-                                  >
-                                    <Edit className="h-3 w-3" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onDeleteBlurb(blurb.id);
-                                    }}
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
-                                </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <Badge variant="secondary">{group.blurbs.length} blurbs</Badge>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onCreateBlurb(group.type);
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add {group.label}
+                    </Button>
+                  </div>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="px-4 pb-4">
+                <div className="space-y-3 mt-4">
+                  {group.blurbs.map((blurb) => {
+                    const statusConfig = getStatusConfig(blurb.status);
+                    const StatusIcon = statusConfig.icon;
+                    
+                    return (
+                      <Card key={blurb.id} className="hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-2">
+                                <h4 className="font-medium truncate">{blurb.title}</h4>
+                                <Badge className={statusConfig.color}>
+                                  <StatusIcon className="h-3 w-3 mr-1" />
+                                  {statusConfig.label}
+                                </Badge>
+                                <div className={`h-2 w-2 rounded-full ${getConfidenceColor(blurb.confidence)}`} 
+                                     title={`${blurb.confidence} confidence`} />
                               </div>
-                              
-                              <h4 className="font-semibold mb-2">{blurb.title}</h4>
-                              <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                                {blurb.content}
-                              </p>
-                              
+                              <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{blurb.content}</p>
+                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                <span>Used {blurb.timesUsed} times</span>
+                                {blurb.lastUsed && <span>Last used {blurb.lastUsed}</span>}
+                                <span>Updated {new Date(blurb.updatedAt).toLocaleDateString()}</span>
+                              </div>
                               {blurb.tags.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mb-3">
+                                <div className="flex flex-wrap gap-1 mt-2">
                                   {blurb.tags.map((tag) => (
                                     <Badge key={tag} variant="outline" className="text-xs">
                                       {tag}
@@ -274,37 +244,72 @@ export const TemplateBlurbHierarchical = ({
                                   ))}
                                 </div>
                               )}
-                              
-                              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                <span>Used {blurb.timesUsed} times</span>
-                                <span>
-                                  {blurb.lastUsed 
-                                    ? `Last used ${formatDateRange(blurb.lastUsed)}`
-                                    : `Created ${formatDateRange(blurb.createdAt)}`
-                                  }
-                                </span>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                      
-                      <Button
-                        variant="outline"
-                        className="w-full border-dashed"
-                        onClick={() => onCreateBlurb(group.type)}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add {group.label} Blurb
-                      </Button>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              );
-            })}
-          </Accordion>
-        )}
-      </CardContent>
-    </Card>
+                            </div>
+                            <div className="flex items-center gap-2 ml-4">
+                              <Button
+                                variant="tertiary"
+                                size="sm"
+                                onClick={() => onSelectBlurb(blurb)}
+                              >
+                                Use
+                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                    <span className="sr-only">Open menu</span>
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => onEditBlurb(blurb)}>
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => {
+                                    // TODO: Implement duplicate blurb
+                                    console.log('Duplicate blurb:', blurb.id);
+                                  }}>
+                                    <Copy className="mr-2 h-4 w-4" />
+                                    Duplicate
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem 
+                                    onClick={() => onDeleteBlurb(blurb.id)}
+                                    className="text-destructive"
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
+      ) : (
+        <div className="text-center py-12">
+          <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-semibold mb-2">No blurbs found</h3>
+          <p className="text-muted-foreground mb-4">
+            {searchTerm 
+              ? "Try adjusting your search terms." 
+              : "Create your first blurb to get started."}
+          </p>
+          {!searchTerm && (
+            <Button onClick={() => onCreateBlurb('intro')}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Your First Blurb
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
   );
 };

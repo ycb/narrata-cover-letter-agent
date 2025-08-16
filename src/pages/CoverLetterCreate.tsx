@@ -83,7 +83,7 @@ const CoverLetterCreate = () => {
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-4">
-              <Button variant="secondary" size="sm" className="flex items-center gap-2">
+              <Button variant="secondary" size="sm" className="flex items-center gap-4">
                 <ArrowLeft className="h-4 w-4" />
                 Back to Cover Letters
               </Button>

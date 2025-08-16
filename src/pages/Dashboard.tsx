@@ -108,7 +108,7 @@ const Dashboard = () => {
                     <FileText className="h-5 w-5 text-accent" />
                     Recent Blurbs
                   </CardTitle>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-4">
                     <div className="relative">
                       <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
                       <Input 
@@ -116,9 +116,9 @@ const Dashboard = () => {
                         className="pl-9 w-64"
                       />
                     </div>
-                                <Button variant="tertiary" size="icon">
-              <Filter className="h-4 w-4" />
-            </Button>
+                    <Button variant="tertiary" size="icon">
+                      <Filter className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               </CardHeader>

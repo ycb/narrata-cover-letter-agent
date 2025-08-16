@@ -177,7 +177,7 @@ export function AddLinkToBlurbModal({
                           <CardContent className="p-4">
                             <div className="flex items-start justify-between">
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-2">
+                                <div className="flex items-center gap-4 mb-2">
                                   <h5 className="font-medium text-foreground truncate">
                                     {link.label}
                                   </h5>

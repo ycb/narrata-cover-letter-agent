@@ -140,7 +140,7 @@ export const TemplateBlurbMaster = ({
       <div className="space-y-4">
         {Object.entries(groupedBlurbs).map(([type, typeBlurbs]) => (
           <div key={type}>
-            <h4 className="font-medium text-foreground mb-3 flex items-center gap-2">
+            <h4 className="font-medium text-foreground mb-3 flex items-center gap-4">
               <FileText className="h-4 w-4" />
               {getSectionTypeLabel(type)} ({typeBlurbs.length})
             </h4>

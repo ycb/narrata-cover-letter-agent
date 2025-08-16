@@ -198,11 +198,11 @@ export const WorkHistoryDetail = ({
                 </div>
                 
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-2">
                     <User className="h-4 w-4" />
                     {selectedCompany.roles.length} role{selectedCompany.roles.length !== 1 ? 's' : ''}
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-2">
                     <FileText className="h-4 w-4" />
                     {(() => {
                       const totalBlurbs = selectedCompany.roles.reduce((total, role) => total + role.blurbs.length, 0);

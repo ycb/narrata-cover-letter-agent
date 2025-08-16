@@ -32,7 +32,7 @@ export const ConfidenceIndicator = ({ level, score, reasoning, matchType }: Conf
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             <Badge className={config[level].color}>
               {config[level].label} ({score}%)
             </Badge>
