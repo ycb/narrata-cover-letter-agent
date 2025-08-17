@@ -601,8 +601,8 @@ const Assessment = () => {
               {/* Dual-Track Career Path Visualization */}
               <div className="mb-6">
                 <div className="text-center mb-6">
-                  <h3 className="text-lg font-semibold text-muted-foreground">PM Career Progression</h3>
-                  <p className="text-sm text-muted-foreground mt-1">Choose your path at Senior PM level</p>
+                  <h3 className="text-lg font-semibold text-foreground">Career Foundations</h3>
+                  <p className="text-sm text-muted-foreground mt-1">Demonstrate core PM skills</p>
                 </div>
                 
                 {/* Common Path (Entry to Senior) */}
