@@ -598,17 +598,7 @@ const Assessment = () => {
             </CardHeader>
             
             <CardContent>
-              {/* Next Level Full-Width Region */}
-              <div className="bg-muted/30 border-t border-b border-muted py-4 -mx-6 mb-6">
-                <div className="text-center">
-                  <div className="font-semibold text-foreground mb-1">
-                    Next Level: {mockAssessment.nextLevel}
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Demonstrate strategic thinking and organizational influence to advance
-                  </p>
-                </div>
-              </div>
+
               
               {/* Dual-Track Career Path Visualization */}
               <div className="mb-6">
@@ -646,8 +636,12 @@ const Assessment = () => {
                     <div className="flex flex-col items-center">
                       <div className="h-6 w-6 rounded-full border-2 border-blue-500 mb-2" />
                       <div className="text-center">
-                        <div className="text-sm font-medium text-blue-900">Lead Product Mgr</div>
-                        <div className="text-xs text-muted-foreground w-24 text-center">Technical leadership</div>
+                        <div className="text-sm font-medium text-blue-900 mb-1">Lead Product Mgr</div>
+                        <div className="text-xs text-muted-foreground w-24 text-center mb-2">Technical leadership</div>
+                        <div className="bg-muted/30 px-3 py-2 rounded-lg border">
+                          <div className="text-xs font-semibold text-foreground mb-1">Next Level</div>
+                          <div className="text-xs text-muted-foreground">Demonstrate strategic thinking and organizational influence to advance</div>
+                        </div>
                       </div>
                     </div>
                     <div className="h-px w-8 bg-blue-200" />
