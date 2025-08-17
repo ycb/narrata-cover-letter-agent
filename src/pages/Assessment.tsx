@@ -27,7 +27,7 @@ import RoleEvidenceModal from "@/components/assessment/RoleEvidenceModal";
 const mockAssessment = {
   currentLevel: "Senior PM" as const,
   confidence: "high" as const,
-  nextLevel: "Principal PM" as const,
+  nextLevel: "Lead Product Mgr" as const,
   levelDescription: "Experienced product manager with strong execution and growing strategic influence",
   inferenceSource: "Based on resume, LinkedIn, and 47 approved blurbs",
   
@@ -171,7 +171,7 @@ const mockAssessment = {
   // Level Evidence Data
   levelEvidence: {
     currentLevel: "Senior PM",
-    nextLevel: "Principal PM",
+    nextLevel: "Lead Product Mgr",
     confidence: "high",
     resumeEvidence: {
       roleTitles: ["Product Manager", "Senior PM", "Product Lead"],
@@ -598,6 +598,18 @@ const Assessment = () => {
             </CardHeader>
             
             <CardContent>
+              {/* Next Level Full-Width Region */}
+              <div className="bg-muted/30 border-t border-b border-muted py-4 -mx-6 mb-6">
+                <div className="text-center">
+                  <div className="font-semibold text-foreground mb-1">
+                    Next Level: {mockAssessment.nextLevel}
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Demonstrate strategic thinking and organizational influence to advance
+                  </p>
+                </div>
+              </div>
+              
               {/* Dual-Track Career Path Visualization */}
               <div className="mb-6">
                 {/* IC Track - Single Color */}
@@ -691,18 +703,6 @@ const Assessment = () => {
                 </div>
                 
 
-              </div>
-              
-              {/* Next Level Full-Width Region */}
-              <div className="bg-muted/30 border-t border-b border-muted py-4 -mx-6 mb-6">
-                <div className="text-center">
-                  <div className="font-semibold text-foreground mb-1">
-                    Next Level: {mockAssessment.nextLevel}
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Demonstrate strategic thinking and organizational influence to advance
-                  </p>
-                </div>
               </div>
               
               {/* Evidence CTA Button - Anchored at Bottom */}
