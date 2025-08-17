@@ -599,6 +599,16 @@ const Assessment = () => {
             
             <CardContent>
 
+              {/* Evidence CTA Button - Above Career Ladder */}
+              <Button 
+                variant="primary" 
+                size="lg" 
+                className="w-full mb-6"
+                onClick={handleShowLevelEvidence}
+              >
+                View Evidence for Overall Level
+                <TrendingUp className="h-5 w-5 ml-2" />
+              </Button>
               
               {/* Dual-Track Career Path Visualization */}
               <div className="mb-6">
@@ -709,16 +719,6 @@ const Assessment = () => {
 
               </div>
               
-              {/* Evidence CTA Button - Anchored at Bottom */}
-              <Button 
-                variant="primary" 
-                size="lg" 
-                className="w-full"
-                onClick={handleShowLevelEvidence}
-              >
-                View Evidence for Overall Level
-                <TrendingUp className="h-5 w-5 ml-2" />
-              </Button>
             </CardContent>
           </Card>
 
