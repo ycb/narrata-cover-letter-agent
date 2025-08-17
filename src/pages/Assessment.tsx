@@ -508,7 +508,6 @@ const Assessment = () => {
                   <BarChart3 className="h-5 w-5" />
                   <div>
                     <CardTitle className="text-lg">Data Sources & Next Steps</CardTitle>
-                    <CardDescription className="text-sm">Improve your assessment with more evidence</CardDescription>
                   </div>
                 </div>
                 <div className="text-right">
@@ -564,17 +563,22 @@ const Assessment = () => {
                 </div>
               </div>
               
-              {/* 3 Inline CTAs */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <Button variant="secondary" size="sm" className="w-full">
-                  Add More Stories
-                </Button>
-                <Button variant="secondary" size="sm" className="w-full">
-                  Add External Links
-                </Button>
-                <Button variant="secondary" size="sm" className="w-full">
-                  Add Quantified Results
-                </Button>
+              {/* Action Description & CTAs - Combined Inline Region */}
+              <div className="text-center p-4 bg-muted/10 rounded-lg border">
+                <p className="text-sm text-muted-foreground mb-3">
+                  Improve your assessment with more evidence
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <Button variant="secondary" size="sm" className="w-full">
+                    Add More Stories
+                  </Button>
+                  <Button variant="secondary" size="sm" className="w-full">
+                    Add External Links
+                  </Button>
+                  <Button variant="secondary" size="sm" className="w-full">
+                    Add Quantified Results
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
