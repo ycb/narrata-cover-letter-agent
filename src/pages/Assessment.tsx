@@ -575,7 +575,7 @@ const Assessment = () => {
             </div>
           </Card>
 
-          {/* Data Sources & Profile Completeness */}
+          {/* Data Sources & Profile Completeness - Moved to top */}
           <Card className="shadow-soft">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
