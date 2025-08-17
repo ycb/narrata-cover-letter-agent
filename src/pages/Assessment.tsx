@@ -522,40 +522,30 @@ const Assessment = () => {
             </CardHeader>
             
             {/* Interactive Evidence Preview Section */}
-            <div 
-              className="px-6 pb-6 cursor-pointer group"
-              onClick={handleShowLevelEvidence}
-            >
+            <div className="px-6 pb-6">
               <div className="border-t pt-4">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-medium text-sm text-muted-foreground">Evidence Summary</h4>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-6 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    View Details →
-                  </Button>
                 </div>
                 
                 {/* Evidence Teaser Content */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
-                  <div className="text-center p-3 bg-muted/30 rounded-lg group-hover:bg-muted/50 transition-colors">
+                  <div className="text-center p-3 bg-muted/30 rounded-lg">
                     <div className="text-lg font-semibold text-primary">6+</div>
                     <div className="text-xs text-muted-foreground">Years Experience</div>
                   </div>
-                  <div className="text-center p-3 bg-muted/30 rounded-lg group-hover:bg-muted/50 transition-colors">
+                  <div className="text-center p-3 bg-muted/30 rounded-lg">
                     <div className="text-lg font-semibold text-primary">47</div>
                     <div className="text-xs text-muted-foreground">Approved Blurbs</div>
                   </div>
-                  <div className="text-center p-3 bg-muted/30 rounded-lg group-hover:bg-muted/50 transition-colors">
+                  <div className="text-center p-3 bg-muted/30 rounded-lg">
                     <div className="text-lg font-semibold text-primary">32</div>
                     <div className="text-xs text-muted-foreground">Relevant Stories</div>
                   </div>
                 </div>
                 
                 {/* Key Evidence Points */}
-                <div className="space-y-2">
+                <div className="space-y-2 mb-3">
                   <div className="flex items-center gap-2 text-sm">
                     <CheckCircle className="h-4 w-4 text-success" />
                     <span>Strong leadership signals across multiple roles</span>
@@ -569,6 +559,17 @@ const Assessment = () => {
                     <span>Cross-functional collaboration and stakeholder influence</span>
                   </div>
                 </div>
+                
+                {/* Inline CTA Button */}
+                <Button 
+                  variant="primary" 
+                  size="sm" 
+                  className="w-full md:w-auto"
+                  onClick={handleShowLevelEvidence}
+                >
+                  View Full Evidence
+                  <TrendingUp className="h-4 w-4 ml-2" />
+                </Button>
               </div>
             </div>
           </Card>
@@ -657,46 +658,45 @@ const Assessment = () => {
                     </div>
                     
                     {/* Interactive Evidence Preview */}
-                    <div 
-                      className="cursor-pointer group"
-                      onClick={() => handleShowEvidence(competency)}
-                    >
-                      <div className="p-3 bg-muted/20 rounded-lg border group-hover:bg-muted/30 group-hover:border-muted-foreground/20 transition-all">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-medium text-muted-foreground">Evidence Preview</span>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-5 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            View All →
-                          </Button>
-                        </div>
-                        
-                        <div className="text-xs text-muted-foreground mb-2">
-                          {competency.evidence}
-                        </div>
-                        
-                        {/* Sample Evidence Blurb */}
-                        {competency.evidenceBlurbs && competency.evidenceBlurbs[0] && (
-                          <div className="text-xs bg-background p-2 rounded border">
-                            <div className="font-medium text-foreground mb-1">
-                              {competency.evidenceBlurbs[0].title}
-                            </div>
-                            <div className="text-muted-foreground line-clamp-2">
-                              {competency.evidenceBlurbs[0].content}
-                            </div>
-                          </div>
-                        )}
-                        
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {competency.tags.map((tag) => (
-                            <Badge key={tag} variant="outline" className="text-xs">
-                              {tag}
-                            </Badge>
-                          ))}
-                        </div>
+                    <div className="p-3 bg-muted/20 rounded-lg border">
+                      <div className="mb-2">
+                        <span className="text-xs font-medium text-muted-foreground">Evidence Preview</span>
                       </div>
+                      
+                      <div className="text-xs text-muted-foreground mb-2">
+                        {competency.evidence}
+                      </div>
+                      
+                      {/* Sample Evidence Blurb */}
+                      {competency.evidenceBlurbs && competency.evidenceBlurbs[0] && (
+                        <div className="text-xs bg-background p-2 rounded border mb-2">
+                          <div className="font-medium text-foreground mb-1">
+                            {competency.evidenceBlurbs[0].title}
+                          </div>
+                          <div className="text-xs text-muted-foreground line-clamp-2">
+                            {competency.evidenceBlurbs[0].content}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="flex flex-wrap gap-1 mb-3">
+                        {competency.tags.map((tag) => (
+                          <Badge key={tag} variant="outline" className="text-xs">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                      
+                      {/* Inline CTA Button */}
+                      <Button 
+                        variant="secondary" 
+                        size="sm" 
+                        className="w-full"
+                        onClick={() => handleShowEvidence(competency)}
+                      >
+                        View All Evidence
+                        <FileText className="h-4 w-4 ml-2" />
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -730,47 +730,46 @@ const Assessment = () => {
                     </p>
                     
                     {/* Interactive Evidence Preview */}
-                    <div 
-                      className="cursor-pointer group"
-                      onClick={() => handleShowRoleEvidence(archetype.type)}
-                    >
-                      <div className="p-3 bg-muted/20 rounded-lg border group-hover:bg-muted/30 group-hover:border-muted-foreground/20 transition-all">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-medium text-muted-foreground">Match Analysis</span>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-5 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            View Details →
-                          </Button>
+                    <div className="p-3 bg-muted/20 rounded-lg border">
+                      <div className="mb-2">
+                        <span className="text-xs font-medium text-muted-foreground">Match Analysis</span>
+                      </div>
+                      
+                      <div className="text-xs text-muted-foreground mb-2">
+                        {archetype.evidence}
+                      </div>
+                      
+                      {/* Key Match Indicators */}
+                      <div className="space-y-1 mb-2">
+                        <div className="flex items-center gap-2 text-xs">
+                          <CheckCircle className="h-3 w-3 text-success" />
+                          <span>Experience: {archetype.type === "Growth PM" ? "High" : archetype.type === "Technical PM" ? "Medium" : "Low"}</span>
                         </div>
-                        
-                        <div className="text-xs text-muted-foreground mb-2">
-                          {archetype.evidence}
-                        </div>
-                        
-                        {/* Key Match Indicators */}
-                        <div className="space-y-1 mb-2">
-                          <div className="flex items-center gap-2 text-xs">
-                            <CheckCircle className="h-3 w-3 text-success" />
-                            <span>Experience: {archetype.type === "Growth PM" ? "High" : archetype.type === "Technical PM" ? "Medium" : "Low"}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs">
-                            <CheckCircle className="h-3 w-3 text-success" />
-                            <span>Skills: {archetype.type === "Growth PM" ? "Growth, Leadership" : archetype.type === "Technical PM" ? "Technical, Platform" : "General PM"}</span>
-                          </div>
-                        </div>
-                        
-                        <div className="p-2 bg-background rounded border">
-                          <p className="text-xs font-medium text-muted-foreground mb-1">
-                            Typical profile:
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {archetype.typicalProfile}
-                          </p>
+                        <div className="flex items-center gap-2 text-xs">
+                          <CheckCircle className="h-3 w-3 text-success" />
+                          <span>Skills: {archetype.type === "Growth PM" ? "Growth, Leadership" : archetype.type === "Technical PM" ? "Technical, Platform" : "General PM"}</span>
                         </div>
                       </div>
+                      
+                      <div className="p-2 bg-background rounded border mb-3">
+                        <p className="text-xs font-medium text-muted-foreground mb-1">
+                          Typical profile:
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {archetype.typicalProfile}
+                        </p>
+                      </div>
+                      
+                      {/* Inline CTA Button */}
+                      <Button 
+                        variant="secondary" 
+                        size="sm" 
+                        className="w-full"
+                        onClick={() => handleShowRoleEvidence(archetype.type)}
+                      >
+                        View Detailed Analysis
+                        <Info className="h-4 w-4 ml-2" />
+                      </Button>
                     </div>
                   </div>
                 ))}
