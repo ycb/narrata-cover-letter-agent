@@ -510,16 +510,8 @@ const Assessment = () => {
                   {mockAssessment.confidence} confidence
                 </Badge>
               </div>
-              <CardTitle className="text-4xl font-bold text-foreground mb-2 flex items-center justify-center gap-3">
+              <CardTitle className="text-4xl font-bold text-foreground mb-2">
                 You are a <span className="text-primary">{mockAssessment.currentLevel}</span>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-6 w-6 p-0 hover:bg-muted/50"
-                  onClick={handleShowLevelEvidence}
-                >
-                  <Info className="h-4 w-4" />
-                </Button>
               </CardTitle>
               <CardDescription className="text-lg">
                 {mockAssessment.levelDescription}
@@ -528,6 +520,57 @@ const Assessment = () => {
                 {mockAssessment.inferenceSource}
               </p>
             </CardHeader>
+            
+            {/* Interactive Evidence Preview Section */}
+            <div 
+              className="px-6 pb-6 cursor-pointer group"
+              onClick={handleShowLevelEvidence}
+            >
+              <div className="border-t pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-medium text-sm text-muted-foreground">Evidence Summary</h4>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-6 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    View Details →
+                  </Button>
+                </div>
+                
+                {/* Evidence Teaser Content */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+                  <div className="text-center p-3 bg-muted/30 rounded-lg group-hover:bg-muted/50 transition-colors">
+                    <div className="text-lg font-semibold text-primary">6+</div>
+                    <div className="text-xs text-muted-foreground">Years Experience</div>
+                  </div>
+                  <div className="text-center p-3 bg-muted/30 rounded-lg group-hover:bg-muted/50 transition-colors">
+                    <div className="text-lg font-semibold text-primary">47</div>
+                    <div className="text-xs text-muted-foreground">Approved Blurbs</div>
+                  </div>
+                  <div className="text-center p-3 bg-muted/30 rounded-lg group-hover:bg-muted/50 transition-colors">
+                    <div className="text-lg font-semibold text-primary">32</div>
+                    <div className="text-xs text-muted-foreground">Relevant Stories</div>
+                  </div>
+                </div>
+                
+                {/* Key Evidence Points */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle className="h-4 w-4 text-success" />
+                    <span>Strong leadership signals across multiple roles</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle className="h-4 w-4 text-success" />
+                    <span>Consistent execution at scale (10K+ users, $2M+ ARR)</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle className="h-4 w-4 text-success" />
+                    <span>Cross-functional collaboration and stakeholder influence</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </Card>
 
           {/* PM Ladder Visualization */}
@@ -601,17 +644,7 @@ const Assessment = () => {
                 {mockAssessment.competencies.map((competency) => (
                   <div key={competency.domain} className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-medium">{competency.domain}</h3>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleShowEvidence(competency)}
-                          className="h-6 w-6 p-0 hover:bg-muted/50"
-                        >
-                          <FileText className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      <h3 className="font-medium">{competency.domain}</h3>
                       <Badge className={getLevelColor(competency.level)}>
                         {competency.level}
                       </Badge>
@@ -623,16 +656,47 @@ const Assessment = () => {
                       {competency.description}
                     </div>
                     
-                    <div className="text-xs text-muted-foreground">
-                      {competency.evidence}
-                    </div>
-                    
-                    <div className="flex flex-wrap gap-1">
-                      {competency.tags.map((tag) => (
-                        <Badge key={tag} variant="outline" className="text-xs">
-                          {tag}
-                        </Badge>
-                      ))}
+                    {/* Interactive Evidence Preview */}
+                    <div 
+                      className="cursor-pointer group"
+                      onClick={() => handleShowEvidence(competency)}
+                    >
+                      <div className="p-3 bg-muted/20 rounded-lg border group-hover:bg-muted/30 group-hover:border-muted-foreground/20 transition-all">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-muted-foreground">Evidence Preview</span>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-5 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            View All →
+                          </Button>
+                        </div>
+                        
+                        <div className="text-xs text-muted-foreground mb-2">
+                          {competency.evidence}
+                        </div>
+                        
+                        {/* Sample Evidence Blurb */}
+                        {competency.evidenceBlurbs && competency.evidenceBlurbs[0] && (
+                          <div className="text-xs bg-background p-2 rounded border">
+                            <div className="font-medium text-foreground mb-1">
+                              {competency.evidenceBlurbs[0].title}
+                            </div>
+                            <div className="text-muted-foreground line-clamp-2">
+                              {competency.evidenceBlurbs[0].content}
+                            </div>
+                          </div>
+                        )}
+                        
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {competency.tags.map((tag) => (
+                            <Badge key={tag} variant="outline" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -656,17 +720,7 @@ const Assessment = () => {
                 {mockAssessment.roleArchetypes.map((archetype) => (
                   <div key={archetype.type} className="p-4 border rounded-lg">
                     <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-medium">{archetype.type}</h4>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-4 w-4 p-0 hover:bg-muted/50"
-                          onClick={() => handleShowRoleEvidence(archetype.type)}
-                        >
-                          <Info className="h-3 w-3" />
-                        </Button>
-                      </div>
+                      <h4 className="font-medium">{archetype.type}</h4>
                       <Badge className={getArchetypeColor(archetype.match)}>
                         {archetype.match}% match
                       </Badge>
@@ -674,16 +728,49 @@ const Assessment = () => {
                     <p className="text-sm text-muted-foreground mb-2">
                       {archetype.description}
                     </p>
-                    <p className="text-xs text-muted-foreground mb-3">
-                      {archetype.evidence}
-                    </p>
-                    <div className="p-3 bg-muted/20 rounded-lg">
-                      <p className="text-xs font-medium text-muted-foreground mb-1">
-                        Typical profile includes:
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {archetype.typicalProfile}
-                      </p>
+                    
+                    {/* Interactive Evidence Preview */}
+                    <div 
+                      className="cursor-pointer group"
+                      onClick={() => handleShowRoleEvidence(archetype.type)}
+                    >
+                      <div className="p-3 bg-muted/20 rounded-lg border group-hover:bg-muted/30 group-hover:border-muted-foreground/20 transition-all">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-muted-foreground">Match Analysis</span>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-5 px-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            View Details →
+                          </Button>
+                        </div>
+                        
+                        <div className="text-xs text-muted-foreground mb-2">
+                          {archetype.evidence}
+                        </div>
+                        
+                        {/* Key Match Indicators */}
+                        <div className="space-y-1 mb-2">
+                          <div className="flex items-center gap-2 text-xs">
+                            <CheckCircle className="h-3 w-3 text-success" />
+                            <span>Experience: {archetype.type === "Growth PM" ? "High" : archetype.type === "Technical PM" ? "Medium" : "Low"}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs">
+                            <CheckCircle className="h-3 w-3 text-success" />
+                            <span>Skills: {archetype.type === "Growth PM" ? "Growth, Leadership" : archetype.type === "Technical PM" ? "Technical, Platform" : "General PM"}</span>
+                          </div>
+                        </div>
+                        
+                        <div className="p-2 bg-background rounded border">
+                          <p className="text-xs font-medium text-muted-foreground mb-1">
+                            Typical profile:
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {archetype.typicalProfile}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}
