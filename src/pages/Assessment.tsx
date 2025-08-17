@@ -607,7 +607,7 @@ const Assessment = () => {
                 {/* Progress Bar */}
                 <div className="flex items-center justify-between mb-4">
                   {mockAssessment.levelProgression.map((level, index) => (
-                    <div key={level.level} className="flex flex-col items-center">
+                    <div key={level.level} className="flex flex-col items-center relative">
                       <div className={`h-3 w-3 rounded-full mb-2 ${
                         level.current 
                           ? 'bg-foreground' 
@@ -616,8 +616,10 @@ const Assessment = () => {
                             : 'bg-muted/30'
                       }`} />
                       <div className="text-center">
-                        <div className={`text-sm font-medium ${
-                          level.current ? 'text-foreground' : 'text-muted-foreground'
+                        <div className={`font-medium ${
+                          level.current 
+                            ? 'text-lg bg-foreground text-background px-3 py-1 rounded-full' 
+                            : 'text-sm text-muted-foreground'
                         }`}>
                           {level.level}
                         </div>
