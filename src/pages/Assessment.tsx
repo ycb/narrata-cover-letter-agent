@@ -637,8 +637,7 @@ const Assessment = () => {
                       <div className="h-6 w-6 rounded-full border-2 border-blue-500 mb-2" />
                       <div className="text-center">
                         <div className="text-sm font-medium text-blue-900 mb-1">Lead Product Mgr</div>
-                        <div className="text-xs text-muted-foreground w-24 text-center mb-2">Technical leadership</div>
-                        <div className="text-xs font-semibold text-blue-700">Next Level</div>
+                        <div className="text-xs text-muted-foreground w-24 text-center">Technical leadership</div>
                       </div>
                     </div>
                     <div className="h-px w-8 bg-blue-200" />
@@ -653,7 +652,7 @@ const Assessment = () => {
                 </div>
                 
                 {/* Next Level Guidance Banner */}
-                <div className="bg-muted/30 border border-muted rounded-lg p-3 mt-4">
+                <div className="bg-muted/30 border-t border-b border-muted py-4 -mx-6 my-6">
                   <div className="text-center">
                     <p className="text-xs text-muted-foreground">Demonstrate strategic thinking and organizational influence to advance</p>
                   </div>
