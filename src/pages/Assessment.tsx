@@ -669,7 +669,7 @@ const Assessment = () => {
                   
                   <div className="flex items-center justify-center space-x-4">
                     <div className="flex flex-col items-center">
-                      <div className="h-3 w-3 rounded-full bg-green-500 mb-2" />
+                      <div className="h-6 w-6 rounded-full border-2 border-green-500 mb-2" />
                       <div className="text-center">
                         <div className="text-sm font-medium text-green-900">Group PM / Manager</div>
                         <div className="text-xs text-muted-foreground w-24 text-center">Portfolio oversight</div>
@@ -677,7 +677,7 @@ const Assessment = () => {
                     </div>
                     <div className="h-px w-8 bg-green-200" />
                     <div className="flex flex-col items-center">
-                      <div className="h-3 w-3 rounded-full bg-green-500 mb-2" />
+                      <div className="h-6 w-6 rounded-full border-2 border-green-500 mb-2" />
                       <div className="text-center">
                         <div className="text-sm font-medium text-green-900">Director of Product</div>
                         <div className="text-xs text-muted-foreground w-24 text-center">Strategic direction</div>
@@ -685,7 +685,7 @@ const Assessment = () => {
                     </div>
                     <div className="h-px w-8 bg-green-200" />
                     <div className="flex flex-col items-center">
-                      <div className="h-3 w-3 rounded-full bg-green-500 mb-2" />
+                      <div className="h-6 w-6 rounded-full border-2 border-green-500 mb-2" />
                       <div className="text-center">
                         <div className="text-sm font-medium text-green-900">Vice President, Product</div>
                         <div className="text-xs text-muted-foreground w-24 text-center">Executive leadership</div>
@@ -693,7 +693,7 @@ const Assessment = () => {
                     </div>
                     <div className="h-px w-8 bg-green-200" />
                     <div className="flex flex-col items-center">
-                      <div className="h-3 w-3 rounded-full bg-green-500 mb-2" />
+                      <div className="h-6 w-6 rounded-full border-2 border-green-500 mb-2" />
                       <div className="text-center">
                         <div className="text-sm font-medium text-green-900">Chief Product Officer</div>
                         <div className="text-xs text-muted-foreground w-24 text-center">CPO</div>
