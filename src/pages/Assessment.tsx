@@ -500,80 +500,68 @@ const Assessment = () => {
       <main className="container py-8">
         <div className="max-w-6xl mx-auto space-y-8">
           
-          {/* Data Sources & Profile Completeness - TOP MOST */}
+          {/* Data Sources - Tight & Inline */}
           <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
-                Data Sources & Profile Strength
-              </CardTitle>
-              <CardDescription>
-                Your profile completeness and data richness for better assessments
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {/* LinkedIn */}
-                <div className="text-center p-3 bg-muted/20 rounded-lg border">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <div className="h-2 w-2 rounded-full bg-success"></div>
-                    <span className="text-xs font-medium text-muted-foreground">LinkedIn</span>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  <div>
+                    <CardTitle className="text-lg">Data Sources</CardTitle>
+                    <CardDescription className="text-sm">Profile completeness</CardDescription>
                   </div>
-                  <div className="text-lg font-semibold text-foreground">Connected</div>
-                  <div className="text-xs text-muted-foreground">Profile synced</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm font-medium text-success">Profile Strength</div>
+                  <Badge className="bg-success text-success-foreground text-xs">Strong</Badge>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                {/* LinkedIn */}
+                <div className="text-center p-2 bg-muted/20 rounded border">
+                  <div className="flex items-center justify-center gap-1 mb-1">
+                    <div className="h-2 w-2 rounded-full bg-success"></div>
+                    <span className="text-xs text-muted-foreground">LinkedIn</span>
+                  </div>
+                  <div className="text-sm font-medium">Connected</div>
                 </div>
 
                 {/* Resume */}
-                <div className="text-center p-3 bg-muted/20 rounded-lg border">
-                  <div className="flex items-center justify-center gap-2 mb-2">
+                <div className="text-center p-2 bg-muted/20 rounded border">
+                  <div className="flex items-center justify-center gap-1 mb-1">
                     <div className="h-2 w-2 rounded-full bg-success"></div>
-                    <span className="text-xs font-medium text-muted-foreground">Resume</span>
+                    <span className="text-xs text-muted-foreground">Resume</span>
                   </div>
-                  <div className="text-lg font-semibold text-foreground">Uploaded</div>
-                  <div className="text-xs text-muted-foreground">PDF parsed</div>
+                  <div className="text-sm font-medium">Uploaded</div>
                 </div>
 
                 {/* Cover Letters */}
-                <div className="text-center p-3 bg-muted/20 rounded-lg border">
-                  <div className="flex items-center justify-center gap-2 mb-2">
+                <div className="text-center p-2 bg-muted/20 rounded border">
+                  <div className="flex items-center justify-center gap-1 mb-1">
                     <div className="h-2 w-2 rounded-full bg-warning"></div>
-                    <span className="text-xs font-medium text-muted-foreground">Cover Letters</span>
+                    <span className="text-xs text-muted-foreground">Cover Letters</span>
                   </div>
-                  <div className="text-lg font-semibold text-foreground">0</div>
-                  <div className="text-xs text-muted-foreground">Free plan: 1 max</div>
+                  <div className="text-sm font-medium">0</div>
                 </div>
 
                 {/* Stories/Blurbs */}
-                <div className="text-center p-3 bg-muted/20 rounded-lg border">
-                  <div className="flex items-center justify-center gap-2 mb-2">
+                <div className="text-center p-2 bg-muted/20 rounded border">
+                  <div className="flex items-center justify-center gap-1 mb-1">
                     <div className="h-2 w-2 rounded-full bg-success"></div>
-                    <span className="text-xs font-medium text-muted-foreground">Stories</span>
+                    <span className="text-xs text-muted-foreground">Stories</span>
                   </div>
-                  <div className="text-lg font-semibold text-foreground">47</div>
-                  <div className="text-xs text-muted-foreground">Approved blurbs</div>
+                  <div className="text-sm font-medium">47</div>
                 </div>
-              </div>
 
-              {/* External Links Analysis */}
-              <div className="mt-4 p-3 bg-muted/10 rounded-lg border">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-muted-foreground">External Links</span>
-                  <Badge variant="outline" className="text-xs">3 connected</Badge>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Portfolio, GitHub, and Medium articles provide additional context for your technical and creative work.
-                </div>
-              </div>
-
-              {/* Profile Strength Indicator */}
-              <div className="mt-4 p-3 bg-success/10 rounded-lg border border-success/20">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-success">Profile Strength</span>
-                  <Badge className="bg-success text-success-foreground">Strong</Badge>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Your profile has rich data across multiple sources, enabling confident assessments. 
-                  Consider adding quantified results to reach "Excellent" status.
+                {/* External Links */}
+                <div className="text-center p-2 bg-muted/20 rounded border">
+                  <div className="flex items-center justify-center gap-1 mb-1">
+                    <div className="h-2 w-2 rounded-full bg-success"></div>
+                    <span className="text-xs text-muted-foreground">External</span>
+                  </div>
+                  <div className="text-sm font-medium">3</div>
                 </div>
               </div>
             </CardContent>
@@ -614,83 +602,7 @@ const Assessment = () => {
               </Button>
             </div>
           </Card>
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
-                Data Sources & Profile Strength
-              </CardTitle>
-              <CardDescription>
-                Your profile completeness and data richness for better assessments
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {/* LinkedIn */}
-                <div className="text-center p-3 bg-muted/20 rounded-lg border">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <div className="h-2 w-2 rounded-full bg-success"></div>
-                    <span className="text-xs font-medium text-muted-foreground">LinkedIn</span>
-                  </div>
-                  <div className="text-lg font-semibold text-foreground">Connected</div>
-                  <div className="text-xs text-muted-foreground">Profile synced</div>
-                </div>
 
-                {/* Resume */}
-                <div className="text-center p-3 bg-muted/20 rounded-lg border">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <div className="h-2 w-2 rounded-full bg-success"></div>
-                    <span className="text-xs font-medium text-muted-foreground">Resume</span>
-                  </div>
-                  <div className="text-lg font-semibold text-foreground">Uploaded</div>
-                  <div className="text-xs text-muted-foreground">PDF parsed</div>
-                </div>
-
-                {/* Cover Letters */}
-                <div className="text-center p-3 bg-muted/20 rounded-lg border">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <div className="h-2 w-2 rounded-full bg-warning"></div>
-                    <span className="text-xs font-medium text-muted-foreground">Cover Letters</span>
-                  </div>
-                  <div className="text-lg font-semibold text-foreground">0</div>
-                  <div className="text-xs text-muted-foreground">Free plan: 1 max</div>
-                </div>
-
-                {/* Stories/Blurbs */}
-                <div className="text-center p-3 bg-muted/20 rounded-lg border">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <div className="h-2 w-2 rounded-full bg-success"></div>
-                    <span className="text-xs font-medium text-muted-foreground">Stories</span>
-                  </div>
-                  <div className="text-lg font-semibold text-foreground">47</div>
-                  <div className="text-xs text-muted-foreground">Approved blurbs</div>
-                </div>
-              </div>
-
-              {/* External Links Analysis */}
-              <div className="mt-4 p-3 bg-muted/10 rounded-lg border">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-muted-foreground">External Links</span>
-                  <Badge variant="outline" className="text-xs">3 connected</Badge>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Portfolio, GitHub, and Medium articles provide additional context for your technical and creative work.
-                </div>
-              </div>
-
-              {/* Profile Strength Indicator */}
-              <div className="mt-4 p-3 bg-success/10 rounded-lg border border-success/20">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-success">Profile Strength</span>
-                  <Badge className="bg-success text-success-foreground">Strong</Badge>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Your profile has rich data across multiple sources, enabling confident assessments. 
-                  Consider adding quantified results to reach "Excellent" status.
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
           {/* PM Ladder Visualization */}
           <Card className="shadow-soft">
