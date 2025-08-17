@@ -633,7 +633,7 @@ const Assessment = () => {
                       </div>
                     </div>
                     <div className="h-px w-8 bg-blue-200" />
-                    <div className="flex flex-col items-center bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div className="flex flex-col items-center border-2 border-dotted border-blue-500 rounded-lg p-3">
                       <div className="h-6 w-6 rounded-full border-2 border-blue-500 mb-2" />
                       <div className="text-center">
                         <div className="text-sm font-medium text-blue-900 mb-1">Lead Product Mgr</div>
