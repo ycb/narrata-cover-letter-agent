@@ -15,8 +15,12 @@ import {
   Download,
   Edit,
   MessageSquare,
-  Info
+  Info,
+  FileText
 } from "lucide-react";
+import EvidenceModal from "@/components/assessment/EvidenceModal";
+import LevelEvidenceModal from "@/components/assessment/LevelEvidenceModal";
+import RoleEvidenceModal from "@/components/assessment/RoleEvidenceModal";
 
 // Simplified mock data for testing
 const mockAssessment = {
@@ -33,7 +37,31 @@ const mockAssessment = {
       score: 85,
       evidence: "5 case studies tagged 'Execution'",
       tags: ["Execution", "Delivery", "Technical"],
-      description: "Consistently delivers complex products with measurable impact"
+      description: "Consistently delivers complex products with measurable impact",
+      evidenceBlurbs: [
+        {
+          id: "exec-1",
+          title: "Growth PM Leadership at SaaS Startup",
+          content: "Led cross-functional product team of 8 to drive 40% user acquisition growth through data-driven experimentation and customer research, resulting in $2M ARR increase.",
+          tags: ["Growth", "Leadership", "SaaS", "Data-Driven"],
+          sourceRole: "Product Lead",
+          sourceCompany: "InnovateTech",
+          lastUsed: "2 days ago",
+          timesUsed: 12,
+          confidence: "high"
+        },
+        {
+          id: "exec-2",
+          title: "0-1 Product Development Success",
+          content: "Built and launched MVP mobile platform from concept to 10K+ users in 6 months, collaborating with design and engineering to validate product-market fit.",
+          tags: ["0-1", "Mobile", "MVP", "Product-Market Fit"],
+          sourceRole: "Product Manager",
+          sourceCompany: "StartupXYZ",
+          lastUsed: "1 week ago",
+          timesUsed: 8,
+          confidence: "high"
+        }
+      ]
     },
     {
       domain: "Customer Insight",
@@ -41,7 +69,20 @@ const mockAssessment = {
       score: 80,
       evidence: "Samsung + Meta stories with user research",
       tags: ["Research", "User Experience", "Customer"],
-      description: "Deep understanding of user needs and market validation"
+      description: "Deep understanding of user needs and market validation",
+      evidenceBlurbs: [
+        {
+          id: "insight-1",
+          title: "Customer Research & Strategy",
+          content: "Conducted 50+ customer interviews and usability studies to inform product roadmap, leading to 25% improvement in user satisfaction scores.",
+          tags: ["Research", "Strategy", "Customer Experience"],
+          sourceRole: "Product Manager",
+          sourceCompany: "Meta",
+          lastUsed: "3 days ago",
+          timesUsed: 15,
+          confidence: "high"
+        }
+      ]
     },
     {
       domain: "Product Strategy",
@@ -49,7 +90,20 @@ const mockAssessment = {
       score: 65,
       evidence: "2 strategy-related blurbs",
       tags: ["Strategy", "Vision", "Roadmap"],
-      description: "Developing strategic thinking, needs more leadership examples"
+      description: "Developing strategic thinking, needs more leadership examples",
+      evidenceBlurbs: [
+        {
+          id: "strategy-1",
+          title: "Platform Strategy Development",
+          content: "Developed 3-year platform strategy for enterprise SaaS product, including market analysis and competitive positioning.",
+          tags: ["Strategy", "Platform", "Enterprise"],
+          sourceRole: "Senior PM",
+          sourceCompany: "TechCorp",
+          lastUsed: "2 weeks ago",
+          timesUsed: 3,
+          confidence: "medium"
+        }
+      ]
     },
     {
       domain: "Influencing People",
@@ -57,7 +111,20 @@ const mockAssessment = {
       score: 75,
       evidence: "Aurora + Meta stories tagged 'XFN Collaboration'",
       tags: ["Leadership", "Collaboration", "Stakeholder"],
-      description: "Effective cross-functional collaboration and team influence"
+      description: "Effective cross-functional collaboration and team influence",
+      evidenceBlurbs: [
+        {
+          id: "influence-1",
+          title: "Cross-functional Team Leadership",
+          content: "Led 15-person cross-functional team across engineering, design, and marketing to deliver major product launch on time and under budget.",
+          tags: ["Leadership", "Collaboration", "Team Management"],
+          sourceRole: "Product Lead",
+          sourceCompany: "Aurora",
+          lastUsed: "1 month ago",
+          timesUsed: 6,
+          confidence: "high"
+        }
+      ]
     }
   ],
 
@@ -98,10 +165,295 @@ const mockAssessment = {
     { level: "Senior PM", description: "4-7 years, strategic execution", current: true },
     { level: "Principal PM", description: "7-10 years, product strategy" },
     { level: "Director+", description: "10+ years, organizational leadership" }
-  ]
+  ],
+
+  // Level Evidence Data
+  levelEvidence: {
+    currentLevel: "Senior PM",
+    nextLevel: "Principal PM",
+    confidence: "high",
+    resumeEvidence: {
+      roleTitles: ["Product Manager", "Senior PM", "Product Lead"],
+      duration: "6+ years in product management",
+      companyScale: ["Startup", "Scale-up", "Enterprise"]
+    },
+    blurbEvidence: {
+      totalBlurbs: 47,
+      relevantBlurbs: 32,
+      tagDensity: [
+        { tag: "Leadership", count: 15 },
+        { tag: "Strategy", count: 8 },
+        { tag: "Execution", count: 12 },
+        { tag: "Growth", count: 10 }
+      ]
+    },
+    levelingFramework: {
+      framework: "Reforge + Market Calibration",
+      criteria: [
+        "Strategic thinking and roadmap development",
+        "Cross-functional team leadership",
+        "Complex problem solving at scale",
+        "Stakeholder influence and collaboration"
+      ],
+      match: "Strong Match"
+    },
+    gaps: [
+      {
+        area: "Organizational Strategy",
+        description: "Need more examples of company-wide strategic initiatives",
+        examples: ["Company vision setting", "Portfolio strategy", "Organizational design"]
+      },
+      {
+        area: "Executive Communication",
+        description: "Limited evidence of board-level presentations and executive influence",
+        examples: ["Board presentations", "C-suite collaboration", "Investor communications"]
+      }
+    ]
+  },
+
+  // Role Archetype Evidence Data
+  roleArchetypeEvidence: {
+    "Growth PM": {
+      roleType: "Growth PM",
+      matchScore: 85,
+      description: "Data-driven experimentation and user acquisition focus",
+      industryPatterns: [
+        {
+          pattern: "Startup/Scale-up Experience",
+          match: true,
+          examples: ["InnovateTech", "StartupXYZ", "Early-stage companies"]
+        },
+        {
+          pattern: "PLG Systems",
+          match: true,
+          examples: ["User analytics", "A/B testing", "Growth loops"]
+        },
+        {
+          pattern: "B2C Focus",
+          match: true,
+          examples: ["User acquisition", "Retention optimization", "Viral mechanics"]
+        }
+      ],
+      problemComplexity: {
+        level: "High",
+        examples: ["User acquisition at scale", "Growth strategy", "Product-market fit"],
+        evidence: ["Led 40% user growth", "Built MVP to 10K users", "Cross-functional leadership"]
+      },
+      workHistory: [
+        {
+          company: "InnovateTech",
+          role: "Product Lead",
+          relevance: "Highly Relevant",
+          tags: ["Growth", "Leadership", "SaaS"]
+        },
+        {
+          company: "StartupXYZ",
+          role: "Product Manager",
+          relevance: "Highly Relevant",
+          tags: ["0-1", "MVP", "Product-Market Fit"]
+        }
+      ],
+      tagAnalysis: [
+        {
+          tag: "Growth",
+          count: 10,
+          relevance: 95,
+          examples: ["User acquisition", "A/B testing", "Growth strategy"]
+        },
+        {
+          tag: "Leadership",
+          count: 15,
+          relevance: 90,
+          examples: ["Team management", "Cross-functional collaboration"]
+        }
+      ],
+      gaps: [
+        {
+          area: "Enterprise Growth",
+          description: "Limited experience with enterprise sales and B2B growth",
+          suggestions: ["B2B customer development", "Enterprise sales process", "Account-based marketing"]
+        }
+      ]
+    },
+    "Technical PM": {
+      roleType: "Technical PM",
+      matchScore: 70,
+      description: "Technical depth and engineering collaboration",
+      industryPatterns: [
+        {
+          pattern: "Engineering Background",
+          match: true,
+          examples: ["Technical degree", "Engineering experience", "Technical collaboration"]
+        },
+        {
+          pattern: "Platform Products",
+          match: true,
+          examples: ["API design", "Infrastructure", "Developer tools"]
+        },
+        {
+          pattern: "Enterprise SaaS",
+          match: true,
+          examples: ["B2B products", "Technical complexity", "Enterprise integration"]
+        }
+      ],
+      problemComplexity: {
+        level: "Medium-High",
+        examples: ["Technical architecture", "API design", "Platform scalability"],
+        evidence: ["Technical collaboration", "Platform strategy", "Engineering partnerships"]
+      },
+      workHistory: [
+        {
+          company: "TechCorp",
+          role: "Senior PM",
+          relevance: "Moderately Relevant",
+          tags: ["Technical", "Platform", "Enterprise"]
+        }
+      ],
+      tagAnalysis: [
+        {
+          tag: "Technical",
+          count: 8,
+          relevance: 75,
+          examples: ["Technical collaboration", "Platform design", "API strategy"]
+        },
+        {
+          tag: "Engineering",
+          count: 6,
+          relevance: 70,
+          examples: ["Engineering partnerships", "Technical requirements", "Platform architecture"]
+        }
+      ],
+      gaps: [
+        {
+          area: "Deep Technical Expertise",
+          description: "Need more evidence of hands-on technical implementation",
+          suggestions: ["Technical implementation", "Code reviews", "Technical architecture decisions"]
+        }
+      ]
+    },
+    "Founding PM": {
+      roleType: "Founding PM",
+      matchScore: 60,
+      description: "0-1 product development and market validation",
+      industryPatterns: [
+        {
+          pattern: "Early-stage Startup",
+          match: true,
+          examples: ["StartupXYZ", "0-1 products", "MVP development"]
+        },
+        {
+          pattern: "Product-Market Fit",
+          match: true,
+          examples: ["Market validation", "Customer research", "Iteration"]
+        },
+        {
+          pattern: "End-to-End Ownership",
+          match: true,
+          examples: ["Full product lifecycle", "Strategic decisions", "Execution"]
+        }
+      ],
+      problemComplexity: {
+        level: "Medium",
+        examples: ["Product-market fit", "MVP development", "Strategic decisions"],
+        evidence: ["Built MVP to 10K users", "0-1 product development", "Strategic thinking"]
+      },
+      workHistory: [
+        {
+          company: "StartupXYZ",
+          role: "Product Manager",
+          relevance: "Highly Relevant",
+          tags: ["0-1", "MVP", "Product-Market Fit"]
+        }
+      ],
+      tagAnalysis: [
+        {
+          tag: "0-1",
+          count: 8,
+          relevance: 80,
+          examples: ["MVP development", "Product-market fit", "Strategic decisions"]
+        },
+        {
+          tag: "MVP",
+          count: 6,
+          relevance: 75,
+          examples: ["Product development", "Market validation", "Iteration"]
+        }
+      ],
+      gaps: [
+        {
+          area: "Fundraising Experience",
+          description: "Limited evidence of fundraising and investor relations",
+          suggestions: ["Investor presentations", "Fundraising strategy", "Financial modeling"]
+        }
+      ]
+    },
+    "Platform PM": {
+      roleType: "Platform PM",
+      matchScore: 45,
+      description: "API and infrastructure product management",
+      industryPatterns: [
+        {
+          pattern: "Developer Platforms",
+          match: false,
+          examples: ["Limited API design", "No developer tools", "No platform focus"]
+        },
+        {
+          pattern: "Infrastructure Products",
+          match: false,
+          examples: ["No infrastructure experience", "Limited technical depth", "No platform strategy"]
+        },
+        {
+          pattern: "Enterprise Integration",
+          match: false,
+          examples: ["Limited enterprise focus", "No integration experience", "No platform thinking"]
+        }
+      ],
+      problemComplexity: {
+        level: "Low",
+        examples: ["Basic product management", "Feature delivery", "User-facing products"],
+        evidence: ["Limited platform experience", "No API design", "No infrastructure focus"]
+      },
+      workHistory: [
+        {
+          company: "Various",
+          role: "Product Manager",
+          relevance: "Low Relevance",
+          tags: ["General PM", "Feature delivery", "User products"]
+        }
+      ],
+      tagAnalysis: [
+        {
+          tag: "Platform",
+          count: 2,
+          relevance: 30,
+          examples: ["Limited platform thinking", "No API focus", "No infrastructure"]
+        },
+        {
+          tag: "API",
+          count: 1,
+          relevance: 20,
+          examples: ["No API design", "No developer experience", "No platform strategy"]
+        }
+      ],
+      gaps: [
+        {
+          area: "Platform Thinking",
+          description: "Need to develop platform and infrastructure mindset",
+          suggestions: ["API design", "Developer experience", "Platform strategy", "Infrastructure products"]
+        }
+      ]
+    }
+  }
 };
 
 const Assessment = () => {
+  const [selectedCompetency, setSelectedCompetency] = useState<string | null>(null);
+  const [evidenceModalOpen, setEvidenceModalOpen] = useState(false);
+  const [selectedEvidence, setSelectedEvidence] = useState<any>(null);
+  const [levelEvidenceModalOpen, setLevelEvidenceModalOpen] = useState(false);
+  const [roleEvidenceModalOpen, setRoleEvidenceModalOpen] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<string | null>(null);
+
   const getLevelColor = (level: string) => {
     switch (level) {
       case "Strong": return "text-success";
@@ -128,6 +480,20 @@ const Assessment = () => {
     return "bg-muted text-muted-foreground";
   };
 
+  const handleShowEvidence = (competency: any) => {
+    setSelectedEvidence(competency);
+    setEvidenceModalOpen(true);
+  };
+
+  const handleShowLevelEvidence = () => {
+    setLevelEvidenceModalOpen(true);
+  };
+
+  const handleShowRoleEvidence = (roleType: string) => {
+    setSelectedRole(roleType);
+    setRoleEvidenceModalOpen(true);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-subtle">
       <main className="container py-8">
@@ -144,8 +510,16 @@ const Assessment = () => {
                   {mockAssessment.confidence} confidence
                 </Badge>
               </div>
-              <CardTitle className="text-4xl font-bold text-foreground mb-2">
+              <CardTitle className="text-4xl font-bold text-foreground mb-2 flex items-center justify-center gap-3">
                 You are a <span className="text-primary">{mockAssessment.currentLevel}</span>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-6 w-6 p-0 hover:bg-muted/50"
+                  onClick={handleShowLevelEvidence}
+                >
+                  <Info className="h-4 w-4" />
+                </Button>
               </CardTitle>
               <CardDescription className="text-lg">
                 {mockAssessment.levelDescription}
@@ -227,7 +601,17 @@ const Assessment = () => {
                 {mockAssessment.competencies.map((competency) => (
                   <div key={competency.domain} className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-medium">{competency.domain}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-medium">{competency.domain}</h3>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleShowEvidence(competency)}
+                          className="h-6 w-6 p-0 hover:bg-muted/50"
+                        >
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                      </div>
                       <Badge className={getLevelColor(competency.level)}>
                         {competency.level}
                       </Badge>
@@ -272,7 +656,17 @@ const Assessment = () => {
                 {mockAssessment.roleArchetypes.map((archetype) => (
                   <div key={archetype.type} className="p-4 border rounded-lg">
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium">{archetype.type}</h4>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-medium">{archetype.type}</h4>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-4 w-4 p-0 hover:bg-muted/50"
+                          onClick={() => handleShowRoleEvidence(archetype.type)}
+                        >
+                          <Info className="h-3 w-3" />
+                        </Button>
+                      </div>
                       <Badge className={getArchetypeColor(archetype.match)}>
                         {archetype.match}% match
                       </Badge>
@@ -347,6 +741,40 @@ const Assessment = () => {
           </div>
         </div>
       </main>
+
+      {/* Evidence Modal */}
+      {selectedEvidence && (
+        <EvidenceModal
+          isOpen={evidenceModalOpen}
+          onClose={() => {
+            setEvidenceModalOpen(false);
+            setSelectedEvidence(null);
+          }}
+          competency={selectedEvidence.domain}
+          evidence={selectedEvidence.evidenceBlurbs}
+          matchedTags={selectedEvidence.tags}
+          overallConfidence={selectedEvidence.level === "Strong" ? "high" : selectedEvidence.level === "Solid" ? "medium" : "low"}
+        />
+      )}
+
+      {/* Level Evidence Modal */}
+      <LevelEvidenceModal
+        isOpen={levelEvidenceModalOpen}
+        onClose={() => setLevelEvidenceModalOpen(false)}
+        evidence={mockAssessment.levelEvidence}
+      />
+
+      {/* Role Evidence Modal */}
+      {selectedRole && mockAssessment.roleArchetypeEvidence[selectedRole] && (
+        <RoleEvidenceModal
+          isOpen={roleEvidenceModalOpen}
+          onClose={() => {
+            setRoleEvidenceModalOpen(false);
+            setSelectedRole(null);
+          }}
+          evidence={mockAssessment.roleArchetypeEvidence[selectedRole]}
+        />
+      )}
     </div>
   );
 };
