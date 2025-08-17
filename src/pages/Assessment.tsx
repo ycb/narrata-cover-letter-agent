@@ -660,7 +660,7 @@ const Assessment = () => {
                     <span className="font-medium">Next Level: {mockAssessment.nextLevel}</span>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Focus on strategic thinking and organizational influence to advance
+                    Demonstrate strategic thinking and organizational influence to advance
                   </p>
                 </div>
               </div>
