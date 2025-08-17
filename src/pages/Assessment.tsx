@@ -605,40 +605,38 @@ const Assessment = () => {
                   <p className="text-sm text-muted-foreground mt-1">Demonstrate core PM skills</p>
                 </div>
                 
-                {/* Unified Foundations + IC Track */}
+                {/* IC Track - Single Color */}
                 <div className="relative mb-8">
                   <div className="text-center mb-6">
-                    <h4 className="text-base font-semibold text-foreground mb-2">Career Progression</h4>
-                    <p className="text-xs text-muted-foreground">From foundations to deep expertise</p>
+                    <h4 className="text-base font-semibold text-blue-700 mb-2">IC Track</h4>
+                    <p className="text-xs text-muted-foreground">Core PM skills to deep expertise</p>
                   </div>
                   
                   <div className="flex items-center justify-center space-x-4">
-                    {/* Foundations (Gray) */}
                     <div className="flex flex-col items-center">
-                      <div className="h-3 w-3 rounded-full bg-muted/30 mb-2" />
+                      <div className="h-3 w-3 rounded-full bg-blue-500 mb-2" />
                       <div className="text-center">
-                        <div className="text-sm font-medium text-muted-foreground">Associate PM</div>
+                        <div className="text-sm font-medium text-blue-900">Associate PM</div>
                         <div className="text-xs text-muted-foreground w-20 text-center">0-2 years</div>
                       </div>
                     </div>
-                    <div className="h-px w-8 bg-muted" />
+                    <div className="h-px w-8 bg-blue-200" />
                     <div className="flex flex-col items-center">
-                      <div className="h-3 w-3 rounded-full bg-muted mb-2" />
+                      <div className="h-3 w-3 rounded-full bg-blue-500 mb-2" />
                       <div className="text-center">
-                        <div className="text-sm font-medium text-muted-foreground">Product Mgr</div>
+                        <div className="text-sm font-medium text-blue-900">Product Mgr</div>
                         <div className="text-xs text-muted-foreground w-20 text-center">2-4 years</div>
                       </div>
                     </div>
-                    <div className="h-px w-8 bg-muted" />
+                    <div className="h-px w-8 bg-blue-200" />
                     <div className="flex flex-col items-center">
-                      <div className="h-3 w-3 rounded-full bg-foreground mb-2" />
+                      <div className="h-3 w-3 rounded-full bg-blue-500 mb-2" />
                       <div className="text-center">
-                        <div className="text-lg font-medium bg-foreground text-background px-3 py-1 rounded-full">Sr Product Mgr</div>
+                        <div className="text-lg font-medium bg-blue-500 text-white px-3 py-1 rounded-full">Sr Product Mgr</div>
                         <div className="text-xs text-muted-foreground w-20 text-center">4-7 years</div>
                       </div>
                     </div>
                     <div className="h-px w-8 bg-blue-200" />
-                    {/* IC Track (Blue) */}
                     <div className="flex flex-col items-center">
                       <div className="h-3 w-3 rounded-full bg-blue-500 mb-2" />
                       <div className="text-center">
