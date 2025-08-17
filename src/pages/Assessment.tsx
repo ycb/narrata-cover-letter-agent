@@ -274,6 +274,174 @@ const mockAssessment = {
           suggestions: ["B2B customer development", "Enterprise sales process", "Account-based marketing"]
         }
       ]
+    },
+    "Technical PM": {
+      roleType: "Technical PM",
+      matchScore: 70,
+      description: "Technical depth and engineering collaboration",
+      industryPatterns: [
+        {
+          pattern: "Engineering Background",
+          match: true,
+          examples: ["Technical degree", "Engineering experience", "Technical collaboration"]
+        },
+        {
+          pattern: "Platform Products",
+          match: true,
+          examples: ["API design", "Infrastructure", "Developer tools"]
+        },
+        {
+          pattern: "Enterprise SaaS",
+          match: true,
+          examples: ["B2B products", "Technical complexity", "Enterprise integration"]
+        }
+      ],
+      problemComplexity: {
+        level: "Medium-High",
+        examples: ["Technical architecture", "API design", "Platform scalability"],
+        evidence: ["Technical collaboration", "Platform strategy", "Engineering partnerships"]
+      },
+      workHistory: [
+        {
+          company: "TechCorp",
+          role: "Senior PM",
+          relevance: "Moderately Relevant",
+          tags: ["Technical", "Platform", "Enterprise"]
+        }
+      ],
+      tagAnalysis: [
+        {
+          tag: "Technical",
+          count: 8,
+          relevance: 75,
+          examples: ["Technical collaboration", "Platform design", "API strategy"]
+        },
+        {
+          tag: "Engineering",
+          count: 6,
+          relevance: 70,
+          examples: ["Engineering partnerships", "Technical requirements", "Platform architecture"]
+        }
+      ],
+      gaps: [
+        {
+          area: "Deep Technical Expertise",
+          description: "Need more evidence of hands-on technical implementation",
+          suggestions: ["Technical implementation", "Code reviews", "Technical architecture decisions"]
+        }
+      ]
+    },
+    "Founding PM": {
+      roleType: "Founding PM",
+      matchScore: 60,
+      description: "0-1 product development and market validation",
+      industryPatterns: [
+        {
+          pattern: "Early-stage Startup",
+          match: true,
+          examples: ["StartupXYZ", "0-1 products", "MVP development"]
+        },
+        {
+          pattern: "Product-Market Fit",
+          match: true,
+          examples: ["Market validation", "Customer research", "Iteration"]
+        },
+        {
+          pattern: "End-to-End Ownership",
+          match: true,
+          examples: ["Full product lifecycle", "Strategic decisions", "Execution"]
+        }
+      ],
+      problemComplexity: {
+        level: "Medium",
+        examples: ["Product-market fit", "MVP development", "Strategic decisions"],
+        evidence: ["Built MVP to 10K users", "0-1 product development", "Strategic thinking"]
+      },
+      workHistory: [
+        {
+          company: "StartupXYZ",
+          role: "Product Manager",
+          relevance: "Highly Relevant",
+          tags: ["0-1", "MVP", "Product-Market Fit"]
+        }
+      ],
+      tagAnalysis: [
+        {
+          tag: "0-1",
+          count: 8,
+          relevance: 80,
+          examples: ["MVP development", "Product-market fit", "Strategic decisions"]
+        },
+        {
+          tag: "MVP",
+          count: 6,
+          relevance: 75,
+          examples: ["Product development", "Market validation", "Iteration"]
+        }
+      ],
+      gaps: [
+        {
+          area: "Fundraising Experience",
+          description: "Limited evidence of fundraising and investor relations",
+          suggestions: ["Investor presentations", "Fundraising strategy", "Financial modeling"]
+        }
+      ]
+    },
+    "Platform PM": {
+      roleType: "Platform PM",
+      matchScore: 45,
+      description: "API and infrastructure product management",
+      industryPatterns: [
+        {
+          pattern: "Developer Platforms",
+          match: false,
+          examples: ["Limited API design", "No developer tools", "No platform focus"]
+        },
+        {
+          pattern: "Infrastructure Products",
+          match: false,
+          examples: ["No infrastructure experience", "Limited technical depth", "No platform strategy"]
+        },
+        {
+          pattern: "Enterprise Integration",
+          match: false,
+          examples: ["Limited enterprise focus", "No integration experience", "No platform thinking"]
+        }
+      ],
+      problemComplexity: {
+        level: "Low",
+        examples: ["Basic product management", "Feature delivery", "User-facing products"],
+        evidence: ["Limited platform experience", "No API design", "No infrastructure focus"]
+      },
+      workHistory: [
+        {
+          company: "Various",
+          role: "Product Manager",
+          relevance: "Low Relevance",
+          tags: ["General PM", "Feature delivery", "User products"]
+        }
+      ],
+      tagAnalysis: [
+        {
+          tag: "Platform",
+          count: 2,
+          relevance: 30,
+          examples: ["Limited platform thinking", "No API focus", "No infrastructure"]
+        },
+        {
+          tag: "API",
+          count: 1,
+          relevance: 20,
+          examples: ["No API design", "No developer experience", "No platform strategy"]
+        }
+      ],
+      gaps: [
+        {
+          area: "Platform Thinking",
+          description: "Need to develop platform and infrastructure mindset",
+          suggestions: ["API design", "Developer experience", "Platform strategy", "Infrastructure products"]
+        }
+      ]
     }
   }
 };
