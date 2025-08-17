@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { 
   TrendingUp, 
   Users, 
@@ -14,8 +15,11 @@ import {
   XCircle,
   Download,
   Edit,
-  MessageSquare
+  MessageSquare,
+  Info,
+  Search
 } from "lucide-react";
+import EvidenceModal from "@/components/assessment/EvidenceModal";
 
 // Mock PM Assessment data for Alex
 const mockAssessment = {
@@ -32,7 +36,31 @@ const mockAssessment = {
       score: 85,
       evidence: "5 case studies tagged 'Execution'",
       tags: ["Execution", "Delivery", "Technical"],
-      description: "Consistently delivers complex products with measurable impact"
+      description: "Consistently delivers complex products with measurable impact",
+      evidenceBlurbs: [
+        {
+          id: "exec-1",
+          title: "Growth PM Leadership at SaaS Startup",
+          content: "Led cross-functional product team of 8 to drive 40% user acquisition growth through data-driven experimentation and customer research, resulting in $2M ARR increase.",
+          tags: ["Growth", "Leadership", "SaaS", "Data-Driven"],
+          sourceRole: "Product Lead",
+          sourceCompany: "InnovateTech",
+          lastUsed: "2 days ago",
+          timesUsed: 12,
+          confidence: "high"
+        },
+        {
+          id: "exec-2",
+          title: "0-1 Product Development Success",
+          content: "Built and launched MVP mobile platform from concept to 10K+ users in 6 months, collaborating with design and engineering to validate product-market fit.",
+          tags: ["0-1", "Mobile", "MVP", "Product-Market Fit"],
+          sourceRole: "Product Manager",
+          sourceCompany: "StartupXYZ",
+          lastUsed: "1 week ago",
+          timesUsed: 8,
+          confidence: "high"
+        }
+      ]
     },
     {
       domain: "Customer Insight",
@@ -40,7 +68,20 @@ const mockAssessment = {
       score: 80,
       evidence: "Samsung + Meta stories with user research",
       tags: ["Research", "User Experience", "Customer"],
-      description: "Deep understanding of user needs and market validation"
+      description: "Deep understanding of user needs and market validation",
+      evidenceBlurbs: [
+        {
+          id: "insight-1",
+          title: "Customer Research & Strategy",
+          content: "Conducted 50+ customer interviews and usability studies to inform product roadmap, leading to 25% improvement in user satisfaction scores.",
+          tags: ["Research", "Strategy", "Customer Experience"],
+          sourceRole: "Product Manager",
+          sourceCompany: "Meta",
+          lastUsed: "3 days ago",
+          timesUsed: 15,
+          confidence: "high"
+        }
+      ]
     },
     {
       domain: "Product Strategy",
@@ -48,7 +89,20 @@ const mockAssessment = {
       score: 65,
       evidence: "2 strategy-related blurbs",
       tags: ["Strategy", "Vision", "Roadmap"],
-      description: "Developing strategic thinking, needs more leadership examples"
+      description: "Developing strategic thinking, needs more leadership examples",
+      evidenceBlurbs: [
+        {
+          id: "strategy-1",
+          title: "Platform Strategy Development",
+          content: "Developed 3-year platform strategy for enterprise SaaS product, including market analysis and competitive positioning.",
+          tags: ["Strategy", "Platform", "Enterprise"],
+          sourceRole: "Senior PM",
+          sourceCompany: "TechCorp",
+          lastUsed: "2 weeks ago",
+          timesUsed: 3,
+          confidence: "medium"
+        }
+      ]
     },
     {
       domain: "Influencing People",
@@ -56,7 +110,20 @@ const mockAssessment = {
       score: 75,
       evidence: "Aurora + Meta stories tagged 'XFN Collaboration'",
       tags: ["Leadership", "Collaboration", "Stakeholder"],
-      description: "Effective cross-functional collaboration and team influence"
+      description: "Effective cross-functional collaboration and team influence",
+      evidenceBlurbs: [
+        {
+          id: "influence-1",
+          title: "Cross-functional Team Leadership",
+          content: "Led 15-person cross-functional team across engineering, design, and marketing to deliver major product launch on time and under budget.",
+          tags: ["Leadership", "Collaboration", "Team Management"],
+          sourceRole: "Product Lead",
+          sourceCompany: "Aurora",
+          lastUsed: "1 month ago",
+          timesUsed: 6,
+          confidence: "high"
+        }
+      ]
     }
   ],
 
@@ -65,25 +132,29 @@ const mockAssessment = {
       type: "Growth PM",
       match: 85,
       description: "Data-driven experimentation and user acquisition focus",
-      evidence: "Growth, Leadership, SaaS tags from multiple blurbs"
+      evidence: "Growth, Leadership, SaaS tags from multiple blurbs",
+      typicalProfile: "Startup or scale-up experience, PLG systems and user analytics, B2C focus, A/B testing expertise"
     },
     {
       type: "Technical PM", 
       match: 70,
       description: "Technical depth and engineering collaboration",
-      evidence: "Technical, Engineering, Platform tags"
+      evidence: "Technical, Engineering, Platform tags",
+      typicalProfile: "Engineering background or technical degree, API and infrastructure products, developer tools, enterprise SaaS"
     },
     {
       type: "Founding PM",
       match: 60,
       description: "0-1 product development and market validation",
-      evidence: "0-1, MVP, Product-Market Fit tags"
+      evidence: "0-1, MVP, Product-Market Fit tags",
+      typicalProfile: "Early-stage startup experience, product-market fit validation, fundraising support, end-to-end product ownership"
     },
     {
       type: "Platform PM",
       match: 45,
       description: "API and infrastructure product management",
-      evidence: "Limited platform and API-related content"
+      evidence: "Limited platform and API-related content",
+      typicalProfile: "Developer platform experience, API design, infrastructure products, enterprise integration focus"
     }
   ],
 
@@ -99,6 +170,8 @@ const mockAssessment = {
 const Assessment = () => {
   const [selectedCompetency, setSelectedCompetency] = useState<string | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [evidenceModalOpen, setEvidenceModalOpen] = useState(false);
+  const [selectedEvidence, setSelectedEvidence] = useState<any>(null);
 
   const getLevelColor = (level: string) => {
     switch (level) {
@@ -126,6 +199,11 @@ const Assessment = () => {
     return "bg-muted text-muted-foreground";
   };
 
+  const handleShowEvidence = (competency: any) => {
+    setSelectedEvidence(competency);
+    setEvidenceModalOpen(true);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-subtle">
       <main className="container py-8">
@@ -142,8 +220,26 @@ const Assessment = () => {
                   {mockAssessment.confidence} confidence
                 </Badge>
               </div>
-              <CardTitle className="text-4xl font-bold text-foreground mb-2">
+              <CardTitle className="text-4xl font-bold text-foreground mb-2 flex items-center justify-center gap-3">
                 You are a <span className="text-primary">{mockAssessment.currentLevel}</span>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 p-0">
+                        <Info className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-xs">
+                      <p>We infer your level and role fit based on:</p>
+                      <ul className="list-disc list-inside mt-2 space-y-1">
+                        <li>Resume and LinkedIn</li>
+                        <li>Approved content blurbs</li>
+                        <li>PM leveling framework</li>
+                        <li>Comparison to known patterns</li>
+                      </ul>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </CardTitle>
               <CardDescription className="text-lg">
                 {mockAssessment.levelDescription}
@@ -225,7 +321,17 @@ const Assessment = () => {
                 {mockAssessment.competencies.map((competency) => (
                   <div key={competency.domain} className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-medium">{competency.domain}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-medium">{competency.domain}</h3>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleShowEvidence(competency)}
+                          className="h-6 w-6 p-0 hover:bg-muted/50"
+                        >
+                          <Search className="h-4 w-4" />
+                        </Button>
+                      </div>
                       <Badge className={getLevelColor(competency.level)}>
                         {competency.level}
                       </Badge>
@@ -270,7 +376,27 @@ const Assessment = () => {
                 {mockAssessment.roleArchetypes.map((archetype) => (
                   <div key={archetype.type} className="p-4 border rounded-lg">
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium">{archetype.type}</h4>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-medium">{archetype.type}</h4>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-4 w-4 p-0">
+                                <Info className="h-3 w-3" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-xs">
+                              <p>We infer your role fit based on:</p>
+                              <ul className="list-disc list-inside mt-2 space-y-1">
+                                <li>Tag density and relevance</li>
+                                <li>Work history patterns</li>
+                                <li>Problem complexity</li>
+                                <li>Industry experience</li>
+                              </ul>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
                       <Badge className={getArchetypeColor(archetype.match)}>
                         {archetype.match}% match
                       </Badge>
@@ -278,9 +404,17 @@ const Assessment = () => {
                     <p className="text-sm text-muted-foreground mb-2">
                       {archetype.description}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground mb-3">
                       {archetype.evidence}
                     </p>
+                    <div className="p-3 bg-muted/20 rounded-lg">
+                      <p className="text-xs font-medium text-muted-foreground mb-1">
+                        Typical profile includes:
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {archetype.typicalProfile}
+                      </p>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -341,6 +475,21 @@ const Assessment = () => {
           </div>
         </div>
       </main>
+
+      {/* Evidence Modal */}
+      {selectedEvidence && (
+        <EvidenceModal
+          isOpen={evidenceModalOpen}
+          onClose={() => {
+            setEvidenceModalOpen(false);
+            setSelectedEvidence(null);
+          }}
+          competency={selectedEvidence.domain}
+          evidence={selectedEvidence.evidenceBlurbs}
+          matchedTags={selectedEvidence.tags}
+          overallConfidence={selectedEvidence.level === "Strong" ? "high" : selectedEvidence.level === "Solid" ? "medium" : "low"}
+        />
+      )}
     </div>
   );
 };
