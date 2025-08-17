@@ -616,7 +616,7 @@ const Assessment = () => {
                         <div className="text-xs text-muted-foreground w-20 text-center">0-2 years</div>
                       </div>
                     </div>
-                    <div className="h-px w-8 bg-blue-200" />
+                    <div className="h-px w-8 border-t-2 border-dotted border-blue-200" />
                     <div className="flex flex-col items-center">
                       <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
                       <div className="text-center">
@@ -624,23 +624,23 @@ const Assessment = () => {
                         <div className="text-xs text-muted-foreground w-20 text-center">2-4 years</div>
                       </div>
                     </div>
-                    <div className="h-px w-8 bg-blue-200" />
+                    <div className="h-px w-8 border-t-2 border-dotted border-blue-200" />
                     <div className="flex flex-col items-center">
                       <div className="h-6 w-6 rounded-full bg-blue-500 mb-2" />
                       <div className="text-center">
-                        <div className="text-lg font-medium bg-blue-500 text-white px-3 py-1 rounded-full">Sr Product Mgr</div>
+                        <div className="text-sm font-medium bg-blue-500 text-white px-3 py-1 rounded-full">Sr Product Mgr</div>
                         <div className="text-xs text-muted-foreground w-20 text-center">4-7 years</div>
                       </div>
                     </div>
-                    <div className="h-px w-8 bg-blue-200" />
-                    <div className="flex flex-col items-center bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div className="h-px w-8 border-t-2 border-dotted border-blue-200" />
+                    <div className="flex flex-col items-center">
                       <div className="h-6 w-6 rounded-full border-2 border-blue-500 mb-2" />
                       <div className="text-center">
                         <div className="text-sm font-medium text-blue-900 mb-1">Lead Product Mgr</div>
                         <div className="text-xs text-muted-foreground w-24 text-center">Technical leadership</div>
                       </div>
                     </div>
-                    <div className="h-px w-8 bg-blue-200" />
+                    <div className="h-px w-8 border-t-2 border-dotted border-blue-200" />
                     <div className="flex flex-col items-center">
                       <div className="h-6 w-6 rounded-full border-2 border-blue-500 mb-2" />
                       <div className="text-center">
@@ -672,7 +672,7 @@ const Assessment = () => {
                         <div className="text-xs text-muted-foreground w-24 text-center">Portfolio oversight</div>
                       </div>
                     </div>
-                    <div className="h-px w-8 bg-green-200" />
+                    <div className="h-px w-8 border-t-2 border-dotted border-green-200" />
                     <div className="flex flex-col items-center">
                       <div className="h-6 w-6 rounded-full border-2 border-green-500 mb-2" />
                       <div className="text-center">
@@ -680,7 +680,7 @@ const Assessment = () => {
                         <div className="text-xs text-muted-foreground w-24 text-center">Strategic direction</div>
                       </div>
                     </div>
-                    <div className="h-px w-8 bg-green-200" />
+                    <div className="h-px w-8 border-t-2 border-dotted border-green-200" />
                     <div className="flex flex-col items-center">
                       <div className="h-6 w-6 rounded-full border-2 border-green-500 mb-2" />
                       <div className="text-center">
@@ -688,7 +688,7 @@ const Assessment = () => {
                         <div className="text-xs text-muted-foreground w-24 text-center">Executive leadership</div>
                       </div>
                     </div>
-                    <div className="h-px w-8 bg-green-200" />
+                    <div className="h-px w-8 border-t-2 border-dotted border-green-200" />
                     <div className="flex flex-col items-center">
                       <div className="h-6 w-6 rounded-full border-2 border-green-500 mb-2" />
                       <div className="text-center">
