@@ -603,7 +603,7 @@ const Assessment = () => {
               <Button 
                 variant="primary" 
                 size="lg" 
-                className="w-full mb-6"
+                className="mb-6"
                 onClick={handleShowLevelEvidence}
               >
                 View Evidence for Overall Level
