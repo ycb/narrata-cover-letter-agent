@@ -598,41 +598,145 @@ const Assessment = () => {
             </CardHeader>
             
             <CardContent>
-              {/* PM Ladder Visualization */}
-              <div className="relative mb-6">
-                <div className="text-center mb-4">
+              {/* Dual-Track Career Path Visualization */}
+              <div className="mb-6">
+                <div className="text-center mb-6">
                   <h3 className="text-lg font-semibold text-muted-foreground">PM Career Progression</h3>
+                  <p className="text-sm text-muted-foreground mt-1">Choose your path at Senior PM level</p>
                 </div>
                 
-                {/* Progress Bar */}
-                <div className="flex items-center justify-between mb-4">
-                  {mockAssessment.levelProgression.map((level, index) => (
-                    <div key={level.level} className="flex flex-col items-center relative">
-                      <div className={`h-3 w-3 rounded-full mb-2 ${
-                        level.current 
-                          ? 'bg-foreground' 
-                          : index < 2 
-                            ? 'bg-muted' 
-                            : 'bg-muted/30'
-                      }`} />
+                {/* Common Path (Entry to Senior) */}
+                <div className="relative mb-8">
+                  <div className="flex items-center justify-center space-x-8 mb-4">
+                    <div className="flex flex-col items-center">
+                      <div className="h-3 w-3 rounded-full bg-muted/30 mb-2" />
                       <div className="text-center">
-                        <div className={`font-medium ${
-                          level.current 
-                            ? 'text-lg bg-foreground text-background px-3 py-1 rounded-full' 
-                            : 'text-sm text-muted-foreground'
-                        }`}>
-                          {level.level}
+                        <div className="text-sm font-medium text-muted-foreground">Entry PM</div>
+                        <div className="text-xs text-muted-foreground w-20 text-center">0-2 years</div>
+                      </div>
+                    </div>
+                    <div className="h-px w-16 bg-muted" />
+                    <div className="flex flex-col items-center">
+                      <div className="h-3 w-3 rounded-full bg-muted mb-2" />
+                      <div className="text-center">
+                        <div className="text-sm font-medium text-muted-foreground">Mid PM</div>
+                        <div className="text-xs text-muted-foreground w-20 text-center">2-4 years</div>
+                      </div>
+                    </div>
+                    <div className="h-px w-16 bg-muted" />
+                    <div className="flex flex-col items-center">
+                      <div className="h-3 w-3 rounded-full bg-foreground mb-2" />
+                      <div className="text-center">
+                        <div className="text-lg font-medium bg-foreground text-background px-3 py-1 rounded-full">Senior PM</div>
+                        <div className="text-xs text-muted-foreground w-20 text-center">4-7 years</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Branching Paths */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* IC Track */}
+                  <div className="relative">
+                    <div className="text-center mb-4">
+                      <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-200 rounded-full">
+                        <div className="h-2 w-2 rounded-full bg-blue-500"></div>
+                        <span className="text-sm font-medium text-blue-700">Individual Contributor Track</span>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div className="flex items-center">
+                        <div className="h-3 w-3 rounded-full bg-blue-500 mr-3" />
+                        <div>
+                          <div className="font-medium text-blue-900">Staff PM</div>
+                          <div className="text-xs text-muted-foreground">Deep expertise, technical leadership</div>
                         </div>
-                        <div className="text-xs text-muted-foreground w-20 text-center">
-                          {level.description}
+                      </div>
+                      <div className="h-px w-8 bg-blue-200 ml-1.5" />
+                      <div className="flex items-center">
+                        <div className="h-3 w-3 rounded-full bg-blue-500 mr-3" />
+                        <div>
+                          <div className="font-medium text-blue-900">Principal PM</div>
+                          <div className="text-xs text-muted-foreground">Domain expert, strategic influence</div>
+                        </div>
+                      </div>
+                      <div className="h-px w-8 bg-blue-200 ml-1.5" />
+                      <div className="flex items-center">
+                        <div className="h-3 w-3 rounded-full bg-blue-500 mr-3" />
+                        <div>
+                          <div className="font-medium text-blue-900">Distinguished PM</div>
+                          <div className="text-xs text-muted-foreground">Industry thought leader</div>
                         </div>
                       </div>
                     </div>
-                  ))}
+                  </div>
+                  
+                  {/* Leadership Track */}
+                  <div className="relative">
+                    <div className="text-center mb-4">
+                      <div className="inline-flex items-center gap-2 px-3 py-1 bg-green-50 border border-green-200 rounded-full">
+                        <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                        <span className="text-sm font-medium text-green-700">Leadership Track</span>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div className="flex items-center">
+                        <div className="h-3 w-3 rounded-full bg-green-500 mr-3" />
+                        <div>
+                          <div className="font-medium text-green-900">Lead PM</div>
+                          <div className="text-xs text-muted-foreground">Team leadership, mentoring</div>
+                        </div>
+                      </div>
+                      <div className="h-px w-8 bg-green-200 ml-1.5" />
+                      <div className="flex items-center">
+                        <div className="h-3 w-3 rounded-full bg-green-500 mr-3" />
+                        <div>
+                          <div className="font-medium text-green-900">Group PM</div>
+                          <div className="text-xs text-muted-foreground">Multiple teams, portfolio oversight</div>
+                        </div>
+                      </div>
+                      <div className="h-px w-8 bg-green-200 ml-1.5" />
+                      <div className="flex items-center">
+                        <div className="h-3 w-3 rounded-full bg-green-500 mr-3" />
+                        <div>
+                          <div className="font-medium text-green-900">Director of Product</div>
+                          <div className="text-xs text-muted-foreground">Strategic direction, org leadership</div>
+                        </div>
+                      </div>
+                      <div className="h-px w-8 bg-green-200 ml-1.5" />
+                      <div className="flex items-center">
+                        <div className="h-3 w-3 rounded-full bg-green-500 mr-3" />
+                        <div>
+                          <div className="font-medium text-green-900">VP of Product</div>
+                          <div className="text-xs text-muted-foreground">Executive leadership, company strategy</div>
+                        </div>
+                      </div>
+                      <div className="h-px w-8 bg-green-200 ml-1.5" />
+                      <div className="flex items-center">
+                        <div className="h-3 w-3 rounded-full bg-green-500 mr-3" />
+                        <div>
+                          <div className="font-medium text-green-900">CPO</div>
+                          <div className="text-xs text-muted-foreground">Chief Product Officer</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 
-                {/* Connection Lines */}
-                <div className="absolute top-1.5 left-6 right-6 h-px bg-muted -z-10" />
+                {/* Connection from Senior PM to both tracks */}
+                <div className="relative mt-6">
+                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2">
+                    <div className="h-8 w-px bg-muted"></div>
+                  </div>
+                  <div className="absolute top-8 left-1/4 transform -translate-x-1/2">
+                    <div className="h-8 w-px bg-muted"></div>
+                  </div>
+                  <div className="absolute top-8 right-1/4 transform translate-x-1/2">
+                    <div className="h-8 w-px bg-muted"></div>
+                  </div>
+                </div>
               </div>
               
               {/* Next Level Full-Width Region */}
