@@ -755,50 +755,55 @@ const Assessment = () => {
             </CardContent>
           </Card>
 
-          {/* Role Archetype Mapping */}
+          {/* Specialization Mapping */}
           <Card className="shadow-soft">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                Role Archetype Mapping
+                Specialization Mapping
               </CardTitle>
               <CardDescription>
                 How your profile matches different PM specializations
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {mockAssessment.roleArchetypes.map((archetype) => (
-                  <div key={archetype.type} className="p-4 border rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium">{archetype.type}</h4>
+                  <div key={archetype.type} className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-medium">{archetype.type}</h3>
                       <Badge variant="outline" className={getArchetypeColor(archetype.match)}>
                         {archetype.match}% match
                       </Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground mb-2">
+                    
+                    <Progress 
+                      value={archetype.match} 
+                      className="h-2 [&>div]:bg-foreground" 
+                    />
+                    
+                    <div className="text-sm text-muted-foreground">
                       {archetype.description}
-                    </p>
+                    </div>
                     
                     {/* Interactive Evidence Preview */}
                     <div className="p-3 bg-muted/20 rounded-lg border">
                       <div className="mb-2">
-                        <span className="text-xs font-medium text-muted-foreground">Match Analysis</span>
+                        <span className="text-xs font-medium text-muted-foreground">Evidence Preview</span>
                       </div>
                       
                       <div className="text-xs text-muted-foreground mb-2">
                         {archetype.evidence}
                       </div>
                       
-                      {/* Key Match Indicators */}
-                      <div className="space-y-1 mb-2">
-                        <div className="flex items-center gap-2 text-xs">
-                          <CheckCircle className="h-3 w-3 text-success" />
-                          <span>Experience: {archetype.type === "Growth PM" ? "High" : archetype.type === "Technical PM" ? "Medium" : "Low"}</span>
+                      {/* Sample Evidence Blurb */}
+                      <div className="text-xs bg-background p-2 rounded border mb-2">
+                        <div className="font-medium text-foreground mb-1">
+                          Match Analysis
                         </div>
-                        <div className="flex items-center gap-2 text-xs">
-                          <CheckCircle className="h-3 w-3 text-success" />
-                          <span>Skills: {archetype.type === "Growth PM" ? "Growth, Leadership" : archetype.type === "Technical PM" ? "Technical, Platform" : "General PM"}</span>
+                        <div className="text-xs text-muted-foreground line-clamp-2">
+                          Experience: {archetype.type === "Growth PM" ? "High" : archetype.type === "Technical PM" ? "Medium" : "Low"} | 
+                          Skills: {archetype.type === "Growth PM" ? "Growth, Leadership" : archetype.type === "Technical PM" ? "Technical, Platform" : "General PM"}
                         </div>
                       </div>
                       
