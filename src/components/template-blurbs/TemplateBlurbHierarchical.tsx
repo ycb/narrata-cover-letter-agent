@@ -180,16 +180,16 @@ export const TemplateBlurbHierarchical = ({
 
       {/* Blurb Groups */}
       {hasResults ? (
-        <Accordion type="single" collapsible value={expandedType} onValueChange={setExpandedType}>
+        <Accordion type="single" collapsible value={expandedType} onValueChange={setExpandedType} className="space-y-6">
           {groupedBlurbs.map((group) => (
             <AccordionItem key={group.type} value={group.type} className="border rounded-lg">
-              <AccordionTrigger className="px-4 py-3 hover:no-underline">
+              <AccordionTrigger className="px-6 py-4 hover:no-underline">
                 <div className="flex items-center justify-between w-full pr-4">
-                  <div className="flex items-center gap-3">
-                    <group.icon className="h-5 w-5 text-muted-foreground" />
+                  <div className="flex items-center gap-4">
+                    <group.icon className="h-6 w-6 text-muted-foreground" />
                     <div className="text-left">
-                      <h3 className="font-semibold">{group.label}</h3>
-                      <p className="text-sm text-muted-foreground">{group.description}</p>
+                      <h3 className="font-semibold text-lg mb-1">{group.label}</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{group.description}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
@@ -209,19 +209,19 @@ export const TemplateBlurbHierarchical = ({
                   </div>
                 </div>
               </AccordionTrigger>
-              <AccordionContent className="px-4 pb-4">
-                <div className="space-y-3 mt-4">
+              <AccordionContent className="px-6 pb-6">
+                <div className="space-y-4 mt-6">
                   {group.blurbs.map((blurb) => {
                     const statusConfig = getStatusConfig(blurb.status);
                     const StatusIcon = statusConfig.icon;
                     
                     return (
                       <Card key={blurb.id} className="hover:shadow-md transition-shadow">
-                        <CardContent className="p-4">
+                        <CardContent className="p-6">
                           <div className="flex items-start justify-between">
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-2">
-                                <h4 className="font-medium truncate">{blurb.title}</h4>
+                              <div className="flex items-center gap-3 mb-3">
+                                <h4 className="font-medium truncate text-base">{blurb.title}</h4>
                                 <Badge className={statusConfig.color}>
                                   <StatusIcon className="h-3 w-3 mr-1" />
                                   {statusConfig.label}
@@ -229,14 +229,14 @@ export const TemplateBlurbHierarchical = ({
                                 <div className={`h-2 w-2 rounded-full ${getConfidenceColor(blurb.confidence)}`} 
                                      title={`${blurb.confidence} confidence`} />
                               </div>
-                              <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{blurb.content}</p>
-                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                              <p className="text-sm text-muted-foreground mb-4 line-clamp-2 leading-relaxed">{blurb.content}</p>
+                              <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3">
                                 <span>Used {blurb.timesUsed} times</span>
                                 {blurb.lastUsed && <span>Last used {blurb.lastUsed}</span>}
                                 <span>Updated {new Date(blurb.updatedAt).toLocaleDateString()}</span>
                               </div>
                               {blurb.tags.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-2">
+                                <div className="flex flex-wrap gap-2 mt-3">
                                   {blurb.tags.map((tag) => (
                                     <Badge key={tag} variant="outline" className="text-xs">
                                       {tag}
@@ -245,7 +245,7 @@ export const TemplateBlurbHierarchical = ({
                                 </div>
                               )}
                             </div>
-                            <div className="flex items-center gap-2 ml-4">
+                            <div className="flex items-center gap-3 ml-6">
                               <Button
                                 variant="tertiary"
                                 size="sm"
