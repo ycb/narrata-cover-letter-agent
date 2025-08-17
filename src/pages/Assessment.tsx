@@ -682,12 +682,12 @@ const Assessment = () => {
                   <div key={competency.domain} className="space-y-3">
                     <div className="flex items-center justify-between">
                       <h3 className="font-medium">{competency.domain}</h3>
-                      <Badge className={getLevelColor(competency.level)}>
+                      <Badge variant="outline" className={getLevelColor(competency.level)}>
                         {competency.level}
                       </Badge>
                     </div>
                     
-                    <Progress value={competency.score} className="h-2" />
+                    <Progress value={competency.score} className="h-2 [&>div]:bg-foreground" />
                     
                     <div className="text-sm text-muted-foreground">
                       {competency.description}
@@ -757,7 +757,7 @@ const Assessment = () => {
                   <div key={archetype.type} className="p-4 border rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="font-medium">{archetype.type}</h4>
-                      <Badge className={getArchetypeColor(archetype.match)}>
+                      <Badge variant="outline" className={getArchetypeColor(archetype.match)}>
                         {archetype.match}% match
                       </Badge>
                     </div>
