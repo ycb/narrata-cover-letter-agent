@@ -16,7 +16,8 @@ import {
   Edit,
   MessageSquare,
   Info,
-  FileText
+  FileText,
+  Link
 } from "lucide-react";
 import EvidenceModal from "@/components/assessment/EvidenceModal";
 import LevelEvidenceModal from "@/components/assessment/LevelEvidenceModal";
@@ -531,15 +532,15 @@ const Assessment = () => {
                 {/* Evidence Teaser Content */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
                   <div className="text-center p-3 bg-muted/30 rounded-lg">
-                    <div className="text-lg font-semibold text-primary">6+</div>
+                    <div className="text-lg font-semibold text-foreground">6+</div>
                     <div className="text-xs text-muted-foreground">Years Experience</div>
                   </div>
                   <div className="text-center p-3 bg-muted/30 rounded-lg">
-                    <div className="text-lg font-semibold text-primary">47</div>
+                    <div className="text-lg font-semibold text-foreground">47</div>
                     <div className="text-xs text-muted-foreground">Approved Blurbs</div>
                   </div>
                   <div className="text-center p-3 bg-muted/30 rounded-lg">
-                    <div className="text-lg font-semibold text-primary">32</div>
+                    <div className="text-lg font-semibold text-foreground">32</div>
                     <div className="text-xs text-muted-foreground">Relevant Stories</div>
                   </div>
                 </div>
@@ -593,14 +594,14 @@ const Assessment = () => {
                     <div key={level.level} className="flex flex-col items-center">
                       <div className={`h-3 w-3 rounded-full mb-2 ${
                         level.current 
-                          ? 'bg-primary' 
+                          ? 'bg-foreground' 
                           : index < 2 
                             ? 'bg-muted' 
                             : 'bg-muted/30'
                       }`} />
                       <div className="text-center">
                         <div className={`text-sm font-medium ${
-                          level.current ? 'text-primary' : 'text-muted-foreground'
+                          level.current ? 'text-foreground' : 'text-muted-foreground'
                         }`}>
                           {level.level}
                         </div>
@@ -618,7 +619,7 @@ const Assessment = () => {
                 {/* Next Level Indicator */}
                 <div className="text-center mt-6 p-4 bg-muted/20 rounded-lg">
                   <div className="flex items-center justify-center gap-2 mb-2">
-                    <Target className="h-4 w-4 text-primary" />
+                    <Target className="h-4 w-4 text-foreground" />
                     <span className="font-medium">Next Level: {mockAssessment.nextLevel}</span>
                   </div>
                   <p className="text-sm text-muted-foreground">
@@ -626,6 +627,33 @@ const Assessment = () => {
                   </p>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Next Steps - Moved here for better flow */}
+          <Card className="shadow-soft">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Target className="h-5 w-5" />
+                Next Steps
+              </CardTitle>
+              <CardDescription>
+                Actions to improve your assessment and advance your career
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button variant="primary" className="w-full">
+                <Edit className="h-4 w-4 mr-2" />
+                Add More Stories
+              </Button>
+              <Button variant="secondary" className="w-full">
+                <Link className="h-4 w-4 mr-2" />
+                Add External Links
+              </Button>
+              <Button variant="secondary" className="w-full">
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Add Quantified Results
+              </Button>
             </CardContent>
           </Card>
 
@@ -777,54 +805,28 @@ const Assessment = () => {
             </CardContent>
           </Card>
 
-          {/* Feedback & Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Feedback Panel */}
-            <Card className="shadow-soft">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5" />
-                  Feedback & Corrections
-                </CardTitle>
-                <CardDescription>
-                  Help us improve your assessment
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button variant="secondary" className="w-full">
-                  <Edit className="h-4 w-4 mr-2" />
-                  This looks wrong
-                </Button>
-                <Button variant="secondary" className="w-full">
-                  <Download className="h-4 w-4 mr-2" />
-                  Export Summary (PDF)
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Next Actions */}
-            <Card className="shadow-soft">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="h-5 w-5" />
-                  Next Steps
-                </CardTitle>
-                <CardDescription>
-                  Actions to improve your profile
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button variant="primary" className="w-full">
-                  <Lightbulb className="h-4 w-4 mr-2" />
-                  See Role Gaps
-                </Button>
-                <Button variant="secondary" className="w-full">
-                  <Edit className="h-4 w-4 mr-2" />
-                  Add More Stories
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Feedback & Export */}
+          <Card className="shadow-soft">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                Feedback & Export
+              </CardTitle>
+              <CardDescription>
+                Help us improve your assessment or export your results
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button variant="secondary" className="w-full">
+                <Edit className="h-4 w-4 mr-2" />
+                This looks wrong
+              </Button>
+              <Button variant="secondary" className="w-full">
+                <Download className="h-4 w-4 mr-2" />
+                Export Summary (PDF)
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </main>
 
