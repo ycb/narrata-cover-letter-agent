@@ -633,15 +633,12 @@ const Assessment = () => {
                       </div>
                     </div>
                     <div className="h-px w-8 bg-blue-200" />
-                    <div className="flex flex-col items-center">
+                    <div className="flex flex-col items-center bg-blue-50 border border-blue-200 rounded-lg p-3">
                       <div className="h-6 w-6 rounded-full border-2 border-blue-500 mb-2" />
                       <div className="text-center">
                         <div className="text-sm font-medium text-blue-900 mb-1">Lead Product Mgr</div>
                         <div className="text-xs text-muted-foreground w-24 text-center mb-2">Technical leadership</div>
-                        <div className="bg-muted/30 px-3 py-2 rounded-lg border">
-                          <div className="text-xs font-semibold text-foreground mb-1">Next Level</div>
-                          <div className="text-xs text-muted-foreground">Demonstrate strategic thinking and organizational influence to advance</div>
-                        </div>
+                        <div className="text-xs font-semibold text-blue-700">Next Level</div>
                       </div>
                     </div>
                     <div className="h-px w-8 bg-blue-200" />
@@ -652,6 +649,13 @@ const Assessment = () => {
                         <div className="text-xs text-muted-foreground w-24 text-center">Domain expert</div>
                       </div>
                     </div>
+                  </div>
+                </div>
+                
+                {/* Next Level Guidance Banner */}
+                <div className="bg-muted/30 border border-muted rounded-lg p-3 mt-4">
+                  <div className="text-center">
+                    <p className="text-xs text-muted-foreground">Demonstrate strategic thinking and organizational influence to advance</p>
                   </div>
                 </div>
                 
