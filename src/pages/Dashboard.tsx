@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { StatsCard } from "@/components/dashboard/StatsCard";
 import { BlurbCard } from "@/components/blurbs/BlurbCard";
 import { Button } from "@/components/ui/button";
@@ -16,8 +17,11 @@ import {
   Clock
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import CoverLetterCreateModal from "@/components/cover-letters/CoverLetterCreateModal";
 
 const Dashboard = () => {
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  
   const recentBlurbs = [
     {
       id: '1',
@@ -65,7 +69,12 @@ const Dashboard = () => {
                 Ready to craft your next truth-based cover letter?
               </p>
             </div>
-            <Button variant="brand" size="lg" className="gap-2">
+            <Button 
+              variant="brand" 
+              size="lg" 
+              className="gap-2"
+              onClick={() => setIsCreateModalOpen(true)}
+            >
               <Plus className="h-5 w-5" />
               Create New Letter
               <ArrowRight className="h-4 w-4" />
@@ -211,6 +220,12 @@ const Dashboard = () => {
           </div>
         </div>
       </main>
+
+      {/* Cover Letter Create Modal */}
+      <CoverLetterCreateModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+      />
     </div>
   );
 };
