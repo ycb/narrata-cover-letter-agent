@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { StatsCard } from "@/components/dashboard/StatsCard";
 import { BlurbCard } from "@/components/blurbs/BlurbCard";
 import { Button } from "@/components/ui/button";
@@ -161,9 +162,11 @@ const Dashboard = () => {
                   <Briefcase className="h-4 w-4 mr-2" />
                   Update Work History
                 </Button>
-                <Button variant="secondary" className="w-full justify-start">
-                  <Award className="h-4 w-4 mr-2" />
-                  View PM Assessment
+                <Button variant="secondary" className="w-full justify-start" asChild>
+                  <Link to="/assessment">
+                    <Award className="h-4 w-4 mr-2" />
+                    View PM Assessment
+                  </Link>
                 </Button>
               </CardContent>
             </Card>

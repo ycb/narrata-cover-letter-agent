@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { User, Settings, LogOut, Zap, FileText, Target, Briefcase } from "lucide-react";
+import { User, Settings, LogOut, Zap, FileText, Target, Briefcase, TrendingUp } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +16,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
     if (pathname === "/dashboard") return "dashboard";
     if (pathname === "/work-history") return "work-history";
     if (pathname === "/cover-letters" || pathname === "/cover-letter-template" || pathname === "/cover-letter-create") return "cover-letters";
+    if (pathname === "/assessment") return "assessment";
     return "";
   };
 
@@ -72,6 +73,18 @@ export const Header = ({ currentPage }: HeaderProps) => {
               >
                 <FileText className="h-4 w-4" />
                 Cover Letters
+              </Link>
+              <Link 
+                to="/assessment"
+                className={cn(
+                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors hover:text-foreground",
+                  activePage === "assessment" 
+                    ? "text-foreground border-b-2 border-primary" 
+                    : "text-muted-foreground"
+                )}
+              >
+                <TrendingUp className="h-4 w-4" />
+                Assessment
               </Link>
             </div>
           </nav>
