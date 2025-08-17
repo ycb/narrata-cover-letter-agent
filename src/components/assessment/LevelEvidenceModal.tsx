@@ -1,0 +1,246 @@
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { 
+  Building, 
+  User, 
+  FileText, 
+  Target, 
+  TrendingUp,
+  BarChart3,
+  MessageSquare,
+  Edit
+} from "lucide-react";
+
+interface LevelEvidence {
+  currentLevel: string;
+  nextLevel: string;
+  confidence: string;
+  resumeEvidence: {
+    roleTitles: string[];
+    duration: string;
+    companyScale: string[];
+  };
+  blurbEvidence: {
+    totalBlurbs: number;
+    relevantBlurbs: number;
+    tagDensity: { tag: string; count: number }[];
+  };
+  levelingFramework: {
+    framework: string;
+    criteria: string[];
+    match: string;
+  };
+  gaps: {
+    area: string;
+    description: string;
+    examples: string[];
+  }[];
+}
+
+interface LevelEvidenceModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  evidence: LevelEvidence;
+}
+
+const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalProps) => {
+  const getConfidenceColor = (confidence: string) => {
+    switch (confidence) {
+      case 'high': return 'bg-success text-success-foreground';
+      case 'medium': return 'bg-warning text-warning-foreground';
+      case 'low': return 'bg-muted text-muted-foreground';
+      default: return 'bg-muted text-muted-foreground';
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="pb-4">
+          <DialogTitle className="text-2xl font-bold">
+            Evidence for {evidence.currentLevel} Assessment
+          </DialogTitle>
+          <DialogDescription className="text-base">
+            How we determined your current level and path to {evidence.nextLevel}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          {/* Level Summary */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Level Assessment Summary</CardTitle>
+                <Badge className={getConfidenceColor(evidence.confidence)}>
+                  {evidence.confidence} confidence
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div className="text-center p-3 bg-muted/20 rounded-lg">
+                  <div className="text-2xl font-bold text-primary">{evidence.currentLevel}</div>
+                  <div className="text-muted-foreground">Current Level</div>
+                </div>
+                <div className="text-center p-3 bg-muted/20 rounded-lg">
+                  <div className="text-2xl font-bold text-primary">{evidence.nextLevel}</div>
+                  <div className="text-muted-foreground">Next Level</div>
+                </div>
+                <div className="text-center p-3 bg-muted/20 rounded-lg">
+                  <div className="text-2xl font-bold text-primary">{evidence.blurbEvidence.totalBlurbs}</div>
+                  <div className="text-muted-foreground">Total Blurbs</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Resume Evidence */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Building className="h-5 w-5" />
+                Resume & LinkedIn Evidence
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <h4 className="font-medium mb-2">Role Titles & Progression</h4>
+                <div className="flex flex-wrap gap-2">
+                  {evidence.resumeEvidence.roleTitles.map((title, index) => (
+                    <Badge key={index} variant="outline">
+                      {title}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+              
+              <div>
+                <h4 className="font-medium mb-2">Experience Duration</h4>
+                <p className="text-sm text-muted-foreground">{evidence.resumeEvidence.duration}</p>
+              </div>
+              
+              <div>
+                <h4 className="font-medium mb-2">Company Scale</h4>
+                <div className="flex flex-wrap gap-2">
+                  {evidence.resumeEvidence.companyScale.map((scale, index) => (
+                    <Badge key={index} variant="secondary">
+                      {scale}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Blurb Evidence */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Content & Blurb Evidence
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-3 bg-muted/20 rounded-lg">
+                  <div className="text-2xl font-bold text-primary">{evidence.blurbEvidence.relevantBlurbs}</div>
+                  <div className="text-sm text-muted-foreground">Relevant to {evidence.currentLevel}</div>
+                </div>
+                <div className="p-3 bg-muted/20 rounded-lg">
+                  <div className="text-2xl font-bold text-primary">{evidence.blurbEvidence.totalBlurbs}</div>
+                  <div className="text-sm text-muted-foreground">Total Approved Blurbs</div>
+                </div>
+              </div>
+              
+              <div>
+                <h4 className="font-medium mb-2">Tag Density Analysis</h4>
+                <div className="flex flex-wrap gap-2">
+                  {evidence.blurbEvidence.tagDensity.map((tag) => (
+                    <Badge key={tag.tag} variant="outline">
+                      {tag.tag} ({tag.count})
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Leveling Framework */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Target className="h-5 w-5" />
+                Leveling Framework Analysis
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-medium">{evidence.levelingFramework.framework}</h4>
+                  <p className="text-sm text-muted-foreground">Framework used for assessment</p>
+                </div>
+                <Badge variant="outline">{evidence.levelingFramework.match}</Badge>
+              </div>
+              
+              <div>
+                <h4 className="font-medium mb-2">Key Criteria Met</h4>
+                <ul className="space-y-1">
+                  {evidence.levelingFramework.criteria.map((criterion, index) => (
+                    <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-success mt-2 flex-shrink-0" />
+                      {criterion}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Gaps to Next Level */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                Gaps to {evidence.nextLevel}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {evidence.gaps.map((gap, index) => (
+                <div key={index} className="p-3 border rounded-lg">
+                  <h4 className="font-medium mb-2">{gap.area}</h4>
+                  <p className="text-sm text-muted-foreground mb-2">{gap.description}</p>
+                  <div className="text-xs text-muted-foreground">
+                    <strong>Examples:</strong> {gap.examples.join(', ')}
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Feedback Section */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                Help Improve This Assessment
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button variant="outline" className="w-full">
+                <Edit className="h-4 w-4 mr-2" />
+                This Level Assessment Looks Wrong
+              </Button>
+              <p className="text-xs text-muted-foreground text-center">
+                Your feedback helps us improve accuracy for you and other users
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export default LevelEvidenceModal;

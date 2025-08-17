@@ -16,10 +16,11 @@ import {
   Download,
   Edit,
   MessageSquare,
-  Info,
-  Search
+  Info
 } from "lucide-react";
 import EvidenceModal from "@/components/assessment/EvidenceModal";
+import LevelEvidenceModal from "@/components/assessment/LevelEvidenceModal";
+import RoleEvidenceModal from "@/components/assessment/RoleEvidenceModal";
 
 // Mock PM Assessment data for Alex
 const mockAssessment = {
@@ -164,7 +165,117 @@ const mockAssessment = {
     { level: "Senior PM", description: "4-7 years, strategic execution", current: true },
     { level: "Principal PM", description: "7-10 years, product strategy" },
     { level: "Director+", description: "10+ years, organizational leadership" }
-  ]
+  ],
+
+  // Level Evidence Data
+  levelEvidence: {
+    currentLevel: "Senior PM",
+    nextLevel: "Principal PM",
+    confidence: "high",
+    resumeEvidence: {
+      roleTitles: ["Product Manager", "Senior PM", "Product Lead"],
+      duration: "6+ years in product management",
+      companyScale: ["Startup", "Scale-up", "Enterprise"]
+    },
+    blurbEvidence: {
+      totalBlurbs: 47,
+      relevantBlurbs: 32,
+      tagDensity: [
+        { tag: "Leadership", count: 15 },
+        { tag: "Strategy", count: 8 },
+        { tag: "Execution", count: 12 },
+        { tag: "Growth", count: 10 }
+      ]
+    },
+    levelingFramework: {
+      framework: "Reforge + Market Calibration",
+      criteria: [
+        "Strategic thinking and roadmap development",
+        "Cross-functional team leadership",
+        "Complex problem solving at scale",
+        "Stakeholder influence and collaboration"
+      ],
+      match: "Strong Match"
+    },
+    gaps: [
+      {
+        area: "Organizational Strategy",
+        description: "Need more examples of company-wide strategic initiatives",
+        examples: ["Company vision setting", "Portfolio strategy", "Organizational design"]
+      },
+      {
+        area: "Executive Communication",
+        description: "Limited evidence of board-level presentations and executive influence",
+        examples: ["Board presentations", "C-suite collaboration", "Investor communications"]
+      }
+    ]
+  },
+
+  // Role Archetype Evidence Data
+  roleArchetypeEvidence: {
+    "Growth PM": {
+      roleType: "Growth PM",
+      matchScore: 85,
+      description: "Data-driven experimentation and user acquisition focus",
+      industryPatterns: [
+        {
+          pattern: "Startup/Scale-up Experience",
+          match: true,
+          examples: ["InnovateTech", "StartupXYZ", "Early-stage companies"]
+        },
+        {
+          pattern: "PLG Systems",
+          match: true,
+          examples: ["User analytics", "A/B testing", "Growth loops"]
+        },
+        {
+          pattern: "B2C Focus",
+          match: true,
+          examples: ["User acquisition", "Retention optimization", "Viral mechanics"]
+        }
+      ],
+      problemComplexity: {
+        level: "High",
+        examples: ["User acquisition at scale", "Growth strategy", "Product-market fit"],
+        evidence: ["Led 40% user growth", "Built MVP to 10K users", "Cross-functional leadership"]
+      },
+      workHistory: [
+        {
+          company: "InnovateTech",
+          role: "Product Lead",
+          relevance: "Highly Relevant",
+          tags: ["Growth", "Leadership", "SaaS"]
+        },
+        {
+          company: "StartupXYZ",
+          role: "Product Manager",
+          relevance: "Highly Relevant",
+          tags: ["0-1", "MVP", "Product-Market Fit"]
+        }
+      ],
+      tagAnalysis: [
+        {
+          tag: "Growth",
+          count: 10,
+          relevance: 95,
+          examples: ["User acquisition", "A/B testing", "Growth strategy"]
+        },
+        {
+          tag: "Leadership",
+          count: 15,
+          relevance: 90,
+          examples: ["Team management", "Cross-functional collaboration"]
+        }
+      ],
+      gaps: [
+        {
+          area: "Enterprise Growth",
+          description: "Limited experience with enterprise sales and B2B growth",
+          suggestions: ["B2B customer development", "Enterprise sales process", "Account-based marketing"]
+        }
+      ]
+    }
+  }
 };
 
 const Assessment = () => {
@@ -172,6 +283,9 @@ const Assessment = () => {
   const [showFeedback, setShowFeedback] = useState(false);
   const [evidenceModalOpen, setEvidenceModalOpen] = useState(false);
   const [selectedEvidence, setSelectedEvidence] = useState<any>(null);
+  const [levelEvidenceModalOpen, setLevelEvidenceModalOpen] = useState(false);
+  const [roleEvidenceModalOpen, setRoleEvidenceModalOpen] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<string | null>(null);
 
   const getLevelColor = (level: string) => {
     switch (level) {
@@ -204,6 +318,15 @@ const Assessment = () => {
     setEvidenceModalOpen(true);
   };
 
+  const handleShowLevelEvidence = () => {
+    setLevelEvidenceModalOpen(true);
+  };
+
+  const handleShowRoleEvidence = (roleType: string) => {
+    setSelectedRole(roleType);
+    setRoleEvidenceModalOpen(true);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-subtle">
       <main className="container py-8">
@@ -222,24 +345,14 @@ const Assessment = () => {
               </div>
               <CardTitle className="text-4xl font-bold text-foreground mb-2 flex items-center justify-center gap-3">
                 You are a <span className="text-primary">{mockAssessment.currentLevel}</span>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 p-0">
-                        <Info className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="max-w-xs">
-                      <p>We infer your level and role fit based on:</p>
-                      <ul className="list-disc list-inside mt-2 space-y-1">
-                        <li>Resume and LinkedIn</li>
-                        <li>Approved content blurbs</li>
-                        <li>PM leveling framework</li>
-                        <li>Comparison to known patterns</li>
-                      </ul>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-6 w-6 p-0 hover:bg-muted/50"
+                  onClick={handleShowLevelEvidence}
+                >
+                  <Info className="h-4 w-4" />
+                </Button>
               </CardTitle>
               <CardDescription className="text-lg">
                 {mockAssessment.levelDescription}
@@ -329,7 +442,7 @@ const Assessment = () => {
                           onClick={() => handleShowEvidence(competency)}
                           className="h-6 w-6 p-0 hover:bg-muted/50"
                         >
-                          <Search className="h-4 w-4" />
+                          <FileText className="h-4 w-4" />
                         </Button>
                       </div>
                       <Badge className={getLevelColor(competency.level)}>
@@ -378,24 +491,14 @@ const Assessment = () => {
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <h4 className="font-medium">{archetype.type}</h4>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-4 w-4 p-0">
-                                <Info className="h-3 w-3" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent side="right" className="max-w-xs">
-                              <p>We infer your role fit based on:</p>
-                              <ul className="list-disc list-inside mt-2 space-y-1">
-                                <li>Tag density and relevance</li>
-                                <li>Work history patterns</li>
-                                <li>Problem complexity</li>
-                                <li>Industry experience</li>
-                              </ul>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-4 w-4 p-0 hover:bg-muted/50"
+                          onClick={() => handleShowRoleEvidence(archetype.type)}
+                        >
+                          <Info className="h-3 w-3" />
+                        </Button>
                       </div>
                       <Badge className={getArchetypeColor(archetype.match)}>
                         {archetype.match}% match
@@ -488,6 +591,25 @@ const Assessment = () => {
           evidence={selectedEvidence.evidenceBlurbs}
           matchedTags={selectedEvidence.tags}
           overallConfidence={selectedEvidence.level === "Strong" ? "high" : selectedEvidence.level === "Solid" ? "medium" : "low"}
+        />
+      )}
+
+      {/* Level Evidence Modal */}
+      <LevelEvidenceModal
+        isOpen={levelEvidenceModalOpen}
+        onClose={() => setLevelEvidenceModalOpen(false)}
+        evidence={mockAssessment.levelEvidence}
+      />
+
+      {/* Role Evidence Modal */}
+      {selectedRole && mockAssessment.roleArchetypeEvidence[selectedRole] && (
+        <RoleEvidenceModal
+          isOpen={roleEvidenceModalOpen}
+          onClose={() => {
+            setRoleEvidenceModalOpen(false);
+            setSelectedRole(null);
+          }}
+          evidence={mockAssessment.roleArchetypeEvidence[selectedRole]}
         />
       )}
     </div>
