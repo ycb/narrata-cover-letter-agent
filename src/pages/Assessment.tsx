@@ -654,7 +654,7 @@ const Assessment = () => {
                 </div>
                 
                 {/* Next Level Guidance Banner - Connected to Next Step */}
-                <div className="bg-blue-50 border-t-2 border-blue-500 py-4 -mx-6 mt-2 mb-6">
+                <div className="bg-blue-50 border-t-2 border-b-2 border-blue-500 py-4 -mx-6 mt-2 mb-6">
                   <div className="text-center">
                     <p className="text-xs text-blue-700 font-medium">Demonstrate strategic thinking and organizational influence to advance</p>
                   </div>
