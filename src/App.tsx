@@ -11,7 +11,7 @@ import Dashboard from "./pages/Dashboard";
 import WorkHistory from "./pages/WorkHistory";
 import CoverLetters from "./pages/CoverLetters";
 import CoverLetterTemplate from "./pages/CoverLetterTemplate";
-import CoverLetterCreate from "./pages/CoverLetterCreate";
+
 import SignUp from "./pages/SignUp";
 import SignIn from "./pages/SignIn";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -30,7 +30,6 @@ function AppLayout() {
         <Route path="/work-history" element={<WorkHistory />} />
         <Route path="/cover-letters" element={<CoverLetters />} />
         <Route path="/cover-letter-template" element={<CoverLetterTemplate />} />
-        <Route path="/cover-letter-create" element={<CoverLetterCreate />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/signin" element={<SignIn />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />

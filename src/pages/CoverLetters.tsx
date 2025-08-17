@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { FileText, Plus, Search, Calendar, Target, Edit, Eye } from "lucide-react";
 import { Link } from "react-router-dom";
+import CoverLetterCreateModal from "@/components/cover-letters/CoverLetterCreateModal";
 
 // Mock data for demonstration
 const mockCoverLetters = [
@@ -44,6 +45,7 @@ const mockCoverLetters = [
 
 const CoverLetters = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -82,11 +84,12 @@ const CoverLetters = () => {
                   Edit Template
                 </Link>
               </Button>
-              <Button className="flex items-center gap-2" asChild>
-                <Link to="/cover-letter-create">
-                  <Plus className="h-4 w-4" />
-                  New Cover Letter
-                </Link>
+              <Button 
+                className="flex items-center gap-2"
+                onClick={() => setIsCreateModalOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+                New Cover Letter
               </Button>
             </div>
           </div>
@@ -179,6 +182,12 @@ const CoverLetters = () => {
           </div>
         </div>
       </main>
+
+      {/* Cover Letter Create Modal */}
+      <CoverLetterCreateModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+      />
     </div>
   );
 };
