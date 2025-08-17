@@ -650,6 +650,21 @@ const Assessment = () => {
                       </div>
                     </div>
                     <div className="h-px w-8 bg-blue-200" />
+                    <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500">
+                      {/* Blue Header */}
+                      <div className="bg-blue-500 text-white text-center py-2 px-4 w-full">
+                        <div className="text-xs font-normal uppercase tracking-wide">NEXT STEP</div>
+                      </div>
+                      {/* White Body */}
+                      <div className="bg-white p-4 w-full">
+                        <div className="text-center">
+                          <div className="h-6 w-6 rounded-full border-2 border-blue-500 mb-2 mx-auto" />
+                          <div className="text-sm font-medium text-blue-900 mb-1">Lead Product Mgr</div>
+                          <div className="text-xs text-muted-foreground">Technical leadership</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="h-px w-8 bg-blue-200" />
                     <div className="flex flex-col items-center">
                       <div className="h-6 w-6 rounded-full border-2 border-blue-500 mb-2" />
                       <div className="text-center">
