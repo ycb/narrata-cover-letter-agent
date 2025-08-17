@@ -583,7 +583,7 @@ const Assessment = () => {
             </CardContent>
           </Card>
 
-          {/* Overall Level Assessment */}
+          {/* Combined Level Assessment & Career Progression */}
           <Card className="shadow-soft">
             <CardHeader className="text-center pb-4">
               <CardTitle className="text-4xl font-bold text-foreground mb-2">
@@ -597,34 +597,13 @@ const Assessment = () => {
               </p>
             </CardHeader>
             
-            {/* Evidence CTA Button */}
-            <div className="px-6 pb-6">
-              <Button 
-                variant="primary" 
-                size="lg" 
-                className="w-full"
-                onClick={handleShowLevelEvidence}
-              >
-                View Evidence for Overall Level
-                <TrendingUp className="h-5 w-5 ml-2" />
-              </Button>
-            </div>
-          </Card>
-
-
-          {/* PM Ladder Visualization */}
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
-                PM Career Progression
-              </CardTitle>
-              <CardDescription>
-                Your current level and path to the next level
-              </CardDescription>
-            </CardHeader>
             <CardContent>
-              <div className="relative">
+              {/* PM Ladder Visualization */}
+              <div className="relative mb-6">
+                <div className="text-center mb-4">
+                  <h3 className="text-lg font-semibold text-muted-foreground">PM Career Progression</h3>
+                </div>
+                
                 {/* Progress Bar */}
                 <div className="flex items-center justify-between mb-4">
                   {mockAssessment.levelProgression.map((level, index) => (
@@ -652,18 +631,29 @@ const Assessment = () => {
                 
                 {/* Connection Lines */}
                 <div className="absolute top-1.5 left-6 right-6 h-px bg-muted -z-10" />
-                
-                {/* Next Level Indicator */}
-                <div className="text-center mt-6 p-4 bg-muted/20 rounded-lg">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <Target className="h-4 w-4 text-foreground" />
-                    <span className="font-medium">Next Level: {mockAssessment.nextLevel}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Demonstrate strategic thinking and organizational influence to advance
-                  </p>
-                </div>
               </div>
+              
+              {/* Next Level Banner */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Target className="h-5 w-5 text-blue-600" />
+                  <span className="font-semibold text-blue-900">Next Level: {mockAssessment.nextLevel}</span>
+                </div>
+                <p className="text-sm text-blue-700 text-center">
+                  Demonstrate strategic thinking and organizational influence to advance
+                </p>
+              </div>
+              
+              {/* Evidence CTA Button - Anchored at Bottom */}
+              <Button 
+                variant="primary" 
+                size="lg" 
+                className="w-full"
+                onClick={handleShowLevelEvidence}
+              >
+                View Evidence for Overall Level
+                <TrendingUp className="h-5 w-5 ml-2" />
+              </Button>
             </CardContent>
           </Card>
 
