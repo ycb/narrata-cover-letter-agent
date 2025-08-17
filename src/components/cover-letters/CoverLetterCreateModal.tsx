@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { LinkIcon, Upload, Wand2, RefreshCw, Save, Send, X } from "lucide-react";
+import { LinkIcon, Upload, Wand2, RefreshCw, Save, Send } from "lucide-react";
 
 interface CoverLetterCreateModalProps {
   isOpen: boolean;
@@ -95,22 +95,10 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="pb-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <DialogTitle className="text-2xl font-bold">Create Cover Letter</DialogTitle>
-              <DialogDescription className="text-base">
-                Generate a personalized cover letter for your job application
-              </DialogDescription>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleClose}
-              className="h-8 w-8 p-0"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
+          <DialogTitle className="text-2xl font-bold">Create Cover Letter</DialogTitle>
+          <DialogDescription className="text-base">
+            Generate a personalized cover letter for your job application
+          </DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
