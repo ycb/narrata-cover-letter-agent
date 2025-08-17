@@ -633,15 +633,16 @@ const Assessment = () => {
                 <div className="absolute top-1.5 left-6 right-6 h-px bg-muted -z-10" />
               </div>
               
-              {/* Next Level Banner */}
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-6">
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <Target className="h-5 w-5 text-blue-600" />
-                  <span className="font-semibold text-blue-900">Next Level: {mockAssessment.nextLevel}</span>
+              {/* Next Level Full-Width Region */}
+              <div className="bg-muted/30 border-t border-b border-muted py-4 -mx-6 mb-6">
+                <div className="text-center">
+                  <div className="font-semibold text-foreground mb-1">
+                    Next Level: {mockAssessment.nextLevel}
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Demonstrate strategic thinking and organizational influence to advance
+                  </p>
                 </div>
-                <p className="text-sm text-blue-700 text-center">
-                  Demonstrate strategic thinking and organizational influence to advance
-                </p>
               </div>
               
               {/* Evidence CTA Button - Anchored at Bottom */}
