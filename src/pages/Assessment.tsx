@@ -564,7 +564,7 @@ const Assessment = () => {
               </div>
               
               {/* Action Description & CTAs - Single Line Layout */}
-              <div className="flex flex-col md:flex-row items-center justify-between p-4 bg-muted/10 rounded-lg border gap-3">
+              <div className="flex flex-col md:flex-row items-center justify-between p-4 bg-muted/10 rounded-lg gap-3">
                 <p className="text-sm text-muted-foreground whitespace-nowrap">
                   Improve your assessment with more evidence
                 </p>
