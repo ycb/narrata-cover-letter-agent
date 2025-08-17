@@ -639,8 +639,8 @@ const Assessment = () => {
                         <div className="text-sm font-medium text-blue-900 mb-1">Lead Product Mgr</div>
                         <div className="text-xs text-muted-foreground w-24 text-center">Technical leadership</div>
                       </div>
-                      {/* Connecting line to guidance banner */}
-                      <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-px h-8 bg-blue-500"></div>
+                      {/* Connecting arrow to guidance banner */}
+                      <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-8 border-l-transparent border-r-transparent border-t-blue-500"></div>
                     </div>
                     <div className="h-px w-8 bg-blue-200" />
                     <div className="flex flex-col items-center">
