@@ -560,15 +560,15 @@ const Assessment = () => {
                   </div>
                 </div>
                 
-                {/* Inline CTA Button */}
+                {/* Full-width CTA Button */}
                 <Button 
                   variant="primary" 
-                  size="sm" 
-                  className="w-full md:w-auto"
+                  size="lg" 
+                  className="w-full"
                   onClick={handleShowLevelEvidence}
                 >
-                  View Full Evidence
-                  <TrendingUp className="h-4 w-4 ml-2" />
+                  View Evidence for Overall Level
+                  <TrendingUp className="h-5 w-5 ml-2" />
                 </Button>
               </div>
             </div>
@@ -694,8 +694,8 @@ const Assessment = () => {
                         className="w-full"
                         onClick={() => handleShowEvidence(competency)}
                       >
-                        View All Evidence
-                        <FileText className="h-4 w-4 ml-2" />
+                        View Evidence for {competency.domain}
+                        <TrendingUp className="h-4 w-4 ml-2" />
                       </Button>
                     </div>
                   </div>
@@ -767,8 +767,8 @@ const Assessment = () => {
                         className="w-full"
                         onClick={() => handleShowRoleEvidence(archetype.type)}
                       >
-                        View Detailed Analysis
-                        <Info className="h-4 w-4 ml-2" />
+                        View Evidence for {archetype.type}
+                        <TrendingUp className="h-4 w-4 ml-2" />
                       </Button>
                     </div>
                   </div>
