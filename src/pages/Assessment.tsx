@@ -697,18 +697,7 @@ const Assessment = () => {
                   </div>
                 </div>
                 
-                {/* Connection from Senior PM to both tracks */}
-                <div className="relative mt-6">
-                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2">
-                    <div className="h-8 w-px bg-muted"></div>
-                  </div>
-                  <div className="absolute top-8 left-1/4 transform -translate-x-1/2">
-                    <div className="h-8 w-px bg-muted"></div>
-                  </div>
-                  <div className="absolute top-8 right-1/4 transform translate-x-1/2">
-                    <div className="h-8 w-px bg-muted"></div>
-                  </div>
-                </div>
+
               </div>
               
               {/* Next Level Full-Width Region */}
