@@ -772,14 +772,30 @@ const Assessment = () => {
                   <div key={archetype.type} className="space-y-3">
                     <div className="flex items-center justify-between">
                       <h3 className="font-medium">{archetype.type}</h3>
-                      <Badge variant="outline" className={getArchetypeColor(archetype.match)}>
+                      <Badge variant="outline" className={`${
+                        archetype.match >= 80 
+                          ? "text-success border-success/20" 
+                          : archetype.match >= 60 
+                            ? "text-blue-600 border-blue-200" 
+                            : archetype.match >= 40 
+                              ? "text-warning border-warning/20" 
+                              : "text-muted-foreground border-muted"
+                      }`}>
                         {archetype.match}% match
                       </Badge>
                     </div>
                     
                     <Progress 
                       value={archetype.match} 
-                      className="h-2 [&>div]:bg-foreground" 
+                      className={`h-2 ${
+                        archetype.match >= 80 
+                          ? "[&>div]:bg-success" 
+                          : archetype.match >= 60 
+                            ? "[&>div]:bg-blue-500" 
+                            : archetype.match >= 40 
+                              ? "[&>div]:bg-warning" 
+                              : "[&>div]:bg-muted-foreground"
+                      }`}
                     />
                     
                     <div className="text-sm text-muted-foreground">
