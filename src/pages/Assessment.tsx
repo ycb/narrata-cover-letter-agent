@@ -575,6 +575,85 @@ const Assessment = () => {
             </div>
           </Card>
 
+          {/* Data Sources & Profile Completeness */}
+          <Card className="shadow-soft">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                Data Sources & Profile Strength
+              </CardTitle>
+              <CardDescription>
+                Your profile completeness and data richness for better assessments
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {/* LinkedIn */}
+                <div className="text-center p-3 bg-muted/20 rounded-lg border">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <div className="h-2 w-2 rounded-full bg-success"></div>
+                    <span className="text-xs font-medium text-muted-foreground">LinkedIn</span>
+                  </div>
+                  <div className="text-lg font-semibold text-foreground">Connected</div>
+                  <div className="text-xs text-muted-foreground">Profile synced</div>
+                </div>
+
+                {/* Resume */}
+                <div className="text-center p-3 bg-muted/20 rounded-lg border">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <div className="h-2 w-2 rounded-full bg-success"></div>
+                    <span className="text-xs font-medium text-muted-foreground">Resume</span>
+                  </div>
+                  <div className="text-lg font-semibold text-foreground">Uploaded</div>
+                  <div className="text-xs text-muted-foreground">PDF parsed</div>
+                </div>
+
+                {/* Cover Letters */}
+                <div className="text-center p-3 bg-muted/20 rounded-lg border">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <div className="h-2 w-2 rounded-full bg-warning"></div>
+                    <span className="text-xs font-medium text-muted-foreground">Cover Letters</span>
+                  </div>
+                  <div className="text-lg font-semibold text-foreground">0</div>
+                  <div className="text-xs text-muted-foreground">Free plan: 1 max</div>
+                </div>
+
+                {/* Stories/Blurbs */}
+                <div className="text-center p-3 bg-muted/20 rounded-lg border">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <div className="h-2 w-2 rounded-full bg-success"></div>
+                    <span className="text-xs font-medium text-muted-foreground">Stories</span>
+                  </div>
+                  <div className="text-lg font-semibold text-foreground">47</div>
+                  <div className="text-xs text-muted-foreground">Approved blurbs</div>
+                </div>
+              </div>
+
+              {/* External Links Analysis */}
+              <div className="mt-4 p-3 bg-muted/10 rounded-lg border">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-muted-foreground">External Links</span>
+                  <Badge variant="outline" className="text-xs">3 connected</Badge>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Portfolio, GitHub, and Medium articles provide additional context for your technical and creative work.
+                </div>
+              </div>
+
+              {/* Profile Strength Indicator */}
+              <div className="mt-4 p-3 bg-success/10 rounded-lg border border-success/20">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-success">Profile Strength</span>
+                  <Badge className="bg-success text-success-foreground">Strong</Badge>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Your profile has rich data across multiple sources, enabling confident assessments. 
+                  Consider adding quantified results to reach "Excellent" status.
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* PM Ladder Visualization */}
           <Card className="shadow-soft">
             <CardHeader>
@@ -641,19 +720,21 @@ const Assessment = () => {
                 Actions to improve your assessment and advance your career
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <Button variant="primary" className="w-full">
-                <Edit className="h-4 w-4 mr-2" />
-                Add More Stories
-              </Button>
-              <Button variant="secondary" className="w-full">
-                <Link className="h-4 w-4 mr-2" />
-                Add External Links
-              </Button>
-              <Button variant="secondary" className="w-full">
-                <BarChart3 className="h-4 w-4 mr-2" />
-                Add Quantified Results
-              </Button>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <Button variant="primary" className="w-full">
+                  <Edit className="h-4 w-4 mr-2" />
+                  Add More Stories
+                </Button>
+                <Button variant="secondary" className="w-full">
+                  <Link className="h-4 w-4 mr-2" />
+                  Add External Links
+                </Button>
+                <Button variant="secondary" className="w-full">
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  Add Quantified Results
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
