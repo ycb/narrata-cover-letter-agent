@@ -633,12 +633,14 @@ const Assessment = () => {
                       </div>
                     </div>
                     <div className="h-px w-8 bg-blue-200" />
-                    <div className="flex flex-col items-center border-2 border-dotted border-blue-500 rounded-lg p-3">
+                    <div className="flex flex-col items-center border-2 border-dotted border-blue-500 rounded-lg p-3 relative">
                       <div className="h-6 w-6 rounded-full border-2 border-blue-500 mb-2" />
                       <div className="text-center">
                         <div className="text-sm font-medium text-blue-900 mb-1">Lead Product Mgr</div>
                         <div className="text-xs text-muted-foreground w-24 text-center">Technical leadership</div>
                       </div>
+                      {/* Connecting line to guidance banner */}
+                      <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-px h-8 bg-blue-500"></div>
                     </div>
                     <div className="h-px w-8 bg-blue-200" />
                     <div className="flex flex-col items-center">
@@ -651,10 +653,10 @@ const Assessment = () => {
                   </div>
                 </div>
                 
-                {/* Next Level Guidance Banner */}
-                <div className="bg-muted/30 border-t border-b border-muted py-4 -mx-6 my-6">
+                {/* Next Level Guidance Banner - Connected to Next Step */}
+                <div className="bg-blue-50 border-t-2 border-blue-500 py-4 -mx-6 mt-2 mb-6">
                   <div className="text-center">
-                    <p className="text-xs text-muted-foreground">Demonstrate strategic thinking and organizational influence to advance</p>
+                    <p className="text-xs text-blue-700 font-medium">Demonstrate strategic thinking and organizational influence to advance</p>
                   </div>
                 </div>
                 
