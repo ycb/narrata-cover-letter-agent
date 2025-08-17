@@ -639,10 +639,8 @@ const Assessment = () => {
                   {/* IC Track - Horizontal */}
                   <div className="relative">
                     <div className="text-center mb-4">
-                      <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-200 rounded-full">
-                        <div className="h-2 w-2 rounded-full bg-blue-500"></div>
-                        <span className="text-sm font-medium text-blue-700">Individual Contributor Track</span>
-                      </div>
+                      <h4 className="text-base font-semibold text-blue-700 mb-2">Individual Contributor Track</h4>
+                      <p className="text-xs text-muted-foreground">Deep expertise and technical leadership</p>
                     </div>
                     
                     <div className="flex items-center justify-center space-x-6">
@@ -675,10 +673,8 @@ const Assessment = () => {
                   {/* Leadership Track - Horizontal */}
                   <div className="relative">
                     <div className="text-center mb-4">
-                      <div className="inline-flex items-center gap-2 px-3 py-1 bg-green-50 border border-green-200 rounded-full">
-                        <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                        <span className="text-sm font-medium text-green-700">Leadership Track</span>
-                      </div>
+                      <h4 className="text-base font-semibold text-green-700 mb-2">Leadership Track</h4>
+                      <p className="text-xs text-muted-foreground">Team leadership and organizational strategy</p>
                     </div>
                     
                     <div className="flex items-center justify-center space-x-4">
