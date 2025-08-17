@@ -457,11 +457,11 @@ const Assessment = () => {
 
   const getLevelColor = (level: string) => {
     switch (level) {
-      case "Strong": return "text-success";
-      case "Solid": return "text-foreground";
-      case "Emerging": return "text-warning";
-      case "Needs More Evidence": return "text-muted-foreground";
-      default: return "text-foreground";
+      case "Strong": return "text-success border-success/20";
+      case "Solid": return "text-blue-600 border-blue-200";
+      case "Emerging": return "text-warning border-warning/20";
+      case "Needs More Evidence": return "text-muted-foreground border-muted";
+      default: return "text-foreground border-muted";
     }
   };
 
@@ -687,7 +687,18 @@ const Assessment = () => {
                       </Badge>
                     </div>
                     
-                    <Progress value={competency.score} className="h-2 [&>div]:bg-foreground" />
+                    <Progress 
+                      value={competency.score} 
+                      className={`h-2 ${
+                        competency.level === "Strong" 
+                          ? "[&>div]:bg-success" 
+                          : competency.level === "Solid" 
+                            ? "[&>div]:bg-blue-500" 
+                            : competency.level === "Emerging" 
+                              ? "[&>div]:bg-warning" 
+                              : "[&>div]:bg-muted-foreground"
+                      }`}
+                    />
                     
                     <div className="text-sm text-muted-foreground">
                       {competency.description}
