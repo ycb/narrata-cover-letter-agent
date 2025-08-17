@@ -634,9 +634,9 @@ const Assessment = () => {
                   </div>
                 </div>
                 
-                {/* Branching Paths */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {/* IC Track */}
+                {/* Branching Paths - Horizontal Layout */}
+                <div className="space-y-6">
+                  {/* IC Track - Horizontal */}
                   <div className="relative">
                     <div className="text-center mb-4">
                       <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-200 rounded-full">
@@ -645,34 +645,34 @@ const Assessment = () => {
                       </div>
                     </div>
                     
-                    <div className="space-y-4">
-                      <div className="flex items-center">
-                        <div className="h-3 w-3 rounded-full bg-blue-500 mr-3" />
-                        <div>
+                    <div className="flex items-center justify-center space-x-6">
+                      <div className="flex flex-col items-center">
+                        <div className="h-3 w-3 rounded-full bg-blue-500 mb-2" />
+                        <div className="text-center">
                           <div className="font-medium text-blue-900">Staff PM</div>
-                          <div className="text-xs text-muted-foreground">Deep expertise, technical leadership</div>
+                          <div className="text-xs text-muted-foreground w-24 text-center">Deep expertise</div>
                         </div>
                       </div>
-                      <div className="h-px w-8 bg-blue-200 ml-1.5" />
-                      <div className="flex items-center">
-                        <div className="h-3 w-3 rounded-full bg-blue-500 mr-3" />
-                        <div>
+                      <div className="h-px w-12 bg-blue-200" />
+                      <div className="flex flex-col items-center">
+                        <div className="h-3 w-3 rounded-full bg-blue-500 mb-2" />
+                        <div className="text-center">
                           <div className="font-medium text-blue-900">Principal PM</div>
-                          <div className="text-xs text-muted-foreground">Domain expert, strategic influence</div>
+                          <div className="text-xs text-muted-foreground w-24 text-center">Domain expert</div>
                         </div>
                       </div>
-                      <div className="h-px w-8 bg-blue-200 ml-1.5" />
-                      <div className="flex items-center">
-                        <div className="h-3 w-3 rounded-full bg-blue-500 mr-3" />
-                        <div>
+                      <div className="h-px w-12 bg-blue-200" />
+                      <div className="flex flex-col items-center">
+                        <div className="h-3 w-3 rounded-full bg-blue-500 mb-2" />
+                        <div className="text-center">
                           <div className="font-medium text-blue-900">Distinguished PM</div>
-                          <div className="text-xs text-muted-foreground">Industry thought leader</div>
+                          <div className="text-xs text-muted-foreground w-24 text-center">Industry leader</div>
                         </div>
                       </div>
                     </div>
                   </div>
                   
-                  {/* Leadership Track */}
+                  {/* Leadership Track - Horizontal */}
                   <div className="relative">
                     <div className="text-center mb-4">
                       <div className="inline-flex items-center gap-2 px-3 py-1 bg-green-50 border border-green-200 rounded-full">
@@ -681,44 +681,44 @@ const Assessment = () => {
                       </div>
                     </div>
                     
-                    <div className="space-y-4">
-                      <div className="flex items-center">
-                        <div className="h-3 w-3 rounded-full bg-green-500 mr-3" />
-                        <div>
+                    <div className="flex items-center justify-center space-x-4">
+                      <div className="flex flex-col items-center">
+                        <div className="h-3 w-3 rounded-full bg-green-500 mb-2" />
+                        <div className="text-center">
                           <div className="font-medium text-green-900">Lead PM</div>
-                          <div className="text-xs text-muted-foreground">Team leadership, mentoring</div>
+                          <div className="text-xs text-muted-foreground w-20 text-center">Team leadership</div>
                         </div>
                       </div>
-                      <div className="h-px w-8 bg-green-200 ml-1.5" />
-                      <div className="flex items-center">
-                        <div className="h-3 w-3 rounded-full bg-green-500 mr-3" />
-                        <div>
+                      <div className="h-px w-8 bg-green-200" />
+                      <div className="flex flex-col items-center">
+                        <div className="h-3 w-3 rounded-full bg-green-500 mb-2" />
+                        <div className="text-center">
                           <div className="font-medium text-green-900">Group PM</div>
-                          <div className="text-xs text-muted-foreground">Multiple teams, portfolio oversight</div>
+                          <div className="text-xs text-muted-foreground w-20 text-center">Portfolio oversight</div>
                         </div>
                       </div>
-                      <div className="h-px w-8 bg-green-200 ml-1.5" />
-                      <div className="flex items-center">
-                        <div className="h-3 w-3 rounded-full bg-green-500 mr-3" />
-                        <div>
-                          <div className="font-medium text-green-900">Director of Product</div>
-                          <div className="text-xs text-muted-foreground">Strategic direction, org leadership</div>
+                      <div className="h-px w-8 bg-green-200" />
+                      <div className="flex flex-col items-center">
+                        <div className="h-3 w-3 rounded-full bg-green-500 mb-2" />
+                        <div className="text-center">
+                          <div className="font-medium text-green-900">Director</div>
+                          <div className="text-xs text-muted-foreground w-20 text-center">Strategic direction</div>
                         </div>
                       </div>
-                      <div className="h-px w-8 bg-green-200 ml-1.5" />
-                      <div className="flex items-center">
-                        <div className="h-3 w-3 rounded-full bg-green-500 mr-3" />
-                        <div>
-                          <div className="font-medium text-green-900">VP of Product</div>
-                          <div className="text-xs text-muted-foreground">Executive leadership, company strategy</div>
+                      <div className="h-px w-8 bg-green-200" />
+                      <div className="flex flex-col items-center">
+                        <div className="h-3 w-3 rounded-full bg-green-500 mb-2" />
+                        <div className="text-center">
+                          <div className="font-medium text-green-900">VP</div>
+                          <div className="text-xs text-muted-foreground w-20 text-center">Executive leadership</div>
                         </div>
                       </div>
-                      <div className="h-px w-8 bg-green-200 ml-1.5" />
-                      <div className="flex items-center">
-                        <div className="h-3 w-3 rounded-full bg-green-500 mr-3" />
-                        <div>
+                      <div className="h-px w-8 bg-green-200" />
+                      <div className="flex flex-col items-center">
+                        <div className="h-3 w-3 rounded-full bg-green-500 mb-2" />
+                        <div className="text-center">
                           <div className="font-medium text-green-900">CPO</div>
-                          <div className="text-xs text-muted-foreground">Chief Product Officer</div>
+                          <div className="text-xs text-muted-foreground w-20 text-center">Chief Product Officer</div>
                         </div>
                       </div>
                     </div>
