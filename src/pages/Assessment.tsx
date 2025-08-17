@@ -458,7 +458,7 @@ const Assessment = () => {
   const getLevelColor = (level: string) => {
     switch (level) {
       case "Strong": return "text-success";
-      case "Solid": return "text-primary";
+      case "Solid": return "text-foreground";
       case "Emerging": return "text-warning";
       case "Needs More Evidence": return "text-muted-foreground";
       default: return "text-foreground";
@@ -476,7 +476,7 @@ const Assessment = () => {
 
   const getArchetypeColor = (match: number) => {
     if (match >= 80) return "bg-success text-success-foreground";
-    if (match >= 60) return "bg-primary text-primary-foreground";
+    if (match >= 60) return "bg-foreground text-background";
     if (match >= 40) return "bg-warning text-warning-foreground";
     return "bg-muted text-muted-foreground";
   };
@@ -500,25 +500,24 @@ const Assessment = () => {
       <main className="container py-8">
         <div className="max-w-6xl mx-auto space-y-8">
           
-          {/* Data Sources - Tight & Inline */}
+          {/* Data Sources & Next Steps - Consolidated */}
           <Card className="shadow-soft">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <BarChart3 className="h-5 w-5" />
                   <div>
-                    <CardTitle className="text-lg">Data Sources</CardTitle>
-                    <CardDescription className="text-sm">Profile completeness</CardDescription>
+                    <CardTitle className="text-lg">Data Sources & Next Steps</CardTitle>
+                    <CardDescription className="text-sm">Improve your assessment with more evidence</CardDescription>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm font-medium text-success">Profile Strength</div>
                   <Badge className="bg-success text-success-foreground text-xs">Strong</Badge>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="pt-0">
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
                 {/* LinkedIn */}
                 <div className="text-center p-2 bg-muted/20 rounded border">
                   <div className="flex items-center justify-center gap-1 mb-1">
@@ -559,10 +558,23 @@ const Assessment = () => {
                 <div className="text-center p-2 bg-muted/20 rounded border">
                   <div className="flex items-center justify-center gap-1 mb-1">
                     <div className="h-2 w-2 rounded-full bg-success"></div>
-                    <span className="text-xs text-muted-foreground">External</span>
+                    <span className="text-xs text-muted-foreground">External Links</span>
                   </div>
                   <div className="text-sm font-medium">3</div>
                 </div>
+              </div>
+              
+              {/* 3 Inline CTAs */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <Button variant="secondary" size="sm" className="w-full">
+                  Add More Stories
+                </Button>
+                <Button variant="secondary" size="sm" className="w-full">
+                  Add External Links
+                </Button>
+                <Button variant="secondary" size="sm" className="w-full">
+                  Add Quantified Results
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -570,16 +582,8 @@ const Assessment = () => {
           {/* Overall Level Assessment */}
           <Card className="shadow-soft">
             <CardHeader className="text-center pb-4">
-              <div className="flex items-center justify-center gap-3 mb-4">
-                <Badge className={getConfidenceColor(mockAssessment.confidence)}>
-                  LLM Inferred
-                </Badge>
-                <Badge variant="outline">
-                  {mockAssessment.confidence} confidence
-                </Badge>
-              </div>
               <CardTitle className="text-4xl font-bold text-foreground mb-2">
-                You are a <span className="text-primary">{mockAssessment.currentLevel}</span>
+                You are a <span className="text-foreground">{mockAssessment.currentLevel}</span>
               </CardTitle>
               <CardDescription className="text-lg">
                 {mockAssessment.levelDescription}
@@ -659,34 +663,7 @@ const Assessment = () => {
             </CardContent>
           </Card>
 
-          {/* Next Steps - Moved here for better flow */}
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="h-5 w-5" />
-                Next Steps
-              </CardTitle>
-              <CardDescription>
-                Actions to improve your assessment and advance your career
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <Button variant="primary" className="w-full">
-                  <Edit className="h-4 w-4 mr-2" />
-                  Add More Stories
-                </Button>
-                <Button variant="secondary" className="w-full">
-                  <Link className="h-4 w-4 mr-2" />
-                  Add External Links
-                </Button>
-                <Button variant="secondary" className="w-full">
-                  <BarChart3 className="h-4 w-4 mr-2" />
-                  Add Quantified Results
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+
 
           {/* Competency Breakdown */}
           <Card className="shadow-soft">
