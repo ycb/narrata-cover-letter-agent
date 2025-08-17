@@ -633,10 +633,10 @@ const Assessment = () => {
                       </div>
                     </div>
                     <div className="h-px w-8 bg-blue-200" />
-                    <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm">
+                    <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500">
                       {/* Blue Header */}
                       <div className="bg-blue-500 text-white text-center py-2 px-4 w-full">
-                        <div className="text-xs font-semibold uppercase tracking-wide">NEXT STEP</div>
+                        <div className="text-xs font-normal uppercase tracking-wide">NEXT STEP</div>
                       </div>
                       {/* White Body */}
                       <div className="bg-white p-4 w-full">
