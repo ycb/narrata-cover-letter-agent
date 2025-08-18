@@ -776,7 +776,7 @@ const Assessment = () => {
                       </div>
                       
                       {/* Leadership Track Items */}
-                      <div className="flex flex-col lg:flex-row lg:items-center relative">
+                      <div className="flex flex-col lg:flex-row lg:items-center relative mt-4">
                         {/* Full Height Vertical Separator - Blue when viewing Leadership (desktop only) */}
                         <div className="ladder-separator absolute left-0 top-0 bottom-0 w-px bg-blue-300 border-l-2 border-dashed border-blue-500"></div>
                         
