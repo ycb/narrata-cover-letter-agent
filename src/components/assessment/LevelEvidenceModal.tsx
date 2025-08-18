@@ -68,7 +68,7 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
                 How we determined your current level and path to {evidence.nextLevel}
               </DialogDescription>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mt-4">
               <Button variant="outline" size="sm" className="flex items-center gap-2">
                 <Edit className="h-4 w-4" />
                 This looks wrong
