@@ -9,7 +9,6 @@ import {
   Target, 
   TrendingUp,
   BarChart3,
-  MessageSquare,
   Edit
 } from "lucide-react";
 
@@ -233,24 +232,7 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
             </CardContent>
           </Card>
 
-          {/* Feedback Section */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
-                Help Improve This Assessment
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button variant="outline" className="w-full">
-                <Edit className="h-4 w-4 mr-2" />
-                This Level Assessment Looks Wrong
-              </Button>
-              <p className="text-xs text-muted-foreground text-center">
-                Your feedback helps us improve accuracy for you and other users
-              </p>
-            </CardContent>
-          </Card>
+
         </div>
       </DialogContent>
     </Dialog>
