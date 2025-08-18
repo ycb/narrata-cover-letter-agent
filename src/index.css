@@ -270,6 +270,7 @@ All colors MUST be HSL.
   .ladder-card-labeled {
     @apply ladder-card-base border-2;
     min-width: 150px;
+    min-height: 180px;
   }
   
   .ladder-card-header {
@@ -323,7 +324,7 @@ All colors MUST be HSL.
   }
   
   .ladder-separator-ic {
-    @apply ladder-separator absolute left-0 top-4 bottom-0 w-px bg-blue-300 border-l-2 border-dashed border-blue-500;
+    @apply ladder-separator absolute right-0 top-4 bottom-0 w-px bg-blue-300 border-l-2 border-dashed border-blue-500;
   }
   
   .ladder-separator-leadership {
