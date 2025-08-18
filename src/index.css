@@ -197,6 +197,11 @@ All colors MUST be HSL.
     margin-bottom: 0;
   }
   
+  .pt-4 {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+  }
+  
   /* Section Spacing */
   .section-spacing {
     margin-bottom: 1.5rem;
