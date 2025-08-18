@@ -722,7 +722,7 @@ const Assessment = () => {
                     </div>
                     
                     {/* Leadership Track Steps */}
-                    <div className="flex items-center justify-center relative">
+                    <div className="flex items-center justify-start">
                       {/* View IC Track Card */}
                       <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 cursor-pointer h-56 min-w-[140px]" onClick={() => setShowLeadershipTrack(false)}>
                         <div className="bg-blue-500 text-white text-center py-2 px-4 w-full">
@@ -736,45 +736,50 @@ const Assessment = () => {
                       </div>
                       <div className="h-px w-6 bg-green-200 mx-6" />
                       
-                      {/* Full Height Vertical Separator - Blue when viewing Leadership */}
-                      <div className="absolute left-1/2 top-0 bottom-0 w-px bg-blue-300 border-l-2 border-dashed border-blue-500 transform -translate-x-1/2"></div>
-                      
-                      {/* Future Steps - All Dotted Circles */}
-                      <div className="flex flex-col items-center p-6 h-56 justify-center min-w-[140px]">
-                        <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
-                        <div className="text-center">
-                          <div className="text-sm font-medium text-green-900 mb-1">Group PM / Manager</div>
-                          <div className="text-xs text-muted-foreground text-center">Portfolio oversight</div>
+                      {/* Leadership Track Items */}
+                      <div className="flex items-center relative">
+                        {/* First Step - Group PM / Manager */}
+                        <div className="flex flex-col items-center p-6 h-56 justify-center min-w-[140px]">
+                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-green-900 mb-1">Group PM / Manager</div>
+                            <div className="text-xs text-muted-foreground text-center">Portfolio oversight</div>
+                          </div>
                         </div>
-                      </div>
-                      <div className="h-px w-6 bg-green-200 mx-6" />
-                      
-                      <div className="flex flex-col items-center p-6 h-56 justify-center min-w-[140px]">
-                        <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
-                        <div className="text-center">
-                          <div className="text-sm font-medium text-green-900 mb-1">Director of Product</div>
-                          <div className="text-xs text-muted-foreground text-center">Strategic direction</div>
+                        <div className="h-px w-6 bg-green-200 mx-6" />
+                        
+                        {/* Second Step - Director of Product */}
+                        <div className="flex flex-col items-center p-6 h-56 justify-center min-w-[140px]">
+                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-green-900 mb-1">Director of Product</div>
+                            <div className="text-xs text-muted-foreground text-center">Strategic direction</div>
+                          </div>
                         </div>
-                      </div>
-                      <div className="h-px w-6 bg-green-200 mx-6" />
-                      
-                      <div className="flex flex-col items-center p-6 h-56 justify-center min-w-[140px]">
-                        <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
-                        <div className="text-center">
-                          <div className="text-sm font-medium text-green-900 mb-1">Vice President, Product</div>
-                          <div className="text-xs text-muted-foreground text-center">Executive leadership</div>
+                        <div className="h-px w-6 bg-green-200 mx-6" />
+                        
+                        {/* Third Step - Vice President, Product */}
+                        <div className="flex flex-col items-center p-6 h-56 justify-center min-w-[140px]">
+                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-green-900 mb-1">Vice President, Product</div>
+                            <div className="text-xs text-muted-foreground text-center">Executive leadership</div>
+                          </div>
                         </div>
-                      </div>
-                      <div className="h-px w-6 bg-green-200 mx-6" />
-                      
-                      <div className="flex flex-col items-center p-6 h-56 justify-center min-w-[140px]">
-                        <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
-                        <div className="text-center">
-                          <div className="text-sm font-medium text-green-900 mb-1">Chief Product Officer</div>
-                          <div className="text-xs text-muted-foreground text-center">CPO</div>
+                        <div className="h-px w-6 bg-green-200 mx-6" />
+                        
+                        {/* Fourth Step - Chief Product Officer */}
+                        <div className="flex flex-col items-center p-6 h-56 justify-center min-w-[140px]">
+                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-green-900 mb-1">Chief Product Officer</div>
+                            <div className="text-xs text-muted-foreground text-center">CPO</div>
+                          </div>
                         </div>
+                        
+                        {/* Full Height Vertical Separator - Blue when viewing Leadership */}
+                        <div className="absolute right-0 top-0 bottom-0 w-px bg-blue-300 border-l-2 border-dashed border-blue-500"></div>
                       </div>
-
                     </div>
                     
                     {/* Leadership Guidance Banner */}
