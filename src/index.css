@@ -188,6 +188,15 @@ All colors MUST be HSL.
     margin-bottom: 0;
   }
   
+  .pb-4 {
+    padding-bottom: 1rem;
+    margin-top: 0;
+  }
+  
+  .mb-4 {
+    margin-bottom: 0;
+  }
+  
   /* Section Spacing */
   .section-spacing {
     margin-bottom: 1.5rem;
