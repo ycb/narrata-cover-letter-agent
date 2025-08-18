@@ -512,6 +512,7 @@ const Assessment = () => {
                   </div>
                 </div>
                 <div className="text-right">
+                  <span className="text-xs text-muted-foreground mr-2">PROFILE STRENGTH:</span>
                   <Badge className="bg-success text-success-foreground text-xs">Strong</Badge>
                 </div>
               </div>
