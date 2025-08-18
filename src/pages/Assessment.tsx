@@ -613,13 +613,13 @@ const Assessment = () => {
               </div>
               
               {/* Dual-Track Career Path Visualization */}
-              <div className="mb-6 relative overflow-hidden">
+              <div className="mb-6 relative overflow-hidden -mx-6">
                 {/* IC Track - Full Width */}
                 <div className={`transition-transform duration-500 ease-in-out ${showLeadershipTrack ? '-translate-x-full' : 'translate-x-0'}`}>
                   <div className="bg-white">
                     {/* IC Track - Single Color */}
                     <div className="relative mb-8">
-                      <div className="text-left mb-6 border-t-2 border-blue-500 pt-4 -mx-6 px-6">
+                      <div className="text-left mb-6 border-t-2 border-blue-500 pt-4 px-6">
                         <h4 className="text-base font-semibold text-blue-900">IC Track: Core PM skills to deep expertise</h4>
                       </div>
                       
@@ -695,7 +695,7 @@ const Assessment = () => {
                     </div>
                     
                     {/* Next Level Guidance Banner - Connected to Next Step */}
-                    <div className="bg-blue-50 border-t-2 border-b-2 border-blue-500 py-4 -mx-6 mt-2 mb-6">
+                    <div className="bg-blue-50 border-t-2 border-b-2 border-blue-500 py-4 px-6 mt-2 mb-6">
                       <div className="text-center">
                         <p className="text-xs text-blue-900 font-medium">Demonstrate strategic thinking and organizational influence to advance</p>
                       </div>
@@ -762,7 +762,7 @@ const Assessment = () => {
                     </div>
                     
                     {/* Leadership Guidance Banner */}
-                    <div className="bg-green-50 border-t-2 border-b-2 border-green-500 py-4 -mx-6 mt-2 mb-6">
+                    <div className="bg-green-50 border-t-2 border-b-2 border-green-500 py-4 px-6 mt-2 mb-6">
                       <div className="text-center">
                         <p className="text-xs text-green-900 font-medium">Develop team leadership skills and strategic organizational thinking to advance</p>
                       </div>
