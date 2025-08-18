@@ -629,7 +629,7 @@ const Assessment = () => {
                       <div className="flex flex-col lg:flex-row lg:items-center relative">
                         {/* Completed Steps */}
                         {/* Mobile: Card style */}
-                        <div className="ladder-step-mobile">
+                        <div className="ladder-step-mobile-ic">
                           <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-blue-900 mb-1">Associate PM</div>
@@ -650,7 +650,7 @@ const Assessment = () => {
                         <div className="ladder-conn-v ladder-conn-blue"></div>
                         
                         {/* Mobile: Card style */}
-                        <div className="ladder-step-mobile">
+                        <div className="ladder-step-mobile-ic">
                           <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-blue-900 mb-1">PM</div>
@@ -708,7 +708,7 @@ const Assessment = () => {
                         
                         {/* Future Step - Dotted Circle */}
                         {/* Mobile: Card style */}
-                        <div className="ladder-step-mobile">
+                        <div className="ladder-step-mobile-ic">
                           <div className="h-6 w-6 rounded-full border-2 border-dashed border-blue-500 mb-2"></div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-blue-900 mb-1">Principal PM</div>
@@ -782,7 +782,7 @@ const Assessment = () => {
                         
                         {/* First Step - Group PM / Manager */}
                         {/* Mobile: Card style */}
-                        <div className="ladder-step-mobile border-green-500">
+                        <div className="ladder-step-mobile-leadership">
                           <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-green-900 mb-1">Group PM / Manager</div>
@@ -804,7 +804,7 @@ const Assessment = () => {
                         
                         {/* Second Step - Director of Product */}
                         {/* Mobile: Card style */}
-                        <div className="ladder-step-mobile border-green-500">
+                        <div className="ladder-step-mobile-leadership">
                           <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-green-900 mb-1">Director of Product</div>
@@ -826,7 +826,7 @@ const Assessment = () => {
                         
                         {/* Third Step - Vice President, Product */}
                         {/* Mobile: Card style */}
-                        <div className="ladder-step-mobile border-green-500">
+                        <div className="ladder-step-mobile-leadership">
                           <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-green-900 mb-1">Vice President, Product</div>
@@ -848,7 +848,7 @@ const Assessment = () => {
                         
                         {/* Fourth Step - Chief Product Officer */}
                         {/* Mobile: Card style */}
-                        <div className="ladder-step-mobile border-green-500">
+                        <div className="ladder-step-mobile-leadership">
                           <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-green-900 mb-1">Chief Product Officer</div>
