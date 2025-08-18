@@ -27,7 +27,7 @@ import RoleEvidenceModal from "@/components/assessment/RoleEvidenceModal";
 const mockAssessment = {
   currentLevel: "Senior PM" as const,
   confidence: "high" as const,
-  nextLevel: "Lead Product Mgr" as const,
+      nextLevel: "Lead PM" as const,
   levelDescription: "Experienced product manager with strong execution and growing strategic influence",
   inferenceSource: "Based on resume, LinkedIn, and 47 approved blurbs",
   
@@ -171,7 +171,7 @@ const mockAssessment = {
   // Level Evidence Data
   levelEvidence: {
     currentLevel: "Senior PM",
-    nextLevel: "Lead Product Mgr",
+    nextLevel: "Lead PM",
     confidence: "high",
     resumeEvidence: {
       roleTitles: ["Product Manager", "Senior PM", "Product Lead"],
@@ -639,7 +639,7 @@ const Assessment = () => {
                         <div className="flex flex-col items-center p-6 h-56 justify-center min-w-[140px]">
                           <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
                           <div className="text-center">
-                            <div className="text-sm font-medium text-blue-900 mb-1">Product Mgr</div>
+                            <div className="text-sm font-medium text-blue-900 mb-1">PM</div>
                             <div className="text-xs text-muted-foreground text-center">2-4 years</div>
                           </div>
                         </div>
@@ -653,7 +653,7 @@ const Assessment = () => {
                           <div className="bg-white p-6 w-full flex-1 flex flex-col justify-center">
                             <div className="text-center">
                               <div className="h-6 w-6 rounded-full bg-blue-500 mb-2 mx-auto" />
-                              <div className="text-sm font-medium bg-blue-500 text-white px-3 py-1 rounded-full mb-1">Sr Product Mgr</div>
+                              <div className="text-sm font-medium bg-blue-500 text-white px-3 py-1 rounded-full mb-1">Sr PM</div>
                               <div className="text-xs text-muted-foreground">4-7 years</div>
                             </div>
                           </div>
@@ -668,7 +668,7 @@ const Assessment = () => {
                           <div className="bg-white p-6 w-full flex-1 flex flex-col justify-center">
                             <div className="text-center">
                               <div className="h-6 w-6 rounded-full border-2 border-blue-500 mb-2 mx-auto" />
-                              <div className="text-sm font-medium text-blue-900 mb-1">Lead Product Mgr</div>
+                              <div className="text-sm font-medium text-blue-900 mb-1">Lead PM</div>
                               <div className="text-xs text-muted-foreground">Technical leadership</div>
                             </div>
                           </div>
@@ -679,7 +679,7 @@ const Assessment = () => {
                         <div className="flex flex-col items-center p-6 h-56 justify-center min-w-[140px]">
                           <div className="h-6 w-6 rounded-full border-2 border-dashed border-blue-500 mb-2"></div>
                           <div className="text-center">
-                            <div className="text-sm font-medium text-blue-900 mb-1">Principal Product Mgr</div>
+                            <div className="text-sm font-medium text-blue-900 mb-1">Principal PM</div>
                             <div className="text-xs text-muted-foreground text-center">Domain expert</div>
                           </div>
                         </div>
