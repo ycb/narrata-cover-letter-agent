@@ -616,7 +616,7 @@ const Assessment = () => {
               {/* Dual-Track Career Path Visualization */}
               <div className="mb-4 relative overflow-hidden -mx-6">
                 {/* IC Track - Full Width */}
-                <div className={`transition-transform duration-500 ease-in-out ${showLeadershipTrack ? '-translate-x-full' : 'translate-x-0'}`}>
+                <div className={`transition-transform duration-500 ease-in-out ${showLeadershipTrack ? '-translate-y-full' : 'translate-y-0'}`}>
                   <div className="bg-white">
                     {/* IC Track Header */}
                     <div className="text-left mb-4 border-t-2 border-blue-500 pt-4 px-6">
@@ -753,8 +753,8 @@ const Assessment = () => {
                   </div>
                 </div>
                 
-                {/* Leadership Track - Slides in from right */}
-                <div className={`absolute top-0 left-0 w-full transition-transform duration-500 ease-in-out ${showLeadershipTrack ? 'translate-x-0' : 'translate-x-full'}`}>
+                {/* Leadership Track - Slides in from bottom */}
+                <div className={`absolute top-0 left-0 w-full transition-transform duration-500 ease-in-out ${showLeadershipTrack ? 'translate-y-0' : 'translate-y-full'}`}>
                   <div className="bg-white">
                     {/* Leadership Track Header */}
                     <div className="text-left mb-4 border-t-2 border-green-500 pt-4 px-6">
@@ -764,7 +764,7 @@ const Assessment = () => {
                     {/* Leadership Track Steps */}
                     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-start px-6">
                       {/* View IC Track Card */}
-                      <div className="w-full flex flex-col items-center overflow-hidden shadow-sm border-2 border-blue-500 cursor-pointer rounded-lg mt-4 lg:mr-6" onClick={() => setShowLeadershipTrack(false)}>
+                      <div className="w-full flex flex-col items-center overflow-hidden shadow-sm border-2 border-blue-500 cursor-pointer rounded-lg mb-4 lg:mr-6" onClick={() => setShowLeadershipTrack(false)}>
                         <div className="bg-blue-500 text-white text-center py-2 px-4 w-full rounded-t-lg">
                           <div className="text-xs font-normal uppercase tracking-wide">VIEW</div>
                         </div>
