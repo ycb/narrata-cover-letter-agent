@@ -727,8 +727,8 @@ const Assessment = () => {
                           </div>
                         </div>
                         
-                        {/* Full Height Vertical Separator - Green when viewing IC (desktop only) */}
-                        <div className="ladder-separator absolute right-0 top-0 bottom-0 w-px bg-green-300 border-l-2 border-dashed border-green-500"></div>
+                        {/* Full Height Vertical Separator - Blue when viewing IC (desktop only) */}
+                        <div className="ladder-separator-ic"></div>
                       </div>
                       
                       {/* Spacing between tracks (desktop only) */}
@@ -799,8 +799,8 @@ const Assessment = () => {
                       
                       {/* Leadership Track Items */}
                       <div className="flex flex-col lg:flex-row lg:items-center relative">
-                        {/* Full Height Vertical Separator - Blue when viewing Leadership (desktop only) */}
-                        <div className="ladder-separator absolute left-0 top-4 bottom-0 w-px bg-blue-300 border-l-2 border-dashed border-blue-500"></div>
+                        {/* Full Height Vertical Separator - Green when viewing Leadership (desktop only) */}
+                        <div className="ladder-separator-leadership"></div>
                         
                         {/* First Step - Group PM / Manager */}
                         {/* Mobile: Card style */}

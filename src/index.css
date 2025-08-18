@@ -322,6 +322,14 @@ All colors MUST be HSL.
     @apply hidden lg:block;
   }
   
+  .ladder-separator-ic {
+    @apply ladder-separator absolute left-0 top-4 bottom-0 w-px bg-blue-300 border-l-2 border-dashed border-blue-500;
+  }
+  
+  .ladder-separator-leadership {
+    @apply ladder-separator absolute left-0 top-4 bottom-0 w-px bg-green-300 border-l-2 border-dashed border-green-500;
+  }
+  
   .ladder-track-switch {
     @apply mt-4 lg:mt-0 w-full lg:w-auto lg:ml-6;
   }
