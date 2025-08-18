@@ -80,7 +80,7 @@ const CoverLetters = () => {
             
             <div className="flex gap-3">
               <Button variant="secondary" asChild>
-                <Link to="/cover-letter-template">
+                <Link to="/cla/cover-letter-template">
                   Edit Template
                 </Link>
               </Button>
@@ -171,7 +171,7 @@ const CoverLetters = () => {
                     {searchTerm ? "No letters match your search criteria." : "Start by creating your first cover letter."}
                   </p>
                   <Button className="flex items-center gap-2" asChild>
-                    <Link to="/cover-letter-create">
+                    <Link to="/cla/cover-letter-create">
                       <Plus className="h-4 w-4" />
                       New Cover Letter
                     </Link>

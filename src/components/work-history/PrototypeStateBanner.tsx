@@ -6,31 +6,28 @@ export function PrototypeStateBanner() {
   const navigate = useNavigate();
   const location = useLocation();
   const { prototypeState, setPrototypeState } = usePrototype();
-  
-  const isProduction = window.location.hostname !== 'localhost';
-  const basePath = isProduction ? '/cla' : '';
 
   const handleMarketingSite = () => {
-    navigate(`${basePath}/`);
+    navigate('/');
   };
 
   const handleNewUser = () => {
-    if (location.pathname === '/cla/' || location.pathname === '/') {
-      navigate(`${basePath}/work-history`);
+    if (location.pathname === '/') {
+      navigate('/work-history');
     }
     setPrototypeState('new-user');
   };
 
   const handleExistingUser = () => {
-    if (location.pathname === '/cla/' || location.pathname === '/') {
-      navigate(`${basePath}/dashboard`);
+    if (location.pathname === '/') {
+      navigate('/dashboard');
     }
     setPrototypeState('existing-user');
   };
 
   // Determine current state based on route and prototype state
   const getCurrentState = () => {
-    if (location.pathname === '/cla/' || location.pathname === '/') return 'marketing';
+    if (location.pathname === '/') return 'marketing';
     return prototypeState || 'existing-user'; // Default to existing-user if no state set
   };
   

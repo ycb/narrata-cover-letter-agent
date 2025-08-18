@@ -98,7 +98,7 @@ const SignIn = () => {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password">Password</Label>
-                  <Link to="/forgot-password" className="text-sm text-accent hover:underline">
+                  <Link to="/cla/forgot-password" className="text-sm text-accent hover:underline">
                     Forgot password?
                   </Link>
                 </div>
@@ -144,7 +144,7 @@ const SignIn = () => {
 
             <div className="text-center text-sm text-muted-foreground">
               Don't have an account?{" "}
-              <Link to="/signup" className="text-accent hover:underline font-medium">
+              <Link to="/cla/signup" className="text-accent hover:underline font-medium">
                 Create account
               </Link>
             </div>

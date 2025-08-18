@@ -46,6 +46,8 @@ const Landing = () => {
     { value: "95%", label: "User Satisfaction" }
   ];
 
+
+
   return (
     <div className="min-h-screen bg-gradient-subtle">
       {/* Header */}
@@ -64,9 +66,9 @@ const Landing = () => {
             <Link to="/signin">
               <Button variant="tertiary">Login</Button>
             </Link>
-            <Link to="/signup">
-              <Button variant="primary">Get Started</Button>
-            </Link>
+                          <Link to="/signup">
+                <Button variant="primary">Get Started</Button>
+              </Link>
           </div>
         </div>
       </header>

@@ -163,7 +163,7 @@ const Dashboard = () => {
                   Update Work History
                 </Button>
                 <Button variant="secondary" className="w-full justify-start" asChild>
-                  <Link to="/assessment">
+                  <Link to="/cla/assessment">
                     <Award className="h-4 w-4 mr-2" />
                     View PM Assessment
                   </Link>
