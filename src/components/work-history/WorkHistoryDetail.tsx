@@ -3,8 +3,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { WorkHistoryDetailTabs } from "@/components/work-history/WorkHistoryDetailTabs";
-import { SectionHeader } from "@/components/work-history/SectionHeader";
-import { ConnectionViewer } from "@/components/work-history/ConnectionViewer";
 import { 
   Building2, 
   Calendar, 
@@ -17,11 +15,7 @@ import {
   Edit,
   Copy,
   Files,
-  Trash2,
-  Briefcase,
-  MessageSquare,
-  Link,
-  RefreshCw
+  Trash2
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -105,31 +99,25 @@ export const WorkHistoryDetail = ({
                 )}
               </div>
               
-              <div className="flex items-center gap-2">
-                <Button variant="secondary" size="sm" onClick={() => console.log("Add Story")}>
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  Add Story
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="h-8 w-8 p-0">
-                      <span className="sr-only">Open menu</span>
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={onAddRole}>
-                      <Edit className="mr-2 h-4 w-4" />
-                      Edit Role
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem>
-                      <Trash2 className="mr-2 h-4 w-4 text-red-500" />
-                      Delete Role
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="h-8 w-8 p-0">
+                    <span className="sr-only">Open menu</span>
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={onAddRole}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit Role
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem>
+                    <Trash2 className="mr-2 h-4 w-4 text-red-500" />
+                    Delete Role
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </CardHeader>
           
@@ -224,30 +212,29 @@ export const WorkHistoryDetail = ({
                 </div>
               </div>
               
-              <div className="flex items-center gap-2">
-                <Button variant="secondary" size="sm" onClick={onAddRole}>
-                  <Briefcase className="h-4 w-4 mr-2" />
-                  Add Role
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="h-8 w-8 p-0">
-                      <span className="sr-only">Open menu</span>
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem>
-                      <Edit className="mr-2 h-4 w-4" />
-                      Edit Company
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Trash2 className="mr-2 h-4 w-4 text-red-500" />
-                      Delete Company
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="h-8 w-8 p-0">
+                    <span className="sr-only">Open menu</span>
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={onAddRole}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Role
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit Company
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <Trash2 className="mr-2 h-4 w-4 text-red-500" />
+                    Delete Company
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </CardHeader>
           
@@ -271,49 +258,10 @@ export const WorkHistoryDetail = ({
           </CardContent>
         </Card>
 
-        {/* Connections Card */}
-        <Card>
-          <CardHeader>
-            <SectionHeader
-              title="Data Sources"
-              ctaText="Refresh"
-              onCtaClick={() => console.log("Refresh connections")}
-              ctaIcon={RefreshCw}
-              subtitle="LinkedIn and resume connections for data import"
-            />
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <ConnectionViewer
-                type="linkedin"
-                status="connected"
-                url="https://linkedin.com/in/example"
-                lastSync="2024-01-15"
-                onConnect={() => console.log("Connect LinkedIn")}
-                onRefresh={() => console.log("Refresh LinkedIn")}
-              />
-              <ConnectionViewer
-                type="resume"
-                status="uploaded"
-                url="/resume.pdf"
-                fileName="resume.pdf"
-                onUpload={() => console.log("Upload resume")}
-                onRefresh={() => console.log("Refresh resume")}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Roles Overview Card */}
         <Card className="flex-1 flex flex-col">
           <CardHeader>
-            <SectionHeader
-              title={`Roles at ${selectedCompany.name}`}
-              ctaText="Add Role"
-              onCtaClick={onAddRole}
-              ctaIcon={Briefcase}
-              subtitle={`${selectedCompany.roles.length} role${selectedCompany.roles.length !== 1 ? 's' : ''} • Click to view details`}
-            />
+            <CardTitle>Roles at {selectedCompany.name}</CardTitle>
           </CardHeader>
           
           <CardContent className="flex-1 overflow-auto">

@@ -4,8 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Building2, Calendar, ChevronRight, FileText, Link, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { StatusBadge } from "./StatusBadge";
-import { CompletionProgress } from "./CompletionProgress";
 import type { WorkHistoryCompany, WorkHistoryRole } from "@/types/workHistory";
 
 interface WorkHistoryMasterProps {
@@ -80,40 +78,13 @@ export const WorkHistoryMaster = ({
                 )}
                 onClick={() => onCompanySelect(company)}
               >
-                <div className="flex items-start gap-3 text-left w-full">
-                  <Building2 className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+                <div className="flex items-center gap-3 text-left">
+                  <Building2 className="h-5 w-5 text-muted-foreground shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <h3 className="font-medium truncate">{company.name}</h3>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <StatusBadge 
-                          type="linkedin" 
-                          status="connected" 
-                          lastSync="2024-01-15"
-                          className="text-xs"
-                        />
-                        <StatusBadge 
-                          type="resume" 
-                          status="uploaded" 
-                          fileName="resume.pdf"
-                          className="text-xs"
-                        />
-                      </div>
-                    </div>
-                    <p className="text-sm text-muted-foreground truncate mb-2">
+                    <h3 className="font-medium truncate">{company.name}</h3>
+                    <p className="text-sm text-muted-foreground truncate">
                       {company.roles.length} role{company.roles.length !== 1 ? 's' : ''}
                     </p>
-                    <CompletionProgress
-                      completed={company.roles.length > 0 ? 2 : 0}
-                      total={4}
-                      steps={[
-                        { name: "Company", completed: true, required: true },
-                        { name: "Roles", completed: company.roles.length > 0, required: true },
-                        { name: "Stories", completed: company.roles.some(r => r.blurbs.length > 0) },
-                        { name: "Links", completed: company.roles.some(r => r.externalLinks.length > 0) }
-                      ]}
-                      className="text-xs"
-                    />
                   </div>
                 </div>
               </AccordionTrigger>
