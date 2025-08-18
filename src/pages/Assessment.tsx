@@ -862,7 +862,7 @@ const Assessment = () => {
                     </div>
                     
                                           {/* Leadership Guidance Banner */}
-                      <div className="bg-green-50 border-t-2 border-b-2 border-green-500 py-4 px-6 mt-4 mb-4">
+                      <div className="bg-green-50 border-t-2 border-b-2 border-green-500 py-4 px-6 mb-4">
                       <div className="text-center">
                         <p className="text-green-900 font-medium" style={{ fontSize: '1.1rem' }}>Develop team leadership skills and strategic organizational thinking to advance</p>
                       </div>

@@ -212,7 +212,7 @@ All colors MUST be HSL.
   .px-6 {
     padding-left: 1.5rem;
     padding-right: 1.5rem;
-    margin-top: 1rem;
+    margin-top: 0;
   }
   
   /* Color System - Enhanced Specificity */
@@ -269,6 +269,7 @@ All colors MUST be HSL.
   
   .ladder-card-labeled {
     @apply ladder-card-base border-2;
+    min-width: 150px;
   }
   
   .ladder-card-header {
@@ -280,7 +281,7 @@ All colors MUST be HSL.
   }
   
   .ladder-cta-primary {
-    @apply ladder-card-base bg-primary text-primary-foreground text-center py-4 px-6 cursor-pointer;
+    @apply ladder-card-base bg-primary text-primary-foreground text-center py-4 px-6 cursor-pointer lg:bg-green-500 lg:text-white;
   }
   
   .ladder-step-mobile {
