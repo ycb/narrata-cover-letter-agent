@@ -167,3 +167,10 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  .w-12 {
+    width: 3rem;
+    margin-left: 30px;
+  }
+}
