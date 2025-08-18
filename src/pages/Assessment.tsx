@@ -627,7 +627,7 @@ const Assessment = () => {
                     </div>
                     
                     {/* IC Track Steps */}
-                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-start" style={{ marginTop: '1rem' }}>
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-start">
                       {/* IC Track Items */}
                       <div className="flex flex-col lg:flex-row lg:items-center relative">
                         {/* Completed Steps */}
@@ -798,7 +798,7 @@ const Assessment = () => {
                       </div>
                       
                       {/* Leadership Track Items */}
-                      <div className="flex flex-col lg:flex-row lg:items-center relative mt-4">
+                      <div className="flex flex-col lg:flex-row lg:items-center relative">
                         {/* Full Height Vertical Separator - Blue when viewing Leadership (desktop only) */}
                         <div className="ladder-separator absolute left-0 top-0 bottom-0 w-px bg-blue-300 border-l-2 border-dashed border-blue-500"></div>
                         
