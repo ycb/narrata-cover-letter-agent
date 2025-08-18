@@ -615,7 +615,7 @@ const Assessment = () => {
               <div className="mb-6">
                 {/* IC Track - Single Color */}
                 <div className="relative mb-8">
-                  <div className="text-left mb-6">
+                  <div className="text-left mb-6 border-t-2 border-blue-500 pt-4 -mx-6 px-6">
                     <h4 className="text-base font-semibold text-blue-900">IC Track: Core PM skills to deep expertise</h4>
                   </div>
                   
