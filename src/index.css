@@ -202,6 +202,30 @@ All colors MUST be HSL.
     padding-bottom: 1rem;
   }
   
+  /* Border System */
+  .border-t-2 {
+    border-bottom-width: 2px;
+    border-top-width: 2px;
+  }
+  
+  /* Padding System */
+  .px-6 {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+    margin-top: 1rem;
+  }
+  
+  /* Color System - Enhanced Specificity */
+  .border-blue-500 {
+    --tw-border-opacity: 1;
+    border-color: rgb(30 58 138 / var(--tw-text-opacity, .2));
+  }
+  
+  .border-green-500 {
+    --tw-border-opacity: 1;
+    border-color: rgb(20 83 45 / var(--tw-text-opacity, .2));
+  }
+  
   /* Section Spacing */
   .section-spacing {
     margin-bottom: 1.5rem;
