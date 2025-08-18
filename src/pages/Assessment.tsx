@@ -627,7 +627,7 @@ const Assessment = () => {
                         <div className="flex flex-col items-center p-4 h-32 justify-center">
                           <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
                           <div className="text-center">
-                            <div className="text-sm font-medium text-blue-900">Associate PM</div>
+                            <div className="text-sm font-medium text-blue-900 mb-1">Associate PM</div>
                             <div className="text-xs text-muted-foreground text-center">0-2 years</div>
                           </div>
                         </div>
@@ -649,7 +649,7 @@ const Assessment = () => {
                           <div className="bg-white p-4 w-full flex-1 flex flex-col justify-center">
                             <div className="text-center">
                               <div className="h-6 w-6 rounded-full bg-blue-500 mb-2 mx-auto" />
-                              <div className="text-sm font-medium bg-blue-500 text-white px-3 py-1 rounded-full">Sr Product Mgr</div>
+                              <div className="text-sm font-medium bg-blue-500 text-white px-3 py-1 rounded-full mb-1">Sr Product Mgr</div>
                               <div className="text-xs text-muted-foreground">4-7 years</div>
                             </div>
                           </div>
@@ -673,7 +673,7 @@ const Assessment = () => {
                         <div className="flex flex-col items-center p-4 h-32 justify-center">
                           <div className="h-6 w-6 rounded-full border-2 border-blue-500 mb-2" />
                           <div className="text-center">
-                            <div className="text-sm font-medium text-blue-900">Principal Product Mgr</div>
+                            <div className="text-sm font-medium text-blue-900 mb-1">Principal Product Mgr</div>
                             <div className="text-xs text-muted-foreground text-center">Domain expert</div>
                           </div>
                         </div>
@@ -730,7 +730,7 @@ const Assessment = () => {
                         <div className="flex flex-col items-center p-4 h-32 justify-center">
                           <div className="h-6 w-6 rounded-full border-2 border-green-500 mb-2" />
                           <div className="text-center">
-                            <div className="text-sm font-medium text-green-900">Group PM / Manager</div>
+                            <div className="text-sm font-medium text-green-900 mb-1">Group PM / Manager</div>
                             <div className="text-xs text-muted-foreground text-center">Portfolio oversight</div>
                           </div>
                         </div>
@@ -738,7 +738,7 @@ const Assessment = () => {
                         <div className="flex flex-col items-center p-4 h-32 justify-center">
                           <div className="h-6 w-6 rounded-full border-2 border-green-500 mb-2" />
                           <div className="text-center">
-                            <div className="text-sm font-medium text-green-900">Director of Product</div>
+                            <div className="text-sm font-medium text-green-900 mb-1">Director of Product</div>
                             <div className="text-xs text-muted-foreground text-center">Strategic direction</div>
                           </div>
                         </div>
@@ -746,7 +746,7 @@ const Assessment = () => {
                         <div className="flex flex-col items-center p-4 h-32 justify-center">
                           <div className="h-6 w-6 rounded-full border-2 border-green-500 mb-2" />
                           <div className="text-center">
-                            <div className="text-sm font-medium text-green-900">Vice President, Product</div>
+                            <div className="text-sm font-medium text-green-900 mb-1">Vice President, Product</div>
                             <div className="text-xs text-muted-foreground text-center">Executive leadership</div>
                           </div>
                         </div>
@@ -754,7 +754,7 @@ const Assessment = () => {
                         <div className="flex flex-col items-center p-4 h-32 justify-center">
                           <div className="h-6 w-6 rounded-full border-2 border-green-500 mb-2" />
                           <div className="text-center">
-                            <div className="text-sm font-medium text-green-900">Chief Product Officer</div>
+                            <div className="text-sm font-medium text-green-900 mb-1">Chief Product Officer</div>
                             <div className="text-xs text-muted-foreground text-center">CPO</div>
                           </div>
                         </div>
