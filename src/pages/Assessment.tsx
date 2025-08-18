@@ -623,72 +623,53 @@ const Assessment = () => {
                         <h4 className="text-base font-semibold text-blue-900">IC Track: Core PM skills to deep expertise</h4>
                       </div>
                       
-                      <div className="flex items-center justify-center space-x-4">
-                        <div className="flex flex-col items-center p-4">
+                      <div className="flex items-center justify-center space-x-6">
+                        <div className="flex flex-col items-center p-4 h-32 justify-center">
                           <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-blue-900">Associate PM</div>
                             <div className="text-xs text-muted-foreground text-center">0-2 years</div>
                           </div>
                         </div>
-                        <div className="h-px w-8 bg-blue-200" />
-                        <div className="flex flex-col items-center p-4">
+                        <div className="h-px w-6 bg-blue-200" />
+                        <div className="flex flex-col items-center p-4 h-32 justify-center">
                           <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-blue-900">Product Mgr</div>
                             <div className="text-xs text-muted-foreground text-center">2-4 years</div>
                           </div>
                         </div>
-                        <div className="h-px w-8 bg-blue-200" />
-                        <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500">
-                          {/* Blue Header */}
-                          <div className="bg-blue-500 text-white text-center py-2 px-4 w-full">
-                            <div className="text-xs font-normal uppercase tracking-wide">TODAY</div>
-                          </div>
-                          {/* White Body */}
-                          <div className="bg-white p-4 w-full">
-                            <div className="text-center">
-                              <div className="h-6 w-6 rounded-full bg-blue-500 mb-2 mx-auto" />
-                              <div className="text-sm font-medium bg-blue-500 text-white px-3 py-1 rounded-full">Sr Product Mgr</div>
-                              <div className="text-xs text-muted-foreground">4-7 years</div>
-                            </div>
+                        <div className="h-px w-6 bg-blue-200" />
+                        <div className="flex flex-col items-center p-4 h-32 justify-center">
+                          <div className="text-xs text-blue-600 font-medium mb-1">TODAY</div>
+                          <div className="h-6 w-6 rounded-full bg-blue-500 mb-2 mx-auto" />
+                          <div className="text-center">
+                            <div className="text-sm font-medium bg-blue-500 text-white px-3 py-1 rounded-full">Sr Product Mgr</div>
+                            <div className="text-xs text-muted-foreground">4-7 years</div>
                           </div>
                         </div>
-                        <div className="h-px w-8 bg-blue-200" />
-                        <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500">
-                          {/* Blue Header */}
-                          <div className="bg-blue-500 text-white text-center py-2 px-4 w-full">
-                            <div className="text-xs font-normal uppercase tracking-wide">NEXT STEP</div>
-                          </div>
-                          {/* White Body */}
-                          <div className="bg-white p-4 w-full">
-                            <div className="text-center">
-                              <div className="h-6 w-6 rounded-full border-2 border-blue-500 mb-2 mx-auto" />
-                              <div className="text-sm font-medium text-blue-900 mb-1">Lead Product Mgr</div>
-                              <div className="text-xs text-muted-foreground">Technical leadership</div>
-                            </div>
+                        <div className="h-px w-6 bg-blue-200" />
+                        <div className="flex flex-col items-center p-4 h-32 justify-center">
+                          <div className="text-xs text-blue-600 font-medium mb-1">NEXT STEP</div>
+                          <div className="h-6 w-6 rounded-full border-2 border-blue-500 mb-2 mx-auto" />
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-blue-900 mb-1">Lead Product Mgr</div>
+                            <div className="text-xs text-muted-foreground">Technical leadership</div>
                           </div>
                         </div>
-                        <div className="h-px w-8 bg-blue-200" />
-                        <div className="flex flex-col items-center p-4">
+                        <div className="h-px w-6 bg-blue-200" />
+                        <div className="flex flex-col items-center p-4 h-32 justify-center">
                           <div className="h-6 w-6 rounded-full border-2 border-blue-500 mb-2" />
                           <div className="text-center">
                             <div className="text-sm font-medium text-blue-900">Principal Product Mgr</div>
                             <div className="text-xs text-muted-foreground text-center">Domain expert</div>
                           </div>
                         </div>
-                        <div className="h-px w-8 bg-blue-200" />
+                        <div className="h-px w-6 bg-blue-200" />
                         {/* Green View Leadership Track Card */}
-                        <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-green-500 cursor-pointer" onClick={() => setShowLeadershipTrack(true)}>
-                          {/* Green Header */}
-                          <div className="bg-green-500 text-white text-center py-2 px-4 w-full">
-                            <div className="text-xs font-normal uppercase tracking-wide">VIEW</div>
-                          </div>
-                          {/* White Body */}
-                          <div className="bg-white p-4 w-full">
-                            <div className="text-center">
-                              <div className="text-xs text-green-900 font-medium">Leadership Track</div>
-                            </div>
+                        <div className="flex flex-col items-center p-4 h-32 justify-center cursor-pointer" onClick={() => setShowLeadershipTrack(true)}>
+                          <div className="text-center">
+                            <div className="text-xs text-green-900 font-medium">Leadership Track</div>
                           </div>
                         </div>
                       </div>
@@ -712,46 +693,39 @@ const Assessment = () => {
                         <h4 className="text-base font-semibold text-green-900">Leadership Track: Team leadership and organizational strategy</h4>
                       </div>
                       
-                      <div className="flex items-center justify-center space-x-4">
+                      <div className="flex items-center justify-center space-x-6">
                         {/* Blue View IC Track Card */}
-                        <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 cursor-pointer" onClick={() => setShowLeadershipTrack(false)}>
-                          {/* Blue Header */}
-                          <div className="bg-blue-500 text-white text-center py-2 px-4 w-full">
-                            <div className="text-xs font-normal uppercase tracking-wide">VIEW</div>
-                          </div>
-                          {/* White Body */}
-                          <div className="bg-white p-4 w-full">
-                            <div className="text-center">
-                              <div className="text-xs text-blue-900 font-medium">IC Track</div>
-                            </div>
+                        <div className="flex flex-col items-center p-4 h-32 justify-center cursor-pointer" onClick={() => setShowLeadershipTrack(false)}>
+                          <div className="text-center">
+                            <div className="text-xs text-blue-900 font-medium">IC Track</div>
                           </div>
                         </div>
-                        <div className="h-px w-8 bg-green-200" />
-                        <div className="flex flex-col items-center p-4">
+                        <div className="h-px w-6 bg-green-200" />
+                        <div className="flex flex-col items-center p-4 h-32 justify-center">
                           <div className="h-6 w-6 rounded-full border-2 border-green-500 mb-2" />
                           <div className="text-center">
                             <div className="text-sm font-medium text-green-900">Group PM / Manager</div>
                             <div className="text-xs text-muted-foreground text-center">Portfolio oversight</div>
                           </div>
                         </div>
-                        <div className="h-px w-8 bg-green-200" />
-                        <div className="flex flex-col items-center p-4">
+                        <div className="h-px w-6 bg-green-200" />
+                        <div className="flex flex-col items-center p-4 h-32 justify-center">
                           <div className="h-6 w-6 rounded-full border-2 border-green-500 mb-2" />
                           <div className="text-center">
                             <div className="text-sm font-medium text-green-900">Director of Product</div>
                             <div className="text-xs text-muted-foreground text-center">Strategic direction</div>
                           </div>
                         </div>
-                        <div className="h-px w-8 bg-green-200" />
-                        <div className="flex flex-col items-center p-4">
+                        <div className="h-px w-6 bg-green-200" />
+                        <div className="flex flex-col items-center p-4 h-32 justify-center">
                           <div className="h-6 w-6 rounded-full border-2 border-green-500 mb-2" />
                           <div className="text-center">
                             <div className="text-sm font-medium text-green-900">Vice President, Product</div>
                             <div className="text-xs text-muted-foreground text-center">Executive leadership</div>
                           </div>
                         </div>
-                        <div className="h-px w-8 bg-green-200" />
-                        <div className="flex flex-col items-center p-4">
+                        <div className="h-px w-6 bg-green-200" />
+                        <div className="flex flex-col items-center p-4 h-32 justify-center">
                           <div className="h-6 w-6 rounded-full border-2 border-green-500 mb-2" />
                           <div className="text-center">
                             <div className="text-sm font-medium text-green-900">Chief Product Officer</div>
