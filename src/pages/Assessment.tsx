@@ -674,7 +674,7 @@ const Assessment = () => {
                         <div className="ladder-conn-v ladder-conn-blue"></div>
                         
                         {/* Current Step - TODAY Card */}
-                        <div className="ladder-card-labeled border-blue-500">
+                        <div className="ladder-card-labeled border-blue-500 mx-4">
                           <div className="ladder-card-header bg-blue-600">
                             <div className="text-xs font-normal uppercase tracking-wide">TODAY</div>
                           </div>
@@ -692,7 +692,7 @@ const Assessment = () => {
                         <div className="ladder-conn-v ladder-conn-blue"></div>
                         
                         {/* Next Step - NEXT STEP Card */}
-                        <div className="ladder-card-labeled border-blue-500">
+                        <div className="ladder-card-labeled border-blue-500 mx-4">
                           <div className="ladder-card-header bg-blue-600">
                             <div className="text-xs font-normal uppercase tracking-wide">NEXT STEP</div>
                           </div>
