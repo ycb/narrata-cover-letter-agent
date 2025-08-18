@@ -616,7 +616,7 @@ const Assessment = () => {
                 {/* IC Track - Single Color */}
                 <div className="relative mb-8">
                   <div className="text-left mb-6">
-                    <h4 className="text-base font-semibold text-blue-500">IC Track: Core PM skills to deep expertise</h4>
+                    <h4 className="text-base font-semibold text-blue-900">IC Track: Core PM skills to deep expertise</h4>
                   </div>
                   
                   <div className="flex items-center justify-center space-x-4">
@@ -686,7 +686,7 @@ const Assessment = () => {
                 {/* Leadership Track - Below */}
                 <div className="relative">
                   <div className="text-left mb-4">
-                    <h4 className="text-base font-semibold text-green-500">Leadership Track: Team leadership and organizational strategy</h4>
+                    <h4 className="text-base font-semibold text-green-900">Leadership Track: Team leadership and organizational strategy</h4>
                   </div>
                   
                   <div className="flex items-center justify-center space-x-4">
