@@ -600,15 +600,16 @@ const Assessment = () => {
             <CardContent>
 
               {/* Evidence CTA Button - Above Career Ladder */}
-              <Button 
-                variant="primary" 
-                size="lg" 
-                className="mb-6"
-                onClick={handleShowLevelEvidence}
-              >
-                View Evidence for Overall Level
-                <TrendingUp className="h-5 w-5 ml-2" />
-              </Button>
+              <div className="flex justify-center mb-6">
+                <Button 
+                  variant="primary" 
+                  size="lg" 
+                  onClick={handleShowLevelEvidence}
+                >
+                  View Evidence for Overall Level
+                  <TrendingUp className="h-5 w-5 ml-2" />
+                </Button>
+              </div>
               
               {/* Dual-Track Career Path Visualization */}
               <div className="mb-6">
