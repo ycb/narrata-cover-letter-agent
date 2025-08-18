@@ -625,7 +625,7 @@ const Assessment = () => {
                     {/* IC Track Steps */}
                     <div className="flex items-center justify-center relative">
                       {/* Completed Steps */}
-                      <div className="flex flex-col items-center p-6 h-48 justify-center ml-6">
+                      <div className="flex flex-col items-center p-6 h-56 justify-center ml-6">
                         <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-3">✓</div>
                         <div className="text-center">
                           <div className="text-sm font-medium text-blue-900 mb-1">Associate PM</div>
@@ -634,7 +634,7 @@ const Assessment = () => {
                       </div>
                       <div className="h-px w-6 bg-blue-200 mx-6" />
                       
-                      <div className="flex flex-col items-center p-6 h-48 justify-center">
+                      <div className="flex flex-col items-center p-6 h-56 justify-center">
                         <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-3">✓</div>
                         <div className="text-center">
                           <div className="text-sm font-medium text-blue-900 mb-1">Product Mgr</div>
@@ -644,7 +644,7 @@ const Assessment = () => {
                       <div className="h-px w-6 bg-blue-200 mx-6" />
                       
                       {/* Current Step - TODAY Card */}
-                      <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 h-48">
+                      <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 h-56">
                         <div className="bg-blue-500 text-white text-center py-2 px-4 w-full">
                           <div className="text-xs font-normal uppercase tracking-wide">TODAY</div>
                         </div>
@@ -656,10 +656,9 @@ const Assessment = () => {
                           </div>
                         </div>
                       </div>
-                      <div className="h-px w-6 bg-blue-200 mx-6" />
                       
                       {/* Next Step - NEXT STEP Card */}
-                      <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 h-48">
+                      <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 h-56">
                         <div className="bg-blue-500 text-white text-center py-2 px-4 w-full">
                           <div className="text-xs font-normal uppercase tracking-wide">NEXT STEP</div>
                         </div>
@@ -674,7 +673,7 @@ const Assessment = () => {
                       <div className="h-px w-6 bg-blue-200 mx-6" />
                       
                       {/* Future Step - Dotted Circle */}
-                      <div className="flex flex-col items-center p-6 h-48 justify-center">
+                      <div className="flex flex-col items-center p-6 h-56 justify-center">
                         <div className="h-6 w-6 rounded-full border-2 border-dashed border-blue-500 mb-3"></div>
                         <div className="text-center">
                           <div className="text-sm font-medium text-blue-900 mb-1">Principal Product Mgr</div>
@@ -682,11 +681,11 @@ const Assessment = () => {
                         </div>
                       </div>
                       
-                      {/* Full Height Vertical Separator */}
-                      <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gray-300 border-l-2 border-dashed border-gray-300 transform -translate-x-1/2"></div>
+                      {/* Full Height Vertical Separator - Green when viewing IC */}
+                      <div className="absolute right-0 top-0 bottom-0 w-px bg-green-300 border-l-2 border-dashed border-green-500"></div>
                       
                       {/* View Leadership Track Card */}
-                      <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-green-500 cursor-pointer h-48 mr-6" onClick={() => setShowLeadershipTrack(true)}>
+                      <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-green-500 cursor-pointer h-56 mr-6" onClick={() => setShowLeadershipTrack(true)}>
                         <div className="bg-green-500 text-white text-center py-2 px-4 w-full">
                           <div className="text-xs font-normal uppercase tracking-wide">VIEW</div>
                         </div>
@@ -718,7 +717,7 @@ const Assessment = () => {
                     {/* Leadership Track Steps */}
                     <div className="flex items-center justify-center relative">
                       {/* View IC Track Card */}
-                      <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 cursor-pointer h-48 ml-6" onClick={() => setShowLeadershipTrack(false)}>
+                      <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 cursor-pointer h-56 ml-6" onClick={() => setShowLeadershipTrack(false)}>
                         <div className="bg-blue-500 text-white text-center py-2 px-4 w-full">
                           <div className="text-xs font-normal uppercase tracking-wide">VIEW</div>
                         </div>
@@ -728,10 +727,14 @@ const Assessment = () => {
                           </div>
                         </div>
                       </div>
+                      
+                      {/* Full Height Vertical Separator - Blue when viewing Leadership */}
+                      <div className="absolute left-0 top-0 bottom-0 w-px bg-blue-300 border-l-2 border-dashed border-blue-500"></div>
+                      
                       <div className="h-px w-6 bg-green-200 mx-6" />
                       
                       {/* Future Steps - All Dotted Circles */}
-                      <div className="flex flex-col items-center p-6 h-48 justify-center">
+                      <div className="flex flex-col items-center p-6 h-56 justify-center">
                         <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-3"></div>
                         <div className="text-center">
                           <div className="text-sm font-medium text-green-900 mb-1">Group PM / Manager</div>
@@ -740,7 +743,7 @@ const Assessment = () => {
                       </div>
                       <div className="h-px w-6 bg-green-200 mx-6" />
                       
-                      <div className="flex flex-col items-center p-6 h-48 justify-center">
+                      <div className="flex flex-col items-center p-6 h-56 justify-center">
                         <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-3"></div>
                         <div className="text-center">
                           <div className="text-sm font-medium text-green-900 mb-1">Director of Product</div>
@@ -749,7 +752,7 @@ const Assessment = () => {
                       </div>
                       <div className="h-px w-6 bg-green-200 mx-6" />
                       
-                      <div className="flex flex-col items-center p-6 h-48 justify-center">
+                      <div className="flex flex-col items-center p-6 h-56 justify-center">
                         <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-3"></div>
                         <div className="text-center">
                           <div className="text-sm font-medium text-green-900 mb-1">Vice President, Product</div>
@@ -758,7 +761,7 @@ const Assessment = () => {
                       </div>
                       <div className="h-px w-6 bg-green-200 mx-6" />
                       
-                      <div className="flex flex-col items-center p-6 h-48 justify-center">
+                      <div className="flex flex-col items-center p-6 h-56 justify-center">
                         <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-3"></div>
                         <div className="text-center">
                           <div className="text-sm font-medium text-green-900 mb-1">Chief Product Officer</div>
