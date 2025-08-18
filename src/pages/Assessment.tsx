@@ -614,7 +614,7 @@ const Assessment = () => {
               </div>
               
               {/* Dual-Track Career Path Visualization */}
-              <div className="mb-4 relative overflow-hidden -mx-6">
+              <div className="mb-4 relative overflow-hidden -mx-6 my-4">
                 {/* IC Track - Full Width */}
                 <div className={`transition-transform duration-500 ease-in-out ${showLeadershipTrack ? '-translate-x-full' : 'translate-x-0'}`}>
                   <div className="bg-white">
@@ -767,7 +767,10 @@ const Assessment = () => {
                     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-start px-6">
                       {/* View IC Track Card - Primary CTA */}
                       <div className="ladder-cta-primary mb-4 lg:mr-6" onClick={() => setShowLeadershipTrack(false)}>
-                        <div className="text-sm font-medium">View IC Track</div>
+                        <div className="text-sm font-medium flex items-center justify-center gap-2">
+                          View IC Track
+                          <Target className="h-4 w-4" />
+                        </div>
                       </div>
                       
                       {/* Leadership Track Items */}
