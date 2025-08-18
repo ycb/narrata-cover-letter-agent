@@ -12,9 +12,7 @@ import {
   CheckCircle,
   AlertCircle,
   XCircle,
-  Download,
   Edit,
-  MessageSquare,
   Info,
   FileText,
   Link
@@ -979,28 +977,7 @@ const Assessment = () => {
             </CardContent>
           </Card>
 
-          {/* Feedback & Export */}
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
-                Feedback & Export
-              </CardTitle>
-              <CardDescription>
-                Help us improve your assessment or export your results
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button variant="secondary" className="w-full">
-                <Edit className="h-4 w-4 mr-2" />
-                This looks wrong
-              </Button>
-              <Button variant="secondary" className="w-full">
-                <Download className="h-4 w-4 mr-2" />
-                Export Summary (PDF)
-              </Button>
-            </CardContent>
-          </Card>
+
         </div>
       </main>
 

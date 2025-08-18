@@ -59,12 +59,26 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="pb-4">
-          <DialogTitle className="text-2xl font-bold">
-            Evidence for {evidence.currentLevel} Assessment
-          </DialogTitle>
-          <DialogDescription className="text-base">
-            How we determined your current level and path to {evidence.nextLevel}
-          </DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle className="text-2xl font-bold">
+                Evidence for {evidence.currentLevel} Assessment
+              </DialogTitle>
+              <DialogDescription className="text-base">
+                How we determined your current level and path to {evidence.nextLevel}
+              </DialogDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" className="flex items-center gap-2">
+                <Edit className="h-4 w-4" />
+                This looks wrong
+              </Button>
+              <Button variant="secondary" size="sm" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Export PDF
+              </Button>
+            </div>
+          </div>
         </DialogHeader>
 
         <div className="space-y-6">
