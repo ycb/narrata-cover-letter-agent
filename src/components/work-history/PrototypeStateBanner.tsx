@@ -20,7 +20,7 @@ export function PrototypeStateBanner() {
 
   const handleExistingUser = () => {
     if (location.pathname === '/') {
-      navigate('/work-history');
+      navigate('/dashboard');
     }
     setPrototypeState('existing-user');
   };
