@@ -620,7 +620,7 @@ const Assessment = () => {
                   <div className="bg-white">
                     {/* IC Track Header */}
                     <div className="text-left mb-4 border-t-2 border-blue-500 pt-4 px-6">
-                      <h4 className="text-base font-semibold text-blue-900">IC Track: Core PM skills to deep expertise</h4>
+                      <h3 className="text-base font-semibold text-blue-900">Individual Contributor Track</h3>
                     </div>
                     
                     {/* IC Track Steps */}
@@ -671,11 +671,11 @@ const Assessment = () => {
                         <div className="ladder-conn-v ladder-conn-blue"></div>
                         
                         {/* Current Step - TODAY Card */}
-                        <div className="w-full flex flex-col items-center overflow-hidden shadow-sm border-2 border-blue-500 rounded-lg mx-4">
-                          <div className="bg-blue-600 text-white text-center py-3 px-4 w-full rounded-t-lg">
+                        <div className="ladder-card-labeled border-blue-500">
+                          <div className="ladder-card-header bg-blue-600">
                             <div className="text-xs font-normal uppercase tracking-wide">TODAY</div>
                           </div>
-                          <div className="bg-white p-6 w-full flex-1 flex flex-col justify-center rounded-b-lg">
+                          <div className="ladder-card-content">
                             <div className="text-center">
                               <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-3 mx-auto">✓</div>
                               <div className="text-sm font-medium bg-blue-500 text-white px-3 py-1 rounded-full mb-2">Sr PM</div>
@@ -689,11 +689,11 @@ const Assessment = () => {
                         <div className="ladder-conn-v ladder-conn-blue"></div>
                         
                         {/* Next Step - NEXT STEP Card */}
-                        <div className="w-full flex flex-col items-center overflow-hidden shadow-sm border-2 border-blue-500 rounded-lg mx-4">
-                          <div className="bg-blue-600 text-white text-center py-3 px-4 w-full rounded-t-lg">
+                        <div className="ladder-card-labeled border-blue-500">
+                          <div className="ladder-card-header bg-blue-600">
                             <div className="text-xs font-normal uppercase tracking-wide">NEXT STEP</div>
                           </div>
-                          <div className="bg-white p-6 w-full flex-1 flex flex-col justify-center rounded-b-lg">
+                          <div className="ladder-card-content">
                             <div className="text-center">
                               <div className="h-6 w-6 rounded-full border-2 border-blue-500 mb-3 mx-auto" style={{ borderColor: 'rgb(59 130 246)' }}></div>
                               <div className="text-sm font-medium text-blue-900 mb-2">Lead PM</div>
@@ -732,7 +732,7 @@ const Assessment = () => {
                       <div className="hidden lg:block w-12"></div>
                       
                       {/* View Leadership Track Card - Full Width Primary CTA */}
-                      <div className="w-full bg-blue-600 text-white text-center py-4 px-6 cursor-pointer rounded-lg mt-4 shadow-sm mx-4" onClick={() => setShowLeadershipTrack(true)}>
+                      <div className="ladder-cta-primary mt-4" onClick={() => setShowLeadershipTrack(true)}>
                         <div className="text-sm font-medium">View Leadership Track</div>
                       </div>
                     </div>
@@ -751,17 +751,17 @@ const Assessment = () => {
                   <div className="bg-white">
                     {/* Leadership Track Header */}
                     <div className="text-left mb-4 border-t-2 border-green-500 pt-4 px-6">
-                      <h4 className="text-base font-semibold text-green-900">Leadership Track: Team leadership and organizational strategy</h4>
+                      <h3 className="text-base font-semibold text-green-900">Leadership Track</h3>
                     </div>
                     
                     {/* Leadership Track Steps */}
                     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-start px-6">
                       {/* View IC Track Card */}
-                      <div className="w-full flex flex-col items-center overflow-hidden shadow-sm border-2 border-blue-600 cursor-pointer rounded-lg mb-4 lg:mr-6 mx-4" onClick={() => setShowLeadershipTrack(false)}>
-                        <div className="bg-blue-600 text-white text-center py-2 px-4 w-full rounded-t-lg">
+                      <div className="ladder-card-labeled border-blue-600 cursor-pointer mb-4 lg:mr-6" onClick={() => setShowLeadershipTrack(false)}>
+                        <div className="ladder-card-header bg-blue-600">
                           <div className="text-xs font-normal uppercase tracking-wide">VIEW</div>
                         </div>
-                        <div className="bg-white p-6 w-full flex-1 flex flex-col justify-center rounded-b-lg">
+                        <div className="ladder-card-content">
                           <div className="text-center">
                             <div className="text-xs text-blue-900 font-medium">IC Track</div>
                           </div>

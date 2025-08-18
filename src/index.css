@@ -249,16 +249,45 @@ All colors MUST be HSL.
     @apply lg:h-56;
   }
   
+  /* Base card styles (mobile) */
+  .ladder-card-base {
+    @apply mx-4 rounded-lg shadow-sm overflow-hidden;
+  }
+  
+  .ladder-card-ic {
+    @apply ladder-card-base border-2 border-blue-500 bg-white p-6;
+  }
+  
+  .ladder-card-leadership {
+    @apply ladder-card-base border-2 border-green-500 bg-white p-6;
+  }
+  
+  .ladder-card-labeled {
+    @apply ladder-card-base border-2;
+  }
+  
+  .ladder-card-header {
+    @apply text-white text-center py-3 px-4 rounded-t-lg;
+  }
+  
+  .ladder-card-content {
+    @apply bg-white p-6 rounded-b-lg;
+  }
+  
+  .ladder-cta-primary {
+    @apply ladder-card-base bg-blue-600 text-white text-center py-4 px-6 cursor-pointer;
+  }
+  
   .ladder-step-mobile {
     @apply lg:hidden flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 p-6;
   }
   
   .ladder-step-mobile-ic {
-    @apply lg:hidden flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 p-6 mx-4;
+    @apply lg:hidden ladder-card-ic;
   }
   
   .ladder-step-mobile-leadership {
-    @apply lg:hidden flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-green-500 p-6 mx-4;
+    @apply lg:hidden ladder-card-leadership;
   }
   
   .ladder-step-desktop {
