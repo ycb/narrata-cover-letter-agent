@@ -249,6 +249,14 @@ All colors MUST be HSL.
     @apply lg:h-56;
   }
   
+  .ladder-step-mobile {
+    @apply lg:hidden flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 p-6;
+  }
+  
+  .ladder-step-desktop {
+    @apply hidden lg:flex flex-col items-center justify-center;
+  }
+  
   .ladder-conn-h {
     @apply hidden lg:block h-px w-6 mx-6;
   }

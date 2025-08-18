@@ -628,7 +628,16 @@ const Assessment = () => {
                       {/* IC Track Items */}
                       <div className="flex flex-col lg:flex-row lg:items-center relative">
                         {/* Completed Steps */}
-                        <div className="ladder-step ladder-step-height flex flex-col items-center justify-center">
+                        {/* Mobile: Card style */}
+                        <div className="ladder-step-mobile">
+                          <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-blue-900 mb-1">Associate PM</div>
+                            <div className="text-xs text-muted-foreground text-center">0-2 years</div>
+                          </div>
+                        </div>
+                        {/* Desktop: Original style */}
+                        <div className="ladder-step-desktop ladder-step ladder-step-height">
                           <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-blue-900 mb-1">Associate PM</div>
@@ -640,7 +649,16 @@ const Assessment = () => {
                         {/* Vertical connector (mobile) */}
                         <div className="ladder-conn-v ladder-conn-blue"></div>
                         
-                        <div className="ladder-step ladder-step-height flex flex-col items-center justify-center">
+                        {/* Mobile: Card style */}
+                        <div className="ladder-step-mobile">
+                          <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-blue-900 mb-1">PM</div>
+                            <div className="text-xs text-muted-foreground text-center">2-4 years</div>
+                          </div>
+                        </div>
+                        {/* Desktop: Original style */}
+                        <div className="ladder-step-desktop ladder-step ladder-step-height">
                           <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-blue-900 mb-1">PM</div>
@@ -689,7 +707,16 @@ const Assessment = () => {
                         <div className="ladder-conn-v ladder-conn-blue"></div>
                         
                         {/* Future Step - Dotted Circle */}
-                        <div className="ladder-step ladder-step-height flex flex-col items-center justify-center">
+                        {/* Mobile: Card style */}
+                        <div className="ladder-step-mobile">
+                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-blue-500 mb-2"></div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-blue-900 mb-1">Principal PM</div>
+                            <div className="text-xs text-muted-foreground text-center">Domain expert</div>
+                          </div>
+                        </div>
+                        {/* Desktop: Original style */}
+                        <div className="ladder-step-desktop ladder-step ladder-step-height">
                           <div className="h-6 w-6 rounded-full border-2 border-dashed border-blue-500 mb-2"></div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-blue-900 mb-1">Principal PM</div>
@@ -754,7 +781,16 @@ const Assessment = () => {
                         <div className="ladder-separator absolute left-0 top-0 bottom-0 w-px bg-blue-300 border-l-2 border-dashed border-blue-500"></div>
                         
                         {/* First Step - Group PM / Manager */}
-                        <div className="ladder-step ladder-step-height flex flex-col items-center justify-center">
+                        {/* Mobile: Card style */}
+                        <div className="ladder-step-mobile border-green-500">
+                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-green-900 mb-1">Group PM / Manager</div>
+                            <div className="text-xs text-muted-foreground text-center">Portfolio oversight</div>
+                          </div>
+                        </div>
+                        {/* Desktop: Original style */}
+                        <div className="ladder-step-desktop ladder-step ladder-step-height">
                           <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-green-900 mb-1">Group PM / Manager</div>
@@ -767,7 +803,16 @@ const Assessment = () => {
                         <div className="ladder-conn-v ladder-conn-green"></div>
                         
                         {/* Second Step - Director of Product */}
-                        <div className="ladder-step ladder-step-height flex flex-col items-center justify-center">
+                        {/* Mobile: Card style */}
+                        <div className="ladder-step-mobile border-green-500">
+                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-green-900 mb-1">Director of Product</div>
+                            <div className="text-xs text-muted-foreground text-center">Strategic direction</div>
+                          </div>
+                        </div>
+                        {/* Desktop: Original style */}
+                        <div className="ladder-step-desktop ladder-step ladder-step-height">
                           <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-green-900 mb-1">Director of Product</div>
@@ -780,7 +825,16 @@ const Assessment = () => {
                         <div className="ladder-conn-v ladder-conn-green"></div>
                         
                         {/* Third Step - Vice President, Product */}
-                        <div className="ladder-step ladder-step-height flex flex-col items-center justify-center">
+                        {/* Mobile: Card style */}
+                        <div className="ladder-step-mobile border-green-500">
+                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-green-900 mb-1">Vice President, Product</div>
+                            <div className="text-xs text-muted-foreground text-center">Executive leadership</div>
+                          </div>
+                        </div>
+                        {/* Desktop: Original style */}
+                        <div className="ladder-step-desktop ladder-step ladder-step-height">
                           <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-green-900 mb-1">Vice President, Product</div>
@@ -793,7 +847,16 @@ const Assessment = () => {
                         <div className="ladder-conn-v ladder-conn-green"></div>
                         
                         {/* Fourth Step - Chief Product Officer */}
-                        <div className="ladder-step ladder-step-height flex flex-col items-center justify-center">
+                        {/* Mobile: Card style */}
+                        <div className="ladder-step-mobile border-green-500">
+                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-green-900 mb-1">Chief Product Officer</div>
+                            <div className="text-xs text-muted-foreground text-center">CPO</div>
+                          </div>
+                        </div>
+                        {/* Desktop: Original style */}
+                        <div className="ladder-step-desktop ladder-step ladder-step-height">
                           <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-green-900 mb-1">Chief Product Officer</div>
