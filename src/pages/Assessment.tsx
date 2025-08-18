@@ -723,8 +723,23 @@ const Assessment = () => {
                     
                     {/* Leadership Track Steps */}
                     <div className="flex items-center justify-start px-6">
+                      {/* View IC Track Card */}
+                      <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 cursor-pointer h-56 min-w-[140px]" onClick={() => setShowLeadershipTrack(false)}>
+                        <div className="bg-blue-500 text-white text-center py-2 px-4 w-full">
+                          <div className="text-xs font-normal uppercase tracking-wide">VIEW</div>
+                        </div>
+                        <div className="bg-white p-6 w-full flex-1 flex flex-col justify-center">
+                          <div className="text-center">
+                            <div className="text-xs text-blue-900 font-medium">IC Track</div>
+                          </div>
+                        </div>
+                      </div>
+                      
                       {/* Leadership Track Items */}
                       <div className="flex items-center relative">
+                        {/* Full Height Vertical Separator - Blue when viewing Leadership */}
+                        <div className="absolute left-0 top-0 bottom-0 w-px bg-blue-300 border-l-2 border-dashed border-blue-500"></div>
+                        
                         {/* First Step - Group PM / Manager */}
                         <div className="flex flex-col items-center p-6 h-56 justify-center min-w-[140px]">
                           <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
@@ -761,24 +776,6 @@ const Assessment = () => {
                           <div className="text-center">
                             <div className="text-sm font-medium text-green-900 mb-1">Chief Product Officer</div>
                             <div className="text-xs text-muted-foreground text-center">CPO</div>
-                          </div>
-                        </div>
-                        
-                        {/* Full Height Vertical Separator - Blue when viewing Leadership */}
-                        <div className="absolute right-0 top-0 bottom-0 w-px bg-blue-300 border-l-2 border-dashed border-blue-500"></div>
-                      </div>
-                      
-                      {/* Spacing between tracks */}
-                      <div className="w-12"></div>
-                      
-                      {/* View IC Track Card */}
-                      <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 cursor-pointer h-56 min-w-[140px]" onClick={() => setShowLeadershipTrack(false)}>
-                        <div className="bg-blue-500 text-white text-center py-2 px-4 w-full">
-                          <div className="text-xs font-normal uppercase tracking-wide">VIEW</div>
-                        </div>
-                        <div className="bg-white p-6 w-full flex-1 flex flex-col justify-center">
-                          <div className="text-center">
-                            <div className="text-xs text-blue-900 font-medium">IC Track</div>
                           </div>
                         </div>
                       </div>
