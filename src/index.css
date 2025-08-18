@@ -173,4 +173,9 @@ All colors MUST be HSL.
     width: 3rem;
     margin-left: 30px;
   }
+  
+  .py-4 {
+    padding-top: 1.5rem;
+    padding-bottom: 1.5rem;
+  }
 }
