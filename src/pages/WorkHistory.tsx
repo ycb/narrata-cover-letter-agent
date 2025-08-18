@@ -5,6 +5,7 @@ import { DataSourcesStatus } from "@/components/work-history/DataSourcesStatus";
 import { WorkHistoryOnboarding } from "@/components/work-history/WorkHistoryOnboarding";
 import { AddCompanyModal } from "@/components/work-history/AddCompanyModal";
 import { AddRoleModal } from "@/components/work-history/AddRoleModal";
+import { useContextualCTA } from "@/components/work-history/useContextualCTA";
 import { usePrototype } from "@/contexts/PrototypeContext";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -27,7 +28,7 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
         description: "Led product strategy for core platform",
         tags: ["Product Management", "Strategy", "Leadership"],
         achievements: [
-          "Increased user engagement by 40% through feature optimization",
+          "Increased user engagement by 40% through feature optimizimage.pngation",
           "Led cross-functional team of 12 engineers and designers",
           "Launched 3 major product releases ahead of schedule"
         ],
@@ -35,6 +36,7 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
           {
             id: "blurb-1",
             roleId: "1-1",
+            
             title: "Product Strategy Leadership",
             content: "As Product Lead at [TechCorp] I built a high-performing product team from ground up, hiring and managing 8 product professionals while launching MVP in record 6 months.",
             status: "approved",
@@ -207,6 +209,14 @@ export default function WorkHistory() {
 
   const hasWorkHistory = workHistory.length > 0;
 
+  // Use contextual CTA system
+  const ctaConfig = useContextualCTA({
+    company: selectedCompany,
+    role: selectedRole,
+    hasLinkedInConnection: true, // From prototype state
+    hasResumeUpload: true // From prototype state
+  });
+
   return (
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-4 py-8">
@@ -216,13 +226,18 @@ export default function WorkHistory() {
             <p className="text-muted-foreground mt-2">
               Manage your professional experience and associated blurbs
             </p>
+            {hasWorkHistory && selectedCompany && (
+              <p className="text-sm text-muted-foreground mt-1">
+                {ctaConfig.nextAction}
+              </p>
+            )}
           </div>
           
           {hasWorkHistory && (
             <div className="flex gap-3">
               <Button variant="primary" onClick={() => setIsAddCompanyModalOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
-                Add Company
+                {ctaConfig.company.text}
               </Button>
             </div>
           )}
