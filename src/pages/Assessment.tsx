@@ -708,7 +708,7 @@ const Assessment = () => {
                                           {/* IC Guidance Banner */}
                       <div className="bg-blue-50 border-t-2 border-b-2 border-blue-500 py-4 px-6 mt-4 mb-4">
                       <div className="text-center">
-                        <p className="text-xs text-blue-900 font-medium">Demonstrate strategic thinking and organizational influence to advance</p>
+                        <p className="text-blue-900 font-medium" style={{ fontSize: '1.1rem' }}>Demonstrate strategic thinking and organizational influence to advance</p>
                       </div>
                     </div>
                   </div>
@@ -785,7 +785,7 @@ const Assessment = () => {
                                           {/* Leadership Guidance Banner */}
                       <div className="bg-green-50 border-t-2 border-b-2 border-green-500 py-4 px-6 mt-4 mb-4">
                       <div className="text-center">
-                        <p className="text-xs text-green-900 font-medium">Develop team leadership skills and strategic organizational thinking to advance</p>
+                        <p className="text-green-900 font-medium" style={{ fontSize: '1.1rem' }}>Develop team leadership skills and strategic organizational thinking to advance</p>
                       </div>
                     </div>
                   </div>
