@@ -178,4 +178,27 @@ All colors MUST be HSL.
     padding-top: 1.5rem;
     padding-bottom: 1.5rem;
   }
+  
+  /* Vertical Rhythm System */
+  .pt-0 {
+    padding-top: 0px;
+  }
+  
+  .mb-6 {
+    margin-bottom: 0;
+  }
+  
+  /* Section Spacing */
+  .section-spacing {
+    margin-bottom: 1.5rem;
+  }
+  
+  .section-spacing:last-child {
+    margin-bottom: 0;
+  }
+  
+  /* Tightened spacing for main sections */
+  .space-y-8 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 1.5rem;
+  }
 }

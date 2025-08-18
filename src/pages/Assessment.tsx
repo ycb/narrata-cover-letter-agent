@@ -499,7 +499,7 @@ const Assessment = () => {
   return (
     <div className="min-h-screen bg-gradient-subtle">
       <main className="container py-8">
-        <div className="max-w-6xl mx-auto space-y-8">
+        <div className="max-w-6xl mx-auto space-y-6">
           
           {/* Data Sources & Next Steps - Consolidated */}
           <Card className="shadow-soft">
@@ -601,7 +601,7 @@ const Assessment = () => {
             <CardContent>
 
               {/* Evidence CTA Button - Above Career Ladder */}
-              <div className="flex justify-center mb-6">
+              <div className="flex justify-center mb-4">
                 <Button 
                   variant="primary" 
                   size="lg" 
@@ -613,12 +613,12 @@ const Assessment = () => {
               </div>
               
               {/* Dual-Track Career Path Visualization */}
-              <div className="mb-6 relative overflow-hidden -mx-6">
+              <div className="mb-4 relative overflow-hidden -mx-6">
                 {/* IC Track - Full Width */}
                 <div className={`transition-transform duration-500 ease-in-out ${showLeadershipTrack ? '-translate-x-full' : 'translate-x-0'}`}>
                   <div className="bg-white">
                     {/* IC Track Header */}
-                    <div className="text-left mb-6 border-t-2 border-blue-500 pt-4 px-6">
+                    <div className="text-left mb-4 border-t-2 border-blue-500 pt-4 px-6">
                       <h4 className="text-base font-semibold text-blue-900">IC Track: Core PM skills to deep expertise</h4>
                     </div>
                     
@@ -704,8 +704,8 @@ const Assessment = () => {
                       </div>
                     </div>
                     
-                    {/* IC Guidance Banner */}
-                                          <div className="bg-blue-50 border-t-2 border-b-2 border-blue-500 py-4 px-6 mt-6 mb-6">
+                                          {/* IC Guidance Banner */}
+                      <div className="bg-blue-50 border-t-2 border-b-2 border-blue-500 py-4 px-6 mt-4 mb-4">
                       <div className="text-center">
                         <p className="text-xs text-blue-900 font-medium">Demonstrate strategic thinking and organizational influence to advance</p>
                       </div>
@@ -717,7 +717,7 @@ const Assessment = () => {
                 <div className={`absolute top-0 left-0 w-full transition-transform duration-500 ease-in-out ${showLeadershipTrack ? 'translate-x-0' : 'translate-x-full'}`}>
                   <div className="bg-white">
                     {/* Leadership Track Header */}
-                    <div className="text-left mb-6 border-t-2 border-green-500 pt-4 px-6">
+                    <div className="text-left mb-4 border-t-2 border-green-500 pt-4 px-6">
                       <h4 className="text-base font-semibold text-green-900">Leadership Track: Team leadership and organizational strategy</h4>
                     </div>
                     
@@ -781,8 +781,8 @@ const Assessment = () => {
                       </div>
                     </div>
                     
-                    {/* Leadership Guidance Banner */}
-                                          <div className="bg-green-50 border-t-2 border-b-2 border-green-500 py-4 px-6 mt-6 mb-6">
+                                          {/* Leadership Guidance Banner */}
+                      <div className="bg-green-50 border-t-2 border-b-2 border-green-500 py-4 px-6 mt-4 mb-4">
                       <div className="text-center">
                         <p className="text-xs text-green-900 font-medium">Develop team leadership skills and strategic organizational thinking to advance</p>
                       </div>
