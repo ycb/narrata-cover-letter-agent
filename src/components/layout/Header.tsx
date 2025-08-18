@@ -10,13 +10,15 @@ interface HeaderProps {
 
 export const Header = ({ currentPage }: HeaderProps) => {
   const location = useLocation();
+  const isProduction = window.location.hostname !== 'localhost';
+  const basePath = isProduction ? '/cla' : '';
   
   // Determine current page based on pathname
   const getCurrentPage = (pathname: string): string => {
-    if (pathname === "/dashboard") return "dashboard";
-    if (pathname === "/work-history") return "work-history";
-    if (pathname === "/cover-letters" || pathname === "/cover-letter-template" || pathname === "/cover-letter-create") return "cover-letters";
-    if (pathname === "/assessment") return "assessment";
+    if (pathname === "/cla/dashboard" || pathname === "/dashboard") return "dashboard";
+    if (pathname === "/cla/work-history" || pathname === "/work-history") return "work-history";
+    if (pathname === "/cla/cover-letters" || pathname === "/cover-letters" || pathname === "/cla/cover-letter-template" || pathname === "/cover-letter-template" || pathname === "/cla/cover-letter-create" || pathname === "/cover-letter-create") return "cover-letters";
+    if (pathname === "/cla/assessment" || pathname === "/assessment") return "assessment";
     return "";
   };
 
@@ -39,7 +41,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
           <nav className="hidden md:flex">
             <div className="flex items-center">
               <Link 
-                to="/dashboard"
+                to={`${basePath}/dashboard`}
                 className={cn(
                   "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors hover:text-foreground",
                   activePage === "dashboard" 
@@ -51,7 +53,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 Dashboard
               </Link>
               <Link 
-                to="/work-history"
+                to={`${basePath}/work-history`}
                 className={cn(
                   "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors hover:text-foreground",
                   activePage === "work-history" 
@@ -63,7 +65,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 Work History
               </Link>
               <Link 
-                to="/cover-letters"
+                to={`${basePath}/cover-letters`}
                 className={cn(
                   "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors hover:text-foreground",
                   activePage === "cover-letters" 
@@ -75,7 +77,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 Cover Letters
               </Link>
               <Link 
-                to="/assessment"
+                to={`${basePath}/assessment`}
                 className={cn(
                   "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors hover:text-foreground",
                   activePage === "assessment" 
