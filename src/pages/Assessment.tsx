@@ -724,7 +724,7 @@ const Assessment = () => {
                     {/* Leadership Track Steps */}
                     <div className="flex items-center justify-start px-6">
                       {/* View IC Track Card */}
-                      <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 cursor-pointer h-56 min-w-[140px]" onClick={() => setShowLeadershipTrack(false)}>
+                      <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 cursor-pointer h-56 min-w-[140px] mr-6" onClick={() => setShowLeadershipTrack(false)}>
                         <div className="bg-blue-500 text-white text-center py-2 px-4 w-full">
                           <div className="text-xs font-normal uppercase tracking-wide">VIEW</div>
                         </div>
