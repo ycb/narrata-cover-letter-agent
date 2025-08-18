@@ -625,7 +625,7 @@ const Assessment = () => {
                     {/* IC Track Steps */}
                     <div className="flex items-center justify-center relative">
                       {/* Completed Steps */}
-                      <div className="flex flex-col items-center p-6 h-56 justify-center ml-6 min-w-[140px]">
+                      <div className="flex flex-col items-center p-6 h-56 justify-center min-w-[140px]">
                         <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
                         <div className="text-center">
                           <div className="text-sm font-medium text-blue-900 mb-1">Associate PM</div>
@@ -686,7 +686,7 @@ const Assessment = () => {
                       <div className="absolute left-1/2 top-0 bottom-0 w-px bg-green-300 border-l-2 border-dashed border-green-500 transform -translate-x-1/2"></div>
                       
                       {/* View Leadership Track Card */}
-                      <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-green-500 cursor-pointer h-56 mr-6 min-w-[140px]" onClick={() => setShowLeadershipTrack(true)}>
+                      <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-green-500 cursor-pointer h-56 min-w-[140px]" onClick={() => setShowLeadershipTrack(true)}>
                         <div className="bg-green-500 text-white text-center py-2 px-4 w-full">
                           <div className="text-xs font-normal uppercase tracking-wide">VIEW</div>
                         </div>
@@ -718,7 +718,7 @@ const Assessment = () => {
                     {/* Leadership Track Steps */}
                     <div className="flex items-center justify-center relative">
                       {/* View IC Track Card */}
-                      <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 cursor-pointer h-56 ml-6 min-w-[140px]" onClick={() => setShowLeadershipTrack(false)}>
+                      <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 cursor-pointer h-56 min-w-[140px]" onClick={() => setShowLeadershipTrack(false)}>
                         <div className="bg-blue-500 text-white text-center py-2 px-4 w-full">
                           <div className="text-xs font-normal uppercase tracking-wide">VIEW</div>
                         </div>
@@ -768,7 +768,7 @@ const Assessment = () => {
                           <div className="text-xs text-muted-foreground text-center">CPO</div>
                         </div>
                       </div>
-                      <div className="mr-6"></div>
+
                     </div>
                     
                     {/* Leadership Guidance Banner */}
