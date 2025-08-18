@@ -629,7 +629,7 @@ const Assessment = () => {
                       <div className="flex flex-col lg:flex-row lg:items-center relative">
                         {/* Completed Steps */}
                         {/* Mobile: Card style */}
-                        <div className="ladder-step-mobile">
+                        <div className="ladder-step-mobile border-blue-500">
                           <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-blue-900 mb-1">Associate PM</div>
@@ -650,7 +650,7 @@ const Assessment = () => {
                         <div className="ladder-conn-v ladder-conn-blue"></div>
                         
                         {/* Mobile: Card style */}
-                        <div className="ladder-step-mobile">
+                        <div className="ladder-step-mobile border-blue-500">
                           <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-blue-900 mb-1">PM</div>
@@ -708,7 +708,7 @@ const Assessment = () => {
                         
                         {/* Future Step - Dotted Circle */}
                         {/* Mobile: Card style */}
-                        <div className="ladder-step-mobile">
+                        <div className="ladder-step-mobile border-blue-500">
                           <div className="h-6 w-6 rounded-full border-2 border-dashed border-blue-500 mb-2"></div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-blue-900 mb-1">Principal PM</div>
