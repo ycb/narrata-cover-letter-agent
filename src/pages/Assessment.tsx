@@ -624,61 +624,64 @@ const Assessment = () => {
                     
                     {/* IC Track Steps */}
                     <div className="flex items-center justify-center relative">
-                      {/* Completed Steps */}
-                      <div className="flex flex-col items-center p-6 h-56 justify-center min-w-[140px]">
-                        <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
-                        <div className="text-center">
-                          <div className="text-sm font-medium text-blue-900 mb-1">Associate PM</div>
-                          <div className="text-xs text-muted-foreground text-center">0-2 years</div>
-                        </div>
-                      </div>
-                      <div className="h-px w-6 bg-blue-200 mx-6" />
-                      
-                      <div className="flex flex-col items-center p-6 h-56 justify-center min-w-[140px]">
-                        <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
-                        <div className="text-center">
-                          <div className="text-sm font-medium text-blue-900 mb-1">Product Mgr</div>
-                          <div className="text-xs text-muted-foreground text-center">2-4 years</div>
-                        </div>
-                      </div>
-                      <div className="h-px w-6 bg-blue-200 mx-6" />
-                      
-                      {/* Current Step - TODAY Card */}
-                      <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 h-56 min-w-[140px]">
-                        <div className="bg-blue-500 text-white text-center py-2 px-4 w-full">
-                          <div className="text-xs font-normal uppercase tracking-wide">TODAY</div>
-                        </div>
-                        <div className="bg-white p-6 w-full flex-1 flex flex-col justify-center">
+                      {/* IC Track Items */}
+                      <div className="flex items-center">
+                        {/* Completed Steps */}
+                        <div className="flex flex-col items-center p-6 h-56 justify-center min-w-[140px]">
+                          <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
                           <div className="text-center">
-                            <div className="h-6 w-6 rounded-full bg-blue-500 mb-2 mx-auto" />
-                            <div className="text-sm font-medium bg-blue-500 text-white px-3 py-1 rounded-full mb-1">Sr Product Mgr</div>
-                            <div className="text-xs text-muted-foreground">4-7 years</div>
+                            <div className="text-sm font-medium text-blue-900 mb-1">Associate PM</div>
+                            <div className="text-xs text-muted-foreground text-center">0-2 years</div>
                           </div>
                         </div>
-                      </div>
-                      <div className="h-px w-6 bg-blue-200 mx-6" />
-                      
-                      {/* Next Step - NEXT STEP Card */}
-                      <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 h-56 min-w-[140px]">
-                        <div className="bg-blue-500 text-white text-center py-2 px-4 w-full">
-                          <div className="text-xs font-normal uppercase tracking-wide">NEXT STEP</div>
-                        </div>
-                        <div className="bg-white p-6 w-full flex-1 flex flex-col justify-center">
+                        <div className="h-px w-6 bg-blue-200 mx-6" />
+                        
+                        <div className="flex flex-col items-center p-6 h-56 justify-center min-w-[140px]">
+                          <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
                           <div className="text-center">
-                            <div className="h-6 w-6 rounded-full border-2 border-blue-500 mb-2 mx-auto" />
-                            <div className="text-sm font-medium text-blue-900 mb-1">Lead Product Mgr</div>
-                            <div className="text-xs text-muted-foreground">Technical leadership</div>
+                            <div className="text-sm font-medium text-blue-900 mb-1">Product Mgr</div>
+                            <div className="text-xs text-muted-foreground text-center">2-4 years</div>
                           </div>
                         </div>
-                      </div>
-                      <div className="h-px w-6 bg-blue-200 mx-6" />
-                      
-                      {/* Future Step - Dotted Circle */}
-                      <div className="flex flex-col items-center p-6 h-56 justify-center min-w-[140px]">
-                        <div className="h-6 w-6 rounded-full border-2 border-dashed border-blue-500 mb-2"></div>
-                        <div className="text-center">
-                          <div className="text-sm font-medium text-blue-900 mb-1">Principal Product Mgr</div>
-                          <div className="text-xs text-muted-foreground text-center">Domain expert</div>
+                        <div className="h-px w-6 bg-blue-200 mx-6" />
+                        
+                        {/* Current Step - TODAY Card */}
+                        <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 h-56 min-w-[140px]">
+                          <div className="bg-blue-500 text-white text-center py-2 px-4 w-full">
+                            <div className="text-xs font-normal uppercase tracking-wide">TODAY</div>
+                          </div>
+                          <div className="bg-white p-6 w-full flex-1 flex flex-col justify-center">
+                            <div className="text-center">
+                              <div className="h-6 w-6 rounded-full bg-blue-500 mb-2 mx-auto" />
+                              <div className="text-sm font-medium bg-blue-500 text-white px-3 py-1 rounded-full mb-1">Sr Product Mgr</div>
+                              <div className="text-xs text-muted-foreground">4-7 years</div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="h-px w-6 bg-blue-200 mx-6" />
+                        
+                        {/* Next Step - NEXT STEP Card */}
+                        <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 h-56 min-w-[140px]">
+                          <div className="bg-blue-500 text-white text-center py-2 px-4 w-full">
+                            <div className="text-xs font-normal uppercase tracking-wide">NEXT STEP</div>
+                          </div>
+                          <div className="bg-white p-6 w-full flex-1 flex flex-col justify-center">
+                            <div className="text-center">
+                              <div className="h-6 w-6 rounded-full border-2 border-blue-500 mb-2 mx-auto" />
+                              <div className="text-sm font-medium text-blue-900 mb-1">Lead Product Mgr</div>
+                              <div className="text-xs text-muted-foreground">Technical leadership</div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="h-px w-6 bg-blue-200 mx-6" />
+                        
+                        {/* Future Step - Dotted Circle */}
+                        <div className="flex flex-col items-center p-6 h-56 justify-center min-w-[140px]">
+                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-blue-500 mb-2"></div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-blue-900 mb-1">Principal Product Mgr</div>
+                            <div className="text-xs text-muted-foreground text-center">Domain expert</div>
+                          </div>
                         </div>
                       </div>
                       
