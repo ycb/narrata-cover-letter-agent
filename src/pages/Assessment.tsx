@@ -620,7 +620,10 @@ const Assessment = () => {
                   <div className="bg-white">
                     {/* IC Track Header */}
                     <div className="text-left mb-4 border-t-2 border-blue-500 pt-4 px-6">
-                      <h3 className="text-base font-semibold text-blue-900">Individual Contributor Track</h3>
+                      <h3 className="flex items-center gap-2 font-medium text-blue-900">
+                        <Target className="h-5 w-5" />
+                        Individual Contributor Track
+                      </h3>
                     </div>
                     
                     {/* IC Track Steps */}
@@ -733,7 +736,10 @@ const Assessment = () => {
                       
                       {/* View Leadership Track Card - Full Width Primary CTA */}
                       <div className="ladder-cta-primary mt-4" onClick={() => setShowLeadershipTrack(true)}>
-                        <div className="text-sm font-medium">View Leadership Track</div>
+                        <div className="text-sm font-medium flex items-center justify-center gap-2">
+                          View Leadership Track
+                          <TrendingUp className="h-4 w-4" />
+                        </div>
                       </div>
                     </div>
                     
@@ -751,21 +757,17 @@ const Assessment = () => {
                   <div className="bg-white">
                     {/* Leadership Track Header */}
                     <div className="text-left mb-4 border-t-2 border-green-500 pt-4 px-6">
-                      <h3 className="text-base font-semibold text-green-900">Leadership Track</h3>
+                      <h3 className="flex items-center gap-2 font-medium text-green-900">
+                        <Users className="h-5 w-5" />
+                        Leadership Track
+                      </h3>
                     </div>
                     
                     {/* Leadership Track Steps */}
                     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-start px-6">
-                      {/* View IC Track Card */}
-                      <div className="ladder-card-labeled border-blue-600 cursor-pointer mb-4 lg:mr-6" onClick={() => setShowLeadershipTrack(false)}>
-                        <div className="ladder-card-header bg-blue-600">
-                          <div className="text-xs font-normal uppercase tracking-wide">VIEW</div>
-                        </div>
-                        <div className="ladder-card-content">
-                          <div className="text-center">
-                            <div className="text-xs text-blue-900 font-medium">IC Track</div>
-                          </div>
-                        </div>
+                      {/* View IC Track Card - Primary CTA */}
+                      <div className="ladder-cta-primary mb-4 lg:mr-6" onClick={() => setShowLeadershipTrack(false)}>
+                        <div className="text-sm font-medium">View IC Track</div>
                       </div>
                       
                       {/* Leadership Track Items */}
