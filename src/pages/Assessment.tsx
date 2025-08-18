@@ -623,7 +623,7 @@ const Assessment = () => {
                     </div>
                     
                     {/* IC Track Steps */}
-                    <div className="flex items-center justify-center">
+                    <div className="flex items-center justify-start">
                       {/* IC Track Items */}
                       <div className="flex items-center relative">
                         {/* Completed Steps */}
