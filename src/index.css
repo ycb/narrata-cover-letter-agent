@@ -281,8 +281,10 @@ All colors MUST be HSL.
   }
   
   .ladder-cta-primary {
-    @apply ladder-card-base bg-primary text-primary-foreground text-center py-4 px-6 cursor-pointer lg:bg-green-500 lg:text-white;
+    @apply ladder-card-base bg-primary text-primary-foreground text-center py-4 px-6 cursor-pointer;
   }
+  
+
   
   .ladder-step-mobile {
     @apply lg:hidden flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 p-6;
