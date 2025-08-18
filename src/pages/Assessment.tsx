@@ -671,7 +671,7 @@ const Assessment = () => {
                         <div className="ladder-conn-v ladder-conn-blue"></div>
                         
                         {/* Current Step - TODAY Card */}
-                        <div className="ladder-step ladder-step-height flex flex-col items-center overflow-hidden shadow-sm border-2 border-blue-500">
+                        <div className="w-full flex flex-col items-center overflow-hidden shadow-sm border-2 border-blue-500 rounded-lg">
                           <div className="bg-blue-500 text-white text-center py-2 px-4 w-full rounded-t-lg">
                             <div className="text-xs font-normal uppercase tracking-wide">TODAY</div>
                           </div>
@@ -689,7 +689,7 @@ const Assessment = () => {
                         <div className="ladder-conn-v ladder-conn-blue"></div>
                         
                         {/* Next Step - NEXT STEP Card */}
-                        <div className="ladder-step ladder-step-height flex flex-col items-center overflow-hidden shadow-sm border-2 border-blue-500">
+                        <div className="w-full flex flex-col items-center overflow-hidden shadow-sm border-2 border-blue-500 rounded-lg">
                           <div className="bg-blue-500 text-white text-center py-2 px-4 w-full rounded-t-lg">
                             <div className="text-xs font-normal uppercase tracking-wide">NEXT STEP</div>
                           </div>
@@ -732,7 +732,7 @@ const Assessment = () => {
                       <div className="hidden lg:block w-12"></div>
                       
                       {/* View Leadership Track Card */}
-                      <div className="ladder-track-switch ladder-step-height flex flex-col items-center overflow-hidden shadow-sm border-2 border-green-500 cursor-pointer" onClick={() => setShowLeadershipTrack(true)}>
+                      <div className="w-full flex flex-col items-center overflow-hidden shadow-sm border-2 border-green-500 cursor-pointer rounded-lg" onClick={() => setShowLeadershipTrack(true)}>
                         <div className="bg-green-500 text-white text-center py-2 px-4 w-full rounded-t-lg">
                           <div className="text-xs font-normal uppercase tracking-wide">VIEW</div>
                         </div>
@@ -764,7 +764,7 @@ const Assessment = () => {
                     {/* Leadership Track Steps */}
                     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-start px-6">
                       {/* View IC Track Card */}
-                      <div className="ladder-track-switch ladder-step-height flex flex-col items-center overflow-hidden shadow-sm border-2 border-blue-500 cursor-pointer lg:mr-6" onClick={() => setShowLeadershipTrack(false)}>
+                      <div className="w-full flex flex-col items-center overflow-hidden shadow-sm border-2 border-blue-500 cursor-pointer rounded-lg lg:mr-6" onClick={() => setShowLeadershipTrack(false)}>
                         <div className="bg-blue-500 text-white text-center py-2 px-4 w-full rounded-t-lg">
                           <div className="text-xs font-normal uppercase tracking-wide">VIEW</div>
                         </div>
