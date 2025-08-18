@@ -722,7 +722,7 @@ const Assessment = () => {
                     </div>
                     
                     {/* Leadership Track Steps */}
-                    <div className="flex items-center justify-start">
+                    <div className="flex items-center justify-start px-6">
                       {/* View IC Track Card */}
                       <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 cursor-pointer h-56 min-w-[140px]" onClick={() => setShowLeadershipTrack(false)}>
                         <div className="bg-blue-500 text-white text-center py-2 px-4 w-full">
@@ -734,7 +734,12 @@ const Assessment = () => {
                           </div>
                         </div>
                       </div>
-                      <div className="h-px w-6 bg-green-200 mx-6" />
+                      
+                      {/* Full Height Vertical Separator - Blue when viewing Leadership */}
+                      <div className="absolute left-0 top-0 bottom-0 w-px bg-blue-300 border-l-2 border-dashed border-blue-500"></div>
+                      
+                      {/* Spacing between tracks */}
+                      <div className="w-12"></div>
                       
                       {/* Leadership Track Items */}
                       <div className="flex items-center relative">
@@ -776,9 +781,6 @@ const Assessment = () => {
                             <div className="text-xs text-muted-foreground text-center">CPO</div>
                           </div>
                         </div>
-                        
-                        {/* Full Height Vertical Separator - Blue when viewing Leadership */}
-                        <div className="absolute right-0 top-0 bottom-0 w-px bg-blue-300 border-l-2 border-dashed border-blue-500"></div>
                       </div>
                     </div>
                     
