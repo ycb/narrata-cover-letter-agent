@@ -624,7 +624,7 @@ const Assessment = () => {
                     </div>
                     
                     {/* IC Track Steps */}
-                    <div className="flex items-center justify-start">
+                    <div className="flex items-center justify-start" style={{ marginTop: '1rem' }}>
                       {/* IC Track Items */}
                       <div className="flex items-center relative">
                         {/* Completed Steps */}
