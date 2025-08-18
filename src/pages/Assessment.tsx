@@ -668,7 +668,7 @@ const Assessment = () => {
                           </div>
                           <div className="bg-white p-6 w-full flex-1 flex flex-col justify-center">
                             <div className="text-center">
-                              <div className="h-6 w-6 rounded-full border-2 border-blue-500 mb-2 mx-auto" />
+                              <div className="h-6 w-6 rounded-full border-2 border-blue-500 mb-2 mx-auto" style={{ borderColor: 'rgb(59 130 246)' }}></div>
                               <div className="text-sm font-medium text-blue-900 mb-1">Lead PM</div>
                               <div className="text-xs text-muted-foreground">Technical leadership</div>
                             </div>
