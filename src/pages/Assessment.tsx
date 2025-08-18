@@ -564,19 +564,21 @@ const Assessment = () => {
                 </div>
               </div>
               
-              {/* Action Description & CTAs - Single Line Layout */}
-              <div className="flex flex-col md:flex-row items-center justify-between p-4 bg-muted/10 rounded-lg gap-3">
-                <p className="text-sm text-muted-foreground whitespace-nowrap">
-                  Improve your assessment with more evidence
-                </p>
-                <div className="flex gap-2">
-                  <Button variant="secondary" size="sm">
+              {/* Action Description & CTAs - Modern Grid Layout */}
+              <div className="p-4 bg-muted/10 rounded-lg">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-3 mb-3">
+                  <p className="text-sm text-muted-foreground whitespace-nowrap">
+                    Improve your assessment with more evidence
+                  </p>
+                </div>
+                <div className="grid grid-cols-3 gap-2 w-full">
+                  <Button variant="secondary" size="sm" className="w-full">
                     Add More Stories
                   </Button>
-                  <Button variant="secondary" size="sm">
+                  <Button variant="secondary" size="sm" className="w-full">
                     Add External Links
                   </Button>
-                  <Button variant="secondary" size="sm">
+                  <Button variant="secondary" size="sm" className="w-full">
                     Add Quantified Results
                   </Button>
                 </div>
