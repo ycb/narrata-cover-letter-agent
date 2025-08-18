@@ -623,9 +623,9 @@ const Assessment = () => {
                     </div>
                     
                     {/* IC Track Steps */}
-                    <div className="flex items-center justify-center relative">
+                    <div className="flex items-center justify-center">
                       {/* IC Track Items */}
-                      <div className="flex items-center">
+                      <div className="flex items-center relative">
                         {/* Completed Steps */}
                         <div className="flex flex-col items-center p-6 h-56 justify-center min-w-[140px]">
                           <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
@@ -683,10 +683,13 @@ const Assessment = () => {
                             <div className="text-xs text-muted-foreground text-center">Domain expert</div>
                           </div>
                         </div>
+                        
+                        {/* Full Height Vertical Separator - Green when viewing IC */}
+                        <div className="absolute right-0 top-0 bottom-0 w-px bg-green-300 border-l-2 border-dashed border-green-500"></div>
                       </div>
                       
-                      {/* Full Height Vertical Separator - Green when viewing IC */}
-                      <div className="absolute left-1/2 top-0 bottom-0 w-px bg-green-300 border-l-2 border-dashed border-green-500 transform -translate-x-1/2"></div>
+                      {/* Spacing between tracks */}
+                      <div className="w-12"></div>
                       
                       {/* View Leadership Track Card */}
                       <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-green-500 cursor-pointer h-56 min-w-[140px]" onClick={() => setShowLeadershipTrack(true)}>
