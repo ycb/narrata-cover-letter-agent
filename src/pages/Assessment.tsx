@@ -624,30 +624,36 @@ const Assessment = () => {
                     </div>
                     
                     {/* IC Track Steps */}
-                    <div className="flex items-center justify-start" style={{ marginTop: '1rem' }}>
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-start" style={{ marginTop: '1rem' }}>
                       {/* IC Track Items */}
-                      <div className="flex items-center relative">
+                      <div className="flex flex-col lg:flex-row lg:items-center relative">
                         {/* Completed Steps */}
-                        <div className="flex flex-col items-center p-6 h-56 justify-center min-w-[140px]">
+                        <div className="ladder-step ladder-step-height flex flex-col items-center justify-center">
                           <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-blue-900 mb-1">Associate PM</div>
                             <div className="text-xs text-muted-foreground text-center">0-2 years</div>
                           </div>
                         </div>
-                        <div className="h-px w-6 bg-blue-200 mx-6" />
+                        {/* Horizontal connector (desktop) */}
+                        <div className="ladder-conn-h ladder-conn-blue"></div>
+                        {/* Vertical connector (mobile) */}
+                        <div className="ladder-conn-v ladder-conn-blue"></div>
                         
-                        <div className="flex flex-col items-center p-6 h-56 justify-center min-w-[140px]">
+                        <div className="ladder-step ladder-step-height flex flex-col items-center justify-center">
                           <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-blue-900 mb-1">PM</div>
                             <div className="text-xs text-muted-foreground text-center">2-4 years</div>
                           </div>
                         </div>
-                        <div className="h-px w-6 bg-blue-200 mx-6" />
+                        {/* Horizontal connector (desktop) */}
+                        <div className="ladder-conn-h ladder-conn-blue"></div>
+                        {/* Vertical connector (mobile) */}
+                        <div className="ladder-conn-v ladder-conn-blue"></div>
                         
                         {/* Current Step - TODAY Card */}
-                        <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 h-56 min-w-[140px]">
+                        <div className="ladder-step ladder-step-height flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500">
                           <div className="bg-blue-500 text-white text-center py-2 px-4 w-full">
                             <div className="text-xs font-normal uppercase tracking-wide">TODAY</div>
                           </div>
@@ -659,10 +665,13 @@ const Assessment = () => {
                             </div>
                           </div>
                         </div>
-                        <div className="h-px w-6 bg-blue-200 mx-6" />
+                        {/* Horizontal connector (desktop) */}
+                        <div className="ladder-conn-h ladder-conn-blue"></div>
+                        {/* Vertical connector (mobile) */}
+                        <div className="ladder-conn-v ladder-conn-blue"></div>
                         
                         {/* Next Step - NEXT STEP Card */}
-                        <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 h-56 min-w-[140px]">
+                        <div className="ladder-step ladder-step-height flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500">
                           <div className="bg-blue-500 text-white text-center py-2 px-4 w-full">
                             <div className="text-xs font-normal uppercase tracking-wide">NEXT STEP</div>
                           </div>
@@ -674,10 +683,13 @@ const Assessment = () => {
                             </div>
                           </div>
                         </div>
-                        <div className="h-px w-6 bg-blue-200 mx-6" />
+                        {/* Horizontal connector (desktop) */}
+                        <div className="ladder-conn-h ladder-conn-blue"></div>
+                        {/* Vertical connector (mobile) */}
+                        <div className="ladder-conn-v ladder-conn-blue"></div>
                         
                         {/* Future Step - Dotted Circle */}
-                        <div className="flex flex-col items-center p-6 h-56 justify-center min-w-[140px]">
+                        <div className="ladder-step ladder-step-height flex flex-col items-center justify-center">
                           <div className="h-6 w-6 rounded-full border-2 border-dashed border-blue-500 mb-2"></div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-blue-900 mb-1">Principal PM</div>
@@ -685,15 +697,15 @@ const Assessment = () => {
                           </div>
                         </div>
                         
-                        {/* Full Height Vertical Separator - Green when viewing IC */}
-                        <div className="absolute right-0 top-0 bottom-0 w-px bg-green-300 border-l-2 border-dashed border-green-500"></div>
+                        {/* Full Height Vertical Separator - Green when viewing IC (desktop only) */}
+                        <div className="ladder-separator absolute right-0 top-0 bottom-0 w-px bg-green-300 border-l-2 border-dashed border-green-500"></div>
                       </div>
                       
-                      {/* Spacing between tracks */}
-                      <div className="w-12"></div>
+                      {/* Spacing between tracks (desktop only) */}
+                      <div className="hidden lg:block w-12"></div>
                       
                       {/* View Leadership Track Card */}
-                      <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-green-500 cursor-pointer h-56 min-w-[140px]" onClick={() => setShowLeadershipTrack(true)}>
+                      <div className="ladder-track-switch ladder-step-height flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-green-500 cursor-pointer" onClick={() => setShowLeadershipTrack(true)}>
                         <div className="bg-green-500 text-white text-center py-2 px-4 w-full">
                           <div className="text-xs font-normal uppercase tracking-wide">VIEW</div>
                         </div>
@@ -723,9 +735,9 @@ const Assessment = () => {
                     </div>
                     
                     {/* Leadership Track Steps */}
-                    <div className="flex items-center justify-start px-6">
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-start px-6">
                       {/* View IC Track Card */}
-                      <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 cursor-pointer h-56 min-w-[140px] mr-6" onClick={() => setShowLeadershipTrack(false)}>
+                      <div className="ladder-track-switch ladder-step-height flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 cursor-pointer lg:mr-6" onClick={() => setShowLeadershipTrack(false)}>
                         <div className="bg-blue-500 text-white text-center py-2 px-4 w-full">
                           <div className="text-xs font-normal uppercase tracking-wide">VIEW</div>
                         </div>
@@ -737,42 +749,51 @@ const Assessment = () => {
                       </div>
                       
                       {/* Leadership Track Items */}
-                      <div className="flex items-center relative">
-                        {/* Full Height Vertical Separator - Blue when viewing Leadership */}
-                        <div className="absolute left-0 top-0 bottom-0 w-px bg-blue-300 border-l-2 border-dashed border-blue-500"></div>
+                      <div className="flex flex-col lg:flex-row lg:items-center relative">
+                        {/* Full Height Vertical Separator - Blue when viewing Leadership (desktop only) */}
+                        <div className="ladder-separator absolute left-0 top-0 bottom-0 w-px bg-blue-300 border-l-2 border-dashed border-blue-500"></div>
                         
                         {/* First Step - Group PM / Manager */}
-                        <div className="flex flex-col items-center p-6 h-56 justify-center min-w-[140px]">
+                        <div className="ladder-step ladder-step-height flex flex-col items-center justify-center">
                           <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-green-900 mb-1">Group PM / Manager</div>
                             <div className="text-xs text-muted-foreground text-center">Portfolio oversight</div>
                           </div>
                         </div>
-                        <div className="h-px w-6 bg-green-200 mx-6" />
+                        {/* Horizontal connector (desktop) */}
+                        <div className="ladder-conn-h ladder-conn-green"></div>
+                        {/* Vertical connector (mobile) */}
+                        <div className="ladder-conn-v ladder-conn-green"></div>
                         
                         {/* Second Step - Director of Product */}
-                        <div className="flex flex-col items-center p-6 h-56 justify-center min-w-[140px]">
+                        <div className="ladder-step ladder-step-height flex flex-col items-center justify-center">
                           <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-green-900 mb-1">Director of Product</div>
                             <div className="text-xs text-muted-foreground text-center">Strategic direction</div>
                           </div>
                         </div>
-                        <div className="h-px w-6 bg-green-200 mx-6" />
+                        {/* Horizontal connector (desktop) */}
+                        <div className="ladder-conn-h ladder-conn-green"></div>
+                        {/* Vertical connector (mobile) */}
+                        <div className="ladder-conn-v ladder-conn-green"></div>
                         
                         {/* Third Step - Vice President, Product */}
-                        <div className="flex flex-col items-center p-6 h-56 justify-center min-w-[140px]">
+                        <div className="ladder-step ladder-step-height flex flex-col items-center justify-center">
                           <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-green-900 mb-1">Vice President, Product</div>
                             <div className="text-xs text-muted-foreground text-center">Executive leadership</div>
                           </div>
                         </div>
-                        <div className="h-px w-6 bg-green-200 mx-6" />
+                        {/* Horizontal connector (desktop) */}
+                        <div className="ladder-conn-h ladder-conn-green"></div>
+                        {/* Vertical connector (mobile) */}
+                        <div className="ladder-conn-v ladder-conn-green"></div>
                         
                         {/* Fourth Step - Chief Product Officer */}
-                        <div className="flex flex-col items-center p-6 h-56 justify-center min-w-[140px]">
+                        <div className="ladder-step ladder-step-height flex flex-col items-center justify-center">
                           <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-green-900 mb-1">Chief Product Officer</div>

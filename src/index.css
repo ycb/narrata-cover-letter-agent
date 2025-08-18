@@ -239,4 +239,37 @@ All colors MUST be HSL.
   .space-y-8 > :not([hidden]) ~ :not([hidden]) {
     margin-top: 1.5rem;
   }
+  
+  /* Responsive Ladder Utilities */
+  .ladder-step {
+    @apply w-full lg:w-auto lg:min-w-[140px] p-6;
+  }
+  
+  .ladder-step-height {
+    @apply lg:h-56;
+  }
+  
+  .ladder-conn-h {
+    @apply hidden lg:block h-px w-6 mx-6;
+  }
+  
+  .ladder-conn-v {
+    @apply lg:hidden w-px h-6 my-3 mx-auto;
+  }
+  
+  .ladder-conn-blue {
+    @apply bg-blue-200;
+  }
+  
+  .ladder-conn-green {
+    @apply bg-green-200;
+  }
+  
+  .ladder-separator {
+    @apply hidden lg:block;
+  }
+  
+  .ladder-track-switch {
+    @apply mt-4 lg:mt-0 w-full lg:w-auto lg:ml-6;
+  }
 }
