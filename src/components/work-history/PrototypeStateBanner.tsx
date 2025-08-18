@@ -35,6 +35,9 @@ export function PrototypeStateBanner() {
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-gray-800 border-t border-gray-600">
       <div className="container mx-auto px-4 py-2">
         <div className="flex items-center justify-center gap-3 text-sm">
+          <span className="text-gray-400">
+            Viewing:
+          </span>
           
           <button
             className={`px-3 py-1 rounded ${
