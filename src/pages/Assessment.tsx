@@ -736,7 +736,7 @@ const Assessment = () => {
                       </div>
                       
                       {/* Full Height Vertical Separator - Blue when viewing Leadership */}
-                      <div className="absolute left-0 top-0 bottom-0 w-px bg-blue-300 border-l-2 border-dashed border-blue-500 ml-6" style={{ height: '14rem' }}></div>
+                      <div className="absolute left-0 top-0 bottom-0 w-px bg-blue-300 border-l-2 border-dashed border-blue-500" style={{ height: '14rem', left: 'calc(140px + 1.5rem)' }}></div>
                       
                       {/* Spacing between tracks */}
                       <div className="w-12"></div>
