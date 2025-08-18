@@ -500,7 +500,7 @@ const Assessment = () => {
         <div className="max-w-6xl mx-auto space-y-6">
           
           {/* Data Sources & Next Steps - Consolidated */}
-          <Card className="shadow-soft">
+          <Card className="shadow-soft hidden md:block">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
