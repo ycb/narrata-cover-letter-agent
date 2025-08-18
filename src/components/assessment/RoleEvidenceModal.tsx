@@ -71,12 +71,26 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="pb-4">
-          <DialogTitle className="text-2xl font-bold">
-            Evidence for {evidence.roleType} Match
-          </DialogTitle>
-          <DialogDescription className="text-base">
-            How we determined your fit for this role specialization
-          </DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle className="text-2xl font-bold">
+                Evidence for {evidence.roleType} Match
+              </DialogTitle>
+              <DialogDescription className="text-base">
+                How we determined your fit for this role specialization
+              </DialogDescription>
+            </div>
+            <div className="flex items-center gap-2 mt-4">
+              <Button variant="outline" size="sm" className="flex items-center gap-2">
+                <Edit className="h-4 w-4" />
+                This looks wrong
+              </Button>
+              <Button variant="secondary" size="sm" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Export PDF
+              </Button>
+            </div>
+          </div>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -265,24 +279,7 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
             </CardContent>
           </Card>
 
-          {/* Feedback Section */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
-                Help Improve This Assessment
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button variant="outline" className="w-full">
-                <Edit className="h-4 w-4 mr-2" />
-                This Role Assessment Looks Wrong
-              </Button>
-              <p className="text-xs text-muted-foreground text-center">
-                Your feedback helps us improve accuracy for you and other users
-              </p>
-            </CardContent>
-          </Card>
+
         </div>
       </DialogContent>
     </Dialog>

@@ -2,7 +2,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { X, Tag, Building, User, Calendar, Target } from "lucide-react";
+import { X, Tag, Building, User, Calendar, Target, Edit, FileText } from "lucide-react";
 
 interface EvidenceBlurb {
   id: string;
@@ -55,12 +55,26 @@ const EvidenceModal = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="pb-4">
-          <DialogTitle className="text-2xl font-bold">
-            Evidence for {competency}
-          </DialogTitle>
-          <DialogDescription className="text-base">
-            Supporting examples from your work history and blurbs
-          </DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle className="text-2xl font-bold">
+                Evidence for {competency}
+              </DialogTitle>
+              <DialogDescription className="text-base">
+                Supporting examples from your work history and blurbs
+              </DialogDescription>
+            </div>
+            <div className="flex items-center gap-2 mt-4">
+              <Button variant="outline" size="sm" className="flex items-center gap-2">
+                <Edit className="h-4 w-4" />
+                This looks wrong
+              </Button>
+              <Button variant="secondary" size="sm" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Export PDF
+              </Button>
+            </div>
+          </div>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -91,6 +105,28 @@ const EvidenceModal = ({
                   <div className="text-muted-foreground">Avg Usage</div>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* How This Was Scored */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Target className="h-5 w-5" />
+                How This Was Scored
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground space-y-2">
+              <p>
+                Your {competency} score is based on:
+              </p>
+              <ul className="list-disc list-inside space-y-1 ml-4">
+                <li>Number of relevant blurbs and stories</li>
+                <li>Tag density and relevance to competency</li>
+                <li>Complexity and scale of problems addressed</li>
+                <li>Leadership and cross-functional collaboration signals</li>
+                <li>Recency and frequency of usage</li>
+              </ul>
             </CardContent>
           </Card>
 
@@ -158,31 +194,7 @@ const EvidenceModal = ({
             ))}
           </div>
 
-          {/* How This Was Scored */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Target className="h-5 w-5" />
-                How This Was Scored
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground space-y-2">
-              <p>
-                Your {competency} score is based on:
-              </p>
-              <ul className="list-disc list-inside space-y-1 ml-4">
-                <li>Number of relevant blurbs and stories</li>
-                <li>Tag density and relevance to competency</li>
-                <li>Complexity and scale of problems addressed</li>
-                <li>Leadership and cross-functional collaboration signals</li>
-                <li>Recency and frequency of usage</li>
-              </ul>
-              <p className="mt-3 text-xs">
-                <strong>Note:</strong> This is an LLM inference based on your content. 
-                You can provide feedback to improve accuracy.
-              </p>
-            </CardContent>
-          </Card>
+
         </div>
       </DialogContent>
     </Dialog>
