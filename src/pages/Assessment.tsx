@@ -623,23 +623,23 @@ const Assessment = () => {
                         <h4 className="text-base font-semibold text-blue-900">IC Track: Core PM skills to deep expertise</h4>
                       </div>
                       
-                      <div className="flex items-center justify-center space-x-6">
-                        <div className="flex flex-col items-center p-4 h-32 justify-center">
+                      <div className="flex items-center justify-center">
+                        <div className="flex flex-col items-center p-4 h-32 justify-center ml-6">
                           <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-blue-900 mb-1">Associate PM</div>
                             <div className="text-xs text-muted-foreground text-center">0-2 years</div>
                           </div>
                         </div>
-                        <div className="h-px w-6 bg-blue-200" />
+                        <div className="h-px w-6 bg-blue-200 mx-6" />
                         <div className="flex flex-col items-center p-4 h-32 justify-center">
                           <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
                           <div className="text-center">
-                            <div className="text-sm font-medium text-blue-900">Product Mgr</div>
+                            <div className="text-sm font-medium text-blue-900 mb-1">Product Mgr</div>
                             <div className="text-xs text-muted-foreground text-center">2-4 years</div>
                           </div>
                         </div>
-                        <div className="h-px w-6 bg-blue-200" />
+                        <div className="h-px w-6 bg-blue-200 mx-6" />
                         <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 h-32">
                           {/* Blue Header */}
                           <div className="bg-blue-500 text-white text-center py-2 px-4 w-full">
@@ -654,7 +654,7 @@ const Assessment = () => {
                             </div>
                           </div>
                         </div>
-                        <div className="h-px w-6 bg-blue-200" />
+                        <div className="h-px w-6 bg-blue-200 mx-6" />
                         <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 h-32">
                           {/* Blue Header */}
                           <div className="bg-blue-500 text-white text-center py-2 px-4 w-full">
@@ -669,7 +669,7 @@ const Assessment = () => {
                             </div>
                           </div>
                         </div>
-                        <div className="h-px w-6 bg-blue-200" />
+                        <div className="h-px w-6 bg-blue-200 mx-6" />
                         <div className="flex flex-col items-center p-4 h-32 justify-center">
                           <div className="h-6 w-6 rounded-full border-2 border-blue-500 mb-2" />
                           <div className="text-center">
@@ -677,9 +677,9 @@ const Assessment = () => {
                             <div className="text-xs text-muted-foreground text-center">Domain expert</div>
                           </div>
                         </div>
-                        <div className="h-px w-6 bg-blue-200" />
+                        <div className="h-px w-6 bg-blue-200 mx-6" />
                         {/* Green View Leadership Track Card */}
-                        <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-green-500 cursor-pointer h-32" onClick={() => setShowLeadershipTrack(true)}>
+                        <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-green-500 cursor-pointer h-32 mr-6" onClick={() => setShowLeadershipTrack(true)}>
                           {/* Green Header */}
                           <div className="bg-green-500 text-white text-center py-2 px-4 w-full">
                             <div className="text-xs font-normal uppercase tracking-wide">VIEW</div>
@@ -712,9 +712,9 @@ const Assessment = () => {
                         <h4 className="text-base font-semibold text-green-900">Leadership Track: Team leadership and organizational strategy</h4>
                       </div>
                       
-                      <div className="flex items-center justify-center space-x-6">
+                      <div className="flex items-center justify-center">
                         {/* Blue View IC Track Card */}
-                        <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 cursor-pointer h-32" onClick={() => setShowLeadershipTrack(false)}>
+                        <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 cursor-pointer h-32 ml-6" onClick={() => setShowLeadershipTrack(false)}>
                           {/* Blue Header */}
                           <div className="bg-blue-500 text-white text-center py-2 px-4 w-full">
                             <div className="text-xs font-normal uppercase tracking-wide">VIEW</div>
@@ -726,7 +726,7 @@ const Assessment = () => {
                             </div>
                           </div>
                         </div>
-                        <div className="h-px w-6 bg-green-200" />
+                        <div className="h-px w-6 bg-green-200 mx-6" />
                         <div className="flex flex-col items-center p-4 h-32 justify-center">
                           <div className="h-6 w-6 rounded-full border-2 border-green-500 mb-2" />
                           <div className="text-center">
@@ -734,7 +734,7 @@ const Assessment = () => {
                             <div className="text-xs text-muted-foreground text-center">Portfolio oversight</div>
                           </div>
                         </div>
-                        <div className="h-px w-6 bg-green-200" />
+                        <div className="h-px w-6 bg-green-200 mx-6" />
                         <div className="flex flex-col items-center p-4 h-32 justify-center">
                           <div className="h-6 w-6 rounded-full border-2 border-green-500 mb-2" />
                           <div className="text-center">
@@ -742,7 +742,7 @@ const Assessment = () => {
                             <div className="text-xs text-muted-foreground text-center">Strategic direction</div>
                           </div>
                         </div>
-                        <div className="h-px w-6 bg-green-200" />
+                        <div className="h-px w-6 bg-green-200 mx-6" />
                         <div className="flex flex-col items-center p-4 h-32 justify-center">
                           <div className="h-6 w-6 rounded-full border-2 border-green-500 mb-2" />
                           <div className="text-center">
@@ -750,7 +750,7 @@ const Assessment = () => {
                             <div className="text-xs text-muted-foreground text-center">Executive leadership</div>
                           </div>
                         </div>
-                        <div className="h-px w-6 bg-green-200" />
+                        <div className="h-px w-6 bg-green-200 mx-6" />
                         <div className="flex flex-col items-center p-4 h-32 justify-center">
                           <div className="h-6 w-6 rounded-full border-2 border-green-500 mb-2" />
                           <div className="text-center">
@@ -758,6 +758,7 @@ const Assessment = () => {
                             <div className="text-xs text-muted-foreground text-center">CPO</div>
                           </div>
                         </div>
+                        <div className="mr-6"></div>
                       </div>
                     </div>
                     
