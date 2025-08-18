@@ -614,9 +614,9 @@ const Assessment = () => {
               
               {/* Dual-Track Career Path Visualization */}
               <div className="mb-6 relative overflow-hidden">
-                {/* IC Track - Blue Card Container */}
+                {/* IC Track - Full Width */}
                 <div className={`transition-transform duration-500 ease-in-out ${showLeadershipTrack ? '-translate-x-full' : 'translate-x-0'}`}>
-                  <div className="bg-blue-50 border-2 border-blue-500 rounded-lg p-6">
+                  <div className="bg-white">
                     {/* IC Track - Single Color */}
                     <div className="relative mb-8">
                       <div className="text-left mb-6 border-t-2 border-blue-500 pt-4 -mx-6 px-6">
@@ -624,7 +624,7 @@ const Assessment = () => {
                       </div>
                       
                       <div className="flex items-center justify-center space-x-4">
-                        <div className="flex flex-col items-center">
+                        <div className="flex flex-col items-center p-4">
                           <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-blue-900">Associate PM</div>
@@ -632,7 +632,7 @@ const Assessment = () => {
                           </div>
                         </div>
                         <div className="h-px w-8 bg-blue-200" />
-                        <div className="flex flex-col items-center">
+                        <div className="flex flex-col items-center p-4">
                           <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
                           <div className="text-center">
                             <div className="text-sm font-medium text-blue-900">Product Mgr</div>
@@ -670,7 +670,7 @@ const Assessment = () => {
                           </div>
                         </div>
                         <div className="h-px w-8 bg-blue-200" />
-                        <div className="flex flex-col items-center">
+                        <div className="flex flex-col items-center p-4">
                           <div className="h-6 w-6 rounded-full border-2 border-blue-500 mb-2" />
                           <div className="text-center">
                             <div className="text-sm font-medium text-blue-900">Principal Product Mgr</div>
@@ -705,7 +705,7 @@ const Assessment = () => {
                 
                 {/* Leadership Track - Slides in from right */}
                 <div className={`absolute top-0 left-0 w-full transition-transform duration-500 ease-in-out ${showLeadershipTrack ? 'translate-x-0' : 'translate-x-full'}`}>
-                  <div className="bg-green-50 border-2 border-green-500 rounded-lg p-6">
+                  <div className="bg-white">
                     {/* Leadership Track */}
                     <div className="relative mb-8">
                       <div className="text-left mb-6 border-t-2 border-green-500 pt-4 -mx-6 px-6">
@@ -727,7 +727,7 @@ const Assessment = () => {
                           </div>
                         </div>
                         <div className="h-px w-8 bg-green-200" />
-                        <div className="flex flex-col items-center">
+                        <div className="flex flex-col items-center p-4">
                           <div className="h-6 w-6 rounded-full border-2 border-green-500 mb-2" />
                           <div className="text-center">
                             <div className="text-sm font-medium text-green-900">Group PM / Manager</div>
@@ -735,7 +735,7 @@ const Assessment = () => {
                           </div>
                         </div>
                         <div className="h-px w-8 bg-green-200" />
-                        <div className="flex flex-col items-center">
+                        <div className="flex flex-col items-center p-4">
                           <div className="h-6 w-6 rounded-full border-2 border-green-500 mb-2" />
                           <div className="text-center">
                             <div className="text-sm font-medium text-green-900">Director of Product</div>
@@ -743,7 +743,7 @@ const Assessment = () => {
                           </div>
                         </div>
                         <div className="h-px w-8 bg-green-200" />
-                        <div className="flex flex-col items-center">
+                        <div className="flex flex-col items-center p-4">
                           <div className="h-6 w-6 rounded-full border-2 border-green-500 mb-2" />
                           <div className="text-center">
                             <div className="text-sm font-medium text-green-900">Vice President, Product</div>
@@ -751,7 +751,7 @@ const Assessment = () => {
                           </div>
                         </div>
                         <div className="h-px w-8 bg-green-200" />
-                        <div className="flex flex-col items-center">
+                        <div className="flex flex-col items-center p-4">
                           <div className="h-6 w-6 rounded-full border-2 border-green-500 mb-2" />
                           <div className="text-center">
                             <div className="text-sm font-medium text-green-900">Chief Product Officer</div>
