@@ -640,21 +640,33 @@ const Assessment = () => {
                           </div>
                         </div>
                         <div className="h-px w-6 bg-blue-200" />
-                        <div className="flex flex-col items-center p-4 h-32 justify-center">
-                          <div className="text-xs text-blue-600 font-medium mb-1">TODAY</div>
-                          <div className="h-6 w-6 rounded-full bg-blue-500 mb-2 mx-auto" />
-                          <div className="text-center">
-                            <div className="text-sm font-medium bg-blue-500 text-white px-3 py-1 rounded-full">Sr Product Mgr</div>
-                            <div className="text-xs text-muted-foreground">4-7 years</div>
+                        <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 h-32">
+                          {/* Blue Header */}
+                          <div className="bg-blue-500 text-white text-center py-2 px-4 w-full">
+                            <div className="text-xs font-normal uppercase tracking-wide">TODAY</div>
+                          </div>
+                          {/* White Body */}
+                          <div className="bg-white p-4 w-full flex-1 flex flex-col justify-center">
+                            <div className="text-center">
+                              <div className="h-6 w-6 rounded-full bg-blue-500 mb-2 mx-auto" />
+                              <div className="text-sm font-medium bg-blue-500 text-white px-3 py-1 rounded-full">Sr Product Mgr</div>
+                              <div className="text-xs text-muted-foreground">4-7 years</div>
+                            </div>
                           </div>
                         </div>
                         <div className="h-px w-6 bg-blue-200" />
-                        <div className="flex flex-col items-center p-4 h-32 justify-center">
-                          <div className="text-xs text-blue-600 font-medium mb-1">NEXT STEP</div>
-                          <div className="h-6 w-6 rounded-full border-2 border-blue-500 mb-2 mx-auto" />
-                          <div className="text-center">
-                            <div className="text-sm font-medium text-blue-900 mb-1">Lead Product Mgr</div>
-                            <div className="text-xs text-muted-foreground">Technical leadership</div>
+                        <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 h-32">
+                          {/* Blue Header */}
+                          <div className="bg-blue-500 text-white text-center py-2 px-4 w-full">
+                            <div className="text-xs font-normal uppercase tracking-wide">NEXT STEP</div>
+                          </div>
+                          {/* White Body */}
+                          <div className="bg-white p-4 w-full flex-1 flex flex-col justify-center">
+                            <div className="text-center">
+                              <div className="h-6 w-6 rounded-full border-2 border-blue-500 mb-2 mx-auto" />
+                              <div className="text-sm font-medium text-blue-900 mb-1">Lead Product Mgr</div>
+                              <div className="text-xs text-muted-foreground">Technical leadership</div>
+                            </div>
                           </div>
                         </div>
                         <div className="h-px w-6 bg-blue-200" />
@@ -667,9 +679,16 @@ const Assessment = () => {
                         </div>
                         <div className="h-px w-6 bg-blue-200" />
                         {/* Green View Leadership Track Card */}
-                        <div className="flex flex-col items-center p-4 h-32 justify-center cursor-pointer" onClick={() => setShowLeadershipTrack(true)}>
-                          <div className="text-center">
-                            <div className="text-xs text-green-900 font-medium">Leadership Track</div>
+                        <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-green-500 cursor-pointer h-32" onClick={() => setShowLeadershipTrack(true)}>
+                          {/* Green Header */}
+                          <div className="bg-green-500 text-white text-center py-2 px-4 w-full">
+                            <div className="text-xs font-normal uppercase tracking-wide">VIEW</div>
+                          </div>
+                          {/* White Body */}
+                          <div className="bg-white p-4 w-full flex-1 flex flex-col justify-center">
+                            <div className="text-center">
+                              <div className="text-xs text-green-900 font-medium">Leadership Track</div>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -695,9 +714,16 @@ const Assessment = () => {
                       
                       <div className="flex items-center justify-center space-x-6">
                         {/* Blue View IC Track Card */}
-                        <div className="flex flex-col items-center p-4 h-32 justify-center cursor-pointer" onClick={() => setShowLeadershipTrack(false)}>
-                          <div className="text-center">
-                            <div className="text-xs text-blue-900 font-medium">IC Track</div>
+                        <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 cursor-pointer h-32" onClick={() => setShowLeadershipTrack(false)}>
+                          {/* Blue Header */}
+                          <div className="bg-blue-500 text-white text-center py-2 px-4 w-full">
+                            <div className="text-xs font-normal uppercase tracking-wide">VIEW</div>
+                          </div>
+                          {/* White Body */}
+                          <div className="bg-white p-4 w-full flex-1 flex flex-col justify-center">
+                            <div className="text-center">
+                              <div className="text-xs text-blue-900 font-medium">IC Track</div>
+                            </div>
                           </div>
                         </div>
                         <div className="h-px w-6 bg-green-200" />
