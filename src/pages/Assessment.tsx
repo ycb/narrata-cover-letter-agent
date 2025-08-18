@@ -705,7 +705,7 @@ const Assessment = () => {
                     </div>
                     
                     {/* IC Guidance Banner */}
-                    <div className="bg-blue-50 border-t-2 border-b-2 border-blue-500 py-4 px-6 mt-2 mb-6">
+                                          <div className="bg-blue-50 border-t-2 border-b-2 border-blue-500 py-4 px-6 mt-6 mb-6">
                       <div className="text-center">
                         <p className="text-xs text-blue-900 font-medium">Demonstrate strategic thinking and organizational influence to advance</p>
                       </div>
@@ -778,7 +778,7 @@ const Assessment = () => {
                     </div>
                     
                     {/* Leadership Guidance Banner */}
-                    <div className="bg-green-50 border-t-2 border-b-2 border-green-500 py-4 px-6 mt-2 mb-6">
+                                          <div className="bg-green-50 border-t-2 border-b-2 border-green-500 py-4 px-6 mt-6 mb-6">
                       <div className="text-center">
                         <p className="text-xs text-green-900 font-medium">Develop team leadership skills and strategic organizational thinking to advance</p>
                       </div>
