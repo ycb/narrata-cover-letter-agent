@@ -656,6 +656,7 @@ const Assessment = () => {
                           </div>
                         </div>
                       </div>
+                      <div className="h-px w-6 bg-blue-200 mx-6" />
                       
                       {/* Next Step - NEXT STEP Card */}
                       <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 h-56">
@@ -680,9 +681,10 @@ const Assessment = () => {
                           <div className="text-xs text-muted-foreground text-center">Domain expert</div>
                         </div>
                       </div>
+                      <div className="h-px w-6 bg-blue-200 mx-6" />
                       
                       {/* Full Height Vertical Separator - Green when viewing IC */}
-                      <div className="absolute right-0 top-0 bottom-0 w-px bg-green-300 border-l-2 border-dashed border-green-500"></div>
+                      <div className="absolute left-1/2 top-0 bottom-0 w-px bg-green-300 border-l-2 border-dashed border-green-500 transform -translate-x-1/2"></div>
                       
                       {/* View Leadership Track Card */}
                       <div className="flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-green-500 cursor-pointer h-56 mr-6" onClick={() => setShowLeadershipTrack(true)}>
@@ -727,11 +729,10 @@ const Assessment = () => {
                           </div>
                         </div>
                       </div>
+                      <div className="h-px w-6 bg-green-200 mx-6" />
                       
                       {/* Full Height Vertical Separator - Blue when viewing Leadership */}
-                      <div className="absolute left-0 top-0 bottom-0 w-px bg-blue-300 border-l-2 border-dashed border-blue-500"></div>
-                      
-                      <div className="h-px w-6 bg-green-200 mx-6" />
+                      <div className="absolute left-1/2 top-0 bottom-0 w-px bg-blue-300 border-l-2 border-dashed border-blue-500 transform -translate-x-1/2"></div>
                       
                       {/* Future Steps - All Dotted Circles */}
                       <div className="flex flex-col items-center p-6 h-56 justify-center">
