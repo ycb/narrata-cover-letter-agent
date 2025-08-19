@@ -917,7 +917,7 @@ const Assessment = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="assessment-grid">
                 {mockAssessment.competencies.map((competency) => (
                   <CompetencyCard
                     key={competency.domain}
@@ -944,7 +944,7 @@ const Assessment = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="assessment-grid">
                 {mockAssessment.roleArchetypes.map((archetype) => (
                   <SpecializationCard
                     key={archetype.type}

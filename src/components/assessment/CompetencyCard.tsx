@@ -43,7 +43,7 @@ export const CompetencyCard = ({
 
   return (
     <Card className={cn(
-      "shadow-soft hover:shadow-medium transition-all duration-200 group",
+      "assessment-card group",
       className
     )}>
       <CardContent className="p-6">

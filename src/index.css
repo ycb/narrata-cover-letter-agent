@@ -342,4 +342,57 @@ All colors MUST be HSL.
   .ladder-track-switch {
     @apply mt-4 lg:mt-0 w-full lg:w-auto lg:ml-6;
   }
+
+  /* Assessment Card Utilities */
+  .assessment-card {
+    @apply shadow-soft hover:shadow-medium transition-all duration-200;
+  }
+
+  .assessment-card-mobile {
+    @apply lg:hidden;
+  }
+
+  .assessment-card-desktop {
+    @apply hidden lg:block;
+  }
+
+  /* Modal Utilities */
+  .modal-sticky-header {
+    @apply sticky top-0 bg-background z-10 border-b;
+  }
+
+  .modal-scrollable-content {
+    @apply flex-1 overflow-y-auto;
+  }
+
+  /* Summary Tiles */
+  .summary-tile {
+    @apply text-center p-4 bg-muted/20 rounded-lg;
+  }
+
+  .summary-tile-value {
+    @apply text-2xl font-bold text-primary mb-1;
+  }
+
+  .summary-tile-label {
+    @apply text-sm text-muted-foreground;
+  }
+
+  /* Evidence Section */
+  .evidence-section {
+    @apply space-y-3;
+  }
+
+  .evidence-item {
+    @apply p-3 border rounded-lg;
+  }
+
+  /* Mobile Responsive Grid */
+  .assessment-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 gap-6;
+  }
+
+  .summary-grid {
+    @apply grid grid-cols-2 md:grid-cols-4 gap-4;
+  }
 }
