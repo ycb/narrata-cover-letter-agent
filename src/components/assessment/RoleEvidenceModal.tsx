@@ -87,7 +87,7 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
                 How we determined your fit for this specialization
               </DialogDescription>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-3 flex-wrap">
               <Button variant="outline" size="sm" className="flex items-center gap-2">
                 <Edit className="h-4 w-4" />
                 This looks wrong

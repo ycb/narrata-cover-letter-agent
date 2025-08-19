@@ -348,6 +348,24 @@ All colors MUST be HSL.
     @apply shadow-soft hover:shadow-medium transition-all duration-200;
   }
 
+  /* Card Content Spacing */
+  .assessment-card-content {
+    @apply p-6 space-y-6;
+  }
+
+  /* Vertical Rhythm Standards */
+  .vertical-rhythm-6 {
+    @apply space-y-6;
+  }
+
+  .vertical-rhythm-4 {
+    @apply space-y-4;
+  }
+
+  .vertical-rhythm-3 {
+    @apply space-y-3;
+  }
+
   .assessment-card-mobile {
     @apply lg:hidden;
   }

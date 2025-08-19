@@ -46,9 +46,9 @@ export const CompetencyCard = ({
       "assessment-card group",
       className
     )}>
-      <CardContent className="p-6">
+      <CardContent className="assessment-card-content">
         {/* Header: Domain and Level Badge */}
-        <div className="flex items-start justify-between mb-4">
+        <div className="flex items-start justify-between">
           <h3 className="font-semibold text-lg text-foreground pr-4">
             {domain}
           </h3>
@@ -60,11 +60,11 @@ export const CompetencyCard = ({
         {/* Progress Bar */}
         <Progress 
           value={score} 
-          className={cn("h-2 mb-4", getProgressColor(level))}
+          className={cn("h-2", getProgressColor(level))}
         />
 
         {/* Description */}
-        <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+        <p className="text-sm text-muted-foreground line-clamp-2">
           {description}
         </p>
 
