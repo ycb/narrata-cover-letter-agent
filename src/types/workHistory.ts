@@ -3,7 +3,10 @@ export interface WorkHistoryCompany {
   name: string;
   logo?: string;
   description?: string;
-  tags: string[];
+  tags: string[]; // industry, size, business model
+  source: 'resume' | 'linkedin' | 'manual';
+  createdAt: string;
+  updatedAt: string;
   roles: WorkHistoryRole[];
 }
 
@@ -11,13 +14,17 @@ export interface WorkHistoryRole {
   id: string;
   companyId: string;
   title: string;
+  type: 'full-time' | 'contract' | 'founder';
   startDate: string;
   endDate?: string;
   description?: string;
+  inferredLevel?: string;
   tags: string[];
   achievements: string[];
   blurbs: WorkHistoryBlurb[];
   externalLinks: ExternalLink[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ExternalLink {
@@ -25,9 +32,11 @@ export interface ExternalLink {
   roleId: string;
   url: string;
   label: string;
+  type: 'case-study' | 'blog' | 'portfolio' | 'other';
   tags: string[];
   timesUsed?: number;
   lastUsed?: string;
+  createdAt: string;
 }
 
 export interface WorkHistoryBlurb {
@@ -35,12 +44,16 @@ export interface WorkHistoryBlurb {
   roleId: string;
   title: string;
   content: string;
+  outcomeMetrics?: string;
+  tags: string[];
+  source: 'resume' | 'manual' | 'llm-suggested';
   status: 'approved' | 'draft' | 'needs-review';
   confidence: 'high' | 'medium' | 'low';
-  tags: string[];
   timesUsed: number;
   lastUsed?: string;
   linkedExternalLinks?: string[]; // IDs of external links referenced in content
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface LegacyCoverLetterTemplate {
@@ -114,4 +127,13 @@ export interface CoverLetterGeneratedSection {
   content: string;
   usedBlurbs?: string[]; // blurb IDs used to generate this section
   isModified: boolean; // has user manually edited
+}
+
+// Story Template Types
+export interface StoryTemplate {
+  id: string;
+  name: string;
+  description: string;
+  prompt: string;
+  category: 'launch' | 'growth' | 'leadership';
 }

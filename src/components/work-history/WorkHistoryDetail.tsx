@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { WorkHistoryDetailTabs } from "@/components/work-history/WorkHistoryDetailTabs";
+import { StoryCard } from "@/components/work-history/StoryCard";
 import { 
   Building2, 
   Calendar, 
@@ -24,7 +25,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { WorkHistoryCompany, WorkHistoryRole } from "@/types/workHistory";
+import type { WorkHistoryCompany, WorkHistoryRole, WorkHistoryBlurb } from "@/types/workHistory";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface WorkHistoryDetailProps {
@@ -32,6 +33,11 @@ interface WorkHistoryDetailProps {
   selectedRole: WorkHistoryRole | null;
   onRoleSelect?: (role: WorkHistoryRole) => void;
   onAddRole?: () => void;
+  onAddStory?: () => void;
+  onAddLink?: () => void;
+  onEditStory?: (story: WorkHistoryBlurb) => void;
+  onDuplicateStory?: (story: WorkHistoryBlurb) => void;
+  onDeleteStory?: (story: WorkHistoryBlurb) => void;
 }
 
 export const WorkHistoryDetail = ({ 
@@ -39,6 +45,11 @@ export const WorkHistoryDetail = ({
   selectedRole,
   onRoleSelect,
   onAddRole,
+  onAddStory,
+  onAddLink,
+  onEditStory,
+  onDuplicateStory,
+  onDeleteStory,
 }: WorkHistoryDetailProps) => {
   const formatDateRange = (startDate: string, endDate?: string) => {
     const start = new Date(startDate).toLocaleDateString('en-US', { 
@@ -99,25 +110,56 @@ export const WorkHistoryDetail = ({
                 )}
               </div>
               
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="h-8 w-8 p-0">
-                    <span className="sr-only">Open menu</span>
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={onAddRole}>
-                    <Edit className="mr-2 h-4 w-4" />
-                    Edit Role
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem>
-                    <Trash2 className="mr-2 h-4 w-4 text-red-500" />
-                    Delete Role
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <div className="flex items-center gap-2">
+                {/* Contextual CTA - Desktop */}
+                <div className="hidden lg:flex gap-2">
+                  {onAddStory && (
+                    <Button onClick={onAddStory} size="sm">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Story
+                    </Button>
+                  )}
+                  {onAddLink && (
+                    <Button variant="secondary" onClick={onAddLink} size="sm">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Link
+                    </Button>
+                  )}
+                </div>
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="h-8 w-8 p-0">
+                      <span className="sr-only">Open menu</span>
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {onAddStory && (
+                      <DropdownMenuItem onClick={onAddStory}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Story
+                      </DropdownMenuItem>
+                    )}
+                    {onAddLink && (
+                      <DropdownMenuItem onClick={onAddLink}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Link
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={onAddRole}>
+                      <Edit className="mr-2 h-4 w-4" />
+                      Edit Role
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem>
+                      <Trash2 className="mr-2 h-4 w-4 text-red-500" />
+                      Delete Role
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           </CardHeader>
           

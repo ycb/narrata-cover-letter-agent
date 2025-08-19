@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { WorkHistoryMaster } from "@/components/work-history/WorkHistoryMaster";
 import { WorkHistoryDetail } from "@/components/work-history/WorkHistoryDetail";
+import { WorkHistoryDrawer } from "@/components/work-history/WorkHistoryDrawer";
+import { WorkHistoryFAB } from "@/components/work-history/WorkHistoryFAB";
+import { AddStoryModal } from "@/components/work-history/AddStoryModal";
 import { DataSourcesStatus } from "@/components/work-history/DataSourcesStatus";
 import { WorkHistoryOnboarding } from "@/components/work-history/WorkHistoryOnboarding";
 import { AddCompanyModal } from "@/components/work-history/AddCompanyModal";
@@ -8,7 +11,7 @@ import { AddRoleModal } from "@/components/work-history/AddRoleModal";
 import { usePrototype } from "@/contexts/PrototypeContext";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import type { WorkHistoryCompany, WorkHistoryRole } from "@/types/workHistory";
+import type { WorkHistoryCompany, WorkHistoryRole, WorkHistoryBlurb } from "@/types/workHistory";
 
 // Sample data - this would come from your backend
 const sampleWorkHistory: WorkHistoryCompany[] = [
@@ -17,32 +20,43 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
     name: "TechCorp Inc.",
     description: "Leading technology company",
     tags: ["Technology", "Enterprise", "B2B"],
+    source: "manual",
+    createdAt: "2020-06-01T00:00:00Z",
+    updatedAt: "2024-12-01T00:00:00Z",
     roles: [
       {
         id: "1-1",
         companyId: "1",
         title: "Senior Product Manager",
+        type: "full-time",
         startDate: "2022-01",
         endDate: "2024-12",
         description: "Led product strategy for core platform",
+        inferredLevel: "Senior",
         tags: ["Product Management", "Strategy", "Leadership"],
         achievements: [
           "Increased user engagement by 40% through feature optimization",
           "Led cross-functional team of 12 engineers and designers",
           "Launched 3 major product releases ahead of schedule"
         ],
+        createdAt: "2022-01-01T00:00:00Z",
+        updatedAt: "2024-12-01T00:00:00Z",
         blurbs: [
           {
             id: "blurb-1",
             roleId: "1-1",
             title: "Product Strategy Leadership",
             content: "As Product Lead at [TechCorp] I built a high-performing product team from ground up, hiring and managing 8 product professionals while launching MVP in record 6 months.",
+            outcomeMetrics: "Launched MVP in 6 months, hired 8 product professionals",
+            tags: ["Product Management", "Strategy", "Results"],
+            source: "manual",
             status: "approved",
             confidence: "high",
-            tags: ["Product Management", "Strategy", "Results"],
             timesUsed: 8,
             lastUsed: "2024-01-15",
-            linkedExternalLinks: ["link-1"]
+            linkedExternalLinks: ["link-1"],
+            createdAt: "2024-01-01T00:00:00Z",
+            updatedAt: "2024-01-15T00:00:00Z"
           }
         ],
         externalLinks: [
@@ -51,18 +65,22 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
             roleId: "1-1",
             url: "https://medium.com/@example/product-strategy-guide",
             label: "Product Strategy Framework - Medium Article",
+            type: "blog",
             tags: ["Product Management", "Strategy", "Thought Leadership"],
             timesUsed: 5,
-            lastUsed: "2024-01-20"
+            lastUsed: "2024-01-20",
+            createdAt: "2024-01-01T00:00:00Z"
           },
           {
             id: "link-2",
             roleId: "1-1",
             url: "https://github.com/example/product-dashboard",
             label: "Analytics Dashboard - Open Source Project",
+            type: "portfolio",
             tags: ["Analytics", "Open Source", "Dashboard"],
             timesUsed: 3,
-            lastUsed: "2024-01-15"
+            lastUsed: "2024-01-15",
+            createdAt: "2024-01-01T00:00:00Z"
           }
         ]
       },
@@ -70,16 +88,20 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
         id: "1-2",
         companyId: "1",
         title: "Product Manager",
+        type: "full-time",
         startDate: "2020-06",
         endDate: "2022-01",
         description: "Managed product development lifecycle",
+        inferredLevel: "Mid",
         tags: ["Product Management", "Development", "Analytics"],
         achievements: [
           "Implemented data-driven decision making process",
           "Reduced time-to-market by 25%"
         ],
         blurbs: [],
-        externalLinks: []
+        externalLinks: [],
+        createdAt: "2020-06-01T00:00:00Z",
+        updatedAt: "2022-01-01T00:00:00Z"
       }
     ]
   },
@@ -88,44 +110,58 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
     name: "StartupXYZ",
     description: "Fast-growing fintech startup",
     tags: ["Fintech", "Startup", "Growth"],
+    source: "manual",
+    createdAt: "2018-03-01T00:00:00Z",
+    updatedAt: "2020-05-01T00:00:00Z",
     roles: [
-      {
-        id: "2-1",
-        companyId: "2",
-        title: "Product Lead",
-        startDate: "2018-03",
-        endDate: "2020-05",
-        description: "Built product team from ground up",
-        tags: ["Leadership", "Team Building", "Fintech"],
-        achievements: [
-          "Hired and managed team of 8 product professionals",
-          "Launched MVP in 6 months"
-        ],
-        blurbs: [
-          {
-            id: "blurb-2",
-            roleId: "2-1",
-            title: "Team Building Excellence",
-            content: "Built high-performing product team from ground up, hiring and managing 8 product professionals while launching MVP in record 6 months.",
-            status: "approved",
-            confidence: "high",
-            tags: ["Leadership", "Team Building", "MVP"],
-            timesUsed: 12,
-            lastUsed: "2024-01-10"
-          }
-        ],
-        externalLinks: [
-          {
-            id: "link-3",
-            roleId: "2-1",
-            url: "https://techcrunch.com/2020/05/15/startup-xyz-raises-series-a",
-            label: "Series A Funding Announcement - TechCrunch",
-            tags: ["Press", "Funding", "Startup"],
-            timesUsed: 2,
-            lastUsed: "2024-01-10"
-          }
-        ]
-      }
+              {
+          id: "2-1",
+          companyId: "2",
+          title: "Product Lead",
+          type: "full-time",
+          startDate: "2018-03",
+          endDate: "2020-05",
+          description: "Built product team from ground up",
+          inferredLevel: "Senior",
+          tags: ["Leadership", "Team Building", "Fintech"],
+          achievements: [
+            "Hired and managed team of 8 product professionals",
+            "Launched MVP in 6 months"
+          ],
+          blurbs: [
+            {
+              id: "blurb-2",
+              roleId: "2-1",
+              title: "Team Building Excellence",
+              content: "Built high-performing product team from ground up, hiring and managing 8 product professionals while launching MVP in record 6 months.",
+              outcomeMetrics: "Hired 8 product professionals, launched MVP in 6 months",
+              tags: ["Leadership", "Team Building", "MVP"],
+              source: "manual",
+              status: "approved",
+              confidence: "high",
+              timesUsed: 12,
+              lastUsed: "2024-01-10",
+              linkedExternalLinks: [],
+              createdAt: "2018-03-01T00:00:00Z",
+              updatedAt: "2024-01-10T00:00:00Z"
+            }
+          ],
+          externalLinks: [
+            {
+              id: "link-3",
+              roleId: "2-1",
+              url: "https://techcrunch.com/2020/05/15/startup-xyz-raises-series-a",
+              label: "Series A Funding Announcement - TechCrunch",
+              type: "blog",
+              tags: ["Press", "Funding", "Startup"],
+              timesUsed: 2,
+              lastUsed: "2024-01-10",
+              createdAt: "2018-03-01T00:00:00Z"
+            }
+          ],
+          createdAt: "2018-03-01T00:00:00Z",
+          updatedAt: "2020-05-01T00:00:00Z"
+        }
     ]
   }
 ];
@@ -147,6 +183,8 @@ export default function WorkHistory() {
   // Modal state
   const [isAddCompanyModalOpen, setIsAddCompanyModalOpen] = useState(false);
   const [isAddRoleModalOpen, setIsAddRoleModalOpen] = useState(false);
+  const [isAddStoryModalOpen, setIsAddStoryModalOpen] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // Update selected items when prototype state changes
   useEffect(() => {
@@ -182,6 +220,21 @@ export default function WorkHistory() {
     // TODO: Implement actual role creation logic
     console.log("Role added successfully");
     setIsAddRoleModalOpen(false);
+  };
+
+  const handleAddStory = () => {
+    setIsAddStoryModalOpen(true);
+  };
+
+  const handleAddLink = () => {
+    // TODO: Implement link creation logic
+    console.log("Add link");
+  };
+
+  const handleSaveStory = (story: Omit<WorkHistoryBlurb, 'id' | 'createdAt' | 'updatedAt'>) => {
+    // TODO: Implement story saving logic
+    console.log("Story saved:", story);
+    setIsAddStoryModalOpen(false);
   };
 
   // Data source handlers (for existing user state)
@@ -242,8 +295,21 @@ export default function WorkHistory() {
 
         {hasWorkHistory ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-280px)]">
-            {/* Master Panel */}
-            <div className="lg:col-span-1">
+            {/* Mobile Drawer */}
+            <WorkHistoryDrawer
+              isOpen={isDrawerOpen}
+              onOpenChange={setIsDrawerOpen}
+              companies={workHistory}
+              selectedCompany={selectedCompany}
+              selectedRole={selectedRole}
+              onCompanySelect={handleCompanySelect}
+              onRoleSelect={handleRoleSelect}
+              onAddCompany={() => setIsAddCompanyModalOpen(true)}
+              onAddRole={() => setIsAddRoleModalOpen(true)}
+            />
+            
+            {/* Master Panel - Desktop */}
+            <div className="hidden lg:block lg:col-span-1">
               <WorkHistoryMaster
                 companies={workHistory}
                 selectedCompany={selectedCompany}
@@ -260,6 +326,8 @@ export default function WorkHistory() {
                 selectedRole={selectedRole}
                 onRoleSelect={handleRoleSelect}
                 onAddRole={() => setIsAddRoleModalOpen(true)}
+                onAddStory={handleAddStory}
+                onAddLink={handleAddLink}
               />
             </div>
           </div>
@@ -269,6 +337,16 @@ export default function WorkHistory() {
             onUploadResume={handleUploadResume}
           />
         )}
+
+        {/* Mobile FAB */}
+        <WorkHistoryFAB
+          selectedCompany={selectedCompany}
+          selectedRole={selectedRole}
+          onAddCompany={() => setIsAddCompanyModalOpen(true)}
+          onAddRole={() => setIsAddRoleModalOpen(true)}
+          onAddStory={handleAddStory}
+          onAddLink={handleAddLink}
+        />
 
         {/* Modals */}
         <AddCompanyModal
@@ -282,6 +360,13 @@ export default function WorkHistory() {
           onOpenChange={setIsAddRoleModalOpen}
           company={selectedCompany}
           onRoleAdded={handleAddRole}
+        />
+
+        <AddStoryModal
+          open={isAddStoryModalOpen}
+          onOpenChange={setIsAddStoryModalOpen}
+          roleId={selectedRole?.id || ''}
+          onSave={handleSaveStory}
         />
       </main>
     </div>
