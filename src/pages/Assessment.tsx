@@ -906,7 +906,7 @@ const Assessment = () => {
 
 
           {/* Competency Breakdown */}
-          <Card className="shadow-soft mt-8">
+          <Card className="shadow-soft section-spacing">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5" />
@@ -933,7 +933,7 @@ const Assessment = () => {
           </Card>
 
           {/* Specialization Mapping */}
-          <Card className="shadow-soft mt-8">
+          <Card className="shadow-soft section-spacing">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
