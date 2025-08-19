@@ -65,7 +65,7 @@ const EvidenceModal = ({
               </DialogDescription>
             </div>
             <div className="flex items-center gap-2 mt-4">
-              <Button variant="outline" size="sm" className="flex items-center gap-2">
+                              <Button variant="secondary" size="sm" className="flex items-center gap-2">
                 <Edit className="h-4 w-4" />
                 This looks wrong
               </Button>
@@ -77,9 +77,9 @@ const EvidenceModal = ({
           </div>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div>
           {/* Summary Stats */}
-          <Card>
+          <Card className="section-spacing">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">Summary</CardTitle>
@@ -109,7 +109,7 @@ const EvidenceModal = ({
           </Card>
 
           {/* How This Was Scored */}
-          <Card>
+          <Card className="section-spacing">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Target className="h-5 w-5" />
@@ -131,7 +131,7 @@ const EvidenceModal = ({
           </Card>
 
           {/* Matched Tags */}
-          <Card>
+          <Card className="section-spacing">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Tag className="h-5 w-5" />
@@ -150,7 +150,7 @@ const EvidenceModal = ({
           </Card>
 
           {/* Evidence Blurbs */}
-          <div className="space-y-4">
+          <div className="section-spacing">
             <h3 className="text-lg font-semibold">Supporting Examples</h3>
             {evidence.map((blurb) => (
               <Card key={blurb.id} className="hover:shadow-md transition-shadow">

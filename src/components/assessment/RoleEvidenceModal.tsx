@@ -101,7 +101,7 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
         </DialogHeader>
 
         {/* Scrollable Content */}
-        <div className="modal-scrollable-content p-6 space-y-6">
+        <div className="modal-scrollable-content p-6">
           {/* Summary Tiles */}
           <div className="summary-grid">
             <div className="summary-tile">
@@ -131,7 +131,7 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
           </div>
 
           {/* Section 1: Industry Pattern Analysis */}
-          <Card>
+          <Card className="section-spacing">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Puzzle className="h-5 w-5" />
@@ -158,7 +158,7 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
           </Card>
 
           {/* Section 2: Problem Complexity */}
-          <Card>
+          <Card className="section-spacing">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Settings className="h-5 w-5" />
@@ -185,7 +185,7 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
           </Card>
 
           {/* Section 3: Relevant Work History */}
-          <Card>
+          <Card className="section-spacing">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <FileText className="h-5 w-5" />
@@ -218,7 +218,7 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
 
           {/* Section 4: Tag Relevance (Collapsible) */}
           <Collapsible open={isTagAnalysisOpen} onOpenChange={setIsTagAnalysisOpen}>
-            <Card>
+            <Card className="section-spacing">
               <CollapsibleTrigger asChild>
                 <CardHeader className="pb-3 cursor-pointer hover:bg-muted/50 transition-colors">
                   <CardTitle className="text-lg flex items-center justify-between">
@@ -257,7 +257,7 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
 
           {/* Section 5: Areas for Improvement */}
           {evidence.gaps.length > 0 && (
-            <Card>
+            <Card className="section-spacing">
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <TrendingDown className="h-5 w-5" />

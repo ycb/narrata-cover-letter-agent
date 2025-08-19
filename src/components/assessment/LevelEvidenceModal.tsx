@@ -80,9 +80,9 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
           </div>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Level Summary */}
-          <Card>
+        <div>
+                      {/* Level Summary */}
+            <Card className="section-spacing">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">Level Assessment Summary</CardTitle>
@@ -148,7 +148,7 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
           </Card>
 
           {/* Blurb Evidence */}
-          <Card>
+          <Card className="section-spacing">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <FileText className="h-5 w-5" />
@@ -181,7 +181,7 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
           </Card>
 
           {/* Leveling Framework */}
-          <Card>
+          <Card className="section-spacing">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Target className="h-5 w-5" />
@@ -212,7 +212,7 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
           </Card>
 
           {/* Gaps to Next Level */}
-          <Card>
+          <Card className="section-spacing">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <TrendingUp className="h-5 w-5" />

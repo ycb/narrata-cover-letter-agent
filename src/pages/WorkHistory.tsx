@@ -209,7 +209,7 @@ export default function WorkHistory() {
 
   return (
     <div className="min-h-screen bg-background">
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 pb-8">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Work History</h1>

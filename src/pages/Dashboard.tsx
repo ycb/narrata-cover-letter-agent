@@ -58,7 +58,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
-      <main className="container py-8">
+      <main className="container pb-8">
         {/* Welcome Section */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
@@ -147,9 +147,9 @@ const Dashboard = () => {
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
+          <div>
             {/* Quick Actions */}
-            <Card className="shadow-soft">
+            <Card className="shadow-soft section-spacing">
               <CardHeader>
                 <CardTitle className="text-lg">Quick Actions</CardTitle>
               </CardHeader>
@@ -172,7 +172,7 @@ const Dashboard = () => {
             </Card>
 
             {/* Recent Activity */}
-            <Card className="shadow-soft">
+            <Card className="shadow-soft section-spacing">
               <CardHeader>
                 <CardTitle className="text-lg">Recent Activity</CardTitle>
               </CardHeader>
@@ -205,7 +205,7 @@ const Dashboard = () => {
             </Card>
 
             {/* Pro Tip */}
-            <Card className="shadow-soft bg-accent-light border-accent">
+            <Card className="shadow-soft bg-accent-light border-accent section-spacing">
               <CardContent className="pt-6">
                 <div className="flex items-start gap-3">
                   <div className="h-8 w-8 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
