@@ -377,9 +377,9 @@ All colors MUST be HSL.
   }
 
   /* Section Spacing */
-  .section-spacing {
-    margin-top: 3.75rem; /* 60px */
-  }
+.section-spacing {
+  margin-top: 2rem; /* 32px */
+}
 
   .assessment-card-mobile {
     @apply lg:hidden;
