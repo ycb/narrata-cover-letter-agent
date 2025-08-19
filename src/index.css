@@ -350,7 +350,17 @@ All colors MUST be HSL.
 
   /* Card Content Spacing */
   .assessment-card-content {
-    @apply p-6 space-y-6;
+    @apply p-6;
+  }
+
+  /* Card Content Items Spacing */
+  .assessment-card-content > * + * {
+    @apply mt-4;
+  }
+
+  /* CTA Button Spacing */
+  .assessment-card-content > button:last-child {
+    @apply mt-6;
   }
 
   /* Vertical Rhythm Standards */
