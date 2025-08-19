@@ -499,10 +499,10 @@ const Assessment = () => {
   return (
     <div className="min-h-screen bg-gradient-subtle">
       <main className="container py-8">
-        <div className="max-w-6xl mx-auto space-y-6">
+        <div className="max-w-6xl mx-auto">
           
           {/* Data Sources & Next Steps - Consolidated */}
-          <Card className="shadow-soft hidden md:block">
+          <Card className="shadow-soft section-spacing hidden md:block">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -588,7 +588,7 @@ const Assessment = () => {
           </Card>
 
           {/* Combined Level Assessment & Career Progression */}
-          <Card className="shadow-soft">
+          <Card className="shadow-soft section-spacing">
             <CardHeader className="text-center pb-4">
               <CardTitle className="text-4xl font-bold text-foreground mb-2">
                 You are a <span className="text-foreground">{mockAssessment.currentLevel}</span>
