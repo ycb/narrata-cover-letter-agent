@@ -498,7 +498,7 @@ const Assessment = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
-      <main className="container py-8">
+      <main className="container pb-8">
         <div className="max-w-6xl mx-auto">
           
           {/* Data Sources & Next Steps - Consolidated */}
