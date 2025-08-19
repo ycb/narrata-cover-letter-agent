@@ -20,6 +20,8 @@ import {
 import EvidenceModal from "@/components/assessment/EvidenceModal";
 import LevelEvidenceModal from "@/components/assessment/LevelEvidenceModal";
 import RoleEvidenceModal from "@/components/assessment/RoleEvidenceModal";
+import { SpecializationCard } from "@/components/assessment/SpecializationCard";
+import { CompetencyCard } from "@/components/assessment/CompetencyCard";
 
 // Simplified mock data for testing
 const mockAssessment = {
@@ -917,73 +919,14 @@ const Assessment = () => {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {mockAssessment.competencies.map((competency) => (
-                  <div key={competency.domain} className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-medium">{competency.domain}</h3>
-                      <Badge variant="outline" className={getLevelColor(competency.level)}>
-                        {competency.level}
-                      </Badge>
-                    </div>
-                    
-                    <Progress 
-                      value={competency.score} 
-                      className={`h-2 ${
-                        competency.level === "Strong" 
-                          ? "[&>div]:bg-success" 
-                          : competency.level === "Solid" 
-                            ? "[&>div]:bg-blue-500" 
-                            : competency.level === "Emerging" 
-                              ? "[&>div]:bg-warning" 
-                              : "[&>div]:bg-muted-foreground"
-                      }`}
-                    />
-                    
-                    <div className="text-sm text-muted-foreground">
-                      {competency.description}
-                    </div>
-                    
-                    {/* Interactive Evidence Preview */}
-                    <div className="p-3 bg-muted/20 rounded-lg border">
-                      <div className="mb-2">
-                        <span className="text-xs font-medium text-muted-foreground">Evidence Preview</span>
-                      </div>
-                      
-                      <div className="text-xs text-muted-foreground mb-2">
-                        {competency.evidence}
-                      </div>
-                      
-                      {/* Sample Evidence Blurb */}
-                      {competency.evidenceBlurbs && competency.evidenceBlurbs[0] && (
-                        <div className="text-xs bg-background p-2 rounded border mb-2">
-                          <div className="font-medium text-foreground mb-1">
-                            {competency.evidenceBlurbs[0].title}
-                          </div>
-                          <div className="text-xs text-muted-foreground line-clamp-2">
-                            {competency.evidenceBlurbs[0].content}
-                          </div>
-                        </div>
-                      )}
-                      
-                      <div className="flex flex-wrap gap-1 mb-3">
-                        {competency.tags.map((tag) => (
-                          <Badge key={tag} variant="outline" className="text-xs">
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
-                      
-                      {/* Inline CTA Button */}
-                      <Button 
-                        variant="secondary" 
-                        size="sm" 
-                        className="w-full"
-                        onClick={() => handleShowEvidence(competency)}
-                      >
-                        View Evidence for {competency.domain}
-                        <TrendingUp className="h-4 w-4 ml-2" />
-                      </Button>
-                    </div>
-                  </div>
+                  <CompetencyCard
+                    key={competency.domain}
+                    domain={competency.domain}
+                    level={competency.level}
+                    score={competency.score}
+                    description={competency.description}
+                    onViewEvidence={() => handleShowEvidence(competency)}
+                  />
                 ))}
               </div>
             </CardContent>
@@ -1003,81 +946,19 @@ const Assessment = () => {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {mockAssessment.roleArchetypes.map((archetype) => (
-                  <div key={archetype.type} className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-medium">{archetype.type}</h3>
-                      <Badge variant="outline" className={`${
-                        archetype.match >= 80 
-                          ? "text-success border-success/20" 
-                          : archetype.match >= 60 
-                            ? "text-blue-600 border-blue-200" 
-                            : archetype.match >= 40 
-                              ? "text-warning border-warning/20" 
-                              : "text-muted-foreground border-muted"
-                      }`}>
-                        {archetype.match}% match
-                      </Badge>
-                    </div>
-                    
-                    <Progress 
-                      value={archetype.match} 
-                      className={`h-2 ${
-                        archetype.match >= 80 
-                          ? "[&>div]:bg-success" 
-                          : archetype.match >= 60 
-                            ? "[&>div]:bg-blue-500" 
-                            : archetype.match >= 40 
-                              ? "[&>div]:bg-warning" 
-                              : "[&>div]:bg-muted-foreground"
-                      }`}
-                    />
-                    
-                    <div className="text-sm text-muted-foreground">
-                      {archetype.description}
-                    </div>
-                    
-                    {/* Interactive Evidence Preview */}
-                    <div className="p-3 bg-muted/20 rounded-lg border">
-                      <div className="mb-2">
-                        <span className="text-xs font-medium text-muted-foreground">Evidence Preview</span>
-                      </div>
-                      
-                      <div className="text-xs text-muted-foreground mb-2">
-                        {archetype.evidence}
-                      </div>
-                      
-                      {/* Sample Evidence Blurb */}
-                      <div className="text-xs bg-background p-2 rounded border mb-2">
-                        <div className="font-medium text-foreground mb-1">
-                          Match Analysis
-                        </div>
-                        <div className="text-xs text-muted-foreground line-clamp-2">
-                          Experience: {archetype.type === "Growth PM" ? "High" : archetype.type === "Technical PM" ? "Medium" : "Low"} | 
-                          Skills: {archetype.type === "Growth PM" ? "Growth, Leadership" : archetype.type === "Technical PM" ? "Technical, Platform" : "General PM"}
-                        </div>
-                      </div>
-                      
-                      <div className="p-2 bg-background rounded border mb-3">
-                        <p className="text-xs font-medium text-muted-foreground mb-1">
-                          Typical profile:
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {archetype.typicalProfile}
-                        </p>
-                      </div>
-                      
-                      {/* Inline CTA Button */}
-                      <Button 
-                        variant="secondary" 
-                        size="sm" 
-                        className="w-full"
-                        onClick={() => handleShowRoleEvidence(archetype.type)}
-                      >
-                        View Evidence for {archetype.type}
-                        <TrendingUp className="h-4 w-4 ml-2" />
-                      </Button>
-                    </div>
-                  </div>
+                  <SpecializationCard
+                    key={archetype.type}
+                    type={archetype.type}
+                    match={archetype.match}
+                    description={archetype.description}
+                    tags={archetype.type === "Growth PM" ? ["Growth", "Leadership", "SaaS"] : 
+                          archetype.type === "Technical PM" ? ["Technical", "Engineering", "Platform"] :
+                          archetype.type === "Founding PM" ? ["0-1", "MVP", "Product-Market Fit"] :
+                          ["Platform", "API", "Infrastructure"]}
+                    experienceLevel={archetype.type === "Growth PM" ? "High" : 
+                                   archetype.type === "Technical PM" ? "Medium" : "Low"}
+                    onViewEvidence={() => handleShowRoleEvidence(archetype.type)}
+                  />
                 ))}
               </div>
             </CardContent>
