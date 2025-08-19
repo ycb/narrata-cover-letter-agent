@@ -320,7 +320,7 @@ export default function CoverLetterTemplate() {
               
               {/* Content Area */}
               <TabsContent value="template">
-                <div className="mt-6">
+                <div className="section-spacing">
                   {/* Template Settings */}
                   <Card>
                     <CardHeader>
@@ -396,7 +396,7 @@ export default function CoverLetterTemplate() {
                   {/* Sections */}
                   <div>
                     {template.sections.map((section, index) => (
-                      <div key={section.id}>
+                      <div key={section.id} className="section-spacing">
                         <Card className="relative">
                           <CardHeader>
                             <div className="flex items-center justify-between">
@@ -552,7 +552,7 @@ export default function CoverLetterTemplate() {
               </TabsContent>
 
               <TabsContent value="library">
-                <div className="mt-6">
+                <div className="section-spacing">
                   <TemplateBlurbHierarchical
                     blurbs={mockTemplateBlurbs.map(blurb => ({
                       ...blurb,
