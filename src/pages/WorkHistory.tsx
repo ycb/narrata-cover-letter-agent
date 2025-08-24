@@ -4,6 +4,7 @@ import { WorkHistoryDetail } from "@/components/work-history/WorkHistoryDetail";
 import { WorkHistoryDrawer } from "@/components/work-history/WorkHistoryDrawer";
 import { WorkHistoryFAB } from "@/components/work-history/WorkHistoryFAB";
 import { AddStoryModal } from "@/components/work-history/AddStoryModal";
+import { AddLinkModal } from "@/components/work-history/AddLinkModal";
 import { DataSourcesStatus } from "@/components/work-history/DataSourcesStatus";
 import { WorkHistoryOnboarding } from "@/components/work-history/WorkHistoryOnboarding";
 import { AddCompanyModal } from "@/components/work-history/AddCompanyModal";
@@ -50,8 +51,8 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
             outcomeMetrics: "Launched MVP in 6 months, hired 8 product professionals",
             tags: ["Product Management", "Strategy", "Results"],
             source: "manual",
-            status: "approved",
-            confidence: "high",
+            status: "draft",
+            confidence: "medium",
             timesUsed: 8,
             lastUsed: "2024-01-15",
             linkedExternalLinks: ["link-1"],
@@ -137,8 +138,8 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
               outcomeMetrics: "Hired 8 product professionals, launched MVP in 6 months",
               tags: ["Leadership", "Team Building", "MVP"],
               source: "manual",
-              status: "approved",
-              confidence: "high",
+                          status: "draft",
+            confidence: "medium",
               timesUsed: 12,
               lastUsed: "2024-01-10",
               linkedExternalLinks: [],
@@ -173,40 +174,50 @@ export default function WorkHistory() {
   // For existing user state, simulate having data
   const workHistory = prototypeState === 'existing-user' ? sampleWorkHistory : [];
   
-  // Auto-select first company and its first role on page load
+  // Auto-select first company on page load (no role selected initially)
   const firstCompany = workHistory.length > 0 ? workHistory[0] : null;
-  const firstRole = firstCompany?.roles.length > 0 ? firstCompany.roles[0] : null;
   
   const [selectedCompany, setSelectedCompany] = useState<WorkHistoryCompany | null>(firstCompany);
-  const [selectedRole, setSelectedRole] = useState<WorkHistoryRole | null>(firstRole);
+  const [selectedRole, setSelectedRole] = useState<WorkHistoryRole | null>(null);
+  
+  // Track which company should be expanded in the accordion
+  const [expandedCompanyId, setExpandedCompanyId] = useState<string | null>(firstCompany?.id || null);
 
   // Modal state
   const [isAddCompanyModalOpen, setIsAddCompanyModalOpen] = useState(false);
+  const [editingCompany, setEditingCompany] = useState<WorkHistoryCompany | null>(null);
   const [isAddRoleModalOpen, setIsAddRoleModalOpen] = useState(false);
   const [isAddStoryModalOpen, setIsAddStoryModalOpen] = useState(false);
+  const [editingStory, setEditingStory] = useState<WorkHistoryBlurb | null>(null);
+  const [isAddLinkModalOpen, setIsAddLinkModalOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // Update selected items when prototype state changes
   useEffect(() => {
     const newFirstCompany = workHistory.length > 0 ? workHistory[0] : null;
-    const newFirstRole = newFirstCompany?.roles.length > 0 ? newFirstCompany.roles[0] : null;
     
     setSelectedCompany(newFirstCompany);
-    setSelectedRole(newFirstRole);
+    setSelectedRole(null); // Only company selected initially
+    setExpandedCompanyId(newFirstCompany?.id || null);
   }, [prototypeState, workHistory.length]);
 
   const handleCompanySelect = (company: WorkHistoryCompany) => {
     setSelectedCompany(company);
-    // If company has only one role, automatically select it
-    if (company.roles.length === 1) {
-      setSelectedRole(company.roles[0]);
-    } else {
-      setSelectedRole(null);
-    }
+    setSelectedRole(null);
+    setExpandedCompanyId(company.id);
   };
 
   const handleRoleSelect = (role: WorkHistoryRole) => {
-    setSelectedRole(role);
+    // Find the parent company for this role
+    const parentCompany = workHistory.find(company => 
+      company.roles.some(r => r.id === role.id)
+    );
+    
+    if (parentCompany) {
+      setSelectedCompany(parentCompany);
+      setSelectedRole(role);
+      setExpandedCompanyId(parentCompany.id);
+    }
   };
 
   // Modal handlers
@@ -214,6 +225,12 @@ export default function WorkHistory() {
     // TODO: Implement actual company creation logic
     console.log("Company added successfully");
     setIsAddCompanyModalOpen(false);
+    setEditingCompany(null);
+  };
+
+  const handleEditCompany = (company: WorkHistoryCompany) => {
+    setEditingCompany(company);
+    setIsAddCompanyModalOpen(true);
   };
 
   const handleAddRole = () => {
@@ -226,14 +243,23 @@ export default function WorkHistory() {
     setIsAddStoryModalOpen(true);
   };
 
-  const handleAddLink = () => {
-    // TODO: Implement link creation logic
-    console.log("Add link");
+  const handleEditStory = (story: WorkHistoryBlurb) => {
+    setEditingStory(story);
+    setIsAddStoryModalOpen(true);
   };
 
-  const handleSaveStory = (story: Omit<WorkHistoryBlurb, 'id' | 'createdAt' | 'updatedAt'>) => {
-    // TODO: Implement story saving logic
-    console.log("Story saved:", story);
+  const handleAddLink = () => {
+    setIsAddLinkModalOpen(true);
+  };
+
+  const handleSaveContent = (content: any) => {
+    if (content.type === 'story') {
+      // TODO: Implement story saving logic
+      console.log("Story saved:", content);
+    } else if (content.type === 'link') {
+      // TODO: Implement link saving logic
+      console.log("Link saved:", content);
+    }
     setIsAddStoryModalOpen(false);
   };
 
@@ -263,35 +289,11 @@ export default function WorkHistory() {
   return (
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-4 pb-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Work History</h1>
-            <p className="text-muted-foreground mt-2">
-              Manage your professional experience and associated blurbs
-            </p>
-          </div>
-          
-          {hasWorkHistory && (
-            <div className="flex gap-3">
-              <Button variant="primary" onClick={() => setIsAddCompanyModalOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Company
-              </Button>
-            </div>
-          )}
+        <div>
+          <p className="text-muted-foreground py-4">Summarize impact with stories and links</p>
         </div>
 
-        {/* Data Sources Status - only show for existing user with work history */}
-        {prototypeState === 'existing-user' && hasWorkHistory && (
-          <DataSourcesStatus
-            linkedInConnected={true}
-            resumeUploaded={true}
-            onConnectLinkedIn={handleConnectLinkedIn}
-            onUploadResume={handleUploadResume}
-            onViewLinkedInProfile={handleViewLinkedInProfile}
-            onViewResume={handleViewResume}
-          />
-        )}
+
 
         {hasWorkHistory ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-280px)]">
@@ -302,6 +304,7 @@ export default function WorkHistory() {
               companies={workHistory}
               selectedCompany={selectedCompany}
               selectedRole={selectedRole}
+              expandedCompanyId={expandedCompanyId}
               onCompanySelect={handleCompanySelect}
               onRoleSelect={handleRoleSelect}
               onAddCompany={() => setIsAddCompanyModalOpen(true)}
@@ -314,21 +317,29 @@ export default function WorkHistory() {
                 companies={workHistory}
                 selectedCompany={selectedCompany}
                 selectedRole={selectedRole}
+                expandedCompanyId={expandedCompanyId}
                 onCompanySelect={handleCompanySelect}
                 onRoleSelect={handleRoleSelect}
+                onAddRole={() => setIsAddRoleModalOpen(true)}
+                onAddCompany={() => setIsAddCompanyModalOpen(true)}
+                onConnectLinkedIn={handleConnectLinkedIn}
+                onUploadResume={handleUploadResume}
               />
             </div>
             
             {/* Detail Panel */}
             <div className="lg:col-span-2">
-              <WorkHistoryDetail
-                selectedCompany={selectedCompany}
-                selectedRole={selectedRole}
-                onRoleSelect={handleRoleSelect}
-                onAddRole={() => setIsAddRoleModalOpen(true)}
-                onAddStory={handleAddStory}
-                onAddLink={handleAddLink}
-              />
+                          <WorkHistoryDetail
+              selectedCompany={selectedCompany}
+              selectedRole={selectedRole}
+              companies={workHistory}
+              onRoleSelect={handleRoleSelect}
+              onAddRole={() => setIsAddRoleModalOpen(true)}
+              onAddStory={handleAddStory}
+              onEditStory={handleEditStory}
+              onAddLink={handleAddLink}
+              onEditCompany={handleEditCompany}
+            />
             </div>
           </div>
         ) : (
@@ -351,8 +362,12 @@ export default function WorkHistory() {
         {/* Modals */}
         <AddCompanyModal
           open={isAddCompanyModalOpen}
-          onOpenChange={setIsAddCompanyModalOpen}
+          onOpenChange={(open) => {
+            setIsAddCompanyModalOpen(open);
+            if (!open) setEditingCompany(null);
+          }}
           onCompanyAdded={handleAddCompany}
+          editingCompany={editingCompany}
         />
         
         <AddRoleModal
@@ -364,9 +379,21 @@ export default function WorkHistory() {
 
         <AddStoryModal
           open={isAddStoryModalOpen}
-          onOpenChange={setIsAddStoryModalOpen}
+          onOpenChange={(open) => {
+            setIsAddStoryModalOpen(open);
+            if (!open) setEditingStory(null);
+          }}
           roleId={selectedRole?.id || ''}
-          onSave={handleSaveStory}
+          onSave={handleSaveContent}
+          existingLinks={selectedRole?.externalLinks || []}
+          editingStory={editingStory}
+        />
+
+        <AddLinkModal
+          open={isAddLinkModalOpen}
+          onOpenChange={setIsAddLinkModalOpen}
+          roleId={selectedRole?.id || ''}
+          onSave={handleSaveContent}
         />
       </main>
     </div>

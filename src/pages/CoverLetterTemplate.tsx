@@ -299,7 +299,7 @@ export default function CoverLetterTemplate() {
   };
 
   const handleDone = () => {
-    navigate('/cla/cover-letters');
+    navigate('/cover-letters');
   };
 
   return (
@@ -680,7 +680,7 @@ export default function CoverLetterTemplate() {
                   className="flex-1"
                   asChild
                 >
-                  <Link to="/cla/cover-letters">
+                  <Link to="/cover-letters">
                     I understand, proceed
                   </Link>
                 </Button>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,19 +7,38 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import type { WorkHistoryCompany } from "@/types/workHistory";
 
 interface AddCompanyModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCompanyAdded?: () => void;
+  editingCompany?: WorkHistoryCompany | null;
 }
 
-export function AddCompanyModal({ open, onOpenChange, onCompanyAdded }: AddCompanyModalProps) {
+export function AddCompanyModal({ open, onOpenChange, onCompanyAdded, editingCompany }: AddCompanyModalProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const { toast } = useToast();
+
+  const isEditing = !!editingCompany;
+
+  // Populate form with editing company data
+  useEffect(() => {
+    if (editingCompany) {
+      setName(editingCompany.name);
+      setDescription(editingCompany.description || "");
+      setTags(editingCompany.tags || []);
+    } else {
+      // Reset form when not editing
+      setName("");
+      setDescription("");
+      setTags([]);
+      setTagInput("");
+    }
+  }, [editingCompany, open]);
 
   const handleAddTag = () => {
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
@@ -45,12 +64,19 @@ export function AddCompanyModal({ open, onOpenChange, onCompanyAdded }: AddCompa
     }
 
     // Here you would typically save to your backend/state management
-    console.log("Creating company:", { name, description, tags });
-    
-    toast({
-      title: "Company added",
-      description: "Your new company has been added successfully.",
-    });
+    if (isEditing) {
+      console.log("Updating company:", { id: editingCompany!.id, name, description, tags });
+      toast({
+        title: "Company updated",
+        description: "Your company has been updated successfully.",
+      });
+    } else {
+      console.log("Creating company:", { name, description, tags });
+      toast({
+        title: "Company added",
+        description: "Your new company has been added successfully.",
+      });
+    }
 
     // Reset form
     setName("");
@@ -73,9 +99,12 @@ export function AddCompanyModal({ open, onOpenChange, onCompanyAdded }: AddCompa
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Add New Company</DialogTitle>
+          <DialogTitle>{isEditing ? "Edit Company" : "Add New Company"}</DialogTitle>
           <DialogDescription>
-            Add a new company to your work history. You can add roles and blurbs after creating the company.
+            {isEditing 
+              ? "Update your company information and details."
+              : "Add a new company to your work history. You can add roles and blurbs after creating the company."
+            }
           </DialogDescription>
         </DialogHeader>
         
@@ -139,7 +168,7 @@ export function AddCompanyModal({ open, onOpenChange, onCompanyAdded }: AddCompa
               Cancel
             </Button>
             <Button type="submit">
-              Add Company
+              {isEditing ? "Update Company" : "Add Company"}
             </Button>
           </div>
         </form>

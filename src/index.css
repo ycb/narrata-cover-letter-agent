@@ -185,7 +185,7 @@ All colors MUST be HSL.
   }
   
   .mb-6 {
-    margin-bottom: 0;
+    margin-bottom: 1.5rem; /* 24px */
   }
   
   .pb-4 {
@@ -360,7 +360,7 @@ All colors MUST be HSL.
 
   /* CTA Button Spacing */
   .assessment-card-content > button:last-child {
-    @apply mt-6;
+    @apply mt-4;
   }
 
   /* Vertical Rhythm Standards */
@@ -379,6 +379,12 @@ All colors MUST be HSL.
   /* Section Spacing */
 .section-spacing {
   margin-top: 2rem; /* 32px */
+}
+
+  /* Master Component Section Wrapping */
+.pb-4 {
+  padding-bottom: 1rem;
+  padding-top: 1rem;
 }
 
   .assessment-card-mobile {

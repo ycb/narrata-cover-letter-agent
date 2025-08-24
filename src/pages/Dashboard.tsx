@@ -137,9 +137,11 @@ const Dashboard = () => {
                   <BlurbCard key={blurb.id} {...blurb} />
                 ))}
                 <div className="pt-4">
-                  <Button variant="secondary" className="w-full">
-                    View All Blurbs
-                    <ArrowRight className="h-4 w-4 ml-2" />
+                  <Button variant="secondary" className="w-full" asChild>
+                    <Link to="/work-history">
+                      View All Blurbs
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </Link>
                   </Button>
                 </div>
               </CardContent>
@@ -154,16 +156,20 @@ const Dashboard = () => {
                 <CardTitle className="text-lg">Quick Actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button variant="secondary" className="w-full justify-start">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add New Blurb
-                </Button>
-                <Button variant="secondary" className="w-full justify-start">
-                  <Briefcase className="h-4 w-4 mr-2" />
-                  Update Work History
+                <Button variant="secondary" className="w-full justify-start" asChild>
+                  <Link to="/work-history">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add New Blurb
+                  </Link>
                 </Button>
                 <Button variant="secondary" className="w-full justify-start" asChild>
-                  <Link to="/cla/assessment">
+                  <Link to="/work-history">
+                    <Briefcase className="h-4 w-4 mr-2" />
+                    Update Work History
+                  </Link>
+                </Button>
+                <Button variant="secondary" className="w-full justify-start" asChild>
+                  <Link to="/assessment">
                     <Award className="h-4 w-4 mr-2" />
                     View PM Assessment
                   </Link>

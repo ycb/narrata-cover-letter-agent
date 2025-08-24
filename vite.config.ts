@@ -4,7 +4,7 @@ import path from "path";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: mode === 'production' ? 'https://cla.peterspannagle.com/' : './',
+  base: './',
   plugins: [react()],
   resolve: {
     alias: {

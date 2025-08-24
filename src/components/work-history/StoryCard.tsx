@@ -11,7 +11,10 @@ import {
   TrendingUp,
   CheckCircle,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Link as LinkIcon,
+  ExternalLink,
+  Tags
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -25,6 +28,7 @@ import { cn } from "@/lib/utils";
 
 interface StoryCardProps {
   story: WorkHistoryBlurb;
+  linkedLinks?: ExternalLink[]; // Pass linked links from parent
   onEdit?: (story: WorkHistoryBlurb) => void;
   onDuplicate?: (story: WorkHistoryBlurb) => void;
   onDelete?: (story: WorkHistoryBlurb) => void;
@@ -33,6 +37,7 @@ interface StoryCardProps {
 
 export const StoryCard = ({ 
   story, 
+  linkedLinks = [],
   onEdit, 
   onDuplicate, 
   onDelete,
@@ -82,21 +87,10 @@ export const StoryCard = ({
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="mb-2">
               <CardTitle className="text-lg truncate">{story.title}</CardTitle>
-              {getStatusIcon()}
             </div>
             
-            {/* Source and Confidence Badges */}
-            <div className="flex items-center gap-2 mb-3">
-              <Badge variant="outline" className={getSourceColor()}>
-                {story.source}
-              </Badge>
-              <Badge variant="outline" className={getConfidenceColor()}>
-                {story.confidence} confidence
-              </Badge>
-            </div>
-
             {/* Usage Stats */}
             <div className="flex items-center gap-4 text-sm text-muted-foreground">
               <div className="flex items-center gap-1">
@@ -150,7 +144,7 @@ export const StoryCard = ({
 
       <CardContent className="pt-0">
         {/* Story Content */}
-        <div className="mb-4">
+        <div className="mb-6">
           <p className="text-sm text-muted-foreground line-clamp-3">
             {story.content}
           </p>
@@ -158,7 +152,7 @@ export const StoryCard = ({
 
         {/* Outcome Metrics */}
         {story.outcomeMetrics && (
-          <div className="mb-4 p-3 bg-muted/20 rounded-lg">
+          <div className="mb-6">
             <div className="flex items-center gap-2 mb-2">
               <Target className="h-4 w-4 text-primary" />
               <span className="text-sm font-medium">Outcome Metrics</span>
@@ -171,12 +165,53 @@ export const StoryCard = ({
 
         {/* Tags */}
         {story.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {story.tags.map((tag) => (
-              <Badge key={tag} variant="secondary" className="text-xs">
-                {tag}
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-2">
+              <Tags className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Story Tags</span>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {story.tags.map((tag) => (
+                <Badge key={tag} variant="secondary" className="text-xs">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Link Details - Bottom Right */}
+        {linkedLinks.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-muted">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <LinkIcon className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-muted-foreground">Linked Content</span>
+              </div>
+              <Badge variant="outline" className="text-xs">
+                {linkedLinks.length} link{linkedLinks.length !== 1 ? 's' : ''}
               </Badge>
-            ))}
+            </div>
+            <div className="mt-2 space-y-2">
+              {linkedLinks.slice(0, 2).map((link) => (
+                <div key={link.id} className="flex items-center justify-between p-2 bg-muted/30 rounded-lg">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{link.label}</div>
+                    <div className="text-xs text-muted-foreground truncate">{link.url}</div>
+                  </div>
+                  <Button variant="ghost" size="sm" asChild className="ml-2">
+                    <a href={link.url} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </Button>
+                </div>
+              ))}
+              {linkedLinks.length > 2 && (
+                <div className="text-xs text-muted-foreground text-center py-1">
+                  +{linkedLinks.length - 2} more links
+                </div>
+              )}
+            </div>
           </div>
         )}
       </CardContent>

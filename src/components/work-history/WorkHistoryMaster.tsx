@@ -1,8 +1,14 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Building2, Calendar, ChevronRight, FileText, Link, Plus } from "lucide-react";
+import { 
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Building2, Calendar, FileText, Link, Plus, Linkedin, FileText as FileTextIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { WorkHistoryCompany, WorkHistoryRole } from "@/types/workHistory";
 
@@ -10,19 +16,28 @@ interface WorkHistoryMasterProps {
   companies: WorkHistoryCompany[];
   selectedCompany: WorkHistoryCompany | null;
   selectedRole: WorkHistoryRole | null;
+  expandedCompanyId: string | null;
   onCompanySelect: (company: WorkHistoryCompany) => void;
   onRoleSelect: (role: WorkHistoryRole) => void;
   onAddRole?: () => void;
+  onAddCompany?: () => void;
+  onConnectLinkedIn?: () => void;
+  onUploadResume?: () => void;
 }
 
 export const WorkHistoryMaster = ({
   companies,
   selectedCompany,
   selectedRole,
+  expandedCompanyId,
   onCompanySelect,
   onRoleSelect,
-  onAddRole
+  onAddRole,
+  onAddCompany,
+  onConnectLinkedIn,
+  onUploadResume
 }: WorkHistoryMasterProps) => {
+
   const formatDateRange = (startDate: string, endDate?: string) => {
     const start = new Date(startDate).toLocaleDateString('en-US', { 
       year: 'numeric', 
@@ -34,109 +49,171 @@ export const WorkHistoryMaster = ({
     return `${start} - ${end}`;
   };
 
-  // Auto-expand accordion if a role is selected but its company isn't expanded
-  const getExpandedCompanies = () => {
-    const expanded = [];
-    if (selectedCompany) {
-      expanded.push(selectedCompany.id);
-    }
-    // If a role is selected but from a different company than selectedCompany, expand that too
-    if (selectedRole && selectedRole.companyId !== selectedCompany?.id) {
-      expanded.push(selectedRole.companyId);
-    }
-    return expanded;
-  };
-
   return (
     <Card className="h-full flex flex-col">
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-semibold">Companies & Roles</h2>
-            <p className="text-sm text-muted-foreground">
-              Select a company or role to view details
-            </p>
-          </div>
-          {selectedCompany && onAddRole && (
-            <Button variant="secondary" size="sm" onClick={onAddRole}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Role
-            </Button>
-          )}
-
+          <h2 className="text-xl font-semibold">Work History</h2>
+          <Button variant="secondary" size="sm" className="h-8 w-8 p-0" onClick={onAddCompany}>
+            <Plus className="h-4 w-4" />
+          </Button>
         </div>
       </CardHeader>
       
       <CardContent className="flex-1 overflow-auto px-0">
-        <Accordion type="multiple" value={getExpandedCompanies()} className="w-full">
-          {companies.map((company) => (
-            <AccordionItem key={company.id} value={company.id} className="border-x-0">
-              <AccordionTrigger 
-                className={cn(
-                  "px-6 py-4 hover:no-underline hover:bg-muted/30 hover:text-foreground transition-colors",
-                  selectedCompany?.id === company.id && "bg-accent/20"
-                )}
-                onClick={() => onCompanySelect(company)}
-              >
-                <div className="flex items-center gap-3 text-left">
-                  <Building2 className="h-5 w-5 text-muted-foreground shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-medium truncate">{company.name}</h3>
-                    <p className="text-sm text-muted-foreground truncate">
-                      {company.roles.length} role{company.roles.length !== 1 ? 's' : ''}
-                    </p>
+        {/* Main Content Container with Consistent Spacing */}
+        <div className="space-y-4 px-6">
+          {/* Companies & Roles Section */}
+          <div>
+            <Accordion type="single" value={expandedCompanyId || undefined} className="w-full">
+            {companies.map((company) => (
+              <AccordionItem key={company.id} value={company.id} className="mb-6"> {/* 1.5rem (24px) between company cards */}
+                <AccordionTrigger 
+                  className={cn(
+                    "w-full px-4 py-3 transition-colors relative no-underline cursor-pointer group hover:no-underline [&>svg]:hidden",
+                    selectedCompany?.id === company.id 
+                      ? "bg-muted/30 text-foreground font-semibold" 
+                      : "hover:bg-primary hover:text-primary-foreground"
+                  )}
+                  onClick={() => onCompanySelect(company)}
+                >
+                  <div className="flex items-center gap-3 text-left w-full">
+                    <Building2 className={cn(
+                      "h-5 w-5 shrink-0",
+                      selectedCompany?.id === company.id 
+                        ? "text-primary" 
+                        : "text-muted-foreground group-hover:text-primary-foreground"
+                    )} />
+                    <div className="flex-1 min-w-0">
+                      <h3 className={cn(
+                        "truncate",
+                        selectedCompany?.id === company.id 
+                          ? "text-foreground font-semibold" 
+                          : "font-medium group-hover:text-primary-foreground"
+                      )}>{company.name}</h3>
+                      <p className={cn(
+                        "text-sm truncate",
+                        selectedCompany?.id === company.id 
+                          ? "text-muted-foreground font-semibold" 
+                          : "text-muted-foreground group-hover:text-primary-foreground"
+                      )}>
+                        {company.roles.length} role{company.roles.length !== 1 ? 's' : ''}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </AccordionTrigger>
-              
-              <AccordionContent className="px-0 pb-0">
-                <div className="space-y-0">
-                  {company.roles.map((role) => (
-                    <Button
-                      key={role.id}
-                      variant="ghost"
-                      className={cn(
-                        "w-full px-6 py-4 h-auto justify-start text-left rounded-none hover:bg-muted/30 hover:text-foreground transition-colors",
-                        selectedRole?.id === role.id && "bg-primary/10 border-r-2 border-primary"
-                      )}
-                      onClick={() => onRoleSelect(role)}
-                    >
-                      <div className="flex items-center gap-3 w-full">
-                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <div className="flex-1 min-w-0">
-                                                  <div className="flex items-center justify-between gap-4">
-                          <h4 className="font-medium text-sm truncate">{role.title}</h4>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {role.blurbs.length > 0 && (
-                              <Badge variant="secondary" className="text-xs flex items-center gap-1">
-                                <FileText className="h-3 w-3" />
-                                {role.blurbs.length}
-                              </Badge>
-                            )}
-                            {role.externalLinks.length > 0 && (
-                              <Badge variant="secondary" className="text-xs flex items-center gap-1">
-                                <Link className="h-3 w-3" />
-                                {role.externalLinks.length}
-                              </Badge>
-                            )}
+                </AccordionTrigger>
+                
+                <AccordionContent className="px-0 pb-0">
+                  <div className="space-y-6"> {/* 1.5rem (24px) between role cards */}
+                    {company.roles.map((role) => (
+                      <Button
+                        key={role.id}
+                        variant="ghost"
+                        className={cn(
+                          "w-full px-4 py-3 h-auto justify-start text-left transition-colors relative !rounded-none",
+                          selectedRole?.id === role.id 
+                            ? "text-foreground font-semibold hover:bg-transparent hover:text-current" 
+                            : "hover:bg-primary hover:text-primary-foreground group"
+                        )}
+                        onClick={() => onRoleSelect(role)}
+                      >
+                        <div className="flex items-center gap-3 w-full">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-4">
+                              <h4 className={cn(
+                                "text-sm truncate",
+                                selectedRole?.id === role.id 
+                                  ? "text-foreground font-semibold" 
+                                  : "font-medium group-hover:text-primary-foreground"
+                              )}>{role.title}</h4>
+                              <div className="flex items-center gap-2 shrink-0">
+                                {role.blurbs.length > 0 && (
+                                  <Badge variant="secondary" className={cn(
+                                    "text-xs flex items-center gap-1",
+                                    selectedRole?.id === role.id 
+                                      ? "bg-muted text-muted-foreground" 
+                                      : "group-hover:bg-primary-foreground group-hover:text-primary"
+                                  )}>
+                                    <FileText className="h-3 w-3" />
+                                    {role.blurbs.length}
+                                  </Badge>
+                                )}
+                                {role.externalLinks.length > 0 && (
+                                  <Badge variant="secondary" className={cn(
+                                    "text-xs flex items-center gap-1",
+                                    selectedRole?.id === role.id 
+                                      ? "bg-muted text-muted-foreground" 
+                                      : "group-hover:bg-primary-foreground group-hover:text-primary"
+                                  )}>
+                                    <Link className="h-3 w-3" />
+                                    {role.externalLinks.length}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Calendar className={cn(
+                                "h-3 w-3",
+                                selectedRole?.id === role.id 
+                                  ? "text-foreground" 
+                                  : "text-muted-foreground group-hover:text-primary-foreground"
+                              )} />
+                              <span className={cn(
+                                "text-xs",
+                                selectedRole?.id === role.id 
+                                  ? "text-foreground font-semibold" 
+                                  : "text-muted-foreground group-hover:text-primary-foreground"
+                              )}>
+                                {formatDateRange(role.startDate, role.endDate)}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Calendar className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground">
-                              {formatDateRange(role.startDate, role.endDate)}
-                            </span>
-                          </div>
-
-                        </div>
-                      </div>
-                    </Button>
-                  ))}
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
+                        
+                        {/* Selection Indicator - Left Side */}
+                        {selectedRole?.id === role.id && (
+                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary" />
+                        )}
+                      </Button>
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </div>
+        
+        {/* Data Sources Section - Bottom */}
+        <div className="border-t border-muted mt-auto">
+          <h2 className="text-lg font-semibold text-foreground mb-3">Data Sources</h2>
+          <div className="space-y-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start text-left h-auto py-3 px-4 hover:bg-primary hover:text-primary-foreground transition-colors group !rounded-none"
+              onClick={onConnectLinkedIn}
+            >
+              <Linkedin className="h-4 w-4 mr-2 text-blue-600 group-hover:text-primary-foreground" />
+              <div className="flex-1 text-left">
+                <div className="font-medium group-hover:text-primary-foreground">LinkedIn</div>
+                <div className="text-xs text-muted-foreground group-hover:text-primary-foreground">Connect profile</div>
+              </div>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start text-left h-auto py-3 px-4 hover:bg-primary hover:text-primary-foreground transition-colors group !rounded-none"
+              onClick={onUploadResume}
+            >
+              <FileTextIcon className="h-4 w-4 mr-2 text-slate-600 group-hover:text-primary-foreground" />
+              <div className="flex-1 text-left">
+                <div className="font-medium group-hover:text-primary-foreground">Resume</div>
+                <div className="text-xs text-muted-foreground group-hover:text-primary-foreground">Upload document</div>
+              </div>
+            </Button>
+          </div>
+        </div>
+        </div>
       </CardContent>
     </Card>
   );

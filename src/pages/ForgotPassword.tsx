@@ -60,7 +60,7 @@ const ForgotPassword = () => {
                     Resend Email
                   </Button>
                   
-                  <Link to="/cla/signin">
+                  <Link to="/signin">
                     <Button variant="tertiary" className="w-full gap-2">
                       <ArrowLeft className="h-4 w-4" />
                       Back to Sign In
@@ -93,7 +93,7 @@ const ForgotPassword = () => {
                   Send Reset Link
                 </Button>
 
-                <Link to="/cla/signin">
+                <Link to="/signin">
                   <Button variant="tertiary" className="w-full gap-2">
                     <ArrowLeft className="h-4 w-4" />
                     Back to Sign In

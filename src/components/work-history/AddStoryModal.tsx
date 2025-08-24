@@ -1,268 +1,270 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { X, Plus, FileText, Target } from "lucide-react";
-import { STORY_TEMPLATES, STORY_TEMPLATE_CATEGORIES } from "@/lib/constants/storyTemplates";
-import type { WorkHistoryBlurb, StoryTemplate } from "@/types/workHistory";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { X, Plus, FileText, Link as LinkIcon } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { STORY_TEMPLATES } from "@/lib/constants/storyTemplates";
+import { LinkPicker } from "./LinkPicker";
+import type { ExternalLink, WorkHistoryBlurb } from "@/types/workHistory";
 
 interface AddStoryModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   roleId: string;
-  onSave: (story: Omit<WorkHistoryBlurb, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  initialStory?: Partial<WorkHistoryBlurb>;
+  onSave: (content: any) => void;
+  existingLinks?: ExternalLink[];
+  editingStory?: WorkHistoryBlurb | null;
 }
 
-export const AddStoryModal = ({ 
-  open, 
-  onOpenChange, 
-  roleId, 
-  onSave,
-  initialStory 
-}: AddStoryModalProps) => {
-  const [useTemplate, setUseTemplate] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState('');
-  const [title, setTitle] = useState(initialStory?.title || '');
-  const [content, setContent] = useState(initialStory?.content || '');
-  const [outcomeMetrics, setOutcomeMetrics] = useState(initialStory?.outcomeMetrics || '');
-  const [tags, setTags] = useState<string[]>(initialStory?.tags || []);
-  const [newTag, setNewTag] = useState('');
+export function AddStoryModal({ open, onOpenChange, roleId, onSave, existingLinks = [], editingStory }: AddStoryModalProps) {
+  // Story state
+  const [storyTitle, setStoryTitle] = useState(editingStory?.title || "");
+  const [storyContent, setStoryContent] = useState(editingStory?.content || "");
+  const [storyOutcomeMetrics, setStoryOutcomeMetrics] = useState(editingStory?.outcomeMetrics || "");
+  const [storyTags, setStoryTags] = useState<string[]>(editingStory?.tags || []);
+  const [storyTagInput, setStoryTagInput] = useState("");
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+  
+  // Link picker state
+  const [isLinkPickerOpen, setIsLinkPickerOpen] = useState(false);
+  
+  const { toast } = useToast();
 
-  // Auto-fill template when selected
+  // Update form when editing story changes
   useEffect(() => {
-    if (useTemplate && selectedTemplate && STORY_TEMPLATES[selectedTemplate]) {
-      setContent(STORY_TEMPLATES[selectedTemplate].prompt);
+    if (editingStory) {
+      setStoryTitle(editingStory.title);
+      setStoryContent(editingStory.content);
+      setStoryOutcomeMetrics(editingStory.outcomeMetrics || "");
+      setStoryTags(editingStory.tags);
+    } else {
+      // Reset form when not editing
+      setStoryTitle("");
+      setStoryContent("");
+      setStoryOutcomeMetrics("");
+      setStoryTags([]);
     }
-  }, [useTemplate, selectedTemplate]);
+  }, [editingStory]);
 
-  // Reset form when modal opens/closes
-  useEffect(() => {
-    if (open) {
-      if (initialStory) {
-        setTitle(initialStory.title || '');
-        setContent(initialStory.content || '');
-        setOutcomeMetrics(initialStory.outcomeMetrics || '');
-        setTags(initialStory.tags || []);
-        setUseTemplate(false);
-        setSelectedTemplate('');
-      } else {
-        setTitle('');
-        setContent('');
-        setOutcomeMetrics('');
-        setTags([]);
-        setUseTemplate(false);
-        setSelectedTemplate('');
-      }
+  const handleAddStoryTag = () => {
+    if (storyTagInput.trim() && !storyTags.includes(storyTagInput.trim())) {
+      setStoryTags([...storyTags, storyTagInput.trim()]);
+      setStoryTagInput("");
     }
-  }, [open, initialStory]);
+  };
 
-  const handleSave = () => {
-    if (!title.trim() || !content.trim()) return;
+  const handleRemoveStoryTag = (tagToRemove: string) => {
+    setStoryTags(storyTags.filter(tag => tag !== tagToRemove));
+  };
 
-    const story: Omit<WorkHistoryBlurb, 'id' | 'createdAt' | 'updatedAt'> = {
+  const handleTemplateSelect = (templateKey: string) => {
+    const template = STORY_TEMPLATES[templateKey as keyof typeof STORY_TEMPLATES];
+    if (template) {
+      setStoryContent(template.prompt);
+      setStoryOutcomeMetrics("");
+      setStoryTags([]);
+      setSelectedTemplate(templateKey);
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!storyTitle.trim() || !storyContent.trim()) {
+      toast({
+        title: "Missing information",
+        description: "Please fill in both title and content for the story.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const storyData = {
+      type: "story" as const,
       roleId,
-      title: title.trim(),
-      content: content.trim(),
-      outcomeMetrics: outcomeMetrics.trim() || undefined,
-      tags,
-      source: 'manual',
-      status: 'approved', // All user-created stories are approved by default
-      confidence: 'high',
+      title: storyTitle.trim(),
+      content: storyContent.trim(),
+      outcomeMetrics: storyOutcomeMetrics.trim(),
+      tags: storyTags,
+      source: "manual" as const,
+      status: "draft" as const,
+      confidence: "medium" as const,
       timesUsed: 0,
-      linkedExternalLinks: []
+      linkedExternalLinks: [],
     };
 
-    onSave(story);
+    onSave(storyData);
+    
+    // Reset story form
+    setStoryTitle("");
+    setStoryContent("");
+    setStoryOutcomeMetrics("");
+    setStoryTags([]);
+    setStoryTagInput("");
+    setSelectedTemplate("");
+
     onOpenChange(false);
   };
 
-  const addTag = () => {
-    if (newTag.trim() && !tags.includes(newTag.trim())) {
-      setTags([...tags, newTag.trim()]);
-      setNewTag('');
-    }
-  };
-
-  const removeTag = (tagToRemove: string) => {
-    setTags(tags.filter(tag => tag !== tagToRemove));
-  };
-
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      addTag();
+      handleAddStoryTag();
     }
   };
 
-  const isFormValid = title.trim() && content.trim();
+  const handleLinkSelected = (link: ExternalLink, customLabel: string) => {
+    const linkMarkup = `[${customLabel}](${link.url})`;
+    
+    // Insert link at cursor position or append to content
+    if (storyContent) {
+      setStoryContent(prev => prev + ' ' + linkMarkup);
+    } else {
+      setStoryContent(linkMarkup);
+    }
+    
+    toast({
+      title: "Link inserted",
+      description: `"${customLabel}" has been added to your story.`,
+    });
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            {initialStory ? 'Edit Story' : 'Add Story'}
-          </DialogTitle>
+          <DialogTitle>{editingStory ? "Edit Story" : "Add Story"}</DialogTitle>
+          <DialogDescription>
+            {editingStory ? "Update your story with new details." : "Create a new story to showcase your achievements and impact in this role."}
+          </DialogDescription>
         </DialogHeader>
-
-        <div className="space-y-6">
-          {/* Template Toggle */}
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <Switch 
-                  checked={useTemplate}
-                  onCheckedChange={setUseTemplate}
-                />
-                <Label className="text-sm font-medium">
-                  Use a template to get started
-                </Label>
-              </div>
-            </CardHeader>
-            
-            {useTemplate && (
-              <CardContent className="pt-0">
-                <div className="space-y-3">
-                  <Label>Story Type</Label>
-                  <Select 
-                    value={selectedTemplate}
-                    onValueChange={setSelectedTemplate}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose a story template..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.values(STORY_TEMPLATES).map((template) => (
-                        <SelectItem key={template.id} value={template.id}>
-                          <div className="flex flex-col items-start">
-                            <span className="font-medium">{template.name}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {template.description}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  
-                  {selectedTemplate && STORY_TEMPLATES[selectedTemplate] && (
-                    <div className="p-3 bg-muted/20 rounded-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Target className="h-4 w-4 text-primary" />
-                        <span className="text-sm font-medium">Template Preview</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground whitespace-pre-line">
-                        {STORY_TEMPLATES[selectedTemplate].prompt}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            )}
-          </Card>
-
-          {/* Story Title */}
-          <div className="space-y-2">
-            <Label htmlFor="story-title">Story Title *</Label>
-            <Input
-              id="story-title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Enter a descriptive title for your story..."
-            />
-          </div>
-
-          {/* Story Content */}
-          <div className="space-y-2">
-            <Label htmlFor="story-content">Story Content *</Label>
-            <Textarea
-              id="story-content"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Write your story here..."
-              className="min-h-[200px] resize-none"
-            />
-          </div>
-
-          {/* Outcome Metrics */}
-          <div className="space-y-2">
-            <Label htmlFor="outcome-metrics">Outcome Metrics (Optional)</Label>
-            <Textarea
-              id="outcome-metrics"
-              value={outcomeMetrics}
-              onChange={(e) => setOutcomeMetrics(e.target.value)}
-              placeholder="e.g., Increased user engagement by 40%, Reduced churn by 25%..."
-              className="min-h-[100px] resize-none"
-            />
-          </div>
-
-          {/* Tags */}
-          <div className="space-y-3">
-            <Label>Tags</Label>
-            <div className="space-y-2">
-              <div className="flex gap-2">
-                <Input
-                  value={newTag}
-                  onChange={(e) => setNewTag(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Add a tag..."
-                  className="flex-1"
-                />
-                <Button 
-                  type="button" 
-                  variant="secondary" 
-                  size="sm"
-                  onClick={addTag}
-                  disabled={!newTag.trim()}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
+        
+        <form onSubmit={handleSubmit} className="space-y-4 mt-6">
+              {/* Story Templates */}
+              <div className="space-y-2">
+                <Label>Story Template (Optional)</Label>
+                <Select value={selectedTemplate} onValueChange={handleTemplateSelect}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a template to get started" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(STORY_TEMPLATES).map(([key, template]) => (
+                      <SelectItem key={key} value={key}>
+                        <div className="flex flex-col">
+                          <div className="font-medium">{template.name}</div>
+                          <div className="text-xs text-muted-foreground">{template.description}</div>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               
-              {tags.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {tags.map((tag) => (
-                    <Badge key={tag} variant="secondary" className="gap-1">
-                      {tag}
-                      <button
-                        type="button"
-                        onClick={() => removeTag(tag)}
-                        className="ml-1 hover:bg-muted-foreground/20 rounded-full p-0.5"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  ))}
+              <div className="space-y-2">
+                <Label htmlFor="storyTitle">Story Title</Label>
+                <Input
+                  id="storyTitle"
+                  value={storyTitle}
+                  onChange={(e) => setStoryTitle(e.target.value)}
+                  placeholder="e.g., Product Strategy Leadership"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="storyContent">Story Content</Label>
+                <div className="space-y-3">
+                  <Textarea
+                    id="storyContent"
+                    value={storyContent}
+                    onChange={(e) => setStoryContent(e.target.value)}
+                    placeholder="Describe your achievement, the challenge you faced, and the impact you made..."
+                    rows={6}
+                  />
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-muted-foreground">
+                      Add supporting links to strengthen your story
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsLinkPickerOpen(true)}
+                      className="flex items-center gap-2"
+                    >
+                      <LinkIcon className="h-4 w-4" />
+                      Insert Link
+                    </Button>
+                  </div>
                 </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex justify-end gap-3 pt-6">
-          <Button 
-            variant="secondary" 
-            onClick={() => onOpenChange(false)}
-          >
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleSave}
-            disabled={!isFormValid}
-          >
-            {initialStory ? 'Update Story' : 'Save Story'}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="storyOutcomeMetrics">Outcome Metrics (Optional)</Label>
+                <Textarea
+                  id="storyOutcomeMetrics"
+                  value={storyOutcomeMetrics}
+                  onChange={(e) => setStoryOutcomeMetrics(e.target.value)}
+                  placeholder="Quantify your impact: e.g., 'Increased revenue by 25%', 'Reduced costs by $50K'"
+                  rows={2}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="storyTags">Tags</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="storyTags"
+                    value={storyTagInput}
+                    onChange={(e) => setStoryTagInput(e.target.value)}
+                    onKeyPress={(e) => handleKeyPress(e, true)}
+                    placeholder="Add a tag and press Enter"
+                  />
+                  <Button type="button" onClick={handleAddStoryTag} size="sm">
+                    Add
+                  </Button>
+                </div>
+                
+                {storyTags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {storyTags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-xs">
+                        {tag}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveStoryTag(tag)}
+                          className="ml-1 hover:text-destructive"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex justify-end gap-2 pt-4">
+                <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit">
+                  Add Story
+                </Button>
+              </div>
+                        </form>
+        </DialogContent>
+        
+        {/* Link Picker Modal */}
+        <LinkPicker
+          open={isLinkPickerOpen}
+          onOpenChange={setIsLinkPickerOpen}
+          existingLinks={existingLinks}
+          onLinkSelected={handleLinkSelected}
+        />
+      </Dialog>
   );
-};
+}

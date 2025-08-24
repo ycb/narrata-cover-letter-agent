@@ -12,6 +12,7 @@ interface WorkHistoryDrawerProps {
   companies: WorkHistoryCompany[];
   selectedCompany: WorkHistoryCompany | null;
   selectedRole: WorkHistoryRole | null;
+  expandedCompanyId: string | null;
   onCompanySelect: (company: WorkHistoryCompany) => void;
   onRoleSelect: (role: WorkHistoryRole) => void;
   onAddCompany?: () => void;
@@ -25,6 +26,7 @@ export const WorkHistoryDrawer = ({
   companies,
   selectedCompany,
   selectedRole,
+  expandedCompanyId,
   onCompanySelect,
   onRoleSelect,
   onAddCompany,
@@ -42,18 +44,7 @@ export const WorkHistoryDrawer = ({
     return `${start} - ${end}`;
   };
 
-  // Auto-expand accordion if a role is selected but its company isn't expanded
-  const getExpandedCompanies = () => {
-    const expanded = [];
-    if (selectedCompany) {
-      expanded.push(selectedCompany.id);
-    }
-    // If a role is selected but from a different company than selectedCompany, expand that too
-    if (selectedRole && selectedRole.companyId !== selectedCompany?.id) {
-      expanded.push(selectedRole.companyId);
-    }
-    return expanded;
-  };
+
 
   const defaultTrigger = (
     <Button variant="ghost" size="sm" className="lg:hidden">
@@ -100,13 +91,13 @@ export const WorkHistoryDrawer = ({
               )}
             </div>
           ) : (
-            <Accordion type="multiple" value={getExpandedCompanies()} className="w-full">
+            <Accordion type="single" value={expandedCompanyId || undefined} className="w-full">
               {companies.map((company) => (
                 <AccordionItem key={company.id} value={company.id} className="border-x-0">
                   <AccordionTrigger 
                     className={cn(
                       "px-6 py-4 hover:no-underline hover:bg-muted/30 hover:text-foreground transition-colors",
-                      selectedCompany?.id === company.id && "bg-accent/20"
+                      selectedCompany?.id === company.id && "bg-primary/5"
                     )}
                     onClick={() => onCompanySelect(company)}
                   >
@@ -128,8 +119,8 @@ export const WorkHistoryDrawer = ({
                           key={role.id}
                           variant="ghost"
                           className={cn(
-                            "w-full px-6 py-4 h-auto justify-start text-left rounded-none hover:bg-muted/30 hover:text-foreground transition-colors",
-                            selectedRole?.id === role.id && "bg-primary/10 border-r-2 border-primary"
+                            "w-full px-6 py-4 h-auto justify-start text-left rounded-none hover:bg-muted/30 hover:text-foreground transition-colors relative",
+                            selectedRole?.id === role.id && "bg-primary/10"
                           )}
                           onClick={() => onRoleSelect(role)}
                         >
@@ -158,6 +149,11 @@ export const WorkHistoryDrawer = ({
                             </div>
                             <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                           </div>
+                          
+                          {/* Selection Indicator - Left Side */}
+                          {selectedRole?.id === role.id && (
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary" />
+                          )}
                         </Button>
                       ))}
                     </div>
