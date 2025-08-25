@@ -235,6 +235,18 @@ All colors MUST be HSL.
     margin-bottom: 0;
   }
   
+  /* Override py-3 for controlled spacing */
+  .py-3 {
+    padding-top: .75rem;
+    padding-bottom: .5rem;
+  }
+
+  /* Custom spacing class for template content */
+  .template-content-spacing {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+  
   /* Tightened spacing for main sections */
   .space-y-8 > :not([hidden]) ~ :not([hidden]) {
     margin-top: 1.5rem;
@@ -434,4 +446,9 @@ All colors MUST be HSL.
   .summary-grid {
     @apply grid grid-cols-2 md:grid-cols-4 gap-4;
   }
+}
+
+/* Accordion item spacing */
+.accordion-item-spacing > * + * {
+  margin-top: 1.5rem; /* 24px */
 }

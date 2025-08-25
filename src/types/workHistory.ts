@@ -78,6 +78,7 @@ export interface TemplateBlurb {
 export interface CoverLetterSection {
   id: string;
   type: 'intro' | 'paragraph' | 'closer' | 'signature';
+  contentType?: 'work-history' | 'reusable'; // Story from Work History or Reusable Cover Letter Content
   isStatic: boolean; // true = static text, false = uses blurb matching
   staticContent?: string; // for static sections
   blurbCriteria?: {

@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Upload, Save, ArrowLeft, Plus, GripVertical, Trash2, Edit, FileText, Library, MoreHorizontal, Copy, Clock } from "lucide-react";
+import { Upload, Save, ArrowLeft, Plus, GripVertical, Trash2, Edit, FileText, Library, MoreHorizontal, Copy, Clock, LayoutTemplate, CheckCircle, X } from "lucide-react";
 import { TemplateBanner } from "@/components/layout/TemplateBanner";
 import { Link, useNavigate } from "react-router-dom";
 import { TemplateBlurbHierarchical } from "@/components/template-blurbs/TemplateBlurbHierarchical";
@@ -17,6 +17,7 @@ import { WorkHistoryBlurbSelector } from "@/components/work-history/WorkHistoryB
 import { SectionInsertButton } from "@/components/template-blurbs/SectionInsertButton";
 import type { CoverLetterSection, CoverLetterTemplate, WorkHistoryBlurb } from "@/types/workHistory";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 // Mock template blurbs library
 const mockTemplateBlurbs: TemplateBlurb[] = [
@@ -169,6 +170,18 @@ export default function CoverLetterTemplate() {
   const [editingBlurb, setEditingBlurb] = useState<TemplateBlurb | null>(null);
   const [creatingBlurbType, setCreatingBlurbType] = useState<'intro' | 'closer' | 'signature' | null>(null);
   const [showWorkHistorySelector, setShowWorkHistorySelector] = useState(false);
+  const [activeTab, setActiveTab] = useState<'template' | 'reusable'>('template');
+  const [showAddContentTypeModal, setShowAddContentTypeModal] = useState(false);
+  const [newContentType, setNewContentType] = useState({ label: '', description: '' });
+  const [showAddReusableContentModal, setShowAddReusableContentModal] = useState(false);
+  const [newReusableContent, setNewReusableContent] = useState({ title: '', content: '', tags: '', contentType: '' });
+  const [userContentTypes, setUserContentTypes] = useState<Array<{
+    type: string;
+    label: string;
+    description: string;
+    icon: React.ComponentType<{ className?: string }>;
+    isDefault: boolean;
+  }>>([]);
 
   const getBlurbTitleByContent = (content: string, sectionType: string) => {
     const blurb = mockTemplateBlurbs.find(b => b.content === content && b.type === sectionType);
@@ -291,6 +304,41 @@ export default function CoverLetterTemplate() {
     }
   };
 
+  const handleCreateContentType = () => {
+    if (newContentType.label.trim() && newContentType.description.trim()) {
+      const newType = {
+        type: newContentType.label.toLowerCase().replace(/\s+/g, '-'),
+        label: newContentType.label,
+        description: newContentType.description,
+        icon: FileText,
+        isDefault: false
+      };
+      
+      setUserContentTypes(prev => [...prev, newType]);
+      setNewContentType({ label: '', description: '' });
+      setShowAddContentTypeModal(false);
+    }
+  };
+
+  const handleCreateReusableContent = () => {
+    if (newReusableContent.title.trim() && newReusableContent.content.trim()) {
+      const newBlurb: TemplateBlurb = {
+        id: `${newReusableContent.contentType}-${Date.now()}`,
+        type: newReusableContent.contentType as 'intro' | 'closer' | 'signature',
+        title: newReusableContent.title,
+        content: newReusableContent.content,
+        tags: newReusableContent.tags ? newReusableContent.tags.split(',').map(tag => tag.trim()) : [],
+        isDefault: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      setTemplateBlurbs(prev => [...prev, newBlurb]);
+      setNewReusableContent({ title: '', content: '', tags: '', contentType: '' });
+      setShowAddReusableContentModal(false);
+    }
+  };
+
   const removeSection = (sectionId: string) => {
     setTemplate(prev => ({
       ...prev,
@@ -312,29 +360,74 @@ export default function CoverLetterTemplate() {
       <div className="bg-background">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
-            <Tabs defaultValue="template" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="template">Template</TabsTrigger>
-                <TabsTrigger value="library">Blurb Library</TabsTrigger>
-              </TabsList>
-              
-              {/* Content Area */}
-              <TabsContent value="template">
-                <div className="section-spacing">
+            {/* Custom Tabs */}
+            <div className="border-b">
+              <div className="flex items-center justify-between">
+                <div className="flex space-x-8">
+                  <button
+                    onClick={() => setActiveTab('template')}
+                    className={cn(
+                      "flex items-center gap-2 py-4 px-1 border-b-4 font-medium text-sm transition-colors",
+                      activeTab === 'template'
+                        ? "border-primary text-primary"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <LayoutTemplate className="h-4 w-4" />
+                    Template
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('reusable')}
+                    className={cn(
+                      "flex items-center gap-2 py-4 px-1 border-b-4 font-medium text-sm transition-colors",
+                      activeTab === 'reusable'
+                        ? "border-primary text-primary"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <FileText className="h-4 w-4" />
+                    Reusable Content
+                  </button>
+                </div>
+                
+                {/* Dynamic CTA Button */}
+                <div>
+                  {activeTab === 'template' && (
+                    <Button 
+                      variant="secondary" 
+                      size="sm"
+                      onClick={() => setShowUploadModal(true)}
+                      className="flex items-center gap-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add New Template
+                    </Button>
+                  )}
+                  {activeTab === 'reusable' && (
+                    <Button 
+                      variant="secondary" 
+                      size="sm"
+                      onClick={() => setShowAddContentTypeModal(true)}
+                      className="flex items-center gap-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add New Content Type
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            {/* Content Area */}
+            <div>
+              {activeTab === 'template' && (
+                <div className="template-content-spacing mt-2">
                   {/* Template Settings */}
                   <Card>
                     <CardHeader>
                       <div className="flex items-center justify-between">
                         <CardTitle>Template Settings</CardTitle>
                         <div className="flex items-center gap-4">
-                          <Button 
-                            variant="secondary" 
-                            size="sm"
-                            onClick={() => setShowUploadModal(true)}
-                          >
-                            <Upload className="h-4 w-4 mr-2" />
-                            Upload New Cover Letter
-                          </Button>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -396,7 +489,7 @@ export default function CoverLetterTemplate() {
                   {/* Sections */}
                   <div>
                     {template.sections.map((section, index) => (
-                      <div key={section.id} className="section-spacing">
+                      <div key={section.id}>
                         <Card className="relative">
                           <CardHeader>
                             <div className="flex items-center justify-between">
@@ -549,10 +642,10 @@ export default function CoverLetterTemplate() {
                     />
                   )}
                 </div>
-              </TabsContent>
+              )}
 
-              <TabsContent value="library">
-                <div className="section-spacing">
+              {activeTab === 'reusable' && (
+                <div className="template-content-spacing mt-2">
                   <TemplateBlurbHierarchical
                     blurbs={mockTemplateBlurbs.map(blurb => ({
                       ...blurb,
@@ -565,15 +658,42 @@ export default function CoverLetterTemplate() {
                     }))}
                     selectedBlurbId={undefined}
                     onSelectBlurb={handleSelectBlurbFromLibrary}
-                    onCreateBlurb={handleCreateBlurb}
+                    onCreateBlurb={(type) => {
+                      setNewReusableContent(prev => ({ ...prev, contentType: type }));
+                      setShowAddReusableContentModal(true);
+                    }}
                     onEditBlurb={handleEditBlurb}
                     onDeleteBlurb={(id) => {
                       setTemplateBlurbs(prev => prev.filter(blurb => blurb.id !== id));
                     }}
+                    contentTypes={[
+                      {
+                        type: 'intro',
+                        label: 'Introduction',
+                        description: 'Opening paragraphs that grab attention and introduce you',
+                        icon: FileText,
+                        isDefault: true
+                      },
+                      {
+                        type: 'closer',
+                        label: 'Closing',
+                        description: 'Concluding paragraphs that reinforce your interest',
+                        icon: CheckCircle,
+                        isDefault: true
+                      },
+                      {
+                        type: 'signature',
+                        label: 'Signature',
+                        description: 'Professional sign-offs and contact information',
+                        icon: Edit,
+                        isDefault: true
+                      },
+                      ...userContentTypes
+                    ]}
                   />
                 </div>
-              </TabsContent>
-            </Tabs>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -664,9 +784,10 @@ export default function CoverLetterTemplate() {
                 <CardTitle>Upload New Cover Letter</CardTitle>
                 <button
                   onClick={() => setShowUploadModal(false)}
-                  className="text-sm text-cta-tertiary-foreground hover:text-cta-primary underline"
+                  className="h-6 w-6 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
                 >
-                  Cancel
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Close</span>
                 </button>
               </div>
             </CardHeader>
@@ -694,6 +815,121 @@ export default function CoverLetterTemplate() {
                   }}
                 >
                   Explore paid plans
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Add New Content Type Modal */}
+      {showAddContentTypeModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Add New Content Type</CardTitle>
+                <button
+                  onClick={() => setShowAddContentTypeModal(false)}
+                  className="h-6 w-6 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+                >
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Close</span>
+                </button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="content-type-label">Label</Label>
+                  <Input
+                    id="content-type-label"
+                    placeholder="e.g., Experience Summary, Skills Highlight"
+                    value={newContentType.label}
+                    onChange={(e) => setNewContentType({ ...newContentType, label: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="content-type-description">Description</Label>
+                  <Textarea
+                    id="content-type-description"
+                    placeholder="Describe what this content type is for..."
+                    value={newContentType.description}
+                    onChange={(e) => setNewContentType({ ...newContentType, description: e.target.value })}
+                    rows={3}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <Button 
+                  variant="primary" 
+                  className="w-full"
+                  onClick={handleCreateContentType}
+                  disabled={!newContentType.label.trim() || !newContentType.description.trim()}
+                >
+                  Create Content Type
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Add Reusable Content Modal */}
+      {showAddReusableContentModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Add New {newReusableContent.contentType ? newReusableContent.contentType.charAt(0).toUpperCase() + newReusableContent.contentType.slice(1) : 'Content'}</CardTitle>
+                <button
+                  onClick={() => setShowAddReusableContentModal(false)}
+                  className="h-6 w-6 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+                >
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Close</span>
+                </button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="reusable-content-title">Title</Label>
+                  <Input
+                    id="reusable-content-title"
+                    placeholder="e.g., Professional Introduction, Passionate Closing"
+                    value={newReusableContent.title}
+                    onChange={(e) => setNewReusableContent({ ...newReusableContent, title: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="reusable-content-content">Content</Label>
+                  <Textarea
+                    id="reusable-content-content"
+                    placeholder="Write your content here..."
+                    value={newReusableContent.content}
+                    onChange={(e) => setNewReusableContent({ ...newReusableContent, content: e.target.value })}
+                    rows={4}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="reusable-content-tags">Tags (comma-separated)</Label>
+                  <Input
+                    id="reusable-content-tags"
+                    placeholder="e.g., professional, passionate, technical"
+                    value={newReusableContent.tags}
+                    onChange={(e) => setNewReusableContent({ ...newReusableContent, tags: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <Button 
+                  variant="primary" 
+                  className="w-full"
+                  onClick={handleCreateReusableContent}
+                  disabled={!newReusableContent.title.trim() || !newReusableContent.content.trim()}
+                >
+                  Create Content
                 </Button>
               </div>
             </CardContent>
