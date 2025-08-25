@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { WorkHistoryMaster } from "@/components/work-history/WorkHistoryMaster";
 import { WorkHistoryDetail } from "@/components/work-history/WorkHistoryDetail";
 import { WorkHistoryDrawer } from "@/components/work-history/WorkHistoryDrawer";
@@ -207,6 +208,26 @@ export default function WorkHistory() {
     setExpandedCompanyId(newFirstCompany?.id || null);
   }, [prototypeState, workHistory.length]);
 
+  // Handle URL parameters for initial navigation
+  const [initialTab, setInitialTab] = useState<'role' | 'stories' | 'links'>('role');
+  
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const tabParam = searchParams.get('tab');
+    
+    if (tabParam === 'stories' && workHistory.length > 0) {
+      const firstCompany = workHistory[0];
+      const firstRole = firstCompany.roles[0];
+      
+      if (firstRole) {
+        setSelectedCompany(firstCompany);
+        setSelectedRole(firstRole);
+        setExpandedCompanyId(firstCompany.id);
+        setInitialTab('stories');
+      }
+    }
+  }, [workHistory]);
+
   const handleCompanySelect = (company: WorkHistoryCompany) => {
     setSelectedCompany(company);
     setSelectedRole(null);
@@ -339,6 +360,7 @@ export default function WorkHistory() {
               selectedCompany={selectedCompany}
               selectedRole={selectedRole}
               companies={workHistory}
+              initialTab={initialTab}
               onRoleSelect={handleRoleSelect}
               onAddRole={() => setIsAddRoleModalOpen(true)}
               onAddStory={handleAddStory}

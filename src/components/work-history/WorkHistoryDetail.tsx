@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,7 @@ interface WorkHistoryDetailProps {
   selectedCompany: WorkHistoryCompany | null;
   selectedRole: WorkHistoryRole | null;
   companies: WorkHistoryCompany[]; // Add companies to find role's company
+  initialTab?: 'role' | 'stories' | 'links';
   onRoleSelect?: (role: WorkHistoryRole) => void;
   onAddRole?: () => void;
   onAddStory?: () => void;
@@ -56,6 +57,7 @@ export const WorkHistoryDetail = ({
   selectedCompany, 
   selectedRole,
   companies,
+  initialTab = 'role',
   onRoleSelect,
   onAddRole,
   onAddStory,
@@ -65,11 +67,16 @@ export const WorkHistoryDetail = ({
   onDuplicateStory,
   onDeleteStory,
 }: WorkHistoryDetailProps) => {
-  const [detailView, setDetailView] = useState<DetailView>('role');
+  const [detailView, setDetailView] = useState<DetailView>(initialTab);
   const [isEditingRole, setIsEditingRole] = useState(false);
   const [editingRole, setEditingRole] = useState<WorkHistoryRole | null>(null);
   const [isEditingStory, setIsEditingStory] = useState(false);
   const [editingStory, setEditingStory] = useState<WorkHistoryBlurb | null>(null);
+
+  // Update detail view when initialTab prop changes
+  useEffect(() => {
+    setDetailView(initialTab);
+  }, [initialTab]);
   
   const formatDateRange = (startDate: string, endDate?: string) => {
     const start = new Date(startDate).toLocaleDateString('en-US', { 

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -158,6 +159,7 @@ const mockTemplate: CoverLetterTemplate = {
 
 export default function CoverLetterTemplate() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [template, setTemplate] = useState<CoverLetterTemplate>(mockTemplate);
   const [templateBlurbs, setTemplateBlurbs] = useState<TemplateBlurb[]>(mockTemplateBlurbs);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
@@ -182,6 +184,14 @@ export default function CoverLetterTemplate() {
     icon: React.ComponentType<{ className?: string }>;
     isDefault: boolean;
   }>>([]);
+
+  // Handle URL parameter for initial tab
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'reusable') {
+      setActiveTab('reusable');
+    }
+  }, [searchParams]);
 
   const getBlurbTitleByContent = (content: string, sectionType: string) => {
     const blurb = mockTemplateBlurbs.find(b => b.content === content && b.type === sectionType);

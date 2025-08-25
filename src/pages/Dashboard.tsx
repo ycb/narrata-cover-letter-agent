@@ -86,7 +86,7 @@ const Dashboard = () => {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <StatsCard
-            title="Total Blurbs"
+            title="Total Stories"
             value={47}
             description="Approved narratives ready to use"
             icon={FileText}
@@ -109,20 +109,20 @@ const Dashboard = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Recent Blurbs */}
+          {/* Recent Stories */}
           <div className="lg:col-span-2">
             <Card className="shadow-medium">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <FileText className="h-5 w-5 text-accent" />
-                    Recent Blurbs
+                    Recent Stories
                   </CardTitle>
                   <div className="flex items-center gap-4">
                     <div className="relative">
                       <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
                       <Input 
-                        placeholder="Search blurbs..." 
+                        placeholder="Search stories..." 
                         className="pl-9 w-64"
                       />
                     </div>
@@ -136,14 +136,6 @@ const Dashboard = () => {
                 {recentBlurbs.map((blurb) => (
                   <BlurbCard key={blurb.id} {...blurb} />
                 ))}
-                <div className="pt-4">
-                  <Button variant="secondary" className="w-full" asChild>
-                    <Link to="/work-history">
-                      View All Blurbs
-                      <ArrowRight className="h-4 w-4 ml-2" />
-                    </Link>
-                  </Button>
-                </div>
               </CardContent>
             </Card>
           </div>
@@ -151,21 +143,27 @@ const Dashboard = () => {
           {/* Sidebar */}
           <div>
             {/* Quick Actions */}
-            <Card className="shadow-soft section-spacing">
+            <Card className="shadow-soft">
               <CardHeader>
                 <CardTitle className="text-lg">Quick Actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <Button variant="secondary" className="w-full justify-start" asChild>
-                  <Link to="/work-history">
+                  <Link to="/work-history?tab=stories">
                     <Plus className="h-4 w-4 mr-2" />
-                    Add New Blurb
+                    Add New Story
                   </Link>
                 </Button>
                 <Button variant="secondary" className="w-full justify-start" asChild>
                   <Link to="/work-history">
                     <Briefcase className="h-4 w-4 mr-2" />
                     Update Work History
+                  </Link>
+                </Button>
+                <Button variant="secondary" className="w-full justify-start" asChild>
+                  <Link to="/cover-letter-template?tab=reusable">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Add Reusable Content
                   </Link>
                 </Button>
                 <Button variant="secondary" className="w-full justify-start" asChild>
@@ -194,7 +192,7 @@ const Dashboard = () => {
                 <div className="flex items-start gap-3">
                   <div className="h-2 w-2 rounded-full bg-accent mt-2" />
                   <div className="flex-1">
-                    <p className="text-sm font-medium">New blurb created</p>
+                    <p className="text-sm font-medium">New story created</p>
                     <p className="text-xs text-muted-foreground">Leadership experience</p>
                     <p className="text-xs text-muted-foreground">1 day ago</p>
                   </div>
@@ -220,7 +218,7 @@ const Dashboard = () => {
                   <div>
                     <p className="font-medium text-accent mb-1">Pro Tip</p>
                     <p className="text-sm text-accent">
-                      Review and update your blurbs monthly to keep them current with your latest achievements.
+                      Review and update your stories monthly to keep them current with your latest achievements.
                     </p>
                   </div>
                 </div>

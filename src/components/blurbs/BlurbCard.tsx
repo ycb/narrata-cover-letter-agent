@@ -128,7 +128,7 @@ export const BlurbCard = ({
         </div>
         
         {linkedExternalLinks.length > 0 && (
-          <div className="mb-4">
+          <div>
             <div className="flex items-center gap-4 flex-wrap">
               <div className="flex items-center gap-2 shrink-0">
                 <Link className="h-4 w-4 text-muted-foreground" />
