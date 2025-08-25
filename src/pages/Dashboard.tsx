@@ -161,9 +161,9 @@ const Dashboard = () => {
                   </Link>
                 </Button>
                 <Button variant="secondary" className="w-full justify-start" asChild>
-                  <Link to="/cover-letter-template?tab=reusable">
+                  <Link to="/cover-letter-template?tab=saved">
                     <FileText className="h-4 w-4 mr-2" />
-                    Add Reusable Content
+                    Add Saved Section
                   </Link>
                 </Button>
                 <Button variant="secondary" className="w-full justify-start" asChild>

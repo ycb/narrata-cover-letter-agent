@@ -79,7 +79,7 @@ export const TemplateBlurbMaster = ({
         <div>
           <h3 className="text-lg font-semibold">Template Blurb Library</h3>
           <p className="text-sm text-muted-foreground">
-            Manage your reusable cover letter content
+            Manage your saved cover letter sections
           </p>
         </div>
         
