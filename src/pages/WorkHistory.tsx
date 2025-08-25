@@ -35,20 +35,21 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
         description: "Led product strategy for core platform",
         inferredLevel: "Senior",
         tags: ["Product Management", "Strategy", "Leadership"],
-        achievements: [
+        outcomeMetrics: [
           "Increased user engagement by 40% through feature optimization",
           "Led cross-functional team of 12 engineers and designers",
           "Launched 3 major product releases ahead of schedule"
         ],
-        createdAt: "2022-01-01T00:00:00Z",
-        updatedAt: "2024-12-01T00:00:00Z",
         blurbs: [
           {
             id: "blurb-1",
             roleId: "1-1",
             title: "Product Strategy Leadership",
             content: "As Product Lead at [TechCorp] I built a high-performing product team from ground up, hiring and managing 8 product professionals while launching MVP in record 6 months.",
-            outcomeMetrics: "Launched MVP in 6 months, hired 8 product professionals",
+            outcomeMetrics: [
+              "Launched MVP in 6 months",
+              "Hired 8 product professionals"
+            ],
             tags: ["Product Management", "Strategy", "Results"],
             source: "manual",
             status: "draft",
@@ -60,6 +61,8 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
             updatedAt: "2024-01-15T00:00:00Z"
           }
         ],
+        createdAt: "2022-01-01T00:00:00Z",
+        updatedAt: "2024-12-01T00:00:00Z",
         externalLinks: [
           {
             id: "link-1",
@@ -95,7 +98,7 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
         description: "Managed product development lifecycle",
         inferredLevel: "Mid",
         tags: ["Product Management", "Development", "Analytics"],
-        achievements: [
+        outcomeMetrics: [
           "Implemented data-driven decision making process",
           "Reduced time-to-market by 25%"
         ],
@@ -125,7 +128,7 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
           description: "Built product team from ground up",
           inferredLevel: "Senior",
           tags: ["Leadership", "Team Building", "Fintech"],
-          achievements: [
+          outcomeMetrics: [
             "Hired and managed team of 8 product professionals",
             "Launched MVP in 6 months"
           ],
@@ -135,7 +138,10 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
               roleId: "2-1",
               title: "Team Building Excellence",
               content: "Built high-performing product team from ground up, hiring and managing 8 product professionals while launching MVP in record 6 months.",
-              outcomeMetrics: "Hired 8 product professionals, launched MVP in 6 months",
+              outcomeMetrics: [
+                "Launched MVP in 6 months",
+                "Hired 8 product professionals"
+              ],
               tags: ["Leadership", "Team Building", "MVP"],
               source: "manual",
                           status: "draft",

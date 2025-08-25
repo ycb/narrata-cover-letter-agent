@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
 import { 
   FileText, 
   Target, 
@@ -23,7 +24,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { WorkHistoryBlurb } from "@/types/workHistory";
+import type { WorkHistoryBlurb, ExternalLink } from "@/types/workHistory";
 import { cn } from "@/lib/utils";
 
 interface StoryCardProps {
@@ -151,17 +152,10 @@ export const StoryCard = ({
         </div>
 
         {/* Outcome Metrics */}
-        {story.outcomeMetrics && (
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <Target className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium">Outcome Metrics</span>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {story.outcomeMetrics}
-            </p>
-          </div>
-        )}
+        <OutcomeMetrics
+          metrics={story.outcomeMetrics}
+          className="mb-6"
+        />
 
         {/* Tags */}
         {story.tags.length > 0 && (

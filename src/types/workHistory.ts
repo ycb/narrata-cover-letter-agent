@@ -20,7 +20,7 @@ export interface WorkHistoryRole {
   description?: string;
   inferredLevel?: string;
   tags: string[];
-  achievements: string[];
+  outcomeMetrics: string[]; // Changed from achievements to outcomeMetrics
   blurbs: WorkHistoryBlurb[];
   externalLinks: ExternalLink[];
   createdAt: string;
@@ -44,7 +44,7 @@ export interface WorkHistoryBlurb {
   roleId: string;
   title: string;
   content: string;
-  outcomeMetrics?: string;
+  outcomeMetrics: string[]; // Changed from string to string[]
   tags: string[];
   source: 'resume' | 'manual' | 'llm-suggested';
   status: 'approved' | 'draft' | 'needs-review';

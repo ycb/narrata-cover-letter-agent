@@ -2,9 +2,13 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { StoryCard } from "@/components/work-history/StoryCard";
 import { LinkCard } from "@/components/work-history/LinkCard";
+import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
 import { cn } from "@/lib/utils";
 import { 
   Building2, 
@@ -20,7 +24,8 @@ import {
   Files,
   Trash2,
   Link as LinkIcon,
-  ChevronRight
+  ChevronRight,
+  X
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -61,6 +66,10 @@ export const WorkHistoryDetail = ({
   onDeleteStory,
 }: WorkHistoryDetailProps) => {
   const [detailView, setDetailView] = useState<DetailView>('role');
+  const [isEditingRole, setIsEditingRole] = useState(false);
+  const [editingRole, setEditingRole] = useState<WorkHistoryRole | null>(null);
+  const [isEditingStory, setIsEditingStory] = useState(false);
+  const [editingStory, setEditingStory] = useState<WorkHistoryBlurb | null>(null);
   
   const formatDateRange = (startDate: string, endDate?: string) => {
     const start = new Date(startDate).toLocaleDateString('en-US', { 
@@ -72,6 +81,252 @@ export const WorkHistoryDetail = ({
       : 'Present';
     return `${start} - ${end}`;
   };
+
+  const handleEditRole = () => {
+    if (selectedRole) {
+      setEditingRole({ ...selectedRole });
+      setIsEditingRole(true);
+    }
+  };
+
+  const handleSaveRole = () => {
+    if (editingRole && selectedRole) {
+      // Update the selected role with edited data
+      Object.assign(selectedRole, editingRole);
+      setIsEditingRole(false);
+      setEditingRole(null);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingRole(false);
+    setEditingRole(null);
+  };
+
+  const handleEditStory = (story: WorkHistoryBlurb) => {
+    setEditingStory({ ...story });
+    setIsEditingStory(true);
+  };
+
+  const handleSaveStory = () => {
+    if (editingStory && selectedRole) {
+      // Find and update the story in the selected role
+      const storyIndex = selectedRole.blurbs.findIndex(s => s.id === editingStory.id);
+      if (storyIndex !== -1) {
+        selectedRole.blurbs[storyIndex] = { ...editingStory };
+      }
+      setIsEditingStory(false);
+      setEditingStory(null);
+    }
+  };
+
+  const handleCancelEditStory = () => {
+    setIsEditingStory(false);
+    setEditingStory(null);
+  };
+
+  // Edit Role Modal - Check this first
+  if (isEditingRole && editingRole) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <CardTitle>Edit Role</CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCancelEdit}
+              className="h-8 w-8 p-0"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Empty div to ensure proper spacing for first real section */}
+            <div></div>
+            
+            {/* Basic Role Info */}
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="title">Title</Label>
+                <Input
+                  id="title"
+                  value={editingRole.title}
+                  onChange={(e) => setEditingRole({ ...editingRole, title: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={editingRole.description || ''}
+                  onChange={(e) => setEditingRole({ ...editingRole, description: e.target.value })}
+                  placeholder="Describe your role and responsibilities..."
+                />
+              </div>
+              
+              {/* Outcome Metrics */}
+              <div>
+                <div className="flex items-center gap-2">
+                  <Target className="h-4 w-4 text-muted-foreground" />
+                  <Label className="text-sm font-medium">Outcome Metrics</Label>
+                </div>
+                <div className="space-y-2 mt-2">
+                  {editingRole.outcomeMetrics.map((metric, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Input
+                        value={metric}
+                        onChange={(e) => {
+                          const updatedMetrics = [...editingRole.outcomeMetrics];
+                          updatedMetrics[index] = e.target.value;
+                          setEditingRole({ ...editingRole, outcomeMetrics: updatedMetrics });
+                        }}
+                        placeholder="Enter outcome metric..."
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const updatedMetrics = editingRole.outcomeMetrics.filter((_, i) => i !== index);
+                          setEditingRole({ ...editingRole, outcomeMetrics: updatedMetrics });
+                        }}
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setEditingRole({
+                        ...editingRole,
+                        outcomeMetrics: [...editingRole.outcomeMetrics, '']
+                      });
+                    }}
+                    className="w-full"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Metric
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end pt-4">
+              <Button onClick={handleSaveRole} className="flex-1">
+                Save Changes
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Edit Story Modal - Check this second
+  if (isEditingStory && editingStory) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <CardTitle>Edit Story</CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCancelEditStory}
+              className="h-8 w-8 p-0"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Empty div to ensure proper spacing for first real section */}
+            <div></div>
+            
+            {/* Basic Story Info */}
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="storyTitle">Title</Label>
+                <Input
+                  id="storyTitle"
+                  value={editingStory.title}
+                  onChange={(e) => setEditingStory({ ...editingStory, title: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="storyContent">Content</Label>
+                <Textarea
+                  id="storyContent"
+                  value={editingStory.content}
+                  onChange={(e) => setEditingStory({ ...editingStory, content: e.target.value })}
+                  placeholder="Describe your story and achievements..."
+                  rows={4}
+                />
+              </div>
+              
+              {/* Outcome Metrics */}
+              <div>
+                <div className="flex items-center gap-2">
+                  <Target className="h-4 w-4 text-muted-foreground" />
+                  <Label className="text-sm font-medium">Outcome Metrics</Label>
+                </div>
+                <div className="space-y-2 mt-2">
+                  {editingStory.outcomeMetrics.map((metric, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Input
+                        value={metric}
+                        onChange={(e) => {
+                          const updatedMetrics = [...editingStory.outcomeMetrics];
+                          updatedMetrics[index] = e.target.value;
+                          setEditingStory({ ...editingStory, outcomeMetrics: updatedMetrics });
+                        }}
+                        placeholder="Enter outcome metric..."
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const updatedMetrics = editingStory.outcomeMetrics.filter((_, i) => i !== index);
+                          setEditingStory({ ...editingStory, outcomeMetrics: updatedMetrics });
+                        }}
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                      setEditingStory({
+                        ...editingStory,
+                        outcomeMetrics: [...editingStory.outcomeMetrics, '']
+                      });
+                    }}
+                    className="w-full"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Metric
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end pt-4">
+              <Button onClick={handleSaveStory} className="flex-1">
+                Save Changes
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!selectedCompany && !selectedRole) {
     return (
@@ -125,7 +380,7 @@ export const WorkHistoryDetail = ({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={onAddRole}>
+                <DropdownMenuItem onClick={handleEditRole}>
                   <Edit className="mr-2 h-4 w-4" />
                   Edit Role
                 </DropdownMenuItem>
@@ -218,22 +473,10 @@ export const WorkHistoryDetail = ({
                             )}
                             
                             {/* Outcome Metrics */}
-                            {selectedRole.achievements.length > 0 && (
-                              <div className="mb-6">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <Target className="h-4 w-4 text-muted-foreground" />
-                                  <span className="text-sm font-medium">Outcome Metrics</span>
-                                </div>
-                                <ul className="space-y-2">
-                                  {selectedRole.achievements.map((achievement, index) => (
-                                    <li key={index} className="flex items-start gap-2">
-                                      <div className="h-1.5 w-1.5 rounded-full bg-primary mt-2 shrink-0" />
-                                      <span className="text-sm text-foreground">{achievement}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
+                            <OutcomeMetrics
+                              metrics={selectedRole.outcomeMetrics}
+                              className="mb-6"
+                            />
                             
                             {/* Role Tags */}
                             {selectedRole.tags.length > 0 && (
@@ -252,28 +495,6 @@ export const WorkHistoryDetail = ({
                               </div>
                             )}
                 
-                {/* Role Actions */}
-                <div className="flex justify-end pt-4">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <span className="sr-only">Open menu</span>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={onAddRole}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        Edit Role
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem>
-                        <Trash2 className="mr-2 h-4 w-4 text-red-500" />
-                        Delete Role
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
               </div>
             )}
 
@@ -307,7 +528,7 @@ export const WorkHistoryDetail = ({
                           <StoryCard
                             story={story}
                             linkedLinks={linkedLinks}
-                            onEdit={() => onEditStory?.(story)}
+                            onEdit={() => handleEditStory(story)}
                             onDuplicate={() => onDuplicateStory?.(story)}
                             onDelete={() => onDeleteStory?.(story)}
                           />

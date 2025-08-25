@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { X } from "lucide-react";
+import { X, Target, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { WorkHistoryCompany } from "@/types/workHistory";
 
@@ -23,6 +23,8 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded }: AddRo
   const [description, setDescription] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
+  const [outcomeMetrics, setOutcomeMetrics] = useState<string[]>([]);
+  const [outcomeMetricInput, setOutcomeMetricInput] = useState("");
   const { toast } = useToast();
 
   const handleAddTag = () => {
@@ -34,6 +36,17 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded }: AddRo
 
   const handleRemoveTag = (tagToRemove: string) => {
     setTags(tags.filter(tag => tag !== tagToRemove));
+  };
+
+  const handleAddOutcomeMetric = () => {
+    if (outcomeMetricInput.trim() && !outcomeMetrics.includes(outcomeMetricInput.trim())) {
+      setOutcomeMetrics([...outcomeMetrics, outcomeMetricInput.trim()]);
+      setOutcomeMetricInput("");
+    }
+  };
+
+  const handleRemoveOutcomeMetric = (metricToRemove: string) => {
+    setOutcomeMetrics(outcomeMetrics.filter(metric => metric !== metricToRemove));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -49,7 +62,7 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded }: AddRo
     }
 
     // Here you would typically save to your backend/state management
-    console.log("Creating role:", { title, startDate, endDate, description, tags, companyId: company?.id });
+    console.log("Creating role:", { title, startDate, endDate, description, tags, outcomeMetrics, companyId: company?.id });
     
     toast({
       title: "Role added",
@@ -63,6 +76,8 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded }: AddRo
     setDescription("");
     setTags([]);
     setTagInput("");
+    setOutcomeMetrics([]);
+    setOutcomeMetricInput("");
     
     onRoleAdded?.();
     onOpenChange(false);
@@ -77,7 +92,7 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded }: AddRo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Role</DialogTitle>
           <DialogDescription>
@@ -162,11 +177,46 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded }: AddRo
               </div>
             )}
           </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="outcomeMetrics">Outcome Metrics</Label>
+            <div className="flex gap-2">
+              <Input
+                id="outcomeMetrics"
+                value={outcomeMetricInput}
+                onChange={(e) => setOutcomeMetricInput(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleAddOutcomeMetric();
+                  }
+                }}
+                placeholder="Add an outcome metric and press Enter"
+              />
+              <Button type="button" onClick={handleAddOutcomeMetric} size="sm">
+                Add
+              </Button>
+            </div>
+            
+            {outcomeMetrics.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {outcomeMetrics.map((metric) => (
+                  <Badge key={metric} variant="secondary" className="text-xs">
+                    {metric}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveOutcomeMetric(metric)}
+                      className="ml-1 hover:text-destructive"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
           
-          <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
+          <div className="flex justify-end pt-4">
             <Button type="submit">
               Add Role
             </Button>

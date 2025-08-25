@@ -25,7 +25,8 @@ export function AddStoryModal({ open, onOpenChange, roleId, onSave, existingLink
   // Story state
   const [storyTitle, setStoryTitle] = useState(editingStory?.title || "");
   const [storyContent, setStoryContent] = useState(editingStory?.content || "");
-  const [storyOutcomeMetrics, setStoryOutcomeMetrics] = useState(editingStory?.outcomeMetrics || "");
+  const [storyOutcomeMetrics, setStoryOutcomeMetrics] = useState<string[]>(editingStory?.outcomeMetrics || []);
+  const [outcomeMetricInput, setOutcomeMetricInput] = useState("");
   const [storyTags, setStoryTags] = useState<string[]>(editingStory?.tags || []);
   const [storyTagInput, setStoryTagInput] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
@@ -40,14 +41,17 @@ export function AddStoryModal({ open, onOpenChange, roleId, onSave, existingLink
     if (editingStory) {
       setStoryTitle(editingStory.title);
       setStoryContent(editingStory.content);
-      setStoryOutcomeMetrics(editingStory.outcomeMetrics || "");
+      setStoryOutcomeMetrics(editingStory.outcomeMetrics || []);
+      setOutcomeMetricInput("");
       setStoryTags(editingStory.tags);
     } else {
       // Reset form when not editing
       setStoryTitle("");
       setStoryContent("");
-      setStoryOutcomeMetrics("");
+      setStoryOutcomeMetrics([]);
+      setOutcomeMetricInput("");
       setStoryTags([]);
+      setSelectedTemplate("");
     }
   }, [editingStory]);
 
@@ -66,7 +70,7 @@ export function AddStoryModal({ open, onOpenChange, roleId, onSave, existingLink
     const template = STORY_TEMPLATES[templateKey as keyof typeof STORY_TEMPLATES];
     if (template) {
       setStoryContent(template.prompt);
-      setStoryOutcomeMetrics("");
+      setStoryOutcomeMetrics([]);
       setStoryTags([]);
       setSelectedTemplate(templateKey);
     }
@@ -89,7 +93,7 @@ export function AddStoryModal({ open, onOpenChange, roleId, onSave, existingLink
       roleId,
       title: storyTitle.trim(),
       content: storyContent.trim(),
-      outcomeMetrics: storyOutcomeMetrics.trim(),
+      outcomeMetrics: storyOutcomeMetrics,
       tags: storyTags,
       source: "manual" as const,
       status: "draft" as const,
@@ -103,7 +107,8 @@ export function AddStoryModal({ open, onOpenChange, roleId, onSave, existingLink
     // Reset story form
     setStoryTitle("");
     setStoryContent("");
-    setStoryOutcomeMetrics("");
+    setStoryOutcomeMetrics([]);
+    setOutcomeMetricInput("");
     setStoryTags([]);
     setStoryTagInput("");
     setSelectedTemplate("");
@@ -190,28 +195,74 @@ export function AddStoryModal({ open, onOpenChange, roleId, onSave, existingLink
                       Add supporting links to strengthen your story
                     </div>
                     <Button
-                      type="button"
-                      variant="outline"
+                      variant="secondary"
                       size="sm"
                       onClick={() => setIsLinkPickerOpen(true)}
-                      className="flex items-center gap-2"
+                      className="h-8 px-3"
                     >
-                      <LinkIcon className="h-4 w-4" />
-                      Insert Link
+                      <LinkIcon className="h-4 w-4 mr-2" />
+                      Pick Links
                     </Button>
                   </div>
                 </div>
               </div>
               
-              <div className="space-y-2">
+              <div className="space-y-4">
                 <Label htmlFor="storyOutcomeMetrics">Outcome Metrics (Optional)</Label>
-                <Textarea
-                  id="storyOutcomeMetrics"
-                  value={storyOutcomeMetrics}
-                  onChange={(e) => setStoryOutcomeMetrics(e.target.value)}
-                  placeholder="Quantify your impact: e.g., 'Increased revenue by 25%', 'Reduced costs by $50K'"
-                  rows={2}
-                />
+                <div className="space-y-2">
+                  {storyOutcomeMetrics.map((metric, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Input
+                        value={metric}
+                        onChange={(e) => {
+                          const updatedMetrics = [...storyOutcomeMetrics];
+                          updatedMetrics[index] = e.target.value;
+                          setStoryOutcomeMetrics(updatedMetrics);
+                        }}
+                        placeholder="Enter outcome metric..."
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const updatedMetrics = storyOutcomeMetrics.filter((_, i) => i !== index);
+                          setStoryOutcomeMetrics(updatedMetrics);
+                        }}
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <div className="flex gap-2">
+                    <Input
+                      value={outcomeMetricInput}
+                      onChange={(e) => setOutcomeMetricInput(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          if (outcomeMetricInput.trim() && !storyOutcomeMetrics.includes(outcomeMetricInput.trim())) {
+                            setStoryOutcomeMetrics([...storyOutcomeMetrics, outcomeMetricInput.trim()]);
+                            setOutcomeMetricInput('');
+                          }
+                        }
+                      }}
+                      placeholder="Add an outcome metric and press Enter"
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        if (outcomeMetricInput.trim() && !storyOutcomeMetrics.includes(outcomeMetricInput.trim())) {
+                          setStoryOutcomeMetrics([...storyOutcomeMetrics, outcomeMetricInput.trim()]);
+                          setOutcomeMetricInput('');
+                        }
+                      }}
+                      size="sm"
+                    >
+                      Add
+                    </Button>
+                  </div>
+                </div>
               </div>
               
               <div className="space-y-2">
@@ -221,7 +272,7 @@ export function AddStoryModal({ open, onOpenChange, roleId, onSave, existingLink
                     id="storyTags"
                     value={storyTagInput}
                     onChange={(e) => setStoryTagInput(e.target.value)}
-                    onKeyPress={(e) => handleKeyPress(e, true)}
+                    onKeyPress={handleKeyPress}
                     placeholder="Add a tag and press Enter"
                   />
                   <Button type="button" onClick={handleAddStoryTag} size="sm">
@@ -247,10 +298,7 @@ export function AddStoryModal({ open, onOpenChange, roleId, onSave, existingLink
                 )}
               </div>
               
-              <div className="flex justify-end gap-2 pt-4">
-                <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
-                  Cancel
-                </Button>
+              <div className="flex justify-end pt-4">
                 <Button type="submit">
                   Add Story
                 </Button>
