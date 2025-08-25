@@ -15,10 +15,21 @@ import {
   ArrowRight,
   Briefcase,
   Award,
-  Clock
+  Clock,
+  Users
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import CoverLetterCreateModal from "@/components/cover-letters/CoverLetterCreateModal";
+
+// Import new v2 components
+import { CoverageMap } from "@/components/dashboard/CoverageMap";
+import { StoryStrength } from "@/components/dashboard/StoryStrength";
+import { ResumeGapInsights } from "@/components/dashboard/ResumeGapInsights";
+import { LastLetterSent } from "@/components/dashboard/LastLetterSent";
+import { QuickActionsV2 } from "@/components/dashboard/QuickActionsV2";
+
+// Import mock data
+import { mockDashboardV2Data } from "@/lib/dashboard-data";
 
 const Dashboard = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -55,6 +66,17 @@ const Dashboard = () => {
       timesUsed: 15
     }
   ];
+
+  // Transform mock data for QuickActionsV2
+  const quickActions = mockDashboardV2Data.quickActions.map(action => ({
+    ...action,
+    icon: action.id.includes('strategy') ? Target : 
+          action.id.includes('outcomes') ? TrendingUp :
+          action.id.includes('leadership') ? Users : FileText,
+    category: action.id.includes('strategy') ? 'stories' as const :
+              action.id.includes('outcomes') ? 'improvement' as const :
+              action.id.includes('leadership') ? 'stories' as const : 'stories' as const
+  }));
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
@@ -100,83 +122,41 @@ const Dashboard = () => {
             trend={{ value: "+12% vs last month", isPositive: true }}
           />
           <StatsCard
-            title="Success Rate"
-            value="34%"
-            description="Interview to application ratio"
+            title="Coverage"
+            value={`${mockDashboardV2Data.coverageMap.overallCoverage}%`}
+            description="PM competency coverage"
             icon={TrendingUp}
-            trend={{ value: "+8% improvement", isPositive: true }}
+            trend={{ value: "+5% this month", isPositive: true }}
           />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Recent Stories */}
-          <div className="lg:col-span-2">
-            <Card className="shadow-medium">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-accent" />
-                    Recent Stories
-                  </CardTitle>
-                  <div className="flex items-center gap-4">
-                    <div className="relative">
-                      <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-                      <Input 
-                        placeholder="Search stories..." 
-                        className="pl-9 w-64"
-                      />
-                    </div>
-                    <Button variant="tertiary" size="icon">
-                      <Filter className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {recentBlurbs.map((blurb) => (
-                  <BlurbCard key={blurb.id} {...blurb} />
-                ))}
-              </CardContent>
-            </Card>
+          {/* Main Content - Coverage Map and Story Strength */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Coverage Map */}
+            <CoverageMap 
+              coverage={mockDashboardV2Data.coverageMap.competencies}
+              overallCoverage={mockDashboardV2Data.coverageMap.overallCoverage}
+              priorityGaps={mockDashboardV2Data.coverageMap.priorityGaps}
+            />
+
+            {/* Story Strength */}
+            <StoryStrength storyStrength={mockDashboardV2Data.storyStrength} />
+
+            {/* Resume Gap Insights */}
+            <ResumeGapInsights gaps={mockDashboardV2Data.resumeGaps} />
           </div>
 
           {/* Sidebar */}
-          <div>
-            {/* Quick Actions */}
-            <Card className="shadow-soft">
-              <CardHeader>
-                <CardTitle className="text-lg">Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button variant="secondary" className="w-full justify-start" asChild>
-                  <Link to="/work-history?tab=stories">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add New Story
-                  </Link>
-                </Button>
-                <Button variant="secondary" className="w-full justify-start" asChild>
-                  <Link to="/work-history">
-                    <Briefcase className="h-4 w-4 mr-2" />
-                    Update Work History
-                  </Link>
-                </Button>
-                <Button variant="secondary" className="w-full justify-start" asChild>
-                  <Link to="/cover-letter-template?tab=saved">
-                    <FileText className="h-4 w-4 mr-2" />
-                    Add Saved Section
-                  </Link>
-                </Button>
-                <Button variant="secondary" className="w-full justify-start" asChild>
-                  <Link to="/assessment">
-                    <Award className="h-4 w-4 mr-2" />
-                    View PM Assessment
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
+          <div className="space-y-6">
+            {/* Smart Actions */}
+            <QuickActionsV2 actions={quickActions} />
+
+            {/* Last Letter Sent */}
+            <LastLetterSent lastLetter={mockDashboardV2Data.lastLetter} />
 
             {/* Recent Activity */}
-            <Card className="shadow-soft section-spacing">
+            <Card className="shadow-soft">
               <CardHeader>
                 <CardTitle className="text-lg">Recent Activity</CardTitle>
               </CardHeader>
@@ -209,7 +189,7 @@ const Dashboard = () => {
             </Card>
 
             {/* Pro Tip */}
-            <Card className="shadow-soft bg-accent-light border-accent section-spacing">
+            <Card className="shadow-soft bg-accent-light border-accent">
               <CardContent className="pt-6">
                 <div className="flex items-start gap-3">
                   <div className="h-8 w-8 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
@@ -218,7 +198,7 @@ const Dashboard = () => {
                   <div>
                     <p className="font-medium text-accent mb-1">Pro Tip</p>
                     <p className="text-sm text-accent">
-                      Review and update your stories monthly to keep them current with your latest achievements.
+                      Focus on high-priority competency gaps first to improve your overall coverage and story strength.
                     </p>
                   </div>
                 </div>
