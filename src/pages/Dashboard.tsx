@@ -1,32 +1,23 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { StatsCard } from "@/components/dashboard/StatsCard";
-import { BlurbCard } from "@/components/blurbs/BlurbCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { 
   FileText, 
   Target, 
   TrendingUp, 
   Plus, 
-  Filter,
-  Search,
   ArrowRight,
-  Briefcase,
-  Award,
-  Clock,
-  Users
+  Clock
 } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import CoverLetterCreateModal from "@/components/cover-letters/CoverLetterCreateModal";
 
-// Import new v2 components
-import { CoverageMap } from "@/components/dashboard/CoverageMap";
-import { StoryStrength } from "@/components/dashboard/StoryStrength";
-import { ResumeGapInsights } from "@/components/dashboard/ResumeGapInsights";
-import { LastLetterSent } from "@/components/dashboard/LastLetterSent";
-import { QuickActionsV2 } from "@/components/dashboard/QuickActionsV2";
+// Import new simplified v2 components
+import { CoverageMapSimplified } from "@/components/dashboard/CoverageMapSimplified";
+import { StoryGapsAndStrength } from "@/components/dashboard/StoryGapsAndStrength";
+import { TopActionNeeded } from "@/components/dashboard/TopActionNeeded";
+import { RecentActivityCollapsible } from "@/components/dashboard/RecentActivityCollapsible";
 
 // Import mock data
 import { mockDashboardV2Data } from "@/lib/dashboard-data";
@@ -34,49 +25,41 @@ import { mockDashboardV2Data } from "@/lib/dashboard-data";
 const Dashboard = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   
-  const recentBlurbs = [
-    {
-      id: '1',
-      title: 'Growth PM Leadership at SaaS Startup',
-      content: 'Led cross-functional product team of 8 to drive 40% user acquisition growth through data-driven experimentation and customer research, resulting in $2M ARR increase.',
-      status: 'approved' as const,
-      confidence: 'high' as const,
-      tags: ['Growth', 'Leadership', 'SaaS', 'Data-Driven'],
-      lastUsed: '2 days ago',
-      timesUsed: 12
-    },
-    {
-      id: '2', 
-      title: '0-1 Product Development Success',
-      content: 'Built and launched MVP mobile platform from concept to 10K+ users in 6 months, collaborating with design and engineering to validate product-market fit.',
-      status: 'draft' as const,
-      confidence: 'medium' as const,
-      tags: ['0-1', 'Mobile', 'MVP', 'Product-Market Fit'],
-      lastUsed: '1 week ago',
-      timesUsed: 8
-    },
-    {
-      id: '3',
-      title: 'Customer Research & Strategy',
-      content: 'Conducted 50+ customer interviews and usability studies to inform product roadmap, leading to 25% improvement in user satisfaction scores.',
-      status: 'needs-review' as const,
-      confidence: 'high' as const,
-      tags: ['Research', 'Strategy', 'Customer Experience'],
-      lastUsed: '3 days ago',
-      timesUsed: 15
-    }
-  ];
-
-  // Transform mock data for QuickActionsV2
-  const quickActions = mockDashboardV2Data.quickActions.map(action => ({
+  // Transform mock data for TopActionNeeded
+  const topActions = mockDashboardV2Data.quickActions.map(action => ({
     ...action,
-    icon: action.id.includes('strategy') ? Target : 
-          action.id.includes('outcomes') ? TrendingUp :
-          action.id.includes('leadership') ? Users : FileText,
     category: action.id.includes('strategy') ? 'stories' as const :
               action.id.includes('outcomes') ? 'improvement' as const :
               action.id.includes('leadership') ? 'stories' as const : 'stories' as const
   }));
+
+  // Mock activity data
+  const recentActivities = [
+    {
+      id: '1',
+      type: 'cover-letter' as const,
+      title: 'Cover letter sent',
+      description: 'Senior PM at TechCorp',
+      time: '2 hours ago',
+      status: 'success' as const
+    },
+    {
+      id: '2',
+      type: 'story' as const,
+      title: 'New story created',
+      description: 'Leadership experience',
+      time: '1 day ago',
+      status: 'info' as const
+    },
+    {
+      id: '3',
+      type: 'profile' as const,
+      title: 'Profile updated',
+      description: 'LinkedIn sync completed',
+      time: '3 days ago',
+      status: 'warning' as const
+    }
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
@@ -105,7 +88,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Stats Grid */}
+        {/* Metrics Overview - Simplified */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <StatsCard
             title="Total Stories"
@@ -131,62 +114,30 @@ const Dashboard = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content - Coverage Map and Story Strength */}
+          {/* Main Content - Simplified Structure */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Coverage Map */}
-            <CoverageMap 
+            {/* Top Action Needed - Primary Focus */}
+            <TopActionNeeded actions={topActions} />
+
+            {/* Story Gaps & Strength - Consolidated */}
+            <StoryGapsAndStrength 
+              storyStrength={mockDashboardV2Data.storyStrength}
+              gaps={mockDashboardV2Data.resumeGaps}
+              coverage={mockDashboardV2Data.coverageMap.competencies}
+            />
+
+            {/* Coverage Map - Simplified */}
+            <CoverageMapSimplified 
               coverage={mockDashboardV2Data.coverageMap.competencies}
               overallCoverage={mockDashboardV2Data.coverageMap.overallCoverage}
               priorityGaps={mockDashboardV2Data.coverageMap.priorityGaps}
             />
-
-            {/* Story Strength */}
-            <StoryStrength storyStrength={mockDashboardV2Data.storyStrength} />
-
-            {/* Resume Gap Insights */}
-            <ResumeGapInsights gaps={mockDashboardV2Data.resumeGaps} />
           </div>
 
-          {/* Sidebar */}
+          {/* Sidebar - Simplified */}
           <div className="space-y-6">
-            {/* Smart Actions */}
-            <QuickActionsV2 actions={quickActions} />
-
-            {/* Last Letter Sent */}
-            <LastLetterSent lastLetter={mockDashboardV2Data.lastLetter} />
-
-            {/* Recent Activity */}
-            <Card className="shadow-soft">
-              <CardHeader>
-                <CardTitle className="text-lg">Recent Activity</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="h-2 w-2 rounded-full bg-success mt-2" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Cover letter approved</p>
-                    <p className="text-xs text-muted-foreground">Senior PM at TechCorp</p>
-                    <p className="text-xs text-muted-foreground">2 hours ago</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="h-2 w-2 rounded-full bg-accent mt-2" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">New story created</p>
-                    <p className="text-xs text-muted-foreground">Leadership experience</p>
-                    <p className="text-xs text-muted-foreground">1 day ago</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="h-2 w-2 rounded-full bg-warning mt-2" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Profile updated</p>
-                    <p className="text-xs text-muted-foreground">LinkedIn sync completed</p>
-                    <p className="text-xs text-muted-foreground">3 days ago</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {/* Recent Activity - Collapsed by Default */}
+            <RecentActivityCollapsible activities={recentActivities} />
 
             {/* Pro Tip */}
             <Card className="shadow-soft bg-accent-light border-accent">
