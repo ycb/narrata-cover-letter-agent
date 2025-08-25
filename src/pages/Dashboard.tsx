@@ -58,12 +58,12 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
-      <main className="container pb-8">
+      <main className="container mx-auto px-4 pb-8">
         {/* Welcome Section */}
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-start justify-between mb-6">
             <div>
-              <h1 className="text-3xl font-bold text-foreground">
+              <h1 className="text-3xl font-bold text-foreground top-padding-only">
                 Welcome back, Alex
               </h1>
               <p className="text-muted-foreground mt-1">
@@ -73,7 +73,7 @@ const Dashboard = () => {
             <Button 
               variant="brand" 
               size="lg" 
-              className="gap-2"
+              className="gap-2 cta-center"
               onClick={() => setIsCreateModalOpen(true)}
             >
               <Plus className="h-5 w-5" />

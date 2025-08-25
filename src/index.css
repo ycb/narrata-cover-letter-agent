@@ -399,6 +399,22 @@ All colors MUST be HSL.
     padding-bottom: 1.5rem; /* 24px */
   }
 
+  /* Top Padding Only */
+  .top-padding-only {
+    padding-top: 1.5rem; /* 24px */
+  }
+
+  /* CTA Button Centering */
+  .cta-center {
+    margin-top: 2.25rem; /* 36px */
+  }
+  
+  @media (min-width: 768px) {
+    .cta-center {
+      margin-top: 2.25rem; /* 36px on desktop (md:flex-row) */
+    }
+  }
+
   /* Master Component Section Wrapping */
 
   .assessment-card-mobile {
