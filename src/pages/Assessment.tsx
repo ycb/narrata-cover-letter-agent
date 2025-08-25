@@ -565,6 +565,34 @@ const Assessment = () => {
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [showLeadershipTrack, setShowLeadershipTrack] = useState(false);
 
+  // Smart CTA logic - determine which area needs improvement
+  const getSmartCTA = () => {
+    const dataMetrics = {
+      stories: 47,
+      externalLinks: 3,
+      outcomeMetrics: 5
+    };
+    
+    // Find the metric with the lowest count
+    const weakestArea = Object.entries(dataMetrics).reduce((a, b) => 
+      dataMetrics[a[0]] < dataMetrics[b[0]] ? a : b
+    );
+    
+    const ctaText = {
+      stories: "Add More Stories",
+      externalLinks: "Add External Links", 
+      outcomeMetrics: "Add Outcome Metrics"
+    };
+    
+    return {
+      text: ctaText[weakestArea[0] as keyof typeof ctaText],
+      area: weakestArea[0],
+      count: weakestArea[1]
+    };
+  };
+
+  const smartCTA = getSmartCTA();
+
   const getLevelColor = (level: string) => {
     switch (level) {
       case "Strong": return "text-success border-success/20";
@@ -649,13 +677,13 @@ const Assessment = () => {
                   <div className="text-sm font-medium">Uploaded</div>
                 </div>
 
-                {/* Cover Letters */}
+                {/* Outcome Metrics */}
                 <div className="text-center p-2 bg-muted/20 rounded border">
                   <div className="flex items-center justify-center gap-1 mb-1">
-                    <div className="h-2 w-2 rounded-full bg-warning"></div>
-                    <span className="text-xs text-muted-foreground">Cover Letters</span>
+                    <div className="h-2 w-2 rounded-full bg-success"></div>
+                    <span className="text-xs text-muted-foreground">Outcome Metrics</span>
                   </div>
-                  <div className="text-sm font-medium">0</div>
+                  <div className="text-sm font-medium">5</div>
                 </div>
 
                 {/* Stories/Blurbs */}
@@ -679,20 +707,12 @@ const Assessment = () => {
               
               {/* Action Description & CTAs - Modern Grid Layout */}
               <div className="p-4 bg-muted/10 rounded-lg">
-                <div className="flex flex-col md:flex-row items-center justify-between gap-3 mb-3">
-                  <p className="text-sm text-muted-foreground whitespace-nowrap">
+                <div className="flex flex-col md:flex-row items-center md:justify-end gap-4">
+                  <p className="text-sm text-muted-foreground text-right w-full md:w-auto">
                     Improve your assessment with more evidence
                   </p>
-                </div>
-                <div className="grid grid-cols-3 gap-2 w-full">
-                  <Button variant="secondary" size="sm" className="w-full">
-                    Add More Stories
-                  </Button>
-                  <Button variant="secondary" size="sm" className="w-full">
-                    Add External Links
-                  </Button>
-                  <Button variant="secondary" size="sm" className="w-full">
-                    Add Quantified Results
+                  <Button variant="secondary" size="sm" className="whitespace-nowrap">
+                    {smartCTA.text}
                   </Button>
                 </div>
               </div>
