@@ -72,10 +72,9 @@ const CoverLetters = () => {
       <main className="container mx-auto px-4 pb-8">
         <div className="max-w-6xl mx-auto">
           {/* Header Section */}
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-foreground mb-2">Cover Letters</h1>
-              <p className="text-muted-foreground">Create and manage your cover letters</p>
+              <p className="text-muted-foreground description-spacing">Create and manage your cover letters</p>
             </div>
             
             <div className="flex gap-3">
@@ -125,7 +124,7 @@ const CoverLetters = () => {
                         {letter.status}
                       </Badge>
                       <div className="text-right">
-                        <div className="text-sm text-muted-foreground">LLM Score</div>
+                        <div className="text-sm text-muted-foreground">ATS Score</div>
                         <div className={`font-semibold ${getScoreColor(letter.llmFeedback.score)}`}>
                           {letter.llmFeedback.score}%
                         </div>

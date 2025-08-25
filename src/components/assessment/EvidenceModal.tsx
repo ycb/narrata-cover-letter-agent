@@ -2,7 +2,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { X, Tag, Building, User, Calendar, Target, Edit, FileText } from "lucide-react";
+import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
+import { X, Tag, Building, User, Calendar, Target, Edit, FileText, BarChart3 } from "lucide-react";
 
 interface EvidenceBlurb {
   id: string;
@@ -14,6 +15,7 @@ interface EvidenceBlurb {
   lastUsed: string;
   timesUsed: number;
   confidence: 'high' | 'medium' | 'low';
+  outcomeMetrics?: string[];
 }
 
 interface EvidenceModalProps {
@@ -146,6 +148,24 @@ const EvidenceModal = ({
                   </Badge>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Outcome Metrics */}
+          <Card className="section-spacing">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                Outcome Metrics
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <OutcomeMetrics 
+                metrics={evidence
+                  .filter(blurb => blurb.outcomeMetrics && blurb.outcomeMetrics.length > 0)
+                  .flatMap(blurb => blurb.outcomeMetrics || [])
+                } 
+              />
             </CardContent>
           </Card>
 

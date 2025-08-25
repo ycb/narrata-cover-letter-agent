@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
 import { 
   Building, 
   User, 
@@ -36,6 +37,15 @@ interface LevelEvidence {
     description: string;
     examples: string[];
   }[];
+  outcomeMetrics: {
+    roleLevel: string[];
+    storyLevel: string[];
+    analysis: {
+      totalMetrics: number;
+      impactLevel: 'feature' | 'team' | 'org' | 'company';
+      keyAchievements: string[];
+    };
+  };
 }
 
 interface LevelEvidenceModalProps {
@@ -68,7 +78,7 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
               </DialogDescription>
             </div>
             <div className="flex items-center gap-2 mt-4">
-              <Button variant="outline" size="sm" className="flex items-center gap-2">
+              <Button variant="secondary" size="sm" className="flex items-center gap-2">
                 <Edit className="h-4 w-4" />
                 This looks wrong
               </Button>
@@ -194,7 +204,7 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
                   <h4 className="font-medium">{evidence.levelingFramework.framework}</h4>
                   <p className="text-sm text-muted-foreground">Framework used for assessment</p>
                 </div>
-                <Badge variant="outline">{evidence.levelingFramework.match}</Badge>
+                <Badge variant="secondary">{evidence.levelingFramework.match}</Badge>
               </div>
               
               <div>
@@ -229,6 +239,24 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
                   </div>
                 </div>
               ))}
+            </CardContent>
+          </Card>
+
+          {/* Outcome Metrics */}
+          <Card className="section-spacing">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                Outcome Metrics
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <OutcomeMetrics 
+                metrics={[
+                  ...evidence.outcomeMetrics.roleLevel,
+                  ...evidence.outcomeMetrics.storyLevel
+                ]} 
+              />
             </CardContent>
           </Card>
 

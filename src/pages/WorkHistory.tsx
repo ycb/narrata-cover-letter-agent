@@ -296,7 +296,7 @@ export default function WorkHistory() {
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-4 pb-8">
         <div>
-          <p className="text-muted-foreground py-4">Summarize impact with stories and links</p>
+          <p className="text-muted-foreground description-spacing">Summarize impact with metrics, stories and links</p>
         </div>
 
 

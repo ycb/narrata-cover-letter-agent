@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
 import { 
   Building, 
   Target, 
@@ -55,6 +56,15 @@ interface RoleEvidence {
     description: string;
     suggestions: string[];
   }[];
+  outcomeMetrics: {
+    roleLevel: string[];
+    storyLevel: string[];
+    analysis: {
+      totalMetrics: number;
+      impactLevel: 'feature' | 'team' | 'org' | 'company';
+      keyAchievements: string[];
+    };
+  };
 }
 
 interface RoleEvidenceModalProps {
@@ -88,7 +98,7 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
               </DialogDescription>
             </div>
             <div className="flex items-center gap-3 flex-wrap">
-              <Button variant="outline" size="sm" className="flex items-center gap-2">
+              <Button variant="secondary" size="sm" className="flex items-center gap-2">
                 <Edit className="h-4 w-4" />
                 This looks wrong
               </Button>
@@ -254,6 +264,24 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
               </CollapsibleContent>
             </Card>
           </Collapsible>
+
+          {/* Outcome Metrics */}
+          <Card className="section-spacing">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                Outcome Metrics
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <OutcomeMetrics 
+                metrics={[
+                  ...evidence.outcomeMetrics.roleLevel,
+                  ...evidence.outcomeMetrics.storyLevel
+                ]} 
+              />
+            </CardContent>
+          </Card>
 
           {/* Section 5: Areas for Improvement */}
           {evidence.gaps.length > 0 && (

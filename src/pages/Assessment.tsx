@@ -49,7 +49,12 @@ const mockAssessment = {
           sourceCompany: "InnovateTech",
           lastUsed: "2 days ago",
           timesUsed: 12,
-          confidence: "high"
+          confidence: "high",
+          outcomeMetrics: [
+            "40% user acquisition growth",
+            "$2M ARR increase",
+            "Led team of 8 cross-functional members"
+          ]
         },
         {
           id: "exec-2",
@@ -60,7 +65,12 @@ const mockAssessment = {
           sourceCompany: "StartupXYZ",
           lastUsed: "1 week ago",
           timesUsed: 8,
-          confidence: "high"
+          confidence: "high",
+          outcomeMetrics: [
+            "Launched MVP in 6 months",
+            "Reached 10K+ users",
+            "Validated product-market fit"
+          ]
         }
       ]
     },
@@ -81,7 +91,12 @@ const mockAssessment = {
           sourceCompany: "Meta",
           lastUsed: "3 days ago",
           timesUsed: 15,
-          confidence: "high"
+          confidence: "high",
+          outcomeMetrics: [
+            "50+ customer interviews conducted",
+            "25% improvement in user satisfaction",
+            "Informed product roadmap decisions"
+          ]
         }
       ]
     },
@@ -102,7 +117,12 @@ const mockAssessment = {
           sourceCompany: "TechCorp",
           lastUsed: "2 weeks ago",
           timesUsed: 3,
-          confidence: "medium"
+          confidence: "medium",
+          outcomeMetrics: [
+            "Developed 3-year platform strategy",
+            "Completed market analysis",
+            "Established competitive positioning"
+          ]
         }
       ]
     },
@@ -123,7 +143,12 @@ const mockAssessment = {
           sourceCompany: "Aurora",
           lastUsed: "1 month ago",
           timesUsed: 6,
-          confidence: "high"
+          confidence: "high",
+          outcomeMetrics: [
+            "Led 15-person cross-functional team",
+            "Delivered product launch on time",
+            "Completed project under budget"
+          ]
         }
       ]
     }
@@ -209,7 +234,28 @@ const mockAssessment = {
         description: "Limited evidence of board-level presentations and executive influence",
         examples: ["Board presentations", "C-suite collaboration", "Investor communications"]
       }
-    ]
+    ],
+    outcomeMetrics: {
+      roleLevel: [
+        "Led cross-functional team of 12 engineers and designers",
+        "Increased user engagement by 40% through feature optimization",
+        "Launched 3 major product releases ahead of schedule"
+      ],
+      storyLevel: [
+        "Launched MVP in 6 months",
+        "Hired 8 product professionals",
+        "Built high-performing product team from ground up"
+      ],
+      analysis: {
+        totalMetrics: 6,
+        impactLevel: 'team' as const,
+        keyAchievements: [
+          "Team leadership at scale (12+ people)",
+          "Significant user engagement improvement (40%)",
+          "Accelerated product delivery (ahead of schedule)"
+        ]
+      }
+    }
   },
 
   // Role Archetype Evidence Data
@@ -274,7 +320,28 @@ const mockAssessment = {
           description: "Limited experience with enterprise sales and B2B growth",
           suggestions: ["B2B customer development", "Enterprise sales process", "Account-based marketing"]
         }
-      ]
+      ],
+      outcomeMetrics: {
+        roleLevel: [
+          "Led 40% user acquisition growth",
+          "Built MVP to 10K users",
+          "Managed cross-functional team of 8"
+        ],
+        storyLevel: [
+          "Launched MVP in 6 months",
+          "Achieved $2M ARR increase",
+          "Validated product-market fit"
+        ],
+        analysis: {
+          totalMetrics: 6,
+          impactLevel: 'team' as const,
+          keyAchievements: [
+            "Significant user growth (40%)",
+            "Rapid MVP development (6 months)",
+            "Substantial revenue impact ($2M ARR)"
+          ]
+        }
+      }
     },
     "Technical PM": {
       roleType: "Technical PM",
@@ -330,7 +397,28 @@ const mockAssessment = {
           description: "Need more evidence of hands-on technical implementation",
           suggestions: ["Technical implementation", "Code reviews", "Technical architecture decisions"]
         }
-      ]
+      ],
+      outcomeMetrics: {
+        roleLevel: [
+          "Designed scalable API architecture",
+          "Led platform strategy development",
+          "Collaborated with engineering teams"
+        ],
+        storyLevel: [
+          "Improved API performance by 30%",
+          "Reduced technical debt by 25%",
+          "Enhanced platform scalability"
+        ],
+        analysis: {
+          totalMetrics: 6,
+          impactLevel: 'feature' as const,
+          keyAchievements: [
+            "API performance improvement (30%)",
+            "Technical debt reduction (25%)",
+            "Platform scalability enhancement"
+          ]
+        }
+      }
     },
     "Founding PM": {
       roleType: "Founding PM",
@@ -386,7 +474,28 @@ const mockAssessment = {
           description: "Limited evidence of fundraising and investor relations",
           suggestions: ["Investor presentations", "Fundraising strategy", "Financial modeling"]
         }
-      ]
+      ],
+      outcomeMetrics: {
+        roleLevel: [
+          "Built MVP from concept to launch",
+          "Led product-market fit validation",
+          "Made strategic product decisions"
+        ],
+        storyLevel: [
+          "Launched MVP in 6 months",
+          "Reached 10K+ users",
+          "Validated product-market fit"
+        ],
+        analysis: {
+          totalMetrics: 6,
+          impactLevel: 'company' as const,
+          keyAchievements: [
+            "Successful MVP launch",
+            "User validation (10K+)",
+            "Product-market fit achieved"
+          ]
+        }
+      }
     },
     "Platform PM": {
       roleType: "Platform PM",
@@ -501,8 +610,11 @@ const Assessment = () => {
       <main className="container pb-8">
         <div className="max-w-6xl mx-auto">
           
+          {/* Page Description */}
+          <p className="text-muted-foreground description-spacing">View your level, evidence and ways to progress</p>
+          
           {/* Data Sources & Next Steps - Consolidated */}
-          <Card className="shadow-soft section-spacing hidden md:block">
+          <Card className="shadow-soft hidden md:block">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
