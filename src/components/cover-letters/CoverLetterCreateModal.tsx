@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { LinkIcon, Upload, Wand2, RefreshCw, Save, Send, AlertTriangle, CheckCircle, X } from "lucide-react";
 import { HILProgressPanel } from "@/components/hil/HILProgressPanel";
+import { GapAnalysisPanel } from "@/components/hil/GapAnalysisPanel";
 import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
 
 interface CoverLetterCreateModalProps {
