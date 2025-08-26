@@ -439,17 +439,18 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
           )}
 
           {/* Main Tabs */}
-          <Tabs value={coverLetterGenerated ? 'cover-letter' : 'job-description'} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="job-description" className="flex items-center gap-2">
-                <Upload className="h-4 w-4" />
-                Job Description
-              </TabsTrigger>
-              <TabsTrigger value="cover-letter" className="flex items-center gap-2" disabled={!coverLetterGenerated}>
-                <Wand2 className="h-4 w-4" />
-                Cover Letter
-              </TabsTrigger>
-            </TabsList>
+          <div className="w-full">
+            <Tabs value={coverLetterGenerated ? 'cover-letter' : 'job-description'} className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-6">
+                <TabsTrigger value="job-description" className="flex items-center gap-2">
+                  <Upload className="h-4 w-4" />
+                  Job Description
+                </TabsTrigger>
+                <TabsTrigger value="cover-letter" className="flex items-center gap-2" disabled={!coverLetterGenerated}>
+                  <Wand2 className="h-4 w-4" />
+                  Cover Letter
+                </TabsTrigger>
+              </TabsList>
 
             {/* Job Description Tab */}
             <TabsContent value="job-description" className="space-y-6">
@@ -679,7 +680,9 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
                 </Card>
               )}
             </TabsContent>
-          </DialogContent>
+            </Tabs>
+          </div>
+        </DialogContent>
       </Dialog>
 
       {/* Go/No-Go Modal */}
