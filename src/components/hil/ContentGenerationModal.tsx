@@ -29,25 +29,30 @@ export function ContentGenerationModal({
     
     setIsGenerating(true);
     
-    // Mock content generation based on gap type and suggestion
+    // Mock content generation based on gap type, suggestion, and paragraph context
     setTimeout(() => {
       let content = '';
       
-      switch (gap.type) {
-        case 'core-requirement':
-          content = `I have extensive experience with ${gap.description.toLowerCase().includes('python') ? 'Python' : 'the required technologies'}, having successfully delivered multiple projects that demonstrate my expertise. In my previous role, I ${gap.suggestion.toLowerCase().includes('python') ? 'developed a Python-based data processing pipeline that improved efficiency by 40%' : 'implemented solutions that directly address this requirement'}.\n\nThis experience aligns perfectly with your needs and demonstrates my ability to contribute immediately to your team's success.`;
+      // Generate content specific to the paragraph and gap
+      switch (gap.paragraphId) {
+        case 'intro':
+          if (gap.type === 'best-practice') {
+            content = `I am writing to express my strong interest in this position. With over 5 years of experience in the field, I have consistently delivered measurable results that demonstrate my value. ${gap.suggestion}.\n\nFor example, in my previous role, I increased user engagement by 35% and reduced system downtime by 60%, directly contributing to a 25% improvement in overall team productivity.`;
+          } else {
+            content = `I am writing to express my strong interest in this position. ${gap.suggestion}.\n\nMy background includes extensive experience with the required technologies, and I am confident I can contribute immediately to your team's success.`;
+          }
           break;
           
-        case 'preferred-requirement':
-          content = `Beyond the core requirements, I also bring ${gap.description.toLowerCase().includes('leadership') ? 'strong leadership experience' : 'additional valuable skills'} to the table. ${gap.suggestion}.\n\nThis combination of technical expertise and ${gap.description.toLowerCase().includes('leadership') ? 'leadership' : 'additional skills'} makes me an ideal candidate for this role.`;
+        case 'experience':
+          if (gap.type === 'core-requirement') {
+            content = `In my previous role as a Lead Developer, I successfully ${gap.suggestion.toLowerCase()}.\n\nSpecifically, I developed and maintained systems using the latest technologies, ensuring high performance and scalability. This hands-on experience with the core requirements makes me an ideal candidate for your team.`;
+          } else if (gap.type === 'preferred-requirement') {
+            content = `Beyond technical skills, I also bring strong leadership experience to the table. ${gap.suggestion}.\n\nI led a team of 8 developers and successfully delivered 12 major projects on time and under budget, demonstrating my ability to manage both technical and business challenges.`;
+          }
           break;
           
-        case 'best-practice':
-          content = `I believe in backing up claims with concrete results. ${gap.suggestion}.\n\nFor example, in my previous position, I ${gap.description.toLowerCase().includes('metrics') ? 'increased user engagement by 35% and reduced system downtime by 60%' : 'delivered measurable improvements'} that directly impacted the company's bottom line.`;
-          break;
-          
-        case 'content-enhancement':
-          content = `To further strengthen my application, I want to highlight ${gap.suggestion.toLowerCase()}.\n\nThis demonstrates my commitment to continuous improvement and my ability to deliver exceptional results.`;
+        case 'closing':
+          content = `I am particularly excited about this opportunity because ${gap.suggestion.toLowerCase()}.\n\nMy combination of technical expertise and proven track record of delivering results makes me confident I can contribute significantly to your team's success. I look forward to discussing how my background aligns with your needs.`;
           break;
           
         default:
@@ -95,6 +100,11 @@ export function ContentGenerationModal({
           </DialogTitle>
           <DialogDescription>
             AI-powered content generation to address: {gap.description}
+            {gap.paragraphId && (
+              <span className="block mt-1 text-sm text-muted-foreground">
+                This gap relates to the <strong className="capitalize">{gap.paragraphId}</strong> paragraph
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
 

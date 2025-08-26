@@ -34,9 +34,9 @@ interface GapAnalysis {
   type: 'core-requirement' | 'preferred-requirement' | 'best-practice' | 'content-enhancement';
   severity: 'high' | 'medium' | 'low';
   description: string;
-  impact: string;
   suggestion: string;
-  canAddress: boolean;
+  paragraphId?: string;
+  requirementId?: string;
 }
 
 interface HILProgressPanelProps {
@@ -44,15 +44,13 @@ interface HILProgressPanelProps {
   gaps: GapAnalysis[];
   onAddressGap: (gap: GapAnalysis) => void;
   onGenerateContent: () => void;
-  onOptimizeATS: () => void;
 }
 
 export function HILProgressPanel({
   metrics,
   gaps,
   onAddressGap,
-  onGenerateContent,
-  onOptimizeATS
+  onGenerateContent
 }: HILProgressPanelProps) {
   const getRatingColor = (rating: string) => {
     switch (rating) {
@@ -188,15 +186,6 @@ export function HILProgressPanel({
             <Button
               variant="outline"
               size="sm"
-              onClick={onOptimizeATS}
-              className="flex items-center gap-2"
-            >
-              <TrendingUp className="h-4 w-4" />
-              Optimize ATS
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
               onClick={onGenerateContent}
               className="flex items-center gap-2"
             >
@@ -223,24 +212,19 @@ export function HILProgressPanel({
                         {gap.type.replace('-', ' ')}
                       </Badge>
                     </div>
-                    {gap.canAddress && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onAddressGap(gap)}
-                        className="flex items-center gap-1"
-                      >
-                        <Zap className="h-3 w-3" />
-                        Address
-                      </Button>
-                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onAddressGap(gap)}
+                      className="flex items-center gap-1"
+                    >
+                      <Zap className="h-3 w-3" />
+                      Address
+                    </Button>
                   </div>
                   
                   <div className="space-y-2">
                     <p className="text-sm font-medium">{gap.description}</p>
-                    <p className="text-xs text-muted-foreground">
-                      <span className="font-medium">Impact:</span> {gap.impact}
-                    </p>
                     <p className="text-xs text-muted-foreground">
                       <span className="font-medium">Suggestion:</span> {gap.suggestion}
                     </p>

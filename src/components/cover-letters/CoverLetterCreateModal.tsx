@@ -191,9 +191,8 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
         type: 'core-requirement',
         severity: 'high',
         description: 'Python expertise required but not highlighted in experience',
-        impact: 'High impact on technical qualification',
         suggestion: 'Add specific Python projects and achievements',
-        canAddress: true
+        paragraphId: 'experience'
       });
     }
     
@@ -203,9 +202,8 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
         type: 'preferred-requirement',
         severity: 'medium',
         description: 'Leadership experience not clearly demonstrated',
-        impact: 'Medium impact on role qualification',
         suggestion: 'Highlight team leadership and project management experience',
-        canAddress: true
+        paragraphId: 'experience'
       });
     }
     
@@ -215,9 +213,8 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
         type: 'best-practice',
         severity: 'medium',
         description: 'Quantifiable achievements not prominently featured',
-        impact: 'Medium impact on persuasiveness',
         suggestion: 'Include specific metrics and KPIs from past projects',
-        canAddress: true
+        paragraphId: 'intro'
       });
     }
     
@@ -287,27 +284,26 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
     }
   };
 
-  const handleOptimizeATS = () => {
-    console.log('Optimizing ATS score');
-    // TODO: Implement ATS optimization
-  };
+
 
   const handleApplyGeneratedContent = (content: string) => {
     console.log('Applying generated content:', content);
     
-    // Apply content to the most appropriate cover letter section
-    // For now, add it as a new paragraph section
-    const newSection = {
-      id: `enhanced-${Date.now()}`,
-      type: 'paragraph' as const,
-      content: content,
-      usedBlurbs: [],
-      isModified: true,
-      isEnhanced: true
-    };
+    if (!selectedGap?.paragraphId) return;
     
-    // Update the mock letter with the new content
-    const updatedSections = [...mockGeneratedLetter.sections, newSection];
+    // Find and update the specific paragraph section
+    const updatedSections = mockGeneratedLetter.sections.map(section => {
+      if (section.type === selectedGap.paragraphId) {
+        return {
+          ...section,
+          content: content,
+          isEnhanced: true
+        };
+      }
+      return section;
+    });
+    
+    // Update the mock letter with the enhanced content
     mockGeneratedLetter.sections = updatedSections;
     
     // Update HIL metrics to reflect improvement
@@ -403,187 +399,203 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Left Column - Input */}
-            <div className="space-y-6">
-              {/* Job Description Input */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Job Description</CardTitle>
-                  <CardDescription>
-                    Provide the job description to generate a targeted cover letter
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Tabs value={jobDescriptionMethod} onValueChange={(value) => setJobDescriptionMethod(value as 'url' | 'paste')}>
-                    <TabsList className="grid w-full grid-cols-2">
-                      <TabsTrigger value="url" className="flex items-center gap-2">
-                        <LinkIcon className="h-4 w-4" />
-                        URL
-                      </TabsTrigger>
-                      <TabsTrigger value="paste" className="flex items-center gap-2">
-                        <Upload className="h-4 w-4" />
-                        Paste
-                      </TabsTrigger>
-                    </TabsList>
-                    
-                    <TabsContent value="url" className="mt-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="job-url">Job Posting URL</Label>
-                        <Input
-                          id="job-url"
-                          placeholder="https://company.com/jobs/senior-engineer"
-                          value={jobUrl}
-                          onChange={(e) => setJobUrl(e.target.value)}
-                        />
-                      </div>
-                    </TabsContent>
-                    
-                    <TabsContent value="paste" className="mt-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="job-content">Job Description</Label>
-                        <Textarea
-                          id="job-content"
-                          placeholder="Paste the job description here..."
-                          value={jobContent}
-                          onChange={(e) => setJobContent(e.target.value)}
-                          rows={8}
-                        />
-                      </div>
-                    </TabsContent>
-                  </Tabs>
-                </CardContent>
-              </Card>
-
-              {/* Generate Button */}
-              <Button 
-                onClick={handleGenerate}
-                disabled={isGenerating || (!jobUrl && !jobContent)}
-                className="w-full flex items-center gap-2"
-                size="lg"
-              >
-                {isGenerating ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    Generating Cover Letter...
-                  </>
-                ) : (
-                  <>
-                    <Wand2 className="h-4 w-4" />
-                    Generate Cover Letter
-                  </>
-                )}
-              </Button>
-
-              {/* HIL Progress Panel - replaces Go/No-Go Analysis */}
-              {hilProgressMetrics && (
-                <HILProgressPanel
-                  metrics={hilProgressMetrics}
-                  gaps={gaps}
-                  onAddressGap={handleAddressGap}
-                  onGenerateContent={handleGenerateContent}
-                  onOptimizeATS={handleOptimizeATS}
-                />
-              )}
+          {/* Top Progress Bar */}
+          {hilProgressMetrics && (
+            <div className="w-full bg-card border rounded-lg p-4 mb-6">
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-center">
+                <div className="space-y-1">
+                  <div className="text-xs text-muted-foreground">MATCH WITH GOALS</div>
+                  <Badge variant="outline" className={getRatingColor(hilProgressMetrics.goalsMatch)}>
+                    {hilProgressMetrics.goalsMatch}
+                  </Badge>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-xs text-muted-foreground">MATCH WITH EXPERIENCE</div>
+                  <Badge variant="outline" className={getRatingColor(hilProgressMetrics.experienceMatch)}>
+                    {hilProgressMetrics.experienceMatch}
+                  </Badge>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-xs text-muted-foreground">COVER LETTER RATING</div>
+                  <Badge variant="outline" className={getRatingColor(hilProgressMetrics.coverLetterRating)}>
+                    {hilProgressMetrics.coverLetterRating}
+                  </Badge>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-xs text-muted-foreground">ATS</div>
+                  <div className="text-lg font-bold">{hilProgressMetrics.atsScore}%</div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-xs text-muted-foreground">Core Reqs</div>
+                  <div className="text-lg font-bold">{hilProgressMetrics.coreRequirementsMet.met}/{hilProgressMetrics.coreRequirementsMet.total}</div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-xs text-muted-foreground">Preferred Reqs</div>
+                  <div className="text-lg font-bold">{hilProgressMetrics.preferredRequirementsMet.met}/{hilProgressMetrics.preferredRequirementsMet.total}</div>
+                </div>
+              </div>
             </div>
+          )}
 
-            {/* Right Column - Generated Letter */}
-            <div className="space-y-6">
-              {coverLetterGenerated ? (
+          {/* Job Description Input - Compact */}
+          <div className="mb-6">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">Job Description</CardTitle>
+                <CardDescription>
+                  Provide the job description to generate a targeted cover letter
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Tabs value={jobDescriptionMethod} onValueChange={(value) => setJobDescriptionMethod(value as 'url' | 'paste')}>
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="url" className="flex items-center gap-2">
+                      <LinkIcon className="h-4 w-4" />
+                      URL
+                    </TabsTrigger>
+                    <TabsTrigger value="paste" className="flex items-center gap-2">
+                      <Upload className="h-4 w-4" />
+                      Paste
+                    </TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="url" className="mt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="job-url">Job Posting URL</Label>
+                      <Input
+                        id="job-url"
+                        placeholder="https://company.com/jobs/senior-engineer"
+                        value={jobUrl}
+                        onChange={(e) => setJobUrl(e.target.value)}
+                      />
+                    </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="paste" className="mt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="job-content">Job Description</Label>
+                      <Textarea
+                        id="job-content"
+                        placeholder="Paste the job description here..."
+                        value={jobContent}
+                        onChange={(e) => setJobContent(e.target.value)}
+                        rows={4}
+                      />
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
+
+            {/* Generate Button */}
+            <Button 
+              onClick={handleGenerate}
+              disabled={isGenerating || (!jobUrl && !jobContent)}
+              className="w-full flex items-center gap-2 mt-4"
+              size="lg"
+            >
+              {isGenerating ? (
                 <>
-                  <Card>
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-2">
-                          <CardTitle>Generated Cover Letter</CardTitle>
-                          {hilProgressMetrics && (
-                            <div className="flex items-center gap-4 text-sm">
-                              <div className="flex items-center gap-2">
-                                <span className="text-muted-foreground">ATS Score:</span>
-                                <Badge variant="outline" className={getScoreColor(hilProgressMetrics.atsScore)}>
-                                  {hilProgressMetrics.atsScore}%
-                                </Badge>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-muted-foreground">Rating:</span>
-                                <Badge variant="outline" className={getRatingColor(hilProgressMetrics.coverLetterRating)}>
-                                  {hilProgressMetrics.coverLetterRating}
-                                </Badge>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-muted-foreground">Gaps:</span>
-                                <Badge variant="outline">
-                                  {gaps.length} remaining
-                                </Badge>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex gap-2">
-                          <Button variant="secondary" size="sm">
-                            <RefreshCw className="h-4 w-4" />
-                          </Button>
-                          <Button variant="secondary" size="sm">
-                            <Save className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      {mockGeneratedLetter.sections.map((section) => (
-                        <div key={section.id} className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-sm font-medium capitalize">
-                              {section.type}
-                            </Label>
-                            <div className="flex items-center gap-2">
-                              {section.usedBlurbs && section.usedBlurbs.length > 0 && (
-                                <Badge variant="outline" className="text-xs">
-                                  {section.usedBlurbs.length} blurbs used
-                                </Badge>
-                              )}
-                              {(section as any).isEnhanced && (
-                                <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/20">
-                                  <Sparkles className="h-3 w-3 mr-1" />
-                                  AI Enhanced
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                          <Textarea
-                            value={section.content}
-                            onChange={() => {}}
-                            rows={4}
-                            className={`resize-none ${(section as any).isEnhanced ? 'border-success/30 bg-success/5' : ''}`}
-                          />
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-
-                  <div className="flex gap-3">
-                    <Button variant="secondary" className="flex-1">
-                      Save Draft
-                    </Button>
-                    <Button className="flex-1 flex items-center gap-2">
-                      <Send className="h-4 w-4" />
-                      Finalize Letter
-                    </Button>
-                  </div>
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  Generating Cover Letter...
                 </>
               ) : (
-                <Card className="h-96 flex items-center justify-center">
-                  <CardContent className="text-center">
-                    <Wand2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">Cover Letter Preview</h3>
-                    <p className="text-muted-foreground">
-                      Your generated cover letter will appear here
-                    </p>
+                <>
+                  <Wand2 className="h-4 w-4" />
+                  Generate Cover Letter
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* Main Content Area - Left: Draft, Right: Gap Analysis */}
+          {coverLetterGenerated && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Left Column - Cover Letter Draft */}
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle>Generated Cover Letter</CardTitle>
+                      <div className="flex gap-2">
+                        <Button variant="secondary" size="sm">
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                        <Button variant="secondary" size="sm">
+                          <Save className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {mockGeneratedLetter.sections.map((section) => (
+                      <div key={section.id} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-medium capitalize">
+                            {section.type}
+                          </Label>
+                          <div className="flex items-center gap-2">
+                            {section.usedBlurbs && section.usedBlurbs.length > 0 && (
+                              <Badge variant="outline" className="text-xs">
+                                {section.usedBlurbs.length} blurbs used
+                              </Badge>
+                            )}
+                            {(section as any).isEnhanced && (
+                              <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/20">
+                                <Sparkles className="h-3 w-3 mr-1" />
+                                AI Enhanced
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <Textarea
+                          value={section.content}
+                          onChange={() => {}}
+                          rows={4}
+                          className={`resize-none ${(section as any).isEnhanced ? 'border-success/30 bg-success/5' : ''}`}
+                        />
+                      </div>
+                    ))}
                   </CardContent>
                 </Card>
-              )}
+
+                <div className="flex gap-3">
+                  <Button variant="secondary" className="flex-1">
+                    Save Draft
+                  </Button>
+                  <Button className="flex-1 flex items-center gap-2">
+                    <Send className="h-4 w-4" />
+                    Finalize Letter
+                  </Button>
+                </div>
+              </div>
+
+              {/* Right Column - Gap Analysis & Requirements */}
+              <div className="space-y-6">
+                <GapAnalysisPanel
+                  gaps={gaps}
+                  requirements={hilProgressMetrics ? {
+                    core: hilProgressMetrics.coreRequirementsMet,
+                    preferred: hilProgressMetrics.preferredRequirementsMet
+                  } : null}
+                  onAddressGap={handleAddressGap}
+                />
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Cover Letter Preview - When not generated */}
+          {!coverLetterGenerated && (
+            <Card className="h-96 flex items-center justify-center">
+              <CardContent className="text-center">
+                <Wand2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Cover Letter Preview</h3>
+                <p className="text-muted-foreground">
+                  Your generated cover letter will appear here
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </DialogContent>
       </Dialog>
 
