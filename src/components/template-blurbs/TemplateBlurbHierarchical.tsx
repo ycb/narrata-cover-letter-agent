@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, Edit, Trash2, FileText, Clock, CheckCircle, AlertCircle, MoreHorizontal, Copy } from "lucide-react";
+import { Search, Plus, Edit, Trash2, FileText, Clock, CheckCircle, AlertCircle, MoreHorizontal, Copy, Tags } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -35,9 +35,16 @@ interface TemplateBlurbHierarchicalProps {
   blurbs: TemplateBlurb[];
   selectedBlurbId?: string;
   onSelectBlurb: (blurb: TemplateBlurb) => void;
-  onCreateBlurb: (type?: 'intro' | 'closer' | 'signature') => void;
+  onCreateBlurb: (type?: 'intro' | 'closer' | 'signature' | string) => void;
   onEditBlurb: (blurb: TemplateBlurb) => void;
   onDeleteBlurb: (blurbId: string) => void;
+  contentTypes?: Array<{
+    type: string;
+    label: string;
+    description: string;
+    icon: React.ComponentType<{ className?: string }>;
+    isDefault?: boolean;
+  }>;
 }
 
 export const TemplateBlurbHierarchical = ({
@@ -46,31 +53,52 @@ export const TemplateBlurbHierarchical = ({
   onSelectBlurb,
   onCreateBlurb,
   onEditBlurb,
-  onDeleteBlurb
+  onDeleteBlurb,
+  contentTypes = []
 }: TemplateBlurbHierarchicalProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedType, setExpandedType] = useState<string>();
   const [sortBy, setSortBy] = useState<'usage' | 'date' | 'alphabetical-asc' | 'alphabetical-desc'>('usage');
 
-  const getTypeConfig = (type: 'intro' | 'closer' | 'signature') => {
-    const configs = {
-      intro: {
-        label: 'Introduction',
-        description: 'Opening paragraphs that grab attention and introduce you',
-        icon: FileText
-      },
-      closer: {
-        label: 'Closing',
-        description: 'Concluding paragraphs that reinforce your interest',
-        icon: CheckCircle
-      },
-      signature: {
-        label: 'Signature',
-        description: 'Professional sign-offs and contact information',
-        icon: Edit
-      }
+  // Default content types if none provided
+  const defaultContentTypes = [
+    {
+      type: 'intro',
+      label: 'Introduction',
+      description: 'Opening paragraphs that grab attention and introduce you',
+      icon: FileText,
+      isDefault: true
+    },
+    {
+      type: 'closer',
+      label: 'Closing',
+      description: 'Concluding paragraphs that reinforce your interest',
+      icon: CheckCircle,
+      isDefault: true
+    },
+    {
+      type: 'signature',
+      label: 'Signature',
+      description: 'Professional sign-offs and contact information',
+      icon: Edit,
+      isDefault: true
+    }
+  ];
+
+  // Use provided content types or fall back to defaults
+  const allContentTypes = contentTypes.length > 0 ? contentTypes : defaultContentTypes;
+
+  const getTypeConfig = (type: string) => {
+    const config = allContentTypes.find(ct => ct.type === type);
+    if (config) {
+      return config;
+    }
+    // Fallback for unknown types
+    return {
+      label: type.charAt(0).toUpperCase() + type.slice(1),
+      description: 'Custom content type',
+      icon: FileText
     };
-    return configs[type];
   };
 
   const getStatusConfig = (status: 'approved' | 'draft' | 'needs-review') => {
@@ -110,9 +138,9 @@ export const TemplateBlurbHierarchical = ({
   };
 
   // Group blurbs by type and filter by search
-  const groupedBlurbs: BlurbTypeGroup[] = (['intro', 'closer', 'signature'] as const).map((type) => {
+  const groupedBlurbs: BlurbTypeGroup[] = allContentTypes.map((contentType) => {
     let typeBlurbs = blurbs.filter(blurb => {
-      const matchesType = blurb.type === type;
+      const matchesType = blurb.type === contentType.type;
       const matchesSearch = searchTerm === '' || 
         blurb.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         blurb.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -123,12 +151,11 @@ export const TemplateBlurbHierarchical = ({
     // Sort the filtered blurbs
     typeBlurbs = sortBlurbs(typeBlurbs);
 
-    const config = getTypeConfig(type);
     return {
-      type,
-      label: config.label,
-      description: config.description,
-      icon: config.icon,
+      type: contentType.type,
+      label: contentType.label,
+      description: contentType.description,
+      icon: contentType.icon,
       blurbs: typeBlurbs
     };
   });
@@ -139,48 +166,41 @@ export const TemplateBlurbHierarchical = ({
   return (
     <div className="space-y-6">
       {/* Enhanced Search and Filter Bar */}
-      <div className="space-y-4">
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search blurbs by title, content, or tags..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-
-        {/* Filters and Sort */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            {/* Sort Options */}
-            <div className="flex items-center gap-2">
-              <Label htmlFor="sort-by" className="text-sm font-medium">Sort by:</Label>
-              <select
-                id="sort-by"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="text-sm border border-border rounded-md px-2 py-1 bg-background"
-              >
-                <option value="usage">Most Used</option>
-                <option value="date">Recently Updated</option>
-                <option value="alphabetical-asc">A → Z</option>
-                <option value="alphabetical-desc">Z → A</option>
-              </select>
-            </div>
+      <div className="my-2">
+        {/* Search and Sort Controls - Combined into single line */}
+        <div className="flex items-center justify-between gap-4">
+          {/* Sort Controls - Left side */}
+          <div className="flex items-center gap-2">
+            <Label htmlFor="sort-by" className="text-sm font-medium">Sort by:</Label>
+            <select
+              id="sort-by"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="text-sm border border-border rounded-md px-2 py-1 bg-background"
+            >
+              <option value="usage">Most Used</option>
+              <option value="date">Recently Updated</option>
+              <option value="alphabetical-asc">A → Z</option>
+              <option value="alphabetical-desc">Z → A</option>
+            </select>
           </div>
-
-          {/* Results Count */}
-          <div className="text-sm text-muted-foreground">
-            {hasResults ? `${totalBlurbs} blurbs found` : 'No blurbs found'}
+          
+          {/* Search Bar - Right side */}
+          <div className="relative flex-1 max-w-xs">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by title, content, or tags..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
           </div>
         </div>
       </div>
 
       {/* Blurb Groups */}
       {hasResults ? (
-        <Accordion type="single" collapsible value={expandedType} onValueChange={setExpandedType} className="space-y-6">
+        <Accordion type="single" collapsible value={expandedType} onValueChange={setExpandedType} className="accordion-item-spacing">
           {groupedBlurbs.map((group) => (
             <AccordionItem key={group.type} value={group.type} className="border rounded-lg">
               <AccordionTrigger className="px-6 py-4 hover:no-underline">
@@ -193,9 +213,9 @@ export const TemplateBlurbHierarchical = ({
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    <Badge variant="secondary">{group.blurbs.length} blurbs</Badge>
+                    <Badge variant="secondary">{group.blurbs.length} items</Badge>
                     <Button
-                      variant="secondary"
+                      variant="tertiary"
                       size="sm"
                       onClick={(e) => {
                         e.preventDefault();
@@ -203,9 +223,39 @@ export const TemplateBlurbHierarchical = ({
                         onCreateBlurb(group.type);
                       }}
                     >
-                      <Plus className="h-4 w-4 mr-2" />
                       Add {group.label}
                     </Button>
+                    
+                    {/* Overflow menu for user-created sections */}
+                    {!allContentTypes.find(ct => ct.type === group.type)?.isDefault && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => {
+                            // TODO: Implement edit section
+                            console.log('Edit section:', group.type);
+                          }}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit Section
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => {
+                              // TODO: Implement delete section
+                              console.log('Delete section:', group.type);
+                            }}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete Section
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </div>
                 </div>
               </AccordionTrigger>
@@ -222,12 +272,6 @@ export const TemplateBlurbHierarchical = ({
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-3 mb-3">
                                 <h4 className="font-medium truncate text-base">{blurb.title}</h4>
-                                <Badge className={statusConfig.color}>
-                                  <StatusIcon className="h-3 w-3 mr-1" />
-                                  {statusConfig.label}
-                                </Badge>
-                                <div className={`h-2 w-2 rounded-full ${getConfidenceColor(blurb.confidence)}`} 
-                                     title={`${blurb.confidence} confidence`} />
                               </div>
                               <p className="text-sm text-muted-foreground mb-4 line-clamp-2 leading-relaxed">{blurb.content}</p>
                               <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3">
@@ -237,22 +281,21 @@ export const TemplateBlurbHierarchical = ({
                               </div>
                               {blurb.tags.length > 0 && (
                                 <div className="flex flex-wrap gap-2 mt-3">
-                                  {blurb.tags.map((tag) => (
-                                    <Badge key={tag} variant="outline" className="text-xs">
-                                      {tag}
-                                    </Badge>
-                                  ))}
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Tags className="h-4 w-4 text-muted-foreground" />
+                                    <span className="text-sm font-medium">Content Tags</span>
+                                  </div>
+                                  <div className="flex flex-wrap gap-2">
+                                    {blurb.tags.map((tag) => (
+                                      <Badge key={tag} variant="outline" className="text-xs">
+                                        {tag}
+                                      </Badge>
+                                    ))}
+                                  </div>
                                 </div>
                               )}
                             </div>
                             <div className="flex items-center gap-3 ml-6">
-                              <Button
-                                variant="tertiary"
-                                size="sm"
-                                onClick={() => onSelectBlurb(blurb)}
-                              >
-                                Use
-                              </Button>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button variant="ghost" size="sm" className="h-8 w-8 p-0">

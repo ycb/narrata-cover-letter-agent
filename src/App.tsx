@@ -23,15 +23,38 @@ const queryClient = new QueryClient();
 function AppLayout() {
   return (
     <div className="pb-16">
-      {/* Global Header - show on all authenticated pages */}
-      <Header />
       <Routes>
         <Route path="/" element={<Landing />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/work-history" element={<WorkHistory />} />
-        <Route path="/cover-letters" element={<CoverLetters />} />
-        <Route path="/cover-letter-template" element={<CoverLetterTemplate />} />
-        <Route path="/assessment" element={<Assessment />} />
+        <Route path="/dashboard" element={
+          <>
+            <Header />
+            <Dashboard />
+          </>
+        } />
+        <Route path="/work-history" element={
+          <>
+            <Header />
+            <WorkHistory />
+          </>
+        } />
+        <Route path="/cover-letters" element={
+          <>
+            <Header />
+            <CoverLetters />
+          </>
+        } />
+        <Route path="/cover-letter-template" element={
+          <>
+            <Header />
+            <CoverLetterTemplate />
+          </>
+        } />
+        <Route path="/assessment" element={
+          <>
+            <Header />
+            <Assessment />
+          </>
+        } />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/signin" element={<SignIn />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />

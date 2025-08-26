@@ -2,7 +2,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { X, Tag, Building, User, Calendar, Target } from "lucide-react";
+import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
+import { X, Tag, Building, User, Calendar, Target, Edit, FileText, BarChart3 } from "lucide-react";
 
 interface EvidenceBlurb {
   id: string;
@@ -14,6 +15,7 @@ interface EvidenceBlurb {
   lastUsed: string;
   timesUsed: number;
   confidence: 'high' | 'medium' | 'low';
+  outcomeMetrics?: string[];
 }
 
 interface EvidenceModalProps {
@@ -55,17 +57,31 @@ const EvidenceModal = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="pb-4">
-          <DialogTitle className="text-2xl font-bold">
-            Evidence for {competency}
-          </DialogTitle>
-          <DialogDescription className="text-base">
-            Supporting examples from your work history and blurbs
-          </DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle className="text-2xl font-bold">
+                Evidence for {competency}
+              </DialogTitle>
+              <DialogDescription className="text-base">
+                Supporting examples from your work history and blurbs
+              </DialogDescription>
+            </div>
+            <div className="flex items-center gap-2 mt-4">
+                              <Button variant="secondary" size="sm" className="flex items-center gap-2">
+                <Edit className="h-4 w-4" />
+                This looks wrong
+              </Button>
+              <Button variant="secondary" size="sm" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Export PDF
+              </Button>
+            </div>
+          </div>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div>
           {/* Summary Stats */}
-          <Card>
+          <Card className="section-spacing">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">Summary</CardTitle>
@@ -94,8 +110,30 @@ const EvidenceModal = ({
             </CardContent>
           </Card>
 
+          {/* How This Was Scored */}
+          <Card className="section-spacing">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Target className="h-5 w-5" />
+                How This Was Scored
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground space-y-2">
+              <p>
+                Your {competency} score is based on:
+              </p>
+              <ul className="list-disc list-inside space-y-1 ml-4">
+                <li>Number of relevant blurbs and stories</li>
+                <li>Tag density and relevance to competency</li>
+                <li>Complexity and scale of problems addressed</li>
+                <li>Leadership and cross-functional collaboration signals</li>
+                <li>Recency and frequency of usage</li>
+              </ul>
+            </CardContent>
+          </Card>
+
           {/* Matched Tags */}
-          <Card>
+          <Card className="section-spacing">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Tag className="h-5 w-5" />
@@ -113,8 +151,26 @@ const EvidenceModal = ({
             </CardContent>
           </Card>
 
+          {/* Outcome Metrics */}
+          <Card className="section-spacing">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                Outcome Metrics
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <OutcomeMetrics 
+                metrics={evidence
+                  .filter(blurb => blurb.outcomeMetrics && blurb.outcomeMetrics.length > 0)
+                  .flatMap(blurb => blurb.outcomeMetrics || [])
+                } 
+              />
+            </CardContent>
+          </Card>
+
           {/* Evidence Blurbs */}
-          <div className="space-y-4">
+          <div className="section-spacing">
             <h3 className="text-lg font-semibold">Supporting Examples</h3>
             {evidence.map((blurb) => (
               <Card key={blurb.id} className="hover:shadow-md transition-shadow">
@@ -158,31 +214,7 @@ const EvidenceModal = ({
             ))}
           </div>
 
-          {/* How This Was Scored */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Target className="h-5 w-5" />
-                How This Was Scored
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground space-y-2">
-              <p>
-                Your {competency} score is based on:
-              </p>
-              <ul className="list-disc list-inside space-y-1 ml-4">
-                <li>Number of relevant blurbs and stories</li>
-                <li>Tag density and relevance to competency</li>
-                <li>Complexity and scale of problems addressed</li>
-                <li>Leadership and cross-functional collaboration signals</li>
-                <li>Recency and frequency of usage</li>
-              </ul>
-              <p className="mt-3 text-xs">
-                <strong>Note:</strong> This is an LLM inference based on your content. 
-                You can provide feedback to improve accuracy.
-              </p>
-            </CardContent>
-          </Card>
+
         </div>
       </DialogContent>
     </Dialog>

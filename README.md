@@ -62,7 +62,7 @@ The application will be available at `http://localhost:3000` (or the next availa
 
 ```
 src/
-├── components/          # Reusable UI components
+├── components/          # UI components
 │   ├── ui/             # shadcn/ui components
 │   ├── layout/         # Layout components (Header, etc.)
 │   ├── work-history/   # Work history management

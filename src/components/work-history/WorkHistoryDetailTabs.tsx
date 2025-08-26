@@ -1,26 +1,26 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { TabsContent } from "@/components/ui/tabs";
-import { BlurbCard } from "@/components/blurbs/BlurbCard";
+import { StoryCard } from "@/components/work-history/StoryCard";
 import { LinkCard } from "@/components/work-history/LinkCard";
 import { Plus } from "lucide-react";
-import { AddBlurbModal } from "./AddBlurbModal";
+import { AddStoryModal } from "./AddStoryModal";
 import { AddExternalLinkModal } from "./AddExternalLinkModal";
-import type { WorkHistoryRole } from "@/types/workHistory";
+import type { WorkHistoryRole, WorkHistoryBlurb } from "@/types/workHistory";
 
 interface WorkHistoryDetailTabsProps {
   selectedRole: WorkHistoryRole;
 }
 
 export function WorkHistoryDetailTabs({ selectedRole }: WorkHistoryDetailTabsProps) {
-  const [addBlurbModalOpen, setAddBlurbModalOpen] = useState(false);
+  const [addStoryModalOpen, setAddStoryModalOpen] = useState(false);
   const [addLinkModalOpen, setAddLinkModalOpen] = useState(false);
 
   const blurbs = selectedRole?.blurbs || [];
   const externalLinks = selectedRole?.externalLinks || [];
 
-  const handleAddBlurb = () => {
-    setAddBlurbModalOpen(true);
+  const handleAddStory = () => {
+    setAddStoryModalOpen(true);
   };
 
   const handleAddExternalLink = () => {
@@ -76,43 +76,29 @@ export function WorkHistoryDetailTabs({ selectedRole }: WorkHistoryDetailTabsPro
         <div className="space-y-4 h-full">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Associated Blurbs</h3>
-            <Button variant="primary" onClick={handleAddBlurb} size="sm">
+            <Button variant="primary" onClick={handleAddStory} size="sm">
               <Plus className="h-4 w-4 mr-2" />
-              Add Blurb
+              Add Story
             </Button>
           </div>
           
           <div className="space-y-4 overflow-y-auto max-h-[calc(100vh-400px)]">
             {blurbs.length > 0 ? (
               blurbs.map((blurb) => (
-                  <BlurbCard
+                  <StoryCard
                     key={blurb.id}
-                    id={blurb.id}
-                    title={blurb.title}
-                    content={blurb.content}
-                    tags={blurb.tags}
-                    status={blurb.status}
-                    confidence={blurb.confidence}
-                    timesUsed={blurb.timesUsed}
-                    lastUsed={blurb.lastUsed}
-                    linkedExternalLinks={blurb.linkedExternalLinks}
-                    externalLinks={externalLinks.map(link => ({
-                      id: link.id,
-                      label: link.label,
-                      url: link.url
-                    }))}
-                    onEdit={handleEditBlurb}
-                    onCopy={handleCopyBlurb}
-                    onDuplicate={handleDuplicateBlurb}
-                    onDelete={handleDeleteBlurb}
+                    story={blurb}
+                    onEdit={() => handleEditBlurb(blurb.id)}
+                    onDuplicate={() => handleDuplicateBlurb(blurb.id)}
+                    onDelete={() => handleDeleteBlurb(blurb.id)}
                   />
               ))
             ) : (
               <div className="text-center py-8">
                 <p className="text-muted-foreground mb-4">No blurbs yet</p>
-                <Button variant="secondary" onClick={handleAddBlurb}>
+                <Button variant="secondary" onClick={handleAddStory}>
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Your First Blurb
+                  Add Your First Story
                 </Button>
               </div>
             )}
@@ -161,13 +147,12 @@ export function WorkHistoryDetailTabs({ selectedRole }: WorkHistoryDetailTabsPro
       </TabsContent>
 
       {/* Modals */}
-      <AddBlurbModal
-        open={addBlurbModalOpen}
-        onOpenChange={setAddBlurbModalOpen}
+      <AddStoryModal
+        open={addStoryModalOpen}
+        onOpenChange={setAddStoryModalOpen}
         roleId={selectedRole.id}
-        existingLinks={externalLinks}
-        onBlurbAdded={() => {
-          setAddBlurbModalOpen(false);
+        onSave={(story) => {
+          setAddStoryModalOpen(false);
           // TODO: Refresh data
         }}
       />

@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
 import { 
   Building, 
   User, 
@@ -9,7 +10,6 @@ import {
   Target, 
   TrendingUp,
   BarChart3,
-  MessageSquare,
   Edit
 } from "lucide-react";
 
@@ -37,6 +37,15 @@ interface LevelEvidence {
     description: string;
     examples: string[];
   }[];
+  outcomeMetrics: {
+    roleLevel: string[];
+    storyLevel: string[];
+    analysis: {
+      totalMetrics: number;
+      impactLevel: 'feature' | 'team' | 'org' | 'company';
+      keyAchievements: string[];
+    };
+  };
 }
 
 interface LevelEvidenceModalProps {
@@ -59,17 +68,31 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="pb-4">
-          <DialogTitle className="text-2xl font-bold">
-            Evidence for {evidence.currentLevel} Assessment
-          </DialogTitle>
-          <DialogDescription className="text-base">
-            How we determined your current level and path to {evidence.nextLevel}
-          </DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle className="text-2xl font-bold">
+                Evidence for {evidence.currentLevel} Assessment
+              </DialogTitle>
+              <DialogDescription className="text-base">
+                How we determined your current level and path to {evidence.nextLevel}
+              </DialogDescription>
+            </div>
+            <div className="flex items-center gap-2 mt-4">
+              <Button variant="secondary" size="sm" className="flex items-center gap-2">
+                <Edit className="h-4 w-4" />
+                This looks wrong
+              </Button>
+              <Button variant="secondary" size="sm" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Export PDF
+              </Button>
+            </div>
+          </div>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Level Summary */}
-          <Card>
+        <div>
+                      {/* Level Summary */}
+            <Card className="section-spacing">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">Level Assessment Summary</CardTitle>
@@ -135,7 +158,7 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
           </Card>
 
           {/* Blurb Evidence */}
-          <Card>
+          <Card className="section-spacing">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <FileText className="h-5 w-5" />
@@ -168,7 +191,7 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
           </Card>
 
           {/* Leveling Framework */}
-          <Card>
+          <Card className="section-spacing">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Target className="h-5 w-5" />
@@ -181,7 +204,7 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
                   <h4 className="font-medium">{evidence.levelingFramework.framework}</h4>
                   <p className="text-sm text-muted-foreground">Framework used for assessment</p>
                 </div>
-                <Badge variant="outline">{evidence.levelingFramework.match}</Badge>
+                <Badge variant="secondary">{evidence.levelingFramework.match}</Badge>
               </div>
               
               <div>
@@ -199,7 +222,7 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
           </Card>
 
           {/* Gaps to Next Level */}
-          <Card>
+          <Card className="section-spacing">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <TrendingUp className="h-5 w-5" />
@@ -219,24 +242,25 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
             </CardContent>
           </Card>
 
-          {/* Feedback Section */}
-          <Card>
+          {/* Outcome Metrics */}
+          <Card className="section-spacing">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
-                Help Improve This Assessment
+                <BarChart3 className="h-5 w-5" />
+                Outcome Metrics
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <Button variant="outline" className="w-full">
-                <Edit className="h-4 w-4 mr-2" />
-                This Level Assessment Looks Wrong
-              </Button>
-              <p className="text-xs text-muted-foreground text-center">
-                Your feedback helps us improve accuracy for you and other users
-              </p>
+            <CardContent>
+              <OutcomeMetrics 
+                metrics={[
+                  ...evidence.outcomeMetrics.roleLevel,
+                  ...evidence.outcomeMetrics.storyLevel
+                ]} 
+              />
             </CardContent>
           </Card>
+
+
         </div>
       </DialogContent>
     </Dialog>
