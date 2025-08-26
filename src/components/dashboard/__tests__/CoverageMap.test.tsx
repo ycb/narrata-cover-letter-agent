@@ -66,7 +66,9 @@ describe('CoverageMap', () => {
     );
 
     expect(screen.getByText('Product Execution')).toBeInTheDocument();
-    expect(screen.getByText('Product Strategy')).toBeInTheDocument();
+    // Check that Product Strategy competency is displayed (there are multiple elements with this text)
+    const strategyElements = screen.getAllByText('Product Strategy');
+    expect(strategyElements.length).toBeGreaterThan(0);
     expect(screen.getByText('Delivering complex products with measurable impact')).toBeInTheDocument();
     expect(screen.getByText('Strategic thinking and roadmap development')).toBeInTheDocument();
   });
@@ -173,7 +175,10 @@ describe('CoverageMap', () => {
     );
 
     // Check that high gap competency has destructive styling
-    const strategyCard = screen.getByText('Product Strategy').closest('div');
+    // Find the card container that has the border-2 class
+    const strategyElements = screen.getAllByText('Product Strategy');
+    const strategyTitle = strategyElements[0]; // Get the title element
+    const strategyCard = strategyTitle.closest('div[class*="border-2"]'); // Find the card container
     expect(strategyCard).toHaveClass('border-destructive/20', 'bg-destructive/5');
   });
 });
