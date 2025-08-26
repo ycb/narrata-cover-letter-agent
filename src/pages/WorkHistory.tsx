@@ -58,6 +58,30 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
             timesUsed: 8,
             lastUsed: "2024-01-15",
             linkedExternalLinks: ["link-1"],
+            variations: [
+              {
+                id: "var-1",
+                content: "Led product strategy for core platform, building high-performing team from ground up while launching MVP in record 6 months.",
+                developedForJobTitle: "Senior Product Manager",
+                filledGap: "Team Leadership",
+                jdTags: ["Product Strategy", "Team Building"],
+                outcomeMetrics: ["Launched MVP in 6 months", "Hired 8 product professionals"],
+                tags: ["Leadership", "MVP", "Team Building"],
+                createdAt: "2024-01-20T00:00:00Z",
+                createdBy: "AI"
+              },
+              {
+                id: "var-2",
+                content: "As Product Lead at TechCorp, I successfully built and managed a high-performing product team, delivering MVP ahead of schedule.",
+                developedForJobTitle: "Product Director",
+                filledGap: "Strategic Execution",
+                jdTags: ["Strategic Planning", "Execution"],
+                outcomeMetrics: ["MVP delivered ahead of schedule", "Team of 8 professionals built"],
+                tags: ["Strategic Execution", "Team Management"],
+                createdAt: "2024-01-22T00:00:00Z",
+                createdBy: "user"
+              }
+            ],
             createdAt: "2024-01-01T00:00:00Z",
             updatedAt: "2024-01-15T00:00:00Z"
           }

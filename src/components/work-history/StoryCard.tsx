@@ -14,7 +14,7 @@ import {
   Clock,
   AlertCircle,
   Link as LinkIcon,
-  ExternalLink,
+  ExternalLink as ExternalLinkIcon,
   Tags
 } from "lucide-react";
 import {
@@ -174,6 +174,57 @@ export const StoryCard = ({
           </div>
         )}
 
+        {/* Variations */}
+        {story.variations && story.variations.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Target className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Variations</span>
+              <Badge variant="outline" className="text-xs">
+                {story.variations.length}
+              </Badge>
+            </div>
+            <div className="space-y-2">
+              {story.variations.map((variation, index) => (
+                <div key={variation.id} className="p-3 bg-muted/30 rounded-lg border-l-4 border-primary">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-foreground mb-1">
+                        {variation.filledGap ? `Fills Gap: ${variation.filledGap}` : 
+                         variation.developedForJobTitle ? `For ${variation.developedForJobTitle}` : 
+                         `Variant #${index + 1} (${variation.createdBy === 'AI' ? 'AI' : 'User'})`}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {variation.createdBy === 'AI' ? 'AI Generated' : 'User Created'} • {new Date(variation.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <Badge variant="secondary" className="text-xs">
+                      {variation.createdBy === 'AI' ? 'AI' : 'User'}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground line-clamp-2">
+                    {variation.content}
+                  </p>
+                  {variation.tags && variation.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {variation.tags.slice(0, 3).map((tag) => (
+                        <Badge key={tag} variant="outline" className="text-xs">
+                          {tag}
+                        </Badge>
+                      ))}
+                      {variation.tags.length > 3 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{variation.tags.length - 3}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Link Details - Bottom Right */}
         {linkedLinks.length > 0 && (
           <div className="mt-4 pt-4 border-t border-muted">
@@ -195,7 +246,7 @@ export const StoryCard = ({
                   </div>
                   <Button variant="ghost" size="sm" asChild className="ml-2">
                     <a href={link.url} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="h-3 w-3" />
+                      <ExternalLinkIcon className="h-3 w-3" />
                     </a>
                   </Button>
                 </div>

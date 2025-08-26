@@ -52,8 +52,21 @@ export interface WorkHistoryBlurb {
   timesUsed: number;
   lastUsed?: string;
   linkedExternalLinks?: string[]; // IDs of external links referenced in content
+  variations?: BlurbVariation[]; // Optional variations for this blurb
   createdAt: string;
   updatedAt: string;
+}
+
+export interface BlurbVariation {
+  id: string;
+  content: string;
+  developedForJobTitle?: string;
+  filledGap?: string;
+  jdTags?: string[];
+  outcomeMetrics?: string[];
+  tags?: string[];
+  createdAt: string;
+  createdBy: 'user' | 'AI' | 'user-edited-AI';
 }
 
 export interface LegacyCoverLetterTemplate {
