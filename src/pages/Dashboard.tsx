@@ -3,13 +3,13 @@ import { Link } from "react-router-dom";
 import { StatsCard } from "@/components/dashboard/StatsCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { 
   FileText, 
-  Target, 
   TrendingUp, 
   Plus, 
   ArrowRight,
-  Clock
+  Mail
 } from "lucide-react";
 import CoverLetterCreateModal from "@/components/cover-letters/CoverLetterCreateModal";
 
@@ -17,7 +17,6 @@ import CoverLetterCreateModal from "@/components/cover-letters/CoverLetterCreate
 import { CoverageMapSimplified } from "@/components/dashboard/CoverageMapSimplified";
 import { StoryGapsAndStrength } from "@/components/dashboard/StoryGapsAndStrength";
 import { TopActionNeeded } from "@/components/dashboard/TopActionNeeded";
-import { RecentActivityCollapsible } from "@/components/dashboard/RecentActivityCollapsible";
 
 // Import mock data
 import { mockDashboardV2Data } from "@/lib/dashboard-data";
@@ -32,34 +31,6 @@ const Dashboard = () => {
               action.id.includes('outcomes') ? 'improvement' as const :
               action.id.includes('leadership') ? 'stories' as const : 'stories' as const
   }));
-
-  // Mock activity data
-  const recentActivities = [
-    {
-      id: '1',
-      type: 'cover-letter' as const,
-      title: 'Cover letter sent',
-      description: 'Senior PM at TechCorp',
-      time: '2 hours ago',
-      status: 'success' as const
-    },
-    {
-      id: '2',
-      type: 'story' as const,
-      title: 'New story created',
-      description: 'Leadership experience',
-      time: '1 day ago',
-      status: 'info' as const
-    },
-    {
-      id: '3',
-      type: 'profile' as const,
-      title: 'Profile updated',
-      description: 'LinkedIn sync completed',
-      time: '3 days ago',
-      status: 'warning' as const
-    }
-  ];
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
@@ -88,74 +59,136 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Metrics Overview - Simplified */}
+        {/* Metrics Overview - 3 Widgets */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <StatsCard
-            title="Total Stories"
-            value={47}
-            description="Approved narratives ready to use"
+            title="Stories"
+            value={12}
+            description="Work history entries"
             icon={FileText}
-            trend={{ value: "+3 this week", isPositive: true }}
+            trend={{ value: "+3 this month", isPositive: true }}
           />
           <StatsCard
             title="Cover Letters"
             value={23}
             description="Generated this month"
-            icon={Target}
+            icon={Mail}
             trend={{ value: "+12% vs last month", isPositive: true }}
           />
           <StatsCard
-            title="Coverage"
-            value={`${mockDashboardV2Data.coverageMap.overallCoverage}%`}
-            description="PM competency coverage"
+            title="Senior PM Skills Coverage"
+            value="85%"
+            description="PM skills coverage"
             icon={TrendingUp}
-            trend={{ value: "+5% this month", isPositive: true }}
+            trend={{ value: "+8% improvement this month", isPositive: true }}
           />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content - Simplified Structure */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Top Action Needed - Primary Focus */}
-            <TopActionNeeded actions={topActions} />
+        {/* 3 Small Modules - Top Action + Top Roles + Content Health */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* Top Action Needed */}
+          <TopActionNeeded actions={topActions} />
 
-            {/* Story Gaps & Strength - Consolidated */}
-            <StoryGapsAndStrength 
-              storyStrength={mockDashboardV2Data.storyStrength}
-              gaps={mockDashboardV2Data.resumeGaps}
-              coverage={mockDashboardV2Data.coverageMap.competencies}
-            />
-
-            {/* Coverage Map - Simplified */}
-            <CoverageMapSimplified 
-              coverage={mockDashboardV2Data.coverageMap.competencies}
-              overallCoverage={mockDashboardV2Data.coverageMap.overallCoverage}
-              priorityGaps={mockDashboardV2Data.coverageMap.priorityGaps}
-            />
-          </div>
-
-          {/* Sidebar - Simplified */}
-          <div className="space-y-6">
-            {/* Recent Activity - Collapsed by Default */}
-            <RecentActivityCollapsible activities={recentActivities} />
-
-            {/* Pro Tip */}
-            <Card className="shadow-soft bg-accent-light border-accent">
-              <CardContent className="pt-6">
-                <div className="flex items-start gap-3">
-                  <div className="h-8 w-8 rounded-lg bg-accent flex items-center justify-center flex-shrink-0">
-                    <Clock className="h-4 w-4 text-accent-foreground" />
+          {/* Top Roles Targeted */}
+          <Card className="shadow-soft">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">
+                Top Roles Targeted
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                <div className="p-3 border rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-sm">Sr. Product Manager</span>
+                    <Badge variant="secondary">10 jobs (66%)</Badge>
                   </div>
-                  <div>
-                    <p className="font-medium text-accent mb-1">Pro Tip</p>
-                    <p className="text-sm text-accent">
-                      Focus on high-priority competency gaps first to improve your overall coverage and story strength.
-                    </p>
+                  <div className="text-xs text-muted-foreground">
+                    Last applied: 2 days ago
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+                
+                <div className="p-3 border rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-sm">Lead PM</span>
+                    <Badge variant="secondary">3 jobs (20%)</Badge>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Last applied: 1 week ago
+                  </div>
+                </div>
+
+                <div className="p-3 border rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-sm">Principal PM</span>
+                    <Badge variant="secondary">2 jobs (13%)</Badge>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Last applied: 2 weeks ago
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Content Health */}
+          <Card className="shadow-soft">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">
+                Content Health
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 border rounded-lg bg-success/5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-success rounded-full"></div>
+                    <Link to="/work-history" className="text-sm font-medium hover:underline">
+                      Stories
+                    </Link>
+                  </div>
+                  <Badge variant="secondary">12 active</Badge>
+                </div>
+                
+                <div className="flex items-center justify-between p-3 border rounded-lg bg-warning/5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-warning rounded-full"></div>
+                    <Link to="/cover-letter-template?tab=saved" className="text-sm font-medium hover:underline">
+                      Saved Sections
+                    </Link>
+                  </div>
+                  <Badge variant="secondary">8 sections</Badge>
+                </div>
+
+                <div className="flex items-center justify-between p-3 border rounded-lg bg-destructive/5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-destructive rounded-full"></div>
+                    <Link to="/cover-letters" className="text-sm font-medium hover:underline">
+                      Cover Letters
+                    </Link>
+                  </div>
+                  <Badge variant="secondary">3 drafts</Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* 2 Large Modules Side by Side - Story Gaps + PM Competency */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Story Gaps & Strength - Left Side */}
+          <StoryGapsAndStrength 
+            storyStrength={mockDashboardV2Data.storyStrength}
+            gaps={mockDashboardV2Data.resumeGaps}
+            coverage={mockDashboardV2Data.coverageMap.competencies}
+          />
+
+          {/* Coverage Map - Right Side */}
+          <CoverageMapSimplified 
+            coverage={mockDashboardV2Data.coverageMap.competencies}
+            overallCoverage={mockDashboardV2Data.coverageMap.overallCoverage}
+            priorityGaps={mockDashboardV2Data.coverageMap.priorityGaps}
+          />
         </div>
       </main>
 

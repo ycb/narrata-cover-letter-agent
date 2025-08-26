@@ -120,15 +120,15 @@ describe('StoryStrength', () => {
     renderWithRouter(<StoryStrength storyStrength={mockStoryStrength} />);
 
     // 24/30 = 80% = Strong
+    expect(screen.getByText('Strong')).toBeInTheDocument();
     // 20/25 = 80% = Strong
-    // There are multiple "Strong" elements, so check that at least one exists
-    const strongElements = screen.getAllByText('Strong');
-    expect(strongElements.length).toBeGreaterThan(0);
+    expect(screen.getByText('Strong')).toBeInTheDocument();
     // 15/20 = 75% = Good
     expect(screen.getByText('Good')).toBeInTheDocument();
     // 12/15 = 80% = Strong
+    expect(screen.getByText('Strong')).toBeInTheDocument();
     // 8/10 = 80% = Strong
-    // We already checked that Strong elements exist above, so no need to check again
+    expect(screen.getByText('Strong')).toBeInTheDocument();
   });
 
   it('displays category icons correctly', () => {
