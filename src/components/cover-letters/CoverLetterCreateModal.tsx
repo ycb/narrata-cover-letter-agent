@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { LinkIcon, Upload, Wand2, RefreshCw, Save, Send, AlertTriangle, CheckCircle, X, Target } from "lucide-react";
+import { LinkIcon, Upload, Wand2, RefreshCw, Save, Send, AlertTriangle, CheckCircle, X, Target, Pencil } from "lucide-react";
 import { HILProgressPanel } from "@/components/hil/HILProgressPanel";
 import { GapAnalysisPanel } from "@/components/hil/GapAnalysisPanel";
 import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
@@ -52,9 +52,15 @@ interface GapAnalysis {
 }
 
 const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps) => {
-  const [jobDescriptionMethod, setJobDescriptionMethod] = useState<'url' | 'paste'>('url');
+  const [jobDescriptionMethod, setJobDescriptionMethod] = useState<'url' | 'paste'>('paste');
   const [jobUrl, setJobUrl] = useState('');
-  const [jobContent, setJobContent] = useState('');
+  const [jobContent, setJobContent] = useState(`Senior Product Manager - Growth & SaaS Platform
+
+Requirements: 6+ years PM experience, SaaS background, growth metrics, SQL/Python, Tableau/Looker, fintech experience
+
+Responsibilities: Lead growth initiatives, analyze user behavior, optimize conversion funnels, collaborate with engineering teams
+
+Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership`);
   const [isGenerating, setIsGenerating] = useState(false);
   const [coverLetterGenerated, setCoverLetterGenerated] = useState(false);
   const [goNoGoAnalysis, setGoNoGoAnalysis] = useState<GoNoGoAnalysis | null>(null);
@@ -312,11 +318,8 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
       const updatedMetrics = { ...hilProgressMetrics };
       
       // Improve scores based on content enhancement
-      updatedMetrics.coverLetterRating = 
-        updatedMetrics.coverLetterRating === 'weak' ? 'average' : 
-        updatedMetrics.coverLetterRating === 'average' ? 'strong' : 'strong';
-      
-      updatedMetrics.atsScore = Math.min(100, updatedMetrics.atsScore + 10);
+      updatedMetrics.coverLetterRating = 'strong';
+      updatedMetrics.atsScore = 80; // Increase to 80%
       
       // Update requirements met if applicable
       if (selectedGap?.type === 'core-requirement') {
@@ -339,7 +342,11 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
       setGaps(prevGaps => prevGaps.filter(gap => gap.id !== selectedGap.id));
     }
     
-    // Force re-render by updating state
+    // Close the modal and return to draft view
+    setShowContentGenerationModal(false);
+    setSelectedGap(null);
+    
+    // Force re-render to show updated content and metrics
     setCoverLetterGenerated(false);
     setTimeout(() => setCoverLetterGenerated(true), 100);
   };
@@ -500,18 +507,7 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
                     </TabsContent>
                   </Tabs>
 
-                  {/* Mock Senior PM JD */}
-                  <div className="mt-6 p-4 bg-muted/30 rounded-lg">
-                    <h4 className="font-medium mb-2">Sample Senior PM Job Description</h4>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Senior Product Manager - Growth & SaaS Platform
-                    </p>
-                    <div className="text-sm space-y-2">
-                      <p><strong>Requirements:</strong> 6+ years PM experience, SaaS background, growth metrics, SQL/Python, Tableau/Looker, fintech experience</p>
-                      <p><strong>Responsibilities:</strong> Lead growth initiatives, analyze user behavior, optimize conversion funnels, collaborate with engineering teams</p>
-                      <p><strong>Nice to have:</strong> 1-for ROB SaaS experience, mobile app development, team leadership</p>
-                    </div>
-                  </div>
+
 
                   {/* Generate Button */}
                   <Button 
@@ -541,114 +537,96 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
               {/* Main Content Area - Left: Draft, Right: Gap Analysis */}
               {coverLetterGenerated && (
                 <div className="space-y-6">
-                  {/* Cover Letter Header */}
-                  <Card>
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <CardTitle>Generated Cover Letter</CardTitle>
-                        <div className="flex gap-2">
-                          <Button variant="secondary" size="sm">
-                            <RefreshCw className="h-4 w-4" />
-                          </Button>
-                          <Button variant="secondary" size="sm">
-                            <Save className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </CardHeader>
-                  </Card>
-
                   {/* 1:1 Alignment - Paragraphs with Gap/Requirement Cards */}
                   <div className="space-y-6">
                     {mockGeneratedLetter.sections.map((section) => (
-                      <div key={section.id} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* Left: Paragraph Content */}
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <Label className="text-sm font-medium capitalize">
-                              {section.type}
-                            </Label>
-                            <div className="flex items-center gap-2">
-                              {section.usedBlurbs && section.usedBlurbs.length > 0 && (
-                                <Badge variant="outline" className="text-xs">
-                                  {section.usedBlurbs.length} blurbs used
-                                </Badge>
-                              )}
-                              {(section as any).isEnhanced && (
-                                <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/20">
-                                  <Sparkles className="h-3 w-3 mr-1" />
-                                  AI Enhanced
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                          <Textarea
-                            value={section.content}
-                            onChange={() => {}}
-                            rows={4}
-                            className={`resize-none ${(section as any).isEnhanced ? 'border-success/30 bg-success/5' : ''}`}
-                          />
+                      <div key={section.id} className="space-y-4">
+                        {/* Section Heading */}
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-lg font-semibold capitalize">{section.type}</h3>
+                          {(section as any).isEnhanced && (
+                            <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/20">
+                              <Sparkles className="h-3 w-3 mr-1" />
+                              AI Enhanced
+                            </Badge>
+                          )}
                         </div>
+                        
+                        {/* Content and Analysis Row */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          {/* Left: Paragraph Content */}
+                          <div className="space-y-3">
+                            <Textarea
+                              value={section.content}
+                              onChange={() => {}}
+                              rows={4}
+                              className={`resize-none ${(section as any).isEnhanced ? 'border-success/30 bg-success/5' : ''}`}
+                            />
+                          </div>
 
-                        {/* Right: Gap/Requirement Card */}
-                        <div className="space-y-3">
-                          {(() => {
-                            const sectionGaps = gaps.filter(gap => gap.paragraphId === section.type);
-                            const isResolved = sectionGaps.length === 0;
-                            
-                            if (isResolved) {
-                              return (
-                                <Card className="h-full border-success/30 bg-success/5">
+                          {/* Right: Gap/Requirement Card */}
+                          <div className="space-y-3">
+                            {(() => {
+                              const sectionGaps = gaps.filter(gap => gap.paragraphId === section.type);
+                              const isResolved = sectionGaps.length === 0;
+                              
+                              if (isResolved) {
+                                return (
+                                  <Card className="h-full border-success/30 bg-success/5">
+                                    <CardContent className="p-4">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <CheckCircle className="h-4 w-4 text-success" />
+                                        <span className="text-sm font-medium text-success">Requirement Met</span>
+                                      </div>
+                                      <p className="text-xs text-muted-foreground mb-2">
+                                        This paragraph successfully addresses the job requirements.
+                                      </p>
+                                      <div className="text-xs text-success">
+                                        <strong>Addresses:</strong> SQL/Python experience, growth metrics, SaaS background
+                                      </div>
+                                    </CardContent>
+                                  </Card>
+                                );
+                              }
+
+                              return sectionGaps.map((gap) => (
+                                <Card key={gap.id} className="h-full">
                                   <CardContent className="p-4">
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <CheckCircle className="h-4 w-4 text-success" />
-                                      <span className="text-sm font-medium text-success">Requirement Met</span>
+                                    <div className="flex items-start justify-between mb-3">
+                                      <div className="flex items-center gap-2">
+                                        <Badge className={gap.severity === 'high' ? 'bg-destructive' : gap.severity === 'medium' ? 'bg-warning' : 'bg-muted'}>
+                                          {gap.severity} impact
+                                        </Badge>
+                                        <Badge variant="outline">
+                                          {gap.type.replace('-', ' ')}
+                                        </Badge>
+                                      </div>
+                                      <Button
+                                        variant="secondary"
+                                        size="sm"
+                                        onClick={() => handleAddressGap(gap)}
+                                        className="flex items-center gap-1"
+                                      >
+                                        <Pencil className="h-3 w-3" />
+                                        Edit
+                                      </Button>
                                     </div>
-                                    <p className="text-xs text-muted-foreground">
-                                      This paragraph successfully addresses the job requirements.
-                                    </p>
+                                    
+                                    <div className="space-y-2">
+                                      <div>
+                                        <h5 className="font-medium text-sm">Issue:</h5>
+                                        <p className="text-sm text-muted-foreground">{gap.description}</p>
+                                      </div>
+                                      <div>
+                                        <h5 className="font-medium text-sm">Suggestion:</h5>
+                                        <p className="text-sm text-muted-foreground">{gap.suggestion}</p>
+                                      </div>
+                                    </div>
                                   </CardContent>
                                 </Card>
-                              );
-                            }
-
-                            return sectionGaps.map((gap) => (
-                              <Card key={gap.id} className="h-full">
-                                <CardContent className="p-4">
-                                  <div className="flex items-start justify-between mb-3">
-                                    <div className="flex items-center gap-2">
-                                      <Badge className={gap.severity === 'high' ? 'bg-destructive' : gap.severity === 'medium' ? 'bg-warning' : 'bg-muted'}>
-                                        {gap.severity} impact
-                                      </Badge>
-                                      <Badge variant="outline">
-                                        {gap.type.replace('-', ' ')}
-                                      </Badge>
-                                    </div>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleAddressGap(gap)}
-                                      className="flex items-center gap-1"
-                                    >
-                                      <Target className="h-3 w-3" />
-                                      Edit
-                                    </Button>
-                                  </div>
-                                  
-                                  <div className="space-y-2">
-                                    <div>
-                                      <h5 className="font-medium text-sm">Issue:</h5>
-                                      <p className="text-sm text-muted-foreground">{gap.description}</p>
-                                    </div>
-                                    <div>
-                                      <h5 className="font-medium text-sm">Suggestion:</h5>
-                                      <p className="text-sm text-muted-foreground">{gap.suggestion}</p>
-                                    </div>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            ));
-                          })()}
+                              ));
+                            })()}
+                          </div>
                         </div>
                       </div>
                     ))}

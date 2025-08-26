@@ -101,7 +101,7 @@ export function ContentGenerationModal({
           <DialogDescription>
             AI-powered content generation to address: {gap.description}
             {gap.paragraphId && (
-              <span className="block mt-1 text-sm text-muted-foreground">
+              <span className="text-sm text-muted-foreground">
                 This gap relates to the <strong className="capitalize">{gap.paragraphId}</strong> paragraph
               </span>
             )}
@@ -114,7 +114,7 @@ export function ContentGenerationModal({
             <CardHeader className="pb-3">
               <CardTitle className="text-lg">Gap Analysis</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-4">
               <div className="flex items-center gap-2">
                 <Badge className={gap.severity === 'high' ? 'bg-destructive text-destructive-foreground' : 'bg-warning text-warning-foreground'}>
                   {gap.severity} priority
@@ -124,19 +124,16 @@ export function ContentGenerationModal({
                 </Badge>
               </div>
               
-              <div>
-                <h4 className="font-medium mb-1">Issue:</h4>
-                <p className="text-sm text-muted-foreground">{gap.description}</p>
-              </div>
-              
-              <div>
-                <h4 className="font-medium mb-1">Impact:</h4>
-                <p className="text-sm text-muted-foreground">{gap.impact}</p>
-              </div>
-              
-              <div>
-                <h4 className="font-medium mb-1">Suggestion:</h4>
-                <p className="text-sm text-muted-foreground">{gap.suggestion}</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h4 className="font-medium mb-1">Issue:</h4>
+                  <p className="text-sm text-muted-foreground">{gap.description}</p>
+                </div>
+                
+                <div>
+                  <h4 className="font-medium mb-1">Suggestion:</h4>
+                  <p className="text-sm text-muted-foreground">{gap.suggestion}</p>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -147,12 +144,6 @@ export function ContentGenerationModal({
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">Generated Content</CardTitle>
                 <div className="flex items-center gap-2">
-                  {contentQuality === 'draft' && (
-                    <Badge variant="outline" className="text-muted-foreground">
-                      <AlertTriangle className="h-3 w-3 mr-1" />
-                      Draft
-                    </Badge>
-                  )}
                   {contentQuality === 'review' && (
                     <Badge variant="outline" className="text-warning">
                       <AlertTriangle className="h-3 w-3 mr-1" />
