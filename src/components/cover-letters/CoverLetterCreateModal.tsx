@@ -45,9 +45,9 @@ interface GapAnalysis {
   type: 'core-requirement' | 'preferred-requirement' | 'best-practice' | 'content-enhancement';
   severity: 'high' | 'medium' | 'low';
   description: string;
-  impact: string;
   suggestion: string;
-  canAddress: boolean;
+  paragraphId?: string;
+  requirementId?: string;
 }
 
 const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps) => {
@@ -277,7 +277,7 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
 
   const handleGenerateContent = () => {
     // Generate content for the first available gap
-    const firstGap = gaps.find(gap => gap.canAddress);
+    const firstGap = gaps[0];
     if (firstGap) {
       setSelectedGap(firstGap);
       setShowContentGenerationModal(true);
