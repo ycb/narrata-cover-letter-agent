@@ -210,10 +210,12 @@ export function MainHILInterface({
             variation={selectedVariation}
             story={story}
             metadata={state.metadata}
-            onContentChange={(content) => {
-              setSelectedVariation({ ...selectedVariation, content });
+            onSave={(content, metadata) => {
+              const updatedVariation = { ...selectedVariation, content };
+              setSelectedVariation(updatedVariation);
+              dispatch({ type: 'UPDATE_METADATA', payload: metadata });
+              onContentUpdated(content);
             }}
-            onSave={handleSaveContent}
             onCancel={onClose}
           />
         );

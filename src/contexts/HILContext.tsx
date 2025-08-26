@@ -28,6 +28,9 @@ interface HILState {
   editingVariation: BlurbVariation | null;
   variationsHistory: VariationChange[];
   
+  // Content metadata
+  metadata: HILContentMetadata;
+  
   // Mock AI integration
   aiSuggestions: MockAISuggestion[];
   gapAnalysis: GapAnalysis | null;
@@ -64,6 +67,7 @@ type HILAction =
   | { type: 'SET_ACTIVE_VARIATIONS'; payload: BlurbVariation[] }
   | { type: 'SET_EDITING_VARIATION'; payload: BlurbVariation | null }
   | { type: 'ADD_VARIATION_CHANGE'; payload: VariationChange }
+  | { type: 'UPDATE_METADATA'; payload: HILContentMetadata }
   | { type: 'SET_AI_SUGGESTIONS'; payload: MockAISuggestion[] }
   | { type: 'SET_GAP_ANALYSIS'; payload: GapAnalysis | null }
   | { type: 'SET_ATS_SCORE'; payload: MockATSScore | null }
@@ -86,6 +90,18 @@ const initialState: HILState = {
   activeVariations: [],
   editingVariation: null,
   variationsHistory: [],
+  metadata: {
+    confidence: 'medium',
+    relevanceScore: 75,
+    impactScore: 80,
+    truthScore: 90,
+    usageCount: 0,
+    lastVerified: new Date().toISOString(),
+    changeType: 'creation',
+    aiAssistanceLevel: 'moderate',
+    tags: [],
+    notes: ''
+  },
   aiSuggestions: [],
   gapAnalysis: null,
   atsScore: null,
@@ -120,6 +136,9 @@ function hilReducer(state: HILState, action: HILAction): HILState {
         ...state, 
         variationsHistory: [...state.variationsHistory, action.payload]
       };
+    
+    case 'UPDATE_METADATA':
+      return { ...state, metadata: action.payload };
     
     case 'SET_AI_SUGGESTIONS':
       return { ...state, aiSuggestions: action.payload };
