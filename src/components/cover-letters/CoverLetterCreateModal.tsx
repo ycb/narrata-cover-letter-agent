@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { LinkIcon, Upload, Wand2, RefreshCw, Save, Send, AlertTriangle, CheckCircle, X } from "lucide-react";
+import { HILProgressPanel } from "@/components/hil/HILProgressPanel";
 
 interface CoverLetterCreateModalProps {
   isOpen: boolean;
@@ -27,6 +28,27 @@ interface GoNoGoAnalysis {
   }[];
 }
 
+// HIL Progress Metrics interface
+interface HILProgressMetrics {
+  goalsMatch: 'strong' | 'average' | 'weak';
+  experienceMatch: 'strong' | 'average' | 'weak';
+  coverLetterRating: 'strong' | 'average' | 'weak';
+  atsScore: number;
+  coreRequirementsMet: { met: number; total: number };
+  preferredRequirementsMet: { met: number; total: number };
+}
+
+// Gap Analysis interface
+interface GapAnalysis {
+  id: string;
+  type: 'core-requirement' | 'preferred-requirement' | 'best-practice' | 'content-enhancement';
+  severity: 'high' | 'medium' | 'low';
+  description: string;
+  impact: string;
+  suggestion: string;
+  canAddress: boolean;
+}
+
 const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps) => {
   const [jobDescriptionMethod, setJobDescriptionMethod] = useState<'url' | 'paste'>('url');
   const [jobUrl, setJobUrl] = useState('');
@@ -36,6 +58,8 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
   const [goNoGoAnalysis, setGoNoGoAnalysis] = useState<GoNoGoAnalysis | null>(null);
   const [showGoNoGoModal, setShowGoNoGoModal] = useState(false);
   const [userOverrideDecision, setUserOverrideDecision] = useState(false);
+  const [hilProgressMetrics, setHilProgressMetrics] = useState<HILProgressMetrics | null>(null);
+  const [gaps, setGaps] = useState<GapAnalysis[]>([]);
 
   // Enhanced mock data for generated cover letter
   const mockGeneratedLetter = {
@@ -127,6 +151,76 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
     };
   };
 
+  // HIL Progress Analysis function
+  const analyzeHILProgress = (jobDescription: string): { metrics: HILProgressMetrics; gaps: GapAnalysis[] } => {
+    // Mock HIL analysis - in real implementation, this would call AI service
+    const hasPython = jobDescription.toLowerCase().includes('python');
+    const hasReact = jobDescription.toLowerCase().includes('react');
+    const hasLeadership = jobDescription.toLowerCase().includes('lead') || jobDescription.toLowerCase().includes('team');
+    const hasMetrics = jobDescription.toLowerCase().includes('metrics') || jobDescription.toLowerCase().includes('kpi');
+    
+    // Calculate metrics based on job description analysis
+    const coreRequirements = ['javascript', 'react', 'node.js', 'api'];
+    const preferredRequirements = ['python', 'leadership', 'metrics', 'agile'];
+    
+    const coreMet = coreRequirements.filter(req => 
+      jobDescription.toLowerCase().includes(req)
+    ).length;
+    const preferredMet = preferredRequirements.filter(req => 
+      jobDescription.toLowerCase().includes(req)
+    ).length;
+    
+    const metrics: HILProgressMetrics = {
+      goalsMatch: hasLeadership ? 'strong' : hasReact ? 'average' : 'weak',
+      experienceMatch: hasReact ? 'strong' : hasPython ? 'average' : 'weak',
+      coverLetterRating: hasMetrics ? 'strong' : hasLeadership ? 'average' : 'weak',
+      atsScore: Math.min(100, 60 + (coreMet * 10) + (preferredMet * 5)),
+      coreRequirementsMet: { met: coreMet, total: coreRequirements.length },
+      preferredRequirementsMet: { met: preferredMet, total: preferredRequirements.length }
+    };
+    
+    // Generate gaps based on analysis
+    const gaps: GapAnalysis[] = [];
+    
+    if (!hasPython && jobDescription.toLowerCase().includes('python')) {
+      gaps.push({
+        id: 'python-gap',
+        type: 'core-requirement',
+        severity: 'high',
+        description: 'Python expertise required but not highlighted in experience',
+        impact: 'High impact on technical qualification',
+        suggestion: 'Add specific Python projects and achievements',
+        canAddress: true
+      });
+    }
+    
+    if (!hasLeadership && jobDescription.toLowerCase().includes('lead')) {
+      gaps.push({
+        id: 'leadership-gap',
+        type: 'preferred-requirement',
+        severity: 'medium',
+        description: 'Leadership experience not clearly demonstrated',
+        impact: 'Medium impact on role qualification',
+        suggestion: 'Highlight team leadership and project management experience',
+        canAddress: true
+      });
+    }
+    
+    if (!hasMetrics) {
+      gaps.push({
+        id: 'metrics-gap',
+        type: 'best-practice',
+        severity: 'medium',
+        description: 'Quantifiable achievements not prominently featured',
+        impact: 'Medium impact on persuasiveness',
+        suggestion: 'Include specific metrics and KPIs from past projects',
+        canAddress: true
+      });
+    }
+    
+    return { metrics, gaps };
+  };
+
   const handleGenerate = async () => {
     setIsGenerating(true);
     
@@ -141,10 +235,15 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
       return;
     }
     
-    // If go, proceed with generation
+    // If go, proceed with generation and HIL analysis
     setTimeout(() => {
       setIsGenerating(false);
       setCoverLetterGenerated(true);
+      
+      // Analyze HIL progress after draft generation
+      const hilAnalysis = analyzeHILProgress(jobContent || jobUrl);
+      setHilProgressMetrics(hilAnalysis.metrics);
+      setGaps(hilAnalysis.gaps);
     }, 3000);
   };
 
@@ -156,6 +255,11 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
     setTimeout(() => {
       setIsGenerating(false);
       setCoverLetterGenerated(true);
+      
+      // Analyze HIL progress after draft generation
+      const hilAnalysis = analyzeHILProgress(jobContent || jobUrl);
+      setHilProgressMetrics(hilAnalysis.metrics);
+      setGaps(hilAnalysis.gaps);
     }, 3000);
   };
 
@@ -163,6 +267,22 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
     setShowGoNoGoModal(false);
     setGoNoGoAnalysis(null);
     setIsGenerating(false);
+  };
+
+  // HIL Action Handlers
+  const handleAddressGap = (gap: GapAnalysis) => {
+    console.log('Addressing gap:', gap);
+    // TODO: Implement gap addressing functionality
+  };
+
+  const handleGenerateContent = () => {
+    console.log('Generating content to fill gaps');
+    // TODO: Implement content generation
+  };
+
+  const handleOptimizeATS = () => {
+    console.log('Optimizing ATS score');
+    // TODO: Implement ATS optimization
   };
 
   const getScoreColor = (score: number) => {
@@ -196,6 +316,8 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
     setIsGenerating(false);
     setGoNoGoAnalysis(null);
     setUserOverrideDecision(false);
+    setHilProgressMetrics(null);
+    setGaps([]);
     onClose();
   };
 
@@ -282,59 +404,15 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
                 )}
               </Button>
 
-              {/* Go/No-Go Analysis Display */}
-              {goNoGoAnalysis && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center justify-between">
-                      <span>Go/No-Go Analysis</span>
-                      <Badge className={getGoNoGoColor(goNoGoAnalysis.decision)}>
-                        {goNoGoAnalysis.decision.toUpperCase()}
-                      </Badge>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Confidence Score:</span>
-                      <span className={`font-bold ${getScoreColor(goNoGoAnalysis.confidence)}`}>
-                        {goNoGoAnalysis.confidence}%
-                      </span>
-                    </div>
-                    
-                    {goNoGoAnalysis.mismatches.length > 0 && (
-                      <div>
-                        <h4 className="text-sm font-medium mb-2">Identified Mismatches:</h4>
-                        <div className="space-y-2">
-                          {goNoGoAnalysis.mismatches.map((mismatch, index) => (
-                            <div key={index} className="p-3 border rounded-lg">
-                              <div className="flex items-center gap-2 mb-1">
-                                <Badge className={getSeverityColor(mismatch.severity)}>
-                                  {mismatch.severity} priority
-                                </Badge>
-                                <Badge variant="outline">
-                                  {mismatch.type}
-                                </Badge>
-                              </div>
-                              <p className="text-sm text-muted-foreground">{mismatch.description}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {userOverrideDecision && (
-                      <div className="p-3 bg-warning/10 border border-warning/20 rounded-lg">
-                        <div className="flex items-center gap-2 text-warning">
-                          <AlertTriangle className="h-4 w-4" />
-                          <span className="text-sm font-medium">User Override Applied</span>
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          You've chosen to proceed despite the no-go recommendation
-                        </p>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+              {/* HIL Progress Panel - replaces Go/No-Go Analysis */}
+              {hilProgressMetrics && (
+                <HILProgressPanel
+                  metrics={hilProgressMetrics}
+                  gaps={gaps}
+                  onAddressGap={handleAddressGap}
+                  onGenerateContent={handleGenerateContent}
+                  onOptimizeATS={handleOptimizeATS}
+                />
               )}
             </div>
 
