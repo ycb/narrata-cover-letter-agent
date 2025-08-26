@@ -632,6 +632,7 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
               )}
             </TabsContent>
           </Tabs>
+          </div>
         </DialogContent>
       </Dialog>
 
