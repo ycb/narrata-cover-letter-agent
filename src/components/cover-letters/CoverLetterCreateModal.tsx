@@ -294,8 +294,57 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
 
   const handleApplyGeneratedContent = (content: string) => {
     console.log('Applying generated content:', content);
-    // TODO: Apply content to cover letter and update metrics
-    // This would integrate with the existing cover letter sections
+    
+    // Apply content to the most appropriate cover letter section
+    // For now, add it as a new paragraph section
+    const newSection = {
+      id: `enhanced-${Date.now()}`,
+      type: 'paragraph' as const,
+      content: content,
+      usedBlurbs: [],
+      isModified: true,
+      isEnhanced: true
+    };
+    
+    // Update the mock letter with the new content
+    const updatedSections = [...mockGeneratedLetter.sections, newSection];
+    mockGeneratedLetter.sections = updatedSections;
+    
+    // Update HIL metrics to reflect improvement
+    if (hilProgressMetrics) {
+      const updatedMetrics = { ...hilProgressMetrics };
+      
+      // Improve scores based on content enhancement
+      updatedMetrics.coverLetterRating = 
+        updatedMetrics.coverLetterRating === 'weak' ? 'average' : 
+        updatedMetrics.coverLetterRating === 'average' ? 'strong' : 'strong';
+      
+      updatedMetrics.atsScore = Math.min(100, updatedMetrics.atsScore + 10);
+      
+      // Update requirements met if applicable
+      if (selectedGap?.type === 'core-requirement') {
+        updatedMetrics.coreRequirementsMet.met = Math.min(
+          updatedMetrics.coreRequirementsMet.total,
+          updatedMetrics.coreRequirementsMet.met + 1
+        );
+      } else if (selectedGap?.type === 'preferred-requirement') {
+        updatedMetrics.preferredRequirementsMet.met = Math.min(
+          updatedMetrics.preferredRequirementsMet.total,
+          updatedMetrics.preferredRequirementsMet.met + 1
+        );
+      }
+      
+      setHilProgressMetrics(updatedMetrics);
+    }
+    
+    // Remove the addressed gap
+    if (selectedGap) {
+      setGaps(prevGaps => prevGaps.filter(gap => gap.id !== selectedGap.id));
+    }
+    
+    // Force re-render by updating state
+    setCoverLetterGenerated(false);
+    setTimeout(() => setCoverLetterGenerated(true), 100);
   };
 
   const getScoreColor = (score: number) => {
@@ -318,6 +367,15 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
       case 'medium': return 'bg-warning text-warning-foreground';
       case 'low': return 'bg-muted text-muted-foreground';
       default: return 'bg-muted text-muted-foreground';
+    }
+  };
+
+  const getRatingColor = (rating: string) => {
+    switch (rating) {
+      case 'strong': return 'text-success';
+      case 'average': return 'text-warning';
+      case 'weak': return 'text-destructive';
+      default: return 'text-muted-foreground';
     }
   };
 
@@ -436,7 +494,31 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
                   <Card>
                     <CardHeader>
                       <div className="flex items-center justify-between">
-                        <CardTitle>Generated Cover Letter</CardTitle>
+                        <div className="space-y-2">
+                          <CardTitle>Generated Cover Letter</CardTitle>
+                          {hilProgressMetrics && (
+                            <div className="flex items-center gap-4 text-sm">
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">ATS Score:</span>
+                                <Badge variant="outline" className={getScoreColor(hilProgressMetrics.atsScore)}>
+                                  {hilProgressMetrics.atsScore}%
+                                </Badge>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">Rating:</span>
+                                <Badge variant="outline" className={getRatingColor(hilProgressMetrics.coverLetterRating)}>
+                                  {hilProgressMetrics.coverLetterRating}
+                                </Badge>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">Gaps:</span>
+                                <Badge variant="outline">
+                                  {gaps.length} remaining
+                                </Badge>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                         <div className="flex gap-2">
                           <Button variant="secondary" size="sm">
                             <RefreshCw className="h-4 w-4" />
@@ -454,17 +536,25 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
                             <Label className="text-sm font-medium capitalize">
                               {section.type}
                             </Label>
-                            {section.usedBlurbs && (
-                              <Badge variant="outline" className="text-xs">
-                                {section.usedBlurbs.length} blurbs used
-                              </Badge>
-                            )}
+                            <div className="flex items-center gap-2">
+                              {section.usedBlurbs && section.usedBlurbs.length > 0 && (
+                                <Badge variant="outline" className="text-xs">
+                                  {section.usedBlurbs.length} blurbs used
+                                </Badge>
+                              )}
+                              {(section as any).isEnhanced && (
+                                <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/20">
+                                  <Sparkles className="h-3 w-3 mr-1" />
+                                  AI Enhanced
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                           <Textarea
                             value={section.content}
                             onChange={() => {}}
                             rows={4}
-                            className="resize-none"
+                            className={`resize-none ${(section as any).isEnhanced ? 'border-success/30 bg-success/5' : ''}`}
                           />
                         </div>
                       ))}
