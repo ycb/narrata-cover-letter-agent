@@ -183,47 +183,31 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
     const metrics: HILProgressMetrics = {
       goalsMatch: hasLeadership ? 'strong' : hasReact ? 'average' : 'weak',
       experienceMatch: hasReact ? 'strong' : hasPython ? 'average' : 'weak',
-      coverLetterRating: hasMetrics ? 'strong' : hasLeadership ? 'average' : 'weak',
-      atsScore: Math.min(100, 60 + (coreMet * 10) + (preferredMet * 5)),
-      coreRequirementsMet: { met: coreMet, total: coreRequirements.length },
-      preferredRequirementsMet: { met: preferredMet, total: preferredRequirements.length }
+      coverLetterRating: 'weak', // Start with weak rating
+      atsScore: 65, // Start with 65% ATS score
+      coreRequirementsMet: { met: 2, total: 4 }, // Start with 2/4
+      preferredRequirementsMet: { met: 1, total: 4 } // Start with 1/4
     };
     
-    // Generate gaps based on analysis
-    const gaps: GapAnalysis[] = [];
-    
-    if (!hasPython && jobDescription.toLowerCase().includes('python')) {
-      gaps.push({
-        id: 'python-gap',
-        type: 'core-requirement',
-        severity: 'high',
-        description: 'Python expertise required but not highlighted in experience',
-        suggestion: 'Add specific Python projects and achievements',
-        paragraphId: 'experience'
-      });
-    }
-    
-    if (!hasLeadership && jobDescription.toLowerCase().includes('lead')) {
-      gaps.push({
-        id: 'leadership-gap',
-        type: 'preferred-requirement',
-        severity: 'medium',
-        description: 'Leadership experience not clearly demonstrated',
-        suggestion: 'Highlight team leadership and project management experience',
-        paragraphId: 'experience'
-      });
-    }
-    
-    if (!hasMetrics) {
-      gaps.push({
-        id: 'metrics-gap',
+    // Generate initial gaps for intro and closing paragraphs
+    const gaps: GapAnalysis[] = [
+      {
+        id: 'intro-gap',
         type: 'best-practice',
         severity: 'medium',
         description: 'Quantifiable achievements not prominently featured',
         suggestion: 'Include specific metrics and KPIs from past projects',
         paragraphId: 'intro'
-      });
-    }
+      },
+      {
+        id: 'closing-gap',
+        type: 'preferred-requirement',
+        severity: 'medium',
+        description: 'Closing statement lacks enthusiasm and specific interest',
+        suggestion: 'Add more enthusiasm and specific reasons for interest in the role',
+        paragraphId: 'closing'
+      }
+    ];
     
     return { metrics, gaps };
   };
@@ -319,20 +303,9 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
       
       // Improve scores based on content enhancement
       updatedMetrics.coverLetterRating = 'strong';
-      updatedMetrics.atsScore = 80; // Increase to 80%
-      
-      // Update requirements met if applicable
-      if (selectedGap?.type === 'core-requirement') {
-        updatedMetrics.coreRequirementsMet.met = Math.min(
-          updatedMetrics.coreRequirementsMet.total,
-          updatedMetrics.coreRequirementsMet.met + 1
-        );
-      } else if (selectedGap?.type === 'preferred-requirement') {
-        updatedMetrics.preferredRequirementsMet.met = Math.min(
-          updatedMetrics.preferredRequirementsMet.total,
-          updatedMetrics.preferredRequirementsMet.met + 1
-        );
-      }
+      updatedMetrics.atsScore = 90; // Increase to 90%
+      updatedMetrics.coreRequirementsMet = { met: 4, total: 4 }; // All core requirements met
+      updatedMetrics.preferredRequirementsMet = { met: 2, total: 4 }; // 2 preferred requirements met
       
       setHilProgressMetrics(updatedMetrics);
     }
@@ -400,7 +373,7 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
     <>
       <Dialog open={isOpen} onOpenChange={handleClose}>
         <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="pb-4">
+          <DialogHeader className="pb-2">
             <DialogTitle className="text-2xl font-bold">Create Cover Letter</DialogTitle>
             <DialogDescription className="text-base">
               Generate a personalized cover letter for your job application
@@ -409,7 +382,7 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
 
           {/* Top Progress Bar */}
           {hilProgressMetrics && (
-            <div className="w-full bg-card border rounded-lg p-4 mb-6">
+            <div className="w-full bg-card border rounded-lg p-4 mb-4">
               <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-center">
                 <div className="space-y-1">
                   <div className="text-xs text-muted-foreground">MATCH WITH GOALS</div>
@@ -448,7 +421,7 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
           {/* Main Tabs */}
           <div className="w-full">
             <Tabs value={coverLetterGenerated ? 'cover-letter' : 'job-description'} className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsList className="grid w-full grid-cols-2 mb-4">
                 <TabsTrigger value="job-description" className="flex items-center gap-2">
                   <Upload className="h-4 w-4" />
                   Job Description
@@ -633,8 +606,8 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex gap-3">
-                    <Button variant="secondary" className="flex-1">
+                  <div className="flex gap-3 pt-4">
+                    <Button variant="link" className="flex-1 text-muted-foreground hover:text-foreground">
                       Save Draft
                     </Button>
                     <Button className="flex-1 flex items-center gap-2">
@@ -658,8 +631,7 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
                 </Card>
               )}
             </TabsContent>
-            </Tabs>
-          </div>
+          </Tabs>
         </DialogContent>
       </Dialog>
 
