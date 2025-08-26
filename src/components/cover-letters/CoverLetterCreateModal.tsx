@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { LinkIcon, Upload, Wand2, RefreshCw, Save, Send, AlertTriangle, CheckCircle, X } from "lucide-react";
+import { LinkIcon, Upload, Wand2, RefreshCw, Save, Send, AlertTriangle, CheckCircle, X, Target } from "lucide-react";
 import { HILProgressPanel } from "@/components/hil/HILProgressPanel";
 import { GapAnalysisPanel } from "@/components/hil/GapAnalysisPanel";
 import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
@@ -438,166 +438,248 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
             </div>
           )}
 
-          {/* Job Description Input - Compact */}
-          <div className="mb-6">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg">Job Description</CardTitle>
-                <CardDescription>
-                  Provide the job description to generate a targeted cover letter
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Tabs value={jobDescriptionMethod} onValueChange={(value) => setJobDescriptionMethod(value as 'url' | 'paste')}>
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="url" className="flex items-center gap-2">
-                      <LinkIcon className="h-4 w-4" />
-                      URL
-                    </TabsTrigger>
-                    <TabsTrigger value="paste" className="flex items-center gap-2">
-                      <Upload className="h-4 w-4" />
-                      Paste
-                    </TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="url" className="mt-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="job-url">Job Posting URL</Label>
-                      <Input
-                        id="job-url"
-                        placeholder="https://company.com/jobs/senior-engineer"
-                        value={jobUrl}
-                        onChange={(e) => setJobUrl(e.target.value)}
-                      />
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="paste" className="mt-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="job-content">Job Description</Label>
-                      <Textarea
-                        id="job-content"
-                        placeholder="Paste the job description here..."
-                        value={jobContent}
-                        onChange={(e) => setJobContent(e.target.value)}
-                        rows={4}
-                      />
-                    </div>
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
+          {/* Main Tabs */}
+          <Tabs value={coverLetterGenerated ? 'cover-letter' : 'job-description'} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="job-description" className="flex items-center gap-2">
+                <Upload className="h-4 w-4" />
+                Job Description
+              </TabsTrigger>
+              <TabsTrigger value="cover-letter" className="flex items-center gap-2" disabled={!coverLetterGenerated}>
+                <Wand2 className="h-4 w-4" />
+                Cover Letter
+              </TabsTrigger>
+            </TabsList>
 
-            {/* Generate Button */}
-            <Button 
-              onClick={handleGenerate}
-              disabled={isGenerating || (!jobUrl && !jobContent)}
-              className="w-full flex items-center gap-2 mt-4"
-              size="lg"
-            >
-              {isGenerating ? (
-                <>
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                  Generating Cover Letter...
-                </>
-              ) : (
-                <>
-                  <Wand2 className="h-4 w-4" />
-                  Generate Cover Letter
-                </>
-              )}
-            </Button>
-          </div>
-
-          {/* Main Content Area - Left: Draft, Right: Gap Analysis */}
-          {coverLetterGenerated && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Left Column - Cover Letter Draft */}
-              <div className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle>Generated Cover Letter</CardTitle>
-                      <div className="flex gap-2">
-                        <Button variant="secondary" size="sm">
-                          <RefreshCw className="h-4 w-4" />
-                        </Button>
-                        <Button variant="secondary" size="sm">
-                          <Save className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    {mockGeneratedLetter.sections.map((section) => (
-                      <div key={section.id} className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-sm font-medium capitalize">
-                            {section.type}
-                          </Label>
-                          <div className="flex items-center gap-2">
-                            {section.usedBlurbs && section.usedBlurbs.length > 0 && (
-                              <Badge variant="outline" className="text-xs">
-                                {section.usedBlurbs.length} blurbs used
-                              </Badge>
-                            )}
-                            {(section as any).isEnhanced && (
-                              <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/20">
-                                <Sparkles className="h-3 w-3 mr-1" />
-                                AI Enhanced
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                        <Textarea
-                          value={section.content}
-                          onChange={() => {}}
-                          rows={4}
-                          className={`resize-none ${(section as any).isEnhanced ? 'border-success/30 bg-success/5' : ''}`}
+            {/* Job Description Tab */}
+            <TabsContent value="job-description" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Job Description</CardTitle>
+                  <CardDescription>
+                    Provide the job description to generate a targeted cover letter
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Tabs value={jobDescriptionMethod} onValueChange={(value) => setJobDescriptionMethod(value as 'url' | 'paste')}>
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="url" className="flex items-center gap-2">
+                        <LinkIcon className="h-4 w-4" />
+                        URL
+                      </TabsTrigger>
+                      <TabsTrigger value="paste" className="flex items-center gap-2">
+                        <Upload className="h-4 w-4" />
+                        Paste
+                      </TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="url" className="mt-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="job-url">Job Posting URL</Label>
+                        <Input
+                          id="job-url"
+                          placeholder="https://company.com/jobs/senior-pm"
+                          value={jobUrl}
+                          onChange={(e) => setJobUrl(e.target.value)}
                         />
                       </div>
+                    </TabsContent>
+                    
+                    <TabsContent value="paste" className="mt-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="job-content">Job Description</Label>
+                        <Textarea
+                          id="job-content"
+                          placeholder="Paste the job description here..."
+                          value={jobContent}
+                          onChange={(e) => setJobContent(e.target.value)}
+                          rows={8}
+                        />
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+
+                  {/* Mock Senior PM JD */}
+                  <div className="mt-6 p-4 bg-muted/30 rounded-lg">
+                    <h4 className="font-medium mb-2">Sample Senior PM Job Description</h4>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Senior Product Manager - Growth & SaaS Platform
+                    </p>
+                    <div className="text-sm space-y-2">
+                      <p><strong>Requirements:</strong> 6+ years PM experience, SaaS background, growth metrics, SQL/Python, Tableau/Looker, fintech experience</p>
+                      <p><strong>Responsibilities:</strong> Lead growth initiatives, analyze user behavior, optimize conversion funnels, collaborate with engineering teams</p>
+                      <p><strong>Nice to have:</strong> 1-for ROB SaaS experience, mobile app development, team leadership</p>
+                    </div>
+                  </div>
+
+                  {/* Generate Button */}
+                  <Button 
+                    onClick={handleGenerate}
+                    disabled={isGenerating || (!jobUrl && !jobContent)}
+                    className="w-full flex items-center gap-2 mt-4"
+                    size="lg"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                        Generating Cover Letter...
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="h-4 w-4" />
+                        Generate Cover Letter
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Cover Letter Tab */}
+            <TabsContent value="cover-letter" className="space-y-6">
+              {/* Main Content Area - Left: Draft, Right: Gap Analysis */}
+              {coverLetterGenerated && (
+                <div className="space-y-6">
+                  {/* Cover Letter Header */}
+                  <Card>
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle>Generated Cover Letter</CardTitle>
+                        <div className="flex gap-2">
+                          <Button variant="secondary" size="sm">
+                            <RefreshCw className="h-4 w-4" />
+                          </Button>
+                          <Button variant="secondary" size="sm">
+                            <Save className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardHeader>
+                  </Card>
+
+                  {/* 1:1 Alignment - Paragraphs with Gap/Requirement Cards */}
+                  <div className="space-y-6">
+                    {mockGeneratedLetter.sections.map((section) => (
+                      <div key={section.id} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Left: Paragraph Content */}
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-sm font-medium capitalize">
+                              {section.type}
+                            </Label>
+                            <div className="flex items-center gap-2">
+                              {section.usedBlurbs && section.usedBlurbs.length > 0 && (
+                                <Badge variant="outline" className="text-xs">
+                                  {section.usedBlurbs.length} blurbs used
+                                </Badge>
+                              )}
+                              {(section as any).isEnhanced && (
+                                <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/20">
+                                  <Sparkles className="h-3 w-3 mr-1" />
+                                  AI Enhanced
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <Textarea
+                            value={section.content}
+                            onChange={() => {}}
+                            rows={4}
+                            className={`resize-none ${(section as any).isEnhanced ? 'border-success/30 bg-success/5' : ''}`}
+                          />
+                        </div>
+
+                        {/* Right: Gap/Requirement Card */}
+                        <div className="space-y-3">
+                          {(() => {
+                            const sectionGaps = gaps.filter(gap => gap.paragraphId === section.type);
+                            const isResolved = sectionGaps.length === 0;
+                            
+                            if (isResolved) {
+                              return (
+                                <Card className="h-full border-success/30 bg-success/5">
+                                  <CardContent className="p-4">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <CheckCircle className="h-4 w-4 text-success" />
+                                      <span className="text-sm font-medium text-success">Requirement Met</span>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                      This paragraph successfully addresses the job requirements.
+                                    </p>
+                                  </CardContent>
+                                </Card>
+                              );
+                            }
+
+                            return sectionGaps.map((gap) => (
+                              <Card key={gap.id} className="h-full">
+                                <CardContent className="p-4">
+                                  <div className="flex items-start justify-between mb-3">
+                                    <div className="flex items-center gap-2">
+                                      <Badge className={gap.severity === 'high' ? 'bg-destructive' : gap.severity === 'medium' ? 'bg-warning' : 'bg-muted'}>
+                                        {gap.severity} impact
+                                      </Badge>
+                                      <Badge variant="outline">
+                                        {gap.type.replace('-', ' ')}
+                                      </Badge>
+                                    </div>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleAddressGap(gap)}
+                                      className="flex items-center gap-1"
+                                    >
+                                      <Target className="h-3 w-3" />
+                                      Edit
+                                    </Button>
+                                  </div>
+                                  
+                                  <div className="space-y-2">
+                                    <div>
+                                      <h5 className="font-medium text-sm">Issue:</h5>
+                                      <p className="text-sm text-muted-foreground">{gap.description}</p>
+                                    </div>
+                                    <div>
+                                      <h5 className="font-medium text-sm">Suggestion:</h5>
+                                      <p className="text-sm text-muted-foreground">{gap.suggestion}</p>
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            ));
+                          })()}
+                        </div>
+                      </div>
                     ))}
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-3">
+                    <Button variant="secondary" className="flex-1">
+                      Save Draft
+                    </Button>
+                    <Button className="flex-1 flex items-center gap-2">
+                      <Send className="h-4 w-4" />
+                      Finalize Letter
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Cover Letter Preview - When not generated */}
+              {!coverLetterGenerated && (
+                <Card className="h-96 flex items-center justify-center">
+                  <CardContent className="text-center">
+                    <Wand2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">Cover Letter Preview</h3>
+                    <p className="text-muted-foreground">
+                      Your generated cover letter will appear here
+                    </p>
                   </CardContent>
                 </Card>
-
-                <div className="flex gap-3">
-                  <Button variant="secondary" className="flex-1">
-                    Save Draft
-                  </Button>
-                  <Button className="flex-1 flex items-center gap-2">
-                    <Send className="h-4 w-4" />
-                    Finalize Letter
-                  </Button>
-                </div>
-              </div>
-
-              {/* Right Column - Gap Analysis & Requirements */}
-              <div className="space-y-6">
-                <GapAnalysisPanel
-                  gaps={gaps}
-                  requirements={hilProgressMetrics ? {
-                    core: hilProgressMetrics.coreRequirementsMet,
-                    preferred: hilProgressMetrics.preferredRequirementsMet
-                  } : null}
-                  onAddressGap={handleAddressGap}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Cover Letter Preview - When not generated */}
-          {!coverLetterGenerated && (
-            <Card className="h-96 flex items-center justify-center">
-              <CardContent className="text-center">
-                <Wand2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Cover Letter Preview</h3>
-                <p className="text-muted-foreground">
-                  Your generated cover letter will appear here
-                </p>
-              </CardContent>
-            </Card>
-          )}
-        </DialogContent>
+              )}
+            </TabsContent>
+          </DialogContent>
       </Dialog>
 
       {/* Go/No-Go Modal */}
