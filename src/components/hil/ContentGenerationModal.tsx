@@ -99,12 +99,7 @@ export function ContentGenerationModal({
             Generate Content for Gap
           </DialogTitle>
           <DialogDescription>
-            AI-powered content generation to address: {gap.description}
-            {gap.paragraphId && (
-              <span className="text-sm text-muted-foreground">
-                This gap relates to the <strong className="capitalize">{gap.paragraphId}</strong> paragraph
-              </span>
-            )}
+            Generate enhanced content to address this gap
           </DialogDescription>
         </DialogHeader>
 
@@ -138,11 +133,29 @@ export function ContentGenerationModal({
             </CardContent>
           </Card>
 
+          {/* Existing Content */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Existing Content</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="p-3 bg-muted/30 rounded-lg">
+                <p className="text-sm text-muted-foreground">
+                  {gap.paragraphId === 'intro' && "I am writing to express my strong interest in the Senior Software Engineer position at TechCorp. With over 5 years of experience in full-stack development and a passion for creating innovative solutions, I am excited about the opportunity to contribute to your team's mission of building cutting-edge technology."}
+                  {gap.paragraphId === 'experience' && "In my previous role as a Lead Developer at InnovateTech, I successfully architected and implemented a microservices platform that reduced system latency by 40% and improved scalability for over 100,000 daily active users. My expertise in React, Node.js, and cloud technologies aligns perfectly with TechCorp's technology stack."}
+                  {gap.paragraphId === 'closing' && "What particularly excites me about TechCorp is your commitment to innovation and sustainable technology solutions. I led a green technology initiative that reduced our infrastructure costs by 30% while improving performance, demonstrating my ability to balance technical excellence with business impact."}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Content Generation */}
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Generated Content</CardTitle>
+                <CardTitle className="text-lg">
+                  {!generatedContent ? 'Generated Content' : 'Generated Content'}
+                </CardTitle>
                 <div className="flex items-center gap-2">
                   {contentQuality === 'review' && (
                     <Badge variant="outline" className="text-warning">

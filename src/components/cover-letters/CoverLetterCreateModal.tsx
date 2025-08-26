@@ -320,8 +320,8 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
     setSelectedGap(null);
     
     // Force re-render to show updated content and metrics
-    setCoverLetterGenerated(false);
-    setTimeout(() => setCoverLetterGenerated(true), 100);
+    // Note: We don't need to toggle coverLetterGenerated state here
+    // as it should remain true after generation
   };
 
   const getScoreColor = (score: number) => {
