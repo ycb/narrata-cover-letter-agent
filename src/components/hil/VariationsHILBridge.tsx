@@ -41,6 +41,9 @@ export function VariationsHILBridge({
 
   // Sort variations by priority (gap-filling first, then job-specific, then fallback)
   const sortedVariations = useMemo(() => {
+    if (!variations || !Array.isArray(variations)) {
+      return [];
+    }
     return [...variations].sort((a, b) => {
       const getPriority = (variation: BlurbVariation) => {
         if (variation.filledGap) return 1; // Highest priority
@@ -128,7 +131,7 @@ export function VariationsHILBridge({
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="secondary">
-              {variations.length} variation{variations.length !== 1 ? 's' : ''}
+              {variations?.length || 0} variation{(variations?.length || 0) !== 1 ? 's' : ''}
             </Badge>
             <Button
               variant="ghost"
