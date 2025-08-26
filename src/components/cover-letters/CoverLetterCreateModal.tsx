@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { LinkIcon, Upload, Wand2, RefreshCw, Save, Send, AlertTriangle, CheckCircle, X } from "lucide-react";
 import { HILProgressPanel } from "@/components/hil/HILProgressPanel";
+import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
 
 interface CoverLetterCreateModalProps {
   isOpen: boolean;
@@ -60,6 +61,8 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
   const [userOverrideDecision, setUserOverrideDecision] = useState(false);
   const [hilProgressMetrics, setHilProgressMetrics] = useState<HILProgressMetrics | null>(null);
   const [gaps, setGaps] = useState<GapAnalysis[]>([]);
+  const [showContentGenerationModal, setShowContentGenerationModal] = useState(false);
+  const [selectedGap, setSelectedGap] = useState<GapAnalysis | null>(null);
 
   // Enhanced mock data for generated cover letter
   const mockGeneratedLetter = {
@@ -271,18 +274,28 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
 
   // HIL Action Handlers
   const handleAddressGap = (gap: GapAnalysis) => {
-    console.log('Addressing gap:', gap);
-    // TODO: Implement gap addressing functionality
+    setSelectedGap(gap);
+    setShowContentGenerationModal(true);
   };
 
   const handleGenerateContent = () => {
-    console.log('Generating content to fill gaps');
-    // TODO: Implement content generation
+    // Generate content for the first available gap
+    const firstGap = gaps.find(gap => gap.canAddress);
+    if (firstGap) {
+      setSelectedGap(firstGap);
+      setShowContentGenerationModal(true);
+    }
   };
 
   const handleOptimizeATS = () => {
     console.log('Optimizing ATS score');
     // TODO: Implement ATS optimization
+  };
+
+  const handleApplyGeneratedContent = (content: string) => {
+    console.log('Applying generated content:', content);
+    // TODO: Apply content to cover letter and update metrics
+    // This would integrate with the existing cover letter sections
   };
 
   const getScoreColor = (score: number) => {
@@ -523,6 +536,14 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Content Generation Modal */}
+      <ContentGenerationModal
+        isOpen={showContentGenerationModal}
+        onClose={() => setShowContentGenerationModal(false)}
+        gap={selectedGap}
+        onApplyContent={handleApplyGeneratedContent}
+      />
     </>
   );
 };
