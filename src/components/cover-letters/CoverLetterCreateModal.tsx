@@ -75,15 +75,15 @@ const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps
         isModified: false
       },
       {
-        id: 'paragraph-1',
-        type: 'paragraph',
+        id: 'experience',
+        type: 'experience',
         content: "In my previous role as a Lead Developer at InnovateTech, I successfully architected and implemented a microservices platform that reduced system latency by 40% and improved scalability for over 100,000 daily active users. My expertise in React, Node.js, and cloud technologies aligns perfectly with TechCorp's technology stack.",
         usedBlurbs: ['blurb-3', 'blurb-4'],
         isModified: false
       },
       {
-        id: 'paragraph-2',
-        type: 'paragraph',
+        id: 'closing',
+        type: 'closing',
         content: "What particularly excites me about TechCorp is your commitment to innovation and sustainable technology solutions. I led a green technology initiative that reduced our infrastructure costs by 30% while improving performance, demonstrating my ability to balance technical excellence with business impact.",
         usedBlurbs: ['blurb-5'],
         isModified: false
