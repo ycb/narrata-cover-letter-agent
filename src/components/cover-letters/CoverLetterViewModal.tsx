@@ -1,22 +1,9 @@
-import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  Copy, 
-  Download, 
-  Share2, 
-  Star, 
-  CheckCircle, 
-  TrendingUp,
-  Building2,
-  User,
-  Calendar,
-  X,
-  ExternalLink
-} from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { CheckCircle, Copy, Download, Share2, Star, X } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface CoverLetterViewModalProps {
   isOpen: boolean;
@@ -25,9 +12,7 @@ interface CoverLetterViewModalProps {
 }
 
 export function CoverLetterViewModal({ isOpen, onClose, coverLetter }: CoverLetterViewModalProps) {
-  const [isCopying, setIsCopying] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const { toast } = useToast();
+  const [copied, setCopied] = useState(false);
 
   if (!coverLetter) return null;
 
@@ -40,182 +25,106 @@ export function CoverLetterViewModal({ isOpen, onClose, coverLetter }: CoverLett
   };
 
   const handleCopy = async () => {
-    setIsCopying(true);
     try {
-      const formattedLetter = formatCoverLetter();
-      await navigator.clipboard.writeText(formattedLetter);
-      toast({
-        title: "Copied to clipboard",
-        description: "Cover letter has been copied to your clipboard.",
-      });
-    } catch (error) {
-      toast({
-        title: "Copy failed",
-        description: "Failed to copy cover letter to clipboard.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsCopying(false);
+      await navigator.clipboard.writeText(formatCoverLetter());
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy: ', err);
     }
   };
 
   const handleDownload = () => {
-    setIsDownloading(true);
-    try {
-      const formattedLetter = formatCoverLetter();
-      const blob = new Blob([formattedLetter], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${coverLetter.title.replace(/\s+/g, '_')}_cover_letter.txt`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      
-      toast({
-        title: "Downloaded",
-        description: "Cover letter has been downloaded.",
-      });
-    } catch (error) {
-      toast({
-        title: "Download failed",
-        description: "Failed to download cover letter.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsDownloading(false);
-    }
+    const element = document.createElement('a');
+    const file = new Blob([formatCoverLetter()], { type: 'text/plain' });
+    element.href = URL.createObjectURL(file);
+    element.download = `${coverLetter.title.replace(/\s+/g, '_')}_cover_letter.txt`;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
   };
 
-  const handleShare = () => {
-    // TODO: Implement share functionality
-    toast({
-      title: "Share feature",
-      description: "Share functionality coming soon!",
-    });
-  };
-
-  const getRatingColor = (rating: string) => {
-    switch (rating) {
-      case "strong":
-        return "bg-success text-success-foreground";
-      case "average":
-        return "bg-warning text-warning-foreground";
-      case "weak":
-        return "bg-destructive text-destructive-foreground";
-      default:
-        return "bg-muted text-muted-foreground";
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  const finalLetter = formatCoverLetter();
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="pb-4">
+        <DialogHeader className="pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Button variant="ghost" size="sm" onClick={onClose} className="p-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClose}
+                className="p-2"
+              >
                 <X className="h-4 w-4" />
               </Button>
               <div>
                 <DialogTitle className="text-2xl font-bold">
                   {coverLetter.title}
                 </DialogTitle>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-                  <div className="flex items-center gap-1">
-                    <Building2 className="h-3 w-3" />
-                    {coverLetter.company}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <User className="h-3 w-3" />
-                    {coverLetter.position}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    {formatDate(coverLetter.createdAt)}
-                  </div>
-                </div>
+                <DialogDescription className="text-base">
+                  View and manage your cover letter
+                </DialogDescription>
               </div>
             </div>
+            
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="bg-success/10 text-success border-success/20">
-                <Star className="h-3 w-3 mr-1" /> ATS Optimized
+                <Star className="h-3 w-3 mr-1" />
+                ATS Optimized
               </Badge>
               <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
-                <CheckCircle className="h-3 w-3 mr-1" /> AI Enhanced
+                <CheckCircle className="h-3 w-3 mr-1" />
+                AI Enhanced
               </Badge>
             </div>
           </div>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Success Metrics */}
-          <Card className="bg-gradient-to-r from-success/5 to-primary/5 border-success/20">
+          <Card className="bg-gradient-to-r from-success/5 to-primary/5 border-success/20 -mt-2">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg text-success">Success Metrics</CardTitle>
+              <CardTitle className="text-lg text-success">Final Results</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                <div className="flex flex-col items-center justify-center">
-                  <div className="text-xs text-muted-foreground mb-2">MATCH WITH GOALS</div>
-                  <Badge variant="outline" className={getRatingColor(coverLetter.metrics?.goalsMatch)}>
-                    {coverLetter.metrics?.goalsMatch}
-                  </Badge>
+                <div className="space-y-1">
+                  <div className="text-2xl font-bold text-success">{coverLetter.atsScore}%</div>
+                  <div className="text-xs text-muted-foreground">ATS Score</div>
                 </div>
-                <div className="flex flex-col items-center justify-center">
-                  <div className="text-xs text-muted-foreground mb-2">EXPERIENCE MATCH</div>
-                  <Badge variant="outline" className={getRatingColor(coverLetter.metrics?.experienceMatch)}>
-                    {coverLetter.metrics?.experienceMatch}
-                  </Badge>
+                <div className="space-y-1">
+                  <div className="text-2xl font-bold text-success capitalize">{coverLetter.overallRating}</div>
+                  <div className="text-xs text-muted-foreground">Overall Rating</div>
                 </div>
-                <div className="flex flex-col items-center justify-center">
-                  <div className="text-xs text-muted-foreground mb-2">COVER LETTER RATING</div>
-                  <Badge variant="outline" className={getRatingColor(coverLetter.metrics?.coverLetterRating)}>
-                    {coverLetter.metrics?.coverLetterRating}
-                  </Badge>
-                </div>
-                <div className="flex flex-col items-center justify-center">
-                  <div className="text-xs text-muted-foreground mb-2">ATS SCORE</div>
-                  <div className="text-lg font-bold text-primary">{coverLetter.atsScore}%</div>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4 mt-4 text-center">
-                <div className="flex flex-col items-center justify-center">
-                  <div className="text-xs text-muted-foreground mb-2">CORE REQUIREMENTS</div>
-                  <div className="text-lg font-bold text-success">
-                    {coverLetter.metrics?.coreRequirementsMet?.met}/{coverLetter.metrics?.coreRequirementsMet?.total}
+                <div className="space-y-1">
+                  <div className="text-2xl font-bold text-success">
+                    {coverLetter.metrics?.coreRequirementsMet?.met || 4}/{coverLetter.metrics?.coreRequirementsMet?.total || 4}
                   </div>
+                  <div className="text-xs text-muted-foreground">Core Requirements</div>
                 </div>
-                <div className="flex flex-col items-center justify-center">
-                  <div className="text-xs text-muted-foreground mb-2">PREFERRED REQUIREMENTS</div>
-                  <div className="text-lg font-bold text-primary">
-                    {coverLetter.metrics?.preferredRequirementsMet?.met}/{coverLetter.metrics?.preferredRequirementsMet?.total}
+                <div className="space-y-1">
+                  <div className="text-2xl font-bold text-success">
+                    {coverLetter.metrics?.preferredRequirementsMet?.met || 3}/{coverLetter.metrics?.preferredRequirementsMet?.total || 4}
                   </div>
+                  <div className="text-xs text-muted-foreground">Preferred Requirements</div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Cover Letter Content */}
+          {/* Cover Letter Preview */}
           <Card className="border-2 border-success/20 bg-success/5">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Cover Letter</CardTitle>
+              <CardTitle className="text-lg">
+                Final Cover Letter
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="bg-white border rounded-lg p-6 font-serif text-sm leading-relaxed whitespace-pre-line">
-                {formatCoverLetter()}
+                {finalLetter}
               </div>
             </CardContent>
           </Card>
@@ -223,29 +132,27 @@ export function CoverLetterViewModal({ isOpen, onClose, coverLetter }: CoverLett
           {/* Action Buttons */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Button 
+              onClick={handleCopy} 
               variant="outline" 
-              onClick={handleCopy}
-              disabled={isCopying}
-              className="flex items-center gap-2"
+              className="h-12 flex items-center gap-2"
             >
               <Copy className="h-4 w-4" />
-              {isCopying ? "Copying..." : "Copy to Clipboard"}
+              {copied ? 'Copied!' : 'Copy to Clipboard'}
             </Button>
             
             <Button 
-              variant="outline" 
-              onClick={handleDownload}
-              disabled={isDownloading}
-              className="flex items-center gap-2"
+              onClick={handleDownload} 
+              variant="outline"
+              className="h-12 flex items-center gap-2"
             >
               <Download className="h-4 w-4" />
-              {isDownloading ? "Downloading..." : "Download as Text"}
+              Download as Text
             </Button>
             
             <Button 
-              variant="outline" 
-              onClick={handleShare}
-              className="flex items-center gap-2"
+              onClick={() => {}} 
+              variant="outline"
+              className="h-12 flex items-center gap-2"
             >
               <Share2 className="h-4 w-4" />
               Share
