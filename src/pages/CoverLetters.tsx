@@ -21,7 +21,8 @@ import {
   Clock,
   TrendingUp,
   MoreHorizontal,
-  LayoutTemplate
+  LayoutTemplate,
+  Trophy
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
@@ -331,7 +332,7 @@ export default function CoverLetters() {
                       {coverLetters.length > 0 ? Math.round(coverLetters.reduce((sum, cl) => sum + cl.atsScore, 0) / coverLetters.length) : 0}%
                     </p>
                   </div>
-                  <TrendingUp className="h-8 w-8 text-primary" />
+                  <Trophy className="h-8 w-8 text-primary" />
                 </div>
               </CardContent>
             </Card>
