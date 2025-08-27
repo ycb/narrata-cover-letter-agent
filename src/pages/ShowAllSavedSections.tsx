@@ -297,7 +297,7 @@ export default function ShowAllSavedSections() {
                 }}>
                   <Edit className="h-4 w-4 mr-2" />
                   Edit Section
-                </div>
+                </Button>
               </div>
             </div>
           )}
