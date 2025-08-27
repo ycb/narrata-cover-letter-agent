@@ -74,7 +74,7 @@ export function CoverLetterFinalization({
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="pb-4">
+          <DialogHeader className="pb-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Button
@@ -86,8 +86,7 @@ export function CoverLetterFinalization({
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
                 <div>
-                  <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-                    <CheckCircle className="h-6 w-6 text-success" />
+                  <DialogTitle className="text-2xl font-bold">
                     Cover Letter Finalized
                   </DialogTitle>
                   <DialogDescription className="text-base">
@@ -109,53 +108,9 @@ export function CoverLetterFinalization({
             </div>
           </DialogHeader>
 
-          <div className="space-y-6">
-            {/* Cover Letter Preview */}
-            <Card className="border-2 border-success/20 bg-success/5">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Mail className="h-5 w-5 text-success" />
-                  Final Cover Letter
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="bg-white border rounded-lg p-6 font-serif text-sm leading-relaxed whitespace-pre-line">
-                  {finalLetter}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Action Buttons */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Button 
-                onClick={handleCopy} 
-                variant="outline" 
-                className="h-12 flex items-center gap-2"
-              >
-                <Copy className="h-4 w-4" />
-                {copied ? 'Copied!' : 'Copy to Clipboard'}
-              </Button>
-              
-              <Button 
-                onClick={handleDownload} 
-                variant="outline" 
-                className="h-12 flex items-center gap-2"
-              >
-                <Download className="h-4 w-4" />
-                Download as Text
-              </Button>
-              
-              <Button 
-                onClick={() => setShowShareModal(true)} 
-                className="h-12 flex items-center gap-2"
-              >
-                <Share2 className="h-4 w-4" />
-                Share
-              </Button>
-            </div>
-
+          <div className="space-y-4">
             {/* Success Metrics */}
-            <Card className="bg-gradient-to-r from-success/5 to-primary/5 border-success/20">
+            <Card className="bg-gradient-to-r from-success/5 to-primary/5 border-success/20 -mt-2">
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg text-success">Final Results</CardTitle>
               </CardHeader>
@@ -181,28 +136,49 @@ export function CoverLetterFinalization({
               </CardContent>
             </Card>
 
-            {/* Next Steps */}
-            <Card>
+            {/* Cover Letter Preview */}
+            <Card className="border-2 border-success/20 bg-success/5">
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg">Next Steps</CardTitle>
+                <CardTitle className="text-lg">
+                  Final Cover Letter
+                </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
-                    <div className="w-2 h-2 bg-primary rounded-full"></div>
-                    <span className="text-sm">Review the letter for any final adjustments</span>
-                  </div>
-                  <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
-                    <div className="w-2 h-2 bg-primary rounded-full"></div>
-                    <span className="text-sm">Customize contact information in the signature</span>
-                  </div>
-                  <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
-                    <div className="w-2 h-2 bg-primary rounded-full"></div>
-                    <span className="text-sm">Submit with your application</span>
-                  </div>
+                <div className="bg-white border rounded-lg p-6 font-serif text-sm leading-relaxed whitespace-pre-line">
+                  {finalLetter}
                 </div>
               </CardContent>
             </Card>
+
+
+            {/* Action Buttons */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Button 
+                onClick={handleCopy} 
+                variant="outline" 
+                className="h-12 flex items-center gap-2"
+              >
+                <Copy className="h-4 w-4" />
+                {copied ? 'Copied!' : 'Copy to Clipboard'}
+              </Button>
+              
+              <Button 
+                onClick={handleDownload} 
+                variant="outline"
+                className="h-12 flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Download as Text
+              </Button>
+              
+              <Button 
+                onClick={() => setShowShareModal(true)} 
+                className="h-12 flex items-center gap-2"
+              >
+                <Share2 className="h-4 w-4" />
+                Share
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
