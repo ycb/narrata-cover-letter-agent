@@ -619,6 +619,13 @@ export const WorkHistoryDetail = ({
                     return `${totalBlurbs} story${totalBlurbs !== 1 ? 's' : ''}`;
                   })()}
                 </div>
+                <div className="flex items-center gap-2">
+                  <LinkIcon className="h-4 w-4" />
+                  {(() => {
+                    const totalLinks = selectedCompany.roles.reduce((total, role) => total + (role.externalLinks?.length || 0), 0);
+                    return `${totalLinks} link${totalLinks !== 1 ? 's' : ''}`;
+                  })()}
+                </div>
               </div>
             </div>
             
