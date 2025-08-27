@@ -389,44 +389,51 @@ export default function CoverLetters() {
                         <Building2 className="h-3 w-3" />
                         {coverLetter.company}
                       </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <User className="h-3 w-3" />
                         {coverLetter.position}
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        Created {formatDate(coverLetter.createdAt)}
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        Updated {formatDate(coverLetter.updatedAt)}
-                      </div>
                     </div>
                     
-                    <div className="flex items-center gap-2">
-                      <Badge className={getStatusColor(coverLetter.status)}>
-                        {getStatusIcon(coverLetter.status)}
-                        <span className="ml-1 capitalize">{coverLetter.status}</span>
-                      </Badge>
+                    <div className="flex flex-col items-end gap-2">
+                      {/* Timestamps */}
+                      <div className="flex flex-col items-end gap-1 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          Created {formatDate(coverLetter.createdAt)}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          Updated {formatDate(coverLetter.updatedAt)}
+                        </div>
+                      </div>
                       
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleCopy(coverLetter)}>
-                            <Copy className="mr-2 h-4 w-4" />
-                            Copy
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDelete(coverLetter)}>
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      {/* Status and Menu */}
+                      <div className="flex items-center gap-2">
+                        <Badge className={getStatusColor(coverLetter.status)}>
+                          {getStatusIcon(coverLetter.status)}
+                          <span className="ml-1 capitalize">{coverLetter.status}</span>
+                        </Badge>
+                        
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <span className="sr-only">Open menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleCopy(coverLetter)}>
+                              <Copy className="mr-2 h-4 w-4" />
+                              Copy
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDelete(coverLetter)}>
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
                   </div>
                 </CardHeader>
