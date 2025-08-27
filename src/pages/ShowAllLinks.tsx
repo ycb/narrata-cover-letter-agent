@@ -21,12 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ShowAllTemplate, FilterOption } from "@/components/shared/ShowAllTemplate";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { AddLinkModal } from "@/components/work-history/AddLinkModal";
 
 // Mock data for all external links
 const mockAllLinks = [
@@ -84,8 +79,10 @@ const mockAllLinks = [
 
 export default function ShowAllLinks() {
   const [links, setLinks] = useState(mockAllLinks);
+  const [isAddLinkModalOpen, setIsAddLinkModalOpen] = useState(false);
   const [viewingLink, setViewingLink] = useState<any>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [editingLink, setEditingLink] = useState<any>(null);
 
   const filters: FilterOption[] = [
     { label: "Case Study", value: "case-study", count: links.filter(l => l.type === "case-study").length },
@@ -96,13 +93,13 @@ export default function ShowAllLinks() {
   ];
 
   const handleAddNew = () => {
-    // TODO: Implement add new link functionality
-    console.log("Add new link");
+    setIsAddLinkModalOpen(true);
   };
 
   const handleEdit = (link: any) => {
-    // TODO: Implement edit link functionality
-    console.log("Edit link:", link.id);
+    setEditingLink(link);
+    setIsViewModalOpen(false);
+    setIsAddLinkModalOpen(true);
   };
 
   const handleDelete = (link: any) => {
@@ -257,71 +254,84 @@ export default function ShowAllLinks() {
         emptyStateMessage="No external links found. Add your first link to get started."
       />
 
-      {/* View Link Modal */}
-      <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>View Link</DialogTitle>
-          </DialogHeader>
-          {viewingLink && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold mb-2">{viewingLink.title}</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+      {/* Add Link Modal */}
+      <AddLinkModal
+        open={isAddLinkModalOpen}
+        onOpenChange={setIsAddLinkModalOpen}
+        roleId="default"
+        onSave={(link) => {
+          console.log("Link saved:", link);
+          setIsAddLinkModalOpen(false);
+        }}
+        editingLink={editingLink}
+      />
+
+      {/* View Link Modal - Simple view with Edit button */}
+      {isViewModalOpen && viewingLink && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50">
+          <div className="container mx-auto p-4 h-full overflow-y-auto">
+            <div className="max-w-2xl mx-auto bg-background rounded-lg shadow-lg">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold">Link Details</h2>
+                  <Button variant="outline" onClick={() => setIsViewModalOpen(false)}>
+                    Close
+                  </Button>
+                </div>
+                <div className="space-y-6">
                   <div>
-                    <span className="font-medium text-muted-foreground">Company:</span>
-                    <p>{viewingLink.company}</p>
+                    <h3 className="text-lg font-semibold mb-2">{viewingLink.title}</h3>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="font-medium text-muted-foreground">Company:</span>
+                        <p>{viewingLink.company}</p>
+                      </div>
+                      <div>
+                        <span className="font-medium text-muted-foreground">Role:</span>
+                        <p>{viewingLink.role}</p>
+                      </div>
+                      <div>
+                        <span className="font-medium text-muted-foreground">Type:</span>
+                        <Badge className={getTypeColor(viewingLink.type)}>
+                          {viewingLink.type.charAt(0).toUpperCase() + viewingLink.type.slice(1)}
+                        </Badge>
+                      </div>
+                      <div>
+                        <span className="font-medium text-muted-foreground">Date:</span>
+                        <p>{new Date(viewingLink.date).toLocaleDateString()}</p>
+                      </div>
+                    </div>
                   </div>
+                  
                   <div>
-                    <span className="font-medium text-muted-foreground">Role:</span>
-                    <p>{viewingLink.role}</p>
+                    <h4 className="font-medium text-muted-foreground mb-2">Description</h4>
+                    <p className="text-sm">{viewingLink.description}</p>
                   </div>
+                  
                   <div>
-                    <span className="font-medium text-muted-foreground">Type:</span>
-                    <Badge className={getTypeColor(viewingLink.type)}>
-                      {viewingLink.type.charAt(0).toUpperCase() + viewingLink.type.slice(1)}
-                    </Badge>
+                    <h4 className="font-medium text-muted-foreground mb-2">URL</h4>
+                    <a 
+                      href={viewingLink.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-sm text-primary hover:underline break-all"
+                    >
+                      {viewingLink.url}
+                    </a>
                   </div>
-                  <div>
-                    <span className="font-medium text-muted-foreground">Date:</span>
-                    <p>{new Date(viewingLink.date).toLocaleDateString()}</p>
+                  
+                  <div className="flex justify-end gap-2 pt-4 border-t">
+                    <Button onClick={() => handleEdit(viewingLink)}>
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit Link
+                    </Button>
                   </div>
                 </div>
               </div>
-              
-              <div>
-                <h4 className="font-medium text-muted-foreground mb-2">Description</h4>
-                <p className="text-sm">{viewingLink.description}</p>
-              </div>
-              
-              <div>
-                <h4 className="font-medium text-muted-foreground mb-2">URL</h4>
-                <a 
-                  href={viewingLink.url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-sm text-primary hover:underline break-all"
-                >
-                  {viewingLink.url}
-                </a>
-              </div>
-              
-              <div className="flex justify-end gap-2 pt-4 border-t">
-                <Button variant="outline" onClick={() => setIsViewModalOpen(false)}>
-                  Close
-                </Button>
-                <Button onClick={() => {
-                  setIsViewModalOpen(false);
-                  handleEdit(viewingLink);
-                }}>
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit Link
-                </Button>
-              </div>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          </div>
+        </div>
+      )}
     </>
   );
 }

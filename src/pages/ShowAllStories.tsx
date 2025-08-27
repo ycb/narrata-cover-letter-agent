@@ -21,12 +21,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ShowAllTemplate, FilterOption } from "@/components/shared/ShowAllTemplate";
 import { Story } from "@/types/workHistory";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { AddStoryModal } from "@/components/work-history/AddStoryModal";
+import { WorkHistoryDetail } from "@/components/work-history/WorkHistoryDetail";
 
 // Mock data for all stories
 const mockAllStories: Story[] = [
@@ -84,8 +80,10 @@ const mockAllStories: Story[] = [
 
 export default function ShowAllStories() {
   const [stories, setStories] = useState<Story[]>(mockAllStories);
+  const [isAddStoryModalOpen, setIsAddStoryModalOpen] = useState(false);
   const [viewingStory, setViewingStory] = useState<Story | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [editingStory, setEditingStory] = useState<Story | null>(null);
 
   // Get unique companies, roles, and tags for filtering
   const companies = [...new Set(stories.map(s => s.company))];
@@ -115,8 +113,7 @@ export default function ShowAllStories() {
   ];
 
   const handleAddNew = () => {
-    // TODO: Implement add new story functionality
-    console.log("Add new story");
+    setIsAddStoryModalOpen(true);
   };
 
   const handleFilterChange = (filter: string) => {
@@ -125,8 +122,9 @@ export default function ShowAllStories() {
   };
 
   const handleEdit = (story: Story) => {
-    // TODO: Implement edit story functionality
-    console.log("Edit story:", story.id);
+    setEditingStory(story);
+    setIsViewModalOpen(false);
+    setIsAddStoryModalOpen(true);
   };
 
   const handleDelete = (story: Story) => {
@@ -272,70 +270,40 @@ export default function ShowAllStories() {
         emptyStateMessage="No stories found. Create your first story to get started."
       />
 
-      {/* View Story Modal */}
-      <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>View Story</DialogTitle>
-          </DialogHeader>
-          {viewingStory && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold mb-2">{viewingStory.title}</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="font-medium text-muted-foreground">Company:</span>
-                    <p>{viewingStory.company}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium text-muted-foreground">Role:</span>
-                    <p>{viewingStory.role}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium text-muted-foreground">Impact:</span>
-                    <Badge className={getImpactColor(viewingStory.impact)}>
-                      {viewingStory.impact.charAt(0).toUpperCase() + viewingStory.impact.slice(1)}
-                    </Badge>
-                  </div>
-                  <div>
-                    <span className="font-medium text-muted-foreground">Date:</span>
-                    <p>{new Date(viewingStory.date).toLocaleDateString()}</p>
-                  </div>
+      {/* Add Story Modal */}
+      <AddStoryModal
+        open={isAddStoryModalOpen}
+        onOpenChange={setIsAddStoryModalOpen}
+        roleId="default"
+        onSave={(story) => {
+          console.log("Story saved:", story);
+          setIsAddStoryModalOpen(false);
+        }}
+        editingStory={editingStory}
+      />
+
+      {/* View Story Modal - Using existing WorkHistoryDetail */}
+      {isViewModalOpen && viewingStory && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50">
+          <div className="container mx-auto p-4 h-full overflow-y-auto">
+            <div className="max-w-4xl mx-auto bg-background rounded-lg shadow-lg">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold">Story Details</h2>
+                  <Button variant="outline" onClick={() => setIsViewModalOpen(false)}>
+                    Close
+                  </Button>
                 </div>
-              </div>
-              
-              <div>
-                <h4 className="font-medium text-muted-foreground mb-2">Metrics & Impact</h4>
-                <p className="text-sm">{viewingStory.metrics}</p>
-              </div>
-              
-              <div>
-                <h4 className="font-medium text-muted-foreground mb-2">Tags</h4>
-                <div className="flex flex-wrap gap-2">
-                  {viewingStory.tags.map((tag, index) => (
-                    <Badge key={index} variant="outline">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-              
-              <div className="flex justify-end gap-2 pt-4 border-t">
-                <Button variant="outline" onClick={() => setIsViewModalOpen(false)}>
-                  Close
-                </Button>
-                <Button onClick={() => {
-                  setIsViewModalOpen(false);
-                  handleEdit(viewingStory);
-                }}>
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit Story
-                </Button>
+                <WorkHistoryDetail
+                  selectedCompany={viewingStory.company}
+                  selectedRole={viewingStory.role}
+                  onBack={() => setIsViewModalOpen(false)}
+                />
               </div>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          </div>
+        </div>
+      )}
     </>
   );
 }

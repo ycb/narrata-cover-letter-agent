@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +23,7 @@ import RoleEvidenceModal from "@/components/assessment/RoleEvidenceModal";
 import { SpecializationCard } from "@/components/assessment/SpecializationCard";
 import { CompetencyCard } from "@/components/assessment/CompetencyCard";
 import { usePrototype } from "@/contexts/PrototypeContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 // Simplified mock data for testing
 const mockAssessment = {
@@ -569,6 +569,44 @@ const Assessment = () => {
   const [roleEvidenceModalOpen, setRoleEvidenceModalOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [showLeadershipTrack, setShowLeadershipTrack] = useState(false);
+
+  // Handle URL parameters for navigation from Header
+  useEffect(() => {
+    const competency = searchParams.get('competency');
+    const specialization = searchParams.get('specialization');
+    const level = searchParams.get('level');
+    
+    if (competency) {
+      // Find the competency and open its evidence modal
+      const competencyData = mockAssessment.competencies.find(
+        c => c.domain.toLowerCase().includes(competency.toLowerCase())
+      );
+      if (competencyData) {
+        handleShowEvidence(competencyData);
+        // Clear the URL parameter
+        navigate('/assessment', { replace: true });
+      }
+    }
+    
+    if (specialization) {
+      // Find the specialization and open its evidence modal
+      const specializationData = mockAssessment.roleArchetypes.find(
+        s => s.type.toLowerCase().includes(specialization.toLowerCase())
+      );
+      if (specializationData) {
+        handleShowRoleEvidence(specializationData.type);
+        // Clear the URL parameter
+        navigate('/assessment', { replace: true });
+      }
+    }
+
+    if (level === 'overall') {
+      // Open the level evidence modal
+      handleShowLevelEvidence();
+      // Clear the URL parameter
+      navigate('/assessment', { replace: true });
+    }
+  }, [searchParams, navigate]);
 
   // Smart CTA logic - determine which area needs improvement
   const getSmartCTA = () => {

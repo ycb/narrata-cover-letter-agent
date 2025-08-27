@@ -184,7 +184,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 <div className="absolute top-full left-0 pt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
                   <div className="bg-background border rounded-lg shadow-lg p-2 min-w-56">
                     <Link 
-                      to="/assessment" 
+                      to="/assessment?level=overall" 
                       className="flex items-center justify-between px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
                     >
                       <span className="flex items-center gap-2">
@@ -197,28 +197,28 @@ export const Header = ({ currentPage }: HeaderProps) => {
                       Competencies
                     </div>
                     <Link 
-                      to="/assessment#execution" 
+                      to="/assessment?competency=execution" 
                       className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
                     >
                       <Users className="h-4 w-4" />
                       Execution
                     </Link>
                     <Link 
-                      to="/assessment#customer-insight" 
+                      to="/assessment?competency=customer-insight" 
                       className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
                     >
                       <Users className="h-4 w-4" />
                       Customer Insight
                     </Link>
                     <Link 
-                      to="/assessment#strategy" 
+                      to="/assessment?competency=strategy" 
                       className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
                     >
                       <Users className="h-4 w-4" />
                       Strategy
                     </Link>
                     <Link 
-                      to="/assessment#influence" 
+                      to="/assessment?competency=influence" 
                       className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
                     >
                       <Users className="h-4 w-4" />
@@ -229,28 +229,28 @@ export const Header = ({ currentPage }: HeaderProps) => {
                       Specialization
                     </div>
                     <Link 
-                      to="/assessment#growth" 
+                      to="/assessment?specialization=growth" 
                       className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
                     >
                       <Lightbulb className="h-4 w-4" />
                       Growth
                     </Link>
                     <Link 
-                      to="/assessment#technical" 
+                      to="/assessment?specialization=technical" 
                       className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
                     >
                       <Lightbulb className="h-4 w-4" />
                       Technical
                     </Link>
                     <Link 
-                      to="/assessment#founding" 
+                      to="/assessment?specialization=founding" 
                       className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
                     >
                       <Lightbulb className="h-4 w-4" />
                       Founding
                     </Link>
                     <Link 
-                      to="/assessment#platform" 
+                      to="/assessment?specialization=platform" 
                       className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
                     >
                       <Lightbulb className="h-4 w-4" />
