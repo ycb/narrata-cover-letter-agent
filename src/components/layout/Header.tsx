@@ -82,133 +82,183 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 Dashboard
               </Link>
 
-              {/* Work History Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className={cn(
-                      "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors hover:text-foreground data-[state=open]:text-foreground",
-                      activePage === "work-history" 
-                        ? "text-foreground border-b-2 border-primary" 
-                        : "text-muted-foreground"
-                    )}
-                  >
-                    <Briefcase className="h-4 w-4" />
-                    Work History
-                    <ChevronDown className="h-3 w-3" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-48">
-                  <DropdownMenuItem asChild>
-                    <Link to="/work-history" className="flex items-center justify-between">
+              {/* Work History - Main Link + Dropdown */}
+              <div className="relative group">
+                <Link 
+                  to="/work-history"
+                  className={cn(
+                    "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors hover:text-foreground",
+                    activePage === "work-history" 
+                      ? "text-foreground font-bold" 
+                      : "text-muted-foreground"
+                  )}
+                >
+                  <Briefcase className="h-4 w-4" />
+                  Work History
+                </Link>
+                
+                {/* Hover Dropdown */}
+                <div className="absolute top-full left-0 pt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
+                  <div className="bg-background border rounded-lg shadow-lg p-2 min-w-48">
+                    <Link 
+                      to="/show-all-stories" 
+                      className="flex items-center justify-between px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
+                    >
                       <span className="flex items-center gap-2">
-                        <Star className="h-4 w-4" />
-                        Stories
+                        <FileText className="h-4 w-4" />
+                        All Stories
                       </span>
                       <Badge variant="secondary" className="ml-auto">47</Badge>
                     </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/show-all-links" className="flex items-center justify-between">
+                    <Link 
+                      to="/show-all-links" 
+                      className="flex items-center justify-between px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
+                    >
                       <span className="flex items-center gap-2">
                         <LinkIcon className="h-4 w-4" />
-                        External Links
+                        All Links
                       </span>
                       <Badge variant="secondary" className="ml-auto">12</Badge>
                     </Link>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  </div>
+                </div>
+              </div>
 
-              {/* Cover Letters Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className={cn(
-                      "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors hover:text-foreground data-[state=open]:text-foreground",
-                      activePage === "cover-letters" 
-                        ? "text-foreground border-b-2 border-primary" 
-                        : "text-muted-foreground"
-                    )}
-                  >
-                    <Mail className="h-4 w-4" />
-                    Cover Letters
-                    <ChevronDown className="h-3 w-3" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-48">
-                  <DropdownMenuItem asChild>
-                    <Link to="/show-all-saved-sections" className="flex items-center justify-between">
+              {/* Cover Letters - Main Link + Dropdown */}
+              <div className="relative group">
+                <Link 
+                  to="/cover-letters"
+                  className={cn(
+                    "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors hover:text-foreground",
+                    activePage === "cover-letters" 
+                      ? "text-foreground font-bold" 
+                      : "text-muted-foreground"
+                  )}
+                >
+                  <Mail className="h-4 w-4" />
+                  Cover Letters
+                </Link>
+                
+                {/* Hover Dropdown */}
+                <div className="absolute top-full left-0 pt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
+                  <div className="bg-background border rounded-lg shadow-lg p-2 min-w-48">
+                    <Link 
+                      to="/show-all-saved-sections" 
+                      className="flex items-center justify-between px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
+                    >
                       <span className="flex items-center gap-2">
                         <BookOpen className="h-4 w-4" />
                         Saved Sections
                       </span>
                       <Badge variant="secondary" className="ml-auto">23</Badge>
                     </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/cover-letter-template" className="flex items-center gap-2">
-                      <LayoutTemplate className="h-4 w-4" />
-                      Templates
+                    <Link 
+                      to="/cover-letter-template" 
+                      className="flex items-center justify-between px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
+                    >
+                      <span className="flex items-center gap-2">
+                        <LayoutTemplate className="h-4 w-4" />
+                        Templates
+                      </span>
                     </Link>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  </div>
+                </div>
+              </div>
 
-              {/* Assessment Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className={cn(
-                      "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors hover:text-foreground data-[state=open]:text-foreground",
-                      activePage === "assessment" 
-                        ? "text-foreground border-b-2 border-primary" 
-                        : "text-muted-foreground"
-                    )}
-                  >
-                    <TrendingUp className="h-4 w-4" />
-                    Assessment
-                    <ChevronDown className="h-3 w-3" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-56">
-                  <DropdownMenuItem asChild>
-                    <Link to="/assessment" className="flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4" />
-                      Overall Level
+              {/* Assessment - Main Link + Dropdown */}
+              <div className="relative group">
+                <Link 
+                  to="/assessment"
+                  className={cn(
+                    "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors hover:text-foreground",
+                    activePage === "assessment" 
+                      ? "text-foreground font-bold" 
+                      : "text-muted-foreground"
+                  )}
+                >
+                  <TrendingUp className="h-4 w-4" />
+                  Assessment
+                </Link>
+                
+                {/* Hover Dropdown */}
+                <div className="absolute top-full left-0 pt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
+                  <div className="bg-background border rounded-lg shadow-lg p-2 min-w-56">
+                    <Link 
+                      to="/assessment" 
+                      className="flex items-center justify-between px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
+                    >
+                      <span className="flex items-center gap-2">
+                        <BarChart3 className="h-4 w-4" />
+                        Overall Level
+                      </span>
                     </Link>
-                  </DropdownMenuItem>
-                  
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>
-                      <Users className="h-4 w-4 mr-2" />
+                    
+                    <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                       Competencies
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
-                      <DropdownMenuItem>Execution</DropdownMenuItem>
-                      <DropdownMenuItem>Customer Insight</DropdownMenuItem>
-                      <DropdownMenuItem>Strategy</DropdownMenuItem>
-                      <DropdownMenuItem>Influence</DropdownMenuItem>
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-                  
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>
-                      <Lightbulb className="h-4 w-4 mr-2" />
+                    </div>
+                    <Link 
+                      to="/assessment#execution" 
+                      className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
+                    >
+                      <Users className="h-4 w-4" />
+                      Execution
+                    </Link>
+                    <Link 
+                      to="/assessment#customer-insight" 
+                      className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
+                    >
+                      <Users className="h-4 w-4" />
+                      Customer Insight
+                    </Link>
+                    <Link 
+                      to="/assessment#strategy" 
+                      className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
+                    >
+                      <Users className="h-4 w-4" />
+                      Strategy
+                    </Link>
+                    <Link 
+                      to="/assessment#influence" 
+                      className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
+                    >
+                      <Users className="h-4 w-4" />
+                      Influence
+                    </Link>
+                    
+                    <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                       Specialization
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
-                      <DropdownMenuItem>Growth</DropdownMenuItem>
-                      <DropdownMenuItem>Technical</DropdownMenuItem>
-                      <DropdownMenuItem>Founding</DropdownMenuItem>
-                      <DropdownMenuItem>Platform</DropdownMenuItem>
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    </div>
+                    <Link 
+                      to="/assessment#growth" 
+                      className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
+                    >
+                      <Lightbulb className="h-4 w-4" />
+                      Growth
+                    </Link>
+                    <Link 
+                      to="/assessment#technical" 
+                      className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
+                    >
+                      <Lightbulb className="h-4 w-4" />
+                      Technical
+                    </Link>
+                    <Link 
+                      to="/assessment#founding" 
+                      className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
+                    >
+                      <Lightbulb className="h-4 w-4" />
+                      Founding
+                    </Link>
+                    <Link 
+                      to="/assessment#platform" 
+                      className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
+                    >
+                      <Lightbulb className="h-4 w-4" />
+                      Platform
+                    </Link>
+                  </div>
+                </div>
+              </div>
             </div>
           </nav>
         </div>

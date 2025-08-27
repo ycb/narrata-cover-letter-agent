@@ -21,6 +21,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ShowAllTemplate, FilterOption } from "@/components/shared/ShowAllTemplate";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // Mock data for all saved sections
 const mockAllSavedSections = [
@@ -83,6 +89,8 @@ const mockAllSavedSections = [
 
 export default function ShowAllSavedSections() {
   const [sections, setSections] = useState(mockAllSavedSections);
+  const [viewingSection, setViewingSection] = useState<any>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
   const filters: FilterOption[] = [
     { label: "Introduction", value: "intro", count: sections.filter(s => s.type === "intro").length },
@@ -111,8 +119,8 @@ export default function ShowAllSavedSections() {
   };
 
   const handleView = (section: any) => {
-    // TODO: Implement view section functionality
-    console.log("View section:", section.id);
+    setViewingSection(section);
+    setIsViewModalOpen(true);
   };
 
   const getTypeColor = (type: string) => {
@@ -139,10 +147,10 @@ export default function ShowAllSavedSections() {
   const renderHeader = () => (
     <tr>
       <th className="text-left p-4 font-medium text-muted-foreground">Section</th>
-      <th className="text-left p-4 font-medium text-muted-foreground">Company & Role</th>
+      <th className="text-left p-4 font-medium text-muted-foreground">Company</th>
+      <th className="text-left p-4 font-medium text-muted-foreground">Role</th>
       <th className="text-left p-4 font-medium text-muted-foreground">Type</th>
       <th className="text-left p-4 font-medium text-muted-foreground">Content Preview</th>
-      <th className="text-left p-4 font-medium text-muted-foreground">Rating</th>
       <th className="text-left p-4 font-medium text-muted-foreground">Date</th>
       <th className="text-left p-4 font-medium text-muted-foreground">Actions</th>
     </tr>
@@ -156,15 +164,15 @@ export default function ShowAllSavedSections() {
         </div>
       </td>
       <td className="p-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Building2 className="h-3 w-3" />
-            {section.company}
-          </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <User className="h-3 w-3" />
-            {section.role}
-          </div>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Building2 className="h-3 w-3" />
+          {section.company}
+        </div>
+      </td>
+      <td className="p-4">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <User className="h-3 w-3" />
+          {section.role}
         </div>
       </td>
       <td className="p-4">
@@ -175,11 +183,6 @@ export default function ShowAllSavedSections() {
       <td className="p-4">
         <div className="max-w-xs">
           <p className="text-sm text-foreground line-clamp-2">{section.content}</p>
-        </div>
-      </td>
-      <td className="p-4">
-        <div className="flex items-center gap-1">
-          {renderStars(section.rating)}
         </div>
       </td>
       <td className="p-4">
@@ -243,5 +246,61 @@ export default function ShowAllSavedSections() {
       searchKeys={["title", "company", "role", "content"]}
       emptyStateMessage="No saved sections found. Create your first section to get started."
     />
+
+    {/* View Section Modal */}
+    <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>View Saved Section</DialogTitle>
+        </DialogHeader>
+        {viewingSection && (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold mb-2">{viewingSection.title}</h3>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-medium text-muted-foreground">Company:</span>
+                  <p>{viewingSection.company}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-muted-foreground">Role:</span>
+                  <p>{viewingSection.role}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-muted-foreground">Type:</span>
+                  <Badge className={getTypeColor(viewingSection.type)}>
+                    {viewingSection.type.charAt(0).toUpperCase() + viewingSection.type.slice(1)}
+                  </Badge>
+                </div>
+                <div>
+                  <span className="font-medium text-muted-foreground">Date:</span>
+                  <p>{new Date(viewingSection.date).toLocaleDateString()}</p>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <h4 className="font-medium text-muted-foreground mb-2">Content</h4>
+              <div className="bg-muted/50 p-4 rounded-lg">
+                <p className="text-sm whitespace-pre-wrap">{viewingSection.content}</p>
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button variant="outline" onClick={() => setIsViewModalOpen(false)}>
+                Close
+              </Button>
+              <Button onClick={() => {
+                setIsViewModalOpen(false);
+                handleEdit(viewingSection);
+              }}>
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Section
+              </Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }

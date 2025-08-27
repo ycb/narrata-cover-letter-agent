@@ -10,7 +10,8 @@ import {
   Building2,
   User,
   MoreHorizontal,
-  LinkIcon
+  LinkIcon,
+  Eye
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -20,6 +21,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ShowAllTemplate, FilterOption } from "@/components/shared/ShowAllTemplate";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // Mock data for all external links
 const mockAllLinks = [
@@ -77,6 +84,8 @@ const mockAllLinks = [
 
 export default function ShowAllLinks() {
   const [links, setLinks] = useState(mockAllLinks);
+  const [viewingLink, setViewingLink] = useState<any>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
   const filters: FilterOption[] = [
     { label: "Case Study", value: "case-study", count: links.filter(l => l.type === "case-study").length },
@@ -109,6 +118,11 @@ export default function ShowAllLinks() {
     window.open(url, '_blank');
   };
 
+  const handleView = (link: any) => {
+    setViewingLink(link);
+    setIsViewModalOpen(true);
+  };
+
   const getTypeColor = (type: string) => {
     switch (type) {
       case "case-study": return "bg-blue-100 text-blue-800";
@@ -123,7 +137,8 @@ export default function ShowAllLinks() {
   const renderHeader = () => (
     <tr>
       <th className="text-left p-4 font-medium text-muted-foreground">Link</th>
-      <th className="text-left p-4 font-medium text-muted-foreground">Company & Role</th>
+      <th className="text-left p-4 font-medium text-muted-foreground">Company</th>
+      <th className="text-left p-4 font-medium text-muted-foreground">Role</th>
       <th className="text-left p-4 font-medium text-muted-foreground">Type</th>
       <th className="text-left p-4 font-medium text-muted-foreground">Description</th>
       <th className="text-left p-4 font-medium text-muted-foreground">Date</th>
@@ -150,15 +165,15 @@ export default function ShowAllLinks() {
         </div>
       </td>
       <td className="p-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Building2 className="h-3 w-3" />
-            {link.company}
-          </div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <User className="h-3 w-3" />
-            {link.role}
-          </div>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Building2 className="h-3 w-3" />
+          {link.company}
+        </div>
+      </td>
+      <td className="p-4">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <User className="h-3 w-3" />
+          {link.role}
         </div>
       </td>
       <td className="p-4">
@@ -179,6 +194,14 @@ export default function ShowAllLinks() {
       </td>
       <td className="p-4">
         <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => handleView(link)}
+          >
+            <Eye className="h-4 w-4 mr-1" />
+            View
+          </Button>
           <Button 
             variant="outline" 
             size="sm"
@@ -232,5 +255,71 @@ export default function ShowAllLinks() {
       searchKeys={["title", "company", "role", "description"]}
       emptyStateMessage="No external links found. Add your first link to get started."
     />
+
+    {/* View Link Modal */}
+    <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>View Link</DialogTitle>
+        </DialogHeader>
+        {viewingLink && (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold mb-2">{viewingLink.title}</h3>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-medium text-muted-foreground">Company:</span>
+                  <p>{viewingLink.company}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-muted-foreground">Role:</span>
+                  <p>{viewingLink.role}</p>
+                </div>
+                <div>
+                  <span className="font-medium text-muted-foreground">Type:</span>
+                  <Badge className={getTypeColor(viewingLink.type)}>
+                    {viewingLink.type.charAt(0).toUpperCase() + viewingLink.type.slice(1)}
+                  </Badge>
+                </div>
+                <div>
+                  <span className="font-medium text-muted-foreground">Date:</span>
+                  <p>{new Date(viewingLink.date).toLocaleDateString()}</p>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <h4 className="font-medium text-muted-foreground mb-2">Description</h4>
+              <p className="text-sm">{viewingLink.description}</p>
+            </div>
+            
+            <div>
+              <h4 className="font-medium text-muted-foreground mb-2">URL</h4>
+              <a 
+                href={viewingLink.url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-sm text-primary hover:underline break-all"
+              >
+                {viewingLink.url}
+              </a>
+            </div>
+            
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <Button variant="outline" onClick={() => setIsViewModalOpen(false)}>
+                Close
+              </Button>
+              <Button onClick={() => {
+                setIsViewModalOpen(false);
+                handleEdit(viewingLink);
+              }}>
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Link
+              </Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
