@@ -22,6 +22,8 @@ import LevelEvidenceModal from "@/components/assessment/LevelEvidenceModal";
 import RoleEvidenceModal from "@/components/assessment/RoleEvidenceModal";
 import { SpecializationCard } from "@/components/assessment/SpecializationCard";
 import { CompetencyCard } from "@/components/assessment/CompetencyCard";
+import { usePrototype } from "@/contexts/PrototypeContext";
+import { useNavigate } from "react-router-dom";
 
 // Simplified mock data for testing
 const mockAssessment = {
@@ -557,6 +559,9 @@ const mockAssessment = {
 };
 
 const Assessment = () => {
+  const { setPrototypeState } = usePrototype();
+  const navigate = useNavigate();
+  
   const [selectedCompetency, setSelectedCompetency] = useState<string | null>(null);
   const [evidenceModalOpen, setEvidenceModalOpen] = useState(false);
   const [selectedEvidence, setSelectedEvidence] = useState<any>(null);
@@ -716,12 +721,15 @@ const Assessment = () => {
                     size="sm" 
                     className="whitespace-nowrap"
                     onClick={() => {
+                      // Set prototype state to existing-user to show work history
+                      setPrototypeState('existing-user');
+                      
                       if (smartCTA.area === 'externalLinks') {
-                        window.location.href = '/work-history?tab=links';
+                        navigate('/work-history?tab=links');
                       } else if (smartCTA.area === 'stories') {
-                        window.location.href = '/work-history?tab=stories';
+                        navigate('/work-history?tab=stories');
                       } else if (smartCTA.area === 'outcomeMetrics') {
-                        window.location.href = '/work-history?tab=stories';
+                        navigate('/work-history?tab=stories');
                       }
                     }}
                   >
