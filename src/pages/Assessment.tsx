@@ -646,99 +646,83 @@ const Assessment = () => {
           {/* Page Description */}
           <p className="text-muted-foreground description-spacing">View your level, evidence and ways to progress</p>
           
-          {/* Data Sources & Next Steps - Consolidated */}
-          <Card className="shadow-soft hidden md:block">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5" />
-                  <div>
-                    <CardTitle className="text-lg">Data Sources & Next Steps</CardTitle>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="text-xs text-muted-foreground mr-2">PROFILE STRENGTH:</span>
-                  <Badge className="bg-success text-success-foreground text-xs">Strong</Badge>
-                </div>
+          {/* Data Sources - Using new layout from DataSources page */}
+          <div className="mb-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold tracking-tight text-lg">Data Sources</h3>
+              <div className="text-right">
+                <span className="text-xs text-muted-foreground mr-2">PROFILE STRENGTH:</span>
+                <Badge className="bg-success text-success-foreground text-xs">Strong</Badge>
               </div>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
-                {/* LinkedIn */}
-                <div className="text-center p-2 bg-muted/20 rounded border">
+            </div>
+          </div>
+          {/* Stats Overview - Using Cover Letters widget styling */}
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
+            {/* LinkedIn */}
+            <Card className="shadow-soft">
+              <CardContent className="p-4">
+                <div className="text-center">
                   <div className="flex items-center justify-center gap-1 mb-1">
                     <div className="h-2 w-2 rounded-full bg-success"></div>
                     <span className="text-xs text-muted-foreground">LinkedIn</span>
                   </div>
                   <div className="text-sm font-medium">Connected</div>
                 </div>
+              </CardContent>
+            </Card>
 
-                {/* Resume */}
-                <div className="text-center p-2 bg-muted/20 rounded border">
+            {/* Resume */}
+            <Card className="shadow-soft">
+              <CardContent className="p-4">
+                <div className="text-center">
                   <div className="flex items-center justify-center gap-1 mb-1">
                     <div className="h-2 w-2 rounded-full bg-success"></div>
                     <span className="text-xs text-muted-foreground">Resume</span>
                   </div>
                   <div className="text-sm font-medium">Uploaded</div>
                 </div>
+              </CardContent>
+            </Card>
 
-                {/* Outcome Metrics */}
-                <div className="text-center p-2 bg-muted/20 rounded border">
+            {/* Outcome Metrics */}
+            <Card className="shadow-soft">
+              <CardContent className="p-4">
+                <div className="text-center">
                   <div className="flex items-center justify-center gap-1 mb-1">
                     <div className="h-2 w-2 rounded-full bg-success"></div>
                     <span className="text-xs text-muted-foreground">Outcome Metrics</span>
                   </div>
                   <div className="text-sm font-medium">5</div>
                 </div>
+              </CardContent>
+            </Card>
 
-                {/* Stories/Blurbs */}
-                <div className="text-center p-2 bg-muted/20 rounded border">
+            {/* Stories */}
+            <Card className="shadow-soft">
+              <CardContent className="p-4">
+                <div className="text-center">
                   <div className="flex items-center justify-center gap-1 mb-1">
                     <div className="h-2 w-2 rounded-full bg-success"></div>
                     <span className="text-xs text-muted-foreground">Stories</span>
                   </div>
                   <div className="text-sm font-medium">47</div>
                 </div>
+              </CardContent>
+            </Card>
 
-                {/* External Links */}
-                <div className="text-center p-2 bg-muted/20 rounded border">
+            {/* External Links */}
+            <Card className="shadow-soft">
+              <CardContent className="p-4">
+                <div className="text-center">
                   <div className="flex items-center justify-center gap-1 mb-1">
                     <div className="h-2 w-2 rounded-full bg-success"></div>
                     <span className="text-xs text-muted-foreground">External Links</span>
                   </div>
                   <div className="text-sm font-medium">3</div>
                 </div>
-              </div>
-              
-              {/* Action Description & CTAs - Modern Grid Layout */}
-              <div className="p-4 bg-muted/10 rounded-lg">
-                <div className="flex flex-col md:flex-row items-center md:justify-end gap-4">
-                  <p className="text-sm text-muted-foreground text-right w-full md:w-auto">
-                    Improve your skills with more evidence
-                  </p>
-                  <Button 
-                    variant="secondary" 
-                    size="sm" 
-                    className="whitespace-nowrap"
-                    onClick={() => {
-                      // Set prototype state to existing-user to show work history
-                      setPrototypeState('existing-user');
-                      
-                      if (smartCTA.area === 'externalLinks') {
-                        navigate('/work-history?tab=links');
-                      } else if (smartCTA.area === 'stories') {
-                        navigate('/work-history?tab=stories');
-                      } else if (smartCTA.area === 'outcomeMetrics') {
-                        navigate('/work-history?tab=stories');
-                      }
-                    }}
-                  >
-                    {smartCTA.text}
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Combined Level Assessment & Career Progression */}
           <Card className="shadow-soft section-spacing">

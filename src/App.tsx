@@ -12,7 +12,7 @@ import WorkHistory from "./pages/WorkHistory";
 import CoverLetters from "./pages/CoverLetters";
 import CoverLetterTemplate from "./pages/CoverLetterTemplate";
 import Assessment from "./pages/Assessment";
-import DataSources from "./pages/DataSources";
+
 import { HILDemo } from "./pages/HILDemo";
 
 import SignUp from "./pages/SignUp";
@@ -57,12 +57,7 @@ function AppLayout() {
             <Assessment />
           </>
         } />
-        <Route path="/data-sources" element={
-          <>
-            <Header />
-            <DataSources />
-          </>
-        } />
+
         <Route path="/hil-demo" element={
           <>
             <Header />
