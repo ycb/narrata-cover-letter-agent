@@ -21,12 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ShowAllTemplate, FilterOption } from "@/components/shared/ShowAllTemplate";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { StoryCard } from "@/components/work-history/StoryCard";
 
 // Mock data for all saved sections
 const mockAllSavedSections = [
@@ -92,11 +87,27 @@ export default function ShowAllSavedSections() {
   const [viewingSection, setViewingSection] = useState<any>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
+  // Get unique values for filtering
+  const companies = [...new Set(sections.map(s => s.company))];
+  const roles = [...new Set(sections.map(s => s.role))];
+  const types = [...new Set(sections.map(s => s.type))];
+
   const filters: FilterOption[] = [
-    { label: "Introduction", value: "intro", count: sections.filter(s => s.type === "intro").length },
-    { label: "Experience", value: "experience", count: sections.filter(s => s.type === "experience").length },
-    { label: "Achievement", value: "achievement", count: sections.filter(s => s.type === "achievement").length },
-    { label: "Closing", value: "closing", count: sections.filter(s => s.type === "closing").length }
+    ...types.map(type => ({ 
+      label: type.charAt(0).toUpperCase() + type.slice(1), 
+      value: type, 
+      count: sections.filter(s => s.type === type).length 
+    })),
+    ...companies.map(company => ({ 
+      label: company, 
+      value: `company-${company}`, 
+      count: sections.filter(s => s.company === company).length 
+    })),
+    ...roles.map(role => ({ 
+      label: role, 
+      value: `role-${role}`, 
+      count: sections.filter(s => s.role === role).length 
+    }))
   ];
 
   const handleAddNew = () => {
@@ -144,14 +155,47 @@ export default function ShowAllSavedSections() {
     ));
   };
 
-  const renderHeader = () => (
+  const renderHeader = (
+    handleSort: (field: keyof any) => void, 
+    getSortIcon: (field: keyof any) => React.ReactNode
+  ) => (
     <tr>
-      <th className="text-left p-4 font-medium text-muted-foreground">Section</th>
-      <th className="text-left p-4 font-medium text-muted-foreground">Company</th>
-      <th className="text-left p-4 font-medium text-muted-foreground">Role</th>
-      <th className="text-left p-4 font-medium text-muted-foreground">Type</th>
-      <th className="text-left p-4 font-medium text-muted-foreground">Content Preview</th>
-      <th className="text-left p-4 font-medium text-muted-foreground">Date</th>
+      <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('title')}>
+        <div className="flex items-center gap-2">
+          Section
+          {getSortIcon('title')}
+        </div>
+      </th>
+      <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('company')}>
+        <div className="flex items-center gap-2">
+          Company
+          {getSortIcon('company')}
+        </div>
+      </th>
+      <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('role')}>
+        <div className="flex items-center gap-2">
+          Role
+          {getSortIcon('role')}
+        </div>
+      </th>
+      <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('type')}>
+        <div className="flex items-center gap-2">
+          Type
+          {getSortIcon('type')}
+        </div>
+      </th>
+      <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('content')}>
+        <div className="flex items-center gap-2">
+          Content Preview
+          {getSortIcon('content')}
+        </div>
+      </th>
+      <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('date')}>
+        <div className="flex items-center gap-2">
+          Date
+          {getSortIcon('date')}
+        </div>
+      </th>
       <th className="text-left p-4 font-medium text-muted-foreground">Actions</th>
     </tr>
   );
@@ -248,61 +292,38 @@ export default function ShowAllSavedSections() {
         emptyStateMessage="No saved sections found. Create your first section to get started."
       />
 
-      {/* View Section Modal */}
-      <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>View Saved Section</DialogTitle>
-          </DialogHeader>
-          {viewingSection && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold mb-2">{viewingSection.title}</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="font-medium text-muted-foreground">Company:</span>
-                    <p>{viewingSection.company}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium text-muted-foreground">Role:</span>
-                    <p>{viewingSection.role}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium text-muted-foreground">Type:</span>
-                    <Badge className={getTypeColor(viewingSection.type)}>
-                      {viewingSection.type.charAt(0).toUpperCase() + viewingSection.type.slice(1)}
-                    </Badge>
-                  </div>
-                  <div>
-                    <span className="font-medium text-muted-foreground">Date:</span>
-                    <p>{new Date(viewingSection.date).toLocaleDateString()}</p>
-                  </div>
+      {/* View Section Modal - Using existing StoryCard */}
+      {isViewModalOpen && viewingSection && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50">
+          <div className="container mx-auto p-4 h-full overflow-y-auto">
+            <div className="max-w-2xl mx-auto bg-background rounded-lg shadow-lg">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold">Section Details</h2>
+                  <Button variant="outline" onClick={() => setIsViewModalOpen(false)}>
+                    Close
+                  </Button>
                 </div>
-              </div>
-              
-              <div>
-                <h4 className="font-medium text-muted-foreground mb-2">Content</h4>
-                <div className="bg-muted/50 p-4 rounded-lg">
-                  <p className="text-sm whitespace-pre-wrap">{viewingSection.content}</p>
-                </div>
-              </div>
-              
-              <div className="flex justify-end gap-2 pt-4 border-t">
-                <Button variant="outline" onClick={() => setIsViewModalOpen(false)}>
-                  Close
-                </Button>
-                <Button onClick={() => {
-                  setIsViewModalOpen(false);
-                  handleEdit(viewingSection);
-                }}>
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit Section
-                </Button>
+                <StoryCard
+                  story={{
+                    id: viewingSection.id,
+                    title: viewingSection.title,
+                    content: viewingSection.content,
+                    tags: viewingSection.tags || [],
+                    status: 'approved',
+                    timesUsed: 0,
+                    lastUsed: viewingSection.date,
+                    linkedLinks: []
+                  }}
+                  onEdit={() => handleEdit(viewingSection)}
+                  onDuplicate={() => handleCopy(viewingSection)}
+                  onDelete={() => handleDelete(viewingSection)}
+                />
               </div>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          </div>
+        </div>
+      )}
     </>
   );
 }

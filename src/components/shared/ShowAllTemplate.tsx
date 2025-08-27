@@ -29,7 +29,7 @@ export interface ShowAllTemplateProps<T> {
   data: T[];
   searchPlaceholder: string;
   renderRow: (item: T, index: number) => React.ReactNode;
-  renderHeader: () => React.ReactNode;
+  renderHeader: (handleSort: (field: keyof T) => void, getSortIcon: (field: keyof T) => React.ReactNode) => React.ReactNode;
   onAddNew?: () => void;
   addNewLabel?: string;
   filters?: FilterOption[];
@@ -229,7 +229,7 @@ export function ShowAllTemplate<T>({
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-muted/50">
-                    {renderHeader()}
+                    {renderHeader(handleSort, getSortIcon)}
                   </thead>
                   <tbody>
                     {isLoading ? (

@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ShowAllTemplate, FilterOption } from "@/components/shared/ShowAllTemplate";
 import { AddLinkModal } from "@/components/work-history/AddLinkModal";
+import { LinkCard } from "@/components/work-history/LinkCard";
 
 // Mock data for all external links
 const mockAllLinks = [
@@ -84,12 +85,27 @@ export default function ShowAllLinks() {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [editingLink, setEditingLink] = useState<any>(null);
 
+  // Get unique values for filtering
+  const companies = [...new Set(links.map(l => l.company))];
+  const roles = [...new Set(links.map(l => l.role))];
+  const types = [...new Set(links.map(l => l.type))];
+
   const filters: FilterOption[] = [
-    { label: "Case Study", value: "case-study", count: links.filter(l => l.type === "case-study").length },
-    { label: "Research", value: "research", count: links.filter(l => l.type === "research").length },
-    { label: "Portfolio", value: "portfolio", count: links.filter(l => l.type === "portfolio").length },
-    { label: "Documentation", value: "documentation", count: links.filter(l => l.type === "documentation").length },
-    { label: "Presentation", value: "presentation", count: links.filter(l => l.type === "presentation").length }
+    ...types.map(type => ({ 
+      label: type.charAt(0).toUpperCase() + type.slice(1), 
+      value: type, 
+      count: links.filter(l => l.type === type).length 
+    })),
+    ...companies.map(company => ({ 
+      label: company, 
+      value: `company-${company}`, 
+      count: links.filter(l => l.company === company).length 
+    })),
+    ...roles.map(role => ({ 
+      label: role, 
+      value: `role-${role}`, 
+      count: links.filter(l => l.role === role).length 
+    }))
   ];
 
   const handleAddNew = () => {
@@ -129,14 +145,47 @@ export default function ShowAllLinks() {
     }
   };
 
-  const renderHeader = () => (
+  const renderHeader = (
+    handleSort: (field: keyof any) => void, 
+    getSortIcon: (field: keyof any) => React.ReactNode
+  ) => (
     <tr>
-      <th className="text-left p-4 font-medium text-muted-foreground">Link</th>
-      <th className="text-left p-4 font-medium text-muted-foreground">Company</th>
-      <th className="text-left p-4 font-medium text-muted-foreground">Role</th>
-      <th className="text-left p-4 font-medium text-muted-foreground">Type</th>
-      <th className="text-left p-4 font-medium text-muted-foreground">Description</th>
-      <th className="text-left p-4 font-medium text-muted-foreground">Date</th>
+      <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('title')}>
+        <div className="flex items-center gap-2">
+          Link
+          {getSortIcon('title')}
+        </div>
+      </th>
+      <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('company')}>
+        <div className="flex items-center gap-2">
+          Company
+          {getSortIcon('company')}
+        </div>
+      </th>
+      <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('role')}>
+        <div className="flex items-center gap-2">
+          Role
+          {getSortIcon('role')}
+        </div>
+      </th>
+      <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('type')}>
+        <div className="flex items-center gap-2">
+          Type
+          {getSortIcon('type')}
+        </div>
+      </th>
+      <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('description')}>
+        <div className="flex items-center gap-2">
+          Description
+          {getSortIcon('description')}
+        </div>
+      </th>
+      <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('date')}>
+        <div className="flex items-center gap-2">
+          Date
+          {getSortIcon('date')}
+        </div>
+      </th>
       <th className="text-left p-4 font-medium text-muted-foreground">Actions</th>
     </tr>
   );
@@ -257,7 +306,7 @@ export default function ShowAllLinks() {
         editingLink={editingLink}
       />
 
-      {/* View Link Modal - Simple view with Edit button */}
+      {/* View Link Modal - Using existing LinkCard */}
       {isViewModalOpen && viewingLink && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50">
           <div className="container mx-auto p-4 h-full overflow-y-auto">
@@ -269,55 +318,18 @@ export default function ShowAllLinks() {
                     Close
                   </Button>
                 </div>
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-lg font-semibold mb-2">{viewingLink.title}</h3>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="font-medium text-muted-foreground">Company:</span>
-                        <p>{viewingLink.company}</p>
-                      </div>
-                      <div>
-                        <span className="font-medium text-muted-foreground">Role:</span>
-                        <p>{viewingLink.role}</p>
-                      </div>
-                      <div>
-                        <span className="font-medium text-muted-foreground">Type:</span>
-                        <Badge className={getTypeColor(viewingLink.type)}>
-                          {viewingLink.type.charAt(0).toUpperCase() + viewingLink.type.slice(1)}
-                        </Badge>
-                      </div>
-                      <div>
-                        <span className="font-medium text-muted-foreground">Date:</span>
-                        <p>{new Date(viewingLink.date).toLocaleDateString()}</p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <h4 className="font-medium text-muted-foreground mb-2">Description</h4>
-                    <p className="text-sm">{viewingLink.description}</p>
-                  </div>
-                  
-                  <div>
-                    <h4 className="font-medium text-muted-foreground mb-2">URL</h4>
-                    <a 
-                      href={viewingLink.url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-sm text-primary hover:underline break-all"
-                    >
-                      {viewingLink.url}
-                    </a>
-                  </div>
-                  
-                  <div className="flex justify-end gap-2 pt-4 border-t">
-                    <Button onClick={() => handleEdit(viewingLink)}>
-                      <Edit className="h-4 w-4 mr-2" />
-                      Edit Link
-                    </Button>
-                  </div>
-                </div>
+                <LinkCard
+                  id={viewingLink.id}
+                  label={viewingLink.title}
+                  url={viewingLink.url}
+                  tags={viewingLink.tags || []}
+                  timesUsed={viewingLink.timesUsed || 0}
+                  lastUsed={viewingLink.date}
+                  onEdit={() => handleEdit(viewingLink)}
+                  onCopy={() => handleCopy(viewingLink)}
+                  onDuplicate={() => handleCopy(viewingLink)}
+                  onDelete={() => handleDelete(viewingLink)}
+                />
               </div>
             </div>
           </div>

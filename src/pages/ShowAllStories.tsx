@@ -150,14 +150,47 @@ export default function ShowAllStories() {
     }
   };
 
-  const renderHeader = () => (
+  const renderHeader = (
+    handleSort: (field: keyof Story) => void, 
+    getSortIcon: (field: keyof Story) => React.ReactNode
+  ) => (
     <tr>
-      <th className="text-left p-4 font-medium text-muted-foreground">Story</th>
-      <th className="text-left p-4 font-medium text-muted-foreground">Company</th>
-      <th className="text-left p-4 font-medium text-muted-foreground">Role</th>
-      <th className="text-left p-4 font-medium text-muted-foreground">Impact</th>
-      <th className="text-left p-4 font-medium text-muted-foreground">Metrics</th>
-      <th className="text-left p-4 font-medium text-muted-foreground">Date</th>
+      <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('title')}>
+        <div className="flex items-center gap-2">
+          Story
+          {getSortIcon('title')}
+        </div>
+      </th>
+      <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('company')}>
+        <div className="flex items-center gap-2">
+          Company
+          {getSortIcon('company')}
+        </div>
+      </th>
+      <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('role')}>
+        <div className="flex items-center gap-2">
+          Role
+          {getSortIcon('role')}
+        </div>
+      </th>
+      <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('impact')}>
+        <div className="flex items-center gap-2">
+          Impact
+          {getSortIcon('impact')}
+        </div>
+      </th>
+      <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('metrics')}>
+        <div className="flex items-center gap-2">
+          Metrics
+          {getSortIcon('metrics')}
+        </div>
+      </th>
+      <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('date')}>
+        <div className="flex items-center gap-2">
+          Date
+          {getSortIcon('date')}
+        </div>
+      </th>
       <th className="text-left p-4 font-medium text-muted-foreground">Tags</th>
       <th className="text-left p-4 font-medium text-muted-foreground">Actions</th>
     </tr>
