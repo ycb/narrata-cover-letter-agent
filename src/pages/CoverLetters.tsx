@@ -354,6 +354,12 @@ export default function CoverLetters() {
               <Plus className="h-4 w-4 mr-2" />
               Create New
             </Button>
+            <Button variant="secondary" asChild className="whitespace-nowrap">
+              <Link to="/cover-letter-template">
+                <FileText className="h-4 w-4 mr-2" />
+                Edit Template
+              </Link>
+            </Button>
           </div>
 
           {/* Cover Letters Grid */}
