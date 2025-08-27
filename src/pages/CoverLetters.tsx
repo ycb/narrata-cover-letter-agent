@@ -263,8 +263,24 @@ export default function CoverLetters() {
           
           {/* Page Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-foreground mb-2">Cover Letters</h1>
-            <p className="text-muted-foreground">Manage and track your cover letter applications</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-foreground mb-2">Cover Letters</h1>
+                <p className="text-muted-foreground">Manage and track your cover letter applications</p>
+              </div>
+              <div className="flex gap-3">
+                <Button variant="secondary" asChild>
+                  <Link to="/cover-letter-template">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Edit Template
+                  </Link>
+                </Button>
+                <Button onClick={handleCreateNew}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create New Letter
+                </Button>
+              </div>
+            </div>
           </div>
 
           {/* Stats Overview */}
@@ -358,16 +374,7 @@ export default function CoverLetters() {
               </Button>
             </div>
             
-            <Button onClick={handleCreateNew} className="whitespace-nowrap">
-              <Plus className="h-4 w-4 mr-2" />
-              Create New
-            </Button>
-            <Button variant="secondary" asChild className="whitespace-nowrap">
-              <Link to="/cover-letter-template">
-                <FileText className="h-4 w-4 mr-2" />
-                Edit Template
-              </Link>
-            </Button>
+
           </div>
 
           {/* Cover Letters Grid */}
