@@ -20,7 +20,8 @@ import {
   CheckCircle,
   Clock,
   TrendingUp,
-  MoreHorizontal
+  MoreHorizontal,
+  LayoutTemplate
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
@@ -271,7 +272,7 @@ export default function CoverLetters() {
               <div className="flex gap-3">
                 <Button variant="secondary" asChild>
                   <Link to="/cover-letter-template">
-                    <FileText className="h-4 w-4 mr-2" />
+                    <LayoutTemplate className="h-4 w-4 mr-2" />
                     Edit Template
                   </Link>
                 </Button>
