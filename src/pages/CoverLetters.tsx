@@ -382,10 +382,41 @@ export default function CoverLetters() {
             {filteredCoverLetters.map((coverLetter) => (
               <Card key={coverLetter.id} className="shadow-soft hover:shadow-medium transition-all duration-200">
                 <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <CardTitle className="text-lg mb-1 truncate">{coverLetter.title}</CardTitle>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                  {/* Header: Title + Status + Menu */}
+                  <div className="flex items-center justify-between mb-4">
+                    <CardTitle className="text-lg truncate">{coverLetter.title}</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <Badge className={getStatusColor(coverLetter.status)}>
+                        {getStatusIcon(coverLetter.status)}
+                        <span className="ml-1 capitalize">{coverLetter.status}</span>
+                      </Badge>
+                      
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleCopy(coverLetter)}>
+                            <Copy className="mr-2 h-4 w-4" />
+                            Copy
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDelete(coverLetter)}>
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                  
+                  {/* 2-Column Region: Company/Role | Created/Updated */}
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Left Column: Company + Role */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Building2 className="h-3 w-3" />
                         {coverLetter.company}
                       </div>
@@ -395,44 +426,15 @@ export default function CoverLetters() {
                       </div>
                     </div>
                     
-                    <div className="flex flex-col items-end gap-2">
-                      {/* Timestamps */}
-                      <div className="flex flex-col items-end gap-1 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          Created {formatDate(coverLetter.createdAt)}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          Updated {formatDate(coverLetter.updatedAt)}
-                        </div>
+                    {/* Right Column: Created + Updated */}
+                    <div className="space-y-2 text-right">
+                      <div className="flex items-center justify-end gap-1 text-xs text-muted-foreground">
+                        <Calendar className="h-3 w-3" />
+                        Created {formatDate(coverLetter.createdAt)}
                       </div>
-                      
-                      {/* Status and Menu */}
-                      <div className="flex items-center gap-2">
-                        <Badge className={getStatusColor(coverLetter.status)}>
-                          {getStatusIcon(coverLetter.status)}
-                          <span className="ml-1 capitalize">{coverLetter.status}</span>
-                        </Badge>
-                        
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                              <span className="sr-only">Open menu</span>
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleCopy(coverLetter)}>
-                              <Copy className="mr-2 h-4 w-4" />
-                              Copy
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDelete(coverLetter)}>
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                      <div className="flex items-center justify-end gap-1 text-xs text-muted-foreground">
+                        <Calendar className="h-3 w-3" />
+                        Updated {formatDate(coverLetter.updatedAt)}
                       </div>
                     </div>
                   </div>
