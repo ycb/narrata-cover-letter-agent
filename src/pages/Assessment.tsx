@@ -709,9 +709,22 @@ const Assessment = () => {
               <div className="p-4 bg-muted/10 rounded-lg">
                 <div className="flex flex-col md:flex-row items-center md:justify-end gap-4">
                   <p className="text-sm text-muted-foreground text-right w-full md:w-auto">
-                    Improve your assessment with more evidence
+                    Improve your skills with more evidence
                   </p>
-                  <Button variant="secondary" size="sm" className="whitespace-nowrap">
+                  <Button 
+                    variant="secondary" 
+                    size="sm" 
+                    className="whitespace-nowrap"
+                    onClick={() => {
+                      if (smartCTA.area === 'externalLinks') {
+                        window.location.href = '/work-history?tab=links';
+                      } else if (smartCTA.area === 'stories') {
+                        window.location.href = '/work-history?tab=stories';
+                      } else if (smartCTA.area === 'outcomeMetrics') {
+                        window.location.href = '/work-history?tab=stories';
+                      }
+                    }}
+                  >
                     {smartCTA.text}
                   </Button>
                 </div>

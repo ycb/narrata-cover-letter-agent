@@ -215,6 +215,7 @@ export default function WorkHistory() {
   const [isAddStoryModalOpen, setIsAddStoryModalOpen] = useState(false);
   const [editingStory, setEditingStory] = useState<WorkHistoryBlurb | null>(null);
   const [isAddLinkModalOpen, setIsAddLinkModalOpen] = useState(false);
+  const [editingLink, setEditingLink] = useState<any>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // Update selected items when prototype state changes
@@ -294,6 +295,11 @@ export default function WorkHistory() {
   };
 
   const handleAddLink = () => {
+    setIsAddLinkModalOpen(true);
+  };
+
+  const handleEditLink = (link: any) => {
+    setEditingLink(link);
     setIsAddLinkModalOpen(true);
   };
 
@@ -384,6 +390,7 @@ export default function WorkHistory() {
               onAddStory={handleAddStory}
               onEditStory={handleEditStory}
               onAddLink={handleAddLink}
+              onEditLink={handleEditLink}
               onEditCompany={handleEditCompany}
             />
             </div>
@@ -437,9 +444,13 @@ export default function WorkHistory() {
 
         <AddLinkModal
           open={isAddLinkModalOpen}
-          onOpenChange={setIsAddLinkModalOpen}
+          onOpenChange={(open) => {
+            setIsAddLinkModalOpen(open);
+            if (!open) setEditingLink(null);
+          }}
           roleId={selectedRole?.id || ''}
           onSave={handleSaveContent}
+          editingLink={editingLink}
         />
       </main>
     </div>

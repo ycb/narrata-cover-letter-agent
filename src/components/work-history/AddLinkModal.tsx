@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,9 +12,10 @@ interface AddLinkModalProps {
   onOpenChange: (open: boolean) => void;
   roleId: string;
   onSave: (content: any) => void;
+  editingLink?: any;
 }
 
-export function AddLinkModal({ open, onOpenChange, roleId, onSave }: AddLinkModalProps) {
+export function AddLinkModal({ open, onOpenChange, roleId, onSave, editingLink }: AddLinkModalProps) {
   // Link state
   const [linkLabel, setLinkLabel] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
@@ -23,6 +24,23 @@ export function AddLinkModal({ open, onOpenChange, roleId, onSave }: AddLinkModa
   const [linkTagInput, setLinkTagInput] = useState("");
   
   const { toast } = useToast();
+
+  // Populate form when editing
+  useEffect(() => {
+    if (editingLink) {
+      setLinkLabel(editingLink.label || "");
+      setLinkUrl(editingLink.url || "");
+      setLinkType(editingLink.type || "blog");
+      setLinkTags(editingLink.tags || []);
+    } else {
+      // Reset form when not editing
+      setLinkLabel("");
+      setLinkUrl("");
+      setLinkType("blog");
+      setLinkTags([]);
+      setLinkTagInput("");
+    }
+  }, [editingLink]);
 
   const handleAddLinkTag = () => {
     if (linkTagInput.trim() && !linkTags.includes(linkTagInput.trim())) {
@@ -80,9 +98,9 @@ export function AddLinkModal({ open, onOpenChange, roleId, onSave }: AddLinkModa
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add External Link</DialogTitle>
+          <DialogTitle>{editingLink ? 'Edit External Link' : 'Add External Link'}</DialogTitle>
           <DialogDescription>
-            Add a supporting link to provide evidence for your work. This could be a case study, blog article, portfolio, or other relevant resource.
+            {editingLink ? 'Update the link details below.' : 'Add a supporting link to provide evidence for your work. This could be a case study, blog article, portfolio, or other relevant resource.'}
           </DialogDescription>
         </DialogHeader>
         
@@ -161,7 +179,7 @@ export function AddLinkModal({ open, onOpenChange, roleId, onSave }: AddLinkModa
               Cancel
             </Button>
             <Button type="submit">
-              Add Link
+              {editingLink ? 'Update Link' : 'Add Link'}
             </Button>
           </div>
         </form>

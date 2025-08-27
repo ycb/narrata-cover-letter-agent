@@ -47,6 +47,7 @@ interface WorkHistoryDetailProps {
   onAddLink?: () => void;
   onEditCompany?: (company: WorkHistoryCompany) => void;
   onEditStory?: (story: WorkHistoryBlurb) => void;
+  onEditLink?: (link: any) => void;
   onDuplicateStory?: (story: WorkHistoryBlurb) => void;
   onDeleteStory?: (story: WorkHistoryBlurb) => void;
 }
@@ -64,6 +65,7 @@ export const WorkHistoryDetail = ({
   onAddLink,
   onEditCompany,
   onEditStory,
+  onEditLink,
   onDuplicateStory,
   onDeleteStory,
 }: WorkHistoryDetailProps) => {
@@ -575,7 +577,7 @@ export const WorkHistoryDetail = ({
                           tags={link.tags}
                           timesUsed={link.timesUsed}
                           lastUsed={link.lastUsed}
-                          onEdit={() => {}} // TODO: Implement link editing
+                          onEdit={() => onEditLink?.(link)}
                           onDuplicate={() => {}} // TODO: Implement link duplication
                           onDelete={() => {}} // TODO: Implement link deletion
                         />
