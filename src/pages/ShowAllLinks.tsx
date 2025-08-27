@@ -111,9 +111,7 @@ export default function ShowAllLinks() {
     console.log("Copy link:", link.id);
   };
 
-  const handleVisit = (url: string) => {
-    window.open(url, '_blank');
-  };
+
 
   const handleView = (link: any) => {
     setViewingLink(link);
@@ -199,14 +197,7 @@ export default function ShowAllLinks() {
             <Eye className="h-4 w-4 mr-1" />
             View
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => handleVisit(link.url)}
-          >
-            <ExternalLink className="h-4 w-4 mr-1" />
-            Visit
-          </Button>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
