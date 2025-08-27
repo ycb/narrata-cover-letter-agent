@@ -427,12 +427,12 @@ export default function CoverLetters() {
                     </div>
                     
                     {/* Right Column: Created + Updated */}
-                    <div className="space-y-2 text-right">
-                      <div className="flex items-center justify-end gap-1 text-xs text-muted-foreground">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Calendar className="h-3 w-3" />
                         Created {formatDate(coverLetter.createdAt)}
                       </div>
-                      <div className="flex items-center justify-end gap-1 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Calendar className="h-3 w-3" />
                         Updated {formatDate(coverLetter.updatedAt)}
                       </div>
