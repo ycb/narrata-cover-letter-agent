@@ -204,7 +204,7 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter }: CoverLett
                     <Textarea
                       value={section.content}
                       onChange={(e) => handleSectionChange(section.id, e.target.value)}
-                      className={`resize-none h-[200px] flex items-center ${section.isEnhanced ? 'border-success/30 bg-success/5' : ''}`}
+                      className="resize-none h-[200px] flex items-center"
                     />
                   </div>
 

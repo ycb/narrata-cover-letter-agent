@@ -332,7 +332,7 @@ export default function CoverLetters() {
                       {coverLetters.length > 0 ? Math.round(coverLetters.reduce((sum, cl) => sum + cl.atsScore, 0) / coverLetters.length) : 0}%
                     </p>
                   </div>
-                  <Trophy className="h-8 w-8 text-primary" />
+                  <Trophy className="h-8 w-8 text-muted-foreground" />
                 </div>
               </CardContent>
             </Card>
