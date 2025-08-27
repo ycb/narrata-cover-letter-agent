@@ -242,84 +242,86 @@ export default function ShowAllLinks() {
   );
 
   return (
-    <ShowAllTemplate
-      title="All External Links"
-      description="View and manage all your external links and references across companies and roles"
-      data={links}
-      searchPlaceholder="Search links by title, company, role, or description..."
-      renderHeader={renderHeader}
-      renderRow={renderRow}
-      onAddNew={handleAddNew}
-      addNewLabel="Add Link"
-      filters={filters}
-      searchKeys={["title", "company", "role", "description"]}
-      emptyStateMessage="No external links found. Add your first link to get started."
-    />
+    <>
+      <ShowAllTemplate
+        title="All External Links"
+        description="View and manage all your external links and references across companies and roles"
+        data={links}
+        searchPlaceholder="Search links by title, company, role, or description..."
+        renderHeader={renderHeader}
+        renderRow={renderRow}
+        onAddNew={handleAddNew}
+        addNewLabel="Add Link"
+        filters={filters}
+        searchKeys={["title", "company", "role", "description"]}
+        emptyStateMessage="No external links found. Add your first link to get started."
+      />
 
-    {/* View Link Modal */}
-    <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>View Link</DialogTitle>
-        </DialogHeader>
-        {viewingLink && (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold mb-2">{viewingLink.title}</h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="font-medium text-muted-foreground">Company:</span>
-                  <p>{viewingLink.company}</p>
-                </div>
-                <div>
-                  <span className="font-medium text-muted-foreground">Role:</span>
-                  <p>{viewingLink.role}</p>
-                </div>
-                <div>
-                  <span className="font-medium text-muted-foreground">Type:</span>
-                  <Badge className={getTypeColor(viewingLink.type)}>
-                    {viewingLink.type.charAt(0).toUpperCase() + viewingLink.type.slice(1)}
-                  </Badge>
-                </div>
-                <div>
-                  <span className="font-medium text-muted-foreground">Date:</span>
-                  <p>{new Date(viewingLink.date).toLocaleDateString()}</p>
+      {/* View Link Modal */}
+      <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>View Link</DialogTitle>
+          </DialogHeader>
+          {viewingLink && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold mb-2">{viewingLink.title}</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="font-medium text-muted-foreground">Company:</span>
+                    <p>{viewingLink.company}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-muted-foreground">Role:</span>
+                    <p>{viewingLink.role}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-muted-foreground">Type:</span>
+                    <Badge className={getTypeColor(viewingLink.type)}>
+                      {viewingLink.type.charAt(0).toUpperCase() + viewingLink.type.slice(1)}
+                    </Badge>
+                  </div>
+                  <div>
+                    <span className="font-medium text-muted-foreground">Date:</span>
+                    <p>{new Date(viewingLink.date).toLocaleDateString()}</p>
+                  </div>
                 </div>
               </div>
+              
+              <div>
+                <h4 className="font-medium text-muted-foreground mb-2">Description</h4>
+                <p className="text-sm">{viewingLink.description}</p>
+              </div>
+              
+              <div>
+                <h4 className="font-medium text-muted-foreground mb-2">URL</h4>
+                <a 
+                  href={viewingLink.url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary hover:underline break-all"
+                >
+                  {viewingLink.url}
+                </a>
+              </div>
+              
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button variant="outline" onClick={() => setIsViewModalOpen(false)}>
+                  Close
+                </Button>
+                <Button onClick={() => {
+                  setIsViewModalOpen(false);
+                  handleEdit(viewingLink);
+                }}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Link
+                </Button>
+              </div>
             </div>
-            
-            <div>
-              <h4 className="font-medium text-muted-foreground mb-2">Description</h4>
-              <p className="text-sm">{viewingLink.description}</p>
-            </div>
-            
-            <div>
-              <h4 className="font-medium text-muted-foreground mb-2">URL</h4>
-              <a 
-                href={viewingLink.url} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-sm text-primary hover:underline break-all"
-              >
-                {viewingLink.url}
-              </a>
-            </div>
-            
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button variant="outline" onClick={() => setIsViewModalOpen(false)}>
-                Close
-              </Button>
-              <Button onClick={() => {
-                setIsViewModalOpen(false);
-                handleEdit(viewingLink);
-              }}>
-                <Edit className="h-4 w-4 mr-2" />
-                Edit Link
-              </Button>
-            </div>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

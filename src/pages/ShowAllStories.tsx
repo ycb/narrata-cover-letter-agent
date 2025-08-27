@@ -256,84 +256,86 @@ export default function ShowAllStories() {
   );
 
   return (
-    <ShowAllTemplate
-      title="All Stories"
-      description="View and manage all your impact stories across companies and roles"
-      data={stories}
-      searchPlaceholder="Search stories by title, company, role, or metrics..."
-      renderHeader={renderHeader}
-      renderRow={renderRow}
-      onAddNew={handleAddNew}
-      addNewLabel="Add Story"
-      filters={filters}
-      onFilterChange={handleFilterChange}
-      searchKeys={["title", "company", "role", "metrics"]}
-      emptyStateMessage="No stories found. Create your first story to get started."
-    />
+    <>
+      <ShowAllTemplate
+        title="All Stories"
+        description="View and manage all your impact stories across companies and roles"
+        data={stories}
+        searchPlaceholder="Search stories by title, company, role, or metrics..."
+        renderHeader={renderHeader}
+        renderRow={renderRow}
+        onAddNew={handleAddNew}
+        addNewLabel="Add Story"
+        filters={filters}
+        onFilterChange={handleFilterChange}
+        searchKeys={["title", "company", "role", "metrics"]}
+        emptyStateMessage="No stories found. Create your first story to get started."
+      />
 
-    {/* View Story Modal */}
-    <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>View Story</DialogTitle>
-        </DialogHeader>
-        {viewingStory && (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold mb-2">{viewingStory.title}</h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="font-medium text-muted-foreground">Company:</span>
-                  <p>{viewingStory.company}</p>
-                </div>
-                <div>
-                  <span className="font-medium text-muted-foreground">Role:</span>
-                  <p>{viewingStory.role}</p>
-                </div>
-                <div>
-                  <span className="font-medium text-muted-foreground">Impact:</span>
-                  <Badge className={getImpactColor(viewingStory.impact)}>
-                    {viewingStory.impact.charAt(0).toUpperCase() + viewingStory.impact.slice(1)}
-                  </Badge>
-                </div>
-                <div>
-                  <span className="font-medium text-muted-foreground">Date:</span>
-                  <p>{new Date(viewingStory.date).toLocaleDateString()}</p>
+      {/* View Story Modal */}
+      <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>View Story</DialogTitle>
+          </DialogHeader>
+          {viewingStory && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold mb-2">{viewingStory.title}</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="font-medium text-muted-foreground">Company:</span>
+                    <p>{viewingStory.company}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-muted-foreground">Role:</span>
+                    <p>{viewingStory.role}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-muted-foreground">Impact:</span>
+                    <Badge className={getImpactColor(viewingStory.impact)}>
+                      {viewingStory.impact.charAt(0).toUpperCase() + viewingStory.impact.slice(1)}
+                    </Badge>
+                  </div>
+                  <div>
+                    <span className="font-medium text-muted-foreground">Date:</span>
+                    <p>{new Date(viewingStory.date).toLocaleDateString()}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-            
-            <div>
-              <h4 className="font-medium text-muted-foreground mb-2">Metrics & Impact</h4>
-              <p className="text-sm">{viewingStory.metrics}</p>
-            </div>
-            
-            <div>
-              <h4 className="font-medium text-muted-foreground mb-2">Tags</h4>
-              <div className="flex flex-wrap gap-2">
-                {viewingStory.tags.map((tag, index) => (
-                  <Badge key={index} variant="outline">
-                    {tag}
-                  </Badge>
-                ))}
+              
+              <div>
+                <h4 className="font-medium text-muted-foreground mb-2">Metrics & Impact</h4>
+                <p className="text-sm">{viewingStory.metrics}</p>
+              </div>
+              
+              <div>
+                <h4 className="font-medium text-muted-foreground mb-2">Tags</h4>
+                <div className="flex flex-wrap gap-2">
+                  {viewingStory.tags.map((tag, index) => (
+                    <Badge key={index} variant="outline">
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button variant="outline" onClick={() => setIsViewModalOpen(false)}>
+                  Close
+                </Button>
+                <Button onClick={() => {
+                  setIsViewModalOpen(false);
+                  handleEdit(viewingStory);
+                }}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Story
+                </Button>
               </div>
             </div>
-            
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button variant="outline" onClick={() => setIsViewModalOpen(false)}>
-                Close
-              </Button>
-              <Button onClick={() => {
-                setIsViewModalOpen(false);
-                handleEdit(viewingStory);
-              }}>
-                <Edit className="h-4 w-4 mr-2" />
-                Edit Story
-              </Button>
-            </div>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

@@ -233,74 +233,76 @@ export default function ShowAllSavedSections() {
   );
 
   return (
-    <ShowAllTemplate
-      title="All Saved Sections"
-      description="View and manage all your saved cover letter sections and templates"
-      data={sections}
-      searchPlaceholder="Search sections by title, company, role, or content..."
-      renderHeader={renderHeader}
-      renderRow={renderRow}
-      onAddNew={handleAddNew}
-      addNewLabel="Add Section"
-      filters={filters}
-      searchKeys={["title", "company", "role", "content"]}
-      emptyStateMessage="No saved sections found. Create your first section to get started."
-    />
+    <>
+      <ShowAllTemplate
+        title="All Saved Sections"
+        description="View and manage all your saved cover letter sections and templates"
+        data={sections}
+        searchPlaceholder="Search sections by title, company, role, or content..."
+        renderHeader={renderHeader}
+        renderRow={renderRow}
+        onAddNew={handleAddNew}
+        addNewLabel="Add Section"
+        filters={filters}
+        searchKeys={["title", "company", "role", "content"]}
+        emptyStateMessage="No saved sections found. Create your first section to get started."
+      />
 
-    {/* View Section Modal */}
-    <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>View Saved Section</DialogTitle>
-        </DialogHeader>
-        {viewingSection && (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold mb-2">{viewingSection.title}</h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="font-medium text-muted-foreground">Company:</span>
-                  <p>{viewingSection.company}</p>
+      {/* View Section Modal */}
+      <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>View Saved Section</DialogTitle>
+          </DialogHeader>
+          {viewingSection && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold mb-2">{viewingSection.title}</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="font-medium text-muted-foreground">Company:</span>
+                    <p>{viewingSection.company}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-muted-foreground">Role:</span>
+                    <p>{viewingSection.role}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium text-muted-foreground">Type:</span>
+                    <Badge className={getTypeColor(viewingSection.type)}>
+                      {viewingSection.type.charAt(0).toUpperCase() + viewingSection.type.slice(1)}
+                    </Badge>
+                  </div>
+                  <div>
+                    <span className="font-medium text-muted-foreground">Date:</span>
+                    <p>{new Date(viewingSection.date).toLocaleDateString()}</p>
+                  </div>
                 </div>
-                <div>
-                  <span className="font-medium text-muted-foreground">Role:</span>
-                  <p>{viewingSection.role}</p>
+              </div>
+              
+              <div>
+                <h4 className="font-medium text-muted-foreground mb-2">Content</h4>
+                <div className="bg-muted/50 p-4 rounded-lg">
+                  <p className="text-sm whitespace-pre-wrap">{viewingSection.content}</p>
                 </div>
-                <div>
-                  <span className="font-medium text-muted-foreground">Type:</span>
-                  <Badge className={getTypeColor(viewingSection.type)}>
-                    {viewingSection.type.charAt(0).toUpperCase() + viewingSection.type.slice(1)}
-                  </Badge>
-                </div>
-                <div>
-                  <span className="font-medium text-muted-foreground">Date:</span>
-                  <p>{new Date(viewingSection.date).toLocaleDateString()}</p>
+              </div>
+              
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button variant="outline" onClick={() => setIsViewModalOpen(false)}>
+                  Close
+                </Button>
+                <Button onClick={() => {
+                  setIsViewModalOpen(false);
+                  handleEdit(viewingSection);
+                }}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Section
                 </div>
               </div>
             </div>
-            
-            <div>
-              <h4 className="font-medium text-muted-foreground mb-2">Content</h4>
-              <div className="bg-muted/50 p-4 rounded-lg">
-                <p className="text-sm whitespace-pre-wrap">{viewingSection.content}</p>
-              </div>
-            </div>
-            
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button variant="outline" onClick={() => setIsViewModalOpen(false)}>
-                Close
-              </Button>
-              <Button onClick={() => {
-                setIsViewModalOpen(false);
-                handleEdit(viewingSection);
-              }}>
-                <Edit className="h-4 w-4 mr-2" />
-                Edit Section
-              </Button>
-            </div>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
