@@ -1,4 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
+import { vi } from 'vitest';
 import { UnifiedGapCard } from '../UnifiedGapCard';
 
 describe('UnifiedGapCard', () => {
@@ -10,8 +11,8 @@ describe('UnifiedGapCard', () => {
     origin: 'ai' as const,
     paragraphId: 'intro',
     severity: 'medium' as const,
-    onEdit: jest.fn(),
-    onGenerate: jest.fn(),
+    onEdit: vi.fn(),
+    onGenerate: vi.fn(),
   };
 
   const mockMetProps = {
@@ -23,7 +24,7 @@ describe('UnifiedGapCard', () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Gap Status Rendering', () => {

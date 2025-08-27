@@ -29,40 +29,40 @@ export function ContentGenerationModal({
     
     setIsGenerating(true);
     
-    // Mock content generation based on gap type, suggestion, and paragraph context
-    setTimeout(() => {
-      let content = '';
-      
-      // Generate content specific to the paragraph and gap
-      switch (gap.paragraphId) {
-        case 'intro':
-          if (gap.type === 'best-practice') {
-            content = `I am writing to express my strong interest in this position. With over 5 years of experience in the field, I have consistently delivered measurable results that demonstrate my value. ${gap.suggestion}.\n\nFor example, in my previous role, I increased user engagement by 35% and reduced system downtime by 60%, directly contributing to a 25% improvement in overall team productivity.`;
-          } else {
-            content = `I am writing to express my strong interest in this position. ${gap.suggestion}.\n\nMy background includes extensive experience with the required technologies, and I am confident I can contribute immediately to your team's success.`;
-          }
-          break;
-          
-        case 'experience':
-          if (gap.type === 'core-requirement') {
-            content = `In my previous role as a Lead Developer, I successfully ${gap.suggestion.toLowerCase()}.\n\nSpecifically, I developed and maintained systems using the latest technologies, ensuring high performance and scalability. This hands-on experience with the core requirements makes me an ideal candidate for your team.`;
-          } else if (gap.type === 'preferred-requirement') {
-            content = `Beyond technical skills, I also bring strong leadership experience to the table. ${gap.suggestion}.\n\nI led a team of 8 developers and successfully delivered 12 major projects on time and under budget, demonstrating my ability to manage both technical and business challenges.`;
-          }
-          break;
-          
-        case 'closing':
-          content = `I am particularly excited about this opportunity because ${gap.suggestion.toLowerCase()}.\n\nMy combination of technical expertise and proven track record of delivering results makes me confident I can contribute significantly to your team's success. I look forward to discussing how my background aligns with your needs.`;
-          break;
-          
-        default:
-          content = `I am confident that my background and experience make me an excellent fit for this position. ${gap.suggestion}.\n\nI look forward to discussing how I can contribute to your team's success.`;
-      }
-      
-      setGeneratedContent(content);
-      setContentQuality('review');
-      setIsGenerating(false);
-    }, 2000);
+          // Mock content generation based on gap type, suggestion, and paragraph context
+      setTimeout(() => {
+        let content = '';
+        
+        // Generate content specific to the paragraph and gap
+        switch (gap.paragraphId) {
+          case 'intro':
+            if (gap.type === 'best-practice') {
+              content = `I am writing to express my strong interest in the Senior Product Manager position at TechCorp. With over 5 years of experience in product management and a passion for data-driven decision making, I have consistently delivered measurable results that demonstrate my value. ${gap.suggestion}.\n\nFor example, in my previous role at InnovateTech, I increased user engagement by 35% through A/B testing and optimization, reduced customer churn by 40% through improved onboarding flows, and directly contributed to a 25% improvement in overall team productivity through streamlined processes and clear KPIs. My experience with SQL, Python, and analytics tools like Tableau has enabled me to make data-informed decisions that drive business growth.`;
+            } else {
+              content = `I am writing to express my strong interest in this position. ${gap.suggestion}.\n\nMy background includes extensive experience with the required technologies, and I am confident I can contribute immediately to your team's success.`;
+            }
+            break;
+            
+          case 'experience':
+            if (gap.type === 'core-requirement') {
+              content = `In my previous role as a Senior Product Manager at InnovateTech, I successfully ${gap.suggestion.toLowerCase()}.\n\nSpecifically, I led cross-functional teams of 8-12 engineers, designers, and analysts to deliver products that met both user needs and business objectives. My hands-on experience with SQL, Python, and analytics platforms like Tableau and Looker has enabled me to dive deep into data to inform product decisions and measure success. I've consistently delivered products that exceed user expectations while meeting business goals.`;
+            } else if (gap.type === 'preferred-requirement') {
+              content = `Beyond technical skills, I also bring strong leadership experience to the table. ${gap.suggestion}.\n\nI led a team of 8 product managers and successfully delivered 12 major product launches on time and under budget, demonstrating my ability to manage both technical and business challenges. My experience in SaaS and fintech has given me deep insights into user behavior and market dynamics.`;
+            }
+            break;
+            
+          case 'closing':
+            content = `I am particularly excited about this opportunity at TechCorp because ${gap.suggestion.toLowerCase()}.\n\nYour focus on sustainable technology solutions and commitment to innovation aligns perfectly with my values and experience. I led a green technology initiative that reduced our infrastructure costs by 30% while improving performance, demonstrating my ability to balance technical excellence with business impact and environmental responsibility. My combination of technical expertise, proven track record of delivering results, and passion for sustainable solutions makes me confident I can contribute significantly to your team's success. I look forward to discussing how my background aligns with your needs and how I can help drive TechCorp's mission forward.`;
+            break;
+            
+          default:
+            content = `I am confident that my background and experience make me an excellent fit for this position. ${gap.suggestion}.\n\nI look forward to discussing how I can contribute to your team's success.`;
+        }
+        
+        setGeneratedContent(content);
+        setContentQuality('review');
+        setIsGenerating(false);
+      }, 2000);
   };
 
   const handleRegenerate = () => {
@@ -96,37 +96,39 @@ export function ContentGenerationModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            Generate Content for Gap
+            Generate Content
           </DialogTitle>
           <DialogDescription>
             Generate enhanced content to address this gap
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Gap Context */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Gap Analysis</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Gap Analysis</CardTitle>
+                <div className="flex items-center gap-2">
+                  <Badge className={gap.severity === 'high' ? 'bg-destructive text-destructive-foreground' : 'bg-warning text-warning-foreground'}>
+                    {gap.severity} priority
+                  </Badge>
+                  <Badge variant="outline">
+                    {gap.type.replace('-', ' ')}
+                  </Badge>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Badge className={gap.severity === 'high' ? 'bg-destructive text-destructive-foreground' : 'bg-warning text-warning-foreground'}>
-                  {gap.severity} priority
-                </Badge>
-                <Badge variant="outline">
-                  {gap.type.replace('-', ' ')}
-                </Badge>
-              </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h4 className="font-medium mb-1">Issue:</h4>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <h4 className="font-medium text-sm">Issue:</h4>
                   <p className="text-sm text-muted-foreground">{gap.description}</p>
                 </div>
                 
-                <div>
-                  <h4 className="font-medium mb-1">Suggestion:</h4>
+                <div className="flex items-center gap-2">
+                  <h4 className="font-medium text-sm">Suggestion:</h4>
                   <p className="text-sm text-muted-foreground">{gap.suggestion}</p>
                 </div>
               </div>
