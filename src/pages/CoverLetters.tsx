@@ -264,24 +264,19 @@ export default function CoverLetters() {
         <div className="max-w-7xl mx-auto">
           
           {/* Page Header */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-foreground mb-2">Cover Letters</h1>
-                <p className="text-muted-foreground">Manage and track your cover letter applications</p>
-              </div>
-              <div className="flex gap-3">
-                <Button variant="secondary" asChild>
-                  <Link to="/cover-letter-template">
-                    <LayoutTemplate className="h-4 w-4 mr-2" />
-                    Edit Template
-                  </Link>
-                </Button>
-                <Button onClick={handleCreateNew}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create New Letter
-                </Button>
-              </div>
+          <div className="flex items-center justify-between">
+            <p className="text-muted-foreground description-spacing">Manage and track your cover letter applications</p>
+            <div className="flex gap-3">
+              <Button variant="secondary" asChild>
+                <Link to="/cover-letter-template">
+                  <LayoutTemplate className="h-4 w-4 mr-2" />
+                  Edit Template
+                </Link>
+              </Button>
+              <Button onClick={handleCreateNew}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create New Letter
+              </Button>
             </div>
           </div>
 
