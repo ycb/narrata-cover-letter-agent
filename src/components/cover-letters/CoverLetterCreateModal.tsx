@@ -13,6 +13,7 @@ import { HILProgressPanel } from "@/components/hil/HILProgressPanel";
 import { GapAnalysisPanel } from "@/components/hil/GapAnalysisPanel";
 import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
 import { UnifiedGapCard } from "@/components/hil/UnifiedGapCard";
+import { CoverLetterFinalization } from "./CoverLetterFinalization";
 
 interface CoverLetterCreateModalProps {
   isOpen: boolean;
@@ -76,6 +77,7 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
   const [showContentGenerationModal, setShowContentGenerationModal] = useState(false);
   const [selectedGap, setSelectedGap] = useState<GapAnalysis | null>(null);
   const [mainTabValue, setMainTabValue] = useState<'job-description' | 'cover-letter'>('cover-letter');
+  const [showFinalizationModal, setShowFinalizationModal] = useState(false);
 
 
 
@@ -101,6 +103,13 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
         type: 'closing',
         content: "What particularly excites me about TechCorp is your commitment to innovation and sustainable technology solutions. I led a green technology initiative that reduced our infrastructure costs by 30% while improving performance, demonstrating my ability to balance technical excellence with business impact.",
         usedBlurbs: ['blurb-5'],
+        isModified: false
+      },
+      {
+        id: 'signature',
+        type: 'signature',
+        content: "I look forward to discussing how my background aligns with your needs and how I can contribute to TechCorp's continued success.\n\nBest regards,\n[Your Name]\n[Your Phone]\n[Your Email]\n[Your LinkedIn]",
+        usedBlurbs: [],
         isModified: false
       }
     ],
@@ -287,6 +296,10 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
     }
   };
 
+  const handleFinalizeLetter = () => {
+    setShowFinalizationModal(true);
+  };
+
 
 
   const handleApplyGeneratedContent = (content: string) => {
@@ -380,6 +393,8 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
         return ['SQL/Python experience', 'technical leadership', 'cross-functional collaboration'];
       case 'closing':
         return ['SaaS background', 'sustainability focus', 'innovation commitment'];
+      case 'signature':
+        return ['professional closing', 'contact information', 'call to action'];
       default:
         return ['job requirements'];
     }
@@ -580,7 +595,8 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
                         <div className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
                           {section.type === 'intro' ? 'Introduction' : 
                            section.type === 'experience' ? 'Experience' : 
-                           section.type === 'closing' ? 'Closing' : section.type}
+                           section.type === 'closing' ? 'Closing' : 
+                           section.type === 'signature' ? 'Signature' : section.type}
                         </div>
                         <Textarea
                           value={section.content}
@@ -594,7 +610,8 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
                         <div className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
                           {section.type === 'intro' ? 'Intro Analysis' : 
                            section.type === 'experience' ? 'Experience Analysis' : 
-                           section.type === 'closing' ? 'Closing Analysis' : 'Analysis'}
+                           section.type === 'closing' ? 'Closing Analysis' : 
+                           section.type === 'signature' ? 'Signature Analysis' : 'Analysis'}
                         </div>
                         {(() => {
                           const sectionGaps = gaps.filter(gap => gap.paragraphId === section.type);
@@ -636,7 +653,7 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
                     <Button variant="link" className="flex-1 text-muted-foreground hover:text-foreground">
                       Save Draft
                     </Button>
-                    <Button className="flex-1 flex items-center gap-2">
+                    <Button className="flex-1 flex items-center gap-2" onClick={handleFinalizeLetter}>
                       <Send className="h-4 w-4" />
                       Finalize Letter
                     </Button>
@@ -696,6 +713,14 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
         onClose={() => setShowContentGenerationModal(false)}
         gap={selectedGap}
         onApplyContent={handleApplyGeneratedContent}
+      />
+
+      {/* Cover Letter Finalization Modal */}
+      <CoverLetterFinalization
+        isOpen={showFinalizationModal}
+        onClose={() => setShowFinalizationModal(false)}
+        coverLetter={generatedLetter}
+        onBackToDraft={() => setShowFinalizationModal(false)}
       />
     </>
   );
