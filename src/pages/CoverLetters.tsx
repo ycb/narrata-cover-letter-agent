@@ -19,9 +19,17 @@ import {
   User,
   CheckCircle,
   Clock,
-  TrendingUp
+  TrendingUp,
+  MoreHorizontal
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import CoverLetterCreateModal from "@/components/cover-letters/CoverLetterCreateModal";
 import { CoverLetterViewModal } from "@/components/cover-letters/CoverLetterViewModal";
 import { CoverLetterEditModal } from "@/components/cover-letters/CoverLetterEditModal";
@@ -380,10 +388,31 @@ export default function CoverLetters() {
                       </div>
                     </div>
                     
-                    <Badge className={getStatusColor(coverLetter.status)}>
-                      {getStatusIcon(coverLetter.status)}
-                      <span className="ml-1 capitalize">{coverLetter.status}</span>
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge className={getStatusColor(coverLetter.status)}>
+                        {getStatusIcon(coverLetter.status)}
+                        <span className="ml-1 capitalize">{coverLetter.status}</span>
+                      </Badge>
+                      
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleCopy(coverLetter)}>
+                            <Copy className="mr-2 h-4 w-4" />
+                            Copy
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDelete(coverLetter)}>
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
                 </CardHeader>
                 
@@ -431,20 +460,6 @@ export default function CoverLetters() {
                     >
                       <Edit className="h-4 w-4 mr-1" />
                       Edit
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleCopy(coverLetter)}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDelete(coverLetter)}
-                    >
-                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </CardContent>
