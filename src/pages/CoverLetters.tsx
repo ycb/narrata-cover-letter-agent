@@ -293,7 +293,7 @@ export default function CoverLetters() {
                     <p className="text-sm text-muted-foreground">Total Letters</p>
                     <p className="text-2xl font-bold">{coverLetters.length}</p>
                   </div>
-                  <FileText className="h-8 w-8 text-muted-foreground" />
+                  <Mail className="h-8 w-8 text-muted-foreground" />
                 </div>
               </CardContent>
             </Card>

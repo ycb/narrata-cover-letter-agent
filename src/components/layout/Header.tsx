@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { User, Settings, LogOut, Zap, FileText, Target, Briefcase, TrendingUp } from "lucide-react";
+import { User, Settings, LogOut, Zap, FileText, Target, Briefcase, TrendingUp, Mail } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
@@ -71,7 +71,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                     : "text-muted-foreground"
                 )}
               >
-                <FileText className="h-4 w-4" />
+                <Mail className="h-4 w-4" />
                 Cover Letters
               </Link>
               <Link 
