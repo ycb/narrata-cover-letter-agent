@@ -14,6 +14,9 @@ import CoverLetterTemplate from "./pages/CoverLetterTemplate";
 import Assessment from "./pages/Assessment";
 
 import { HILDemo } from "./pages/HILDemo";
+import ShowAllStories from "./pages/ShowAllStories";
+import ShowAllLinks from "./pages/ShowAllLinks";
+import ShowAllSavedSections from "./pages/ShowAllSavedSections";
 
 import SignUp from "./pages/SignUp";
 import SignIn from "./pages/SignIn";
@@ -62,6 +65,24 @@ function AppLayout() {
           <>
             <Header />
             <HILDemo />
+          </>
+        } />
+        <Route path="/show-all-stories" element={
+          <>
+            <Header />
+            <ShowAllStories />
+          </>
+        } />
+        <Route path="/show-all-links" element={
+          <>
+            <Header />
+            <ShowAllLinks />
+          </>
+        } />
+        <Route path="/show-all-saved-sections" element={
+          <>
+            <Header />
+            <ShowAllSavedSections />
           </>
         } />
         <Route path="/signup" element={<SignUp />} />

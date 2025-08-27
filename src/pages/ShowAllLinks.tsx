@@ -1,0 +1,236 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { 
+  Edit, 
+  Trash2, 
+  Copy,
+  ExternalLink,
+  Calendar,
+  Building2,
+  User,
+  MoreHorizontal,
+  LinkIcon
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ShowAllTemplate, FilterOption } from "@/components/shared/ShowAllTemplate";
+
+// Mock data for all external links
+const mockAllLinks = [
+  {
+    id: "link-1",
+    title: "Product Launch Case Study",
+    url: "https://example.com/case-study",
+    company: "TechCorp Inc.",
+    role: "Senior Product Manager",
+    type: "case-study",
+    date: "2024-01-15",
+    description: "Detailed analysis of successful product launch"
+  },
+  {
+    id: "link-2",
+    title: "User Research Report",
+    url: "https://example.com/research",
+    company: "StartupXYZ",
+    role: "Product Manager",
+    type: "research",
+    date: "2024-01-10",
+    description: "Comprehensive user research findings"
+  },
+  {
+    id: "link-3",
+    title: "Portfolio Website",
+    url: "https://example.com/portfolio",
+    company: "Enterprise Corp",
+    role: "Senior Product Manager",
+    type: "portfolio",
+    date: "2024-01-05",
+    description: "Personal portfolio showcasing work"
+  },
+  {
+    id: "link-4",
+    title: "Technical Documentation",
+    url: "https://example.com/docs",
+    company: "ScaleUp Inc.",
+    role: "Product Manager",
+    type: "documentation",
+    date: "2023-12-20",
+    description: "Technical specifications and API docs"
+  },
+  {
+    id: "link-5",
+    title: "Conference Presentation",
+    url: "https://example.com/presentation",
+    company: "Innovation Labs",
+    role: "Product Manager",
+    type: "presentation",
+    date: "2023-12-15",
+    description: "Slides from industry conference talk"
+  }
+];
+
+export default function ShowAllLinks() {
+  const [links, setLinks] = useState(mockAllLinks);
+
+  const filters: FilterOption[] = [
+    { label: "Case Study", value: "case-study", count: links.filter(l => l.type === "case-study").length },
+    { label: "Research", value: "research", count: links.filter(l => l.type === "research").length },
+    { label: "Portfolio", value: "portfolio", count: links.filter(l => l.type === "portfolio").length },
+    { label: "Documentation", value: "documentation", count: links.filter(l => l.type === "documentation").length },
+    { label: "Presentation", value: "presentation", count: links.filter(l => l.type === "presentation").length }
+  ];
+
+  const handleAddNew = () => {
+    // TODO: Implement add new link functionality
+    console.log("Add new link");
+  };
+
+  const handleEdit = (link: any) => {
+    // TODO: Implement edit link functionality
+    console.log("Edit link:", link.id);
+  };
+
+  const handleDelete = (link: any) => {
+    setLinks(links.filter(l => l.id !== link.id));
+  };
+
+  const handleCopy = (link: any) => {
+    // TODO: Implement copy link functionality
+    console.log("Copy link:", link.id);
+  };
+
+  const handleVisit = (url: string) => {
+    window.open(url, '_blank');
+  };
+
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case "case-study": return "bg-blue-100 text-blue-800";
+      case "research": return "bg-green-100 text-green-800";
+      case "portfolio": return "bg-purple-100 text-purple-800";
+      case "documentation": return "bg-orange-100 text-orange-800";
+      case "presentation": return "bg-pink-100 text-pink-800";
+      default: return "bg-muted text-muted-foreground";
+    }
+  };
+
+  const renderHeader = () => (
+    <tr>
+      <th className="text-left p-4 font-medium text-muted-foreground">Link</th>
+      <th className="text-left p-4 font-medium text-muted-foreground">Company & Role</th>
+      <th className="text-left p-4 font-medium text-muted-foreground">Type</th>
+      <th className="text-left p-4 font-medium text-muted-foreground">Description</th>
+      <th className="text-left p-4 font-medium text-muted-foreground">Date</th>
+      <th className="text-left p-4 font-medium text-muted-foreground">Actions</th>
+    </tr>
+  );
+
+  const renderRow = (link: any, index: number) => (
+    <tr key={link.id} className="border-b hover:bg-muted/50 transition-colors">
+      <td className="p-4">
+        <div className="max-w-xs">
+          <h4 className="font-medium text-foreground line-clamp-2">{link.title}</h4>
+          <div className="flex items-center gap-2 mt-1">
+            <LinkIcon className="h-3 w-3 text-muted-foreground" />
+            <a 
+              href={link.url} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-sm text-primary hover:underline truncate"
+            >
+              {link.url}
+            </a>
+          </div>
+        </div>
+      </td>
+      <td className="p-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Building2 className="h-3 w-3" />
+            {link.company}
+          </div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <User className="h-3 w-3" />
+            {link.role}
+          </div>
+        </div>
+      </td>
+      <td className="p-4">
+        <Badge className={getTypeColor(link.type)}>
+          {link.type.charAt(0).toUpperCase() + link.type.slice(1)}
+        </Badge>
+      </td>
+      <td className="p-4">
+        <div className="max-w-xs">
+          <p className="text-sm text-foreground line-clamp-2">{link.description}</p>
+        </div>
+      </td>
+      <td className="p-4">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Calendar className="h-3 w-3" />
+          {new Date(link.date).toLocaleDateString()}
+        </div>
+      </td>
+      <td className="p-4">
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => handleVisit(link.url)}
+          >
+            <ExternalLink className="h-4 w-4 mr-1" />
+            Visit
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <span className="sr-only">Open menu</span>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleEdit(link)}>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleCopy(link)}>
+                <Copy className="mr-2 h-4 w-4" />
+                Copy
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={() => handleDelete(link)}
+                className="text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </td>
+    </tr>
+  );
+
+  return (
+    <ShowAllTemplate
+      title="All External Links"
+      description="View and manage all your external links and references across companies and roles"
+      data={links}
+      searchPlaceholder="Search links by title, company, role, or description..."
+      renderHeader={renderHeader}
+      renderRow={renderRow}
+      onAddNew={handleAddNew}
+      addNewLabel="Add Link"
+      filters={filters}
+      searchKeys={["title", "company", "role", "description"]}
+      emptyStateMessage="No external links found. Add your first link to get started."
+    />
+  );
+}
