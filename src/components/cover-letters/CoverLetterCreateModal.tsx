@@ -18,6 +18,7 @@ import { CoverLetterFinalization } from "./CoverLetterFinalization";
 interface CoverLetterCreateModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onCoverLetterCreated?: (coverLetter: any) => void;
 }
 
 // Enhanced Go/No-Go analysis interface
@@ -55,7 +56,7 @@ interface GapAnalysis {
   addresses?: string[];
 }
 
-const CoverLetterCreateModal = ({ isOpen, onClose }: CoverLetterCreateModalProps) => {
+const CoverLetterCreateModal = ({ isOpen, onClose, onCoverLetterCreated }: CoverLetterCreateModalProps) => {
   const [jobDescriptionMethod, setJobDescriptionMethod] = useState<'url' | 'paste'>('paste');
   const [jobUrl, setJobUrl] = useState('');
   const [jobContent, setJobContent] = useState(`Senior Product Manager - Growth & SaaS Platform
@@ -298,6 +299,31 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
 
   const handleFinalizeLetter = () => {
     setShowFinalizationModal(true);
+  };
+
+  const handleSaveCoverLetter = () => {
+    // Create the cover letter object to save
+    const coverLetterToSave = {
+      id: `cl-${Date.now()}`,
+      title: `${jobContent.split('\n')[0]} - ${jobContent.split('\n')[1]?.split(':')[0] || 'Unknown Company'}`,
+      company: jobContent.split('\n')[1]?.split(':')[0] || 'Unknown Company',
+      position: jobContent.split('\n')[0] || 'Unknown Position',
+      status: 'finalized',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      atsScore: hilProgressMetrics?.atsScore || 85,
+      overallRating: hilProgressMetrics?.coverLetterRating || 'average',
+      content: generatedLetter,
+      metrics: hilProgressMetrics
+    };
+
+    // Call the callback to save the cover letter
+    if (onCoverLetterCreated) {
+      onCoverLetterCreated(coverLetterToSave);
+    }
+
+    // Close the modal
+    onClose();
   };
 
 
@@ -721,6 +747,7 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
         onClose={() => setShowFinalizationModal(false)}
         coverLetter={generatedLetter}
         onBackToDraft={() => setShowFinalizationModal(false)}
+        onSave={handleSaveCoverLetter}
       />
     </>
   );

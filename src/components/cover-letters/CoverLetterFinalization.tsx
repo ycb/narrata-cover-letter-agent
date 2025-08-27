@@ -19,13 +19,15 @@ interface CoverLetterFinalizationProps {
     sections: CoverLetterSection[];
   };
   onBackToDraft: () => void;
+  onSave?: () => void;
 }
 
 export function CoverLetterFinalization({
   isOpen,
   onClose,
   coverLetter,
-  onBackToDraft
+  onBackToDraft,
+  onSave
 }: CoverLetterFinalizationProps) {
   const [copied, setCopied] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -152,7 +154,7 @@ export function CoverLetterFinalization({
 
 
             {/* Action Buttons */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Button 
                 onClick={handleCopy} 
                 variant="outline" 
@@ -173,11 +175,22 @@ export function CoverLetterFinalization({
               
               <Button 
                 onClick={() => setShowShareModal(true)} 
+                variant="outline"
                 className="h-12 flex items-center gap-2"
               >
                 <Share2 className="h-4 w-4" />
                 Share
               </Button>
+
+              {onSave && (
+                <Button 
+                  onClick={onSave} 
+                  className="h-12 flex items-center gap-2"
+                >
+                  <CheckCircle className="h-4 w-4" />
+                  Save to Cover Letters
+                </Button>
+              )}
             </div>
           </div>
         </DialogContent>
