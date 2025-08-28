@@ -17,14 +17,8 @@ import {
   Users,
   Lightbulb
 } from "lucide-react";
-import { ProgressSidebar } from "@/components/onboarding/ProgressSidebar";
-import { FileUploadCard } from "@/components/onboarding/FileUploadCard";
-import { ScoreReveal } from "@/components/onboarding/ScoreReveal";
-import { CTADeck } from "@/components/onboarding/CTADeck";
-import { OnboardingHeader } from "@/components/onboarding/OnboardingHeader";
-import { ParsingResultsCard } from "@/components/onboarding/ParsingResultsCard";
 import { SimpleContentReview } from "@/components/onboarding/SimpleContentReview";
-import { PMLevelPreview } from "@/components/onboarding/PMLevelPreview";
+import { FileUploadCard } from "@/components/onboarding/FileUploadCard";
 
 type OnboardingStep = 'welcome' | 'upload' | 'review' | 'integrate' | 'tour';
 
@@ -66,7 +60,7 @@ export default function NewUserOnboarding() {
           }));
           setIsProcessing(false);
           setCurrentStep('review');
-        }, 2000);
+        }, 1000); // Reduced to 1 second for faster testing
         break;
       case 'review':
         console.log('Moving from review to integrate');
@@ -161,6 +155,7 @@ export default function NewUserOnboarding() {
           icon={FileText}
           onFileUpload={handleFileUpload}
           required
+          currentValue={onboardingData.resume}
         />
         
         <FileUploadCard
@@ -170,6 +165,7 @@ export default function NewUserOnboarding() {
           icon={Linkedin}
           onLinkedInUrl={handleLinkedInUrl}
           required
+          currentValue={onboardingData.linkedinUrl}
         />
         
         <FileUploadCard
@@ -177,9 +173,9 @@ export default function NewUserOnboarding() {
           title="Best Cover Letter"
           description="Paste or upload your strongest cover letter"
           icon={Mail}
-          onFileUpload={handleFileUpload}
           onTextInput={handleCoverLetterText}
           required
+          currentValue={onboardingData.coverLetter}
         />
         
         <FileUploadCard
@@ -189,6 +185,7 @@ export default function NewUserOnboarding() {
           icon={BookOpen}
           onFileUpload={handleFileUpload}
           optional
+          currentValue={onboardingData.caseStudies?.[0]}
         />
       </div>
 
@@ -235,11 +232,28 @@ export default function NewUserOnboarding() {
         </p>
       </div>
 
-      <ScoreReveal
-        pmLevel={onboardingData.pmLevel || ''}
-        confidence={onboardingData.confidence || 0}
-        progress={onboardingData.progress || 0}
-      />
+      <Card className="p-8 text-center">
+        <div className="space-y-6">
+          <div className="mx-auto w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center">
+            <Trophy className="w-10 h-10 text-blue-600" />
+          </div>
+          <div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">
+              {onboardingData.pmLevel || 'Product Manager (Mid-Level)'}
+            </h3>
+            <p className="text-gray-600">
+              Confidence: {onboardingData.confidence || 65}%
+            </p>
+          </div>
+          <div className="w-full max-w-md mx-auto">
+            <div className="flex justify-between text-sm text-gray-600 mb-2">
+              <span>Progress</span>
+              <span>{onboardingData.progress || 75}%</span>
+            </div>
+            <Progress value={onboardingData.progress || 75} className="h-2" />
+          </div>
+        </div>
+      </Card>
 
       <div className="text-center">
         <Button 
@@ -314,26 +328,53 @@ export default function NewUserOnboarding() {
     </div>
   );
 
-  const renderReviewStep = () => (
-    <div className="space-y-8">
-      <div className="text-center space-y-4">
-        <h2 className="text-3xl font-bold text-foreground">
-          Review Your Content
-        </h2>
-        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          We've analyzed your uploads and extracted the key information. 
-          Review each item and keep what looks good.
-        </p>
-      </div>
+  const renderReviewStep = () => {
+    // Mock review items for testing
+    const mockItems = [
+      {
+        id: '1',
+        type: 'resume' as const,
+        title: 'Senior Product Manager Role',
+        content: 'Led cross-functional team of 8 engineers and designers to launch new mobile app feature, resulting in 25% increase in user engagement and 15% improvement in retention metrics.',
+        quality: 'high' as const,
+        details: ['6 roles extracted', '14 achievements found', 'Skills: Product Strategy, User Research, Agile'],
+        suggestions: ['Add more quantifiable results', 'Include stakeholder management examples'],
+        icon: FileText
+      },
+      {
+        id: '2',
+        type: 'linkedin' as const,
+        title: 'LinkedIn Profile',
+        content: 'Product Manager with 5+ years experience in B2B SaaS. Passionate about user-centered design and data-driven decision making.',
+        quality: 'medium' as const,
+        details: ['4 roles found', 'Skills: Product Management, User Research, Analytics'],
+        suggestions: ['Add more recent experience', 'Include specific project outcomes'],
+        icon: Users
+      },
+      {
+        id: '3',
+        type: 'coverLetter' as const,
+        title: 'Cover Letter Content',
+        content: 'I am excited to apply for the Senior Product Manager position at your company. My experience in leading product teams and driving user engagement aligns perfectly with your needs.',
+        quality: 'high' as const,
+        details: ['3 sections identified', '2 stories extracted', 'Professional tone detected'],
+        suggestions: ['Add more specific examples', 'Include metrics where possible'],
+        icon: Mail
+      }
+    ];
 
-      <div className="text-center">
-        <p className="text-gray-600 mb-4">Review step loaded successfully!</p>
-        <Button onClick={handleNextStep}>
-          Continue to Next Step
-        </Button>
+    return (
+      <div className="space-y-8">
+        <SimpleContentReview 
+          items={mockItems}
+          onReviewComplete={(keptItems) => {
+            console.log('Review completed, kept items:', keptItems);
+            handleNextStep();
+          }}
+        />
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderIntegrateStep = () => (
     <div className="space-y-8">
@@ -376,20 +417,25 @@ export default function NewUserOnboarding() {
   );
 
   const renderCurrentStep = () => {
-    console.log('Current step:', currentStep);
+    console.log('renderCurrentStep called with step:', currentStep);
     console.log('Onboarding data:', onboardingData);
     
     try {
       switch (currentStep) {
         case 'welcome':
+          console.log('Rendering welcome step');
           return renderWelcomeStep();
         case 'upload':
+          console.log('Rendering upload step');
           return renderUploadStep();
         case 'review':
+          console.log('Rendering review step');
           return renderReviewStep();
         case 'integrate':
+          console.log('Rendering integrate step');
           return renderIntegrateStep();
         case 'tour':
+          console.log('Rendering tour step');
           return renderTourStep();
         default:
           console.log('Unknown step, defaulting to welcome');
@@ -412,18 +458,37 @@ export default function NewUserOnboarding() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      {/* Progress Header */}
-      <OnboardingHeader currentStep={currentStep} />
-      
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Left Sidebar */}
           <div className="lg:col-span-1">
-            <ProgressSidebar 
-              currentStep={currentStep}
-              onboardingData={onboardingData}
-              onAddStory={() => console.log('Add story clicked')}
-            />
+            <Card className="p-6">
+              <div className="space-y-4">
+                <h3 className="font-semibold text-gray-900">Progress</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                    <span className="text-sm">Welcome</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                    <span className="text-sm">Upload</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full border-2 border-blue-500 bg-blue-500" />
+                    <span className="text-sm font-medium">Review</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
+                    <span className="text-sm text-gray-500">Integrate</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
+                    <span className="text-sm text-gray-500">Tour</span>
+                  </div>
+                </div>
+              </div>
+            </Card>
           </div>
 
           {/* Main Content */}

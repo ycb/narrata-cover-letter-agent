@@ -33,9 +33,34 @@ interface SimpleContentReviewProps {
 }
 
 export function SimpleContentReview({ items, onReviewComplete }: SimpleContentReviewProps) {
+  console.log('SimpleContentReview rendered with items:', items);
   const [keptItems, setKeptItems] = useState<Set<string>>(new Set());
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Add safety checks
+  if (!items || items.length === 0) {
+    return (
+      <Card className="shadow-soft">
+        <CardContent className="p-8 text-center">
+          <div className="space-y-4">
+            <div className="mx-auto w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center">
+              <AlertTriangle className="w-8 h-8 text-yellow-600" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900">
+              No Items to Review
+            </h3>
+            <p className="text-gray-600">
+              No content was found to review.
+            </p>
+            <Button onClick={() => onReviewComplete([])}>
+              Continue
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const currentItem = items[currentIndex];
   const progress = ((currentIndex + 1) / items.length) * 100;
@@ -95,13 +120,13 @@ export function SimpleContentReview({ items, onReviewComplete }: SimpleContentRe
   const getQualityIcon = (quality: string) => {
     switch (quality) {
       case 'high':
-        return <CheckCircle className="w-4 h-4 text-green-600" />;
+        return CheckCircle;
       case 'medium':
-        return <AlertTriangle className="w-4 h-4 text-yellow-600" />;
+        return AlertTriangle;
       case 'low':
-        return <XCircle className="w-4 h-4 text-red-600" />;
+        return XCircle;
       default:
-        return <Info className="w-4 h-4 text-muted-foreground" />;
+        return Info;
     }
   };
 
@@ -174,7 +199,7 @@ export function SimpleContentReview({ items, onReviewComplete }: SimpleContentRe
     );
   }
 
-  const TypeIcon = getTypeIcon(currentItem.type);
+  const TypeIcon = currentItem.icon;
   const QualityIcon = getQualityIcon(currentItem.quality);
 
   return (
@@ -220,7 +245,7 @@ export function SimpleContentReview({ items, onReviewComplete }: SimpleContentRe
               </div>
             </div>
             <Badge className={`${getQualityColor(currentItem.quality)}`}>
-              <QualityIcon />
+              <QualityIcon className="w-4 h-4" />
               <span className="ml-1 capitalize">{currentItem.quality} Quality</span>
             </Badge>
           </div>
