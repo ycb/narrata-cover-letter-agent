@@ -19,11 +19,9 @@ import {
 } from "lucide-react";
 import { SimpleContentReview } from "@/components/onboarding/SimpleContentReview";
 import { FileUploadCard } from "@/components/onboarding/FileUploadCard";
-import { ScoreReveal } from "@/components/onboarding/ScoreReveal";
-import { PMLevelPreview } from "@/components/onboarding/PMLevelPreview";
 import { ProductTour } from "@/components/onboarding/ProductTour";
 
-type OnboardingStep = 'welcome' | 'upload' | 'score' | 'review' | 'integrate' | 'tour';
+type OnboardingStep = 'welcome' | 'upload' | 'review' | 'tour';
 
 interface OnboardingData {
   resume?: File;
@@ -34,6 +32,18 @@ interface OnboardingData {
   pmLevel?: string;
   confidence?: number;
   progress?: number;
+  extractedRoles?: Array<{
+    id: string;
+    company: string;
+    title: string;
+    dates: string;
+    source: 'resume' | 'linkedin';
+    stories: Array<{
+      id: string;
+      content: string;
+      approved: boolean;
+    }>;
+  }>;
 }
 
 export default function NewUserOnboarding() {
@@ -50,31 +60,48 @@ export default function NewUserOnboarding() {
         setCurrentStep('upload');
         break;
       case 'upload':
-        console.log('Moving from upload to score');
-        // Simulate processing
+        console.log('Moving from upload to review');
+        // Simulate processing and auto-extract content
         setIsProcessing(true);
         setTimeout(() => {
-          console.log('Processing complete, setting score step');
+          console.log('Processing complete, setting review step');
           setOnboardingData(prev => ({
             ...prev,
             pmLevel: 'Product Manager (Mid-Level)',
             confidence: 65,
-            progress: 75
+            progress: 75,
+            // Auto-extract roles and stories
+            extractedRoles: [
+              {
+                id: '1',
+                company: 'TechCorp Inc.',
+                title: 'Senior Product Manager',
+                dates: '2022 - Present',
+                source: 'resume',
+                stories: [
+                  { id: '1', content: 'Led cross-functional team of 8 engineers...', approved: false },
+                  { id: '2', content: 'Increased user engagement by 25%...', approved: false }
+                ]
+              },
+              {
+                id: '2',
+                company: 'StartupXYZ',
+                title: 'Product Manager',
+                dates: '2020 - 2022',
+                source: 'linkedin',
+                stories: [
+                  { id: '3', content: 'Launched MVP in 3 months...', approved: false },
+                  { id: '4', content: 'Grew user base from 0 to 10K...', approved: false }
+                ]
+              }
+            ]
           }));
           setIsProcessing(false);
-          setCurrentStep('score');
-        }, 1000); // Reduced to 1 second for faster testing
-        break;
-      case 'score':
-        console.log('Moving from score to review');
-        setCurrentStep('review');
+          setCurrentStep('review');
+        }, 1500); // Slightly longer for content processing
         break;
       case 'review':
-        console.log('Moving from review to integrate');
-        setCurrentStep('integrate');
-        break;
-      case 'integrate':
-        console.log('Moving from integrate to tour');
+        console.log('Moving from review to tour');
         setCurrentStep('tour');
         break;
       case 'tour':
@@ -140,26 +167,6 @@ export default function NewUserOnboarding() {
         Get Started
         <ArrowRight className="ml-2 w-5 h-5" />
       </Button>
-    </div>
-  );
-
-  const renderScoreStep = () => (
-    <div className="space-y-8">
-      <div className="text-center space-y-4">
-        <h2 className="text-3xl font-bold text-foreground">
-          Your PM Level Assessment
-        </h2>
-        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          Based on your uploaded content, here's what we discovered:
-        </p>
-      </div>
-
-      <ScoreReveal
-        pmLevel={onboardingData.pmLevel || 'Product Manager (Mid-Level)'}
-        confidence={onboardingData.confidence || 65}
-        progress={onboardingData.progress || 75}
-        onContinue={handleNextStep}
-      />
     </div>
   );
 
@@ -239,72 +246,10 @@ export default function NewUserOnboarding() {
             </>
           ) : (
             <>
-              See My Score
+              Review & Approve
               <ArrowRight className="ml-2 w-5 h-5" />
             </>
           )}
-        </Button>
-      </div>
-    </div>
-  );
-
-
-
-  const renderLibraryStep = () => (
-    <div className="space-y-8">
-      <div className="text-center space-y-4">
-        <h2 className="text-3xl font-bold text-foreground">
-          Your Library is Ready
-        </h2>
-        <p className="text-lg text-muted-foreground">
-          We've organized your content into reusable building blocks:
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="border-2 border-dashed border-blue-200 bg-blue-50/50">
-          <CardHeader className="text-center">
-            <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
-              <Users className="w-6 h-6 text-blue-600" />
-            </div>
-            <CardTitle className="text-blue-900">Work History</CardTitle>
-          </CardHeader>
-          <CardContent className="text-center space-y-3">
-            <p className="text-blue-800 text-sm">
-              Stories + Links extracted from your resume
-            </p>
-            <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-              {onboardingData.resume ? '3 Stories Found' : 'Upload Resume'}
-            </Badge>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 border-dashed border-purple-200 bg-purple-50/50">
-          <CardHeader className="text-center">
-            <div className="mx-auto w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mb-3">
-              <BookOpen className="w-6 h-6 text-purple-600" />
-            </div>
-            <CardTitle className="text-purple-900">Templates</CardTitle>
-          </CardHeader>
-          <CardContent className="text-center space-y-3">
-            <p className="text-purple-800 text-sm">
-              Saved Sections from your cover letter
-            </p>
-            <Badge variant="secondary" className="bg-purple-100 text-purple-800">
-              {onboardingData.coverLetter ? '2 Sections Saved' : 'Add Cover Letter'}
-            </Badge>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="text-center">
-        <Button 
-          size="lg" 
-          onClick={handleNextStep}
-          className="px-8 py-3 text-lg"
-        >
-          Continue
-          <ArrowRight className="ml-2 w-5 h-5" />
         </Button>
       </div>
     </div>
@@ -347,6 +292,15 @@ export default function NewUserOnboarding() {
 
     return (
       <div className="space-y-8">
+        <div className="text-center space-y-4">
+          <h2 className="text-3xl font-bold text-foreground">
+            Review & Approve Your Content
+          </h2>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            We've automatically extracted and organized your content. Review and approve what you'd like to keep.
+          </p>
+        </div>
+
         <SimpleContentReview 
           items={mockItems}
           onReviewComplete={(keptItems) => {
@@ -357,80 +311,6 @@ export default function NewUserOnboarding() {
       </div>
     );
   };
-
-  const renderIntegrateStep = () => (
-    <div className="space-y-8">
-      <div className="text-center space-y-4">
-        <h2 className="text-3xl font-bold text-foreground">
-          Your Content is Ready
-        </h2>
-        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          We've organized your imported content into structured objects. Here's what you can do next:
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* PM Level Preview */}
-        <div className="lg:col-span-2">
-          <PMLevelPreview
-            currentLevel={onboardingData.pmLevel}
-            confidence={onboardingData.confidence}
-            progress={onboardingData.progress}
-            onAddStory={() => {
-              console.log('Add story clicked');
-              // In a real app, this would navigate to the story creation flow
-            }}
-            onUnlock={() => {
-              console.log('PM Level unlocked');
-              // In a real app, this would trigger the PM Level assessment
-            }}
-          />
-        </div>
-
-        {/* Content Summary Cards */}
-        <Card className="border-2 border-dashed border-blue-200 bg-blue-50/50">
-          <CardHeader className="text-center">
-            <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
-              <Users className="w-6 h-6 text-blue-600" />
-            </div>
-            <CardTitle className="text-blue-900">Work History</CardTitle>
-          </CardHeader>
-          <CardContent className="text-center space-y-3">
-            <p className="text-blue-800 text-sm">
-              Stories + Links extracted from your resume
-            </p>
-            <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-              {onboardingData.resume ? '3 Stories Found' : 'Upload Resume'}
-            </Badge>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 border-dashed border-purple-200 bg-purple-50/50">
-          <CardHeader className="text-center">
-            <div className="mx-auto w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mb-3">
-              <BookOpen className="w-6 h-6 text-purple-600" />
-            </div>
-            <CardTitle className="text-purple-900">Templates</CardTitle>
-          </CardHeader>
-          <CardContent className="text-center space-y-3">
-            <p className="text-purple-800 text-sm">
-              Saved Sections from your cover letter
-            </p>
-            <Badge variant="secondary" className="bg-purple-100 text-purple-800">
-              {onboardingData.coverLetter ? '2 Sections Saved' : 'Add Cover Letter'}
-            </Badge>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="text-center">
-        <Button onClick={handleNextStep} size="lg">
-          Continue to Tour
-          <ArrowRight className="ml-2 w-5 h-5" />
-        </Button>
-      </div>
-    </div>
-  );
 
   const renderTourStep = () => (
     <ProductTour
@@ -457,15 +337,9 @@ export default function NewUserOnboarding() {
         case 'upload':
           console.log('Rendering upload step');
           return renderUploadStep();
-        case 'score':
-          console.log('Rendering score step');
-          return renderScoreStep();
         case 'review':
           console.log('Rendering review step');
           return renderReviewStep();
-        case 'integrate':
-          console.log('Rendering integrate step');
-          return renderIntegrateStep();
         case 'tour':
           console.log('Rendering tour step');
           return renderTourStep();
@@ -521,21 +395,9 @@ export default function NewUserOnboarding() {
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    {currentStep === 'score' ? (
-                      <div className="w-4 h-4 rounded-full border-2 border-blue-500 bg-blue-500" />
-                    ) : ['welcome', 'upload'].includes(currentStep) ? (
-                      <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
-                    ) : (
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                    )}
-                    <span className={`text-sm ${currentStep === 'score' ? 'font-medium' : ''}`}>
-                      Score
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
                     {currentStep === 'review' ? (
                       <div className="w-4 h-4 rounded-full border-2 border-blue-500 bg-blue-500" />
-                    ) : ['welcome', 'upload', 'score'].includes(currentStep) ? (
+                    ) : ['welcome', 'upload'].includes(currentStep) ? (
                       <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
                     ) : (
                       <CheckCircle className="w-4 h-4 text-green-500" />
@@ -545,21 +407,9 @@ export default function NewUserOnboarding() {
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    {currentStep === 'integrate' ? (
-                      <div className="w-4 h-4 rounded-full border-2 border-blue-500 bg-blue-500" />
-                    ) : ['welcome', 'upload', 'score', 'review'].includes(currentStep) ? (
-                      <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
-                    ) : (
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                    )}
-                    <span className={`text-sm ${currentStep === 'integrate' ? 'font-medium' : ''}`}>
-                      Integrate
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
                     {currentStep === 'tour' ? (
                       <div className="w-4 h-4 rounded-full border-2 border-blue-500 bg-blue-500" />
-                    ) : ['welcome', 'upload', 'score', 'review', 'integrate'].includes(currentStep) ? (
+                    ) : ['welcome', 'upload', 'review'].includes(currentStep) ? (
                       <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
                     ) : (
                       <CheckCircle className="w-4 h-4 text-green-500" />
