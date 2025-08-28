@@ -163,8 +163,8 @@ export function FileUploadCard({
               const url = e.target.value;
               setLinkedinUrl(url);
               // Auto-connect when a valid LinkedIn URL is entered
-              if (url.trim() && url.includes('linkedin.com/in/')) {
-                setTimeout(() => handleLinkedInSubmit(), 500); // Small delay for UX
+              if (url.trim() && url.includes('linkedin.com/in/') && onLinkedInUrl) {
+                setTimeout(() => onLinkedInUrl(url.trim()), 500); // Small delay for UX
               }
             }}
             className="pr-20"
