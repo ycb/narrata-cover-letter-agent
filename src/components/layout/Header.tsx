@@ -124,7 +124,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                     >
                       <span className="flex items-center gap-2">
                         <FileText className="h-4 w-4" />
-                        All Stories
+                        Stories
                       </span>
                       <Badge variant="secondary" className="ml-auto">47</Badge>
                     </Link>
@@ -139,7 +139,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                     >
                       <span className="flex items-center gap-2">
                         <LinkIcon className="h-4 w-4" />
-                        All Links
+                        Links
                       </span>
                       <Badge variant="secondary" className="ml-auto">12</Badge>
                     </Link>
