@@ -17,7 +17,7 @@ import {
   Users,
   Lightbulb
 } from "lucide-react";
-import { SimpleContentReview } from "@/components/onboarding/SimpleContentReview";
+import { ContentReviewFlow } from "@/components/onboarding/ContentReviewFlow";
 import { FileUploadCard } from "@/components/onboarding/FileUploadCard";
 import { ProductTour } from "@/components/onboarding/ProductTour";
 
@@ -256,39 +256,14 @@ export default function NewUserOnboarding() {
   );
 
   const renderReviewStep = () => {
-    // Mock review items for testing
-    const mockItems = [
-      {
-        id: '1',
-        type: 'resume' as const,
-        title: 'Senior Product Manager Role',
-        content: 'Led cross-functional team of 8 engineers and designers to launch new mobile app feature, resulting in 25% increase in user engagement and 15% improvement in retention metrics.',
-        quality: 'high' as const,
-        details: ['6 roles extracted', '14 achievements found', 'Skills: Product Strategy, User Research, Agile'],
-        suggestions: ['Add more quantifiable results', 'Include stakeholder management examples'],
-        icon: FileText
-      },
-      {
-        id: '2',
-        type: 'linkedin' as const,
-        title: 'LinkedIn Profile',
-        content: 'Product Manager with 5+ years experience in B2B SaaS. Passionate about user-centered design and data-driven decision making.',
-        quality: 'medium' as const,
-        details: ['4 roles found', 'Skills: Product Management, User Research, Analytics'],
-        suggestions: ['Add more recent experience', 'Include specific project outcomes'],
-        icon: Users
-      },
-      {
-        id: '3',
-        type: 'coverLetter' as const,
-        title: 'Cover Letter Content',
-        content: 'I am excited to apply for the Senior Product Manager position at your company. My experience in leading product teams and driving user engagement aligns perfectly with your needs.',
-        quality: 'high' as const,
-        details: ['3 sections identified', '2 stories extracted', 'Professional tone detected'],
-        suggestions: ['Add more specific examples', 'Include metrics where possible'],
-        icon: Mail
-      }
-    ];
+    if (!onboardingData.extractedRoles || onboardingData.extractedRoles.length === 0) {
+      return (
+        <div className="text-center space-y-4">
+          <h3 className="text-xl font-semibold">No content to review</h3>
+          <p className="text-muted-foreground">Please upload your documents first.</p>
+        </div>
+      );
+    }
 
     return (
       <div className="space-y-8">
@@ -301,10 +276,15 @@ export default function NewUserOnboarding() {
           </p>
         </div>
 
-        <SimpleContentReview 
-          items={mockItems}
-          onReviewComplete={(keptItems) => {
-            console.log('Review completed, kept items:', keptItems);
+        <ContentReviewFlow 
+          extractedRoles={onboardingData.extractedRoles}
+          onReviewComplete={(approvedRoles) => {
+            console.log('Review completed, approved roles:', approvedRoles);
+            // Update onboarding data with approved roles
+            setOnboardingData(prev => ({
+              ...prev,
+              extractedRoles: approvedRoles
+            }));
             handleNextStep();
           }}
         />
