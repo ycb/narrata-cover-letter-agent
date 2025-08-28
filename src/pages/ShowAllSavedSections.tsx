@@ -21,7 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ShowAllTemplate, FilterOption } from "@/components/shared/ShowAllTemplate";
+import { ShowAllTemplate, FilterOption, SortOption } from "@/components/shared/ShowAllTemplate";
 import { StoryCard } from "@/components/work-history/StoryCard";
 import { TemplateBlurbDetail } from "@/components/template-blurbs/TemplateBlurbDetail";
 
@@ -112,6 +112,15 @@ export default function ShowAllSavedSections() {
       value: `role-${role}`, 
       count: sections.filter(s => s.role === role).length 
     }))
+  ];
+
+  const sortOptions: SortOption[] = [
+    { label: 'Section', value: 'title', category: 'other' },
+    { label: 'Company', value: 'company', category: 'company' },
+    { label: 'Role', value: 'role', category: 'role' },
+    { label: 'Type', value: 'type', category: 'other' },
+    { label: 'Content', value: 'content', category: 'other' },
+    { label: 'Date', value: 'date', category: 'other' }
   ];
 
   const handleAddNew = () => {
@@ -292,6 +301,7 @@ export default function ShowAllSavedSections() {
         onAddNew={handleAddNew}
         addNewLabel="Add Section"
         filters={filters}
+        sortOptions={sortOptions}
         searchKeys={["title", "company", "role", "content"]}
         emptyStateMessage="No saved sections found. Create your first section to get started."
       />

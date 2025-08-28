@@ -22,6 +22,12 @@ export interface FilterOption {
   count?: number;
 }
 
+export interface SortOption {
+  label: string;
+  value: string;
+  category: 'company' | 'role' | 'tag' | 'other';
+}
+
 export interface ShowAllTemplateProps<T> {
   title: string;
   description: string;
@@ -37,7 +43,7 @@ export interface ShowAllTemplateProps<T> {
   searchKeys?: (keyof T)[];
   emptyStateMessage?: string;
   isLoading?: boolean;
-  columns?: ColumnConfig[];
+  sortOptions?: SortOption[];
 }
 
 export function ShowAllTemplate<T>({
@@ -55,7 +61,7 @@ export function ShowAllTemplate<T>({
   searchKeys = [],
   emptyStateMessage = "No items found",
   isLoading = false,
-  columns
+  sortOptions
 }: ShowAllTemplateProps<T>) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState(defaultFilter);
@@ -136,13 +142,7 @@ export function ShowAllTemplate<T>({
       : <ChevronDown className="h-4 w-4 text-primary" />;
   };
 
-  // Helper function to render resizable headers if columns config is provided
-  const renderResizableHeader = () => {
-    if (!columns) return renderHeader(handleSort, getSortIcon);
-    
-    // For now, fall back to the original header to debug the white screen
-    return renderHeader(handleSort, getSortIcon);
-  };
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -219,6 +219,126 @@ export function ShowAllTemplate<T>({
                         ))}
                       </DropdownMenuContent>
                     </DropdownMenu>
+
+                    {/* Sort Dropdown */}
+                    {sortOptions && sortOptions.length > 0 && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm">
+                            <ChevronUp className="h-4 w-4 mr-2" />
+                            Sort
+                            {sortField && (
+                              <Badge variant="secondary" className="ml-2">
+                                {sortOptions.find(s => s.value === sortField)?.label}
+                              </Badge>
+                            )}
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-64">
+                          {/* Company Category */}
+                          {sortOptions.some(s => s.category === 'company') && (
+                            <>
+                              <DropdownMenuItem className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide cursor-default">
+                                Company
+                              </DropdownMenuItem>
+                              {sortOptions
+                                .filter(s => s.category === 'company')
+                                .map((option) => (
+                                  <DropdownMenuItem 
+                                    key={option.value}
+                                    onClick={() => handleSort(option.value as keyof T)}
+                                    className="px-3 py-2"
+                                  >
+                                    <span className="flex-1">{option.label}</span>
+                                    {sortField === option.value && (
+                                      <span className="ml-2">
+                                        {sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                      </span>
+                                    )}
+                                  </DropdownMenuItem>
+                                ))}
+                              <DropdownMenuSeparator />
+                            </>
+                          )}
+
+                          {/* Role Category */}
+                          {sortOptions.some(s => s.category === 'role') && (
+                            <>
+                              <DropdownMenuItem className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide cursor-default">
+                                Role
+                              </DropdownMenuItem>
+                              {sortOptions
+                                .filter(s => s.category === 'role')
+                                .map((option) => (
+                                  <DropdownMenuItem 
+                                    key={option.value}
+                                    onClick={() => handleSort(option.value as keyof T)}
+                                    className="px-3 py-2"
+                                  >
+                                    <span className="flex-1">{option.label}</span>
+                                    {sortField === option.value && (
+                                      <span className="ml-2">
+                                        {sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                      </span>
+                                    )}
+                                  </DropdownMenuItem>
+                                ))}
+                              <DropdownMenuSeparator />
+                            </>
+                          )}
+
+                          {/* Tag Category */}
+                          {sortOptions.some(s => s.category === 'tag') && (
+                            <>
+                              <DropdownMenuItem className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide cursor-default">
+                                Tags
+                              </DropdownMenuItem>
+                              {sortOptions
+                                .filter(s => s.category === 'tag')
+                                .map((option) => (
+                                  <DropdownMenuItem 
+                                    key={option.value}
+                                    onClick={() => handleSort(option.value as keyof T)}
+                                    className="px-3 py-2"
+                                  >
+                                    <span className="flex-1">{option.label}</span>
+                                    {sortField === option.value && (
+                                      <span className="ml-2">
+                                        {sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                      </span>
+                                    )}
+                                  </DropdownMenuItem>
+                                ))}
+                            </>
+                          )}
+
+                          {/* Other Category */}
+                          {sortOptions.some(s => s.category === 'other') && (
+                            <>
+                              <DropdownMenuItem className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide cursor-default">
+                                Other
+                              </DropdownMenuItem>
+                              {sortOptions
+                                .filter(s => s.category === 'other')
+                                .map((option) => (
+                                  <DropdownMenuItem 
+                                    key={option.value}
+                                    onClick={() => handleSort(option.value as keyof T)}
+                                    className="px-3 py-2"
+                                  >
+                                    <span className="flex-1">{option.label}</span>
+                                    {sortField === option.value && (
+                                      <span className="ml-2">
+                                        {sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                      </span>
+                                    )}
+                                  </DropdownMenuItem>
+                                ))}
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </div>
                 )}
               </div>
@@ -238,7 +358,7 @@ export function ShowAllTemplate<T>({
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-muted/50">
-                    {renderResizableHeader()}
+                    {renderHeader(handleSort, getSortIcon)}
                   </thead>
                   <tbody>
                     {isLoading ? (

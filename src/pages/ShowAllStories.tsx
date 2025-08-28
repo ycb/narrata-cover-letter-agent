@@ -20,7 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ShowAllTemplate, FilterOption } from "@/components/shared/ShowAllTemplate";
+import { ShowAllTemplate, FilterOption, SortOption } from "@/components/shared/ShowAllTemplate";
 import { Story } from "@/types/workHistory";
 import { AddStoryModal } from "@/components/work-history/AddStoryModal";
 import { StoryCard } from "@/components/work-history/StoryCard";
@@ -111,6 +111,15 @@ export default function ShowAllStories() {
       value: `tag-${tag}`, 
       count: stories.filter(s => s.tags.includes(tag)).length 
     }))
+  ];
+
+  const sortOptions: SortOption[] = [
+    { label: 'Story', value: 'title', category: 'other' },
+    { label: 'Company', value: 'company', category: 'company' },
+    { label: 'Role', value: 'role', category: 'role' },
+    { label: 'Impact', value: 'impact', category: 'other' },
+    { label: 'Metrics', value: 'metrics', category: 'other' },
+    { label: 'Date', value: 'date', category: 'other' }
   ];
 
   const handleAddNew = () => {
@@ -299,6 +308,7 @@ export default function ShowAllStories() {
         onAddNew={handleAddNew}
         addNewLabel="Add Story"
         filters={filters}
+        sortOptions={sortOptions}
         onFilterChange={handleFilterChange}
         searchKeys={["title", "company", "role", "metrics"]}
         emptyStateMessage="No stories found. Create your first story to get started."
