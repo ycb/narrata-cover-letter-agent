@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { ContentReviewFlow } from "@/components/onboarding/ContentReviewFlow";
 import { FileUploadCard } from "@/components/onboarding/FileUploadCard";
-import { ProductTour } from "@/components/onboarding/ProductTour";
+import { useTour } from "@/contexts/TourContext";
 
 type OnboardingStep = 'welcome' | 'upload' | 'review' | 'tour';
 
@@ -50,6 +50,7 @@ export default function NewUserOnboarding() {
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('welcome');
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({});
   const [isProcessing, setIsProcessing] = useState(false);
+  const { startTour } = useTour();
 
   const handleNextStep = () => {
     console.log('handleNextStep called, current step:', currentStep);
@@ -293,16 +294,80 @@ export default function NewUserOnboarding() {
   };
 
   const renderTourStep = () => (
-    <ProductTour
-      onComplete={() => {
-        console.log('Tour completed, going to dashboard');
-        handleNextStep();
-      }}
-      onSkip={() => {
-        console.log('Tour skipped, going to dashboard');
-        handleNextStep();
-      }}
-    />
+    <div className="space-y-8 text-center">
+      <div className="space-y-4">
+        <div className="mx-auto w-20 h-20 bg-gradient-to-br from-green-500 to-blue-600 rounded-full flex items-center justify-center">
+          <CheckCircle className="w-10 h-10 text-white" />
+        </div>
+        <h2 className="text-3xl font-bold text-foreground">
+          Ready for Your Product Tour!
+        </h2>
+        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          Let's walk through your new profile and show you how to use your content to generate cover letters.
+        </p>
+      </div>
+
+      <div className="max-w-2xl mx-auto space-y-6">
+        <Card className="border-2 border-dashed border-blue-200 bg-blue-50/50">
+          <CardHeader className="text-center">
+            <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
+              <Users className="w-6 h-6 text-blue-600" />
+            </div>
+            <CardTitle className="text-blue-900">Work History & Stories</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center">
+            <p className="text-blue-800 text-sm">
+              See your approved stories and LinkedIn connections
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-2 border-dashed border-purple-200 bg-purple-50/50">
+          <CardHeader className="text-center">
+            <div className="mx-auto w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mb-3">
+              <BookOpen className="w-6 h-6 text-purple-600" />
+            </div>
+            <CardTitle className="text-purple-900">Templates & Saved Sections</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center">
+            <p className="text-purple-800 text-sm">
+              Review your cover letter sections and templates
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-2 border-dashed border-green-200 bg-green-50/50">
+          <CardHeader className="text-center">
+            <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-3">
+              <Mail className="w-6 h-6 text-green-600" />
+            </div>
+            <CardTitle className="text-green-900">Cover Letter Generator</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center">
+            <p className="text-green-800 text-sm">
+              Create your first targeted cover letter
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="text-center space-y-4">
+        <p className="text-sm text-muted-foreground">
+          The tour will take you through each page and highlight your newly-imported content.
+        </p>
+        <Button 
+          size="lg" 
+          onClick={() => {
+            console.log('Starting product tour');
+            startTour();
+          }}
+          className="px-8 py-3 text-lg"
+        >
+          Start Product Tour
+          <ArrowRight className="ml-2 w-5 h-5" />
+        </Button>
+      </div>
+    </div>
   );
 
   const renderCurrentStep = () => {

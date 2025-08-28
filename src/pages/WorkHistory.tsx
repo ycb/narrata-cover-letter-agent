@@ -11,6 +11,8 @@ import { WorkHistoryOnboarding } from "@/components/work-history/WorkHistoryOnbo
 import { AddCompanyModal } from "@/components/work-history/AddCompanyModal";
 import { AddRoleModal } from "@/components/work-history/AddRoleModal";
 import { usePrototype } from "@/contexts/PrototypeContext";
+import { useTour } from "@/contexts/TourContext";
+import { TourBanner } from "@/components/onboarding/TourBanner";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import type { WorkHistoryCompany, WorkHistoryRole, WorkHistoryBlurb } from "@/types/workHistory";
@@ -195,6 +197,9 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
 export default function WorkHistory() {
   // Use global prototype state
   const { prototypeState } = usePrototype();
+  
+  // Tour functionality
+  const { isActive: isTourActive, currentStep: tourStep, tourSteps, nextStep, previousStep, cancelTour } = useTour();
   
   // For existing user state, simulate having data
   const workHistory = prototypeState === 'existing-user' ? sampleWorkHistory : [];
@@ -453,6 +458,19 @@ export default function WorkHistory() {
           editingLink={editingLink}
         />
       </main>
+
+      {/* Tour Banner */}
+      {isTourActive && (
+        <TourBanner
+          currentStep={tourStep}
+          totalSteps={tourSteps.length}
+          onNext={nextStep}
+          onPrevious={previousStep}
+          onCancel={cancelTour}
+          canGoNext={tourStep < tourSteps.length - 1}
+          canGoPrevious={tourStep > 0}
+        />
+      )}
     </div>
   );
 }

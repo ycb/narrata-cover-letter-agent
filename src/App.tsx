@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { PrototypeProvider } from "@/contexts/PrototypeContext";
+import { TourProvider } from "@/contexts/TourContext";
 import { PrototypeStateBanner } from "@/components/work-history/PrototypeStateBanner";
 import { Header } from "@/components/layout/Header";
 import Landing from "./pages/Landing";
@@ -12,6 +13,7 @@ import WorkHistory from "./pages/WorkHistory";
 import CoverLetters from "./pages/CoverLetters";
 import CoverLetterTemplate from "./pages/CoverLetterTemplate";
 import Assessment from "./pages/Assessment";
+import OnboardingDashboard from "./pages/OnboardingDashboard";
 
 import { HILDemo } from "./pages/HILDemo";
 import ShowAllStories from "./pages/ShowAllStories";
@@ -143,6 +145,7 @@ function AppLayout() {
           </>
         } />
         <Route path="/new-user" element={<NewUserOnboarding />} />
+        <Route path="/onboarding-dashboard" element={<OnboardingDashboard />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/signin" element={<SignIn />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -162,9 +165,11 @@ const App = () => (
       <Toaster />
       <Sonner />
       <PrototypeProvider>
-        <BrowserRouter>
-          <AppLayout />
-        </BrowserRouter>
+        <TourProvider>
+          <BrowserRouter>
+            <AppLayout />
+          </BrowserRouter>
+        </TourProvider>
       </PrototypeProvider>
     </TooltipProvider>
   </QueryClientProvider>
