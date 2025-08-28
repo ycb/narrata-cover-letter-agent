@@ -582,16 +582,32 @@ const Assessment = ({ initialSection }: AssessmentProps) => {
         handleShowLevelEvidence();
       } else if (initialSection.startsWith('competency-')) {
         const competencyName = initialSection.replace('competency-', '');
+        // Map URL names to actual competency names
+        const competencyMap: Record<string, string> = {
+          'execution': 'Product Execution',
+          'customer-insight': 'Customer Insight',
+          'strategy': 'Product Strategy',
+          'influence': 'Influencing People'
+        };
+        const actualName = competencyMap[competencyName] || competencyName;
         const competencyData = mockAssessment.competencies.find(
-          c => c.domain.toLowerCase().includes(competencyName.toLowerCase())
+          c => c.domain === actualName
         );
         if (competencyData) {
           handleShowEvidence(competencyData);
         }
       } else if (initialSection.startsWith('specialization-')) {
         const specializationName = initialSection.replace('specialization-', '');
+        // Map URL names to actual specialization names
+        const specializationMap: Record<string, string> = {
+          'growth': 'Growth PM',
+          'technical': 'Technical PM',
+          'founding': 'Founding PM',
+          'platform': 'Platform PM'
+        };
+        const actualName = specializationMap[specializationName] || specializationName;
         const specializationData = mockAssessment.roleArchetypes.find(
-          s => s.type.toLowerCase().includes(specializationName.toLowerCase())
+          s => s.type === actualName
         );
         if (specializationData) {
           handleShowRoleEvidence(specializationData.type);

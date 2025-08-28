@@ -57,8 +57,8 @@ const EvidenceModal = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="pb-4">
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
               <DialogTitle className="text-2xl font-bold">
                 Evidence for {competency}
               </DialogTitle>
@@ -66,8 +66,8 @@ const EvidenceModal = ({
                 Supporting examples from your work history and blurbs
               </DialogDescription>
             </div>
-            <div className="flex items-center gap-2 mt-4">
-                              <Button variant="secondary" size="sm" className="flex items-center gap-2">
+            <div className="flex items-center gap-2 ml-4">
+              <Button variant="secondary" size="sm" className="flex items-center gap-2">
                 <Edit className="h-4 w-4" />
                 This looks wrong
               </Button>
