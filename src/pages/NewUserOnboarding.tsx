@@ -28,6 +28,7 @@ interface OnboardingData {
   resume?: File;
   linkedinUrl?: string;
   coverLetter?: string;
+  coverLetterFile?: File;
   caseStudies?: string[];
   pmLevel?: string;
   confidence?: number;
@@ -72,7 +73,11 @@ export default function NewUserOnboarding() {
   };
 
   const handleFileUpload = (type: 'resume' | 'coverLetter', file: File) => {
-    setOnboardingData(prev => ({ ...prev, [type]: file }));
+    if (type === 'coverLetter') {
+      setOnboardingData(prev => ({ ...prev, coverLetterFile: file }));
+    } else {
+      setOnboardingData(prev => ({ ...prev, [type]: file }));
+    }
   };
 
   const handleLinkedInUrl = (url: string) => {
@@ -177,7 +182,7 @@ export default function NewUserOnboarding() {
         <Button 
           size="lg" 
           onClick={handleNextStep}
-          disabled={!onboardingData.resume || !onboardingData.linkedinUrl || !onboardingData.coverLetter}
+          disabled={!onboardingData.resume || !onboardingData.linkedinUrl || (!onboardingData.coverLetter && !onboardingData.coverLetterFile)}
           className="px-8 py-3 text-lg"
         >
           {isProcessing ? (
@@ -302,7 +307,7 @@ export default function NewUserOnboarding() {
       <div className="text-center pt-6">
         <Button 
           size="lg" 
-          variant="outline"
+          variant="secondary"
           onClick={handleNextStep}
           className="px-8 py-3 text-lg"
         >
