@@ -16,20 +16,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-// import { ResizableTable, ResizableTableHeader, ResizableTableBody } from "./ResizableTable";
-
 export interface FilterOption {
   label: string;
   value: string;
   count?: number;
-}
-
-export interface ColumnConfig {
-  key: string;
-  label: string;
-  minWidth?: number;
-  defaultWidth?: number;
-  sortable?: boolean;
 }
 
 export interface ShowAllTemplateProps<T> {

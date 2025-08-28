@@ -27,7 +27,7 @@ export const STORY_TEMPLATES: Record<string, StoryTemplate> = {
   },
   'cross-functional-leadership': {
     id: 'cross-functional-leadership',
-    name: 'Cross-functional Leadership',
+    name: 'Cross functional Leadership',
     description: 'Time you aligned multiple teams',
     prompt: `Describe a time you aligned multiple teams.
 - What was the strategic objective or challenge?

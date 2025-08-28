@@ -35,7 +35,7 @@ const mockAllStories: Story[] = [
     impact: "high",
     metrics: "Increased user engagement by 45%",
     date: "2024-01-15",
-    tags: ["leadership", "mvp", "user-engagement"]
+    tags: ["leadership", "mvp", "user engagement"]
   },
   {
     id: "story-2",
@@ -45,7 +45,7 @@ const mockAllStories: Story[] = [
     impact: "medium",
     metrics: "Reduced onboarding time from 15 to 10 minutes",
     date: "2024-01-10",
-    tags: ["optimization", "customer-experience", "onboarding"]
+    tags: ["optimization", "customer experience", "onboarding"]
   },
   {
     id: "story-3",
@@ -55,7 +55,7 @@ const mockAllStories: Story[] = [
     impact: "high",
     metrics: "Generated $2M in first quarter",
     date: "2024-01-05",
-    tags: ["revenue", "launch", "feature-development"]
+    tags: ["revenue", "launch", "feature development"]
   },
   {
     id: "story-4",
@@ -65,7 +65,7 @@ const mockAllStories: Story[] = [
     impact: "medium",
     metrics: "Delivered 12 features on schedule",
     date: "2023-12-20",
-    tags: ["roadmap", "team-management", "delivery"]
+    tags: ["roadmap", "team management", "delivery"]
   },
   {
     id: "story-5",
@@ -75,7 +75,7 @@ const mockAllStories: Story[] = [
     impact: "high",
     metrics: "Avoided $500K in development costs",
     date: "2023-12-15",
-    tags: ["user-research", "pivot", "cost-savings"]
+    tags: ["user research", "pivot", "cost savings"]
   }
 ];
 
