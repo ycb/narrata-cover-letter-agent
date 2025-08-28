@@ -88,7 +88,7 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Sticky Header */}
         <DialogHeader className="pb-4 modal-sticky-header">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between">
             <div className="flex-1">
               <DialogTitle className="text-2xl font-bold">
                 Evidence for {evidence.roleType} Match
@@ -97,7 +97,7 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
                 How we determined your fit for this specialization
               </DialogDescription>
             </div>
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-3 flex-wrap ml-4">
               <Button variant="secondary" size="sm" className="flex items-center gap-2">
                 <Edit className="h-4 w-4" />
                 This looks wrong
