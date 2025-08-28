@@ -21,6 +21,7 @@ import { SimpleContentReview } from "@/components/onboarding/SimpleContentReview
 import { FileUploadCard } from "@/components/onboarding/FileUploadCard";
 import { ScoreReveal } from "@/components/onboarding/ScoreReveal";
 import { PMLevelPreview } from "@/components/onboarding/PMLevelPreview";
+import { ProductTour } from "@/components/onboarding/ProductTour";
 
 type OnboardingStep = 'welcome' | 'upload' | 'score' | 'review' | 'integrate' | 'tour';
 
@@ -432,23 +433,16 @@ export default function NewUserOnboarding() {
   );
 
   const renderTourStep = () => (
-    <div className="space-y-8">
-      <div className="text-center space-y-4">
-        <h2 className="text-3xl font-bold text-foreground">
-          Let's Take a Quick Tour
-        </h2>
-        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          Learn how to use your new profile and generate your first cover letter
-        </p>
-      </div>
-
-      <div className="text-center">
-        <p className="text-gray-600 mb-4">Tour step loaded successfully!</p>
-        <Button onClick={handleNextStep}>
-          Go to Dashboard
-        </Button>
-      </div>
-    </div>
+    <ProductTour
+      onComplete={() => {
+        console.log('Tour completed, going to dashboard');
+        handleNextStep();
+      }}
+      onSkip={() => {
+        console.log('Tour skipped, going to dashboard');
+        handleNextStep();
+      }}
+    />
   );
 
   const renderCurrentStep = () => {
