@@ -85,7 +85,7 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         {/* Sticky Header */}
         <DialogHeader className="pb-4">
           <div className="flex items-start justify-between">
@@ -110,8 +110,7 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
           </div>
         </DialogHeader>
 
-        {/* Scrollable Content */}
-        <div className="modal-scrollable-content p-6">
+        <div className="p-6">
           {/* Summary Tiles */}
           <div className="summary-grid">
             <div className="summary-tile">
