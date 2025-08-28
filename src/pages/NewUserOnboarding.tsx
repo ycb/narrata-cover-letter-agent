@@ -19,8 +19,9 @@ import {
 } from "lucide-react";
 import { SimpleContentReview } from "@/components/onboarding/SimpleContentReview";
 import { FileUploadCard } from "@/components/onboarding/FileUploadCard";
+import { ScoreReveal } from "@/components/onboarding/ScoreReveal";
 
-type OnboardingStep = 'welcome' | 'upload' | 'review' | 'integrate' | 'tour';
+type OnboardingStep = 'welcome' | 'upload' | 'score' | 'review' | 'integrate' | 'tour';
 
 interface OnboardingData {
   resume?: File;
@@ -47,11 +48,11 @@ export default function NewUserOnboarding() {
         setCurrentStep('upload');
         break;
       case 'upload':
-        console.log('Moving from upload to review');
+        console.log('Moving from upload to score');
         // Simulate processing
         setIsProcessing(true);
         setTimeout(() => {
-          console.log('Processing complete, setting review step');
+          console.log('Processing complete, setting score step');
           setOnboardingData(prev => ({
             ...prev,
             pmLevel: 'Product Manager (Mid-Level)',
@@ -59,8 +60,12 @@ export default function NewUserOnboarding() {
             progress: 75
           }));
           setIsProcessing(false);
-          setCurrentStep('review');
+          setCurrentStep('score');
         }, 1000); // Reduced to 1 second for faster testing
+        break;
+      case 'score':
+        console.log('Moving from score to review');
+        setCurrentStep('review');
         break;
       case 'review':
         console.log('Moving from review to integrate');
@@ -133,6 +138,26 @@ export default function NewUserOnboarding() {
         Get Started
         <ArrowRight className="ml-2 w-5 h-5" />
       </Button>
+    </div>
+  );
+
+  const renderScoreStep = () => (
+    <div className="space-y-8">
+      <div className="text-center space-y-4">
+        <h2 className="text-3xl font-bold text-foreground">
+          Your PM Level Assessment
+        </h2>
+        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          Based on your uploaded content, here's what we discovered:
+        </p>
+      </div>
+
+      <ScoreReveal
+        pmLevel={onboardingData.pmLevel || 'Product Manager (Mid-Level)'}
+        confidence={onboardingData.confidence || 65}
+        progress={onboardingData.progress || 75}
+        onContinue={handleNextStep}
+      />
     </div>
   );
 
@@ -221,52 +246,7 @@ export default function NewUserOnboarding() {
     </div>
   );
 
-  const renderScoreStep = () => (
-    <div className="space-y-8">
-      <div className="text-center space-y-4">
-        <h2 className="text-3xl font-bold text-foreground">
-          Your PM Level Assessment
-        </h2>
-        <p className="text-lg text-muted-foreground">
-          Based on your uploaded content, here's what we discovered:
-        </p>
-      </div>
 
-      <Card className="p-8 text-center">
-        <div className="space-y-6">
-          <div className="mx-auto w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center">
-            <Trophy className="w-10 h-10 text-blue-600" />
-          </div>
-          <div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">
-              {onboardingData.pmLevel || 'Product Manager (Mid-Level)'}
-            </h3>
-            <p className="text-gray-600">
-              Confidence: {onboardingData.confidence || 65}%
-            </p>
-          </div>
-          <div className="w-full max-w-md mx-auto">
-            <div className="flex justify-between text-sm text-gray-600 mb-2">
-              <span>Progress</span>
-              <span>{onboardingData.progress || 75}%</span>
-            </div>
-            <Progress value={onboardingData.progress || 75} className="h-2" />
-          </div>
-        </div>
-      </Card>
-
-      <div className="text-center">
-        <Button 
-          size="lg" 
-          onClick={handleNextStep}
-          className="px-8 py-3 text-lg"
-        >
-          Continue Setup
-          <ArrowRight className="ml-2 w-5 h-5" />
-        </Button>
-      </div>
-    </div>
-  );
 
   const renderLibraryStep = () => (
     <div className="space-y-8">
@@ -428,6 +408,9 @@ export default function NewUserOnboarding() {
         case 'upload':
           console.log('Rendering upload step');
           return renderUploadStep();
+        case 'score':
+          console.log('Rendering score step');
+          return renderScoreStep();
         case 'review':
           console.log('Rendering review step');
           return renderReviewStep();
@@ -476,7 +459,11 @@ export default function NewUserOnboarding() {
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded-full border-2 border-blue-500 bg-blue-500" />
-                    <span className="text-sm font-medium">Review</span>
+                    <span className="text-sm font-medium">Score</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
+                    <span className="text-sm text-gray-500">Review</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded-full border-2 border-gray-300" />

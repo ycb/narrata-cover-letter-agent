@@ -1,216 +1,184 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { 
   Trophy, 
   TrendingUp, 
   Target, 
   CheckCircle,
-  Info,
-  Star
+  ArrowRight,
+  Sparkles
 } from "lucide-react";
 
 interface ScoreRevealProps {
   pmLevel: string;
   confidence: number;
   progress: number;
+  onContinue: () => void;
 }
 
-export function ScoreReveal({ pmLevel, confidence, progress }: ScoreRevealProps) {
+export function ScoreReveal({ 
+  pmLevel, 
+  confidence, 
+  progress, 
+  onContinue 
+}: ScoreRevealProps) {
   const getLevelColor = (level: string) => {
-    if (level.includes('Senior') || level.includes('GPM')) return 'bg-green-100 text-green-800 border-green-200';
-    if (level.includes('Mid-Level') || level.includes('PM')) return 'bg-blue-100 text-blue-800 border-blue-200';
-    if (level.includes('Junior') || level.includes('APM')) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-    return 'bg-muted text-muted-foreground border-muted-foreground/25';
+    if (level.includes('Senior') || level.includes('Lead')) return 'text-purple-600';
+    if (level.includes('Mid') || level.includes('Product Manager')) return 'text-blue-600';
+    if (level.includes('Associate') || level.includes('Junior')) return 'text-green-600';
+    return 'text-gray-600';
   };
 
-  const getLevelIcon = (level: string) => {
-    if (level.includes('Senior') || level.includes('GPM')) return '🟢';
-    if (level.includes('Mid-Level') || level.includes('PM')) return '🟡';
-    if (level.includes('Junior') || level.includes('APM')) return '🔴';
-    return '⚪';
+  const getConfidenceColor = (conf: number) => {
+    if (conf >= 80) return 'text-green-600';
+    if (conf >= 60) return 'text-blue-600';
+    if (conf >= 40) return 'text-yellow-600';
+    return 'text-red-600';
   };
 
-  const getConfidenceLabel = (confidence: number) => {
-    if (confidence >= 80) return 'High Confidence';
-    if (confidence >= 60) return 'Good Confidence';
-    if (confidence >= 40) return 'Moderate Confidence';
-    return 'Low Confidence';
+  const getConfidenceBadge = (conf: number) => {
+    if (conf >= 80) return { variant: 'success' as const, text: 'High Confidence' };
+    if (conf >= 60) return { variant: 'default' as const, text: 'Good Confidence' };
+    if (conf >= 40) return { variant: 'secondary' as const, text: 'Moderate Confidence' };
+    return { variant: 'destructive' as const, text: 'Low Confidence' };
   };
 
-  const getProgressLabel = (progress: number) => {
-    if (progress >= 80) return 'Profile Complete';
-    if (progress >= 60) return 'Well Developed';
-    if (progress >= 40) return 'Developing';
-    return 'Getting Started';
+  const getProgressMessage = (prog: number) => {
+    if (prog >= 80) return "Excellent! Your profile is very complete.";
+    if (prog >= 60) return "Good progress! A few more details will improve accuracy.";
+    if (prog >= 40) return "Getting there! More content will significantly improve your score.";
+    return "Getting started! Each piece of content improves your assessment.";
   };
+
+  const confidenceBadge = getConfidenceBadge(confidence);
 
   return (
-    <div className="space-y-6">
-      {/* Main Score Display */}
-      <Card className="shadow-soft border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
-        <CardContent className="p-8 text-center">
-          <div className="space-y-6">
-            {/* Level Badge */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-center gap-2">
-                <span className="text-2xl">{getLevelIcon(pmLevel)}</span>
-                <Badge className={`text-xl px-6 py-3 border-2 ${getLevelColor(pmLevel)}`}>
+    <div className="space-y-8">
+      {/* Main Score Card */}
+      <Card className="shadow-soft border-0 bg-gradient-to-br from-blue-50 to-purple-50">
+        <CardContent className="p-8">
+          <div className="text-center space-y-6">
+            {/* Trophy Icon */}
+            <div className="mx-auto w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+              <Trophy className="w-12 h-12 text-white" />
+            </div>
+
+            {/* PM Level */}
+            <div className="space-y-2">
+              <h2 className="text-3xl font-bold text-gray-900">
+                Your PM Level Assessment
+              </h2>
+              <div className="flex items-center justify-center gap-3">
+                <h3 className={`text-2xl font-bold ${getLevelColor(pmLevel)}`}>
                   {pmLevel}
+                </h3>
+                <Badge variant={confidenceBadge.variant} className="text-sm">
+                  {confidenceBadge.text}
                 </Badge>
               </div>
-              <p className="text-lg text-muted-foreground">
-                Based on your uploaded content
-              </p>
             </div>
 
-            {/* Confidence and Progress */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
-              {/* Confidence */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-blue-700">Confidence</span>
-                  <span className="text-sm font-bold text-blue-700">{confidence}%</span>
-                </div>
+            {/* Confidence Score */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-lg font-medium text-gray-700">Confidence:</span>
+                <span className={`text-2xl font-bold ${getConfidenceColor(confidence)}`}>
+                  {confidence}%
+                </span>
+              </div>
+              <div className="w-full max-w-md mx-auto">
                 <Progress value={confidence} className="h-3" />
-                <p className="text-xs text-blue-600">{getConfidenceLabel(confidence)}</p>
-              </div>
-
-              {/* Progress */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-blue-700">Profile Complete</span>
-                  <span className="text-sm font-bold text-blue-700">{progress}%</span>
-                </div>
-                <Progress value={progress} className="h-3" />
-                <p className="text-xs text-blue-600">{getProgressLabel(progress)}</p>
               </div>
             </div>
 
-            {/* Improvement Message */}
-            <div className="bg-white/50 rounded-lg p-4 border border-blue-200">
-              <div className="flex items-center gap-2 text-blue-700 mb-2">
-                <TrendingUp className="w-4 h-4" />
-                <span className="font-medium">Your score improves as you upload more content</span>
+            {/* Progress Indicator */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-lg font-medium text-gray-700">Profile Completeness:</span>
+                <span className="text-2xl font-bold text-blue-600">
+                  {progress}%
+                </span>
               </div>
-              <p className="text-sm text-blue-600">
-                Add more work history, case studies, and cover letters to increase accuracy and confidence.
+              <div className="w-full max-w-md mx-auto">
+                <Progress value={progress} className="h-3" />
+              </div>
+              <p className="text-gray-600 max-w-md mx-auto">
+                {getProgressMessage(progress)}
               </p>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Score Breakdown */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="shadow-soft">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <Target className="w-5 h-5 text-blue-600" />
-              <CardTitle className="text-base">Experience Level</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Years of Experience</span>
-                <span className="text-sm font-medium">3-5 years</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Role Complexity</span>
-                <span className="text-sm font-medium">Mid-level</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Team Size</span>
-                <span className="text-sm font-medium">5-15 people</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-soft">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <Star className="w-5 h-5 text-yellow-600" />
-              <CardTitle className="text-base">Key Strengths</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-600" />
-                <span className="text-sm">Product Strategy</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-600" />
-                <span className="text-sm">Data Analysis</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-green-600" />
-                <span className="text-sm">Cross-functional Leadership</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-soft">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-green-600" />
-              <CardTitle className="text-base">Growth Areas</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                <span className="text-sm">Enterprise Sales</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                <span className="text-sm">International Markets</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                <span className="text-sm">M&A Experience</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* How It Works */}
-      <Card className="shadow-soft bg-muted/30">
+      {/* Improvement Tips */}
+      <Card className="shadow-soft">
         <CardHeader>
-          <div className="flex items-center gap-2">
-            <Info className="w-5 h-5 text-muted-foreground" />
-            <CardTitle className="text-lg">How This Works</CardTitle>
-          </div>
+          <CardTitle className="flex items-center gap-2 text-gray-900">
+            <TrendingUp className="w-5 h-5 text-blue-600" />
+            How to Improve Your Score
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-            <div className="space-y-2">
-              <div className="font-medium text-foreground">1. Content Analysis</div>
-              <p className="text-muted-foreground">
-                We analyze your resume, LinkedIn, and cover letter to understand your experience level and skills.
-              </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-lg">
+              <Target className="w-5 h-5 text-blue-600 mt-0.5" />
+              <div>
+                <h4 className="font-medium text-gray-900">Add More Stories</h4>
+                <p className="text-sm text-gray-600">
+                  Include specific examples of your achievements and impact
+                </p>
+              </div>
             </div>
-            <div className="space-y-2">
-              <div className="font-medium text-foreground">2. PM Framework Mapping</div>
-              <p className="text-muted-foreground">
-                Your experience is mapped against industry-standard PM competency frameworks and role expectations.
-              </p>
+            
+            <div className="flex items-start gap-3 p-4 bg-purple-50 rounded-lg">
+              <CheckCircle className="w-5 h-5 text-purple-600 mt-0.5" />
+              <div>
+                <h4 className="font-medium text-gray-900">Quantify Results</h4>
+                <p className="text-sm text-gray-600">
+                  Add metrics and numbers to demonstrate your impact
+                </p>
+              </div>
             </div>
-            <div className="space-y-2">
-              <div className="font-medium text-foreground">3. Confidence Scoring</div>
-              <p className="text-muted-foreground">
-                Confidence increases as you provide more detailed information about your work history and achievements.
-              </p>
+            
+            <div className="flex items-start gap-3 p-4 bg-green-50 rounded-lg">
+              <Sparkles className="w-5 h-5 text-green-600 mt-0.5" />
+              <div>
+                <h4 className="font-medium text-gray-900">Expand Skills</h4>
+                <p className="text-sm text-gray-600">
+                  Add more technical and soft skills to your profile
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-start gap-3 p-4 bg-yellow-50 rounded-lg">
+              <ArrowRight className="w-5 h-5 text-yellow-600 mt-0.5" />
+              <div>
+                <h4 className="font-medium text-gray-900">Career Growth</h4>
+                <p className="text-sm text-gray-600">
+                  Show progression and advancement in your roles
+                </p>
+              </div>
             </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Action Button */}
+      <div className="text-center">
+        <Button 
+          size="lg" 
+          onClick={onContinue}
+          className="px-8 py-3 text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+        >
+          Continue Setup
+          <ArrowRight className="ml-2 w-5 h-5" />
+        </Button>
+        <p className="text-sm text-gray-600 mt-3">
+          Your score will update automatically as you add more content
+        </p>
+      </div>
     </div>
   );
 }
