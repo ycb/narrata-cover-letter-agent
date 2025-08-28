@@ -16,11 +16,20 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ResizableTable, ResizableTableHeader, ResizableTableBody } from "./ResizableTable";
 
 export interface FilterOption {
   label: string;
   value: string;
   count?: number;
+}
+
+export interface ColumnConfig {
+  key: string;
+  label: string;
+  minWidth?: number;
+  defaultWidth?: number;
+  sortable?: boolean;
 }
 
 export interface ShowAllTemplateProps<T> {
@@ -38,6 +47,7 @@ export interface ShowAllTemplateProps<T> {
   searchKeys?: (keyof T)[];
   emptyStateMessage?: string;
   isLoading?: boolean;
+  columns?: ColumnConfig[];
 }
 
 export function ShowAllTemplate<T>({
@@ -54,7 +64,8 @@ export function ShowAllTemplate<T>({
   onFilterChange,
   searchKeys = [],
   emptyStateMessage = "No items found",
-  isLoading = false
+  isLoading = false,
+  columns
 }: ShowAllTemplateProps<T>) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState(defaultFilter);
@@ -133,6 +144,35 @@ export function ShowAllTemplate<T>({
     return sortDirection === 'asc' 
       ? <ChevronUp className="h-4 w-4 text-primary" />
       : <ChevronDown className="h-4 w-4 text-primary" />;
+  };
+
+  // Helper function to render resizable headers if columns config is provided
+  const renderResizableHeader = () => {
+    if (!columns) return renderHeader(handleSort, getSortIcon);
+    
+    return (
+      <tr>
+        {columns.map((column) => (
+          <ResizableColumn
+            key={column.key}
+            minWidth={column.minWidth}
+            defaultWidth={column.defaultWidth}
+            className="text-left p-4 font-medium text-muted-foreground"
+          >
+            <div 
+              className={cn(
+                "flex items-center gap-2",
+                column.sortable && "cursor-pointer hover:bg-muted/30 transition-colors"
+              )}
+              onClick={() => column.sortable && handleSort(column.key as keyof T)}
+            >
+              {column.label}
+              {column.sortable && getSortIcon(column.key as keyof T)}
+            </div>
+          </ResizableColumn>
+        ))}
+      </tr>
+    );
   };
 
   return (
@@ -226,12 +266,12 @@ export function ShowAllTemplate<T>({
           {/* Table */}
           <Card className="shadow-soft">
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
+              <ResizableTable>
                 <table className="w-full">
-                  <thead className="bg-muted/50">
-                    {renderHeader(handleSort, getSortIcon)}
-                  </thead>
-                  <tbody>
+                  <ResizableTableHeader>
+                    {renderResizableHeader()}
+                  </ResizableTableHeader>
+                  <ResizableTableBody>
                     {isLoading ? (
                       <tr>
                         <td colSpan={100} className="p-8 text-center text-muted-foreground">
@@ -247,9 +287,9 @@ export function ShowAllTemplate<T>({
                     ) : (
                       filteredData.map((item, index) => renderRow(item, index))
                     )}
-                  </tbody>
+                  </ResizableTableBody>
                 </table>
-              </div>
+              </ResizableTable>
             </CardContent>
           </Card>
         </div>

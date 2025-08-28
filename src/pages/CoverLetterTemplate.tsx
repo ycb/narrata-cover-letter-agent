@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Upload, Save, ArrowLeft, Plus, GripVertical, Trash2, Edit, FileText, Library, MoreHorizontal, Copy, Clock, LayoutTemplate, CheckCircle, X, ChevronRight } from "lucide-react";
+import { Upload, Save, ArrowLeft, Plus, GripVertical, Trash2, Edit, FileText, Library, MoreHorizontal, Copy, Clock, LayoutTemplate, CheckCircle, X, ChevronRight, BookOpen } from "lucide-react";
 import { TemplateBanner } from "@/components/layout/TemplateBanner";
 import { Link, useNavigate } from "react-router-dom";
 import { TemplateBlurbHierarchical } from "@/components/template-blurbs/TemplateBlurbHierarchical";
@@ -553,7 +553,7 @@ export default function CoverLetterTemplate() {
                         : "border-transparent text-muted-foreground hover:text-foreground"
                     )}
                   >
-                    <FileText className="h-4 w-4" />
+                    <BookOpen className="h-4 w-4" />
                     Saved Sections
                   </button>
                 </div>

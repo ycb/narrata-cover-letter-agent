@@ -21,7 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ShowAllTemplate, FilterOption } from "@/components/shared/ShowAllTemplate";
+import { ShowAllTemplate, FilterOption, ColumnConfig } from "@/components/shared/ShowAllTemplate";
 import { AddLinkModal } from "@/components/work-history/AddLinkModal";
 import { LinkCard } from "@/components/work-history/LinkCard";
 
@@ -107,6 +107,16 @@ export default function ShowAllLinks() {
       value: `role-${role}`, 
       count: links.filter(l => l.role === role).length 
     }))
+  ];
+
+  const columns: ColumnConfig[] = [
+    { key: 'title', label: 'Link', minWidth: 200, defaultWidth: 300, sortable: true },
+    { key: 'company', label: 'Company', minWidth: 120, defaultWidth: 150, sortable: true },
+    { key: 'role', label: 'Role', minWidth: 120, defaultWidth: 150, sortable: true },
+    { key: 'type', label: 'Type', minWidth: 100, defaultWidth: 120, sortable: true },
+    { key: 'description', label: 'Description', minWidth: 200, defaultWidth: 300, sortable: true },
+    { key: 'date', label: 'Date', minWidth: 100, defaultWidth: 120, sortable: true },
+    { key: 'actions', label: 'Actions', minWidth: 120, defaultWidth: 150, sortable: false }
   ];
 
   const handleAddNew = () => {
@@ -291,6 +301,7 @@ export default function ShowAllLinks() {
         onAddNew={handleAddNew}
         addNewLabel="Add Link"
         filters={filters}
+        columns={columns}
         searchKeys={["title", "company", "role", "description"]}
         emptyStateMessage="No external links found. Add your first link to get started."
       />
