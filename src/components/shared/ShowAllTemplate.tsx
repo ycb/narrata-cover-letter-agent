@@ -290,37 +290,6 @@ export function ShowAllTemplate<T>({
                           </DropdownMenuSub>
                         )}
 
-                        {/* Tags Fly-out */}
-                        {sortOptions.some(s => s.category === 'tag') && (
-                          <DropdownMenuSub onOpenChange={(open) => setOpenSubmenu(open ? 'tags' : null)}>
-                            <DropdownMenuSubTrigger 
-                              className={`px-3 py-2 transition-colors ${
-                                openSubmenu === 'tags' 
-                                  ? 'bg-blue-600 text-white' 
-                                  : 'hover:bg-blue-600 hover:text-white'
-                              }`}
-                            >
-                              <span className="flex-1 text-left">Tags</span>
-                            </DropdownMenuSubTrigger>
-                            <DropdownMenuSubContent className="w-48">
-                              <DropdownMenuItem onClick={() => handleFilterChange("all")}>
-                                All Tags
-                              </DropdownMenuItem>
-                              {sortOptions
-                                .filter(s => s.category === 'tag')
-                                .map((option) => (
-                                  <DropdownMenuItem 
-                                    key={option.value}
-                                    onClick={() => handleFilterChange(option.value)}
-                                    className="px-3 py-2 hover:bg-blue-600 hover:text-white"
-                                  >
-                                    <span className="flex-1">{option.label}</span>
-                                  </DropdownMenuItem>
-                                ))}
-                            </DropdownMenuSubContent>
-                          </DropdownMenuSub>
-                        )}
-
                         {/* Sections Fly-out */}
                         {sortOptions.some(s => s.category === 'section-type') && (
                           <DropdownMenuSub onOpenChange={(open) => setOpenSubmenu(open ? 'sections' : null)}>
@@ -339,6 +308,37 @@ export function ShowAllTemplate<T>({
                               </DropdownMenuItem>
                               {sortOptions
                                 .filter(s => s.category === 'section-type')
+                                .map((option) => (
+                                  <DropdownMenuItem 
+                                    key={option.value}
+                                    onClick={() => handleFilterChange(option.value)}
+                                    className="px-3 py-2 hover:bg-blue-600 hover:text-white"
+                                  >
+                                    <span className="flex-1">{option.label}</span>
+                                  </DropdownMenuItem>
+                                ))}
+                            </DropdownMenuSubContent>
+                          </DropdownMenuSub>
+                        )}
+
+                        {/* Tags Fly-out */}
+                        {sortOptions.some(s => s.category === 'tag') && (
+                          <DropdownMenuSub onOpenChange={(open) => setOpenSubmenu(open ? 'tags' : null)}>
+                            <DropdownMenuSubTrigger 
+                              className={`px-3 py-2 transition-colors ${
+                                openSubmenu === 'tags' 
+                                  ? 'bg-blue-600 text-white' 
+                                  : 'hover:bg-blue-600 hover:text-white'
+                              }`}
+                            >
+                              <span className="flex-1 text-left">Tags</span>
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent className="w-48">
+                              <DropdownMenuItem onClick={() => handleFilterChange("all")}>
+                                All Tags
+                              </DropdownMenuItem>
+                              {sortOptions
+                                .filter(s => s.category === 'tag')
                                 .map((option) => (
                                   <DropdownMenuItem 
                                     key={option.value}
