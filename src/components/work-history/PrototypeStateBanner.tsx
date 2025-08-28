@@ -12,16 +12,12 @@ export function PrototypeStateBanner() {
   };
 
   const handleNewUser = () => {
-    if (location.pathname === '/') {
-      navigate('/new-user');
-    }
+    navigate('/new-user');
     setPrototypeState('new-user');
   };
 
   const handleExistingUser = () => {
-    if (location.pathname === '/') {
-      navigate('/dashboard');
-    }
+    navigate('/dashboard');
     setPrototypeState('existing-user');
   };
 
