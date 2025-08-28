@@ -17,6 +17,7 @@ import { HILDemo } from "./pages/HILDemo";
 import ShowAllStories from "./pages/ShowAllStories";
 import ShowAllLinks from "./pages/ShowAllLinks";
 import ShowAllSavedSections from "./pages/ShowAllSavedSections";
+import NewUserOnboarding from "./pages/NewUserOnboarding";
 
 import SignUp from "./pages/SignUp";
 import SignIn from "./pages/SignIn";
@@ -139,6 +140,12 @@ function AppLayout() {
           <>
             <Header />
             <ShowAllSavedSections />
+          </>
+        } />
+        <Route path="/new-user" element={
+          <>
+            <Header />
+            <NewUserOnboarding />
           </>
         } />
         <Route path="/signup" element={<SignUp />} />
