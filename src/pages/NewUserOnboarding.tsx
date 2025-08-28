@@ -179,6 +179,15 @@ export default function NewUserOnboarding() {
       </div>
 
       <div className="text-center">
+        {/* Debug info */}
+        <div className="mb-4 p-4 bg-gray-100 rounded text-sm text-left max-w-md mx-auto">
+          <div>Resume: {onboardingData.resume ? '✅' : '❌'}</div>
+          <div>LinkedIn: {onboardingData.linkedinUrl ? '✅' : '❌'}</div>
+          <div>Cover Letter Text: {onboardingData.coverLetter ? '✅' : '❌'}</div>
+          <div>Cover Letter File: {onboardingData.coverLetterFile ? '✅' : '❌'}</div>
+          <div>Button Disabled: {(!onboardingData.resume || !onboardingData.linkedinUrl || (!onboardingData.coverLetter && !onboardingData.coverLetterFile)) ? 'Yes' : 'No'}</div>
+        </div>
+        
         <Button 
           size="lg" 
           onClick={handleNextStep}
