@@ -236,7 +236,6 @@ export function ShowAllTemplate<T>({
                               }`}
                             >
                               <span className="flex-1 text-left">Company</span>
-                              <ChevronRight className="h-4 w-4 ml-auto" />
                             </DropdownMenuSubTrigger>
                             <DropdownMenuSubContent className="w-48">
                               <DropdownMenuItem onClick={() => handleFilterChange("all")}>
@@ -268,7 +267,6 @@ export function ShowAllTemplate<T>({
                               }`}
                             >
                               <span className="flex-1 text-left">Role</span>
-                              <ChevronRight className="h-4 w-4 ml-auto" />
                             </DropdownMenuSubTrigger>
                             <DropdownMenuSubContent className="w-48">
                               <DropdownMenuItem onClick={() => handleFilterChange("all")}>
@@ -300,7 +298,6 @@ export function ShowAllTemplate<T>({
                               }`}
                             >
                               <span className="flex-1 text-left">Tags</span>
-                              <ChevronRight className="h-4 w-4 ml-auto" />
                             </DropdownMenuSubTrigger>
                             <DropdownMenuSubContent className="w-48">
                               <DropdownMenuItem onClick={() => handleFilterChange("all")}>
