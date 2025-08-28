@@ -21,8 +21,12 @@ import { ProgressSidebar } from "@/components/onboarding/ProgressSidebar";
 import { FileUploadCard } from "@/components/onboarding/FileUploadCard";
 import { ScoreReveal } from "@/components/onboarding/ScoreReveal";
 import { CTADeck } from "@/components/onboarding/CTADeck";
+import { OnboardingHeader } from "@/components/onboarding/OnboardingHeader";
+import { ParsingResultsCard } from "@/components/onboarding/ParsingResultsCard";
+import { SimpleContentReview } from "@/components/onboarding/SimpleContentReview";
+import { PMLevelPreview } from "@/components/onboarding/PMLevelPreview";
 
-type OnboardingStep = 'welcome' | 'upload' | 'score' | 'library' | 'next-steps';
+type OnboardingStep = 'welcome' | 'upload' | 'review' | 'integrate' | 'tour';
 
 interface OnboardingData {
   resume?: File;
@@ -56,16 +60,16 @@ export default function NewUserOnboarding() {
             progress: 75
           }));
           setIsProcessing(false);
-          setCurrentStep('score');
+          setCurrentStep('review');
         }, 2000);
         break;
-      case 'score':
-        setCurrentStep('library');
+      case 'review':
+        setCurrentStep('integrate');
         break;
-      case 'library':
-        setCurrentStep('next-steps');
+      case 'integrate':
+        setCurrentStep('tour');
         break;
-      case 'next-steps':
+      case 'tour':
         // Navigate to dashboard
         window.location.href = '/dashboard';
         break;
@@ -300,14 +304,134 @@ export default function NewUserOnboarding() {
     </div>
   );
 
-  const renderNextStepsStep = () => (
+  const renderReviewStep = () => (
     <div className="space-y-8">
       <div className="text-center space-y-4">
         <h2 className="text-3xl font-bold text-foreground">
-          Here's What You Can Do Next
+          Review Your Content
         </h2>
-        <p className="text-lg text-muted-foreground">
-          Choose your next action to continue building your profile:
+        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          We've analyzed your uploads and extracted the key information. 
+          Review each item and keep what looks good.
+        </p>
+      </div>
+
+      <SimpleContentReview
+        items={[
+          {
+            id: 'resume-1',
+            type: 'resume',
+            title: 'Resume Content',
+            content: 'Extracted 6 roles and 14 achievements with high confidence',
+            quality: 'high',
+            details: ['6 roles found', '14 achievements extracted', 'Quantifiable results detected'],
+            suggestions: [],
+            icon: FileText
+          },
+          {
+            id: 'linkedin-1',
+            type: 'linkedin',
+            title: 'LinkedIn Profile',
+            content: 'Extracted 4 roles and 8 skills with complete date information',
+            quality: 'high',
+            details: ['4 roles found', '8 skills identified', 'Complete date information available'],
+            suggestions: [],
+            icon: Users
+          },
+          {
+            id: 'coverletter-1',
+            type: 'coverLetter',
+            title: 'Cover Letter Sections',
+            content: 'Segmented into 3 sections with 2 stories and 1 case study detected',
+            quality: 'medium',
+            details: ['3 sections identified', '2 stories extracted', '1 case study detected'],
+            suggestions: ['Add quantifiable results to strengthen achievements'],
+            icon: Mail
+          }
+        ]}
+        onReviewComplete={(keptItems) => {
+          console.log('Kept items:', keptItems);
+          handleNextStep();
+        }}
+      />
+    </div>
+  );
+
+  const renderIntegrateStep = () => (
+    <div className="space-y-8">
+      <div className="text-center space-y-4">
+        <h2 className="text-3xl font-bold text-foreground">
+          Your Content is Ready
+        </h2>
+        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          We've organized your imported content into structured objects. 
+          Here's what you'll have access to:
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card className="border-2 border-dashed border-blue-200 bg-blue-50/50">
+          <CardHeader className="text-center">
+            <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
+              <Users className="w-6 h-6 text-blue-600" />
+            </div>
+            <CardTitle className="text-blue-900">Work History</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center space-y-3">
+            <p className="text-blue-800 text-sm">
+              Structured roles and companies from your resume and LinkedIn
+            </p>
+            <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+              4 Companies, 6 Roles
+            </Badge>
+          </CardContent>
+        </Card>
+
+        <Card className="border-2 border-dashed border-purple-200 bg-purple-50/50">
+          <CardHeader className="text-center">
+            <div className="mx-auto w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mb-3">
+              <BookOpen className="w-6 h-6 text-purple-600" />
+            </div>
+            <CardTitle className="text-purple-900">Templates</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center space-y-3">
+            <p className="text-purple-800 text-sm">
+              Reusable cover letter sections and story templates
+            </p>
+            <Badge variant="secondary" className="bg-purple-100 text-purple-800">
+              3 Sections, 2 Stories
+            </Badge>
+          </CardContent>
+        </Card>
+      </div>
+
+      <PMLevelPreview
+        storiesCount={2}
+        storiesNeeded={3}
+        onAddStory={() => console.log('Add story clicked')}
+      />
+
+      <div className="text-center">
+        <Button 
+          size="lg" 
+          onClick={handleNextStep}
+          className="px-8 py-3 text-lg"
+        >
+          Continue to Tour
+          <ArrowRight className="ml-2 w-5 h-5" />
+        </Button>
+      </div>
+    </div>
+  );
+
+  const renderTourStep = () => (
+    <div className="space-y-8">
+      <div className="text-center space-y-4">
+        <h2 className="text-3xl font-bold text-foreground">
+          Let's Take a Quick Tour
+        </h2>
+        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          Learn how to use your new profile and generate your first cover letter
         </p>
       </div>
 
@@ -333,43 +457,39 @@ export default function NewUserOnboarding() {
         return renderWelcomeStep();
       case 'upload':
         return renderUploadStep();
-      case 'score':
-        return renderScoreStep();
-      case 'library':
-        return renderLibraryStep();
-      case 'next-steps':
-        return renderNextStepsStep();
+      case 'review':
+        return renderReviewStep();
+      case 'integrate':
+        return renderIntegrateStep();
+      case 'tour':
+        return renderTourStep();
       default:
         return renderWelcomeStep();
     }
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            {/* Progress Sidebar */}
-            <div className="lg:col-span-1">
-              <ProgressSidebar
-                currentStep={currentStep}
-                pmLevel={onboardingData.pmLevel}
-                confidence={onboardingData.confidence}
-                progress={onboardingData.progress}
-              />
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      {/* Progress Header */}
+      <OnboardingHeader currentStep={currentStep} />
+      
+      <div className="container mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Left Sidebar */}
+          <div className="lg:col-span-1">
+            <ProgressSidebar 
+              currentStep={currentStep}
+              onboardingData={onboardingData}
+              onAddStory={() => console.log('Add story clicked')}
+            />
+          </div>
 
-            {/* Main Content */}
-            <div className="lg:col-span-3">
-              <Card className="shadow-soft">
-                <CardContent className="p-8">
-                  {renderCurrentStep()}
-                </CardContent>
-              </Card>
-            </div>
+          {/* Main Content */}
+          <div className="lg:col-span-3">
+            {renderCurrentStep()}
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
