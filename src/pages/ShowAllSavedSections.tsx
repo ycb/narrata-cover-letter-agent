@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ShowAllTemplate, FilterOption } from "@/components/shared/ShowAllTemplate";
 import { StoryCard } from "@/components/work-history/StoryCard";
-import { AddStoryModal } from "@/components/work-history/AddStoryModal";
+import { TemplateBlurbDetail } from "@/components/template-blurbs/TemplateBlurbDetail";
 
 // Mock data for all saved sections
 const mockAllSavedSections = [
@@ -296,27 +296,56 @@ export default function ShowAllSavedSections() {
         emptyStateMessage="No saved sections found. Create your first section to get started."
       />
 
-      {/* Add Section Modal */}
-      <AddStoryModal
-        open={isAddSectionModalOpen}
-        onOpenChange={setIsAddSectionModalOpen}
-        roleId="default"
-        onSave={(section) => {
-          console.log("Section saved:", section);
-          setIsAddSectionModalOpen(false);
-          setEditingSection(null);
-        }}
-        editingStory={editingSection ? {
-          id: editingSection.id,
-          title: editingSection.title,
-          content: editingSection.content,
-          tags: editingSection.tags || [],
-          status: 'approved',
-          timesUsed: 0,
-          lastUsed: editingSection.date,
-          linkedLinks: []
-        } : undefined}
-      />
+      {/* Edit Section Modal */}
+      {isAddSectionModalOpen && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50">
+          <div className="container mx-auto p-4 h-full overflow-y-auto">
+            <div className="max-w-4xl mx-auto bg-background rounded-lg shadow-lg">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold">
+                    {editingSection ? 'Edit Saved Section' : 'Add New Section'}
+                  </h2>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => {
+                      setIsAddSectionModalOpen(false);
+                      setEditingSection(null);
+                    }}
+                    className="h-8 w-8"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                <TemplateBlurbDetail
+                  blurb={editingSection ? {
+                    id: editingSection.id,
+                    title: editingSection.title,
+                    content: editingSection.content,
+                    type: editingSection.type,
+                    tags: editingSection.tags || [],
+                    isDefault: false,
+                    createdAt: editingSection.date,
+                    updatedAt: editingSection.date
+                  } : undefined}
+                  isEditing={!!editingSection}
+                  onSave={(section) => {
+                    console.log("Section saved:", section);
+                    setIsAddSectionModalOpen(false);
+                    setEditingSection(null);
+                  }}
+                  onCancel={() => {
+                    setIsAddSectionModalOpen(false);
+                    setEditingSection(null);
+                  }}
+                  type={editingSection?.type}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* View Section Modal - Using existing StoryCard */}
       {isViewModalOpen && viewingSection && (
