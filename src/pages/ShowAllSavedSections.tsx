@@ -95,6 +95,7 @@ export default function ShowAllSavedSections() {
   const companies = [...new Set(sections.map(s => s.company))];
   const roles = [...new Set(sections.map(s => s.role))];
   const types = [...new Set(sections.map(s => s.type))];
+  const tags = [...new Set(sections.flatMap(s => s.tags))];
 
   const sortOptions: SortOption[] = [
     // Section types (no Work History association)
