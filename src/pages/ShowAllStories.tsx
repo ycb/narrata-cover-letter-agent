@@ -10,7 +10,8 @@ import {
   User,
   Star,
   MoreHorizontal,
-  Eye
+  Eye,
+  X
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -22,7 +23,7 @@ import {
 import { ShowAllTemplate, FilterOption } from "@/components/shared/ShowAllTemplate";
 import { Story } from "@/types/workHistory";
 import { AddStoryModal } from "@/components/work-history/AddStoryModal";
-import { WorkHistoryDetail } from "@/components/work-history/WorkHistoryDetail";
+import { StoryCard } from "@/components/work-history/StoryCard";
 
 // Mock data for all stories
 const mockAllStories: Story[] = [
@@ -315,22 +316,43 @@ export default function ShowAllStories() {
         editingStory={editingStory}
       />
 
-      {/* View Story Modal - Using existing WorkHistoryDetail */}
+      {/* View Story Modal - Using existing StoryCard */}
       {isViewModalOpen && viewingStory && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50">
           <div className="container mx-auto p-4 h-full overflow-y-auto">
-            <div className="max-w-4xl mx-auto bg-background rounded-lg shadow-lg">
+            <div className="max-w-2xl mx-auto bg-background rounded-lg shadow-lg">
               <div className="p-6">
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-2xl font-bold">Story Details</h2>
-                  <Button variant="outline" onClick={() => setIsViewModalOpen(false)}>
-                    Close
-                  </Button>
+                  <div className="flex items-center gap-3">
+                    <Button onClick={() => handleEdit(viewingStory)}>
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit Story
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => setIsViewModalOpen(false)}
+                      className="h-8 w-8"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                <WorkHistoryDetail
-                  selectedCompany={viewingStory.company}
-                  selectedRole={viewingStory.role}
-                  onBack={() => setIsViewModalOpen(false)}
+                <StoryCard
+                  story={{
+                    id: viewingStory.id,
+                    title: viewingStory.title,
+                    content: viewingStory.metrics,
+                    tags: viewingStory.tags || [],
+                    status: 'approved',
+                    timesUsed: 0,
+                    lastUsed: viewingStory.date,
+                    linkedLinks: []
+                  }}
+                  onEdit={() => handleEdit(viewingStory)}
+                  onDuplicate={() => handleCopy(viewingStory)}
+                  onDelete={() => handleDelete(viewingStory)}
                 />
               </div>
             </div>
