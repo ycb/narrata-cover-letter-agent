@@ -1,3 +1,14 @@
+export interface Story {
+  id: string;
+  title: string;
+  company: string;
+  role: string;
+  impact: 'high' | 'medium' | 'low';
+  metrics: string;
+  date: string;
+  tags: string[];
+}
+
 export interface WorkHistoryCompany {
   id: string;
   name: string;
