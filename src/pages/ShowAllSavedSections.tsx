@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ShowAllTemplate, FilterOption } from "@/components/shared/ShowAllTemplate";
 import { StoryCard } from "@/components/work-history/StoryCard";
+import { AddStoryModal } from "@/components/work-history/AddStoryModal";
 
 // Mock data for all saved sections
 const mockAllSavedSections = [
@@ -85,8 +86,10 @@ const mockAllSavedSections = [
 
 export default function ShowAllSavedSections() {
   const [sections, setSections] = useState(mockAllSavedSections);
+  const [isAddSectionModalOpen, setIsAddSectionModalOpen] = useState(false);
   const [viewingSection, setViewingSection] = useState<any>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [editingSection, setEditingSection] = useState<any>(null);
 
   // Get unique values for filtering
   const companies = [...new Set(sections.map(s => s.company))];
@@ -112,13 +115,13 @@ export default function ShowAllSavedSections() {
   ];
 
   const handleAddNew = () => {
-    // TODO: Implement add new section functionality
-    console.log("Add new section");
+    setIsAddSectionModalOpen(true);
   };
 
   const handleEdit = (section: any) => {
-    // TODO: Implement edit section functionality
-    console.log("Edit section:", section.id);
+    setEditingSection(section);
+    setIsViewModalOpen(false);
+    setIsAddSectionModalOpen(true);
   };
 
   const handleDelete = (section: any) => {
@@ -291,6 +294,28 @@ export default function ShowAllSavedSections() {
         filters={filters}
         searchKeys={["title", "company", "role", "content"]}
         emptyStateMessage="No saved sections found. Create your first section to get started."
+      />
+
+      {/* Add Section Modal */}
+      <AddStoryModal
+        open={isAddSectionModalOpen}
+        onOpenChange={setIsAddSectionModalOpen}
+        roleId="default"
+        onSave={(section) => {
+          console.log("Section saved:", section);
+          setIsAddSectionModalOpen(false);
+          setEditingSection(null);
+        }}
+        editingStory={editingSection ? {
+          id: editingSection.id,
+          title: editingSection.title,
+          content: editingSection.content,
+          tags: editingSection.tags || [],
+          status: 'approved',
+          timesUsed: 0,
+          lastUsed: editingSection.date,
+          linkedLinks: []
+        } : undefined}
       />
 
       {/* View Section Modal - Using existing StoryCard */}
