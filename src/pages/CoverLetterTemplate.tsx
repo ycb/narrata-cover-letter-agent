@@ -65,7 +65,7 @@ const mockTemplateBlurbs: TemplateBlurb[] = [
     type: "closer",
     title: "Eager Follow-up",
     content: "I am excited about the possibility of joining your team and would love to discuss how I can help [Company] achieve its goals. I look forward to hearing from you soon.",
-    tags: ["excitement", "team", "goals", "follow-up"],
+    tags: ["excitement", "team", "goals", "follow up"],
     createdAt: "2024-01-01T00:00:00Z",
     updatedAt: "2024-01-01T00:00:00Z"
   },
@@ -168,7 +168,7 @@ const mockWorkHistory = [
             id: 'story-3',
             title: 'Built MVP in 3 Months',
             content: 'Designed and built a complete MVP from scratch in just 3 months, including frontend, backend, and database.',
-            tags: ['mvp', 'full-stack', 'rapid-development'],
+            tags: ['mvp', 'full stack', 'rapid development'],
             confidence: 'high',
             timesUsed: 1,
             source: 'work-history',

@@ -12,7 +12,7 @@ const mockStory: WorkHistoryBlurb = {
   title: 'Team Leadership Story',
   content: 'Led a team of 8 product professionals while launching MVP in record 6 months.',
   outcomeMetrics: ['Built team of 8', 'Launched MVP'],
-  tags: ['leadership', 'team-management'],
+      tags: ['leadership', 'team management'],
   source: 'manual',
   status: 'approved',
   confidence: 'high',

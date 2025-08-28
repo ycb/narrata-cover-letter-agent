@@ -58,7 +58,7 @@ const mockWorkHistory: WorkHistoryCompany[] = [
         startDate: "2019-06-01",
         endDate: "2021-02-28",
         description: "Developed and maintained web applications",
-        tags: ["full-stack", "javascript", "python"],
+        tags: ["full stack", "javascript", "python"],
         achievements: ["Built 3 major features", "Reduced bugs by 30%"],
         blurbs: [
           {
@@ -68,7 +68,7 @@ const mockWorkHistory: WorkHistoryCompany[] = [
             content: "Designed and implemented 3 major user-facing features using React and Node.js, serving over 10,000 users and contributing to a 15% increase in user retention through improved user experience.",
             status: "approved",
             confidence: "medium",
-            tags: ["full-stack", "react", "node.js"],
+            tags: ["full stack", "react", "node.js"],
             timesUsed: 6,
             lastUsed: "2024-01-05"
           }

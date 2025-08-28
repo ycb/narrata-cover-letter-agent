@@ -49,9 +49,9 @@ const demoStory: WorkHistoryBlurb = {
       content: 'Implemented data-driven decision making processes that improved feature success rate from 60% to 85%, while reducing development cycle time by 30%.',
       filledGap: 'Data-driven decision making',
       developedForJobTitle: 'Senior Product Manager',
-      jdTags: ['data-driven', 'analytics', 'process improvement'],
+      jdTags: ['data driven', 'analytics', 'process improvement'],
       outcomeMetrics: ['85% feature success rate', '30% cycle time reduction'],
-      tags: ['data-driven', 'analytics', 'process'],
+      tags: ['data driven', 'analytics', 'process'],
       createdAt: '2024-01-03T00:00:00Z',
       createdBy: 'user-edited-AI'
     }

@@ -36,7 +36,7 @@ const mockAllSavedSections = [
     role: "Product Manager",
     rating: 5,
     date: "2024-01-15",
-    tags: ["intro", "product-management", "leadership"]
+    tags: ["intro", "product management", "leadership"]
   },
   {
     id: "section-2",
@@ -58,7 +58,7 @@ const mockAllSavedSections = [
     role: "Product Manager",
     rating: 5,
     date: "2024-01-05",
-    tags: ["achievement", "customer-success", "teamwork"]
+    tags: ["achievement", "customer success", "teamwork"]
   },
   {
     id: "section-4",

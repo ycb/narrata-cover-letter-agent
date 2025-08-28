@@ -46,7 +46,7 @@ const mockAssessment = {
           id: "exec-1",
           title: "Growth PM Leadership at SaaS Startup",
           content: "Led cross-functional product team of 8 to drive 40% user acquisition growth through data-driven experimentation and customer research, resulting in $2M ARR increase.",
-          tags: ["Growth", "Leadership", "SaaS", "Data-Driven"],
+          tags: ["Growth", "Leadership", "SaaS", "Data Driven"],
           sourceRole: "Product Lead",
           sourceCompany: "InnovateTech",
           lastUsed: "2 days ago",
@@ -62,7 +62,7 @@ const mockAssessment = {
           id: "exec-2",
           title: "0-1 Product Development Success",
           content: "Built and launched MVP mobile platform from concept to 10K+ users in 6 months, collaborating with design and engineering to validate product-market fit.",
-          tags: ["0-1", "Mobile", "MVP", "Product-Market Fit"],
+          tags: ["0-1", "Mobile", "MVP", "Product Market Fit"],
           sourceRole: "Product Manager",
           sourceCompany: "StartupXYZ",
           lastUsed: "1 week ago",
@@ -299,7 +299,7 @@ const mockAssessment = {
           company: "StartupXYZ",
           role: "Product Manager",
           relevance: "Highly Relevant",
-          tags: ["0-1", "MVP", "Product-Market Fit"]
+          tags: ["0-1", "MVP", "Product Market Fit"]
         }
       ],
       tagAnalysis: [
@@ -453,7 +453,7 @@ const mockAssessment = {
           company: "StartupXYZ",
           role: "Product Manager",
           relevance: "Highly Relevant",
-          tags: ["0-1", "MVP", "Product-Market Fit"]
+          tags: ["0-1", "MVP", "Product Market Fit"]
         }
       ],
       tagAnalysis: [
