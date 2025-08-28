@@ -499,28 +499,74 @@ export default function NewUserOnboarding() {
                 <h3 className="font-semibold text-gray-900">Progress</h3>
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-green-500" />
-                    <span className="text-sm">Welcome</span>
+                    {currentStep === 'welcome' ? (
+                      <div className="w-4 h-4 rounded-full border-2 border-blue-500 bg-blue-500" />
+                    ) : (
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    )}
+                    <span className={`text-sm ${currentStep === 'welcome' ? 'font-medium' : ''}`}>
+                      Welcome
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-green-500" />
-                    <span className="text-sm">Upload</span>
+                    {currentStep === 'upload' ? (
+                      <div className="w-4 h-4 rounded-full border-2 border-blue-500 bg-blue-500" />
+                    ) : currentStep === 'welcome' ? (
+                      <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
+                    ) : (
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    )}
+                    <span className={`text-sm ${currentStep === 'upload' ? 'font-medium' : ''}`}>
+                      Upload
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-full border-2 border-blue-500 bg-blue-500" />
-                    <span className="text-sm font-medium">Score</span>
+                    {currentStep === 'score' ? (
+                      <div className="w-4 h-4 rounded-full border-2 border-blue-500 bg-blue-500" />
+                    ) : ['welcome', 'upload'].includes(currentStep) ? (
+                      <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
+                    ) : (
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    )}
+                    <span className={`text-sm ${currentStep === 'score' ? 'font-medium' : ''}`}>
+                      Score
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
-                    <span className="text-sm text-gray-500">Review</span>
+                    {currentStep === 'review' ? (
+                      <div className="w-4 h-4 rounded-full border-2 border-blue-500 bg-blue-500" />
+                    ) : ['welcome', 'upload', 'score'].includes(currentStep) ? (
+                      <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
+                    ) : (
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    )}
+                    <span className={`text-sm ${currentStep === 'review' ? 'font-medium' : ''}`}>
+                      Review
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
-                    <span className="text-sm text-gray-500">Integrate</span>
+                    {currentStep === 'integrate' ? (
+                      <div className="w-4 h-4 rounded-full border-2 border-blue-500 bg-blue-500" />
+                    ) : ['welcome', 'upload', 'score', 'review'].includes(currentStep) ? (
+                      <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
+                    ) : (
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    )}
+                    <span className={`text-sm ${currentStep === 'integrate' ? 'font-medium' : ''}`}>
+                      Integrate
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
-                    <span className="text-sm text-gray-500">Tour</span>
+                    {currentStep === 'tour' ? (
+                      <div className="w-4 h-4 rounded-full border-2 border-blue-500 bg-blue-500" />
+                    ) : ['welcome', 'upload', 'score', 'review', 'integrate'].includes(currentStep) ? (
+                      <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
+                    ) : (
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    )}
+                    <span className={`text-sm ${currentStep === 'tour' ? 'font-medium' : ''}`}>
+                      Tour
+                    </span>
                   </div>
                 </div>
               </div>
