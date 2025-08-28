@@ -561,6 +561,7 @@ const mockAssessment = {
 const Assessment = () => {
   const { setPrototypeState } = usePrototype();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   
   const [selectedCompetency, setSelectedCompetency] = useState<string | null>(null);
   const [evidenceModalOpen, setEvidenceModalOpen] = useState(false);
