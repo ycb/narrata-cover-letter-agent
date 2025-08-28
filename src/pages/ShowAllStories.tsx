@@ -309,12 +309,14 @@ export default function ShowAllStories() {
       <AddStoryModal
         open={isAddStoryModalOpen}
         onOpenChange={setIsAddStoryModalOpen}
-        roleId="default"
         onSave={(story) => {
           console.log("Story saved:", story);
           setIsAddStoryModalOpen(false);
         }}
         editingStory={editingStory}
+        isViewAllContext={true}
+        availableCompanies={companies}
+        availableRoles={roles}
       />
 
       {/* View Story Modal - Using existing StoryCard */}

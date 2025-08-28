@@ -15,13 +15,27 @@ import type { ExternalLink, WorkHistoryBlurb } from "@/types/workHistory";
 interface AddStoryModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  roleId: string;
+  roleId?: string; // Optional for View All context
   onSave: (content: any) => void;
   existingLinks?: ExternalLink[];
   editingStory?: WorkHistoryBlurb | null;
+  // For View All context where Company/Role need to be selected
+  isViewAllContext?: boolean;
+  availableCompanies?: string[];
+  availableRoles?: string[];
 }
 
-export function AddStoryModal({ open, onOpenChange, roleId, onSave, existingLinks = [], editingStory }: AddStoryModalProps) {
+export function AddStoryModal({ 
+  open, 
+  onOpenChange, 
+  roleId, 
+  onSave, 
+  existingLinks = [], 
+  editingStory,
+  isViewAllContext = false,
+  availableCompanies = [],
+  availableRoles = []
+}: AddStoryModalProps) {
   // Story state
   const [storyTitle, setStoryTitle] = useState(editingStory?.title || "");
   const [storyContent, setStoryContent] = useState(editingStory?.content || "");
@@ -30,6 +44,10 @@ export function AddStoryModal({ open, onOpenChange, roleId, onSave, existingLink
   const [storyTags, setStoryTags] = useState<string[]>(editingStory?.tags || []);
   const [storyTagInput, setStoryTagInput] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+  
+  // Company/Role selection state for View All context
+  const [selectedCompany, setSelectedCompany] = useState(editingStory?.company || "");
+  const [selectedRole, setSelectedRole] = useState(editingStory?.role || "");
   
   // Link picker state
   const [isLinkPickerOpen, setIsLinkPickerOpen] = useState(false);
@@ -44,6 +62,8 @@ export function AddStoryModal({ open, onOpenChange, roleId, onSave, existingLink
       setStoryOutcomeMetrics(editingStory.outcomeMetrics || []);
       setOutcomeMetricInput("");
       setStoryTags(editingStory.tags);
+      setSelectedCompany(editingStory.company || "");
+      setSelectedRole(editingStory.role || "");
     } else {
       // Reset form when not editing
       setStoryTitle("");
@@ -52,6 +72,8 @@ export function AddStoryModal({ open, onOpenChange, roleId, onSave, existingLink
       setOutcomeMetricInput("");
       setStoryTags([]);
       setSelectedTemplate("");
+      setSelectedCompany("");
+      setSelectedRole("");
     }
   }, [editingStory]);
 
@@ -79,6 +101,7 @@ export function AddStoryModal({ open, onOpenChange, roleId, onSave, existingLink
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validate required fields
     if (!storyTitle.trim() || !storyContent.trim()) {
       toast({
         title: "Missing information",
@@ -88,9 +111,19 @@ export function AddStoryModal({ open, onOpenChange, roleId, onSave, existingLink
       return;
     }
 
+    // Validate Company and Role for View All context
+    if (isViewAllContext && (!selectedCompany.trim() || !selectedRole.trim())) {
+      toast({
+        title: "Missing information",
+        description: "Please select both company and role for this story.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const storyData = {
       type: "story" as const,
-      roleId,
+      roleId: isViewAllContext ? undefined : roleId,
       title: storyTitle.trim(),
       content: storyContent.trim(),
       outcomeMetrics: storyOutcomeMetrics,
@@ -100,6 +133,11 @@ export function AddStoryModal({ open, onOpenChange, roleId, onSave, existingLink
       confidence: "medium" as const,
       timesUsed: 0,
       linkedExternalLinks: [],
+      // Include company and role for View All context
+      ...(isViewAllContext && {
+        company: selectedCompany.trim(),
+        role: selectedRole.trim()
+      })
     };
 
     onSave(storyData);
@@ -169,6 +207,43 @@ export function AddStoryModal({ open, onOpenChange, roleId, onSave, existingLink
                   </SelectContent>
                 </Select>
               </div>
+              
+              {/* Company and Role Selection for View All Context */}
+              {isViewAllContext && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="company">Company *</Label>
+                    <Select value={selectedCompany} onValueChange={setSelectedCompany}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select company" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableCompanies.map((company) => (
+                          <SelectItem key={company} value={company}>
+                            {company}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="role">Role *</Label>
+                    <Select value={selectedRole} onValueChange={setSelectedRole}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableRoles.map((role) => (
+                          <SelectItem key={role} value={role}>
+                            {role}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
               
               <div className="space-y-2">
                 <Label htmlFor="storyTitle">Story Title</Label>

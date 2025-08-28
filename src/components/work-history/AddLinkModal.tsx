@@ -10,18 +10,35 @@ import { useToast } from "@/hooks/use-toast";
 interface AddLinkModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  roleId: string;
+  roleId?: string; // Optional for View All context
   onSave: (content: any) => void;
   editingLink?: any;
+  // For View All context where Company/Role need to be selected
+  isViewAllContext?: boolean;
+  availableCompanies?: string[];
+  availableRoles?: string[];
 }
 
-export function AddLinkModal({ open, onOpenChange, roleId, onSave, editingLink }: AddLinkModalProps) {
+export function AddLinkModal({ 
+  open, 
+  onOpenChange, 
+  roleId, 
+  onSave, 
+  editingLink,
+  isViewAllContext = false,
+  availableCompanies = [],
+  availableRoles = []
+}: AddLinkModalProps) {
   // Link state
   const [linkLabel, setLinkLabel] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [linkType, setLinkType] = useState<"case-study" | "blog" | "portfolio" | "other">("blog");
   const [linkTags, setLinkTags] = useState<string[]>([]);
   const [linkTagInput, setLinkTagInput] = useState("");
+  
+  // Company/Role selection state for View All context
+  const [selectedCompany, setSelectedCompany] = useState(editingLink?.company || "");
+  const [selectedRole, setSelectedRole] = useState(editingLink?.role || "");
   
   const { toast } = useToast();
 
@@ -32,6 +49,8 @@ export function AddLinkModal({ open, onOpenChange, roleId, onSave, editingLink }
       setLinkUrl(editingLink.url || "");
       setLinkType(editingLink.type || "blog");
       setLinkTags(editingLink.tags || []);
+      setSelectedCompany(editingLink.company || "");
+      setSelectedRole(editingLink.role || "");
     } else {
       // Reset form when not editing
       setLinkLabel("");
@@ -39,6 +58,8 @@ export function AddLinkModal({ open, onOpenChange, roleId, onSave, editingLink }
       setLinkType("blog");
       setLinkTags([]);
       setLinkTagInput("");
+      setSelectedCompany("");
+      setSelectedRole("");
     }
   }, [editingLink]);
 
@@ -56,6 +77,7 @@ export function AddLinkModal({ open, onOpenChange, roleId, onSave, editingLink }
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validate required fields
     if (!linkLabel.trim() || !linkUrl.trim()) {
       toast({
         title: "Missing information",
@@ -65,14 +87,29 @@ export function AddLinkModal({ open, onOpenChange, roleId, onSave, editingLink }
       return;
     }
 
+    // Validate Company and Role for View All context
+    if (isViewAllContext && (!selectedCompany.trim() || !selectedRole.trim())) {
+      toast({
+        title: "Missing information",
+        description: "Please select both company and role for this link.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const linkData = {
       type: "link" as const,
-      roleId,
+      roleId: isViewAllContext ? undefined : roleId,
       label: linkLabel.trim(),
       url: linkUrl.trim(),
       linkType,
       tags: linkTags,
       timesUsed: 0,
+      // Include company and role for View All context
+      ...(isViewAllContext && {
+        company: selectedCompany.trim(),
+        role: selectedRole.trim()
+      })
     };
 
     onSave(linkData);
@@ -114,6 +151,45 @@ export function AddLinkModal({ open, onOpenChange, roleId, onSave, editingLink }
               placeholder="e.g., Product Strategy Framework - Medium Article"
             />
           </div>
+          
+          {/* Company and Role Selection for View All Context */}
+          {isViewAllContext && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="company">Company *</Label>
+                <select
+                  id="company"
+                  value={selectedCompany}
+                  onChange={(e) => setSelectedCompany(e.target.value)}
+                  className="w-full px-3 py-2 border border-input rounded-md bg-background"
+                >
+                  <option value="">Select company</option>
+                  {availableCompanies.map((company) => (
+                    <option key={company} value={company}>
+                      {company}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="role">Role *</Label>
+                <select
+                  id="role"
+                  value={selectedRole}
+                  onChange={(e) => setSelectedRole(e.target.value)}
+                  className="w-full px-3 py-2 border border-input rounded-md bg-background"
+                >
+                  <option value="">Select role</option>
+                  {availableRoles.map((role) => (
+                    <option key={role} value={role}>
+                      {role}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
           
           <div className="space-y-2">
             <Label htmlFor="linkUrl">URL</Label>

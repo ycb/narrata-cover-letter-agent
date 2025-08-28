@@ -314,12 +314,14 @@ export default function ShowAllLinks() {
       <AddLinkModal
         open={isAddLinkModalOpen}
         onOpenChange={setIsAddLinkModalOpen}
-        roleId="default"
         onSave={(link) => {
           console.log("Link saved:", link);
           setIsAddLinkModalOpen(false);
         }}
         editingLink={editingLink}
+        isViewAllContext={true}
+        availableCompanies={companies}
+        availableRoles={roles}
       />
 
       {/* View Link Modal - Using existing LinkCard */}
