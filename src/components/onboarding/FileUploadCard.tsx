@@ -154,22 +154,49 @@ export function FileUploadCard({
 
   const renderLinkedInUpload = () => (
     <div className="space-y-4">
-      <div className="space-y-2">
-        <Input
-          placeholder="https://linkedin.com/in/yourprofile"
-          value={linkedinUrl}
-          onChange={(e) => setLinkedinUrl(e.target.value)}
-          className="pr-20"
-        />
-        <Button
-          onClick={handleLinkedInSubmit}
-          disabled={!linkedinUrl.trim()}
-          className="w-full"
-        >
-          <LinkIcon className="h-4 w-4 mr-2" />
-          Connect Profile
-        </Button>
-      </div>
+      {!linkedinUrl ? (
+        <div className="space-y-2">
+          <Input
+            placeholder="https://linkedin.com/in/yourprofile"
+            value={linkedinUrl}
+            onChange={(e) => {
+              const url = e.target.value;
+              setLinkedinUrl(url);
+              // Auto-connect when a valid LinkedIn URL is entered
+              if (url.trim() && url.includes('linkedin.com/in/')) {
+                setTimeout(() => handleLinkedInSubmit(), 500); // Small delay for UX
+              }
+            }}
+            className="pr-20"
+          />
+          <Button
+            onClick={handleLinkedInSubmit}
+            disabled={!linkedinUrl.trim()}
+            className="w-full"
+          >
+            <LinkIcon className="h-4 w-4 mr-2" />
+            Connect Profile
+          </Button>
+        </div>
+      ) : (
+        <div className="border rounded-lg p-4 bg-green-50 border-green-200">
+          <div className="flex items-center gap-3">
+            <CheckCircle className="h-5 h-5 text-green-600" />
+            <div className="flex-1">
+              <p className="font-medium text-green-900">LinkedIn Profile Connected</p>
+              <p className="text-sm text-green-700">{linkedinUrl}</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setLinkedinUrl('')}
+              className="text-green-600 hover:text-green-700"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
       <p className="text-xs text-muted-foreground">
         We'll analyze your LinkedIn profile to understand your experience and skills.
       </p>
