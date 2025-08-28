@@ -20,6 +20,7 @@ import {
 import { SimpleContentReview } from "@/components/onboarding/SimpleContentReview";
 import { FileUploadCard } from "@/components/onboarding/FileUploadCard";
 import { ScoreReveal } from "@/components/onboarding/ScoreReveal";
+import { PMLevelPreview } from "@/components/onboarding/PMLevelPreview";
 
 type OnboardingStep = 'welcome' | 'upload' | 'score' | 'review' | 'integrate' | 'tour';
 
@@ -363,14 +364,68 @@ export default function NewUserOnboarding() {
           Your Content is Ready
         </h2>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          We've organized your imported content into structured objects.
+          We've organized your imported content into structured objects. Here's what you can do next:
         </p>
       </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* PM Level Preview */}
+        <div className="lg:col-span-2">
+          <PMLevelPreview
+            currentLevel={onboardingData.pmLevel}
+            confidence={onboardingData.confidence}
+            progress={onboardingData.progress}
+            onAddStory={() => {
+              console.log('Add story clicked');
+              // In a real app, this would navigate to the story creation flow
+            }}
+            onUnlock={() => {
+              console.log('PM Level unlocked');
+              // In a real app, this would trigger the PM Level assessment
+            }}
+          />
+        </div>
+
+        {/* Content Summary Cards */}
+        <Card className="border-2 border-dashed border-blue-200 bg-blue-50/50">
+          <CardHeader className="text-center">
+            <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
+              <Users className="w-6 h-6 text-blue-600" />
+            </div>
+            <CardTitle className="text-blue-900">Work History</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center space-y-3">
+            <p className="text-blue-800 text-sm">
+              Stories + Links extracted from your resume
+            </p>
+            <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+              {onboardingData.resume ? '3 Stories Found' : 'Upload Resume'}
+            </Badge>
+          </CardContent>
+        </Card>
+
+        <Card className="border-2 border-dashed border-purple-200 bg-purple-50/50">
+          <CardHeader className="text-center">
+            <div className="mx-auto w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mb-3">
+              <BookOpen className="w-6 h-6 text-purple-600" />
+            </div>
+            <CardTitle className="text-purple-900">Templates</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center space-y-3">
+            <p className="text-purple-800 text-sm">
+              Saved Sections from your cover letter
+            </p>
+            <Badge variant="secondary" className="bg-purple-100 text-purple-800">
+              {onboardingData.coverLetter ? '2 Sections Saved' : 'Add Cover Letter'}
+            </Badge>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="text-center">
-        <p className="text-gray-600 mb-4">Integrate step loaded successfully!</p>
-        <Button onClick={handleNextStep}>
+        <Button onClick={handleNextStep} size="lg">
           Continue to Tour
+          <ArrowRight className="ml-2 w-5 h-5" />
         </Button>
       </div>
     </div>
