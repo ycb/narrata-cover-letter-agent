@@ -96,31 +96,23 @@ export default function ShowAllSavedSections() {
   const roles = [...new Set(sections.map(s => s.role))];
   const types = [...new Set(sections.map(s => s.type))];
 
-  const filters: FilterOption[] = [
+  const sortOptions: SortOption[] = [
+    // Section types (no Work History association)
     ...types.map(type => ({ 
       label: type.charAt(0).toUpperCase() + type.slice(1), 
       value: type, 
-      count: sections.filter(s => s.type === type).length 
+      category: 'other' as const 
     })),
-    ...companies.map(company => ({ 
-      label: company, 
-      value: `company-${company}`, 
-      count: sections.filter(s => s.company === company).length 
+    // Tag options (no Work History association)
+    ...tags.map(tag => ({ 
+      label: tag, 
+      value: tag, 
+      category: 'tag' as const 
     })),
-    ...roles.map(role => ({ 
-      label: role, 
-      value: `role-${role}`, 
-      count: sections.filter(s => s.role === role).length 
-    }))
-  ];
-
-  const sortOptions: SortOption[] = [
-    { label: 'Section', value: 'title', category: 'other' },
-    { label: 'Company', value: 'company', category: 'company' },
-    { label: 'Role', value: 'role', category: 'role' },
-    { label: 'Type', value: 'type', category: 'other' },
-    { label: 'Content', value: 'content', category: 'other' },
-    { label: 'Date', value: 'date', category: 'other' }
+    // Other options
+    { label: 'Section', value: 'title', category: 'other' as const },
+    { label: 'Content', value: 'content', category: 'other' as const },
+    { label: 'Date', value: 'date', category: 'other' as const }
   ];
 
   const handleAddNew = () => {
@@ -300,7 +292,6 @@ export default function ShowAllSavedSections() {
         renderRow={renderRow}
         onAddNew={handleAddNew}
         addNewLabel="Add Section"
-        filters={filters}
         sortOptions={sortOptions}
         searchKeys={["title", "company", "role", "content"]}
         emptyStateMessage="No saved sections found. Create your first section to get started."

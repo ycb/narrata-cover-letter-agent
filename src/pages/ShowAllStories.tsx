@@ -92,44 +92,37 @@ export default function ShowAllStories() {
   const allTags = stories.flatMap(s => s.tags);
   const tags = [...new Set(allTags)];
 
-  const filters: FilterOption[] = [
-    { label: "High Impact", value: "high", count: stories.filter(s => s.impact === "high").length },
-    { label: "Medium Impact", value: "medium", count: stories.filter(s => s.impact === "medium").length },
-    { label: "Low Impact", value: "low", count: stories.filter(s => s.impact === "low").length },
+  const sortOptions: SortOption[] = [
+    // Company options - all companies from Work History
     ...companies.map(company => ({ 
       label: company, 
-      value: `company-${company}`, 
-      count: stories.filter(s => s.company === company).length 
+      value: company, 
+      category: 'company' as const 
     })),
+    // Role options - all roles from Work History
     ...roles.map(role => ({ 
       label: role, 
-      value: `role-${role}`, 
-      count: stories.filter(s => s.role === role).length 
+      value: role, 
+      category: 'role' as const 
     })),
+    // Tag options - all tags from Work History
     ...tags.map(tag => ({ 
       label: tag, 
-      value: `tag-${tag}`, 
-      count: stories.filter(s => s.tags.includes(tag)).length 
-    }))
-  ];
-
-  const sortOptions: SortOption[] = [
-    { label: 'Story', value: 'title', category: 'other' },
-    { label: 'Company', value: 'company', category: 'company' },
-    { label: 'Role', value: 'role', category: 'role' },
-    { label: 'Impact', value: 'impact', category: 'other' },
-    { label: 'Metrics', value: 'metrics', category: 'other' },
-    { label: 'Date', value: 'date', category: 'other' }
+      value: tag, 
+      category: 'tag' as const 
+    })),
+    // Other options
+    { label: 'Story', value: 'title', category: 'other' as const },
+    { label: 'Impact', value: 'impact', category: 'other' as const },
+    { label: 'Metrics', value: 'metrics', category: 'other' as const },
+    { label: 'Date', value: 'date', category: 'other' as const }
   ];
 
   const handleAddNew = () => {
     setIsAddStoryModalOpen(true);
   };
 
-  const handleFilterChange = (filter: string) => {
-    // TODO: Implement filter logic
-    console.log("Filter changed to:", filter);
-  };
+
 
   const handleEdit = (story: Story) => {
     setEditingStory(story);
@@ -307,9 +300,7 @@ export default function ShowAllStories() {
         renderRow={renderRow}
         onAddNew={handleAddNew}
         addNewLabel="Add Story"
-        filters={filters}
         sortOptions={sortOptions}
-        onFilterChange={handleFilterChange}
         searchKeys={["title", "company", "role", "metrics"]}
         emptyStateMessage="No stories found. Create your first story to get started."
       />

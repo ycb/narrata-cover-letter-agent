@@ -90,32 +90,37 @@ export default function ShowAllLinks() {
   const companies = [...new Set(links.map(l => l.company))];
   const roles = [...new Set(links.map(l => l.role))];
   const types = [...new Set(links.map(l => l.type))];
+  const allTags = links.flatMap(l => l.tags);
+  const tags = [...new Set(allTags)];
 
-  const filters: FilterOption[] = [
-    ...types.map(type => ({ 
-      label: type.charAt(0).toUpperCase() + type.slice(1), 
-      value: type, 
-      count: links.filter(l => l.type === type).length 
-    })),
-    ...companies.map(company => ({ 
-      label: company, 
-      value: `company-${company}`, 
-      count: links.filter(l => l.company === company).length 
-    })),
-    ...roles.map(role => ({ 
-      label: role, 
-      value: `role-${role}`, 
-      count: links.filter(l => l.role === role).length 
-    }))
-  ];
+
+
+
 
   const sortOptions: SortOption[] = [
-    { label: 'Link', value: 'title', category: 'other' },
-    { label: 'Company', value: 'company', category: 'company' },
-    { label: 'Role', value: 'role', category: 'role' },
-    { label: 'Type', value: 'type', category: 'other' },
-    { label: 'Description', value: 'description', category: 'other' },
-    { label: 'Date', value: 'date', category: 'other' }
+    // Company options - all companies from Work History
+    ...companies.map(company => ({ 
+      label: company, 
+      value: company, 
+      category: 'company' as const 
+    })),
+    // Role options - all roles from Work History
+    ...roles.map(role => ({ 
+      label: role, 
+      value: role, 
+      category: 'role' as const 
+    })),
+    // Tag options - all tags from Work History
+    ...tags.map(tag => ({ 
+      label: tag, 
+      value: tag, 
+      category: 'tag' as const 
+    })),
+    // Other options
+    { label: 'Link', value: 'title', category: 'other' as const },
+    { label: 'Type', value: 'type', category: 'other' as const },
+    { label: 'Description', value: 'description', category: 'other' as const },
+    { label: 'Date', value: 'date', category: 'other' as const }
   ];
 
   const handleAddNew = () => {
@@ -299,7 +304,7 @@ export default function ShowAllLinks() {
         renderRow={renderRow}
         onAddNew={handleAddNew}
         addNewLabel="Add Link"
-        filters={filters}
+
         sortOptions={sortOptions}
         searchKeys={["title", "company", "role", "description"]}
         emptyStateMessage="No external links found. Add your first link to get started."
