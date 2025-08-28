@@ -553,7 +553,28 @@ const mockAssessment = {
           description: "Need to develop platform and infrastructure mindset",
           suggestions: ["API design", "Developer experience", "Platform strategy", "Infrastructure products"]
         }
-      ]
+      ],
+      outcomeMetrics: {
+        roleLevel: [
+          "Limited platform strategy experience",
+          "No API design or developer tools",
+          "No infrastructure product management"
+        ],
+        storyLevel: [
+          "Basic product management focus",
+          "Feature delivery emphasis",
+          "User-facing product experience"
+        ],
+        analysis: {
+          totalMetrics: 3,
+          impactLevel: 'feature' as const,
+          keyAchievements: [
+            "General product management",
+            "Feature delivery",
+            "User product focus"
+          ]
+        }
+      }
     }
   }
 };
