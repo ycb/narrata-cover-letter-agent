@@ -82,7 +82,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
           <nav className="hidden md:flex">
             <div className="flex items-center gap-1">
               {/* Dashboard - Simple Link */}
-              <Link 
+                            <Link
                 to="/dashboard"
                 className={cn(
                   "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors hover:text-foreground",
@@ -116,7 +116,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                     <Link 
                       to="/show-all-stories" 
                       className={cn(
-                        "flex items-center justify-between px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                        "flex items-center justify-between px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
                         isWorkHistoryChild(location.pathname) && location.pathname.startsWith("/show-all-stories")
                           ? "font-bold text-foreground"
                           : "text-muted-foreground"
@@ -131,7 +131,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                     <Link 
                       to="/show-all-links" 
                       className={cn(
-                        "flex items-center justify-between px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                        "flex items-center justify-between px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
                         isWorkHistoryChild(location.pathname) && location.pathname.startsWith("/show-all-links")
                           ? "font-bold text-foreground"
                           : "text-muted-foreground"
@@ -168,7 +168,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                     <Link 
                       to="/show-all-saved-sections" 
                       className={cn(
-                        "flex items-center justify-between px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                        "flex items-center justify-between px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
                         isCoverLettersChild(location.pathname) && location.pathname.startsWith("/show-all-saved-sections")
                           ? "font-bold text-foreground"
                           : "text-muted-foreground"
@@ -183,7 +183,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                     <Link 
                       to="/cover-letter-template" 
                       className={cn(
-                        "flex items-center justify-between px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                        "flex items-center justify-between px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
                         isCoverLettersChild(location.pathname) && location.pathname.startsWith("/cover-letter-template")
                           ? "font-bold text-foreground"
                           : "text-muted-foreground"
@@ -217,18 +217,18 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 <div className="absolute top-full left-0 pt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
                   <div className="bg-background border rounded-lg shadow-lg p-3 min-w-80">
                     {/* Overall Level - Spans full width */}
-                    <Link 
-                      to="/assessment/overall-level" 
-                      className={cn(
-                        "flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors mb-3",
-                        isAssessmentChild(location.pathname) && location.pathname === "/assessment/overall-level"
-                          ? "font-bold text-foreground"
-                          : "text-muted-foreground"
-                      )}
-                    >
-                      <BarChart3 className="h-4 w-4" />
-                      Overall Level
-                    </Link>
+                               <Link
+             to="/assessment/overall-level"
+             className={cn(
+               "flex items-center justify-center gap-2 px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors mb-3 border border-blue-600 text-blue-600 group",
+               isAssessmentChild(location.pathname) && location.pathname === "/assessment/overall-level"
+                 ? "font-bold text-blue-600"
+                 : "text-blue-600"
+             )}
+           >
+             <BarChart3 className="h-4 w-4 transition-colors" />
+             Overall Level
+           </Link>
                     
                     {/* Two-column layout */}
                     <div className="grid grid-cols-2 gap-4">
@@ -241,7 +241,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                            <Link 
                              to="/assessment/competencies/execution" 
                              className={cn(
-                               "px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                               "block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
                                isAssessmentChild(location.pathname) && location.pathname === "/assessment/competencies/execution"
                                  ? "font-bold text-foreground"
                                  : "text-muted-foreground"
@@ -252,7 +252,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                            <Link 
                              to="/assessment/competencies/customer-insight" 
                              className={cn(
-                               "px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                               "block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
                                isAssessmentChild(location.pathname) && location.pathname === "/assessment/competencies/customer-insight"
                                  ? "font-bold text-foreground"
                                  : "text-muted-foreground"
@@ -263,7 +263,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                            <Link 
                              to="/assessment/competencies/strategy" 
                              className={cn(
-                               "px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                               "block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
                                isAssessmentChild(location.pathname) && location.pathname === "/assessment/competencies/strategy"
                                  ? "font-bold text-foreground"
                                  : "text-muted-foreground"
@@ -274,7 +274,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                            <Link 
                              to="/assessment/competencies/influence" 
                              className={cn(
-                               "px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                               "block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
                                isAssessmentChild(location.pathname) && location.pathname === "/assessment/competencies/influence"
                                  ? "font-bold text-foreground"
                                  : "text-muted-foreground"
@@ -294,7 +294,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                            <Link 
                              to="/assessment/specializations/growth" 
                              className={cn(
-                               "px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                               "block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
                                isAssessmentChild(location.pathname) && location.pathname === "/assessment/specializations/growth"
                                  ? "font-bold text-foreground"
                                  : "text-muted-foreground"
@@ -305,7 +305,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                            <Link 
                              to="/assessment/specializations/technical" 
                              className={cn(
-                               "px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                               "block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
                                isAssessmentChild(location.pathname) && location.pathname === "/assessment/specializations/technical"
                                  ? "font-bold text-foreground"
                                  : "text-muted-foreground"
@@ -316,7 +316,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                            <Link 
                              to="/assessment/specializations/founding" 
                              className={cn(
-                               "px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                               "block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
                                isAssessmentChild(location.pathname) && location.pathname === "/assessment/specializations/founding"
                                  ? "font-bold text-foreground"
                                  : "text-muted-foreground"
@@ -327,7 +327,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                            <Link 
                              to="/assessment/specializations/platform" 
                              className={cn(
-                               "px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                               "block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
                                isAssessmentChild(location.pathname) && location.pathname === "/assessment/specializations/platform"
                                  ? "font-bold text-foreground"
                                  : "text-muted-foreground"
