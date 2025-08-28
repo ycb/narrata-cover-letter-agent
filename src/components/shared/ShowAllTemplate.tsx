@@ -16,6 +16,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 export interface FilterOption {
   label: string;
@@ -221,7 +224,7 @@ export function ShowAllTemplate<T>({
                       </DropdownMenuContent>
                     </DropdownMenu>
 
-                    {/* Sort Dropdown */}
+                    {/* Single Sort/Fly-out Component */}
                     {sortOptions && sortOptions.length > 0 && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -235,90 +238,101 @@ export function ShowAllTemplate<T>({
                             )}
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-64">
-                          {/* Company Category */}
+                        <DropdownMenuContent align="end" className="w-72">
+                          {/* Company Fly-out */}
                           {sortOptions.some(s => s.category === 'company') && (
-                            <>
-                              <DropdownMenuItem className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide cursor-default">
-                                Company
-                              </DropdownMenuItem>
-                              {sortOptions
-                                .filter(s => s.category === 'company')
-                                .map((option) => (
-                                  <DropdownMenuItem 
-                                    key={option.value}
-                                    onClick={() => handleSort(option.value as keyof T)}
-                                    className="px-3 py-2"
-                                  >
-                                    <span className="flex-1">{option.label}</span>
-                                    {sortField === option.value && (
-                                      <span className="ml-2">
-                                        {sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                                      </span>
-                                    )}
-                                  </DropdownMenuItem>
-                                ))}
-                              <DropdownMenuSeparator />
-                            </>
+                            <DropdownMenu>
+                              <DropdownMenuSub>
+                                <DropdownMenuSubTrigger className="px-3 py-2">
+                                  <span className="flex-1 text-left">Company</span>
+                                  <ChevronDown className="h-4 w-4 ml-auto" />
+                                </DropdownMenuSubTrigger>
+                                <DropdownMenuSubContent className="w-48">
+                                  {sortOptions
+                                    .filter(s => s.category === 'company')
+                                    .map((option) => (
+                                      <DropdownMenuItem 
+                                        key={option.value}
+                                        onClick={() => handleSort(option.value as keyof T)}
+                                        className="px-3 py-2"
+                                      >
+                                        <span className="flex-1">{option.label}</span>
+                                        {sortField === option.value && (
+                                          <span className="ml-2">
+                                            {sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                          </span>
+                                        )}
+                                      </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuSubContent>
+                              </DropdownMenuSub>
+                            </DropdownMenu>
                           )}
 
-                          {/* Role Category */}
+                          {/* Role Fly-out */}
                           {sortOptions.some(s => s.category === 'role') && (
-                            <>
-                              <DropdownMenuItem className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide cursor-default">
-                                Role
-                              </DropdownMenuItem>
-                              {sortOptions
-                                .filter(s => s.category === 'role')
-                                .map((option) => (
-                                  <DropdownMenuItem 
-                                    key={option.value}
-                                    onClick={() => handleSort(option.value as keyof T)}
-                                    className="px-3 py-2"
-                                  >
-                                    <span className="flex-1">{option.label}</span>
-                                    {sortField === option.value && (
-                                      <span className="ml-2">
-                                        {sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                                      </span>
-                                    )}
-                                  </DropdownMenuItem>
-                                ))}
-                              <DropdownMenuSeparator />
-                            </>
+                            <DropdownMenu>
+                              <DropdownMenuSub>
+                                <DropdownMenuSubTrigger className="px-3 py-2">
+                                  <span className="flex-1 text-left">Role</span>
+                                  <ChevronDown className="h-4 w-4 ml-auto" />
+                                </DropdownMenuSubTrigger>
+                                <DropdownMenuSubContent className="w-48">
+                                  {sortOptions
+                                    .filter(s => s.category === 'role')
+                                    .map((option) => (
+                                      <DropdownMenuItem 
+                                        key={option.value}
+                                        onClick={() => handleSort(option.value as keyof T)}
+                                        className="px-3 py-2"
+                                      >
+                                        <span className="flex-1">{option.label}</span>
+                                        {sortField === option.value && (
+                                          <span className="ml-2">
+                                            {sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                          </span>
+                                        )}
+                                      </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuSubContent>
+                              </DropdownMenuSub>
+                            </DropdownMenu>
                           )}
 
-                          {/* Tag Category */}
+                          {/* Tags Fly-out */}
                           {sortOptions.some(s => s.category === 'tag') && (
-                            <>
-                              <DropdownMenuItem className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide cursor-default">
-                                Tags
-                              </DropdownMenuItem>
-                              {sortOptions
-                                .filter(s => s.category === 'tag')
-                                .map((option) => (
-                                  <DropdownMenuItem 
-                                    key={option.value}
-                                    onClick={() => handleSort(option.value as keyof T)}
-                                    className="px-3 py-2"
-                                  >
-                                    <span className="flex-1">{option.label}</span>
-                                    {sortField === option.value && (
-                                      <span className="ml-2">
-                                        {sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                                      </span>
-                                    )}
-                                  </DropdownMenuItem>
-                                ))}
-                            </>
+                            <DropdownMenu>
+                              <DropdownMenuSub>
+                                <DropdownMenuSubTrigger className="px-3 py-2">
+                                  <span className="flex-1 text-left">Tags</span>
+                                  <ChevronDown className="h-4 w-4 ml-auto" />
+                                </DropdownMenuSubTrigger>
+                                <DropdownMenuSubContent className="w-48">
+                                  {sortOptions
+                                    .filter(s => s.category === 'tag')
+                                    .map((option) => (
+                                      <DropdownMenuItem 
+                                        key={option.value}
+                                        onClick={() => handleSort(option.value as keyof T)}
+                                        className="px-3 py-2"
+                                      >
+                                        <span className="flex-1">{option.label}</span>
+                                        {sortField === option.value && (
+                                          <span className="ml-2">
+                                            {sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                          </span>
+                                        )}
+                                      </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuSubContent>
+                              </DropdownMenuSub>
+                            </DropdownMenu>
                           )}
 
-                          {/* Other Category */}
+                          {/* Other Options */}
                           {sortOptions.some(s => s.category === 'other') && (
                             <>
-                              <DropdownMenuItem className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide cursor-default">
-                                Other
-                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
                               {sortOptions
                                 .filter(s => s.category === 'other')
                                 .map((option) => (
