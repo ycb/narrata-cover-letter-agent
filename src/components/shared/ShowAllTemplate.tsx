@@ -79,7 +79,7 @@ export function ShowAllTemplate<T>({
         if (sortOptions) {
           return sortOptions.some(option => {
             if (option.value === activeFilter) {
-              // For company, role, and tag categories, we need to map to the correct field
+              // For company, role, tag, and section-type categories, we need to map to the correct field
               let fieldToCheck: keyof T;
               switch (option.category) {
                 case 'company':
@@ -90,6 +90,9 @@ export function ShowAllTemplate<T>({
                   break;
                 case 'tag':
                   fieldToCheck = 'tags' as keyof T;
+                  break;
+                case 'section-type':
+                  fieldToCheck = 'type' as keyof T;
                   break;
                 default:
                   fieldToCheck = option.value as keyof T;
@@ -305,6 +308,37 @@ export function ShowAllTemplate<T>({
                               </DropdownMenuItem>
                               {sortOptions
                                 .filter(s => s.category === 'tag')
+                                .map((option) => (
+                                  <DropdownMenuItem 
+                                    key={option.value}
+                                    onClick={() => handleFilterChange(option.value)}
+                                    className="px-3 py-2 hover:bg-blue-600 hover:text-white"
+                                  >
+                                    <span className="flex-1">{option.label}</span>
+                                  </DropdownMenuItem>
+                                ))}
+                            </DropdownMenuSubContent>
+                          </DropdownMenuSub>
+                        )}
+
+                        {/* Sections Fly-out */}
+                        {sortOptions.some(s => s.category === 'section-type') && (
+                          <DropdownMenuSub onOpenChange={(open) => setOpenSubmenu(open ? 'sections' : null)}>
+                            <DropdownMenuSubTrigger 
+                              className={`px-3 py-2 transition-colors ${
+                                openSubmenu === 'sections' 
+                                  ? 'bg-blue-600 text-white' 
+                                  : 'hover:bg-blue-600 hover:text-white'
+                              }`}
+                            >
+                              <span className="flex-1 text-left">Sections</span>
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent className="w-48">
+                              <DropdownMenuItem onClick={() => handleFilterChange("all")}>
+                                All Sections
+                              </DropdownMenuItem>
+                              {sortOptions
+                                .filter(s => s.category === 'section-type')
                                 .map((option) => (
                                   <DropdownMenuItem 
                                     key={option.value}

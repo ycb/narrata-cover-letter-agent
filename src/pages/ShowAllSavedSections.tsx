@@ -98,22 +98,18 @@ export default function ShowAllSavedSections() {
   const tags = [...new Set(sections.flatMap(s => s.tags))];
 
   const sortOptions: SortOption[] = [
-    // Section types (no Work History association)
+    // Section types
     ...types.map(type => ({ 
       label: type.charAt(0).toUpperCase() + type.slice(1), 
       value: type, 
-      category: 'other' as const 
+      category: 'section-type' as const 
     })),
-    // Tag options (no Work History association)
+    // Tag options
     ...tags.map(tag => ({ 
       label: tag, 
       value: tag, 
       category: 'tag' as const 
-    })),
-    // Other options
-    { label: 'Section', value: 'title', category: 'other' as const },
-    { label: 'Content', value: 'content', category: 'other' as const },
-    { label: 'Date', value: 'date', category: 'other' as const }
+    }))
   ];
 
   const handleAddNew = () => {
