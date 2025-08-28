@@ -226,105 +226,83 @@ export function ShowAllTemplate<T>({
                       <DropdownMenuContent align="end" className="w-72">
                         {/* Company Fly-out */}
                         {sortOptions.some(s => s.category === 'company') && (
-                          <DropdownMenu>
-                            <DropdownMenuSub>
-                              <DropdownMenuSubTrigger className="px-3 py-2 hover:bg-blue-600 hover:text-white">
-                                <span className="flex-1 text-left">Company</span>
-                                <ChevronRight className="h-4 w-4 ml-auto" />
-                              </DropdownMenuSubTrigger>
-                              <DropdownMenuSubContent className="w-48">
-                                <DropdownMenuItem onClick={() => handleFilterChange("all")}>
-                                  All Companies
-                                </DropdownMenuItem>
-                                {sortOptions
-                                  .filter(s => s.category === 'company')
-                                  .map((option) => (
-                                    <DropdownMenuItem 
-                                      key={option.value}
-                                      onClick={() => handleFilterChange(option.value)}
-                                      className="px-3 py-2 hover:bg-blue-600 hover:text-white"
-                                    >
-                                      <span className="flex-1">{option.label}</span>
-                                    </DropdownMenuItem>
-                                  ))}
-                              </DropdownMenuSubContent>
-                            </DropdownMenuSub>
-                          </DropdownMenu>
+                          <DropdownMenuSub>
+                            <DropdownMenuSubTrigger className="px-3 py-2 hover:bg-blue-600 hover:text-white">
+                              <span className="flex-1 text-left">Company</span>
+                              <ChevronRight className="h-4 w-4 ml-auto" />
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent className="w-48">
+                              <DropdownMenuItem onClick={() => handleFilterChange("all")}>
+                                All Companies
+                              </DropdownMenuItem>
+                              {sortOptions
+                                .filter(s => s.category === 'company')
+                                .map((option) => (
+                                  <DropdownMenuItem 
+                                    key={option.value}
+                                    onClick={() => handleFilterChange(option.value)}
+                                    className="px-3 py-2 hover:bg-blue-600 hover:text-white"
+                                  >
+                                    <span className="flex-1">{option.label}</span>
+                                  </DropdownMenuItem>
+                                ))}
+                            </DropdownMenuSubContent>
+                          </DropdownMenuSub>
                         )}
 
                         {/* Role Fly-out */}
                         {sortOptions.some(s => s.category === 'role') && (
-                          <DropdownMenu>
-                            <DropdownMenuSub>
-                              <DropdownMenuSubTrigger className="px-3 py-2 hover:bg-blue-600 hover:text-white">
-                                <span className="flex-1 text-left">Role</span>
-                                <ChevronRight className="h-4 w-4 ml-auto" />
-                              </DropdownMenuSubTrigger>
-                              <DropdownMenuSubContent className="w-48">
-                                <DropdownMenuItem onClick={() => handleFilterChange("all")}>
-                                  All Roles
-                                </DropdownMenuItem>
-                                {sortOptions
-                                  .filter(s => s.category === 'role')
-                                  .map((option) => (
-                                    <DropdownMenuItem 
-                                      key={option.value}
-                                      onClick={() => handleFilterChange(option.value)}
-                                      className="px-3 py-2 hover:bg-blue-600 hover:text-white"
-                                    >
-                                      <span className="flex-1">{option.label}</span>
-                                    </DropdownMenuItem>
-                                  ))}
-                              </DropdownMenuSubContent>
-                            </DropdownMenuSub>
-                          </DropdownMenu>
+                          <DropdownMenuSub>
+                            <DropdownMenuSubTrigger className="px-3 py-2 hover:bg-blue-600 hover:text-white">
+                              <span className="flex-1 text-left">Role</span>
+                              <ChevronRight className="h-4 w-4 ml-auto" />
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent className="w-48">
+                              <DropdownMenuItem onClick={() => handleFilterChange("all")}>
+                                All Roles
+                              </DropdownMenuItem>
+                              {sortOptions
+                                .filter(s => s.category === 'role')
+                                .map((option) => (
+                                  <DropdownMenuItem 
+                                    key={option.value}
+                                    onClick={() => handleFilterChange(option.value)}
+                                    className="px-3 py-2 hover:bg-blue-600 hover:text-white"
+                                  >
+                                    <span className="flex-1">{option.label}</span>
+                                  </DropdownMenuItem>
+                                ))}
+                            </DropdownMenuSubContent>
+                          </DropdownMenuSub>
                         )}
 
                         {/* Tags Fly-out */}
                         {sortOptions.some(s => s.category === 'tag') && (
-                          <DropdownMenu>
-                            <DropdownMenuSub>
-                              <DropdownMenuSubTrigger className="px-3 py-2 hover:bg-blue-600 hover:text-white">
-                                <span className="flex-1 text-left">Tags</span>
-                                <ChevronRight className="h-4 w-4 ml-auto" />
-                              </DropdownMenuSubTrigger>
-                              <DropdownMenuSubContent className="w-48">
-                                <DropdownMenuItem onClick={() => handleFilterChange("all")}>
-                                  All Tags
-                                </DropdownMenuItem>
-                                {sortOptions
-                                  .filter(s => s.category === 'tag')
-                                  .map((option) => (
-                                    <DropdownMenuItem 
-                                      key={option.value}
-                                      onClick={() => handleFilterChange(option.value)}
-                                      className="px-3 py-2 hover:bg-blue-600 hover:text-white"
-                                    >
-                                      <span className="flex-1">{option.label}</span>
-                                    </DropdownMenuItem>
-                                  ))}
-                              </DropdownMenuSubContent>
-                            </DropdownMenuSub>
-                          </DropdownMenu>
+                          <DropdownMenuSub>
+                            <DropdownMenuSubTrigger className="px-3 py-2 hover:bg-blue-600 hover:text-white">
+                              <span className="flex-1 text-left">Tags</span>
+                              <ChevronRight className="h-4 w-4 ml-auto" />
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent className="w-48">
+                              <DropdownMenuItem onClick={() => handleFilterChange("all")}>
+                                All Tags
+                              </DropdownMenuItem>
+                              {sortOptions
+                                .filter(s => s.category === 'tag')
+                                .map((option) => (
+                                  <DropdownMenuItem 
+                                    key={option.value}
+                                    onClick={() => handleFilterChange(option.value)}
+                                    className="px-3 py-2 hover:bg-blue-600 hover:text-white"
+                                  >
+                                    <span className="flex-1">{option.label}</span>
+                                  </DropdownMenuItem>
+                                ))}
+                            </DropdownMenuSubContent>
+                          </DropdownMenuSub>
                         )}
 
-                        {/* Other Options */}
-                        {sortOptions.some(s => s.category === 'other') && (
-                          <>
-                            <DropdownMenuSeparator />
-                            {sortOptions
-                              .filter(s => s.category === 'other')
-                              .map((option) => (
-                                <DropdownMenuItem 
-                                  key={option.value}
-                                  onClick={() => handleFilterChange(option.value)}
-                                  className="px-3 py-2 hover:bg-blue-600 hover:text-white"
-                                >
-                                  <span className="flex-1">{option.label}</span>
-                                </DropdownMenuItem>
-                              ))}
-                          </>
-                        )}
+
                       </DropdownMenuContent>
                     </DropdownMenu>
                     
