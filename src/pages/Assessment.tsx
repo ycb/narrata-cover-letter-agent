@@ -558,7 +558,11 @@ const mockAssessment = {
   }
 };
 
-const Assessment = () => {
+interface AssessmentProps {
+  initialSection?: string;
+}
+
+const Assessment = ({ initialSection }: AssessmentProps) => {
   const { setPrototypeState } = usePrototype();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -571,7 +575,32 @@ const Assessment = () => {
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [showLeadershipTrack, setShowLeadershipTrack] = useState(false);
 
-  // Handle URL parameters for navigation from Header
+  // Handle initialSection prop for direct navigation
+  useEffect(() => {
+    if (initialSection) {
+      if (initialSection === 'overall-level') {
+        handleShowLevelEvidence();
+      } else if (initialSection.startsWith('competency-')) {
+        const competencyName = initialSection.replace('competency-', '');
+        const competencyData = mockAssessment.competencies.find(
+          c => c.domain.toLowerCase().includes(competencyName.toLowerCase())
+        );
+        if (competencyData) {
+          handleShowEvidence(competencyData);
+        }
+      } else if (initialSection.startsWith('specialization-')) {
+        const specializationName = initialSection.replace('specialization-', '');
+        const specializationData = mockAssessment.roleArchetypes.find(
+          s => s.type.toLowerCase().includes(specializationName.toLowerCase())
+        );
+        if (specializationData) {
+          handleShowRoleEvidence(specializationData.type);
+        }
+      }
+    }
+  }, [initialSection]);
+
+  // Handle URL parameters for navigation from Header (legacy support)
   useEffect(() => {
     const competency = searchParams.get('competency');
     const specialization = searchParams.get('specialization');

@@ -184,7 +184,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 <div className="absolute top-full left-0 pt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
                   <div className="bg-background border rounded-lg shadow-lg p-2 min-w-56">
                     <Link 
-                      to="/assessment?level=overall" 
+                      to="/assessment/overall-level" 
                       className="flex items-center justify-between px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
                     >
                       <span className="flex items-center gap-2">
@@ -197,28 +197,28 @@ export const Header = ({ currentPage }: HeaderProps) => {
                       Competencies
                     </div>
                     <Link 
-                      to="/assessment?competency=execution" 
+                      to="/assessment/competencies/execution" 
                       className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
                     >
                       <Users className="h-4 w-4" />
                       Execution
                     </Link>
                     <Link 
-                      to="/assessment?competency=customer-insight" 
+                      to="/assessment/competencies/customer-insight" 
                       className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
                     >
                       <Users className="h-4 w-4" />
                       Customer Insight
                     </Link>
                     <Link 
-                      to="/assessment?competency=strategy" 
+                      to="/assessment/competencies/strategy" 
                       className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
                     >
                       <Users className="h-4 w-4" />
                       Strategy
                     </Link>
                     <Link 
-                      to="/assessment?competency=influence" 
+                      to="/assessment/competencies/influence" 
                       className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
                     >
                       <Users className="h-4 w-4" />
@@ -229,28 +229,28 @@ export const Header = ({ currentPage }: HeaderProps) => {
                       Specialization
                     </div>
                     <Link 
-                      to="/assessment?specialization=growth" 
+                      to="/assessment/specializations/growth" 
                       className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
                     >
                       <Lightbulb className="h-4 w-4" />
                       Growth
                     </Link>
                     <Link 
-                      to="/assessment?specialization=technical" 
+                      to="/assessment/specializations/technical" 
                       className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
                     >
                       <Lightbulb className="h-4 w-4" />
                       Technical
                     </Link>
                     <Link 
-                      to="/assessment?specialization=founding" 
+                      to="/assessment/specializations/founding" 
                       className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
                     >
                       <Lightbulb className="h-4 w-4" />
                       Founding
                     </Link>
                     <Link 
-                      to="/assessment?specialization=platform" 
+                      to="/assessment/specializations/platform" 
                       className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
                     >
                       <Lightbulb className="h-4 w-4" />

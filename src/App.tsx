@@ -61,6 +61,62 @@ function AppLayout() {
           </>
         } />
 
+        {/* Assessment Section Routes */}
+        <Route path="/assessment/overall-level" element={
+          <>
+            <Header />
+            <Assessment initialSection="overall-level" />
+          </>
+        } />
+        <Route path="/assessment/competencies/execution" element={
+          <>
+            <Header />
+            <Assessment initialSection="competency-execution" />
+          </>
+        } />
+        <Route path="/assessment/competencies/customer-insight" element={
+          <>
+            <Header />
+            <Assessment initialSection="competency-customer-insight" />
+          </>
+        } />
+        <Route path="/assessment/competencies/strategy" element={
+          <>
+            <Header />
+            <Assessment initialSection="competency-strategy" />
+          </>
+        } />
+        <Route path="/assessment/competencies/influence" element={
+          <>
+            <Header />
+            <Assessment initialSection="competency-influence" />
+          </>
+        } />
+        <Route path="/assessment/specializations/growth" element={
+          <>
+            <Header />
+            <Assessment initialSection="specialization-growth" />
+          </>
+        } />
+        <Route path="/assessment/specializations/technical" element={
+          <>
+            <Header />
+            <Assessment initialSection="specialization-technical" />
+          </>
+        } />
+        <Route path="/assessment/specializations/founding" element={
+          <>
+            <Header />
+            <Assessment initialSection="specialization-founding" />
+          </>
+        } />
+        <Route path="/assessment/specializations/platform" element={
+          <>
+            <Header />
+            <Assessment initialSection="specialization-platform" />
+          </>
+        } />
+
         <Route path="/hil-demo" element={
           <>
             <Header />
