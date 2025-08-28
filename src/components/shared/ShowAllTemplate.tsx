@@ -16,7 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ResizableTable, ResizableTableHeader, ResizableTableBody } from "./ResizableTable";
+// import { ResizableTable, ResizableTableHeader, ResizableTableBody } from "./ResizableTable";
 
 export interface FilterOption {
   label: string;
@@ -150,29 +150,8 @@ export function ShowAllTemplate<T>({
   const renderResizableHeader = () => {
     if (!columns) return renderHeader(handleSort, getSortIcon);
     
-    return (
-      <tr>
-        {columns.map((column) => (
-          <ResizableColumn
-            key={column.key}
-            minWidth={column.minWidth}
-            defaultWidth={column.defaultWidth}
-            className="text-left p-4 font-medium text-muted-foreground"
-          >
-            <div 
-              className={cn(
-                "flex items-center gap-2",
-                column.sortable && "cursor-pointer hover:bg-muted/30 transition-colors"
-              )}
-              onClick={() => column.sortable && handleSort(column.key as keyof T)}
-            >
-              {column.label}
-              {column.sortable && getSortIcon(column.key as keyof T)}
-            </div>
-          </ResizableColumn>
-        ))}
-      </tr>
-    );
+    // For now, fall back to the original header to debug the white screen
+    return renderHeader(handleSort, getSortIcon);
   };
 
   return (
@@ -266,12 +245,12 @@ export function ShowAllTemplate<T>({
           {/* Table */}
           <Card className="shadow-soft">
             <CardContent className="p-0">
-              <ResizableTable>
+              <div className="overflow-x-auto">
                 <table className="w-full">
-                  <ResizableTableHeader>
+                  <thead className="bg-muted/50">
                     {renderResizableHeader()}
-                  </ResizableTableHeader>
-                  <ResizableTableBody>
+                  </thead>
+                  <tbody>
                     {isLoading ? (
                       <tr>
                         <td colSpan={100} className="p-8 text-center text-muted-foreground">
@@ -287,9 +266,9 @@ export function ShowAllTemplate<T>({
                     ) : (
                       filteredData.map((item, index) => renderRow(item, index))
                     )}
-                  </ResizableTableBody>
+                  </tbody>
                 </table>
-              </ResizableTable>
+              </div>
             </CardContent>
           </Card>
         </div>
