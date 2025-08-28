@@ -215,125 +215,137 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 
                 {/* Hover Dropdown */}
                 <div className="absolute top-full left-0 pt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
-                  <div className="bg-background border rounded-lg shadow-lg p-2 min-w-56">
+                  <div className="bg-background border rounded-lg shadow-lg p-3 min-w-80">
+                    {/* Overall Level - Spans full width */}
                     <Link 
                       to="/assessment/overall-level" 
                       className={cn(
-                        "flex items-center justify-between px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                        "flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors mb-3",
                         isAssessmentChild(location.pathname) && location.pathname === "/assessment/overall-level"
                           ? "font-bold text-foreground"
                           : "text-muted-foreground"
                       )}
                     >
-                      <span className="flex items-center gap-2">
-                        <BarChart3 className="h-4 w-4" />
-                        Overall Level
-                      </span>
+                      <BarChart3 className="h-4 w-4" />
+                      Overall Level
                     </Link>
                     
-                    <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                      Competencies
+                    {/* Two-column layout */}
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Left Column - Competencies */}
+                      <div>
+                        <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                          Competencies
+                        </div>
+                        <div className="space-y-1">
+                          <Link 
+                            to="/assessment/competencies/execution" 
+                            className={cn(
+                              "flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                              isAssessmentChild(location.pathname) && location.pathname === "/assessment/competencies/execution"
+                                ? "font-bold text-foreground"
+                                : "text-muted-foreground"
+                            )}
+                          >
+                            <Users className="h-4 w-4" />
+                            Execution
+                          </Link>
+                          <Link 
+                            to="/assessment/competencies/customer-insight" 
+                            className={cn(
+                              "flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                              isAssessmentChild(location.pathname) && location.pathname === "/assessment/competencies/customer-insight"
+                                ? "font-bold text-foreground"
+                                : "text-muted-foreground"
+                            )}
+                          >
+                            <Users className="h-4 w-4" />
+                            Customer Insight
+                          </Link>
+                          <Link 
+                            to="/assessment/competencies/strategy" 
+                            className={cn(
+                              "flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                              isAssessmentChild(location.pathname) && location.pathname === "/assessment/competencies/strategy"
+                                ? "font-bold text-foreground"
+                                : "text-muted-foreground"
+                            )}
+                          >
+                            <Users className="h-4 w-4" />
+                            Strategy
+                          </Link>
+                          <Link 
+                            to="/assessment/competencies/influence" 
+                            className={cn(
+                              "flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                              isAssessmentChild(location.pathname) && location.pathname === "/assessment/competencies/influence"
+                                ? "font-bold text-foreground"
+                                : "text-muted-foreground"
+                            )}
+                          >
+                            <Users className="h-4 w-4" />
+                            Influence
+                          </Link>
+                        </div>
+                      </div>
+                      
+                      {/* Right Column - Specializations */}
+                      <div>
+                        <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                          Specialization
+                        </div>
+                        <div className="space-y-1">
+                          <Link 
+                            to="/assessment/specializations/growth" 
+                            className={cn(
+                              "flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                              isAssessmentChild(location.pathname) && location.pathname === "/assessment/specializations/growth"
+                                ? "font-bold text-foreground"
+                                : "text-muted-foreground"
+                            )}
+                          >
+                            <Lightbulb className="h-4 w-4" />
+                            Growth
+                          </Link>
+                          <Link 
+                            to="/assessment/specializations/technical" 
+                            className={cn(
+                              "flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                              isAssessmentChild(location.pathname) && location.pathname === "/assessment/specializations/technical"
+                                ? "font-bold text-foreground"
+                                : "text-muted-foreground"
+                            )}
+                          >
+                            <Lightbulb className="h-4 w-4" />
+                            Technical
+                          </Link>
+                          <Link 
+                            to="/assessment/specializations/founding" 
+                            className={cn(
+                              "flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                              isAssessmentChild(location.pathname) && location.pathname === "/assessment/specializations/founding"
+                                ? "font-bold text-foreground"
+                                : "text-muted-foreground"
+                            )}
+                          >
+                            <Lightbulb className="h-4 w-4" />
+                            Founding
+                          </Link>
+                          <Link 
+                            to="/assessment/specializations/platform" 
+                            className={cn(
+                              "flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                              isAssessmentChild(location.pathname) && location.pathname === "/assessment/specializations/platform"
+                                ? "font-bold text-foreground"
+                                : "text-muted-foreground"
+                            )}
+                          >
+                            <Lightbulb className="h-4 w-4" />
+                            Platform
+                          </Link>
+                        </div>
+                      </div>
                     </div>
-                    <Link 
-                      to="/assessment/competencies/execution" 
-                      className={cn(
-                        "flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
-                        isAssessmentChild(location.pathname) && location.pathname === "/assessment/competencies/execution"
-                          ? "font-bold text-foreground"
-                          : "text-muted-foreground"
-                      )}
-                    >
-                      <Users className="h-4 w-4" />
-                      Execution
-                    </Link>
-                    <Link 
-                      to="/assessment/competencies/customer-insight" 
-                      className={cn(
-                        "flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
-                        isAssessmentChild(location.pathname) && location.pathname === "/assessment/competencies/customer-insight"
-                          ? "font-bold text-foreground"
-                          : "text-muted-foreground"
-                      )}
-                    >
-                      <Users className="h-4 w-4" />
-                      Customer Insight
-                    </Link>
-                    <Link 
-                      to="/assessment/competencies/strategy" 
-                      className={cn(
-                        "flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
-                        isAssessmentChild(location.pathname) && location.pathname === "/assessment/competencies/strategy"
-                          ? "font-bold text-foreground"
-                          : "text-muted-foreground"
-                      )}
-                    >
-                      <Users className="h-4 w-4" />
-                      Strategy
-                    </Link>
-                    <Link 
-                      to="/assessment/competencies/influence" 
-                      className={cn(
-                        "flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
-                        isAssessmentChild(location.pathname) && location.pathname === "/assessment/competencies/influence"
-                          ? "font-bold text-foreground"
-                          : "text-muted-foreground"
-                      )}
-                    >
-                      <Users className="h-4 w-4" />
-                      Influence
-                    </Link>
-                    
-                    <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                      Specialization
-                    </div>
-                    <Link 
-                      to="/assessment/specializations/growth" 
-                      className={cn(
-                        "flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
-                        isAssessmentChild(location.pathname) && location.pathname === "/assessment/specializations/growth"
-                          ? "font-bold text-foreground"
-                          : "text-muted-foreground"
-                      )}
-                    >
-                      <Lightbulb className="h-4 w-4" />
-                      Growth
-                    </Link>
-                    <Link 
-                      to="/assessment/specializations/technical" 
-                      className={cn(
-                        "flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
-                        isAssessmentChild(location.pathname) && location.pathname === "/assessment/specializations/technical"
-                          ? "font-bold text-foreground"
-                          : "text-muted-foreground"
-                      )}
-                    >
-                      <Lightbulb className="h-4 w-4" />
-                      Technical
-                    </Link>
-                    <Link 
-                      to="/assessment/specializations/founding" 
-                      className={cn(
-                        "flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
-                        isAssessmentChild(location.pathname) && location.pathname === "/assessment/specializations/founding"
-                          ? "font-bold text-foreground"
-                          : "text-muted-foreground"
-                      )}
-                    >
-                      <Lightbulb className="h-4 w-4" />
-                      Founding
-                    </Link>
-                    <Link 
-                      to="/assessment/specializations/platform" 
-                      className={cn(
-                        "flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
-                        isAssessmentChild(location.pathname) && location.pathname === "/assessment/specializations/platform"
-                          ? "font-bold text-foreground"
-                          : "text-muted-foreground"
-                      )}
-                    >
-                      <Lightbulb className="h-4 w-4" />
-                      Platform
-                    </Link>
                   </div>
                 </div>
               </div>
