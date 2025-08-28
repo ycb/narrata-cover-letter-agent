@@ -45,14 +45,19 @@ export default function NewUserOnboarding() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleNextStep = () => {
+    console.log('handleNextStep called, current step:', currentStep);
+    
     switch (currentStep) {
       case 'welcome':
+        console.log('Moving from welcome to upload');
         setCurrentStep('upload');
         break;
       case 'upload':
+        console.log('Moving from upload to review');
         // Simulate processing
         setIsProcessing(true);
         setTimeout(() => {
+          console.log('Processing complete, setting review step');
           setOnboardingData(prev => ({
             ...prev,
             pmLevel: 'Product Manager (Mid-Level)',
@@ -64,15 +69,20 @@ export default function NewUserOnboarding() {
         }, 2000);
         break;
       case 'review':
+        console.log('Moving from review to integrate');
         setCurrentStep('integrate');
         break;
       case 'integrate':
+        console.log('Moving from integrate to tour');
         setCurrentStep('tour');
         break;
       case 'tour':
+        console.log('Moving to dashboard');
         // Navigate to dashboard
         window.location.href = '/dashboard';
         break;
+      default:
+        console.log('Unknown step in handleNextStep:', currentStep);
     }
   };
 
@@ -316,44 +326,12 @@ export default function NewUserOnboarding() {
         </p>
       </div>
 
-      <SimpleContentReview
-        items={[
-          {
-            id: 'resume-1',
-            type: 'resume',
-            title: 'Resume Content',
-            content: 'Extracted 6 roles and 14 achievements with high confidence',
-            quality: 'high',
-            details: ['6 roles found', '14 achievements extracted', 'Quantifiable results detected'],
-            suggestions: [],
-            icon: FileText
-          },
-          {
-            id: 'linkedin-1',
-            type: 'linkedin',
-            title: 'LinkedIn Profile',
-            content: 'Extracted 4 roles and 8 skills with complete date information',
-            quality: 'high',
-            details: ['4 roles found', '8 skills identified', 'Complete date information available'],
-            suggestions: [],
-            icon: Users
-          },
-          {
-            id: 'coverletter-1',
-            type: 'coverLetter',
-            title: 'Cover Letter Sections',
-            content: 'Segmented into 3 sections with 2 stories and 1 case study detected',
-            quality: 'medium',
-            details: ['3 sections identified', '2 stories extracted', '1 case study detected'],
-            suggestions: ['Add quantifiable results to strengthen achievements'],
-            icon: Mail
-          }
-        ]}
-        onReviewComplete={(keptItems) => {
-          console.log('Kept items:', keptItems);
-          handleNextStep();
-        }}
-      />
+      <div className="text-center">
+        <p className="text-gray-600 mb-4">Review step loaded successfully!</p>
+        <Button onClick={handleNextStep}>
+          Continue to Next Step
+        </Button>
+      </div>
     </div>
   );
 
@@ -364,61 +342,14 @@ export default function NewUserOnboarding() {
           Your Content is Ready
         </h2>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          We've organized your imported content into structured objects. 
-          Here's what you'll have access to:
+          We've organized your imported content into structured objects.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="border-2 border-dashed border-blue-200 bg-blue-50/50">
-          <CardHeader className="text-center">
-            <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
-              <Users className="w-6 h-6 text-blue-600" />
-            </div>
-            <CardTitle className="text-blue-900">Work History</CardTitle>
-          </CardHeader>
-          <CardContent className="text-center space-y-3">
-            <p className="text-blue-800 text-sm">
-              Structured roles and companies from your resume and LinkedIn
-            </p>
-            <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-              4 Companies, 6 Roles
-            </Badge>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 border-dashed border-purple-200 bg-purple-50/50">
-          <CardHeader className="text-center">
-            <div className="mx-auto w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mb-3">
-              <BookOpen className="w-6 h-6 text-purple-600" />
-            </div>
-            <CardTitle className="text-purple-900">Templates</CardTitle>
-          </CardHeader>
-          <CardContent className="text-center space-y-3">
-            <p className="text-purple-800 text-sm">
-              Reusable cover letter sections and story templates
-            </p>
-            <Badge variant="secondary" className="bg-purple-100 text-purple-800">
-              3 Sections, 2 Stories
-            </Badge>
-          </CardContent>
-        </Card>
-      </div>
-
-      <PMLevelPreview
-        storiesCount={2}
-        storiesNeeded={3}
-        onAddStory={() => console.log('Add story clicked')}
-      />
-
       <div className="text-center">
-        <Button 
-          size="lg" 
-          onClick={handleNextStep}
-          className="px-8 py-3 text-lg"
-        >
+        <p className="text-gray-600 mb-4">Integrate step loaded successfully!</p>
+        <Button onClick={handleNextStep}>
           Continue to Tour
-          <ArrowRight className="ml-2 w-5 h-5" />
         </Button>
       </div>
     </div>
@@ -435,36 +366,47 @@ export default function NewUserOnboarding() {
         </p>
       </div>
 
-      <CTADeck />
-
-      <div className="text-center pt-6">
-        <Button 
-          size="lg" 
-          variant="secondary"
-          onClick={handleNextStep}
-          className="px-8 py-3 text-lg"
-        >
+      <div className="text-center">
+        <p className="text-gray-600 mb-4">Tour step loaded successfully!</p>
+        <Button onClick={handleNextStep}>
           Go to Dashboard
-          <ArrowRight className="ml-2 w-5 h-5" />
         </Button>
       </div>
     </div>
   );
 
   const renderCurrentStep = () => {
-    switch (currentStep) {
-      case 'welcome':
-        return renderWelcomeStep();
-      case 'upload':
-        return renderUploadStep();
-      case 'review':
-        return renderReviewStep();
-      case 'integrate':
-        return renderIntegrateStep();
-      case 'tour':
-        return renderTourStep();
-      default:
-        return renderWelcomeStep();
+    console.log('Current step:', currentStep);
+    console.log('Onboarding data:', onboardingData);
+    
+    try {
+      switch (currentStep) {
+        case 'welcome':
+          return renderWelcomeStep();
+        case 'upload':
+          return renderUploadStep();
+        case 'review':
+          return renderReviewStep();
+        case 'integrate':
+          return renderIntegrateStep();
+        case 'tour':
+          return renderTourStep();
+        default:
+          console.log('Unknown step, defaulting to welcome');
+          return renderWelcomeStep();
+      }
+    } catch (error) {
+      console.error('Error rendering step:', error);
+      return (
+        <div className="text-center space-y-4">
+          <h2 className="text-2xl font-bold text-red-600">Error Loading Step</h2>
+          <p className="text-gray-600">Current step: {currentStep}</p>
+          <p className="text-gray-600">Error: {error.message}</p>
+          <Button onClick={() => setCurrentStep('welcome')}>
+            Return to Welcome
+          </Button>
+        </div>
+      );
     }
   };
 
