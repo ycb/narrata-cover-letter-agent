@@ -66,6 +66,7 @@ export function ShowAllTemplate<T>({
   const [activeFilter, setActiveFilter] = useState("all");
   const [sortField, setSortField] = useState<keyof T | null>(null);
   const [sortDirection] = useState<'asc' | 'desc'>('asc');
+  const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
 
   // Filter and search data
   const filteredData = useMemo(() => {
@@ -226,8 +227,14 @@ export function ShowAllTemplate<T>({
                       <DropdownMenuContent align="end" className="w-72">
                         {/* Company Fly-out */}
                         {sortOptions.some(s => s.category === 'company') && (
-                          <DropdownMenuSub>
-                            <DropdownMenuSubTrigger className="px-3 py-2 hover:bg-blue-600 hover:text-white">
+                          <DropdownMenuSub onOpenChange={(open) => setOpenSubmenu(open ? 'company' : null)}>
+                            <DropdownMenuSubTrigger 
+                              className={`px-3 py-2 transition-colors ${
+                                openSubmenu === 'company' 
+                                  ? 'bg-blue-600 text-white' 
+                                  : 'hover:bg-blue-600 hover:text-white'
+                              }`}
+                            >
                               <span className="flex-1 text-left">Company</span>
                               <ChevronRight className="h-4 w-4 ml-auto" />
                             </DropdownMenuSubTrigger>
@@ -252,8 +259,14 @@ export function ShowAllTemplate<T>({
 
                         {/* Role Fly-out */}
                         {sortOptions.some(s => s.category === 'role') && (
-                          <DropdownMenuSub>
-                            <DropdownMenuSubTrigger className="px-3 py-2 hover:bg-blue-600 hover:text-white">
+                          <DropdownMenuSub onOpenChange={(open) => setOpenSubmenu(open ? 'role' : null)}>
+                            <DropdownMenuSubTrigger 
+                              className={`px-3 py-2 transition-colors ${
+                                openSubmenu === 'role' 
+                                  ? 'bg-blue-600 text-white' 
+                                  : 'hover:bg-blue-600 hover:text-white'
+                              }`}
+                            >
                               <span className="flex-1 text-left">Role</span>
                               <ChevronRight className="h-4 w-4 ml-auto" />
                             </DropdownMenuSubTrigger>
@@ -278,8 +291,14 @@ export function ShowAllTemplate<T>({
 
                         {/* Tags Fly-out */}
                         {sortOptions.some(s => s.category === 'tag') && (
-                          <DropdownMenuSub>
-                            <DropdownMenuSubTrigger className="px-3 py-2 hover:bg-blue-600 hover:text-white">
+                          <DropdownMenuSub onOpenChange={(open) => setOpenSubmenu(open ? 'tags' : null)}>
+                            <DropdownMenuSubTrigger 
+                              className={`px-3 py-2 transition-colors ${
+                                openSubmenu === 'tags' 
+                                  ? 'bg-blue-600 text-white' 
+                                  : 'hover:bg-blue-600 hover:text-white'
+                              }`}
+                            >
                               <span className="flex-1 text-left">Tags</span>
                               <ChevronRight className="h-4 w-4 ml-auto" />
                             </DropdownMenuSubTrigger>
