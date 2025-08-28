@@ -35,6 +35,8 @@ import {
 import CoverLetterCreateModal from "@/components/cover-letters/CoverLetterCreateModal";
 import { CoverLetterViewModal } from "@/components/cover-letters/CoverLetterViewModal";
 import { CoverLetterEditModal } from "@/components/cover-letters/CoverLetterEditModal";
+import { useTour } from "@/contexts/TourContext";
+import { TourBanner } from "@/components/onboarding/TourBanner";
 
 // Mock data for cover letters
 const mockCoverLetters = [
@@ -189,6 +191,9 @@ export default function CoverLetters() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedCoverLetter, setSelectedCoverLetter] = useState<any>(null);
   const [coverLetters, setCoverLetters] = useState(mockCoverLetters);
+  
+  // Tour integration
+  const { isActive: isTourActive, currentStep: tourStep, tourSteps, nextStep, previousStep, cancelTour } = useTour();
 
   // Filter cover letters based on search and status
   const filteredCoverLetters = coverLetters.filter(letter => {
@@ -520,6 +525,19 @@ export default function CoverLetters() {
         onClose={() => setIsEditModalOpen(false)}
         coverLetter={selectedCoverLetter}
       />
+      
+      {/* Tour Banner */}
+      {isTourActive && (
+        <TourBanner
+          currentStep={tourStep}
+          totalSteps={tourSteps.length}
+          onNext={nextStep}
+          onPrevious={previousStep}
+          onCancel={cancelTour}
+          canGoNext={tourStep < tourSteps.length - 1}
+          canGoPrevious={tourStep > 0}
+        />
+      )}
     </div>
   );
 }

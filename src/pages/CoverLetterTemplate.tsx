@@ -19,6 +19,8 @@ import { SectionInsertButton } from "@/components/template-blurbs/SectionInsertB
 import type { CoverLetterSection, CoverLetterTemplate, WorkHistoryBlurb } from "@/types/workHistory";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { useTour } from "@/contexts/TourContext";
+import { TourBanner } from "@/components/onboarding/TourBanner";
 
 // Mock template blurbs library
 const mockTemplateBlurbs: TemplateBlurb[] = [
@@ -274,6 +276,9 @@ export default function CoverLetterTemplate() {
   const [selectedRole, setSelectedRole] = useState<string>('');
   const [selectedReusableType, setSelectedReusableType] = useState<string>('');
   const [selectedContent, setSelectedContent] = useState<any>(null);
+  
+  // Tour integration
+  const { isActive: isTourActive, currentStep: tourStep, tourSteps, nextStep, previousStep, cancelTour } = useTour();
 
   // Handle URL parameter for initial tab
   useEffect(() => {
@@ -1417,6 +1422,19 @@ export default function CoverLetterTemplate() {
             </div>
           </div>
         </div>
+      )}
+      
+      {/* Tour Banner */}
+      {isTourActive && (
+        <TourBanner
+          currentStep={tourStep}
+          totalSteps={tourSteps.length}
+          onNext={nextStep}
+          onPrevious={previousStep}
+          onCancel={cancelTour}
+          canGoNext={tourStep < tourSteps.length - 1}
+          canGoPrevious={tourStep > 0}
+        />
       )}
     </div>
   );

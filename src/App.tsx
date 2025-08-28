@@ -165,11 +165,11 @@ const App = () => (
       <Toaster />
       <Sonner />
       <PrototypeProvider>
-        <TourProvider>
-          <BrowserRouter>
+        <BrowserRouter>
+          <TourProvider>
             <AppLayout />
-          </BrowserRouter>
-        </TourProvider>
+          </TourProvider>
+        </BrowserRouter>
       </PrototypeProvider>
     </TooltipProvider>
   </QueryClientProvider>

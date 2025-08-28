@@ -32,7 +32,7 @@ const DEFAULT_TOUR_STEPS: TourStep[] = [
   },
   {
     id: 'templates',
-    path: '/templates',
+    path: '/cover-letter-template',
     title: 'Templates & Saved Sections',
     description: 'Your cover letter has been broken down into editable, reusable sections.',
     highlights: ['Templates', 'Saved Sections']
