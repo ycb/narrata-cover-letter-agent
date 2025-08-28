@@ -11,7 +11,8 @@ import {
   MoreHorizontal,
   Eye,
   Building2,
-  User
+  User,
+  X
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -300,9 +301,20 @@ export default function ShowAllSavedSections() {
               <div className="p-6">
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-2xl font-bold">Section Details</h2>
-                  <Button variant="outline" onClick={() => setIsViewModalOpen(false)}>
-                    Close
-                  </Button>
+                  <div className="flex items-center gap-3">
+                    <Button onClick={() => handleEdit(viewingSection)}>
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit Section
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => setIsViewModalOpen(false)}
+                      className="h-8 w-8"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
                 <StoryCard
                   story={{
