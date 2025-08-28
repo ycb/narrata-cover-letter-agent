@@ -8,7 +8,8 @@ import {
   Plus, 
   Filter,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ChevronRight
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -77,7 +78,23 @@ export function ShowAllTemplate<T>({
         if (sortOptions) {
           return sortOptions.some(option => {
             if (option.value === activeFilter) {
-              const itemValue = item[option.value as keyof T];
+              // For company, role, and tag categories, we need to map to the correct field
+              let fieldToCheck: keyof T;
+              switch (option.category) {
+                case 'company':
+                  fieldToCheck = 'company' as keyof T;
+                  break;
+                case 'role':
+                  fieldToCheck = 'role' as keyof T;
+                  break;
+                case 'tag':
+                  fieldToCheck = 'tags' as keyof T;
+                  break;
+                default:
+                  fieldToCheck = option.value as keyof T;
+              }
+              
+              const itemValue = item[fieldToCheck];
               if (typeof itemValue === 'string') {
                 return itemValue === option.label;
               }
@@ -193,125 +210,136 @@ export function ShowAllTemplate<T>({
                 
                 {/* Single Filter Fly-out Component */}
                 {sortOptions && sortOptions.length > 0 && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <Filter className="h-4 w-4 mr-2" />
-                        Filter
-                        {activeFilter !== "all" && (
-                          <Badge variant="secondary" className="ml-2">
-                            {activeFilter === "all" ? "All" : activeFilter}
-                          </Badge>
+                  <div className="flex gap-2">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <Filter className="h-4 w-4 mr-2" />
+                          Filter
+                          {activeFilter !== "all" && (
+                            <Badge variant="secondary" className="ml-2">
+                              {activeFilter}
+                            </Badge>
+                          )}
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-72">
+                        {/* Company Fly-out */}
+                        {sortOptions.some(s => s.category === 'company') && (
+                          <DropdownMenu>
+                            <DropdownMenuSub>
+                              <DropdownMenuSubTrigger className="px-3 py-2 hover:bg-blue-600 hover:text-white">
+                                <span className="flex-1 text-left">Company</span>
+                                <ChevronRight className="h-4 w-4 ml-auto" />
+                              </DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent className="w-48">
+                                <DropdownMenuItem onClick={() => handleFilterChange("all")}>
+                                  All Companies
+                                </DropdownMenuItem>
+                                {sortOptions
+                                  .filter(s => s.category === 'company')
+                                  .map((option) => (
+                                    <DropdownMenuItem 
+                                      key={option.value}
+                                      onClick={() => handleFilterChange(option.value)}
+                                      className="px-3 py-2 hover:bg-blue-600 hover:text-white"
+                                    >
+                                      <span className="flex-1">{option.label}</span>
+                                    </DropdownMenuItem>
+                                  ))}
+                              </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+                          </DropdownMenu>
                         )}
+
+                        {/* Role Fly-out */}
+                        {sortOptions.some(s => s.category === 'role') && (
+                          <DropdownMenu>
+                            <DropdownMenuSub>
+                              <DropdownMenuSubTrigger className="px-3 py-2 hover:bg-blue-600 hover:text-white">
+                                <span className="flex-1 text-left">Role</span>
+                                <ChevronRight className="h-4 w-4 ml-auto" />
+                              </DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent className="w-48">
+                                <DropdownMenuItem onClick={() => handleFilterChange("all")}>
+                                  All Roles
+                                </DropdownMenuItem>
+                                {sortOptions
+                                  .filter(s => s.category === 'role')
+                                  .map((option) => (
+                                    <DropdownMenuItem 
+                                      key={option.value}
+                                      onClick={() => handleFilterChange(option.value)}
+                                      className="px-3 py-2 hover:bg-blue-600 hover:text-white"
+                                    >
+                                      <span className="flex-1">{option.label}</span>
+                                    </DropdownMenuItem>
+                                  ))}
+                              </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+                          </DropdownMenu>
+                        )}
+
+                        {/* Tags Fly-out */}
+                        {sortOptions.some(s => s.category === 'tag') && (
+                          <DropdownMenu>
+                            <DropdownMenuSub>
+                              <DropdownMenuSubTrigger className="px-3 py-2 hover:bg-blue-600 hover:text-white">
+                                <span className="flex-1 text-left">Tags</span>
+                                <ChevronRight className="h-4 w-4 ml-auto" />
+                              </DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent className="w-48">
+                                <DropdownMenuItem onClick={() => handleFilterChange("all")}>
+                                  All Tags
+                                </DropdownMenuItem>
+                                {sortOptions
+                                  .filter(s => s.category === 'tag')
+                                  .map((option) => (
+                                    <DropdownMenuItem 
+                                      key={option.value}
+                                      onClick={() => handleFilterChange(option.value)}
+                                      className="px-3 py-2 hover:bg-blue-600 hover:text-white"
+                                    >
+                                      <span className="flex-1">{option.label}</span>
+                                    </DropdownMenuItem>
+                                  ))}
+                              </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+                          </DropdownMenu>
+                        )}
+
+                        {/* Other Options */}
+                        {sortOptions.some(s => s.category === 'other') && (
+                          <>
+                            <DropdownMenuSeparator />
+                            {sortOptions
+                              .filter(s => s.category === 'other')
+                              .map((option) => (
+                                <DropdownMenuItem 
+                                  key={option.value}
+                                  onClick={() => handleFilterChange(option.value)}
+                                  className="px-3 py-2 hover:bg-blue-600 hover:text-white"
+                                >
+                                  <span className="flex-1">{option.label}</span>
+                                </DropdownMenuItem>
+                              ))}
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    
+                    {/* Clear Filters Button */}
+                    {activeFilter !== "all" && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleFilterChange("all")}
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        Clear
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-72">
-                      {/* Company Fly-out */}
-                      {sortOptions.some(s => s.category === 'company') && (
-                        <DropdownMenu>
-                          <DropdownMenuSub>
-                            <DropdownMenuSubTrigger className="px-3 py-2">
-                              <span className="flex-1 text-left">Company</span>
-                              <ChevronDown className="h-4 w-4 ml-auto" />
-                            </DropdownMenuSubTrigger>
-                            <DropdownMenuSubContent className="w-48">
-                              <DropdownMenuItem onClick={() => handleFilterChange("all")}>
-                                All Companies
-                              </DropdownMenuItem>
-                              {sortOptions
-                                .filter(s => s.category === 'company')
-                                .map((option) => (
-                                  <DropdownMenuItem 
-                                    key={option.value}
-                                    onClick={() => handleFilterChange(option.value)}
-                                    className="px-3 py-2"
-                                  >
-                                    <span className="flex-1">{option.label}</span>
-                                  </DropdownMenuItem>
-                                ))}
-                            </DropdownMenuSubContent>
-                          </DropdownMenuSub>
-                        </DropdownMenu>
-                      )}
-
-                      {/* Role Fly-out */}
-                      {sortOptions.some(s => s.category === 'role') && (
-                        <DropdownMenu>
-                          <DropdownMenuSub>
-                            <DropdownMenuSubTrigger className="px-3 py-2">
-                              <span className="flex-1 text-left">Role</span>
-                              <ChevronDown className="h-4 w-4 ml-auto" />
-                            </DropdownMenuSubTrigger>
-                            <DropdownMenuSubContent className="w-48">
-                              <DropdownMenuItem onClick={() => handleFilterChange("all")}>
-                                All Roles
-                              </DropdownMenuItem>
-                              {sortOptions
-                                .filter(s => s.category === 'role')
-                                .map((option) => (
-                                  <DropdownMenuItem 
-                                    key={option.value}
-                                    onClick={() => handleFilterChange(option.value)}
-                                    className="px-3 py-2"
-                                  >
-                                    <span className="flex-1">{option.label}</span>
-                                  </DropdownMenuItem>
-                                ))}
-                            </DropdownMenuSubContent>
-                          </DropdownMenuSub>
-                        </DropdownMenu>
-                      )}
-
-                      {/* Tags Fly-out */}
-                      {sortOptions.some(s => s.category === 'tag') && (
-                        <DropdownMenu>
-                          <DropdownMenuSub>
-                            <DropdownMenuSubTrigger className="px-3 py-2">
-                              <span className="flex-1 text-left">Tags</span>
-                              <ChevronDown className="h-4 w-4 ml-auto" />
-                            </DropdownMenuSubTrigger>
-                            <DropdownMenuSubContent className="w-48">
-                              <DropdownMenuItem onClick={() => handleFilterChange("all")}>
-                                All Tags
-                              </DropdownMenuItem>
-                              {sortOptions
-                                .filter(s => s.category === 'tag')
-                                .map((option) => (
-                                  <DropdownMenuItem 
-                                    key={option.value}
-                                    onClick={() => handleFilterChange(option.value)}
-                                    className="px-3 py-2"
-                                  >
-                                    <span className="flex-1">{option.label}</span>
-                                  </DropdownMenuItem>
-                                ))}
-                            </DropdownMenuSubContent>
-                          </DropdownMenuSub>
-                        </DropdownMenu>
-                      )}
-
-                      {/* Other Options */}
-                      {sortOptions.some(s => s.category === 'other') && (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => handleFilterChange("all")}>
-                            All Items
-                          </DropdownMenuItem>
-                          {sortOptions
-                            .filter(s => s.category === 'other')
-                            .map((option) => (
-                              <DropdownMenuItem 
-                                key={option.value}
-                                onClick={() => handleFilterChange(option.value)}
-                                className="px-3 py-2"
-                              >
-                                <span className="flex-1">{option.label}</span>
-                              </DropdownMenuItem>
-                            ))}
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                    )}
+                  </div>
                 )}
               </div>
             </CardContent>
