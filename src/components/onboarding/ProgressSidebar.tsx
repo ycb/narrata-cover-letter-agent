@@ -4,7 +4,6 @@ import { Badge } from "@/components/ui/badge";
 import { 
   CheckCircle, 
   Circle, 
-  Trophy, 
   Target,
   Upload,
   FileText,
@@ -16,21 +15,20 @@ import {
 } from "lucide-react";
 
 interface ProgressSidebarProps {
-  currentStep: 'welcome' | 'upload' | 'score' | 'library' | 'next-steps';
-  pmLevel?: string;
-  confidence?: number;
-  progress?: number;
+  currentStep: 'welcome' | 'upload' | 'review' | 'integrate' | 'tour';
+  onboardingData?: any;
+  onAddStory?: () => void;
 }
 
 const steps = [
   { id: 'welcome', label: 'Welcome', icon: Lightbulb },
   { id: 'upload', label: 'Upload Content', icon: Upload },
-  { id: 'score', label: 'PM Level', icon: Trophy },
-  { id: 'library', label: 'Library Setup', icon: BookOpen },
-  { id: 'next-steps', label: 'Next Steps', icon: Target }
+  { id: 'review', label: 'Review Content', icon: FileText },
+  { id: 'integrate', label: 'Integrate & Preview', icon: BookOpen },
+  { id: 'tour', label: 'Product Tour', icon: Target }
 ];
 
-export function ProgressSidebar({ currentStep, pmLevel, confidence, progress }: ProgressSidebarProps) {
+export function ProgressSidebar({ currentStep, onboardingData, onAddStory }: ProgressSidebarProps) {
   const getStepIcon = (stepId: string) => {
     const step = steps.find(s => s.id === stepId);
     if (!step) return Circle;
@@ -59,15 +57,7 @@ export function ProgressSidebar({ currentStep, pmLevel, confidence, progress }: 
     return 'upcoming';
   };
 
-  const getLevelColor = (level?: string) => {
-    if (!level) return 'bg-muted text-muted-foreground';
-    
-    if (level.includes('Senior') || level.includes('GPM')) return 'bg-green-100 text-green-800';
-    if (level.includes('Mid-Level') || level.includes('PM')) return 'bg-blue-100 text-blue-800';
-    if (level.includes('Junior') || level.includes('APM')) return 'bg-yellow-100 text-yellow-800';
-    
-    return 'bg-muted text-muted-foreground';
-  };
+
 
   return (
     <div className="space-y-6">
@@ -108,41 +98,7 @@ export function ProgressSidebar({ currentStep, pmLevel, confidence, progress }: 
       </Card>
 
       {/* PM Level Score */}
-      {pmLevel && (
-        <Card className="shadow-soft border-2 border-blue-200 bg-blue-50/50">
-          <CardHeader className="text-center pb-3">
-            <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
-              <Trophy className="w-6 h-6 text-blue-600" />
-            </div>
-            <CardTitle className="text-blue-900 text-lg">Your PM Level</CardTitle>
-          </CardHeader>
-          <CardContent className="text-center space-y-4">
-            <Badge className={`text-lg px-4 py-2 ${getLevelColor(pmLevel)}`}>
-              {pmLevel}
-            </Badge>
-            
-            {confidence && (
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-blue-700">Confidence</span>
-                  <span className="text-blue-700 font-medium">{confidence}%</span>
-                </div>
-                <Progress value={confidence} className="h-2" />
-              </div>
-            )}
-            
-            {progress && (
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-blue-700">Profile Complete</span>
-                  <span className="text-blue-700 font-medium">{progress}%</span>
-                </div>
-                <Progress value={progress} className="h-2" />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+
 
       {/* Upload Status */}
       <Card className="shadow-soft">
@@ -154,7 +110,7 @@ export function ProgressSidebar({ currentStep, pmLevel, confidence, progress }: 
             <FileText className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm">Resume</span>
             <Badge variant="secondary" className="ml-auto">
-              {pmLevel ? '✓ Uploaded' : 'Required'}
+              {onboardingData?.resume ? '✓ Uploaded' : 'Required'}
             </Badge>
           </div>
           
@@ -162,7 +118,7 @@ export function ProgressSidebar({ currentStep, pmLevel, confidence, progress }: 
             <Linkedin className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm">LinkedIn</span>
             <Badge variant="secondary" className="ml-auto">
-              {pmLevel ? '✓ Connected' : 'Required'}
+              {onboardingData?.linkedinUrl ? '✓ Connected' : 'Required'}
             </Badge>
           </div>
           
@@ -170,7 +126,7 @@ export function ProgressSidebar({ currentStep, pmLevel, confidence, progress }: 
             <Mail className="w-4 h-4 text-muted-foreground" />
             <span className="text-sm">Cover Letter</span>
             <Badge variant="secondary" className="ml-auto">
-              {pmLevel ? '✓ Added' : 'Required'}
+              {(onboardingData?.coverLetter || onboardingData?.coverLetterFile) ? '✓ Added' : 'Required'}
             </Badge>
           </div>
           
