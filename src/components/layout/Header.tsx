@@ -50,6 +50,19 @@ export const Header = ({ currentPage }: HeaderProps) => {
     return "";
   };
 
+  // Helper functions to check if specific routes are active
+  const isWorkHistoryChild = (pathname: string): boolean => {
+    return pathname.startsWith("/show-all-stories") || pathname.startsWith("/show-all-links");
+  };
+
+  const isCoverLettersChild = (pathname: string): boolean => {
+    return pathname.startsWith("/show-all-saved-sections") || pathname.startsWith("/cover-letter-template");
+  };
+
+  const isAssessmentChild = (pathname: string): boolean => {
+    return pathname.startsWith("/assessment/") && pathname !== "/assessment";
+  };
+
   const activePage = getCurrentPage(location.pathname);
 
   return (
@@ -102,7 +115,12 @@ export const Header = ({ currentPage }: HeaderProps) => {
                   <div className="bg-background border rounded-lg shadow-lg p-2 min-w-48">
                     <Link 
                       to="/show-all-stories" 
-                      className="flex items-center justify-between px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
+                      className={cn(
+                        "flex items-center justify-between px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                        isWorkHistoryChild(location.pathname) && location.pathname.startsWith("/show-all-stories")
+                          ? "font-bold text-foreground"
+                          : "text-muted-foreground"
+                      )}
                     >
                       <span className="flex items-center gap-2">
                         <FileText className="h-4 w-4" />
@@ -112,7 +130,12 @@ export const Header = ({ currentPage }: HeaderProps) => {
                     </Link>
                     <Link 
                       to="/show-all-links" 
-                      className="flex items-center justify-between px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
+                      className={cn(
+                        "flex items-center justify-between px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                        isWorkHistoryChild(location.pathname) && location.pathname.startsWith("/show-all-links")
+                          ? "font-bold text-foreground"
+                          : "text-muted-foreground"
+                      )}
                     >
                       <span className="flex items-center gap-2">
                         <LinkIcon className="h-4 w-4" />
@@ -144,7 +167,12 @@ export const Header = ({ currentPage }: HeaderProps) => {
                   <div className="bg-background border rounded-lg shadow-lg p-2 min-w-48">
                     <Link 
                       to="/show-all-saved-sections" 
-                      className="flex items-center justify-between px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
+                      className={cn(
+                        "flex items-center justify-between px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                        isCoverLettersChild(location.pathname) && location.pathname.startsWith("/show-all-saved-sections")
+                          ? "font-bold text-foreground"
+                          : "text-muted-foreground"
+                      )}
                     >
                       <span className="flex items-center gap-2">
                         <BookOpen className="h-4 w-4" />
@@ -154,7 +182,12 @@ export const Header = ({ currentPage }: HeaderProps) => {
                     </Link>
                     <Link 
                       to="/cover-letter-template" 
-                      className="flex items-center justify-between px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
+                      className={cn(
+                        "flex items-center justify-between px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                        isCoverLettersChild(location.pathname) && location.pathname.startsWith("/cover-letter-template")
+                          ? "font-bold text-foreground"
+                          : "text-muted-foreground"
+                      )}
                     >
                       <span className="flex items-center gap-2">
                         <LayoutTemplate className="h-4 w-4" />
@@ -185,7 +218,12 @@ export const Header = ({ currentPage }: HeaderProps) => {
                   <div className="bg-background border rounded-lg shadow-lg p-2 min-w-56">
                     <Link 
                       to="/assessment/overall-level" 
-                      className="flex items-center justify-between px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
+                      className={cn(
+                        "flex items-center justify-between px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                        isAssessmentChild(location.pathname) && location.pathname === "/assessment/overall-level"
+                          ? "font-bold text-foreground"
+                          : "text-muted-foreground"
+                      )}
                     >
                       <span className="flex items-center gap-2">
                         <BarChart3 className="h-4 w-4" />
@@ -198,28 +236,48 @@ export const Header = ({ currentPage }: HeaderProps) => {
                     </div>
                     <Link 
                       to="/assessment/competencies/execution" 
-                      className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                        isAssessmentChild(location.pathname) && location.pathname === "/assessment/competencies/execution"
+                          ? "font-bold text-foreground"
+                          : "text-muted-foreground"
+                      )}
                     >
                       <Users className="h-4 w-4" />
                       Execution
                     </Link>
                     <Link 
                       to="/assessment/competencies/customer-insight" 
-                      className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                        isAssessmentChild(location.pathname) && location.pathname === "/assessment/competencies/customer-insight"
+                          ? "font-bold text-foreground"
+                          : "text-muted-foreground"
+                      )}
                     >
                       <Users className="h-4 w-4" />
                       Customer Insight
                     </Link>
                     <Link 
                       to="/assessment/competencies/strategy" 
-                      className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                        isAssessmentChild(location.pathname) && location.pathname === "/assessment/competencies/strategy"
+                          ? "font-bold text-foreground"
+                          : "text-muted-foreground"
+                      )}
                     >
                       <Users className="h-4 w-4" />
                       Strategy
                     </Link>
                     <Link 
                       to="/assessment/competencies/influence" 
-                      className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                        isAssessmentChild(location.pathname) && location.pathname === "/assessment/competencies/influence"
+                          ? "font-bold text-foreground"
+                          : "text-muted-foreground"
+                      )}
                     >
                       <Users className="h-4 w-4" />
                       Influence
@@ -230,28 +288,48 @@ export const Header = ({ currentPage }: HeaderProps) => {
                     </div>
                     <Link 
                       to="/assessment/specializations/growth" 
-                      className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                        isAssessmentChild(location.pathname) && location.pathname === "/assessment/specializations/growth"
+                          ? "font-bold text-foreground"
+                          : "text-muted-foreground"
+                      )}
                     >
                       <Lightbulb className="h-4 w-4" />
                       Growth
                     </Link>
                     <Link 
                       to="/assessment/specializations/technical" 
-                      className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                        isAssessmentChild(location.pathname) && location.pathname === "/assessment/specializations/technical"
+                          ? "font-bold text-foreground"
+                          : "text-muted-foreground"
+                      )}
                     >
                       <Lightbulb className="h-4 w-4" />
                       Technical
                     </Link>
                     <Link 
                       to="/assessment/specializations/founding" 
-                      className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                        isAssessmentChild(location.pathname) && location.pathname === "/assessment/specializations/founding"
+                          ? "font-bold text-foreground"
+                          : "text-muted-foreground"
+                      )}
                     >
                       <Lightbulb className="h-4 w-4" />
                       Founding
                     </Link>
                     <Link 
                       to="/assessment/specializations/platform" 
-                      className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors"
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted rounded-md transition-colors",
+                        isAssessmentChild(location.pathname) && location.pathname === "/assessment/specializations/platform"
+                          ? "font-bold text-foreground"
+                          : "text-muted-foreground"
+                      )}
                     >
                       <Lightbulb className="h-4 w-4" />
                       Platform
