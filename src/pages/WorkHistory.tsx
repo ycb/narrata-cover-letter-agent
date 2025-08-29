@@ -14,6 +14,7 @@ import { usePrototype } from "@/contexts/PrototypeContext";
 import { useTour } from "@/contexts/TourContext";
 import { TourBanner } from "@/components/onboarding/TourBanner";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Plus } from "lucide-react";
 import type { WorkHistoryCompany, WorkHistoryRole, WorkHistoryBlurb } from "@/types/workHistory";
 
