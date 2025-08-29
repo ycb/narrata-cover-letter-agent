@@ -45,22 +45,22 @@ export function TourBanner({
             <Button
               variant="outline"
               size="sm"
+              onClick={onCancel}
+              className="px-3"
+            >
+              <X className="w-4 h-4 mr-1" />
+              Exit Tour
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
               onClick={onPrevious}
               disabled={!canGoPrevious}
               className="px-3"
             >
               <ArrowLeft className="w-4 h-4 mr-1" />
               Back
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onCancel}
-              className="px-3"
-            >
-              <X className="w-4 h-4 mr-1" />
-              Exit Tour
             </Button>
 
             <Button

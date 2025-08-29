@@ -209,9 +209,10 @@ export default function WorkHistory() {
   
   // Auto-select first company on page load (no role selected initially)
   const firstCompany = workHistory.length > 0 ? workHistory[0] : null;
+  const firstRole = firstCompany?.roles[0] || null;
   
   const [selectedCompany, setSelectedCompany] = useState<WorkHistoryCompany | null>(firstCompany);
-  const [selectedRole, setSelectedRole] = useState<WorkHistoryRole | null>(null);
+  const [selectedRole, setSelectedRole] = useState<WorkHistoryRole | null>(firstRole);
   
   // Track which company should be expanded in the accordion
   const [expandedCompanyId, setExpandedCompanyId] = useState<string | null>(firstCompany?.id || null);
@@ -237,6 +238,28 @@ export default function WorkHistory() {
 
   // Handle URL parameters for initial navigation
   const [initialTab, setInitialTab] = useState<'role' | 'stories' | 'links'>('role');
+  
+  // Auto-advance through tabs during tour
+  useEffect(() => {
+    if (isTourActive && workHistory.length > 0) {
+      const tabs: ('role' | 'stories' | 'links')[] = ['role', 'stories', 'links'];
+      let currentTabIndex = 0;
+      
+      const advanceTab = () => {
+        if (currentTabIndex < tabs.length) {
+          setInitialTab(tabs[currentTabIndex]);
+          currentTabIndex++;
+          
+          if (currentTabIndex < tabs.length) {
+            setTimeout(advanceTab, 3000); // 3 second delay
+          }
+        }
+      };
+      
+      // Start with role tab, then auto-advance
+      setTimeout(advanceTab, 3000);
+    }
+  }, [isTourActive, workHistory.length]);
   
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -351,6 +374,17 @@ export default function WorkHistory() {
         <div>
           <p className="text-muted-foreground description-spacing">Summarize impact with metrics, stories and links</p>
         </div>
+
+        {/* Tour Text */}
+        {isTourActive && (
+          <Card className="bg-blue-50 border-blue-200 mb-6">
+            <CardContent className="pt-6">
+              <p className="text-blue-900 text-center font-medium">
+                Your work history is organized by roles and stories. Showing your work via external links can strengthen your cover letters.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
 
 

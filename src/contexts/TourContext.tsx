@@ -27,22 +27,22 @@ const DEFAULT_TOUR_STEPS: TourStep[] = [
     id: 'work-history',
     path: '/work-history',
     title: 'Work History & Stories',
-    description: 'Your uploaded content has been organized into reusable stories and links.',
-    highlights: ['Stories', 'Links']
+    description: 'Your work history is organized by roles and stories. Showing your work via external links can strengthen your cover letters.',
+    highlights: ['Roles', 'Stories', 'Links']
   },
   {
-    id: 'templates',
+    id: 'edit-template',
     path: '/cover-letter-template',
-    title: 'Templates & Saved Sections',
-    description: 'Your cover letter has been broken down into editable, reusable sections.',
-    highlights: ['Templates', 'Saved Sections']
+    title: 'Edit Template & Saved Sections',
+    description: 'Your template is used to create a first draft. Choose between static or dynamic content. Saved Sections is your library of cover letter content.',
+    highlights: ['Template', 'Saved Sections']
   },
   {
     id: 'cover-letters',
     path: '/cover-letters',
     title: 'Cover Letter Generator',
-    description: 'Start creating targeted cover letters using your approved content.',
-    highlights: ['Generator', 'Templates']
+    description: 'Creating new cover letters and tracking progress has never been easier!',
+    highlights: ['Generator', 'Progress']
   }
 ];
 
@@ -88,8 +88,8 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const completeTour = useCallback(() => {
     setIsActive(false);
     setCurrentStep(0);
-    // Navigate to main dashboard
-    navigate('/dashboard');
+    // Navigate to new user dashboard
+    navigate('/new-user-dashboard');
   }, [navigate]);
 
   const value: TourContextType = {

@@ -14,6 +14,7 @@ import CoverLetters from "./pages/CoverLetters";
 import CoverLetterTemplate from "./pages/CoverLetterTemplate";
 import Assessment from "./pages/Assessment";
 import OnboardingDashboard from "./pages/OnboardingDashboard";
+import NewUserDashboard from "./pages/NewUserDashboard";
 
 import { HILDemo } from "./pages/HILDemo";
 import ShowAllStories from "./pages/ShowAllStories";
@@ -146,6 +147,7 @@ function AppLayout() {
         } />
         <Route path="/new-user" element={<NewUserOnboarding />} />
         <Route path="/onboarding-dashboard" element={<OnboardingDashboard />} />
+        <Route path="/new-user-dashboard" element={<NewUserDashboard />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/signin" element={<SignIn />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
