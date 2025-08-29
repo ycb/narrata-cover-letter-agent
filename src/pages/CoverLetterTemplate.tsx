@@ -288,6 +288,16 @@ export default function CoverLetterTemplate() {
     }
   }, [searchParams]);
 
+  // Auto-advance through tabs during tour
+  useEffect(() => {
+    if (isTourActive) {
+      // Start on template tab, then switch to saved sections after 3 seconds
+      setTimeout(() => {
+        setActiveTab('saved');
+      }, 3000);
+    }
+  }, [isTourActive]);
+
   const getBlurbTitleByContent = (content: string, sectionType: string) => {
     const blurb = mockTemplateBlurbs.find(b => b.content === content && b.type === sectionType);
     return blurb?.title || 'Custom Content';
@@ -590,6 +600,17 @@ export default function CoverLetterTemplate() {
                 </div>
               </div>
             </div>
+            
+            {/* Tour Text */}
+            {isTourActive && (
+              <Card className="bg-purple-50 border-purple-200 mb-6">
+                <CardContent className="pt-6">
+                  <p className="text-purple-900 text-center font-medium">
+                    Your template is used to create a first draft. Choose between static or dynamic content. Saved Sections is your library of cover letter content.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
             
             {/* Content Area */}
             <div>

@@ -285,6 +285,17 @@ export default function CoverLetters() {
             </div>
           </div>
 
+          {/* Tour Text */}
+          {isTourActive && (
+            <Card className="bg-green-50 border-green-200 mb-6">
+              <CardContent className="pt-6">
+                <p className="text-green-900 text-center font-medium">
+                  Creating new cover letters and tracking progress has never been easier!
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Stats Overview */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
             <Card className="shadow-soft">
