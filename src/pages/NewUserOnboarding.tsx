@@ -21,7 +21,7 @@ import { ContentReviewFlow } from "@/components/onboarding/ContentReviewFlow";
 import { FileUploadCard } from "@/components/onboarding/FileUploadCard";
 import { useTour } from "@/contexts/TourContext";
 
-type OnboardingStep = 'welcome' | 'upload' | 'review' | 'tour';
+type OnboardingStep = 'welcome' | 'upload' | 'review';
 
 interface OnboardingData {
   resume?: File;
@@ -102,13 +102,9 @@ export default function NewUserOnboarding() {
         }, 1500); // Slightly longer for content processing
         break;
       case 'review':
-        console.log('Moving from review to tour');
-        setCurrentStep('tour');
-        break;
-      case 'tour':
-        console.log('Moving to dashboard');
-        // Navigate to dashboard
-        window.location.href = '/dashboard';
+        console.log('Moving from review to start tour');
+        // Start tour and navigate to Work History immediately
+        startTour();
         break;
       default:
         console.log('Unknown step in handleNextStep:', currentStep);
@@ -385,9 +381,7 @@ export default function NewUserOnboarding() {
         case 'review':
           console.log('Rendering review step');
           return renderReviewStep();
-        case 'tour':
-          console.log('Rendering tour step');
-          return renderTourStep();
+
         default:
           console.log('Unknown step, defaulting to welcome');
           return renderWelcomeStep();
@@ -451,18 +445,7 @@ export default function NewUserOnboarding() {
                       Review
                     </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {currentStep === 'tour' ? (
-                      <div className="w-4 h-4 rounded-full border-2 border-blue-500 bg-blue-500" />
-                    ) : ['welcome', 'upload', 'review'].includes(currentStep) ? (
-                      <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
-                    ) : (
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                    )}
-                    <span className={`text-sm ${currentStep === 'tour' ? 'font-medium' : ''}`}>
-                      Tour
-                    </span>
-                  </div>
+
                 </div>
               </div>
             </Card>
