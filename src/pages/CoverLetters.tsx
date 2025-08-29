@@ -36,7 +36,7 @@ import CoverLetterCreateModal from "@/components/cover-letters/CoverLetterCreate
 import { CoverLetterViewModal } from "@/components/cover-letters/CoverLetterViewModal";
 import { CoverLetterEditModal } from "@/components/cover-letters/CoverLetterEditModal";
 import { useTour } from "@/contexts/TourContext";
-import { TourBanner } from "@/components/onboarding/TourBanner";
+import { TourBannerFull } from "@/components/onboarding/TourBannerFull";
 
 // Mock data for cover letters
 const mockCoverLetters = [
@@ -193,7 +193,7 @@ export default function CoverLetters() {
   const [coverLetters, setCoverLetters] = useState(mockCoverLetters);
   
   // Tour integration
-  const { isActive: isTourActive, currentStep: tourStep, tourSteps, nextStep, previousStep, cancelTour } = useTour();
+  const { isActive: isTourActive, currentStep: tourStep, tourSteps, currentTourStep, nextStep, previousStep, cancelTour } = useTour();
 
   // Filter cover letters based on search and status
   const filteredCoverLetters = coverLetters.filter(letter => {
@@ -265,7 +265,7 @@ export default function CoverLetters() {
 
   return (
     <div className="min-h-screen bg-background">
-      <main className="container mx-auto px-4 pb-8">
+      <main className={`container mx-auto px-4 pb-8 ${isTourActive ? 'pt-24' : ''}`}>
         <div className="max-w-7xl mx-auto">
           
           {/* Page Header */}
@@ -285,16 +285,7 @@ export default function CoverLetters() {
             </div>
           </div>
 
-          {/* Tour Text */}
-          {isTourActive && (
-            <Card className="bg-green-50 border-green-200 mb-6">
-              <CardContent className="pt-6">
-                <p className="text-green-900 text-center font-medium">
-                  Creating new cover letters and tracking progress has never been easier!
-                </p>
-              </CardContent>
-            </Card>
-          )}
+
 
           {/* Stats Overview */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
@@ -538,15 +529,18 @@ export default function CoverLetters() {
       />
       
       {/* Tour Banner */}
-      {isTourActive && (
-        <TourBanner
+      {isTourActive && currentTourStep && (
+        <TourBannerFull
           currentStep={tourStep}
           totalSteps={tourSteps.length}
+          title={currentTourStep.title}
+          description={currentTourStep.description}
           onNext={nextStep}
           onPrevious={previousStep}
           onCancel={cancelTour}
           canGoNext={tourStep < tourSteps.length - 1}
           canGoPrevious={tourStep > 0}
+          isLastStep={tourStep === tourSteps.length - 1}
         />
       )}
     </div>

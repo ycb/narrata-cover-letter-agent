@@ -12,7 +12,7 @@ import { AddCompanyModal } from "@/components/work-history/AddCompanyModal";
 import { AddRoleModal } from "@/components/work-history/AddRoleModal";
 import { usePrototype } from "@/contexts/PrototypeContext";
 import { useTour } from "@/contexts/TourContext";
-import { TourBanner } from "@/components/onboarding/TourBanner";
+import { TourBannerFull } from "@/components/onboarding/TourBannerFull";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus } from "lucide-react";
@@ -200,7 +200,7 @@ export default function WorkHistory() {
   const { prototypeState } = usePrototype();
   
   // Tour functionality
-  const { isActive: isTourActive, currentStep: tourStep, tourSteps, nextStep, previousStep, cancelTour } = useTour();
+  const { isActive: isTourActive, currentStep: tourStep, tourSteps, currentTourStep, nextStep, previousStep, cancelTour } = useTour();
   
   // Debug tour state
   console.log('WorkHistory - Tour state:', { isTourActive, tourStep, prototypeState });
@@ -243,6 +243,7 @@ export default function WorkHistory() {
   // Auto-advance through tabs during tour
   useEffect(() => {
     if (isTourActive && workHistory.length > 0) {
+      // Start on role tab, then auto-advance
       const tabs: ('role' | 'stories' | 'links')[] = ['role', 'stories', 'links'];
       let currentTabIndex = 0;
       
@@ -257,7 +258,7 @@ export default function WorkHistory() {
         }
       };
       
-      // Start with role tab, then auto-advance
+      // Start with role tab, then auto-advance after 3 seconds
       const timer = setTimeout(advanceTab, 3000);
       
       // Cleanup timer on unmount or dependency change
@@ -374,21 +375,12 @@ export default function WorkHistory() {
 
   return (
     <div className="min-h-screen bg-background">
-      <main className="container mx-auto px-4 pb-8">
+      <main className={`container mx-auto px-4 pb-8 ${isTourActive ? 'pt-24' : ''}`}>
         <div>
           <p className="text-muted-foreground description-spacing">Summarize impact with metrics, stories and links</p>
         </div>
 
-        {/* Tour Text */}
-        {isTourActive && (
-          <Card className="bg-blue-50 border-blue-200 mb-6">
-            <CardContent className="pt-6">
-              <p className="text-blue-900 text-center font-medium">
-                Your work history is organized by roles and stories. Showing your work via external links can strengthen your cover letters.
-              </p>
-            </CardContent>
-          </Card>
-        )}
+
 
 
 
@@ -501,15 +493,18 @@ export default function WorkHistory() {
       </main>
 
       {/* Tour Banner */}
-      {isTourActive && (
-        <TourBanner
+      {isTourActive && currentTourStep && (
+        <TourBannerFull
           currentStep={tourStep}
           totalSteps={tourSteps.length}
+          title={currentTourStep.title}
+          description={currentTourStep.description}
           onNext={nextStep}
           onPrevious={previousStep}
           onCancel={cancelTour}
           canGoNext={tourStep < tourSteps.length - 1}
           canGoPrevious={tourStep > 0}
+          isLastStep={tourStep === tourSteps.length - 1}
         />
       )}
     </div>

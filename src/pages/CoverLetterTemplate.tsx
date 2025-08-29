@@ -20,7 +20,7 @@ import type { CoverLetterSection, CoverLetterTemplate, WorkHistoryBlurb } from "
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useTour } from "@/contexts/TourContext";
-import { TourBanner } from "@/components/onboarding/TourBanner";
+import { TourBannerFull } from "@/components/onboarding/TourBannerFull";
 
 // Mock template blurbs library
 const mockTemplateBlurbs: TemplateBlurb[] = [
@@ -278,7 +278,7 @@ export default function CoverLetterTemplate() {
   const [selectedContent, setSelectedContent] = useState<any>(null);
   
   // Tour integration
-  const { isActive: isTourActive, currentStep: tourStep, tourSteps, nextStep, previousStep, cancelTour } = useTour();
+  const { isActive: isTourActive, currentStep: tourStep, tourSteps, currentTourStep, nextStep, previousStep, cancelTour } = useTour();
 
   // Handle URL parameter for initial tab
   useEffect(() => {
@@ -538,6 +538,7 @@ export default function CoverLetterTemplate() {
       <TemplateBanner
         onDone={handleDone}
       />
+      <div className={isTourActive ? 'pt-24' : ''}>
       
       {/* Tabs */}
       <div className="bg-background">
@@ -601,16 +602,7 @@ export default function CoverLetterTemplate() {
               </div>
             </div>
             
-            {/* Tour Text */}
-            {isTourActive && (
-              <Card className="bg-purple-50 border-purple-200 mb-6">
-                <CardContent className="pt-6">
-                  <p className="text-purple-900 text-center font-medium">
-                    Your template is used to create a first draft. Choose between static or dynamic content. Saved Sections is your library of cover letter content.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
+
             
             {/* Content Area */}
             <div>
@@ -1446,17 +1438,21 @@ export default function CoverLetterTemplate() {
       )}
       
       {/* Tour Banner */}
-      {isTourActive && (
-        <TourBanner
+      {isTourActive && currentTourStep && (
+        <TourBannerFull
           currentStep={tourStep}
           totalSteps={tourSteps.length}
+          title={currentTourStep.title}
+          description={currentTourStep.description}
           onNext={nextStep}
           onPrevious={previousStep}
           onCancel={cancelTour}
           canGoNext={tourStep < tourSteps.length - 1}
           canGoPrevious={tourStep > 0}
+          isLastStep={tourStep === tourSteps.length - 1}
         />
       )}
+      </div>
     </div>
   );
 };

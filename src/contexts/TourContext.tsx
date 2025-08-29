@@ -13,6 +13,7 @@ interface TourContextType {
   isActive: boolean;
   currentStep: number;
   tourSteps: TourStep[];
+  currentTourStep: TourStep | null;
   startTour: () => void;
   nextStep: () => void;
   previousStep: () => void;
@@ -100,14 +101,15 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const completeTour = useCallback(() => {
     setIsActive(false);
     setCurrentStep(0);
-    // Navigate to new user dashboard
-    navigate('/new-user-dashboard');
+    // Navigate to existing dashboard
+    navigate('/dashboard');
   }, [navigate]);
 
   const value: TourContextType = {
     isActive,
     currentStep,
     tourSteps,
+    currentTourStep: isActive ? tourSteps[currentStep] : null,
     startTour,
     nextStep,
     previousStep,
