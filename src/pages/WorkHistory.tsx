@@ -201,8 +201,11 @@ export default function WorkHistory() {
   // Tour functionality
   const { isActive: isTourActive, currentStep: tourStep, tourSteps, nextStep, previousStep, cancelTour } = useTour();
   
-  // For existing user state, simulate having data
-  const workHistory = prototypeState === 'existing-user' ? sampleWorkHistory : [];
+  // Debug tour state
+  console.log('WorkHistory - Tour state:', { isTourActive, tourStep, prototypeState });
+  
+  // For existing user state or tour mode, simulate having data
+  const workHistory = (prototypeState === 'existing-user' || isTourActive) ? sampleWorkHistory : [];
   
   // Auto-select first company on page load (no role selected initially)
   const firstCompany = workHistory.length > 0 ? workHistory[0] : null;
