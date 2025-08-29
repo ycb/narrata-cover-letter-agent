@@ -54,19 +54,31 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const tourSteps = DEFAULT_TOUR_STEPS;
 
   const startTour = useCallback(() => {
-    setIsActive(true);
-    setCurrentStep(0);
-    // Navigate to first tour step
-    navigate(tourSteps[0].path);
+    try {
+      console.log('Starting tour, navigating to:', tourSteps[0].path);
+      setIsActive(true);
+      setCurrentStep(0);
+      // Navigate to first tour step
+      navigate(tourSteps[0].path);
+    } catch (error) {
+      console.error('Error starting tour:', error);
+      setIsActive(false);
+      setCurrentStep(0);
+    }
   }, [navigate, tourSteps]);
 
   const nextStep = useCallback(() => {
-    if (currentStep < tourSteps.length - 1) {
-      const nextStepIndex = currentStep + 1;
-      setCurrentStep(nextStepIndex);
-      navigate(tourSteps[nextStepIndex].path);
-    } else {
-      completeTour();
+    try {
+      if (currentStep < tourSteps.length - 1) {
+        const nextStepIndex = currentStep + 1;
+        console.log('Moving to next step:', nextStepIndex, 'path:', tourSteps[nextStepIndex].path);
+        setCurrentStep(nextStepIndex);
+        navigate(tourSteps[nextStepIndex].path);
+      } else {
+        completeTour();
+      }
+    } catch (error) {
+      console.error('Error moving to next step:', error);
     }
   }, [currentStep, tourSteps, navigate]);
 

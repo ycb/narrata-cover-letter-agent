@@ -257,7 +257,10 @@ export default function WorkHistory() {
       };
       
       // Start with role tab, then auto-advance
-      setTimeout(advanceTab, 3000);
+      const timer = setTimeout(advanceTab, 3000);
+      
+      // Cleanup timer on unmount or dependency change
+      return () => clearTimeout(timer);
     }
   }, [isTourActive, workHistory.length]);
   

@@ -103,8 +103,14 @@ export default function NewUserOnboarding() {
         break;
       case 'review':
         console.log('Moving from review to start tour');
-        // Start tour and navigate to Work History immediately
-        startTour();
+        try {
+          // Start tour and navigate to Work History immediately
+          console.log('Calling startTour()...');
+          startTour();
+          console.log('startTour() called successfully');
+        } catch (error) {
+          console.error('Error starting tour:', error);
+        }
         break;
       default:
         console.log('Unknown step in handleNextStep:', currentStep);

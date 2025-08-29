@@ -21,6 +21,7 @@ export function TourBanner({
   canGoNext,
   canGoPrevious
 }: TourBannerProps) {
+  console.log('TourBanner rendered with:', { currentStep, totalSteps, canGoNext, canGoPrevious });
   const progress = ((currentStep + 1) / totalSteps) * 100;
 
   return (
