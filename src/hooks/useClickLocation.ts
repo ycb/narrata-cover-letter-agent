@@ -21,6 +21,12 @@ export const useClickLocation = () => {
   const handleClick = useCallback((event: MouseEvent) => {
     if (!isTracking) return;
 
+    // Don't capture clicks on modal elements
+    const target = event.target as Element;
+    if (target.closest('[data-feedback-modal]')) {
+      return;
+    }
+
     const location: ClickLocation = {
       x: event.clientX,
       y: event.clientY,

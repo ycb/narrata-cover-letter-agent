@@ -30,27 +30,29 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
   onClose,
 }) => {
   const [formState, setFormState] = useState<FeedbackFormState>(INITIAL_FORM_STATE);
-  const [currentStep, setCurrentStep] = useState<'capturing' | 'form' | 'success' | 'error'>('capturing');
+  const [currentStep, setCurrentStep] = useState<'form' | 'success' | 'error'>('form');
+  const [isTrackingClick, setIsTrackingClick] = useState(false);
   
   const { captureScreenshot, isCapturing, error: screenshotError } = useScreenshot();
   const { clickLocation, startTracking, stopTracking } = useClickLocation();
   const { submitFeedback, isSubmitting, error: submissionError, success, reset } = useFeedbackSubmission();
 
-  // Capture screenshot when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      handleScreenshotCapture();
-    }
-  }, [isOpen]);
+  // Don't auto-capture screenshot - let user control the flow
+  // useEffect(() => {
+  //   if (isOpen) {
+  //     handleScreenshotCapture();
+  //   }
+  // }, [isOpen]);
 
   // Reset form when modal closes
   useEffect(() => {
     if (!isOpen) {
       setFormState(INITIAL_FORM_STATE);
-      setCurrentStep('capturing');
+      setCurrentStep('form'); // Start with form, not capturing
       reset();
+      stopTracking();
     }
-  }, [isOpen, reset]);
+  }, [isOpen, reset, stopTracking]);
 
   // Update form state when click location is captured
   useEffect(() => {
@@ -59,12 +61,11 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
         ...prev,
         clickLocation,
       }));
-      setCurrentStep('form');
+      setIsTrackingClick(false);
     }
   }, [clickLocation]);
 
   const handleScreenshotCapture = async () => {
-    setCurrentStep('capturing');
     const screenshot = await captureScreenshot();
     
     if (screenshot) {
@@ -72,11 +73,6 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
         ...prev,
         screenshot,
       }));
-      
-      // Start tracking for click location
-      startTracking();
-    } else {
-      setCurrentStep('error');
     }
   };
 
@@ -91,27 +87,21 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
 
   const handleClose = () => {
     stopTracking();
+    setIsTrackingClick(false);
     onClose();
   };
 
+  const handleStartClickTracking = () => {
+    setIsTrackingClick(true);
+    startTracking();
+  };
+
   const handleRetry = () => {
-    setCurrentStep('capturing');
-    handleScreenshotCapture();
+    setCurrentStep('form');
   };
 
   const renderContent = () => {
     switch (currentStep) {
-      case 'capturing':
-        return (
-          <div className="flex flex-col items-center justify-center py-12 space-y-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-            <p className="text-lg font-medium">Capturing screenshot...</p>
-            <p className="text-sm text-muted-foreground text-center">
-              Click anywhere on the page to highlight the area you want to discuss
-            </p>
-          </div>
-        );
-
       case 'form':
         return (
           <FeedbackForm
@@ -119,6 +109,10 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
             onSubmit={handleFormSubmit}
             onCancel={handleClose}
             isSubmitting={isSubmitting}
+            onCaptureScreenshot={handleScreenshotCapture}
+            onStartClickTracking={handleStartClickTracking}
+            isCapturingScreenshot={isCapturing}
+            isTrackingClick={isTrackingClick}
           />
         );
 
@@ -162,10 +156,12 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent 
+        className="max-w-2xl max-h-[90vh] overflow-y-auto"
+        data-feedback-modal
+      >
         <DialogHeader className="flex items-center justify-between">
           <DialogTitle className="text-xl font-semibold">
-            {currentStep === 'capturing' && 'Preparing Feedback Form'}
             {currentStep === 'form' && 'Share Your Feedback'}
             {currentStep === 'success' && 'Feedback Submitted'}
             {currentStep === 'error' && 'Error Occurred'}
