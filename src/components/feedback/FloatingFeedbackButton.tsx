@@ -22,23 +22,25 @@ export const FloatingFeedbackButton: React.FC<FloatingFeedbackButtonProps> = ({
           <Button
             onClick={onClick}
             className={cn(
-              'fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg transition-all duration-200 hover:scale-110 hover:shadow-xl',
+              'fixed bottom-6 right-6 z-50 h-12 px-4 rounded-full shadow-lg transition-all duration-200 hover:scale-105 hover:shadow-xl',
               'bg-primary text-primary-foreground hover:bg-primary/90',
-              'flex items-center justify-center p-0',
+              'flex items-center justify-center gap-2',
+              'min-w-[160px]',
               isOpen && 'scale-95 opacity-50',
               className
             )}
             aria-label="Provide feedback"
           >
             {isOpen ? (
-              <MessageCirclePlus className="h-6 w-6" />
+              <MessageCirclePlus className="h-5 w-5" />
             ) : (
-              <MessageCircle className="h-6 w-6" />
+              <MessageCircle className="h-5 w-5" />
             )}
+            <span className="text-sm font-medium">Provide Feedback</span>
           </Button>
         </TooltipTrigger>
         <TooltipContent side="left" className="bg-gray-900 text-white">
-          <p>Provide Feedback</p>
+          <p>Click to start feedback process</p>
           <p className="text-xs text-gray-300">Ctrl+Shift+F</p>
         </TooltipContent>
       </Tooltip>
