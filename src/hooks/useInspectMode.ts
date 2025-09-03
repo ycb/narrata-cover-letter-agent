@@ -46,6 +46,23 @@ export const useInspectMode = () => {
     }));
   }, []);
 
+  const stopInspectModeKeepPin = useCallback(() => {
+    // Restore original styles
+    originalStylesRef.current.forEach((originalStyle, element) => {
+      if (element instanceof HTMLElement) {
+        element.style.outline = originalStyle;
+      }
+    });
+    originalStylesRef.current.clear();
+
+    setState(prev => ({
+      ...prev,
+      isActive: false,
+      hoveredElement: null,
+      // Keep pinnedElement and pinnedLocation
+    }));
+  }, []);
+
   const highlightElement = useCallback((element: Element | null) => {
     // Restore previous element
     if (state.hoveredElement && originalStylesRef.current.has(state.hoveredElement)) {
@@ -141,6 +158,7 @@ export const useInspectMode = () => {
     ...state,
     startInspectMode,
     stopInspectMode,
+    stopInspectModeKeepPin,
     highlightElement,
     pinElement,
   };
