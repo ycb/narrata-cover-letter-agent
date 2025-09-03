@@ -7,6 +7,7 @@ import { PrototypeProvider } from "@/contexts/PrototypeContext";
 import { TourProvider } from "@/contexts/TourContext";
 import { PrototypeStateBanner } from "@/components/work-history/PrototypeStateBanner";
 import { Header } from "@/components/layout/Header";
+import { FeedbackSystem } from "@/components/feedback/FeedbackSystem";
 import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
 import WorkHistory from "./pages/WorkHistory";
@@ -157,6 +158,9 @@ function AppLayout() {
       
       {/* Show prototype banner on all pages */}
       <PrototypeStateBanner />
+      
+      {/* Feedback system available on all pages */}
+      <FeedbackSystem />
     </div>
   );
 }
