@@ -1,4 +1,5 @@
 import { FeedbackData } from '@/types/feedback';
+import { googleSheetsService } from './googleSheetsService';
 
 export class FeedbackService {
   private static instance: FeedbackService;
@@ -15,13 +16,19 @@ export class FeedbackService {
 
   async submitFeedback(feedback: FeedbackData): Promise<boolean> {
     try {
-      // Store locally for now (replace with Google Forms API)
+      // Store locally for immediate access
       this.submissions.push(feedback);
       
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Submit to Google Sheets
+      const success = await googleSheetsService.submitFeedback(feedback);
       
-      return true;
+      if (success) {
+        console.log('Feedback submitted successfully');
+        return true;
+      } else {
+        console.warn('Feedback stored locally but failed to submit to Google Sheets');
+        return true; // Still return true since we have local storage
+      }
     } catch (error) {
       console.error('Failed to submit feedback:', error);
       return false;
@@ -29,17 +36,21 @@ export class FeedbackService {
   }
 
   getSubmissions(): FeedbackData[] {
-    return [...this.submissions];
+    // Combine local submissions with stored feedback
+    const storedFeedback = googleSheetsService.getStoredFeedback();
+    return [...this.submissions, ...storedFeedback];
   }
 
   clearSubmissions(): void {
     this.submissions = [];
+    googleSheetsService.clearStoredFeedback();
   }
 
-  // TODO: Implement Google Forms API integration
-  private async submitToGoogleForms(feedback: FeedbackData): Promise<boolean> {
-    // This will be implemented when we set up Google Forms API
-    throw new Error('Google Forms API not yet implemented');
+  /**
+   * Check if Google Sheets integration is configured
+   */
+  isGoogleSheetsConfigured(): boolean {
+    return googleSheetsService.isConfigured();
   }
 }
 

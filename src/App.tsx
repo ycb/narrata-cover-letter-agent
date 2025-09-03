@@ -8,6 +8,7 @@ import { TourProvider } from "@/contexts/TourContext";
 import { PrototypeStateBanner } from "@/components/work-history/PrototypeStateBanner";
 import { Header } from "@/components/layout/Header";
 import { FeedbackSystem } from "@/components/feedback/FeedbackSystem";
+import { FeedbackAdmin } from "@/components/feedback/FeedbackAdmin";
 import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
 import WorkHistory from "./pages/WorkHistory";
@@ -149,6 +150,12 @@ function AppLayout() {
         <Route path="/new-user" element={<NewUserOnboarding />} />
         <Route path="/onboarding-dashboard" element={<OnboardingDashboard />} />
         <Route path="/new-user-dashboard" element={<NewUserDashboard />} />
+        <Route path="/feedback-admin" element={
+          <>
+            <Header />
+            <FeedbackAdmin />
+          </>
+        } />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/signin" element={<SignIn />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
