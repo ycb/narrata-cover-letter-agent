@@ -12,6 +12,7 @@ interface FeedbackModalProps {
   onClose: () => void;
   initialScreenshot?: string;
   initialClickLocation?: { x: number; y: number } | null;
+  onFormDataChange?: (field: string, value: string) => void;
 }
 
 const INITIAL_FORM_STATE: FeedbackFormState = {
@@ -30,6 +31,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
   onClose,
   initialScreenshot = '',
   initialClickLocation = null,
+  onFormDataChange,
 }) => {
   const [formState, setFormState] = useState<FeedbackFormState>(INITIAL_FORM_STATE);
   const [currentStep, setCurrentStep] = useState<'form' | 'success' | 'error'>('form');
@@ -84,6 +86,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
             onSubmit={handleFormSubmit}
             onCancel={handleClose}
             isSubmitting={isSubmitting}
+            onFormDataChange={onFormDataChange}
           />
         );
 

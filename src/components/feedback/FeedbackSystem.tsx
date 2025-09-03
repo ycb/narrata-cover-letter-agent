@@ -10,6 +10,18 @@ export const FeedbackSystem: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [screenshot, setScreenshot] = useState<string>('');
   const [clickLocation, setClickLocation] = useState<{ x: number; y: number } | null>(null);
+  const [currentCategory, setCurrentCategory] = useState<'bug' | 'suggestion' | 'praise'>('suggestion');
+  const [formData, setFormData] = useState<{
+    category: 'bug' | 'suggestion' | 'praise';
+    sentiment: 'positive' | 'neutral' | 'negative';
+    message: string;
+    email: string;
+  }>({
+    category: 'suggestion',
+    sentiment: 'neutral',
+    message: '',
+    email: '',
+  });
 
   const { 
     isActive: isInspectModeActive, 
@@ -51,9 +63,23 @@ export const FeedbackSystem: React.FC = () => {
     setClickLocation(null);
   };
 
+  const handleFormDataChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value,
+    }));
+    
+    // Update category immediately for pin color
+    if (field === 'category') {
+      setCurrentCategory(value as 'bug' | 'suggestion' | 'praise');
+    }
+  };
+
   // Handle element pinning - open modal with screenshot
   useEffect(() => {
+    console.log('Inspect mode state changed:', { pinnedElement, pinnedLocation });
     if (pinnedElement && pinnedLocation) {
+      console.log('Element pinned, opening modal...');
       setClickLocation(pinnedLocation);
       openFeedbackModal();
     }
@@ -81,7 +107,11 @@ export const FeedbackSystem: React.FC = () => {
       
       {/* Show pin when element is pinned */}
       {pinnedLocation && (
-        <FeedbackPin x={pinnedLocation.x} y={pinnedLocation.y} />
+        <FeedbackPin 
+          x={pinnedLocation.x} 
+          y={pinnedLocation.y} 
+          category={currentCategory}
+        />
       )}
       
       <FeedbackModal
@@ -89,6 +119,7 @@ export const FeedbackSystem: React.FC = () => {
         onClose={closeFeedbackModal}
         initialScreenshot={screenshot}
         initialClickLocation={clickLocation}
+        onFormDataChange={handleFormDataChange}
       />
     </>
   );

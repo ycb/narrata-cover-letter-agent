@@ -75,6 +75,7 @@ export const useInspectMode = () => {
   }, [state.hoveredElement]);
 
   const pinElement = useCallback((element: Element, location: { x: number; y: number }) => {
+    console.log('Pin element called:', { element, location });
     setState(prev => ({
       ...prev,
       pinnedElement: element,
@@ -110,8 +111,9 @@ export const useInspectMode = () => {
       }
 
       if (element) {
+        console.log('Click detected on element:', element);
         pinElement(element, { x: event.clientX, y: event.clientY });
-        stopInspectMode();
+        // Don't stop inspect mode here - let parent component handle it
       }
     };
 

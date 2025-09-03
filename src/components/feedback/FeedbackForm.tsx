@@ -14,6 +14,7 @@ interface FeedbackFormProps {
   onSubmit: (data: FeedbackFormState) => void;
   onCancel: () => void;
   isSubmitting: boolean;
+  onFormDataChange?: (field: string, value: string) => void;
 }
 
 const SENTIMENT_OPTIONS: { value: SentimentType; emoji: string; label: string; color: string }[] = [
@@ -33,12 +34,19 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
   onSubmit,
   onCancel,
   isSubmitting,
+  onFormDataChange,
 }) => {
   const [localState, setLocalState] = useState<FeedbackFormState>(formState);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleInputChange = (field: keyof FeedbackFormState, value: string) => {
     setLocalState(prev => ({ ...prev, [field]: value }));
+    
+    // Notify parent component of changes
+    if (onFormDataChange) {
+      onFormDataChange(field, value);
+    }
+    
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
