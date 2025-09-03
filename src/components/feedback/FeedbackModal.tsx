@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { X, CheckCircle, AlertCircle } from 'lucide-react';
+import { CheckCircle, AlertCircle } from 'lucide-react';
 import { FeedbackForm } from './FeedbackForm';
 import { FeedbackFormState } from '@/types/feedback';
 import { useFeedbackSubmission } from '@/hooks/useFeedbackSubmission';
@@ -134,20 +134,12 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
         className="max-w-2xl max-h-[90vh] overflow-y-auto"
         data-feedback-modal
       >
-        <DialogHeader className="flex items-center justify-between">
+        <DialogHeader>
           <DialogTitle className="text-xl font-semibold">
             {currentStep === 'form' && 'Share Your Feedback'}
             {currentStep === 'success' && 'Feedback Submitted'}
             {currentStep === 'error' && 'Error Occurred'}
           </DialogTitle>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleClose}
-            className="h-8 w-8 p-0"
-          >
-            <X className="h-4 w-4" />
-          </Button>
         </DialogHeader>
         
         <div className="mt-6">
