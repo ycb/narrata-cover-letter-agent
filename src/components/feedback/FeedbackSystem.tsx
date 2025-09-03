@@ -61,6 +61,7 @@ export const FeedbackSystem: React.FC = () => {
     setIsModalOpen(false);
     setScreenshot('');
     setClickLocation(null);
+    stopInspectMode(); // Ensure inspect mode is stopped when modal closes
   };
 
   const handleFormDataChange = (field: string, value: string) => {
@@ -82,8 +83,9 @@ export const FeedbackSystem: React.FC = () => {
       console.log('Element pinned, opening modal...');
       setClickLocation(pinnedLocation);
       openFeedbackModal();
+      stopInspectMode(); // Stop inspect mode when modal opens
     }
-  }, [pinnedElement, pinnedLocation]);
+  }, [pinnedElement, pinnedLocation, stopInspectMode]);
 
   // Prevent body scroll when modal is open
   useEffect(() => {

@@ -124,7 +124,7 @@ export const useInspectMode = () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('click', handleClick, true);
     };
-  }, [state.isActive, highlightElement, pinElement, stopInspectMode]);
+  }, [state.isActive, highlightElement, pinElement]);
 
   // Cleanup on unmount
   useEffect(() => {
