@@ -45,7 +45,7 @@ export const FeedbackPin: React.FC<FeedbackPinProps> = ({
   return (
     <div
       className={cn(
-        'fixed z-[9999] pointer-events-none',
+        'fixed z-[99999] pointer-events-none',
         'w-6 h-6 rounded-full border-2 border-white shadow-lg',
         colors.bg,
         'animate-pulse',
