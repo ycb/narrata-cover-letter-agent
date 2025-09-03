@@ -4,14 +4,14 @@ import { Button } from '@/components/ui/button';
 import { X, CheckCircle, AlertCircle } from 'lucide-react';
 import { FeedbackForm } from './FeedbackForm';
 import { FeedbackFormState } from '@/types/feedback';
-import { useScreenshot } from '@/hooks/useScreenshot';
-import { useClickLocation } from '@/hooks/useClickLocation';
 import { useFeedbackSubmission } from '@/hooks/useFeedbackSubmission';
 import { cn } from '@/lib/utils';
 
 interface FeedbackModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialScreenshot?: string;
+  initialClickLocation?: { x: number; y: number } | null;
 }
 
 const INITIAL_FORM_STATE: FeedbackFormState = {
@@ -28,53 +28,35 @@ const INITIAL_FORM_STATE: FeedbackFormState = {
 export const FeedbackModal: React.FC<FeedbackModalProps> = ({
   isOpen,
   onClose,
+  initialScreenshot = '',
+  initialClickLocation = null,
 }) => {
   const [formState, setFormState] = useState<FeedbackFormState>(INITIAL_FORM_STATE);
   const [currentStep, setCurrentStep] = useState<'form' | 'success' | 'error'>('form');
-  const [isTrackingClick, setIsTrackingClick] = useState(false);
   
-  const { captureScreenshot, isCapturing, error: screenshotError } = useScreenshot();
-  const { clickLocation, startTracking, stopTracking } = useClickLocation();
   const { submitFeedback, isSubmitting, error: submissionError, success, reset } = useFeedbackSubmission();
 
-  // Don't auto-capture screenshot - let user control the flow
-  // useEffect(() => {
-  //   if (isOpen) {
-  //     handleScreenshotCapture();
-  //   }
-  // }, [isOpen]);
+
+
+  // Initialize form with provided data
+  useEffect(() => {
+    if (isOpen) {
+      setFormState(prev => ({
+        ...prev,
+        screenshot: initialScreenshot,
+        clickLocation: initialClickLocation || { x: 0, y: 0 },
+      }));
+    }
+  }, [isOpen, initialScreenshot, initialClickLocation]);
 
   // Reset form when modal closes
   useEffect(() => {
     if (!isOpen) {
       setFormState(INITIAL_FORM_STATE);
-      setCurrentStep('form'); // Start with form, not capturing
+      setCurrentStep('form');
       reset();
-      stopTracking();
     }
-  }, [isOpen, reset, stopTracking]);
-
-  // Update form state when click location is captured
-  useEffect(() => {
-    if (clickLocation) {
-      setFormState(prev => ({
-        ...prev,
-        clickLocation,
-      }));
-      setIsTrackingClick(false);
-    }
-  }, [clickLocation]);
-
-  const handleScreenshotCapture = async () => {
-    const screenshot = await captureScreenshot();
-    
-    if (screenshot) {
-      setFormState(prev => ({
-        ...prev,
-        screenshot,
-      }));
-    }
-  };
+  }, [isOpen, reset]);
 
   const handleFormSubmit = async (data: FeedbackFormState) => {
     const success = await submitFeedback(data);
@@ -86,14 +68,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
   };
 
   const handleClose = () => {
-    stopTracking();
-    setIsTrackingClick(false);
     onClose();
-  };
-
-  const handleStartClickTracking = () => {
-    setIsTrackingClick(true);
-    startTracking();
   };
 
   const handleRetry = () => {
@@ -109,10 +84,6 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
             onSubmit={handleFormSubmit}
             onCancel={handleClose}
             isSubmitting={isSubmitting}
-            onCaptureScreenshot={handleScreenshotCapture}
-            onStartClickTracking={handleStartClickTracking}
-            isCapturingScreenshot={isCapturing}
-            isTrackingClick={isTrackingClick}
           />
         );
 
@@ -136,7 +107,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
             <AlertCircle className="h-16 w-16 text-red-500" />
             <h3 className="text-xl font-semibold">Something went wrong</h3>
             <p className="text-muted-foreground text-center">
-              {screenshotError || submissionError || 'Failed to process your feedback. Please try again.'}
+              {submissionError || 'Failed to process your feedback. Please try again.'}
             </p>
             <div className="flex gap-3 mt-4">
               <Button variant="outline" onClick={handleClose}>

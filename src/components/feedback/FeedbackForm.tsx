@@ -14,10 +14,6 @@ interface FeedbackFormProps {
   onSubmit: (data: FeedbackFormState) => void;
   onCancel: () => void;
   isSubmitting: boolean;
-  onCaptureScreenshot?: () => void;
-  onStartClickTracking?: () => void;
-  isCapturingScreenshot?: boolean;
-  isTrackingClick?: boolean;
 }
 
 const SENTIMENT_OPTIONS: { value: SentimentType; emoji: string; label: string; color: string }[] = [
@@ -37,10 +33,6 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
   onSubmit,
   onCancel,
   isSubmitting,
-  onCaptureScreenshot,
-  onStartClickTracking,
-  isCapturingScreenshot = false,
-  isTrackingClick = false,
 }) => {
   const [localState, setLocalState] = useState<FeedbackFormState>(formState);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -77,72 +69,22 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Screenshot and Click Location Controls */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Visual Context (Optional)
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onCaptureScreenshot}
-              disabled={isCapturingScreenshot || isSubmitting}
-              className="flex-1"
-            >
-              {isCapturingScreenshot ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
-                  Capturing...
-                </>
-              ) : (
-                <>
-                  📸 Capture Screenshot
-                </>
-              )}
-            </Button>
-            
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onStartClickTracking}
-              disabled={isTrackingClick || isSubmitting || !localState.screenshot}
-              className="flex-1"
-            >
-              {isTrackingClick ? (
-                <>
-                  <div className="animate-pulse h-4 w-4 bg-red-500 rounded-full mr-2"></div>
-                  Click to highlight...
-                </>
-              ) : (
-                <>
-                  🎯 Highlight Area
-                </>
-              )}
-            </Button>
-          </div>
-          
-          {isTrackingClick && (
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-              <p className="text-sm text-blue-800">
-                <strong>Click anywhere on the page</strong> to highlight the area you want to discuss. 
-                The modal will stay open.
-              </p>
-            </div>
-          )}
-          
-          {/* Screenshot Preview */}
-          {localState.screenshot && (
+      {/* Screenshot Preview */}
+      {localState.screenshot && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Page Context
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
             <div className="relative">
               <img
                 src={localState.screenshot}
                 alt="Page screenshot"
                 className="w-full h-32 object-cover rounded-md border"
               />
-              {localState.clickLocation && (
+              {localState.clickLocation && localState.clickLocation.x > 0 && localState.clickLocation.y > 0 && (
                 <div
                   className="absolute w-4 h-4 bg-red-500 rounded-full border-2 border-white shadow-lg animate-pulse"
                   style={{
@@ -152,9 +94,12 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
                 />
               )}
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <p className="text-xs text-muted-foreground mt-2">
+              Screenshot captured automatically when you selected the area to discuss.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Sentiment Selection */}
       <div className="space-y-3">
