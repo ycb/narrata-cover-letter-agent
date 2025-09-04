@@ -9,11 +9,11 @@ import { FeedbackData } from '@/types/feedback';
 export const FeedbackAdmin: React.FC = () => {
   const [submissions, setSubmissions] = useState<FeedbackData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleSheetsConfigured, setIsGoogleSheetsConfigured] = useState(false);
+  const [isGoogleFormsConfigured, setIsGoogleFormsConfigured] = useState(false);
 
   useEffect(() => {
     loadSubmissions();
-    setIsGoogleSheetsConfigured(feedbackService.isGoogleSheetsConfigured());
+    setIsGoogleFormsConfigured(feedbackService.isGoogleFormsConfigured());
   }, []);
 
   const loadSubmissions = () => {
@@ -137,9 +137,9 @@ export const FeedbackAdmin: React.FC = () => {
 
       <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
         <div className="flex items-center gap-2">
-          <div className={`w-3 h-3 rounded-full ${isGoogleSheetsConfigured ? 'bg-green-500' : 'bg-yellow-500'}`} />
+          <div className={`w-3 h-3 rounded-full ${isGoogleFormsConfigured ? 'bg-green-500' : 'bg-yellow-500'}`} />
           <span className="text-sm font-medium">
-            Google Sheets: {isGoogleSheetsConfigured ? 'Configured' : 'Not Configured'}
+            Google Forms: {isGoogleFormsConfigured ? 'Configured' : 'Not Configured'}
           </span>
         </div>
         <div className="text-sm text-muted-foreground">

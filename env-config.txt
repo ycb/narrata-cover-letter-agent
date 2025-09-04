@@ -1,0 +1,16 @@
+# Copy this content to a .env file in your project root
+
+# Feedback System Configuration
+# Set to 'true' to enable the feedback system (production only)
+VITE_ENABLE_FEEDBACK_SYSTEM=false
+
+# Google Forms Configuration
+VITE_GOOGLE_FORMS_URL=https://docs.google.com/forms/d/e/1FAIpQLSfJe8zE3orRepl8iu7OrMIROdAaV3vFci2AbBVbSiOEtcSbWQ/formResponse
+
+# Google Sheets Configuration (Legacy - not used by feedback system)
+VITE_GOOGLE_SHEETS_ID=11cTkV5BHBcpLQHpEDQtGQoD3nn7-Xt7Jd59myvzOerg
+VITE_GOOGLE_SHEETS_RANGE=Sheet1!A:H
+VITE_GOOGLE_SHEETS_API_KEY=AIzaSyBmC6wD90QcG70GYlsKGzvBNhJC5ajqppI
+
+# LogRocket Configuration
+VITE_LOGROCKET_APP_ID=sqhkza/cover-letter-agent

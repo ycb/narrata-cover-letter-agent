@@ -1,5 +1,5 @@
 import { FeedbackData } from '@/types/feedback';
-import { googleSheetsService } from './googleSheetsService';
+import { googleFormsService } from './googleFormsService';
 
 export class FeedbackService {
   private static instance: FeedbackService;
@@ -19,14 +19,14 @@ export class FeedbackService {
       // Store locally for immediate access
       this.submissions.push(feedback);
       
-      // Submit to Google Sheets
-      const success = await googleSheetsService.submitFeedback(feedback);
-      
+      // Submit to Google Forms
+      const success = await googleFormsService.submitFeedback(feedback);
+
       if (success) {
         console.log('Feedback submitted successfully');
         return true;
       } else {
-        console.warn('Feedback stored locally but failed to submit to Google Sheets');
+        console.warn('Feedback stored locally but failed to submit to Google Forms');
         return true; // Still return true since we have local storage
       }
     } catch (error) {
@@ -37,20 +37,20 @@ export class FeedbackService {
 
   getSubmissions(): FeedbackData[] {
     // Combine local submissions with stored feedback
-    const storedFeedback = googleSheetsService.getStoredFeedback();
+    const storedFeedback = googleFormsService.getStoredFeedback();
     return [...this.submissions, ...storedFeedback];
   }
 
   clearSubmissions(): void {
     this.submissions = [];
-    googleSheetsService.clearStoredFeedback();
+    googleFormsService.clearStoredFeedback();
   }
 
   /**
-   * Check if Google Sheets integration is configured
+   * Check if Google Forms integration is configured
    */
-  isGoogleSheetsConfigured(): boolean {
-    return googleSheetsService.isConfigured();
+  isGoogleFormsConfigured(): boolean {
+    return googleFormsService.isConfigured();
   }
 }
 

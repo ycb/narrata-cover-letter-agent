@@ -79,9 +79,7 @@ export const FeedbackSystem: React.FC = () => {
 
   // Handle element pinning - open modal with screenshot
   useEffect(() => {
-    console.log('Inspect mode state changed:', { pinnedElement, pinnedLocation });
     if (pinnedElement && pinnedLocation) {
-      console.log('Element pinned, opening modal...');
       setClickLocation(pinnedLocation);
       openFeedbackModal();
       stopInspectModeKeepPin(); // Stop inspect mode but keep pin visible

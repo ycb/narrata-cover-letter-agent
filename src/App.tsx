@@ -9,6 +9,22 @@ import { PrototypeStateBanner } from "@/components/work-history/PrototypeStateBa
 import { Header } from "@/components/layout/Header";
 import { FeedbackSystem } from "@/components/feedback/FeedbackSystem";
 import { FeedbackAdmin } from "@/components/feedback/FeedbackAdmin";
+
+// Environment-based feedback system initialization
+const shouldShowFeedbackSystem = (): boolean => {
+  // Check explicit environment variable first
+  if (import.meta.env.VITE_ENABLE_FEEDBACK_SYSTEM === 'true') {
+    return true;
+  }
+  
+  // If not explicitly enabled, check if we're in production
+  if (import.meta.env.VITE_ENABLE_FEEDBACK_SYSTEM === 'false') {
+    return false;
+  }
+  
+  // Default: only show in production
+  return import.meta.env.PROD;
+};
 import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
 import WorkHistory from "./pages/WorkHistory";
@@ -167,7 +183,7 @@ function AppLayout() {
       <PrototypeStateBanner />
       
       {/* Feedback system available on all pages */}
-      <FeedbackSystem />
+      {shouldShowFeedbackSystem() && <FeedbackSystem />}
     </div>
   );
 }
