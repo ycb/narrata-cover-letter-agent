@@ -5,9 +5,8 @@ export class GoogleFormsService {
   private formUrl: string | null = null;
 
   private constructor() {
-    // Get Google Form URL from environment variables
-    // Default to the correct form URL if not configured
-    this.formUrl = import.meta.env.VITE_GOOGLE_FORMS_URL || 'https://docs.google.com/forms/d/e/1FAIpQLSfJe8zE3orRepl8iu7OrMIROdAaV3vFci2AbBVbSiOEtcSbWQ/formResponse';
+    // Get Google Apps Script URL from environment variables
+    this.formUrl = import.meta.env.VITE_GOOGLE_APPS_SCRIPT_URL || null;
   }
 
   static getInstance(): GoogleFormsService {
@@ -18,18 +17,18 @@ export class GoogleFormsService {
   }
 
   /**
-   * Check if Google Forms is configured
+   * Check if Google Apps Script is configured
    */
   isConfigured(): boolean {
     return !!this.formUrl;
   }
 
   /**
-   * Submit feedback to Google Form
+   * Submit feedback via Google Apps Script
    */
   async submitFeedback(feedback: FeedbackData): Promise<boolean> {
     if (!this.isConfigured()) {
-      console.warn('Google Form URL not configured. Using fallback storage.');
+      console.warn('Google Apps Script URL not configured. Using fallback storage.');
       return this.fallbackStorage(feedback);
     }
 
@@ -41,39 +40,62 @@ export class GoogleFormsService {
         'negative': 'Negative'
       };
 
-      // Create URL-encoded data for Google Forms submission
-      const urlEncodedData = new URLSearchParams();
-      urlEncodedData.append('entry.638918608', feedback.timestamp);
-      urlEncodedData.append('entry.1865964081', feedback.pageUrl);
-      urlEncodedData.append('entry.1282507941', feedback.category);
-      urlEncodedData.append('entry.1641611400', sentimentMap[feedback.sentiment] || feedback.sentiment);
-      urlEncodedData.append('entry.1916748410', feedback.message);
-      urlEncodedData.append('entry.619009191', feedback.email || 'No email provided');
-      urlEncodedData.append('entry.1941192234', `${feedback.clickLocation.x}, ${feedback.clickLocation.y}`);
-      urlEncodedData.append('entry.373119231', feedback.userAgent);
+      // Prepare data for Apps Script
+      const submissionData = {
+        timestamp: feedback.timestamp,
+        pageUrl: feedback.pageUrl,
+        message: feedback.message,
+        email: feedback.email || 'No email provided',
+        clickLocation: feedback.clickLocation,
+        userAgent: feedback.userAgent,
+        category: feedback.category,
+        sentiment: sentimentMap[feedback.sentiment] || feedback.sentiment
+      };
 
-      console.log('Submitting feedback to Google Form:', {
-        url: this.formUrl,
-        formData: Array.from(urlEncodedData.entries()),
-        originalData: feedback
+      // Submit feedback via Google Apps Script
+
+      // Use a form submission approach to bypass CORS
+      return new Promise((resolve) => {
+        // Create a hidden iframe to receive the response
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.name = 'feedback-submission-frame';
+        document.body.appendChild(iframe);
+
+        // Create a hidden form
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = this.formUrl!;
+        form.target = 'feedback-submission-frame'; // Submit to hidden iframe
+        form.style.display = 'none';
+
+        // Add data as hidden inputs
+        Object.entries(submissionData).forEach(([key, value]) => {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = key;
+          input.value = typeof value === 'object' ? JSON.stringify(value) : String(value);
+          form.appendChild(input);
+        });
+
+        // Add form to DOM, submit, and clean up
+        document.body.appendChild(form);
+        form.submit();
+        
+        // Clean up after a short delay
+        setTimeout(() => {
+          try {
+            document.body.removeChild(form);
+            document.body.removeChild(iframe);
+          } catch (error) {
+            // Expected error - elements may have been removed already
+          }
+        }, 2000);
+
+        resolve(true);
       });
-
-      // Submit with all form data
-      const response = await fetch(this.formUrl!, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: urlEncodedData, // Use full form data
-        mode: 'no-cors', // Required for Google Forms
-      });
-
-      // With no-cors mode, we can't check the response status
-      // But if no error is thrown, we assume it worked
-      console.log('Feedback submitted to Google Form successfully');
-      return true;
     } catch (error) {
-      console.error('❌ Error submitting feedback to Google Form:', error);
+      console.error('❌ Error submitting feedback via Apps Script:', error);
       console.log('🔄 Falling back to localStorage storage');
       
       // Log the error details for debugging

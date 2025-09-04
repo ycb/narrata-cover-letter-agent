@@ -4,8 +4,8 @@
 # Set to 'true' to enable the feedback system (production only)
 VITE_ENABLE_FEEDBACK_SYSTEM=false
 
-# Google Forms Configuration
-VITE_GOOGLE_FORMS_URL=https://docs.google.com/forms/d/e/1FAIpQLSfJe8zE3orRepl8iu7OrMIROdAaV3vFci2AbBVbSiOEtcSbWQ/formResponse
+# Google Apps Script Configuration (for feedback system)
+VITE_GOOGLE_APPS_SCRIPT_URL=https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec
 
 # Google Sheets Configuration (Legacy - not used by feedback system)
 VITE_GOOGLE_SHEETS_ID=11cTkV5BHBcpLQHpEDQtGQoD3nn7-Xt7Jd59myvzOerg

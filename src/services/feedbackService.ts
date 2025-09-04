@@ -23,7 +23,6 @@ export class FeedbackService {
       const success = await googleFormsService.submitFeedback(feedback);
 
       if (success) {
-        console.log('Feedback submitted successfully');
         return true;
       } else {
         console.warn('Feedback stored locally but failed to submit to Google Forms');
