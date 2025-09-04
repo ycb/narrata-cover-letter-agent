@@ -13,4 +13,6 @@ VITE_GOOGLE_SHEETS_RANGE=Sheet1!A:H
 VITE_GOOGLE_SHEETS_API_KEY=AIzaSyBmC6wD90QcG70GYlsKGzvBNhJC5ajqppI
 
 # LogRocket Configuration
+# Set to 'true' to enable LogRocket (production only by default)
+VITE_ENABLE_LOGROCKET=false
 VITE_LOGROCKET_APP_ID=sqhkza/cover-letter-agent
