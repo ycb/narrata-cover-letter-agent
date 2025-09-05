@@ -7,7 +7,9 @@ import {
   Zap, 
   FileText, 
   Target, 
-  Briefcase, 
+  Briefcase,
+  Trophy,
+  Calendar, 
   TrendingUp, 
   Mail,
   ChevronDown,
@@ -97,79 +99,101 @@ export const Header = ({ currentPage }: HeaderProps) => {
 
               {/* Work History - Main Link + Dropdown */}
               <div className="relative group">
-                <Link 
-                  to="/work-history"
-                  className={cn(
-                    "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors hover:text-foreground",
-                    activePage === "work-history" 
-                      ? "text-foreground font-bold" 
-                      : "text-muted-foreground"
-                  )}
-                >
+                <div className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-muted-foreground cursor-default">
                   <Briefcase className="h-4 w-4" />
                   Work History
-                </Link>
+                  <ChevronDown className="h-3 w-3" />
+                </div>
                 
                 {/* Hover Dropdown */}
                 <div className="absolute top-full left-0 pt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
-                  <div className="bg-background border rounded-lg shadow-lg p-2 min-w-48">
-                    <Link 
-                      to="/show-all-stories" 
+                  <div className="bg-background border rounded-lg shadow-lg p-3 min-w-80">
+                    {/* Timeline View CTA - Spans full width */}
+                    <Link
+                      to="/work-history"
                       className={cn(
-                        "flex items-center justify-between px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
-                        isWorkHistoryChild(location.pathname) && location.pathname.startsWith("/show-all-stories")
-                          ? "font-bold text-foreground"
-                          : "text-muted-foreground"
+                        "flex items-center justify-center gap-2 px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors mb-3 border border-blue-600 text-blue-600 group",
+                        activePage === "work-history"
+                          ? "font-bold text-blue-600"
+                          : "text-blue-600"
                       )}
                     >
-                      <span className="flex items-center gap-2">
-                        <FileText className="h-4 w-4" />
-                        Stories
-                      </span>
-                      <Badge variant="secondary" className="ml-auto">47</Badge>
+                      <Calendar className="h-4 w-4 transition-colors" />
+                      Timeline View
                     </Link>
-                    <Link 
-                      to="/show-all-links" 
-                      className={cn(
-                        "flex items-center justify-between px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
-                        isWorkHistoryChild(location.pathname) && location.pathname.startsWith("/show-all-links")
-                          ? "font-bold text-foreground"
-                          : "text-muted-foreground"
-                      )}
-                    >
-                      <span className="flex items-center gap-2">
-                        <LinkIcon className="h-4 w-4" />
-                        Links
-                      </span>
-                      <Badge variant="secondary" className="ml-auto">12</Badge>
-                    </Link>
+                    
+                    {/* Table View Section */}
+                    <div>
+                      <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                        TABLE VIEW
+                      </div>
+                      <div className="space-y-1">
+                        <Link 
+                          to="/show-all-stories" 
+                          className={cn(
+                            "flex items-center justify-between px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
+                            isWorkHistoryChild(location.pathname) && location.pathname.startsWith("/show-all-stories")
+                              ? "font-bold text-foreground bg-blue-50"
+                              : "text-muted-foreground"
+                          )}
+                        >
+                          <span className="flex items-center gap-2">
+                            <FileText className="h-4 w-4" />
+                            All Stories
+                          </span>
+                          <Badge variant="secondary" className="ml-auto">47</Badge>
+                        </Link>
+                        <Link 
+                          to="/show-all-links" 
+                          className={cn(
+                            "flex items-center justify-between px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
+                            isWorkHistoryChild(location.pathname) && location.pathname.startsWith("/show-all-links")
+                              ? "font-bold text-foreground bg-blue-50"
+                              : "text-muted-foreground"
+                          )}
+                        >
+                          <span className="flex items-center gap-2">
+                            <LinkIcon className="h-4 w-4" />
+                            All Links
+                          </span>
+                          <Badge variant="secondary" className="ml-auto">12</Badge>
+                        </Link>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Cover Letters - Main Link + Dropdown */}
               <div className="relative group">
-                <Link 
-                  to="/cover-letters"
-                  className={cn(
-                    "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors hover:text-foreground",
-                    activePage === "cover-letters" 
-                      ? "text-foreground font-bold" 
-                      : "text-muted-foreground"
-                  )}
-                >
+                <div className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-muted-foreground cursor-default">
                   <Mail className="h-4 w-4" />
                   Cover Letters
-                </Link>
+                  <ChevronDown className="h-3 w-3" />
+                </div>
                 
                 {/* Hover Dropdown */}
                 <div className="absolute top-full left-0 pt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
-                  <div className="bg-background border rounded-lg shadow-lg p-2 min-w-48">
+                  <div className="bg-background border rounded-lg shadow-lg p-4 min-w-64">
                     <Link 
-                      to="/show-all-saved-sections" 
+                      to="/cover-letters" 
                       className={cn(
                         "flex items-center justify-between px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
-                        isCoverLettersChild(location.pathname) && location.pathname.startsWith("/show-all-saved-sections")
+                        location.pathname === "/cover-letters"
+                          ? "font-bold text-foreground"
+                          : "text-muted-foreground"
+                      )}
+                    >
+                      <span className="flex items-center gap-2">
+                        <Trophy className="h-4 w-4" />
+                        All Cover Letters
+                      </span>
+                    </Link>
+                    <Link 
+                      to="/saved-sections" 
+                      className={cn(
+                        "flex items-center justify-between px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
+                        location.pathname === "/saved-sections"
                           ? "font-bold text-foreground"
                           : "text-muted-foreground"
                       )}
@@ -184,14 +208,14 @@ export const Header = ({ currentPage }: HeaderProps) => {
                       to="/cover-letter-template" 
                       className={cn(
                         "flex items-center justify-between px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
-                        isCoverLettersChild(location.pathname) && location.pathname.startsWith("/cover-letter-template")
+                        location.pathname === "/cover-letter-template"
                           ? "font-bold text-foreground"
                           : "text-muted-foreground"
                       )}
                     >
                       <span className="flex items-center gap-2">
                         <LayoutTemplate className="h-4 w-4" />
-                        Templates
+                        Edit Template
                       </span>
                     </Link>
                   </div>

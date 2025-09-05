@@ -121,11 +121,45 @@ function submitToGoogleSheet(feedbackData) {
     // Add the row to the sheet
     sheet.appendRow(rowData);
     
+    // Send email notification (optional)
+    sendEmailNotification(feedbackData);
+    
     return true;
     
   } catch (error) {
     console.error('Error submitting to Google Sheet:', error);
     return false;
+  }
+}
+
+/**
+ * Send email notification when new feedback is received
+ */
+function sendEmailNotification(feedbackData) {
+  try {
+    const subject = `New ${feedbackData.category} feedback received`;
+    const body = `
+New feedback has been submitted:
+
+Category: ${feedbackData.category}
+Sentiment: ${feedbackData.sentiment}
+Message: ${feedbackData.message}
+Email: ${feedbackData.email || 'No email provided'}
+Page: ${feedbackData.pageUrl}
+Time: ${feedbackData.timestamp}
+
+Click location: ${feedbackData.clickLocation.x}, ${feedbackData.clickLocation.y}
+User Agent: ${feedbackData.userAgent}
+    `;
+    
+    // Send email to yourself (replace with your email)
+    GmailApp.sendEmail(
+      'your-email@example.com', // Replace with your email
+      subject,
+      body
+    );
+  } catch (error) {
+    console.log('Email notification failed (optional):', error);
   }
 }
 

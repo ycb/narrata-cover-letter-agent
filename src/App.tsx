@@ -37,7 +37,7 @@ import NewUserDashboard from "./pages/NewUserDashboard";
 import { HILDemo } from "./pages/HILDemo";
 import ShowAllStories from "./pages/ShowAllStories";
 import ShowAllLinks from "./pages/ShowAllLinks";
-import ShowAllSavedSections from "./pages/ShowAllSavedSections";
+import SavedSections from "./pages/SavedSections";
 import NewUserOnboarding from "./pages/NewUserOnboarding";
 
 import SignUp from "./pages/SignUp";
@@ -157,10 +157,10 @@ function AppLayout() {
             <ShowAllLinks />
           </>
         } />
-        <Route path="/show-all-saved-sections" element={
+        <Route path="/saved-sections" element={
           <>
             <Header />
-            <ShowAllSavedSections />
+            <SavedSections />
           </>
         } />
         <Route path="/new-user" element={<NewUserOnboarding />} />

@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Upload, Save, ArrowLeft, Plus, GripVertical, Trash2, Edit, FileText, Library, MoreHorizontal, Copy, Clock, LayoutTemplate, CheckCircle, X, ChevronRight, BookOpen } from "lucide-react";
 import { TemplateBanner } from "@/components/layout/TemplateBanner";
 import { Link, useNavigate } from "react-router-dom";
@@ -254,7 +253,6 @@ export default function CoverLetterTemplate() {
   const [editingBlurb, setEditingBlurb] = useState<TemplateBlurb | null>(null);
   const [creatingBlurbType, setCreatingBlurbType] = useState<'intro' | 'closer' | 'signature' | null>(null);
   const [showWorkHistorySelector, setShowWorkHistorySelector] = useState(false);
-  const [activeTab, setActiveTab] = useState<'template' | 'saved'>('template');
   const [showAddContentTypeModal, setShowAddContentTypeModal] = useState(false);
   const [newContentType, setNewContentType] = useState({ label: '', description: '' });
   const [showAddReusableContentModal, setShowAddReusableContentModal] = useState(false);
@@ -284,7 +282,6 @@ export default function CoverLetterTemplate() {
   useEffect(() => {
     const tabParam = searchParams.get('tab');
     if (tabParam === 'saved') {
-      setActiveTab('saved');
     }
   }, [searchParams]);
 
@@ -293,7 +290,6 @@ export default function CoverLetterTemplate() {
     if (isTourActive) {
       // Start on template tab, then switch to saved sections after 3 seconds
       setTimeout(() => {
-        setActiveTab('saved');
       }, 3000);
     }
   }, [isTourActive]);
@@ -540,74 +536,31 @@ export default function CoverLetterTemplate() {
       />
       <div className={isTourActive ? 'pt-24' : ''}>
       
-      {/* Tabs */}
+      {/* Page Header */}
       <div className="bg-background">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
-            {/* Custom Tabs */}
-            <div className="border-b">
-              <div className="flex items-center justify-between">
-                <div className="flex space-x-8">
-                  <button
-                    onClick={() => setActiveTab('template')}
-                    className={cn(
-                      "flex items-center gap-2 py-4 px-1 border-b-4 font-medium text-sm transition-colors",
-                      activeTab === 'template'
-                        ? "border-primary text-primary"
-                        : "border-transparent text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    <LayoutTemplate className="h-4 w-4" />
-                    Template
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('saved')}
-                    className={cn(
-                      "flex items-center gap-2 py-4 px-1 border-b-4 font-medium text-sm transition-colors",
-                      activeTab === 'saved'
-                        ? "border-primary text-primary"
-                        : "border-transparent text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    <BookOpen className="h-4 w-4" />
-                    Saved Sections
-                  </button>
-                </div>
-                
-                {/* Dynamic CTA Button */}
-                <div>
-                  {activeTab === 'template' && (
-                    <Button 
-                      variant="secondary" 
-                      size="sm"
-                      onClick={() => setShowUploadModal(true)}
-                      className="flex items-center gap-2"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Add New Template
-                    </Button>
-                  )}
-                  {activeTab === 'saved' && (
-                    <Button 
-                      variant="secondary" 
-                      size="sm"
-                      onClick={() => setShowAddContentTypeModal(true)}
-                      className="flex items-center gap-2"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Add New Section
-                    </Button>
-                  )}
-                </div>
+            <div className="flex items-center justify-between py-6">
+              <div>
+                <h1 className="text-3xl font-bold text-foreground mb-2">Cover Letter Templates</h1>
+                <p className="text-muted-foreground">
+                  Create and manage your cover letter templates
+                </p>
               </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowUploadModal(true)}
+                className="flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add New Template
+              </Button>
             </div>
-            
-
             
             {/* Content Area */}
             <div>
-              {activeTab === 'template' && (
-                <div className="template-content-spacing mt-2">
+              <div className="template-content-spacing mt-2">
                   {/* Template Settings */}
                   <Card>
                     <CardHeader>
@@ -841,57 +794,6 @@ export default function CoverLetterTemplate() {
                     />
                   )}
                 </div>
-              )}
-
-              {activeTab === 'saved' && (
-                <div className="template-content-spacing mt-2">
-                  <TemplateBlurbHierarchical
-                    blurbs={mockTemplateBlurbs.map(blurb => ({
-                      ...blurb,
-                      status: 'approved' as const,
-                      confidence: 'high' as const,
-                      timesUsed: 5,
-                      lastUsed: '2024-01-15',
-                      linkedExternalLinks: [],
-                      externalLinks: []
-                    }))}
-                    selectedBlurbId={undefined}
-                    onSelectBlurb={handleSelectBlurbFromLibrary}
-                    onCreateBlurb={(type) => {
-                      setNewReusableContent(prev => ({ ...prev, contentType: type }));
-                      setShowAddReusableContentModal(true);
-                    }}
-                    onEditBlurb={handleEditBlurb}
-                    onDeleteBlurb={(id) => {
-                      setTemplateBlurbs(prev => prev.filter(blurb => blurb.id !== id));
-                    }}
-                    contentTypes={[
-                      {
-                        type: 'intro',
-                        label: 'Introduction',
-                        description: 'Opening paragraphs that grab attention and introduce you',
-                        icon: FileText,
-                        isDefault: true
-                      },
-                      {
-                        type: 'closer',
-                        label: 'Closing',
-                        description: 'Concluding paragraphs that reinforce your interest',
-                        icon: CheckCircle,
-                        isDefault: true
-                      },
-                      {
-                        type: 'signature',
-                        label: 'Signature',
-                        description: 'Professional sign-offs and contact information',
-                        icon: Edit,
-                        isDefault: true
-                      },
-                      ...userContentTypes
-                    ]}
-                  />
-                </div>
-              )}
             </div>
           </div>
         </div>
