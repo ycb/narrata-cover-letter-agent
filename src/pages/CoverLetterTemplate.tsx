@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Upload, Save, ArrowLeft, Plus, GripVertical, Trash2, Edit, FileText, Library, MoreHorizontal, Copy, Clock, LayoutTemplate, CheckCircle, X, ChevronRight, BookOpen } from "lucide-react";
+import { Upload, Save, ArrowLeft, Plus, GripVertical, Trash2, Edit, FileText, Library, MoreHorizontal, Copy, Clock, LayoutTemplate, CheckCircle, X, ChevronRight, BookOpen, Eye } from "lucide-react";
 import { TemplateBanner } from "@/components/layout/TemplateBanner";
 import { Link, useNavigate } from "react-router-dom";
 import { TemplateBlurbHierarchical } from "@/components/template-blurbs/TemplateBlurbHierarchical";
@@ -15,6 +15,7 @@ import { type TemplateBlurb } from "@/components/template-blurbs/TemplateBlurbMa
 import { TemplateBlurbDetail } from "@/components/template-blurbs/TemplateBlurbDetail";
 import { WorkHistoryBlurbSelector } from "@/components/work-history/WorkHistoryBlurbSelector";
 import { SectionInsertButton } from "@/components/template-blurbs/SectionInsertButton";
+import { CoverLetterViewModal } from "@/components/cover-letters/CoverLetterViewModal";
 import type { CoverLetterSection, CoverLetterTemplate, WorkHistoryBlurb } from "@/types/workHistory";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
@@ -257,6 +258,7 @@ export default function CoverLetterTemplate() {
   const [newContentType, setNewContentType] = useState({ label: '', description: '' });
   const [showAddReusableContentModal, setShowAddReusableContentModal] = useState(false);
   const [newReusableContent, setNewReusableContent] = useState({ title: '', content: '', tags: '', contentType: '' });
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [userContentTypes, setUserContentTypes] = useState<Array<{
     type: string;
     label: string;
@@ -533,6 +535,17 @@ export default function CoverLetterTemplate() {
     <div className="min-h-screen bg-background">
       <TemplateBanner
         onDone={handleDone}
+        previewButton={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowPreviewModal(true)}
+            className="flex items-center gap-2"
+          >
+            <Eye className="h-4 w-4" />
+            Preview
+          </Button>
+        }
       />
       <div className={isTourActive ? 'pt-24' : ''}>
       
@@ -1354,6 +1367,36 @@ export default function CoverLetterTemplate() {
           isLastStep={tourStep === tourSteps.length - 1}
         />
       )}
+
+      {/* Preview Modal */}
+      <CoverLetterViewModal
+        isOpen={showPreviewModal}
+        onClose={() => setShowPreviewModal(false)}
+        coverLetter={{
+          id: "preview-template",
+          title: "Template Preview",
+          content: {
+            sections: [
+              {
+                content: `Dear Hiring Manager,
+
+I am writing to express my strong interest in the [Position] role at [Company]. With my background in [Industry/Field], I am excited about the opportunity to contribute to your team's success.
+
+[Your personalized content will appear here based on your template settings and selected work history stories.]
+
+I am particularly excited about this opportunity because your focus on [Company Value/Goal] aligns perfectly with my passion for [Relevant Area]. I am confident that my experience in [Key Skill/Area] and my track record of [Achievement/Result] would make me a valuable addition to your team.
+
+Thank you for considering my application. I look forward to the opportunity to discuss how I can contribute to [Company]'s continued success.
+
+Sincerely,
+[Your Name]`
+              }
+            ]
+          },
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }}
+      />
       </div>
     </div>
   );
