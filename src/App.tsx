@@ -35,6 +35,7 @@ import OnboardingDashboard from "./pages/OnboardingDashboard";
 import NewUserDashboard from "./pages/NewUserDashboard";
 
 import { HILDemo } from "./pages/HILDemo";
+import TooltipDemo from "./pages/TooltipDemo";
 import ShowAllStories from "./pages/ShowAllStories";
 import ShowAllLinks from "./pages/ShowAllLinks";
 import SavedSections from "./pages/SavedSections";
@@ -143,6 +144,12 @@ function AppLayout() {
           <>
             <Header />
             <HILDemo />
+          </>
+        } />
+        <Route path="/tooltip-demo" element={
+          <>
+            <Header />
+            <TooltipDemo />
           </>
         } />
         <Route path="/show-all-stories" element={
