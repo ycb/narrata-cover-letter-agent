@@ -13,12 +13,14 @@ interface MatchGoalsTooltipProps {
   children: React.ReactNode;
   className?: string;
   goalMatches?: GoalMatch[];
+  isPostHIL?: boolean; // For consistency with other tooltips, but not used since goals don't change
 }
 
 export function MatchGoalsTooltip({ 
   children, 
   className,
-  goalMatches = []
+  goalMatches = [],
+  isPostHIL = false // Not used since goals don't change, but for consistency
 }: MatchGoalsTooltipProps) {
   const content = (
     <div className="space-y-4">

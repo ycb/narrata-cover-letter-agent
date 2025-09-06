@@ -50,7 +50,7 @@ export function ProgressIndicatorWithTooltips({
     <div className={`w-full bg-card border rounded-lg p-4 ${className}`}>
       <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-center">
         {/* Match with Goals */}
-        <MatchGoalsTooltip goalMatches={createMockGoalMatches()}>
+        <MatchGoalsTooltip goalMatches={createMockGoalMatches()} isPostHIL={isPostHIL}>
           <div className="flex flex-col items-center justify-center">
             <div className="text-xs text-muted-foreground mb-2 underline underline-offset-2">MATCH WITH GOALS</div>
             <Badge variant="outline" className={getRatingColor(metrics.goalsMatch)}>

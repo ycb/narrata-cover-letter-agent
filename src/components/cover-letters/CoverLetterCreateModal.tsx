@@ -457,7 +457,7 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
           </DialogHeader>
 
           {/* Top Progress Bar with Tooltips - Only show when there's a draft to analyze */}
-          {hilProgressMetrics && (coverLetterGenerated || isGenerating) && (
+          {hilProgressMetrics && coverLetterGenerated && (
             <ProgressIndicatorWithTooltips 
               metrics={hilProgressMetrics}
               className="mb-4"
