@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -80,6 +80,14 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
   const [selectedGap, setSelectedGap] = useState<GapAnalysis | null>(null);
   const [mainTabValue, setMainTabValue] = useState<'job-description' | 'cover-letter'>('cover-letter');
   const [showFinalizationModal, setShowFinalizationModal] = useState(false);
+
+  // Set initial metrics when modal opens
+  useEffect(() => {
+    if (isOpen && !hilProgressMetrics) {
+      const initialAnalysis = analyzeHILProgress(jobContent || jobUrl);
+      setHilProgressMetrics(initialAnalysis.metrics);
+    }
+  }, [isOpen, jobContent, jobUrl, hilProgressMetrics]);
 
 
 
