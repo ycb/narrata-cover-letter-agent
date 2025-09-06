@@ -114,11 +114,6 @@ export function MyDataModal({ isOpen, onClose }: MyDataModalProps) {
           ))}
         </div>
 
-        <div className="flex justify-end gap-3 pt-6">
-          <Button variant="outline" onClick={onClose}>
-            Close
-          </Button>
-        </div>
       </DialogContent>
     </Dialog>
   );
