@@ -96,39 +96,39 @@ export function createMockExperienceMatches(): ExperienceMatch[] {
   return [
     {
       id: 'exp-1',
-      requirement: 'Senior-level software development (5+ years)',
-      match: '6 years as Senior Software Engineer at TechCorp',
+      requirement: 'JavaScript and frontend development',
+      match: '5+ years JavaScript experience with various projects',
       confidence: 'high'
     },
     {
       id: 'exp-2',
-      requirement: 'React and TypeScript expertise',
-      match: 'Built 3 React applications with TypeScript at previous roles',
-      confidence: 'high'
+      requirement: 'React and modern frontend frameworks',
+      match: 'Built React applications but limited advanced patterns',
+      confidence: 'medium'
     },
     {
       id: 'exp-3',
-      requirement: 'Cloud platform experience (AWS/Azure)',
-      match: 'Deployed applications on AWS using EC2 and S3',
+      requirement: 'API integration and backend communication',
+      match: 'Basic API integration experience with REST endpoints',
       confidence: 'medium'
     },
     {
       id: 'exp-4',
-      requirement: 'Team leadership and mentoring',
-      match: 'Led team of 3 junior developers for 2 years',
-      confidence: 'high'
-    },
-    {
-      id: 'exp-5',
-      requirement: 'Fintech or financial services experience',
+      requirement: 'Node.js server-side development',
       match: null,
       confidence: 'low'
     },
     {
-      id: 'exp-6',
-      requirement: 'Machine learning or AI experience',
-      match: 'Implemented ML recommendation system for e-commerce platform',
+      id: 'exp-5',
+      requirement: 'Team collaboration and agile practices',
+      match: 'Worked in agile teams with standard practices',
       confidence: 'medium'
+    },
+    {
+      id: 'exp-6',
+      requirement: 'Leadership and mentoring experience',
+      match: null,
+      confidence: 'low'
     }
   ];
 }

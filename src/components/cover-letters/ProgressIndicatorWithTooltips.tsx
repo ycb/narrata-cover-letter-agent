@@ -127,54 +127,54 @@ function createPostHILRequirements(type: 'core' | 'preferred'): any[] {
     return [
       {
         id: 'core-1',
-        text: '5+ years of software development experience',
+        text: 'JavaScript proficiency',
         demonstrated: true,
-        evidence: 'HIL generated content highlighting 6 years of experience with specific project examples'
+        evidence: 'HIL generated content highlighting 5+ years of JavaScript experience'
       },
       {
         id: 'core-2',
-        text: 'Proficiency in React and TypeScript',
+        text: 'React development experience',
         demonstrated: true,
-        evidence: 'Added detailed React/TypeScript project descriptions with technical achievements'
+        evidence: 'Added detailed React project descriptions with technical achievements'
       },
       {
         id: 'core-3',
-        text: 'Experience with cloud platforms (AWS/Azure)',
-        demonstrated: true,
-        evidence: 'HIL content now includes AWS deployment experience and cloud architecture knowledge'
+        text: 'Node.js backend development',
+        demonstrated: false,
+        evidence: 'Limited Node.js experience mentioned in current draft'
       },
       {
         id: 'core-4',
-        text: 'Bachelor\'s degree in Computer Science or related field',
+        text: 'API design and integration',
         demonstrated: true,
-        evidence: 'Education section enhanced with relevant coursework and academic projects'
+        evidence: 'HIL content now includes API development and integration examples'
       }
     ];
   } else {
     return [
       {
         id: 'pref-1',
-        text: 'Experience with microservices architecture',
-        demonstrated: true,
-        evidence: 'Added microservices implementation details from previous role'
+        text: 'Python programming experience',
+        demonstrated: false,
+        evidence: 'Python experience not yet highlighted in current draft'
       },
       {
         id: 'pref-2',
-        text: 'Leadership experience managing a team',
+        text: 'Leadership and team management',
         demonstrated: true,
-        evidence: 'HIL generated content now includes team leadership examples and management achievements'
+        evidence: 'HIL generated content now includes team leadership examples'
       },
       {
         id: 'pref-3',
-        text: 'Open source contributions',
-        demonstrated: true,
-        evidence: 'Enhanced with specific open source projects and contributions'
+        text: 'Metrics and KPI tracking',
+        demonstrated: false,
+        evidence: 'Quantifiable achievements need more emphasis'
       },
       {
         id: 'pref-4',
-        text: 'Certifications in cloud technologies',
+        text: 'Agile methodology experience',
         demonstrated: true,
-        evidence: 'Added AWS certification details and cloud training experience'
+        evidence: 'Added specific agile project management examples'
       }
     ];
   }
@@ -184,38 +184,38 @@ function createPostHILExperienceMatches(): any[] {
   return [
     {
       id: 'exp-1',
-      requirement: 'Senior-level software development (5+ years)',
-      match: '6 years as Senior Software Engineer at TechCorp with HIL-enhanced project details',
+      requirement: 'JavaScript and frontend development',
+      match: '5+ years JavaScript experience with React projects',
       confidence: 'high'
     },
     {
       id: 'exp-2',
-      requirement: 'React and TypeScript expertise',
-      match: 'Built 3 React applications with TypeScript, now with detailed technical specifications',
+      requirement: 'React and modern frontend frameworks',
+      match: 'Built multiple React applications with state management',
       confidence: 'high'
     },
     {
       id: 'exp-3',
-      requirement: 'Cloud platform experience (AWS/Azure)',
-      match: 'Deployed applications on AWS using EC2, S3, and Lambda with HIL-generated examples',
-      confidence: 'high'
+      requirement: 'API integration and backend communication',
+      match: 'Experience with REST APIs and data fetching patterns',
+      confidence: 'medium'
     },
     {
       id: 'exp-4',
-      requirement: 'Team leadership and mentoring',
-      match: 'Led team of 3 junior developers for 2 years with enhanced leadership examples',
-      confidence: 'high'
+      requirement: 'Node.js server-side development',
+      match: 'Limited Node.js experience, mostly frontend focused',
+      confidence: 'low'
     },
     {
       id: 'exp-5',
-      requirement: 'Fintech or financial services experience',
-      match: 'HIL generated content now includes payment processing and financial API experience',
-      confidence: 'high'
+      requirement: 'Team collaboration and agile practices',
+      match: 'Worked in agile teams with regular standups and sprints',
+      confidence: 'medium'
     },
     {
       id: 'exp-6',
-      requirement: 'Machine learning or AI experience',
-      match: 'Implemented ML recommendation system with detailed technical implementation',
+      requirement: 'Leadership and mentoring experience',
+      match: 'HIL generated content now includes team leadership examples',
       confidence: 'high'
     }
   ];

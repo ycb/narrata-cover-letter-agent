@@ -92,54 +92,54 @@ export function createMockRequirements(type: 'core' | 'preferred'): Requirement[
     return [
       {
         id: 'core-1',
-        text: '5+ years of software development experience',
+        text: 'JavaScript proficiency',
         demonstrated: true,
-        evidence: 'Mentioned 6 years of experience in previous roles'
+        evidence: 'Mentioned 5+ years of JavaScript experience'
       },
       {
         id: 'core-2',
-        text: 'Proficiency in React and TypeScript',
+        text: 'React development experience',
         demonstrated: true,
-        evidence: 'Highlighted React projects and TypeScript expertise'
+        evidence: 'Highlighted React projects and component development'
       },
       {
         id: 'core-3',
-        text: 'Experience with cloud platforms (AWS/Azure)',
+        text: 'Node.js backend development',
         demonstrated: false,
-        evidence: 'No specific cloud experience mentioned'
+        evidence: 'Limited Node.js experience mentioned'
       },
       {
         id: 'core-4',
-        text: 'Bachelor\'s degree in Computer Science or related field',
-        demonstrated: true,
-        evidence: 'Education section shows CS degree'
+        text: 'API design and integration',
+        demonstrated: false,
+        evidence: 'API experience not clearly demonstrated'
       }
     ];
   } else {
     return [
       {
         id: 'pref-1',
-        text: 'Experience with microservices architecture',
-        demonstrated: true,
-        evidence: 'Described microservices implementation in previous role'
+        text: 'Python programming experience',
+        demonstrated: false,
+        evidence: 'Python experience not mentioned in current draft'
       },
       {
         id: 'pref-2',
-        text: 'Leadership experience managing a team',
+        text: 'Leadership and team management',
         demonstrated: false,
-        evidence: 'No team leadership experience mentioned'
+        evidence: 'No team leadership experience highlighted'
       },
       {
         id: 'pref-3',
-        text: 'Open source contributions',
-        demonstrated: true,
-        evidence: 'Linked to GitHub profile with active contributions'
+        text: 'Metrics and KPI tracking',
+        demonstrated: false,
+        evidence: 'Quantifiable achievements need more emphasis'
       },
       {
         id: 'pref-4',
-        text: 'Certifications in cloud technologies',
-        demonstrated: false,
-        evidence: 'No relevant certifications mentioned'
+        text: 'Agile methodology experience',
+        demonstrated: true,
+        evidence: 'Mentioned working in agile development teams'
       }
     ];
   }
