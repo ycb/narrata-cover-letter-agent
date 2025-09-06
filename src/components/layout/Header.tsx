@@ -252,18 +252,13 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 <div className="absolute top-full left-0 pt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
                   <div className="bg-background border rounded-lg shadow-lg p-3 min-w-80">
                     {/* Overall Level - Spans full width */}
-                               <Link
-             to="/assessment/overall-level"
-             className={cn(
-               "flex items-center justify-center gap-2 px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors mb-3 border border-blue-600 text-blue-600 group",
-               isAssessmentChild(location.pathname) && location.pathname === "/assessment/overall-level"
-                 ? "font-bold text-blue-600"
-                 : "text-blue-600"
-             )}
+                               <button
+             onClick={() => window.location.href = "/assessment/overall-level"}
+             className="flex items-center justify-center gap-2 px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors mb-3 border border-blue-600 text-blue-600 group w-full"
            >
              <BarChart3 className="h-4 w-4 transition-colors" />
              Overall Level
-           </Link>
+           </button>
                     
                     {/* Two-column layout */}
                     <div className="grid grid-cols-2 gap-4">
@@ -273,50 +268,30 @@ export const Header = ({ currentPage }: HeaderProps) => {
                           Competencies
                         </div>
                                                  <div className="space-y-1">
-                           <Link 
-                             to="/assessment/competencies/execution" 
-                             className={cn(
-                               "block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
-                               isAssessmentChild(location.pathname) && location.pathname === "/assessment/competencies/execution"
-                                 ? "font-bold text-foreground"
-                                 : "text-muted-foreground"
-                             )}
+                           <button 
+                             onClick={() => window.location.href = "/assessment/competencies/execution"}
+                             className="block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors text-muted-foreground w-full text-left"
                            >
                              Execution
-                           </Link>
-                           <Link 
-                             to="/assessment/competencies/customer-insight" 
-                             className={cn(
-                               "block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
-                               isAssessmentChild(location.pathname) && location.pathname === "/assessment/competencies/customer-insight"
-                                 ? "font-bold text-foreground"
-                                 : "text-muted-foreground"
-                             )}
+                           </button>
+                           <button 
+                             onClick={() => window.location.href = "/assessment/competencies/customer-insight"}
+                             className="block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors text-muted-foreground w-full text-left"
                            >
                              Customer Insight
-                           </Link>
-                           <Link 
-                             to="/assessment/competencies/strategy" 
-                             className={cn(
-                               "block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
-                               isAssessmentChild(location.pathname) && location.pathname === "/assessment/competencies/strategy"
-                                 ? "font-bold text-foreground"
-                                 : "text-muted-foreground"
-                             )}
+                           </button>
+                           <button 
+                             onClick={() => window.location.href = "/assessment/competencies/strategy"}
+                             className="block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors text-muted-foreground w-full text-left"
                            >
                              Strategy
-                           </Link>
-                           <Link 
-                             to="/assessment/competencies/influence" 
-                             className={cn(
-                               "block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
-                               isAssessmentChild(location.pathname) && location.pathname === "/assessment/competencies/influence"
-                                 ? "font-bold text-foreground"
-                                 : "text-muted-foreground"
-                             )}
+                           </button>
+                           <button 
+                             onClick={() => window.location.href = "/assessment/competencies/influence"}
+                             className="block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors text-muted-foreground w-full text-left"
                            >
                              Influence
-                           </Link>
+                           </button>
                          </div>
                       </div>
                       
@@ -326,50 +301,30 @@ export const Header = ({ currentPage }: HeaderProps) => {
                           Specialization
                         </div>
                                                  <div className="space-y-1">
-                           <Link 
-                             to="/assessment/specializations/growth" 
-                             className={cn(
-                               "block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
-                               isAssessmentChild(location.pathname) && location.pathname === "/assessment/specializations/growth"
-                                 ? "font-bold text-foreground"
-                                 : "text-muted-foreground"
-                             )}
+                           <button 
+                             onClick={() => window.location.href = "/assessment/specializations/growth"}
+                             className="block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors text-muted-foreground w-full text-left"
                            >
                              Growth
-                           </Link>
-                           <Link 
-                             to="/assessment/specializations/technical" 
-                             className={cn(
-                               "block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
-                               isAssessmentChild(location.pathname) && location.pathname === "/assessment/specializations/technical"
-                                 ? "font-bold text-foreground"
-                                 : "text-muted-foreground"
-                             )}
+                           </button>
+                           <button 
+                             onClick={() => window.location.href = "/assessment/specializations/technical"}
+                             className="block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors text-muted-foreground w-full text-left"
                            >
                              Technical
-                           </Link>
-                           <Link 
-                             to="/assessment/specializations/founding" 
-                             className={cn(
-                               "block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
-                               isAssessmentChild(location.pathname) && location.pathname === "/assessment/specializations/founding"
-                                 ? "font-bold text-foreground"
-                                 : "text-muted-foreground"
-                             )}
+                           </button>
+                           <button 
+                             onClick={() => window.location.href = "/assessment/specializations/founding"}
+                             className="block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors text-muted-foreground w-full text-left"
                            >
                              Founding
-                           </Link>
-                           <Link 
-                             to="/assessment/specializations/platform" 
-                             className={cn(
-                               "block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
-                               isAssessmentChild(location.pathname) && location.pathname === "/assessment/specializations/platform"
-                                 ? "font-bold text-foreground"
-                                 : "text-muted-foreground"
-                             )}
+                           </button>
+                           <button 
+                             onClick={() => window.location.href = "/assessment/specializations/platform"}
+                             className="block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors text-muted-foreground w-full text-left"
                            >
                              Platform
-                           </Link>
+                           </button>
                          </div>
                       </div>
                     </div>
