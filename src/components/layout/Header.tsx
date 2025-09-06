@@ -72,9 +72,10 @@ export const Header = ({ currentPage }: HeaderProps) => {
     return pathname.startsWith("/show-all-saved-sections") || pathname.startsWith("/cover-letter-template");
   };
 
-  const isAssessmentChild = (pathname: string): boolean => {
-    return pathname.startsWith("/assessment/") && pathname !== "/assessment";
-  };
+  // Assessment items are now modal triggers, not navigation links
+  // const isAssessmentChild = (pathname: string): boolean => {
+  //   return pathname.startsWith("/assessment/") && pathname !== "/assessment";
+  // };
 
   const activePage = getCurrentPage(location.pathname);
 
