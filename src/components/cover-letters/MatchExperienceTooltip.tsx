@@ -103,8 +103,8 @@ export function createMockExperienceMatches(): ExperienceMatch[] {
     {
       id: 'exp-2',
       requirement: 'React and modern frontend frameworks',
-      match: 'Built React applications but limited advanced patterns',
-      confidence: 'medium'
+      match: null,
+      confidence: 'low'
     },
     {
       id: 'exp-3',

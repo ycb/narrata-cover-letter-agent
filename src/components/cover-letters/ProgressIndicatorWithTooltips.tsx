@@ -191,7 +191,7 @@ function createPostHILExperienceMatches(): any[] {
     {
       id: 'exp-2',
       requirement: 'React and modern frontend frameworks',
-      match: 'Built multiple React applications with state management',
+      match: 'HIL generated content now includes advanced React patterns and state management',
       confidence: 'high'
     },
     {
@@ -203,7 +203,7 @@ function createPostHILExperienceMatches(): any[] {
     {
       id: 'exp-4',
       requirement: 'Node.js server-side development',
-      match: 'Limited Node.js experience, mostly frontend focused',
+      match: null,
       confidence: 'low'
     },
     {
