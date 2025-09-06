@@ -81,13 +81,6 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
   const [mainTabValue, setMainTabValue] = useState<'job-description' | 'cover-letter'>('cover-letter');
   const [showFinalizationModal, setShowFinalizationModal] = useState(false);
 
-  // Set initial metrics when modal opens
-  useEffect(() => {
-    if (isOpen && !hilProgressMetrics) {
-      const initialAnalysis = analyzeHILProgress(jobContent || jobUrl);
-      setHilProgressMetrics(initialAnalysis.metrics);
-    }
-  }, [isOpen, jobContent, jobUrl, hilProgressMetrics]);
 
 
 
@@ -258,14 +251,15 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
     }
     
     // If go, proceed with generation and HIL analysis
+    // First, show initial analysis
+    const initialAnalysis = analyzeHILProgress(jobContent || jobUrl);
+    setHilProgressMetrics(initialAnalysis.metrics);
+    setGaps(initialAnalysis.gaps);
+    
+    // Then after 3 seconds, show post-HIL analysis
     setTimeout(() => {
       setIsGenerating(false);
       setCoverLetterGenerated(true);
-      
-      // Analyze HIL progress after draft generation
-      const hilAnalysis = analyzeHILProgress(jobContent || jobUrl);
-      setHilProgressMetrics(hilAnalysis.metrics);
-      setGaps(hilAnalysis.gaps);
     }, 3000);
   };
 
@@ -274,14 +268,16 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
     setShowGoNoGoModal(false);
     // Proceed with generation despite no-go
     setIsGenerating(true);
+    
+    // First, show initial analysis
+    const initialAnalysis = analyzeHILProgress(jobContent || jobUrl);
+    setHilProgressMetrics(initialAnalysis.metrics);
+    setGaps(initialAnalysis.gaps);
+    
+    // Then after 3 seconds, show post-HIL analysis
     setTimeout(() => {
       setIsGenerating(false);
       setCoverLetterGenerated(true);
-      
-      // Analyze HIL progress after draft generation
-      const hilAnalysis = analyzeHILProgress(jobContent || jobUrl);
-      setHilProgressMetrics(hilAnalysis.metrics);
-      setGaps(hilAnalysis.gaps);
     }, 3000);
   };
 
