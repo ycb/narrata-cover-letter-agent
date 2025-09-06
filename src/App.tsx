@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { PrototypeProvider } from "@/contexts/PrototypeContext";
 import { TourProvider } from "@/contexts/TourContext";
+import { UserGoalsProvider } from "@/contexts/UserGoalsContext";
 import { PrototypeStateBanner } from "@/components/work-history/PrototypeStateBanner";
 import { Header } from "@/components/layout/Header";
 import { FeedbackSystem } from "@/components/feedback/FeedbackSystem";
@@ -203,7 +204,9 @@ const App = () => (
       <PrototypeProvider>
         <BrowserRouter>
           <TourProvider>
-            <AppLayout />
+            <UserGoalsProvider>
+              <AppLayout />
+            </UserGoalsProvider>
           </TourProvider>
         </BrowserRouter>
       </PrototypeProvider>

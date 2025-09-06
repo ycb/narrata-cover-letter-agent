@@ -25,6 +25,9 @@ import {
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { UserGoalsModal } from "@/components/user-goals/UserGoalsModal";
+import { useUserGoals } from "@/contexts/UserGoalsContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,6 +45,8 @@ interface HeaderProps {
 
 export const Header = ({ currentPage }: HeaderProps) => {
   const location = useLocation();
+  const [showGoalsModal, setShowGoalsModal] = useState(false);
+  const { goals, setGoals } = useUserGoals();
   
   // Determine current page based on pathname
   const getCurrentPage = (pathname: string): string => {
@@ -370,15 +375,37 @@ export const Header = ({ currentPage }: HeaderProps) => {
         </div>
 
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon">
-            <Settings className="h-4 w-4" />
-          </Button>
-          
-          <Button variant="ghost" size="icon">
-            <User className="h-4 w-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <User className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem>
+                <User className="mr-2 h-4 w-4" />
+                <span>Profile</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowGoalsModal(true)}>
+                <Target className="mr-2 h-4 w-4" />
+                <span>Goals</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Log out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
+      
+      <UserGoalsModal
+        isOpen={showGoalsModal}
+        onClose={() => setShowGoalsModal(false)}
+        onSave={setGoals}
+        initialGoals={goals || undefined}
+      />
     </header>
   );
 };
