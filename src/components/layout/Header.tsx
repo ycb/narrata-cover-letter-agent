@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { UserGoalsModal } from "@/components/user-goals/UserGoalsModal";
 import { MyVoiceModal } from "@/components/user-voice/MyVoiceModal";
+import { MyDataModal } from "@/components/user-data/MyDataModal";
 import { useUserGoals } from "@/contexts/UserGoalsContext";
 import { useUserVoice } from "@/contexts/UserVoiceContext";
 import {
@@ -47,6 +48,7 @@ interface HeaderProps {
 
 export const Header = ({ currentPage }: HeaderProps) => {
   const location = useLocation();
+  const [showDataModal, setShowDataModal] = useState(false);
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const { goals, setGoals } = useUserGoals();
@@ -386,8 +388,8 @@ export const Header = ({ currentPage }: HeaderProps) => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem>
-                <span>Profile</span>
+              <DropdownMenuItem onClick={() => setShowDataModal(true)}>
+                <span>My Data</span>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setShowGoalsModal(true)}>
                 <span>My Goals</span>
@@ -403,6 +405,11 @@ export const Header = ({ currentPage }: HeaderProps) => {
           </DropdownMenu>
         </div>
       </div>
+      
+      <MyDataModal
+        isOpen={showDataModal}
+        onClose={() => setShowDataModal(false)}
+      />
       
       <UserGoalsModal
         isOpen={showGoalsModal}
