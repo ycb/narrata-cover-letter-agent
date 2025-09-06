@@ -301,7 +301,21 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
           {/* Salary & Company Preferences */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-4">
-              <Label htmlFor="salary" className="text-lg font-semibold">Minimum Salary</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="salary" className="text-lg font-semibold">Minimum Salary</Label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="salary-dealbreaker"
+                    checked={!!formData.dealBreakers.salaryMinimum}
+                    onChange={() => toggleDealBreaker('salary')}
+                    className="h-3 w-3"
+                  />
+                  <Label htmlFor="salary-dealbreaker" className="text-xs text-muted-foreground">
+                    Deal breaker
+                  </Label>
+                </div>
+              </div>
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">$</span>
@@ -315,20 +329,8 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
                   />
                   <span className="text-sm text-muted-foreground">/year</span>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="salary-dealbreaker"
-                    checked={!!formData.dealBreakers.salaryMinimum}
-                    onChange={() => toggleDealBreaker('salary')}
-                    className="h-3 w-3"
-                  />
-                  <Label htmlFor="salary-dealbreaker" className="text-xs text-muted-foreground">
-                    Deal breaker
-                  </Label>
-                </div>
                 {formData.dealBreakers.salaryMinimum && (
-                  <div className="flex items-center gap-2 ml-5">
+                  <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">Deal breaker amount: $</span>
                     <Input
                       type="number"
@@ -347,7 +349,21 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
             </div>
 
             <div className="space-y-4">
-              <Label className="text-lg font-semibold">Company Maturity</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-lg font-semibold">Company Maturity</Label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="companyMaturity-dealbreaker"
+                    checked={formData.dealBreakers.companyMaturity.length > 0}
+                    onChange={() => toggleDealBreaker('companyMaturity')}
+                    className="h-3 w-3"
+                  />
+                  <Label htmlFor="companyMaturity-dealbreaker" className="text-xs text-muted-foreground">
+                    Deal breaker
+                  </Label>
+                </div>
+              </div>
               <div className="space-y-4">
                 <div className="flex flex-wrap gap-2">
                   {formData.companyMaturity.map((maturity) => (
@@ -378,18 +394,6 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
                     </div>
                   ))}
                 </div>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="companyMaturity-dealbreaker"
-                    checked={formData.dealBreakers.companyMaturity.length > 0}
-                    onChange={() => toggleDealBreaker('companyMaturity')}
-                    className="h-3 w-3"
-                  />
-                  <Label htmlFor="companyMaturity-dealbreaker" className="text-xs text-muted-foreground">
-                    Deal breaker
-                  </Label>
-                </div>
               </div>
             </div>
           </div>
@@ -398,7 +402,21 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
 
           {/* Work Type */}
           <div className="space-y-4">
-            <Label className="text-lg font-semibold">Work Type</Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-lg font-semibold">Work Type</Label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="workType-dealbreaker"
+                  checked={formData.dealBreakers.workType.length > 0}
+                  onChange={() => toggleDealBreaker('workType')}
+                  className="h-3 w-3"
+                />
+                <Label htmlFor="workType-dealbreaker" className="text-xs text-muted-foreground">
+                  Deal breaker
+                </Label>
+              </div>
+            </div>
             <div className="space-y-4">
               <div className="flex flex-wrap gap-2">
                 {formData.workType.map((type) => (
@@ -428,18 +446,6 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
                     <Label htmlFor={option.value} className="text-sm font-medium">{option.label}</Label>
                   </div>
                 ))}
-              </div>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="workType-dealbreaker"
-                  checked={formData.dealBreakers.workType.length > 0}
-                  onChange={() => toggleDealBreaker('workType')}
-                  className="h-3 w-3"
-                />
-                <Label htmlFor="workType-dealbreaker" className="text-xs text-muted-foreground">
-                  Deal breaker
-                </Label>
               </div>
             </div>
           </div>
