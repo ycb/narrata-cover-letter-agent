@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,12 +7,13 @@ import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
 import { 
   Building, 
   User, 
-  FileText, 
+  FileText,
   Target, 
   TrendingUp,
   BarChart3,
   Edit
 } from "lucide-react";
+import FeedbackModal from "./FeedbackModal";
 
 interface LevelEvidence {
   currentLevel: string;
@@ -55,6 +57,7 @@ interface LevelEvidenceModalProps {
 }
 
 const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalProps) => {
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
   const getConfidenceColor = (confidence: string) => {
     switch (confidence) {
       case 'high': return 'bg-success text-success-foreground';
@@ -65,7 +68,12 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <>
+      <Dialog open={isOpen} onOpenChange={(open) => {
+        // Don't close if feedback modal is open
+        if (!open && isFeedbackModalOpen) return;
+        onClose();
+      }}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="pb-4">
           <div className="flex items-center justify-between">
@@ -78,13 +86,14 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
               </DialogDescription>
             </div>
             <div className="flex items-center gap-2 mt-4">
-              <Button variant="secondary" size="sm" className="flex items-center gap-2">
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                className="flex items-center gap-2"
+                onClick={() => setIsFeedbackModalOpen(true)}
+              >
                 <Edit className="h-4 w-4" />
                 This looks wrong
-              </Button>
-              <Button variant="secondary" size="sm" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Export PDF
               </Button>
             </div>
           </div>
@@ -263,7 +272,14 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
 
         </div>
       </DialogContent>
-    </Dialog>
+      </Dialog>
+      
+      <FeedbackModal
+        isOpen={isFeedbackModalOpen}
+        onClose={() => setIsFeedbackModalOpen(false)}
+        title="Level Assessment Feedback"
+      />
+    </>
   );
 };
 

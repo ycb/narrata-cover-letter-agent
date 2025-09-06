@@ -7,7 +7,7 @@ import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
 import { 
   Building, 
   Target, 
-  FileText, 
+  FileText,
   TrendingUp,
   MessageSquare,
   Edit,
@@ -15,7 +15,6 @@ import {
   AlertCircle,
   ChevronDown,
   ChevronUp,
-  Download,
   Tag,
   Puzzle,
   Settings,
@@ -23,6 +22,7 @@ import {
   TrendingDown
 } from "lucide-react";
 import { useState } from "react";
+import FeedbackModal from "./FeedbackModal";
 import { MatchPill } from "./MatchPill";
 
 interface RoleEvidence {
@@ -75,6 +75,7 @@ interface RoleEvidenceModalProps {
 
 const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps) => {
   const [isTagAnalysisOpen, setIsTagAnalysisOpen] = useState(false);
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
 
   const getRelevanceColor = (relevance: string) => {
     if (relevance.includes("High")) return "bg-success text-success-foreground";
@@ -84,7 +85,12 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <>
+      <Dialog open={isOpen} onOpenChange={(open) => {
+        // Don't close if feedback modal is open
+        if (!open && isFeedbackModalOpen) return;
+        onClose();
+      }}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         {/* Sticky Header */}
         <DialogHeader className="pb-4">
@@ -98,13 +104,14 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
               </DialogDescription>
             </div>
             <div className="flex items-center gap-2 mt-4">
-              <Button variant="secondary" size="sm" className="flex items-center gap-2">
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                className="flex items-center gap-2"
+                onClick={() => setIsFeedbackModalOpen(true)}
+              >
                 <Edit className="h-4 w-4" />
                 This looks wrong
-              </Button>
-              <Button variant="secondary" size="sm" className="flex items-center gap-2">
-                <Download className="h-4 w-4" />
-                Export PDF
               </Button>
             </div>
           </div>
@@ -306,7 +313,14 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
           )}
         </div>
       </DialogContent>
-    </Dialog>
+      </Dialog>
+      
+      <FeedbackModal
+        isOpen={isFeedbackModalOpen}
+        onClose={() => setIsFeedbackModalOpen(false)}
+        title="Specialization Assessment Feedback"
+      />
+    </>
   );
 };
 
