@@ -1,7 +1,7 @@
 export interface UserGoals {
   targetTitles: string[];
   minimumSalary: number;
-  companyMaturity: 'early-stage' | 'late-stage' | 'public' | 'either';
+  companyMaturity: string[];
   workType: string[];
   industries: string[];
   businessModels: string[];
@@ -17,7 +17,7 @@ export interface UserGoals {
 export interface UserGoalsFormData {
   targetTitles: string[];
   minimumSalary: string;
-  companyMaturity: 'early-stage' | 'late-stage' | 'public' | 'either';
+  companyMaturity: string[];
   workType: string[];
   industries: string[];
   businessModels: string[];

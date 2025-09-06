@@ -26,8 +26,8 @@ interface UserGoalsModalProps {
 export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGoalsModalProps) {
   const [formData, setFormData] = useState<UserGoalsFormData>({
     targetTitles: [],
-    minimumSalary: '',
-    companyMaturity: 'either',
+    minimumSalary: '180000',
+    companyMaturity: [],
     workType: [],
     industries: [],
     businessModels: [],
@@ -134,7 +134,7 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
     }
   };
 
-  const togglePredefinedItem = (type: 'title' | 'industry' | 'businessModel' | 'city' | 'workType', value: string) => {
+  const togglePredefinedItem = (type: 'title' | 'industry' | 'businessModel' | 'city' | 'workType' | 'companyMaturity', value: string) => {
     switch (type) {
       case 'title':
         if (formData.targetTitles.includes(value)) {
@@ -171,17 +171,24 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
           setFormData(prev => ({ ...prev, workType: [...prev.workType, value] }));
         }
         break;
+      case 'companyMaturity':
+        if (formData.companyMaturity.includes(value)) {
+          setFormData(prev => ({ ...prev, companyMaturity: prev.companyMaturity.filter(item => item !== value) }));
+        } else {
+          setFormData(prev => ({ ...prev, companyMaturity: [...prev.companyMaturity, value] }));
+        }
+        break;
     }
   };
 
-  const toggleDealBreaker = (type: 'workType' | 'companyMaturity', value: string) => {
+  const toggleDealBreaker = (type: 'workType' | 'companyMaturity' | 'salary') => {
     if (type === 'workType') {
-      if (formData.dealBreakers.workType.includes(value)) {
+      if (formData.dealBreakers.workType.length > 0) {
         setFormData(prev => ({ 
           ...prev, 
           dealBreakers: { 
             ...prev.dealBreakers, 
-            workType: prev.dealBreakers.workType.filter(item => item !== value) 
+            workType: [] 
           }
         }));
       } else {
@@ -189,17 +196,17 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
           ...prev, 
           dealBreakers: { 
             ...prev.dealBreakers, 
-            workType: [...prev.dealBreakers.workType, value] 
+            workType: [...formData.workType] 
           }
         }));
       }
     } else if (type === 'companyMaturity') {
-      if (formData.dealBreakers.companyMaturity.includes(value)) {
+      if (formData.dealBreakers.companyMaturity.length > 0) {
         setFormData(prev => ({ 
           ...prev, 
           dealBreakers: { 
             ...prev.dealBreakers, 
-            companyMaturity: prev.dealBreakers.companyMaturity.filter(item => item !== value) 
+            companyMaturity: [] 
           }
         }));
       } else {
@@ -207,7 +214,25 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
           ...prev, 
           dealBreakers: { 
             ...prev.dealBreakers, 
-            companyMaturity: [...prev.dealBreakers.companyMaturity, value] 
+            companyMaturity: [...formData.companyMaturity] 
+          }
+        }));
+      }
+    } else if (type === 'salary') {
+      if (formData.dealBreakers.salaryMinimum) {
+        setFormData(prev => ({ 
+          ...prev, 
+          dealBreakers: { 
+            ...prev.dealBreakers, 
+            salaryMinimum: '' 
+          }
+        }));
+      } else {
+        setFormData(prev => ({ 
+          ...prev, 
+          dealBreakers: { 
+            ...prev.dealBreakers, 
+            salaryMinimum: formData.minimumSalary || '180000'
           }
         }));
       }
@@ -283,7 +308,7 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
                   <Input
                     id="salary"
                     type="number"
-                    placeholder="80000"
+                    placeholder="180000"
                     value={formData.minimumSalary}
                     onChange={(e) => setFormData(prev => ({ ...prev, minimumSalary: e.target.value }))}
                     className="flex-1"
@@ -295,25 +320,7 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
                     type="checkbox"
                     id="salary-dealbreaker"
                     checked={!!formData.dealBreakers.salaryMinimum}
-                    onChange={(checked) => {
-                      if (checked.target.checked) {
-                        setFormData(prev => ({ 
-                          ...prev, 
-                          dealBreakers: { 
-                            ...prev.dealBreakers, 
-                            salaryMinimum: formData.minimumSalary || '100000'
-                          }
-                        }));
-                      } else {
-                        setFormData(prev => ({ 
-                          ...prev, 
-                          dealBreakers: { 
-                            ...prev.dealBreakers, 
-                            salaryMinimum: ''
-                          }
-                        }));
-                      }
-                    }}
+                    onChange={() => toggleDealBreaker('salary')}
                     className="h-3 w-3"
                   />
                   <Label htmlFor="salary-dealbreaker" className="text-xs text-muted-foreground">
@@ -325,7 +332,7 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
                     <span className="text-sm text-muted-foreground">Deal breaker amount: $</span>
                     <Input
                       type="number"
-                      placeholder="100000"
+                      placeholder="180000"
                       value={formData.dealBreakers.salaryMinimum}
                       onChange={(e) => setFormData(prev => ({ 
                         ...prev, 
@@ -341,42 +348,48 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
 
             <div className="space-y-4">
               <Label className="text-lg font-semibold">Company Maturity</Label>
-              <div className="space-y-3">
-                {[
-                  { value: 'early-stage', label: 'Early-stage startup' },
-                  { value: 'late-stage', label: 'Late-stage startup' },
-                  { value: 'public', label: 'Public company' },
-                  { value: 'either', label: 'Either' }
-                ].map((option) => (
-                  <div key={option.value} className="space-y-2">
-                    <div className="flex items-center space-x-3">
+              <div className="space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  {formData.companyMaturity.map((maturity) => (
+                    <Badge key={maturity} variant="secondary" className="flex items-center gap-1 px-3 py-1">
+                      {maturity}
+                      <X 
+                        className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                        onClick={() => togglePredefinedItem('companyMaturity', maturity)}
+                      />
+                    </Badge>
+                  ))}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {[
+                    { value: 'early-stage', label: 'Early-stage startup' },
+                    { value: 'late-stage', label: 'Late-stage startup' },
+                    { value: 'public', label: 'Public company' }
+                  ].map((option) => (
+                    <div key={option.value} className="flex items-center space-x-3">
                       <input
-                        type="radio"
+                        type="checkbox"
                         id={option.value}
-                        name="companyMaturity"
-                        value={option.value}
-                        checked={formData.companyMaturity === option.value}
-                        onChange={(e) => setFormData(prev => ({ ...prev, companyMaturity: e.target.value as any }))}
+                        checked={formData.companyMaturity.includes(option.value)}
+                        onChange={() => togglePredefinedItem('companyMaturity', option.value)}
                         className="h-4 w-4"
                       />
                       <Label htmlFor={option.value} className="text-sm font-medium">{option.label}</Label>
                     </div>
-                    {option.value !== 'either' && (
-                      <div className="flex items-center space-x-2 ml-7">
-                        <input
-                          type="checkbox"
-                          id={`dealbreaker-${option.value}`}
-                          checked={formData.dealBreakers.companyMaturity.includes(option.value)}
-                          onChange={() => toggleDealBreaker('companyMaturity', option.value)}
-                          className="h-3 w-3"
-                        />
-                        <Label htmlFor={`dealbreaker-${option.value}`} className="text-xs text-muted-foreground">
-                          Deal breaker
-                        </Label>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  ))}
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="companyMaturity-dealbreaker"
+                    checked={formData.dealBreakers.companyMaturity.length > 0}
+                    onChange={() => toggleDealBreaker('companyMaturity')}
+                    className="h-3 w-3"
+                  />
+                  <Label htmlFor="companyMaturity-dealbreaker" className="text-xs text-muted-foreground">
+                    Deal breaker
+                  </Label>
+                </div>
               </div>
             </div>
           </div>
@@ -404,31 +417,29 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
                   { value: 'hybrid', label: 'Hybrid' },
                   { value: 'in-person', label: 'In-person' }
                 ].map((option) => (
-                  <div key={option.value} className="space-y-2">
-                    <div className="flex items-center space-x-3">
-                      <input
-                        type="checkbox"
-                        id={option.value}
-                        checked={formData.workType.includes(option.value)}
-                        onChange={() => togglePredefinedItem('workType', option.value)}
-                        className="h-4 w-4"
-                      />
-                      <Label htmlFor={option.value} className="text-sm font-medium">{option.label}</Label>
-                    </div>
-                    <div className="flex items-center space-x-2 ml-7">
-                      <input
-                        type="checkbox"
-                        id={`dealbreaker-${option.value}`}
-                        checked={formData.dealBreakers.workType.includes(option.value)}
-                        onChange={() => toggleDealBreaker('workType', option.value)}
-                        className="h-3 w-3"
-                      />
-                      <Label htmlFor={`dealbreaker-${option.value}`} className="text-xs text-muted-foreground">
-                        Deal breaker
-                      </Label>
-                    </div>
+                  <div key={option.value} className="flex items-center space-x-3">
+                    <input
+                      type="checkbox"
+                      id={option.value}
+                      checked={formData.workType.includes(option.value)}
+                      onChange={() => togglePredefinedItem('workType', option.value)}
+                      className="h-4 w-4"
+                    />
+                    <Label htmlFor={option.value} className="text-sm font-medium">{option.label}</Label>
                   </div>
                 ))}
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="workType-dealbreaker"
+                  checked={formData.dealBreakers.workType.length > 0}
+                  onChange={() => toggleDealBreaker('workType')}
+                  className="h-3 w-3"
+                />
+                <Label htmlFor="workType-dealbreaker" className="text-xs text-muted-foreground">
+                  Deal breaker
+                </Label>
               </div>
             </div>
           </div>

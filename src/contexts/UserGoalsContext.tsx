@@ -12,8 +12,8 @@ const UserGoalsContext = createContext<UserGoalsContextType | undefined>(undefin
 
 const defaultGoals: UserGoals = {
   targetTitles: [],
-  minimumSalary: 0,
-  companyMaturity: 'either',
+  minimumSalary: 180000,
+  companyMaturity: [],
   workType: [],
   industries: [],
   businessModels: [],
