@@ -28,17 +28,17 @@ export function ProgressIndicatorWithTooltips({
 }: ProgressIndicatorWithTooltipsProps) {
   const getRatingColor = (rating: string) => {
     switch (rating.toLowerCase()) {
-      case 'strong': return 'bg-success text-success-foreground border-success';
-      case 'average': return 'bg-warning text-warning-foreground border-warning';
-      case 'weak': return 'bg-destructive text-destructive-foreground border-destructive';
-      default: return 'bg-muted text-muted-foreground border-muted';
+      case 'strong': return 'bg-success/10 text-success border-success/20';
+      case 'average': return 'bg-warning/10 text-warning border-warning/20';
+      case 'weak': return 'bg-destructive/10 text-destructive border-destructive/20';
+      default: return 'bg-muted/10 text-muted-foreground border-muted/20';
     }
   };
 
   const getATSScoreColor = (score: number) => {
-    if (score >= 80) return 'bg-success text-success-foreground border-success';
-    if (score >= 60) return 'bg-warning text-warning-foreground border-warning';
-    return 'bg-destructive text-destructive-foreground border-destructive';
+    if (score >= 80) return 'bg-success/10 text-success border-success/20';
+    if (score >= 60) return 'bg-warning/10 text-warning border-warning/20';
+    return 'bg-destructive/10 text-destructive border-destructive/20';
   };
 
   // Use different mock data based on HIL state
