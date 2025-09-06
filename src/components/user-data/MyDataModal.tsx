@@ -114,15 +114,6 @@ export function MyDataModal({ isOpen, onClose }: MyDataModalProps) {
           ))}
         </div>
 
-        <div className="bg-muted/30 p-4 rounded-lg">
-          <h4 className="font-medium mb-2">About Data Sources</h4>
-          <ul className="text-sm text-muted-foreground space-y-1">
-            <li>• <strong>LinkedIn:</strong> Automatically import your professional profile and work history</li>
-            <li>• <strong>OpenAI:</strong> Required for AI-powered cover letter generation and content optimization</li>
-            <li>• <strong>Google Drive:</strong> Access and sync documents from your Google Drive (coming soon)</li>
-          </ul>
-        </div>
-
         <div className="flex justify-end gap-3 pt-6">
           <Button variant="outline" onClick={onClose}>
             Close
