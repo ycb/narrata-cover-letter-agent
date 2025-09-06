@@ -28,12 +28,13 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
     targetTitles: [],
     minimumSalary: '',
     companyMaturity: 'either',
-    workType: 'flexible',
+    workType: 'remote',
     industries: [],
     businessModels: [],
     dealBreakers: {
       mustBeRemote: false,
-      mustBeStartup: false,
+      mustBeEarlyStage: false,
+      mustBeLateStage: false,
       mustBePublicCompany: false,
       salaryMinimum: ''
     },
@@ -55,12 +56,13 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
         workType: initialGoals.workType,
         industries: initialGoals.industries,
         businessModels: initialGoals.businessModels,
-        dealBreakers: {
-          mustBeRemote: initialGoals.dealBreakers.mustBeRemote,
-          mustBeStartup: initialGoals.dealBreakers.mustBeStartup,
-          mustBePublicCompany: initialGoals.dealBreakers.mustBePublicCompany,
-          salaryMinimum: initialGoals.dealBreakers.salaryMinimum?.toString() || ''
-        },
+      dealBreakers: {
+        mustBeRemote: initialGoals.dealBreakers.mustBeRemote,
+        mustBeEarlyStage: initialGoals.dealBreakers.mustBeEarlyStage,
+        mustBeLateStage: initialGoals.dealBreakers.mustBeLateStage,
+        mustBePublicCompany: initialGoals.dealBreakers.mustBePublicCompany,
+        salaryMinimum: initialGoals.dealBreakers.salaryMinimum?.toString() || ''
+      },
         preferredCities: initialGoals.preferredCities,
         openToRelocation: initialGoals.openToRelocation
       });
@@ -77,7 +79,8 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
       businessModels: formData.businessModels,
       dealBreakers: {
         mustBeRemote: formData.dealBreakers.mustBeRemote,
-        mustBeStartup: formData.dealBreakers.mustBeStartup,
+        mustBeEarlyStage: formData.dealBreakers.mustBeEarlyStage,
+        mustBeLateStage: formData.dealBreakers.mustBeLateStage,
         mustBePublicCompany: formData.dealBreakers.mustBePublicCompany,
         salaryMinimum: formData.dealBreakers.salaryMinimum ? parseInt(formData.dealBreakers.salaryMinimum) : null
       },
@@ -180,14 +183,14 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-8">
           {/* Target Titles */}
-          <div className="space-y-3">
-            <Label className="text-base font-medium">Target Job Titles</Label>
-            <div className="space-y-2">
+          <div className="space-y-4">
+            <Label className="text-lg font-semibold">Target Job Titles</Label>
+            <div className="space-y-4">
               <div className="flex flex-wrap gap-2">
                 {formData.targetTitles.map((title) => (
-                  <Badge key={title} variant="secondary" className="flex items-center gap-1">
+                  <Badge key={title} variant="secondary" className="flex items-center gap-1 px-3 py-1">
                     {title}
                     <X 
                       className="h-3 w-3 cursor-pointer hover:text-destructive" 
@@ -202,6 +205,7 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
                   value={customTitle}
                   onChange={(e) => setCustomTitle(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && addCustomItem('title', customTitle)}
+                  className="flex-1"
                 />
                 <Button 
                   size="sm" 
@@ -212,11 +216,11 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
                 </Button>
               </div>
               <div className="flex flex-wrap gap-2">
-                {PREDEFINED_TITLES.slice(0, 10).map((title) => (
+                {PREDEFINED_TITLES.slice(0, 12).map((title) => (
                   <Badge
                     key={title}
                     variant={formData.targetTitles.includes(title) ? "default" : "outline"}
-                    className="cursor-pointer"
+                    className="cursor-pointer px-3 py-1"
                     onClick={() => togglePredefinedItem('title', title)}
                   >
                     {title}
@@ -229,9 +233,9 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
           <Separator />
 
           {/* Salary & Company Preferences */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-3">
-              <Label htmlFor="salary" className="text-base font-medium">Minimum Salary</Label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-4">
+              <Label htmlFor="salary" className="text-lg font-semibold">Minimum Salary</Label>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">$</span>
                 <Input
@@ -240,20 +244,22 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
                   placeholder="80000"
                   value={formData.minimumSalary}
                   onChange={(e) => setFormData(prev => ({ ...prev, minimumSalary: e.target.value }))}
+                  className="flex-1"
                 />
                 <span className="text-sm text-muted-foreground">/year</span>
               </div>
             </div>
 
-            <div className="space-y-3">
-              <Label className="text-base font-medium">Company Maturity</Label>
-              <div className="space-y-2">
+            <div className="space-y-4">
+              <Label className="text-lg font-semibold">Company Maturity</Label>
+              <div className="space-y-3">
                 {[
-                  { value: 'startup', label: 'Startup (any stage)' },
-                  { value: 'public', label: 'Public Company' },
+                  { value: 'early-stage', label: 'Early-stage startup' },
+                  { value: 'late-stage', label: 'Late-stage startup' },
+                  { value: 'public', label: 'Public company' },
                   { value: 'either', label: 'Either' }
                 ].map((option) => (
-                  <div key={option.value} className="flex items-center space-x-2">
+                  <div key={option.value} className="flex items-center space-x-3">
                     <input
                       type="radio"
                       id={option.value}
@@ -263,7 +269,7 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
                       onChange={(e) => setFormData(prev => ({ ...prev, companyMaturity: e.target.value as any }))}
                       className="h-4 w-4"
                     />
-                    <Label htmlFor={option.value} className="text-sm">{option.label}</Label>
+                    <Label htmlFor={option.value} className="text-sm font-medium">{option.label}</Label>
                   </div>
                 ))}
               </div>
@@ -273,16 +279,15 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
           <Separator />
 
           {/* Work Type */}
-          <div className="space-y-3">
-            <Label className="text-base font-medium">Work Type</Label>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="space-y-4">
+            <Label className="text-lg font-semibold">Work Type</Label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {[
                 { value: 'remote', label: 'Remote' },
                 { value: 'hybrid', label: 'Hybrid' },
-                { value: 'in-person', label: 'In-person' },
-                { value: 'flexible', label: 'Flexible' }
+                { value: 'in-person', label: 'In-person' }
               ].map((option) => (
-                <div key={option.value} className="flex items-center space-x-2">
+                <div key={option.value} className="flex items-center space-x-3">
                   <input
                     type="radio"
                     id={option.value}
@@ -292,7 +297,7 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
                     onChange={(e) => setFormData(prev => ({ ...prev, workType: e.target.value as any }))}
                     className="h-4 w-4"
                   />
-                  <Label htmlFor={option.value} className="text-sm">{option.label}</Label>
+                  <Label htmlFor={option.value} className="text-sm font-medium">{option.label}</Label>
                 </div>
               ))}
             </div>
@@ -300,94 +305,95 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
 
           <Separator />
 
-          {/* Industries */}
-          <div className="space-y-3">
-            <Label className="text-base font-medium">Industries</Label>
-            <div className="space-y-2">
-              <div className="flex flex-wrap gap-2">
-                {formData.industries.map((industry) => (
-                  <Badge key={industry} variant="secondary" className="flex items-center gap-1">
-                    {industry}
-                    <X 
-                      className="h-3 w-3 cursor-pointer hover:text-destructive" 
-                      onClick={() => removeItem('industry', industry)}
-                    />
-                  </Badge>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Add custom industry..."
-                  value={customIndustry}
-                  onChange={(e) => setCustomIndustry(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && addCustomItem('industry', customIndustry)}
-                />
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={() => addCustomItem('industry', customIndustry)}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {PREDEFINED_INDUSTRIES.slice(0, 12).map((industry) => (
-                  <Badge
-                    key={industry}
-                    variant={formData.industries.includes(industry) ? "default" : "outline"}
-                    className="cursor-pointer"
-                    onClick={() => togglePredefinedItem('industry', industry)}
+          {/* Industries & Business Models */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="space-y-4">
+              <Label className="text-lg font-semibold">Industries</Label>
+              <div className="space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  {formData.industries.map((industry) => (
+                    <Badge key={industry} variant="secondary" className="flex items-center gap-1 px-3 py-1">
+                      {industry}
+                      <X 
+                        className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                        onClick={() => removeItem('industry', industry)}
+                      />
+                    </Badge>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Add custom industry..."
+                    value={customIndustry}
+                    onChange={(e) => setCustomIndustry(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && addCustomItem('industry', customIndustry)}
+                    className="flex-1"
+                  />
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => addCustomItem('industry', customIndustry)}
                   >
-                    {industry}
-                  </Badge>
-                ))}
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {PREDEFINED_INDUSTRIES.slice(0, 10).map((industry) => (
+                    <Badge
+                      key={industry}
+                      variant={formData.industries.includes(industry) ? "default" : "outline"}
+                      className="cursor-pointer px-3 py-1"
+                      onClick={() => togglePredefinedItem('industry', industry)}
+                    >
+                      {industry}
+                    </Badge>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
 
-          <Separator />
-
-          {/* Business Models */}
-          <div className="space-y-3">
-            <Label className="text-base font-medium">Business Models</Label>
-            <div className="space-y-2">
-              <div className="flex flex-wrap gap-2">
-                {formData.businessModels.map((model) => (
-                  <Badge key={model} variant="secondary" className="flex items-center gap-1">
-                    {model}
-                    <X 
-                      className="h-3 w-3 cursor-pointer hover:text-destructive" 
-                      onClick={() => removeItem('businessModel', model)}
-                    />
-                  </Badge>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Add custom business model..."
-                  value={customBusinessModel}
-                  onChange={(e) => setCustomBusinessModel(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && addCustomItem('businessModel', customBusinessModel)}
-                />
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={() => addCustomItem('businessModel', customBusinessModel)}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {PREDEFINED_BUSINESS_MODELS.slice(0, 10).map((model) => (
-                  <Badge
-                    key={model}
-                    variant={formData.businessModels.includes(model) ? "default" : "outline"}
-                    className="cursor-pointer"
-                    onClick={() => togglePredefinedItem('businessModel', model)}
+            <div className="space-y-4">
+              <Label className="text-lg font-semibold">Business Models</Label>
+              <div className="space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  {formData.businessModels.map((model) => (
+                    <Badge key={model} variant="secondary" className="flex items-center gap-1 px-3 py-1">
+                      {model}
+                      <X 
+                        className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                        onClick={() => removeItem('businessModel', model)}
+                      />
+                    </Badge>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Add custom business model..."
+                    value={customBusinessModel}
+                    onChange={(e) => setCustomBusinessModel(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && addCustomItem('businessModel', customBusinessModel)}
+                    className="flex-1"
+                  />
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => addCustomItem('businessModel', customBusinessModel)}
                   >
-                    {model}
-                  </Badge>
-                ))}
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {PREDEFINED_BUSINESS_MODELS.slice(0, 8).map((model) => (
+                    <Badge
+                      key={model}
+                      variant={formData.businessModels.includes(model) ? "default" : "outline"}
+                      className="cursor-pointer px-3 py-1"
+                      onClick={() => togglePredefinedItem('businessModel', model)}
+                    >
+                      {model}
+                    </Badge>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -395,12 +401,12 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
           <Separator />
 
           {/* Location */}
-          <div className="space-y-3">
-            <Label className="text-base font-medium">Preferred Cities</Label>
-            <div className="space-y-2">
+          <div className="space-y-4">
+            <Label className="text-lg font-semibold">Preferred Cities</Label>
+            <div className="space-y-4">
               <div className="flex flex-wrap gap-2">
                 {formData.preferredCities.map((city) => (
-                  <Badge key={city} variant="secondary" className="flex items-center gap-1">
+                  <Badge key={city} variant="secondary" className="flex items-center gap-1 px-3 py-1">
                     {city}
                     <X 
                       className="h-3 w-3 cursor-pointer hover:text-destructive" 
@@ -415,6 +421,7 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
                   value={customCity}
                   onChange={(e) => setCustomCity(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && addCustomItem('city', customCity)}
+                  className="flex-1"
                 />
                 <Button 
                   size="sm" 
@@ -429,79 +436,103 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
                   <Badge
                     key={city}
                     variant={formData.preferredCities.includes(city) ? "default" : "outline"}
-                    className="cursor-pointer"
+                    className="cursor-pointer px-3 py-1"
                     onClick={() => togglePredefinedItem('city', city)}
                   >
                     {city}
                   </Badge>
                 ))}
               </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="relocation"
-                checked={formData.openToRelocation}
-                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, openToRelocation: !!checked }))}
-              />
-              <Label htmlFor="relocation" className="text-sm">Open to relocation</Label>
+              <div className="flex items-center space-x-3">
+                <Checkbox
+                  id="relocation"
+                  checked={formData.openToRelocation}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, openToRelocation: !!checked }))}
+                />
+                <Label htmlFor="relocation" className="text-sm font-medium">Open to relocation</Label>
+              </div>
             </div>
           </div>
 
           <Separator />
 
-          {/* Deal Breakers */}
-          <div className="space-y-3">
-            <Label className="text-base font-medium">Deal Breakers</Label>
-            <div className="space-y-3">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="mustBeRemote"
-                  checked={formData.dealBreakers.mustBeRemote}
-                  onCheckedChange={(checked) => setFormData(prev => ({ 
-                    ...prev, 
-                    dealBreakers: { ...prev.dealBreakers, mustBeRemote: !!checked }
-                  }))}
-                />
-                <Label htmlFor="mustBeRemote" className="text-sm">Must be remote</Label>
+          {/* Deal Breakers - New Column Approach */}
+          <div className="space-y-4">
+            <Label className="text-lg font-semibold">Deal Breakers</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="space-y-3">
+                <Label className="text-sm font-medium text-muted-foreground">Work Type</Label>
+                <div className="flex items-center space-x-3">
+                  <Checkbox
+                    id="mustBeRemote"
+                    checked={formData.dealBreakers.mustBeRemote}
+                    onCheckedChange={(checked) => setFormData(prev => ({ 
+                      ...prev, 
+                      dealBreakers: { ...prev.dealBreakers, mustBeRemote: !!checked }
+                    }))}
+                  />
+                  <Label htmlFor="mustBeRemote" className="text-sm">Must be remote</Label>
+                </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="mustBeStartup"
-                  checked={formData.dealBreakers.mustBeStartup}
-                  onCheckedChange={(checked) => setFormData(prev => ({ 
-                    ...prev, 
-                    dealBreakers: { ...prev.dealBreakers, mustBeStartup: !!checked }
-                  }))}
-                />
-                <Label htmlFor="mustBeStartup" className="text-sm">Must be startup</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="mustBePublic"
-                  checked={formData.dealBreakers.mustBePublicCompany}
-                  onCheckedChange={(checked) => setFormData(prev => ({ 
-                    ...prev, 
-                    dealBreakers: { ...prev.dealBreakers, mustBePublicCompany: !!checked }
-                  }))}
-                />
-                <Label htmlFor="mustBePublic" className="text-sm">Must be public company</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="salaryMinimum"
-                  checked={!!formData.dealBreakers.salaryMinimum}
-                  onCheckedChange={(checked) => {
-                    if (!checked) {
-                      setFormData(prev => ({ 
+
+              <div className="space-y-3">
+                <Label className="text-sm font-medium text-muted-foreground">Company Stage</Label>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-3">
+                    <Checkbox
+                      id="mustBeEarlyStage"
+                      checked={formData.dealBreakers.mustBeEarlyStage}
+                      onCheckedChange={(checked) => setFormData(prev => ({ 
                         ...prev, 
-                        dealBreakers: { ...prev.dealBreakers, salaryMinimum: '' }
-                      }));
-                    }
-                  }}
-                />
-                <Label htmlFor="salaryMinimum" className="text-sm">Minimum salary requirement</Label>
+                        dealBreakers: { ...prev.dealBreakers, mustBeEarlyStage: !!checked }
+                      }))}
+                    />
+                    <Label htmlFor="mustBeEarlyStage" className="text-sm">Must be early-stage</Label>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <Checkbox
+                      id="mustBeLateStage"
+                      checked={formData.dealBreakers.mustBeLateStage}
+                      onCheckedChange={(checked) => setFormData(prev => ({ 
+                        ...prev, 
+                        dealBreakers: { ...prev.dealBreakers, mustBeLateStage: !!checked }
+                      }))}
+                    />
+                    <Label htmlFor="mustBeLateStage" className="text-sm">Must be late-stage</Label>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <Checkbox
+                      id="mustBePublic"
+                      checked={formData.dealBreakers.mustBePublicCompany}
+                      onCheckedChange={(checked) => setFormData(prev => ({ 
+                        ...prev, 
+                        dealBreakers: { ...prev.dealBreakers, mustBePublicCompany: !!checked }
+                      }))}
+                    />
+                    <Label htmlFor="mustBePublic" className="text-sm">Must be public company</Label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-sm font-medium text-muted-foreground">Salary</Label>
+                <div className="flex items-center space-x-3">
+                  <Checkbox
+                    id="salaryMinimum"
+                    checked={!!formData.dealBreakers.salaryMinimum}
+                    onCheckedChange={(checked) => {
+                      if (!checked) {
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          dealBreakers: { ...prev.dealBreakers, salaryMinimum: '' }
+                        }));
+                      }
+                    }}
+                  />
+                  <Label htmlFor="salaryMinimum" className="text-sm">Minimum salary requirement</Label>
+                </div>
                 {formData.dealBreakers.salaryMinimum && (
-                  <div className="flex items-center gap-2 ml-4">
+                  <div className="flex items-center gap-2 mt-2">
                     <span className="text-sm text-muted-foreground">$</span>
                     <Input
                       type="number"

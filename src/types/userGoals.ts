@@ -1,13 +1,14 @@
 export interface UserGoals {
   targetTitles: string[];
   minimumSalary: number;
-  companyMaturity: 'startup' | 'public' | 'either';
-  workType: 'remote' | 'hybrid' | 'in-person' | 'flexible';
+  companyMaturity: 'early-stage' | 'late-stage' | 'public' | 'either';
+  workType: 'remote' | 'hybrid' | 'in-person';
   industries: string[];
   businessModels: string[];
   dealBreakers: {
     mustBeRemote: boolean;
-    mustBeStartup: boolean;
+    mustBeEarlyStage: boolean;
+    mustBeLateStage: boolean;
     mustBePublicCompany: boolean;
     salaryMinimum: number | null;
   };
@@ -18,13 +19,14 @@ export interface UserGoals {
 export interface UserGoalsFormData {
   targetTitles: string[];
   minimumSalary: string;
-  companyMaturity: 'startup' | 'public' | 'either';
-  workType: 'remote' | 'hybrid' | 'in-person' | 'flexible';
+  companyMaturity: 'early-stage' | 'late-stage' | 'public' | 'either';
+  workType: 'remote' | 'hybrid' | 'in-person';
   industries: string[];
   businessModels: string[];
   dealBreakers: {
     mustBeRemote: boolean;
-    mustBeStartup: boolean;
+    mustBeEarlyStage: boolean;
+    mustBeLateStage: boolean;
     mustBePublicCompany: boolean;
     salaryMinimum: string;
   };
@@ -34,46 +36,36 @@ export interface UserGoalsFormData {
 
 // Predefined options for easy selection
 export const PREDEFINED_TITLES = [
-  'Software Engineer',
-  'Senior Software Engineer',
-  'Lead Software Engineer',
-  'Staff Software Engineer',
-  'Principal Software Engineer',
-  'Engineering Manager',
-  'Senior Engineering Manager',
-  'Director of Engineering',
-  'VP of Engineering',
-  'CTO',
   'Product Manager',
   'Senior Product Manager',
   'Principal Product Manager',
+  'Staff Product Manager',
+  'Group Product Manager',
   'Director of Product',
   'VP of Product',
   'CPO',
-  'Data Scientist',
-  'Senior Data Scientist',
-  'Data Engineer',
-  'ML Engineer',
-  'DevOps Engineer',
-  'Site Reliability Engineer',
-  'Frontend Engineer',
-  'Backend Engineer',
-  'Full Stack Engineer',
-  'Mobile Engineer',
-  'QA Engineer',
-  'Security Engineer',
-  'UX Designer',
-  'UI Designer',
-  'Product Designer',
-  'Design Manager',
-  'Marketing Manager',
-  'Growth Manager',
-  'Sales Manager',
-  'Business Development',
-  'Operations Manager',
-  'Finance Manager',
-  'HR Manager',
-  'Recruiter'
+  'Product Owner',
+  'Senior Product Owner',
+  'Technical Product Manager',
+  'Growth Product Manager',
+  'Platform Product Manager',
+  'Consumer Product Manager',
+  'B2B Product Manager',
+  'Mobile Product Manager',
+  'Data Product Manager',
+  'AI/ML Product Manager',
+  'Product Marketing Manager',
+  'Product Operations Manager',
+  'Product Strategy Manager',
+  'Product Analytics Manager',
+  'Product Design Manager',
+  'Product Engineering Manager',
+  'Associate Product Manager',
+  'Junior Product Manager',
+  'Lead Product Manager',
+  'Head of Product',
+  'Chief Product Officer',
+  'Product Director'
 ];
 
 export const PREDEFINED_INDUSTRIES = [

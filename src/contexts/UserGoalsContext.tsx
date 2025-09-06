@@ -14,12 +14,13 @@ const defaultGoals: UserGoals = {
   targetTitles: [],
   minimumSalary: 0,
   companyMaturity: 'either',
-  workType: 'flexible',
+  workType: 'remote',
   industries: [],
   businessModels: [],
   dealBreakers: {
     mustBeRemote: false,
-    mustBeStartup: false,
+    mustBeEarlyStage: false,
+    mustBeLateStage: false,
     mustBePublicCompany: false,
     salaryMinimum: null
   },
