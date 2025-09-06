@@ -162,7 +162,7 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <FileText className="h-5 w-5" />
-                Content & Blurb Evidence
+                Content & Story Evidence
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -173,7 +173,7 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
                 </div>
                 <div className="p-3 bg-muted/20 rounded-lg">
                   <div className="text-2xl font-bold text-primary">{evidence.blurbEvidence.totalBlurbs}</div>
-                  <div className="text-sm text-muted-foreground">Total Approved Blurbs</div>
+                  <div className="text-sm text-muted-foreground">Total Approved Stories</div>
                 </div>
               </div>
               

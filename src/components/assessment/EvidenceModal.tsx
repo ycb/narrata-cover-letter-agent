@@ -63,7 +63,7 @@ const EvidenceModal = ({
                 Evidence for {competency}
               </DialogTitle>
               <DialogDescription className="text-base">
-                Supporting examples from your work history and blurbs
+                Supporting examples from your work history and stories
               </DialogDescription>
             </div>
             <div className="flex items-center gap-2 mt-4">
@@ -123,7 +123,7 @@ const EvidenceModal = ({
                 Your {competency} score is based on:
               </p>
               <ul className="list-disc list-inside space-y-1 ml-4">
-                <li>Number of relevant blurbs and stories</li>
+                <li>Number of relevant stories</li>
                 <li>Tag density and relevance to competency</li>
                 <li>Complexity and scale of problems addressed</li>
                 <li>Leadership and cross-functional collaboration signals</li>
@@ -169,7 +169,7 @@ const EvidenceModal = ({
             </CardContent>
           </Card>
 
-          {/* Evidence Blurbs */}
+          {/* Evidence Stories */}
           <div className="section-spacing">
             <h3 className="text-lg font-semibold">Supporting Examples</h3>
             {evidence.map((blurb) => (
