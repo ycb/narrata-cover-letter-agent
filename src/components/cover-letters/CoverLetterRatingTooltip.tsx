@@ -25,11 +25,11 @@ export function CoverLetterRatingTooltip({
                      <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>Strong hook that captures attention</p>
                    </div>
                  </div>
-                 <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-success/10'}`}>
-                   <Check className="h-3 w-3 text-success flex-shrink-0" />
+                 <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-destructive/10'}`}>
+                   {isPostHIL ? <Check className="h-3 w-3 text-success flex-shrink-0" /> : <X className="h-3 w-3 text-destructive flex-shrink-0" />}
                    <div className="flex-1 min-w-0">
-                     <span className={`text-sm ${isPostHIL ? 'text-foreground' : 'text-foreground'}`}>Understanding of Business/Users</span>
-                     <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground'}`}>Demonstrates knowledge of company</p>
+                     <span className={`text-sm ${isPostHIL ? 'text-foreground' : 'text-muted-foreground'}`}>Understanding of Business/Users</span>
+                     <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>Demonstrates knowledge of company</p>
                    </div>
                  </div>
                  <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-destructive/10'}`}>
@@ -39,29 +39,29 @@ export function CoverLetterRatingTooltip({
                      <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>Specific metrics and achievements</p>
                    </div>
                  </div>
-                 <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-success/10'}`}>
-                   <Check className="h-3 w-3 text-success flex-shrink-0" />
+                 <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-destructive/10'}`}>
+                   {isPostHIL ? <Check className="h-3 w-3 text-success flex-shrink-0" /> : <X className="h-3 w-3 text-destructive flex-shrink-0" />}
                    <div className="flex-1 min-w-0">
-                     <span className={`text-sm ${isPostHIL ? 'text-foreground' : 'text-foreground'}`}>Action Verbs</span>
-                     <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground'}`}>Strong, active language</p>
+                     <span className={`text-sm ${isPostHIL ? 'text-foreground' : 'text-muted-foreground'}`}>Action Verbs</span>
+                     <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>Strong, active language</p>
                    </div>
                  </div>
                </div>
 
                {/* Content Quality */}
                <div className="space-y-2">
-                 <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-success/10'}`}>
-                   <Check className="h-3 w-3 text-success flex-shrink-0" />
+                 <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-destructive/10'}`}>
+                   {isPostHIL ? <Check className="h-3 w-3 text-success flex-shrink-0" /> : <X className="h-3 w-3 text-destructive flex-shrink-0" />}
                    <div className="flex-1 min-w-0">
-                     <span className={`text-sm ${isPostHIL ? 'text-foreground' : 'text-foreground'}`}>Concise Length</span>
-                     <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground'}`}>3-4 paragraphs, under 400 words</p>
+                     <span className={`text-sm ${isPostHIL ? 'text-foreground' : 'text-muted-foreground'}`}>Concise Length</span>
+                     <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>3-4 paragraphs, under 400 words</p>
                    </div>
                  </div>
-                 <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-success/10'}`}>
-                   <Check className="h-3 w-3 text-success flex-shrink-0" />
+                 <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-destructive/10'}`}>
+                   {isPostHIL ? <Check className="h-3 w-3 text-success flex-shrink-0" /> : <X className="h-3 w-3 text-destructive flex-shrink-0" />}
                    <div className="flex-1 min-w-0">
-                     <span className={`text-sm ${isPostHIL ? 'text-foreground' : 'text-foreground'}`}>Error-Free Writing</span>
-                     <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground'}`}>No spelling or grammar errors</p>
+                     <span className={`text-sm ${isPostHIL ? 'text-foreground' : 'text-muted-foreground'}`}>Error-Free Writing</span>
+                     <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>No spelling or grammar errors</p>
                    </div>
                  </div>
                  <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-destructive/10'}`}>
