@@ -204,8 +204,8 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
       experienceMatch: hasReact ? 'strong' : hasPython ? 'average' : 'weak',
       coverLetterRating: 'weak', // Start with weak rating
       atsScore: 65, // Start with 65% ATS score
-      coreRequirementsMet: { met: 2, total: 4 }, // Start with 2/4
-      preferredRequirementsMet: { met: 1, total: 4 } // Start with 1/4
+      coreRequirementsMet: { met: 2, total: 4 }, // 2/4 for demo purposes
+      preferredRequirementsMet: { met: 1, total: 4 } // 1/4 for demo purposes
     };
     
     // Generate initial gaps for intro and closing paragraphs
