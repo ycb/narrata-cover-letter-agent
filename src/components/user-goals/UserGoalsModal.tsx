@@ -254,17 +254,6 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
           <div className="space-y-4">
             <Label className="text-lg font-semibold">Target Job Titles</Label>
             <div className="space-y-4">
-              <div className="flex flex-wrap gap-2">
-                {formData.targetTitles.map((title) => (
-                  <Badge key={title} variant="secondary" className="flex items-center gap-1 px-3 py-1">
-                    {title}
-                    <X 
-                      className="h-3 w-3 cursor-pointer hover:text-destructive" 
-                      onClick={() => removeItem('title', title)}
-                    />
-                  </Badge>
-                ))}
-              </div>
               <div className="flex gap-2">
                 <Input
                   placeholder="Add custom title..."
@@ -286,10 +275,19 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
                   <Badge
                     key={title}
                     variant={formData.targetTitles.includes(title) ? "default" : "outline"}
-                    className="cursor-pointer px-3 py-1"
+                    className="cursor-pointer px-3 py-1 flex items-center gap-1"
                     onClick={() => togglePredefinedItem('title', title)}
                   >
                     {title}
+                    {formData.targetTitles.includes(title) && (
+                      <X 
+                        className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeItem('title', title);
+                        }}
+                      />
+                    )}
                   </Badge>
                 ))}
               </div>
@@ -365,17 +363,6 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
                 </div>
               </div>
               <div className="space-y-4">
-                <div className="flex flex-wrap gap-2">
-                  {formData.companyMaturity.map((maturity) => (
-                    <Badge key={maturity} variant="secondary" className="flex items-center gap-1 px-3 py-1">
-                      {maturity}
-                      <X 
-                        className="h-3 w-3 cursor-pointer hover:text-destructive" 
-                        onClick={() => togglePredefinedItem('companyMaturity', maturity)}
-                      />
-                    </Badge>
-                  ))}
-                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {[
                     { value: 'early-stage', label: 'Early-stage startup' },
@@ -418,17 +405,6 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
               </div>
             </div>
             <div className="space-y-4">
-              <div className="flex flex-wrap gap-2">
-                {formData.workType.map((type) => (
-                  <Badge key={type} variant="secondary" className="flex items-center gap-1 px-3 py-1">
-                    {type}
-                    <X 
-                      className="h-3 w-3 cursor-pointer hover:text-destructive" 
-                      onClick={() => togglePredefinedItem('workType', type)}
-                    />
-                  </Badge>
-                ))}
-              </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[
                   { value: 'remote', label: 'Remote' },
@@ -457,17 +433,6 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
             <div className="space-y-4">
               <Label className="text-lg font-semibold">Industries</Label>
               <div className="space-y-4">
-                <div className="flex flex-wrap gap-2">
-                  {formData.industries.map((industry) => (
-                    <Badge key={industry} variant="secondary" className="flex items-center gap-1 px-3 py-1">
-                      {industry}
-                      <X 
-                        className="h-3 w-3 cursor-pointer hover:text-destructive" 
-                        onClick={() => removeItem('industry', industry)}
-                      />
-                    </Badge>
-                  ))}
-                </div>
                 <div className="flex gap-2">
                   <Input
                     placeholder="Add custom industry..."
@@ -489,10 +454,19 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
                     <Badge
                       key={industry}
                       variant={formData.industries.includes(industry) ? "default" : "outline"}
-                      className="cursor-pointer px-3 py-1"
+                      className="cursor-pointer px-3 py-1 flex items-center gap-1"
                       onClick={() => togglePredefinedItem('industry', industry)}
                     >
                       {industry}
+                      {formData.industries.includes(industry) && (
+                        <X 
+                          className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeItem('industry', industry);
+                          }}
+                        />
+                      )}
                     </Badge>
                   ))}
                 </div>
@@ -502,17 +476,6 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
             <div className="space-y-4">
               <Label className="text-lg font-semibold">Business Models</Label>
               <div className="space-y-4">
-                <div className="flex flex-wrap gap-2">
-                  {formData.businessModels.map((model) => (
-                    <Badge key={model} variant="secondary" className="flex items-center gap-1 px-3 py-1">
-                      {model}
-                      <X 
-                        className="h-3 w-3 cursor-pointer hover:text-destructive" 
-                        onClick={() => removeItem('businessModel', model)}
-                      />
-                    </Badge>
-                  ))}
-                </div>
                 <div className="flex gap-2">
                   <Input
                     placeholder="Add custom business model..."
@@ -534,10 +497,19 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
                     <Badge
                       key={model}
                       variant={formData.businessModels.includes(model) ? "default" : "outline"}
-                      className="cursor-pointer px-3 py-1"
+                      className="cursor-pointer px-3 py-1 flex items-center gap-1"
                       onClick={() => togglePredefinedItem('businessModel', model)}
                     >
                       {model}
+                      {formData.businessModels.includes(model) && (
+                        <X 
+                          className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeItem('businessModel', model);
+                          }}
+                        />
+                      )}
                     </Badge>
                   ))}
                 </div>
@@ -551,17 +523,6 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
           <div className="space-y-4">
             <Label className="text-lg font-semibold">Preferred Cities</Label>
             <div className="space-y-4">
-              <div className="flex flex-wrap gap-2">
-                {formData.preferredCities.map((city) => (
-                  <Badge key={city} variant="secondary" className="flex items-center gap-1 px-3 py-1">
-                    {city}
-                    <X 
-                      className="h-3 w-3 cursor-pointer hover:text-destructive" 
-                      onClick={() => removeItem('city', city)}
-                    />
-                  </Badge>
-                ))}
-              </div>
               <div className="flex gap-2">
                 <Input
                   placeholder="Add custom city..."
@@ -583,10 +544,19 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
                   <Badge
                     key={city}
                     variant={formData.preferredCities.includes(city) ? "default" : "outline"}
-                    className="cursor-pointer px-3 py-1"
+                    className="cursor-pointer px-3 py-1 flex items-center gap-1"
                     onClick={() => togglePredefinedItem('city', city)}
                   >
                     {city}
+                    {formData.preferredCities.includes(city) && (
+                      <X 
+                        className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeItem('city', city);
+                        }}
+                      />
+                    )}
                   </Badge>
                 ))}
               </div>
