@@ -23,7 +23,13 @@ export const FullWidthTooltip: React.FC<FullWidthTooltipProps> = ({
 
     const rect = triggerRef.current.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
-    const tooltipWidth = Math.min(viewportWidth * 0.9, 1200); // 90% viewport, max 1200px
+    
+    // Find the progress region container (assuming it's a parent with class containing 'progress' or similar)
+    const progressContainer = triggerRef.current.closest('[class*="progress"], [class*="grid"]') || document.body;
+    const progressRect = progressContainer.getBoundingClientRect();
+    const progressWidth = progressRect.width;
+    
+    const tooltipWidth = Math.min(progressWidth * 0.95, 1200); // 95% of progress region, max 1200px
     const left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
     
     // Ensure tooltip stays within viewport bounds with consistent margins
@@ -35,7 +41,7 @@ export const FullWidthTooltip: React.FC<FullWidthTooltipProps> = ({
       left: clampedLeft,
       width: tooltipWidth,
       // Calculate triangle position relative to the metric center
-      triangleLeft: rect.left + (rect.width / 2) - clampedLeft, // Position relative to tooltip left
+      triangleLeft: rect.left + (rect.width / 2) - clampedLeft - 8, // Position relative to tooltip left, adjusted for triangle width
     });
   };
 
