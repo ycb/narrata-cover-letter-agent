@@ -370,12 +370,10 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
                     { value: 'public', label: 'Public company' }
                   ].map((option) => (
                     <div key={option.value} className="flex items-center space-x-3">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         id={option.value}
                         checked={formData.companyMaturity.includes(option.value)}
-                        onChange={() => togglePredefinedItem('companyMaturity', option.value)}
-                        className="h-4 w-4"
+                        onCheckedChange={() => togglePredefinedItem('companyMaturity', option.value)}
                       />
                       <Label htmlFor={option.value} className="text-sm font-medium">{option.label}</Label>
                     </div>
@@ -412,12 +410,10 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
                   { value: 'in-person', label: 'In-person' }
                 ].map((option) => (
                   <div key={option.value} className="flex items-center space-x-3">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       id={option.value}
                       checked={formData.workType.includes(option.value)}
-                      onChange={() => togglePredefinedItem('workType', option.value)}
-                      className="h-4 w-4"
+                      onCheckedChange={() => togglePredefinedItem('workType', option.value)}
                     />
                     <Label htmlFor={option.value} className="text-sm font-medium">{option.label}</Label>
                   </div>
