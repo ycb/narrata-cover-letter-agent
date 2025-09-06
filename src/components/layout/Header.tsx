@@ -235,10 +235,9 @@ export const Header = ({ currentPage }: HeaderProps) => {
 
               {/* Assessment - Main Link + Dropdown */}
               <div className="relative group">
-                <Link 
-                  to="/assessment"
+                <button 
                   className={cn(
-                    "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors hover:text-foreground",
+                    "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors hover:text-foreground cursor-default",
                     activePage === "assessment" 
                       ? "text-foreground font-bold" 
                       : "text-muted-foreground"
@@ -246,7 +245,8 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 >
                   <TrendingUp className="h-4 w-4" />
                   Assessment
-                </Link>
+                  <ChevronDown className="h-3 w-3" />
+                </button>
                 
                 {/* Hover Dropdown */}
                 <div className="absolute top-full left-0 pt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
