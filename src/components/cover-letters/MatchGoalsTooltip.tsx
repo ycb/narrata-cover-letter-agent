@@ -95,8 +95,8 @@ export function createMockGoalMatches(): GoalMatch[] {
     {
       id: 'goal-5',
       goal: 'Industry: Fintech',
-      reflected: false,
-      evidence: 'No fintech-specific experience or knowledge highlighted'
+      reflected: true,
+      evidence: 'Demonstrates fintech knowledge and regulatory understanding'
     },
     {
       id: 'goal-6',
@@ -107,8 +107,8 @@ export function createMockGoalMatches(): GoalMatch[] {
     {
       id: 'goal-7',
       goal: 'Preferred City: San Francisco',
-      reflected: false,
-      evidence: 'No location preferences or local market knowledge mentioned'
+      reflected: true,
+      evidence: 'Shows understanding of SF tech ecosystem and market dynamics'
     },
     {
       id: 'goal-8',
