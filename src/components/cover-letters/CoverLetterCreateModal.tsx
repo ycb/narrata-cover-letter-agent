@@ -76,6 +76,7 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
   const [userOverrideDecision, setUserOverrideDecision] = useState(false);
   const [hilProgressMetrics, setHilProgressMetrics] = useState<HILProgressMetrics | null>(null);
   const [gaps, setGaps] = useState<GapAnalysis[]>([]);
+  const [hilCompleted, setHilCompleted] = useState(false);
   const [showContentGenerationModal, setShowContentGenerationModal] = useState(false);
   const [selectedGap, setSelectedGap] = useState<GapAnalysis | null>(null);
   const [mainTabValue, setMainTabValue] = useState<'job-description' | 'cover-letter'>('cover-letter');
@@ -252,15 +253,13 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
     }
     
     // If go, proceed with generation and HIL analysis
-    // First, show initial analysis
-    const initialAnalysis = analyzeHILProgress(jobContent || jobUrl);
-    setHilProgressMetrics(initialAnalysis.metrics);
-    setGaps(initialAnalysis.gaps);
-    
-    // Then after 3 seconds, show post-HIL analysis
+    // After 3 seconds, show initial analysis (not post-HIL)
     setTimeout(() => {
+      const initialAnalysis = analyzeHILProgress(jobContent || jobUrl);
+      setHilProgressMetrics(initialAnalysis.metrics);
+      setGaps(initialAnalysis.gaps);
       setIsGenerating(false);
-      setCoverLetterGenerated(true);
+      setCoverLetterGenerated(true); // This just means "draft is ready for HIL"
     }, 3000);
   };
 
@@ -375,6 +374,9 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
       setGaps(prevGaps => prevGaps.filter(gap => gap.id !== selectedGap.id));
     }
     
+    // Mark HIL as completed when gaps are addressed
+    setHilCompleted(true);
+    
     // Close the modal and return to draft view
     setShowContentGenerationModal(false);
     setSelectedGap(null);
@@ -456,12 +458,12 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
             </DialogDescription>
           </DialogHeader>
 
-          {/* Top Progress Bar with Tooltips - Only show when there's a draft to analyze */}
+          {/* Top Progress Bar with Tooltips - Show when draft is ready */}
           {hilProgressMetrics && coverLetterGenerated && (
             <ProgressIndicatorWithTooltips 
               metrics={hilProgressMetrics}
               className="mb-4"
-              isPostHIL={coverLetterGenerated} // Show post-HIL tooltips after content generation
+              isPostHIL={hilCompleted} // Show post-HIL tooltips after HIL completion
             />
           )}
 
