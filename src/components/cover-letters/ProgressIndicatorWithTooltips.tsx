@@ -197,20 +197,20 @@ function createPostHILExperienceMatches(): any[] {
     {
       id: 'exp-3',
       requirement: 'API integration and backend communication',
-      match: 'Experience with REST APIs and data fetching patterns',
-      confidence: 'medium'
+      match: 'HIL generated content now includes API development and integration examples',
+      confidence: 'high'
     },
     {
       id: 'exp-4',
       requirement: 'Node.js server-side development',
-      match: null,
-      confidence: 'low'
+      match: 'HIL generated content now includes Node.js project examples',
+      confidence: 'high'
     },
     {
       id: 'exp-5',
       requirement: 'Team collaboration and agile practices',
-      match: 'Worked in agile teams with regular standups and sprints',
-      confidence: 'medium'
+      match: 'Added specific agile project management examples',
+      confidence: 'high'
     },
     {
       id: 'exp-6',
