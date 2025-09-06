@@ -72,38 +72,56 @@ export function MatchGoalsTooltip({
   );
 }
 
-// Helper function to create mock goal matches (for future use)
+// Helper function to create mock goal matches based on user goals
 export function createMockGoalMatches(): GoalMatch[] {
   return [
     {
       id: 'goal-1',
-      goal: 'Target Title: Senior Software Engineer',
+      goal: 'Target Title: Senior Product Manager',
       reflected: true,
-      evidence: 'Cover letter emphasizes senior-level experience and leadership'
+      evidence: 'Cover letter emphasizes product management experience and leadership'
     },
     {
       id: 'goal-2',
-      goal: 'Minimum Salary: $120k',
+      goal: 'Minimum Salary: $180k',
       reflected: false,
       evidence: 'No salary expectations mentioned in cover letter'
     },
     {
       id: 'goal-3',
-      goal: 'Company Type: Public Company',
+      goal: 'Company Maturity: Late-stage',
       reflected: true,
-      evidence: 'Research shows understanding of public company dynamics'
+      evidence: 'Demonstrates understanding of scaling challenges and growth metrics'
     },
     {
       id: 'goal-4',
       goal: 'Work Type: Remote',
       reflected: true,
-      evidence: 'Mentioned remote work experience and preferences'
+      evidence: 'Mentioned remote work experience and distributed team leadership'
     },
     {
       id: 'goal-5',
       goal: 'Industry: Fintech',
       reflected: false,
-      evidence: 'No fintech-specific experience highlighted'
+      evidence: 'No fintech-specific experience or knowledge highlighted'
+    },
+    {
+      id: 'goal-6',
+      goal: 'Business Model: B2B SaaS',
+      reflected: true,
+      evidence: 'Shows understanding of B2B sales cycles and enterprise customers'
+    },
+    {
+      id: 'goal-7',
+      goal: 'Preferred City: San Francisco',
+      reflected: false,
+      evidence: 'No location preferences or local market knowledge mentioned'
+    },
+    {
+      id: 'goal-8',
+      goal: 'Open to Relocation: Yes',
+      reflected: true,
+      evidence: 'Expresses flexibility and willingness to relocate for the right opportunity'
     }
   ];
 }
