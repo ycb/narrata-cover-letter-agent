@@ -28,14 +28,12 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
     targetTitles: [],
     minimumSalary: '',
     companyMaturity: 'either',
-    workType: 'remote',
+    workType: [],
     industries: [],
     businessModels: [],
     dealBreakers: {
-      mustBeRemote: false,
-      mustBeEarlyStage: false,
-      mustBeLateStage: false,
-      mustBePublicCompany: false,
+      workType: [],
+      companyMaturity: [],
       salaryMinimum: ''
     },
     preferredCities: [],
@@ -57,10 +55,8 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
         industries: initialGoals.industries,
         businessModels: initialGoals.businessModels,
       dealBreakers: {
-        mustBeRemote: initialGoals.dealBreakers.mustBeRemote,
-        mustBeEarlyStage: initialGoals.dealBreakers.mustBeEarlyStage,
-        mustBeLateStage: initialGoals.dealBreakers.mustBeLateStage,
-        mustBePublicCompany: initialGoals.dealBreakers.mustBePublicCompany,
+        workType: initialGoals.dealBreakers.workType,
+        companyMaturity: initialGoals.dealBreakers.companyMaturity,
         salaryMinimum: initialGoals.dealBreakers.salaryMinimum?.toString() || ''
       },
         preferredCities: initialGoals.preferredCities,
@@ -78,10 +74,8 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
       industries: formData.industries,
       businessModels: formData.businessModels,
       dealBreakers: {
-        mustBeRemote: formData.dealBreakers.mustBeRemote,
-        mustBeEarlyStage: formData.dealBreakers.mustBeEarlyStage,
-        mustBeLateStage: formData.dealBreakers.mustBeLateStage,
-        mustBePublicCompany: formData.dealBreakers.mustBePublicCompany,
+        workType: formData.dealBreakers.workType,
+        companyMaturity: formData.dealBreakers.companyMaturity,
         salaryMinimum: formData.dealBreakers.salaryMinimum ? parseInt(formData.dealBreakers.salaryMinimum) : null
       },
       preferredCities: formData.preferredCities,
@@ -140,7 +134,7 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
     }
   };
 
-  const togglePredefinedItem = (type: 'title' | 'industry' | 'businessModel' | 'city', value: string) => {
+  const togglePredefinedItem = (type: 'title' | 'industry' | 'businessModel' | 'city' | 'workType', value: string) => {
     switch (type) {
       case 'title':
         if (formData.targetTitles.includes(value)) {
@@ -170,6 +164,53 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
           setFormData(prev => ({ ...prev, preferredCities: [...prev.preferredCities, value] }));
         }
         break;
+      case 'workType':
+        if (formData.workType.includes(value)) {
+          setFormData(prev => ({ ...prev, workType: prev.workType.filter(item => item !== value) }));
+        } else {
+          setFormData(prev => ({ ...prev, workType: [...prev.workType, value] }));
+        }
+        break;
+    }
+  };
+
+  const toggleDealBreaker = (type: 'workType' | 'companyMaturity', value: string) => {
+    if (type === 'workType') {
+      if (formData.dealBreakers.workType.includes(value)) {
+        setFormData(prev => ({ 
+          ...prev, 
+          dealBreakers: { 
+            ...prev.dealBreakers, 
+            workType: prev.dealBreakers.workType.filter(item => item !== value) 
+          }
+        }));
+      } else {
+        setFormData(prev => ({ 
+          ...prev, 
+          dealBreakers: { 
+            ...prev.dealBreakers, 
+            workType: [...prev.dealBreakers.workType, value] 
+          }
+        }));
+      }
+    } else if (type === 'companyMaturity') {
+      if (formData.dealBreakers.companyMaturity.includes(value)) {
+        setFormData(prev => ({ 
+          ...prev, 
+          dealBreakers: { 
+            ...prev.dealBreakers, 
+            companyMaturity: prev.dealBreakers.companyMaturity.filter(item => item !== value) 
+          }
+        }));
+      } else {
+        setFormData(prev => ({ 
+          ...prev, 
+          dealBreakers: { 
+            ...prev.dealBreakers, 
+            companyMaturity: [...prev.dealBreakers.companyMaturity, value] 
+          }
+        }));
+      }
     }
   };
 
@@ -236,17 +277,65 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-4">
               <Label htmlFor="salary" className="text-lg font-semibold">Minimum Salary</Label>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">$</span>
-                <Input
-                  id="salary"
-                  type="number"
-                  placeholder="80000"
-                  value={formData.minimumSalary}
-                  onChange={(e) => setFormData(prev => ({ ...prev, minimumSalary: e.target.value }))}
-                  className="flex-1"
-                />
-                <span className="text-sm text-muted-foreground">/year</span>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">$</span>
+                  <Input
+                    id="salary"
+                    type="number"
+                    placeholder="80000"
+                    value={formData.minimumSalary}
+                    onChange={(e) => setFormData(prev => ({ ...prev, minimumSalary: e.target.value }))}
+                    className="flex-1"
+                  />
+                  <span className="text-sm text-muted-foreground">/year</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="salary-dealbreaker"
+                    checked={!!formData.dealBreakers.salaryMinimum}
+                    onChange={(checked) => {
+                      if (checked.target.checked) {
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          dealBreakers: { 
+                            ...prev.dealBreakers, 
+                            salaryMinimum: formData.minimumSalary || '100000'
+                          }
+                        }));
+                      } else {
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          dealBreakers: { 
+                            ...prev.dealBreakers, 
+                            salaryMinimum: ''
+                          }
+                        }));
+                      }
+                    }}
+                    className="h-3 w-3"
+                  />
+                  <Label htmlFor="salary-dealbreaker" className="text-xs text-muted-foreground">
+                    Deal breaker
+                  </Label>
+                </div>
+                {formData.dealBreakers.salaryMinimum && (
+                  <div className="flex items-center gap-2 ml-5">
+                    <span className="text-sm text-muted-foreground">Deal breaker amount: $</span>
+                    <Input
+                      type="number"
+                      placeholder="100000"
+                      value={formData.dealBreakers.salaryMinimum}
+                      onChange={(e) => setFormData(prev => ({ 
+                        ...prev, 
+                        dealBreakers: { ...prev.dealBreakers, salaryMinimum: e.target.value }
+                      }))}
+                      className="w-24"
+                    />
+                    <span className="text-sm text-muted-foreground">/year</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -259,17 +348,33 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
                   { value: 'public', label: 'Public company' },
                   { value: 'either', label: 'Either' }
                 ].map((option) => (
-                  <div key={option.value} className="flex items-center space-x-3">
-                    <input
-                      type="radio"
-                      id={option.value}
-                      name="companyMaturity"
-                      value={option.value}
-                      checked={formData.companyMaturity === option.value}
-                      onChange={(e) => setFormData(prev => ({ ...prev, companyMaturity: e.target.value as any }))}
-                      className="h-4 w-4"
-                    />
-                    <Label htmlFor={option.value} className="text-sm font-medium">{option.label}</Label>
+                  <div key={option.value} className="space-y-2">
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="radio"
+                        id={option.value}
+                        name="companyMaturity"
+                        value={option.value}
+                        checked={formData.companyMaturity === option.value}
+                        onChange={(e) => setFormData(prev => ({ ...prev, companyMaturity: e.target.value as any }))}
+                        className="h-4 w-4"
+                      />
+                      <Label htmlFor={option.value} className="text-sm font-medium">{option.label}</Label>
+                    </div>
+                    {option.value !== 'either' && (
+                      <div className="flex items-center space-x-2 ml-7">
+                        <input
+                          type="checkbox"
+                          id={`dealbreaker-${option.value}`}
+                          checked={formData.dealBreakers.companyMaturity.includes(option.value)}
+                          onChange={() => toggleDealBreaker('companyMaturity', option.value)}
+                          className="h-3 w-3"
+                        />
+                        <Label htmlFor={`dealbreaker-${option.value}`} className="text-xs text-muted-foreground">
+                          Deal breaker
+                        </Label>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -281,25 +386,50 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
           {/* Work Type */}
           <div className="space-y-4">
             <Label className="text-lg font-semibold">Work Type</Label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {[
-                { value: 'remote', label: 'Remote' },
-                { value: 'hybrid', label: 'Hybrid' },
-                { value: 'in-person', label: 'In-person' }
-              ].map((option) => (
-                <div key={option.value} className="flex items-center space-x-3">
-                  <input
-                    type="radio"
-                    id={option.value}
-                    name="workType"
-                    value={option.value}
-                    checked={formData.workType === option.value}
-                    onChange={(e) => setFormData(prev => ({ ...prev, workType: e.target.value as any }))}
-                    className="h-4 w-4"
-                  />
-                  <Label htmlFor={option.value} className="text-sm font-medium">{option.label}</Label>
-                </div>
-              ))}
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                {formData.workType.map((type) => (
+                  <Badge key={type} variant="secondary" className="flex items-center gap-1 px-3 py-1">
+                    {type}
+                    <X 
+                      className="h-3 w-3 cursor-pointer hover:text-destructive" 
+                      onClick={() => togglePredefinedItem('workType', type)}
+                    />
+                  </Badge>
+                ))}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[
+                  { value: 'remote', label: 'Remote' },
+                  { value: 'hybrid', label: 'Hybrid' },
+                  { value: 'in-person', label: 'In-person' }
+                ].map((option) => (
+                  <div key={option.value} className="space-y-2">
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        id={option.value}
+                        checked={formData.workType.includes(option.value)}
+                        onChange={() => togglePredefinedItem('workType', option.value)}
+                        className="h-4 w-4"
+                      />
+                      <Label htmlFor={option.value} className="text-sm font-medium">{option.label}</Label>
+                    </div>
+                    <div className="flex items-center space-x-2 ml-7">
+                      <input
+                        type="checkbox"
+                        id={`dealbreaker-${option.value}`}
+                        checked={formData.dealBreakers.workType.includes(option.value)}
+                        onChange={() => toggleDealBreaker('workType', option.value)}
+                        className="h-3 w-3"
+                      />
+                      <Label htmlFor={`dealbreaker-${option.value}`} className="text-xs text-muted-foreground">
+                        Deal breaker
+                      </Label>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -454,102 +584,6 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
             </div>
           </div>
 
-          <Separator />
-
-          {/* Deal Breakers - New Column Approach */}
-          <div className="space-y-4">
-            <Label className="text-lg font-semibold">Deal Breakers</Label>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="space-y-3">
-                <Label className="text-sm font-medium text-muted-foreground">Work Type</Label>
-                <div className="flex items-center space-x-3">
-                  <Checkbox
-                    id="mustBeRemote"
-                    checked={formData.dealBreakers.mustBeRemote}
-                    onCheckedChange={(checked) => setFormData(prev => ({ 
-                      ...prev, 
-                      dealBreakers: { ...prev.dealBreakers, mustBeRemote: !!checked }
-                    }))}
-                  />
-                  <Label htmlFor="mustBeRemote" className="text-sm">Must be remote</Label>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Label className="text-sm font-medium text-muted-foreground">Company Stage</Label>
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-3">
-                    <Checkbox
-                      id="mustBeEarlyStage"
-                      checked={formData.dealBreakers.mustBeEarlyStage}
-                      onCheckedChange={(checked) => setFormData(prev => ({ 
-                        ...prev, 
-                        dealBreakers: { ...prev.dealBreakers, mustBeEarlyStage: !!checked }
-                      }))}
-                    />
-                    <Label htmlFor="mustBeEarlyStage" className="text-sm">Must be early-stage</Label>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <Checkbox
-                      id="mustBeLateStage"
-                      checked={formData.dealBreakers.mustBeLateStage}
-                      onCheckedChange={(checked) => setFormData(prev => ({ 
-                        ...prev, 
-                        dealBreakers: { ...prev.dealBreakers, mustBeLateStage: !!checked }
-                      }))}
-                    />
-                    <Label htmlFor="mustBeLateStage" className="text-sm">Must be late-stage</Label>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <Checkbox
-                      id="mustBePublic"
-                      checked={formData.dealBreakers.mustBePublicCompany}
-                      onCheckedChange={(checked) => setFormData(prev => ({ 
-                        ...prev, 
-                        dealBreakers: { ...prev.dealBreakers, mustBePublicCompany: !!checked }
-                      }))}
-                    />
-                    <Label htmlFor="mustBePublic" className="text-sm">Must be public company</Label>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Label className="text-sm font-medium text-muted-foreground">Salary</Label>
-                <div className="flex items-center space-x-3">
-                  <Checkbox
-                    id="salaryMinimum"
-                    checked={!!formData.dealBreakers.salaryMinimum}
-                    onCheckedChange={(checked) => {
-                      if (!checked) {
-                        setFormData(prev => ({ 
-                          ...prev, 
-                          dealBreakers: { ...prev.dealBreakers, salaryMinimum: '' }
-                        }));
-                      }
-                    }}
-                  />
-                  <Label htmlFor="salaryMinimum" className="text-sm">Minimum salary requirement</Label>
-                </div>
-                {formData.dealBreakers.salaryMinimum && (
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className="text-sm text-muted-foreground">$</span>
-                    <Input
-                      type="number"
-                      placeholder="100000"
-                      value={formData.dealBreakers.salaryMinimum}
-                      onChange={(e) => setFormData(prev => ({ 
-                        ...prev, 
-                        dealBreakers: { ...prev.dealBreakers, salaryMinimum: e.target.value }
-                      }))}
-                      className="w-24"
-                    />
-                    <span className="text-sm text-muted-foreground">/year</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
         </div>
 
         <div className="flex justify-end gap-3 pt-6">

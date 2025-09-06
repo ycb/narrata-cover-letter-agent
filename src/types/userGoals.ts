@@ -2,14 +2,12 @@ export interface UserGoals {
   targetTitles: string[];
   minimumSalary: number;
   companyMaturity: 'early-stage' | 'late-stage' | 'public' | 'either';
-  workType: 'remote' | 'hybrid' | 'in-person';
+  workType: string[];
   industries: string[];
   businessModels: string[];
   dealBreakers: {
-    mustBeRemote: boolean;
-    mustBeEarlyStage: boolean;
-    mustBeLateStage: boolean;
-    mustBePublicCompany: boolean;
+    workType: string[];
+    companyMaturity: string[];
     salaryMinimum: number | null;
   };
   preferredCities: string[];
@@ -20,14 +18,12 @@ export interface UserGoalsFormData {
   targetTitles: string[];
   minimumSalary: string;
   companyMaturity: 'early-stage' | 'late-stage' | 'public' | 'either';
-  workType: 'remote' | 'hybrid' | 'in-person';
+  workType: string[];
   industries: string[];
   businessModels: string[];
   dealBreakers: {
-    mustBeRemote: boolean;
-    mustBeEarlyStage: boolean;
-    mustBeLateStage: boolean;
-    mustBePublicCompany: boolean;
+    workType: string[];
+    companyMaturity: string[];
     salaryMinimum: string;
   };
   preferredCities: string[];
