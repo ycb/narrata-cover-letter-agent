@@ -30,12 +30,12 @@ export function RequirementsTooltip({
         {/* Left side - Requirements */}
         <div className="space-y-2">
           {requirements.map((req) => (
-            <div key={req.id} className={`flex items-center gap-2 p-2 rounded ${req.demonstrated ? 'bg-green-50' : 'bg-red-50'}`}>
+            <div key={req.id} className={`flex items-center gap-2 p-2 rounded ${req.demonstrated ? 'bg-success/10' : 'bg-destructive/10'}`}>
               <div className="flex-shrink-0">
                 {req.demonstrated ? (
-                  <Check className="h-3 w-3 text-green-600" />
+                  <Check className="h-3 w-3 text-success" />
                 ) : (
-                  <X className="h-3 w-3 text-red-500" />
+                  <X className="h-3 w-3 text-destructive" />
                 )}
               </div>
               <div className="flex-1 min-w-0">
@@ -50,12 +50,12 @@ export function RequirementsTooltip({
                   {/* Right side - Evidence/Status */}
           <div className="space-y-2">
             {requirements.map((req) => (
-              <div key={req.id} className={`flex items-center gap-2 p-2 rounded ${req.demonstrated ? 'bg-green-50' : 'bg-red-50'}`}>
+              <div key={req.id} className={`flex items-center gap-2 p-2 rounded ${req.demonstrated ? 'bg-success/10' : 'bg-destructive/10'}`}>
                 <div className="flex-shrink-0">
                   {req.demonstrated ? (
-                    <Check className="h-3 w-3 text-green-600" />
+                    <Check className="h-3 w-3 text-success" />
                   ) : (
-                    <X className="h-3 w-3 text-red-500" />
+                    <X className="h-3 w-3 text-destructive" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">

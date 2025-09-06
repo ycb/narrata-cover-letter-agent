@@ -20,128 +20,128 @@ export function ATSScoreTooltip({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                {/* Content Quality */}
                <div className="space-y-2">
-                 <div className="flex items-center gap-2 p-2 rounded bg-green-50">
-                   <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
+                 <div className="flex items-center gap-2 p-2 rounded bg-success/10">
+                   <Check className="h-3 w-3 text-success flex-shrink-0" />
                    <div className="flex-1 min-w-0">
-                     <span className="text-sm text-gray-700">Spelling and Grammar</span>
-                     <p className="text-xs text-gray-500 mt-0.5">No errors that confuse ATS</p>
+                     <span className="text-sm text-foreground">Spelling and Grammar</span>
+                     <p className="text-xs text-muted-foreground mt-0.5">No errors that confuse ATS</p>
                    </div>
                  </div>
-                 <div className="flex items-center gap-2 p-2 rounded bg-green-50">
-                   <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
+                 <div className="flex items-center gap-2 p-2 rounded bg-success/10">
+                   <Check className="h-3 w-3 text-success flex-shrink-0" />
                    <div className="flex-1 min-w-0">
-                     <span className="text-sm text-gray-700">Email Format</span>
-                     <p className="text-xs text-gray-500 mt-0.5">Professional email address</p>
+                     <span className="text-sm text-foreground">Email Format</span>
+                     <p className="text-xs text-muted-foreground mt-0.5">Professional email address</p>
                    </div>
                  </div>
-                 <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-green-50' : 'bg-red-50'}`}>
-                   {isPostHIL ? <Check className="h-3 w-3 text-green-600 flex-shrink-0" /> : <X className="h-3 w-3 text-red-500 flex-shrink-0" />}
+                 <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-destructive/10'}`}>
+                   {isPostHIL ? <Check className="h-3 w-3 text-success flex-shrink-0" /> : <X className="h-3 w-3 text-destructive flex-shrink-0" />}
                    <div className="flex-1 min-w-0">
-                     <span className={`text-sm ${isPostHIL ? 'text-gray-700' : 'text-gray-500'}`}>LinkedIn Profile</span>
-                     <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-gray-500' : 'text-gray-400'}`}>Profile mentioned or linked</p>
+                     <span className={`text-sm ${isPostHIL ? 'text-foreground' : 'text-muted-foreground'}`}>LinkedIn Profile</span>
+                     <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>Profile mentioned or linked</p>
                    </div>
                  </div>
-                 <div className="flex items-center gap-2 p-2 rounded bg-green-50">
-                   <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
+                 <div className="flex items-center gap-2 p-2 rounded bg-success/10">
+                   <Check className="h-3 w-3 text-success flex-shrink-0" />
                    <div className="flex-1 min-w-0">
-                     <span className="text-sm text-gray-700">Complete Contact Info</span>
-                     <p className="text-xs text-gray-500 mt-0.5">Name, email, phone included</p>
+                     <span className="text-sm text-foreground">Complete Contact Info</span>
+                     <p className="text-xs text-muted-foreground mt-0.5">Name, email, phone included</p>
                    </div>
                  </div>
                </div>
 
                {/* ATS Essentials */}
                <div className="space-y-2">
-                 <div className="flex items-center gap-2 p-2 rounded bg-green-50">
-                   <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
+                 <div className="flex items-center gap-2 p-2 rounded bg-success/10">
+                   <Check className="h-3 w-3 text-success flex-shrink-0" />
                    <div className="flex-1 min-w-0">
-                     <span className="text-sm text-gray-700">File Format</span>
-                     <p className="text-xs text-gray-500 mt-0.5">PDF or Word format</p>
+                     <span className="text-sm text-foreground">File Format</span>
+                     <p className="text-xs text-muted-foreground mt-0.5">PDF or Word format</p>
                    </div>
                  </div>
-                 <div className="flex items-center gap-2 p-2 rounded bg-green-50">
-                   <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
+                 <div className="flex items-center gap-2 p-2 rounded bg-success/10">
+                   <Check className="h-3 w-3 text-success flex-shrink-0" />
                    <div className="flex-1 min-w-0">
-                     <span className="text-sm text-gray-700">File Size</span>
-                     <p className="text-xs text-gray-500 mt-0.5">Under 2MB for processing</p>
+                     <span className="text-sm text-foreground">File Size</span>
+                     <p className="text-xs text-muted-foreground mt-0.5">Under 2MB for processing</p>
                    </div>
                  </div>
-                 <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-green-50' : 'bg-red-50'}`}>
-                   {isPostHIL ? <Check className="h-3 w-3 text-green-600 flex-shrink-0" /> : <X className="h-3 w-3 text-red-500 flex-shrink-0" />}
+                 <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-destructive/10'}`}>
+                   {isPostHIL ? <Check className="h-3 w-3 text-success flex-shrink-0" /> : <X className="h-3 w-3 text-destructive flex-shrink-0" />}
                    <div className="flex-1 min-w-0">
-                     <span className={`text-sm ${isPostHIL ? 'text-gray-700' : 'text-gray-500'}`}>Simple Layout</span>
-                     <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-gray-500' : 'text-gray-400'}`}>Clean formatting</p>
+                     <span className={`text-sm ${isPostHIL ? 'text-foreground' : 'text-muted-foreground'}`}>Simple Layout</span>
+                     <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>Clean formatting</p>
                    </div>
                  </div>
-                 <div className="flex items-center gap-2 p-2 rounded bg-green-50">
-                   <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
+                 <div className="flex items-center gap-2 p-2 rounded bg-success/10">
+                   <Check className="h-3 w-3 text-success flex-shrink-0" />
                    <div className="flex-1 min-w-0">
-                     <span className="text-sm text-gray-700">Standard Fonts</span>
-                     <p className="text-xs text-gray-500 mt-0.5">Arial, Calibri, Times New Roman</p>
+                     <span className="text-sm text-foreground">Standard Fonts</span>
+                     <p className="text-xs text-muted-foreground mt-0.5">Arial, Calibri, Times New Roman</p>
                    </div>
                  </div>
                </div>
 
                {/* Skills & Keywords */}
                <div className="space-y-2">
-                 <div className="flex items-center gap-2 p-2 rounded bg-green-50">
-                   <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
+                 <div className="flex items-center gap-2 p-2 rounded bg-success/10">
+                   <Check className="h-3 w-3 text-success flex-shrink-0" />
                    <div className="flex-1 min-w-0">
-                     <span className="text-sm text-gray-700">Hard Skills</span>
-                     <p className="text-xs text-gray-500 mt-0.5">Technical skills mentioned</p>
+                     <span className="text-sm text-foreground">Hard Skills</span>
+                     <p className="text-xs text-muted-foreground mt-0.5">Technical skills mentioned</p>
                    </div>
                  </div>
-                 <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-green-50' : 'bg-red-50'}`}>
-                   {isPostHIL ? <Check className="h-3 w-3 text-green-600 flex-shrink-0" /> : <X className="h-3 w-3 text-red-500 flex-shrink-0" />}
+                 <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-destructive/10'}`}>
+                   {isPostHIL ? <Check className="h-3 w-3 text-success flex-shrink-0" /> : <X className="h-3 w-3 text-destructive flex-shrink-0" />}
                    <div className="flex-1 min-w-0">
-                     <span className={`text-sm ${isPostHIL ? 'text-gray-700' : 'text-gray-500'}`}>Soft Skills</span>
-                     <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-gray-500' : 'text-gray-400'}`}>Leadership, communication</p>
+                     <span className={`text-sm ${isPostHIL ? 'text-foreground' : 'text-muted-foreground'}`}>Soft Skills</span>
+                     <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>Leadership, communication</p>
                    </div>
                  </div>
-                 <div className="flex items-center gap-2 p-2 rounded bg-green-50">
-                   <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
+                 <div className="flex items-center gap-2 p-2 rounded bg-success/10">
+                   <Check className="h-3 w-3 text-success flex-shrink-0" />
                    <div className="flex-1 min-w-0">
-                     <span className="text-sm text-gray-700">Keyword Density</span>
-                     <p className="text-xs text-gray-500 mt-0.5">Appropriate keyword use</p>
+                     <span className="text-sm text-foreground">Keyword Density</span>
+                     <p className="text-xs text-muted-foreground mt-0.5">Appropriate keyword use</p>
                    </div>
                  </div>
-                 <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-green-50' : 'bg-red-50'}`}>
-                   {isPostHIL ? <Check className="h-3 w-3 text-green-600 flex-shrink-0" /> : <X className="h-3 w-3 text-red-500 flex-shrink-0" />}
+                 <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-destructive/10'}`}>
+                   {isPostHIL ? <Check className="h-3 w-3 text-success flex-shrink-0" /> : <X className="h-3 w-3 text-destructive flex-shrink-0" />}
                    <div className="flex-1 min-w-0">
-                     <span className={`text-sm ${isPostHIL ? 'text-gray-700' : 'text-gray-500'}`}>Industry Terms</span>
-                     <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-gray-500' : 'text-gray-400'}`}>Industry-specific terminology</p>
+                     <span className={`text-sm ${isPostHIL ? 'text-foreground' : 'text-muted-foreground'}`}>Industry Terms</span>
+                     <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>Industry-specific terminology</p>
                    </div>
                  </div>
                </div>
 
                {/* Structure & Formatting */}
                <div className="space-y-2">
-                 <div className="flex items-center gap-2 p-2 rounded bg-green-50">
-                   <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
+                 <div className="flex items-center gap-2 p-2 rounded bg-success/10">
+                   <Check className="h-3 w-3 text-success flex-shrink-0" />
                    <div className="flex-1 min-w-0">
-                     <span className="text-sm text-gray-700">Clear Headers</span>
-                     <p className="text-xs text-gray-500 mt-0.5">Proper section headers</p>
+                     <span className="text-sm text-foreground">Clear Headers</span>
+                     <p className="text-xs text-muted-foreground mt-0.5">Proper section headers</p>
                    </div>
                  </div>
-                 <div className="flex items-center gap-2 p-2 rounded bg-green-50">
-                   <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
+                 <div className="flex items-center gap-2 p-2 rounded bg-success/10">
+                   <Check className="h-3 w-3 text-success flex-shrink-0" />
                    <div className="flex-1 min-w-0">
-                     <span className="text-sm text-gray-700">Consistent Formatting</span>
-                     <p className="text-xs text-gray-500 mt-0.5">Consistent date formats</p>
+                     <span className="text-sm text-foreground">Consistent Formatting</span>
+                     <p className="text-xs text-muted-foreground mt-0.5">Consistent date formats</p>
                    </div>
                  </div>
-                 <div className="flex items-center gap-2 p-2 rounded bg-red-50">
-                   <X className="h-3 w-3 text-red-500 flex-shrink-0" />
+                 <div className="flex items-center gap-2 p-2 rounded bg-destructive/10">
+                   <X className="h-3 w-3 text-destructive flex-shrink-0" />
                    <div className="flex-1 min-w-0">
-                     <span className="text-sm text-gray-500">Chronological Order</span>
-                     <p className="text-xs text-gray-400 mt-0.5">Reverse chronological order</p>
+                     <span className="text-sm text-muted-foreground">Chronological Order</span>
+                     <p className="text-xs text-muted-foreground/70 mt-0.5">Reverse chronological order</p>
                    </div>
                  </div>
-                 <div className="flex items-center gap-2 p-2 rounded bg-green-50">
-                   <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
+                 <div className="flex items-center gap-2 p-2 rounded bg-success/10">
+                   <Check className="h-3 w-3 text-success flex-shrink-0" />
                    <div className="flex-1 min-w-0">
-                     <span className="text-sm text-gray-700">No Tables</span>
-                     <p className="text-xs text-gray-500 mt-0.5">Linear text format</p>
+                     <span className="text-sm text-foreground">No Tables</span>
+                     <p className="text-xs text-muted-foreground mt-0.5">Linear text format</p>
                    </div>
                  </div>
                </div>

@@ -35,16 +35,16 @@ export function MatchExperienceTooltip({
           {/* Left side - Job Requirements */}
           <div className="space-y-2">
             {matches.map((match) => (
-              <div key={match.id} className={`flex items-center gap-2 p-2 rounded ${match.match ? 'bg-green-50' : 'bg-red-50'}`}>
+              <div key={match.id} className={`flex items-center gap-2 p-2 rounded ${match.match ? 'bg-success/10' : 'bg-destructive/10'}`}>
                 <div className="flex-shrink-0">
                   {match.match ? (
-                    <Check className="h-3 w-3 text-green-600" />
+                    <Check className="h-3 w-3 text-success" />
                   ) : (
-                    <X className="h-3 w-3 text-red-500" />
+                    <X className="h-3 w-3 text-destructive" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <span className="text-sm text-gray-900">
+                  <span className="text-sm text-foreground">
                     {match.requirement}
                   </span>
                 </div>
@@ -55,21 +55,21 @@ export function MatchExperienceTooltip({
           {/* Right side - Work History Matches */}
           <div className="space-y-2">
             {matches.map((match) => (
-              <div key={match.id} className={`flex items-center gap-2 p-2 rounded ${match.match ? 'bg-green-50' : 'bg-red-50'}`}>
+              <div key={match.id} className={`flex items-center gap-2 p-2 rounded ${match.match ? 'bg-success/10' : 'bg-destructive/10'}`}>
                 <div className="flex-shrink-0">
                   {match.match ? (
-                    <Check className="h-3 w-3 text-green-600" />
+                    <Check className="h-3 w-3 text-success" />
                   ) : (
-                    <X className="h-3 w-3 text-red-500" />
+                    <X className="h-3 w-3 text-destructive" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   {match.match ? (
-                    <span className="text-sm text-gray-700">
+                    <span className="text-sm text-foreground">
                       {match.match}
                     </span>
                   ) : (
-                    <span className="text-sm text-gray-500">
+                    <span className="text-sm text-muted-foreground">
                       No matching experience found
                     </span>
                   )}
