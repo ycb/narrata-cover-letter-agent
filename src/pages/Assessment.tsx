@@ -31,7 +31,7 @@ const mockAssessment = {
   confidence: "high" as const,
       nextLevel: "Lead PM" as const,
   levelDescription: "Experienced product manager with strong execution and growing strategic influence",
-  inferenceSource: "Based on resume, LinkedIn, and 47 approved blurbs",
+  inferenceSource: "Based on resume, LinkedIn, and 47 approved stories",
   
   competencies: [
     {
@@ -106,7 +106,7 @@ const mockAssessment = {
       domain: "Product Strategy",
       level: "Emerging",
       score: 65,
-      evidence: "2 strategy-related blurbs",
+      evidence: "2 strategy-related stories",
       tags: ["Strategy", "Vision", "Roadmap"],
       description: "Developing strategic thinking, needs more leadership examples",
       evidenceBlurbs: [
@@ -161,7 +161,7 @@ const mockAssessment = {
       type: "Growth PM",
       match: 85,
       description: "Data-driven experimentation and user acquisition focus",
-      evidence: "Growth, Leadership, SaaS tags from multiple blurbs",
+      evidence: "Growth, Leadership, SaaS tags from multiple stories",
       typicalProfile: "Startup or scale-up experience, PLG systems and user analytics, B2C focus, A/B testing expertise"
     },
     {

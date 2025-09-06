@@ -819,9 +819,9 @@ export default function CoverLetterTemplate() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Choose a Blurb</CardTitle>
+                  <CardTitle>Choose a Story</CardTitle>
                   <CardDescription>
-                    Select a pre-written blurb for your {getSectionTypeLabel(template.sections.find(s => s.id === selectedSection)?.type || '')} section
+                    Select a pre-written story for your {getSectionTypeLabel(template.sections.find(s => s.id === selectedSection)?.type || '')} section
                   </CardDescription>
                 </div>
                 <Button 
@@ -851,12 +851,12 @@ export default function CoverLetterTemplate() {
                       className="flex items-center gap-2"
                     >
                       <Plus className="h-4 w-4" />
-                      Create New {getSectionTypeLabel(template.sections.find(s => s.id === selectedSection)?.type || '')} Blurb
+                      Create New {getSectionTypeLabel(template.sections.find(s => s.id === selectedSection)?.type || '')} Story
                     </Button>
                   </CardContent>
                 </Card>
                 
-                {/* Existing Blurbs */}
+                {/* Existing Stories */}
                 {getAvailableBlurbs(template.sections.find(s => s.id === selectedSection)?.type || '').map((blurb) => (
                   <Card 
                     key={blurb.id} 
@@ -867,7 +867,7 @@ export default function CoverLetterTemplate() {
                       <h4 className="font-medium mb-2">{blurb.title}</h4>
                       <p className="text-sm text-muted-foreground mb-3">{blurb.content}</p>
                       <div className="text-xs text-muted-foreground">
-                        Click to select this blurb
+                        Click to select this story
                       </div>
                     </CardContent>
                   </Card>
