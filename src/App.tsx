@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { PrototypeProvider } from "@/contexts/PrototypeContext";
 import { TourProvider } from "@/contexts/TourContext";
 import { UserGoalsProvider } from "@/contexts/UserGoalsContext";
+import { UserVoiceProvider } from "@/contexts/UserVoiceContext";
 import { PrototypeStateBanner } from "@/components/work-history/PrototypeStateBanner";
 import { Header } from "@/components/layout/Header";
 import { FeedbackSystem } from "@/components/feedback/FeedbackSystem";
@@ -205,7 +206,9 @@ const App = () => (
         <BrowserRouter>
           <TourProvider>
             <UserGoalsProvider>
-              <AppLayout />
+              <UserVoiceProvider>
+                <AppLayout />
+              </UserVoiceProvider>
             </UserGoalsProvider>
           </TourProvider>
         </BrowserRouter>

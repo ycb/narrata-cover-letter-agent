@@ -27,7 +27,9 @@ import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { UserGoalsModal } from "@/components/user-goals/UserGoalsModal";
+import { MyVoiceModal } from "@/components/user-voice/MyVoiceModal";
 import { useUserGoals } from "@/contexts/UserGoalsContext";
+import { useUserVoice } from "@/contexts/UserVoiceContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,7 +48,9 @@ interface HeaderProps {
 export const Header = ({ currentPage }: HeaderProps) => {
   const location = useLocation();
   const [showGoalsModal, setShowGoalsModal] = useState(false);
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
   const { goals, setGoals } = useUserGoals();
+  const { voice, setVoice } = useUserVoice();
   
   // Determine current page based on pathname
   const getCurrentPage = (pathname: string): string => {
@@ -383,16 +387,16 @@ export const Header = ({ currentPage }: HeaderProps) => {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuItem>
-                <User className="mr-2 h-4 w-4" />
                 <span>Profile</span>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setShowGoalsModal(true)}>
-                <Target className="mr-2 h-4 w-4" />
-                <span>Goals</span>
+                <span>My Goals</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowVoiceModal(true)}>
+                <span>My Voice</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem>
-                <LogOut className="mr-2 h-4 w-4" />
                 <span>Log out</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -405,6 +409,13 @@ export const Header = ({ currentPage }: HeaderProps) => {
         onClose={() => setShowGoalsModal(false)}
         onSave={setGoals}
         initialGoals={goals || undefined}
+      />
+      
+      <MyVoiceModal
+        isOpen={showVoiceModal}
+        onClose={() => setShowVoiceModal(false)}
+        onSave={setVoice}
+        initialVoice={voice || undefined}
       />
     </header>
   );
