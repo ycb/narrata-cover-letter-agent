@@ -93,8 +93,8 @@ export function createMockRequirements(type: 'core' | 'preferred'): Requirement[
       {
         id: 'core-1',
         text: 'JavaScript proficiency',
-        demonstrated: true,
-        evidence: 'Mentioned 5+ years of JavaScript experience'
+        demonstrated: false,
+        evidence: 'JavaScript experience not clearly demonstrated'
       },
       {
         id: 'core-2',
@@ -111,8 +111,8 @@ export function createMockRequirements(type: 'core' | 'preferred'): Requirement[
       {
         id: 'core-4',
         text: 'API design and integration',
-        demonstrated: false,
-        evidence: 'API experience not clearly demonstrated'
+        demonstrated: true,
+        evidence: 'API integration experience mentioned'
       }
     ];
   } else {

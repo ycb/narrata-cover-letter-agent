@@ -97,8 +97,8 @@ export function createMockExperienceMatches(): ExperienceMatch[] {
     {
       id: 'exp-1',
       requirement: 'JavaScript and frontend development',
-      match: '5+ years JavaScript experience with various projects',
-      confidence: 'high'
+      match: null,
+      confidence: 'low'
     },
     {
       id: 'exp-2',
@@ -127,8 +127,8 @@ export function createMockExperienceMatches(): ExperienceMatch[] {
     {
       id: 'exp-6',
       requirement: 'Leadership and mentoring experience',
-      match: null,
-      confidence: 'low'
+      match: 'Led small team projects and mentored junior developers',
+      confidence: 'high'
     }
   ];
 }
