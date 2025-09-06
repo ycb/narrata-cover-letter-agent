@@ -7,7 +7,7 @@ import { PrototypeProvider } from "@/contexts/PrototypeContext";
 import { TourProvider } from "@/contexts/TourContext";
 import { UserGoalsProvider } from "@/contexts/UserGoalsContext";
 import { UserVoiceProvider } from "@/contexts/UserVoiceContext";
-import { PrototypeStateBanner } from "@/components/work-history/PrototypeStateBanner";
+// import { PrototypeStateBanner } from "@/components/work-history/PrototypeStateBanner"; // DISABLED FOR USABILITY TESTING
 import { Header } from "@/components/layout/Header";
 import { FeedbackSystem } from "@/components/feedback/FeedbackSystem";
 import { FeedbackAdmin } from "@/components/feedback/FeedbackAdmin";
@@ -54,7 +54,14 @@ function AppLayout() {
   return (
     <div className="pb-16">
       <Routes>
-        <Route path="/" element={<Landing />} />
+        <Route path="/" element={
+          <>
+            <Header />
+            <Dashboard />
+          </>
+        } />
+        <Route path="/marketing" element={<Landing />} />
+        <Route path="/new-user" element={<NewUserOnboarding />} />
         <Route path="/dashboard" element={
           <>
             <Header />
@@ -188,8 +195,8 @@ function AppLayout() {
         <Route path="*" element={<NotFound />} />
       </Routes>
       
-      {/* Show prototype banner on all pages */}
-      <PrototypeStateBanner />
+      {/* Show prototype banner on all pages - DISABLED FOR USABILITY TESTING */}
+      {/* <PrototypeStateBanner /> */}
       
       {/* Feedback system available on all pages */}
       {shouldShowFeedbackSystem() && <FeedbackSystem />}
