@@ -18,11 +18,13 @@ interface HILProgressMetrics {
 interface ProgressIndicatorWithTooltipsProps {
   metrics: HILProgressMetrics;
   className?: string;
+  isPostHIL?: boolean; // New prop to determine which mock data to use
 }
 
 export function ProgressIndicatorWithTooltips({ 
   metrics, 
-  className 
+  className,
+  isPostHIL = false
 }: ProgressIndicatorWithTooltipsProps) {
   const getRatingColor = (rating: string) => {
     switch (rating.toLowerCase()) {
@@ -39,9 +41,10 @@ export function ProgressIndicatorWithTooltips({
     return 'bg-red-100 text-red-800 border-red-200';
   };
 
-  const coreReqs = createMockRequirements('core');
-  const preferredReqs = createMockRequirements('preferred');
-  const experienceMatches = createMockExperienceMatches();
+  // Use different mock data based on HIL state
+  const coreReqs = isPostHIL ? createPostHILRequirements('core') : createMockRequirements('core');
+  const preferredReqs = isPostHIL ? createPostHILRequirements('preferred') : createMockRequirements('preferred');
+  const experienceMatches = isPostHIL ? createPostHILExperienceMatches() : createMockExperienceMatches();
 
   return (
     <div className={`w-full bg-card border rounded-lg p-4 ${className}`}>
@@ -116,4 +119,104 @@ export function ProgressIndicatorWithTooltips({
       </div>
     </div>
   );
+}
+
+// Post-HIL mock data functions (gaps addressed)
+function createPostHILRequirements(type: 'core' | 'preferred'): any[] {
+  if (type === 'core') {
+    return [
+      {
+        id: 'core-1',
+        text: '5+ years of software development experience',
+        demonstrated: true,
+        evidence: 'HIL generated content highlighting 6 years of experience with specific project examples'
+      },
+      {
+        id: 'core-2',
+        text: 'Proficiency in React and TypeScript',
+        demonstrated: true,
+        evidence: 'Added detailed React/TypeScript project descriptions with technical achievements'
+      },
+      {
+        id: 'core-3',
+        text: 'Experience with cloud platforms (AWS/Azure)',
+        demonstrated: true,
+        evidence: 'HIL content now includes AWS deployment experience and cloud architecture knowledge'
+      },
+      {
+        id: 'core-4',
+        text: 'Bachelor\'s degree in Computer Science or related field',
+        demonstrated: true,
+        evidence: 'Education section enhanced with relevant coursework and academic projects'
+      }
+    ];
+  } else {
+    return [
+      {
+        id: 'pref-1',
+        text: 'Experience with microservices architecture',
+        demonstrated: true,
+        evidence: 'Added microservices implementation details from previous role'
+      },
+      {
+        id: 'pref-2',
+        text: 'Leadership experience managing a team',
+        demonstrated: true,
+        evidence: 'HIL generated content now includes team leadership examples and management achievements'
+      },
+      {
+        id: 'pref-3',
+        text: 'Open source contributions',
+        demonstrated: true,
+        evidence: 'Enhanced with specific open source projects and contributions'
+      },
+      {
+        id: 'pref-4',
+        text: 'Certifications in cloud technologies',
+        demonstrated: true,
+        evidence: 'Added AWS certification details and cloud training experience'
+      }
+    ];
+  }
+}
+
+function createPostHILExperienceMatches(): any[] {
+  return [
+    {
+      id: 'exp-1',
+      requirement: 'Senior-level software development (5+ years)',
+      match: '6 years as Senior Software Engineer at TechCorp with HIL-enhanced project details',
+      confidence: 'high'
+    },
+    {
+      id: 'exp-2',
+      requirement: 'React and TypeScript expertise',
+      match: 'Built 3 React applications with TypeScript, now with detailed technical specifications',
+      confidence: 'high'
+    },
+    {
+      id: 'exp-3',
+      requirement: 'Cloud platform experience (AWS/Azure)',
+      match: 'Deployed applications on AWS using EC2, S3, and Lambda with HIL-generated examples',
+      confidence: 'high'
+    },
+    {
+      id: 'exp-4',
+      requirement: 'Team leadership and mentoring',
+      match: 'Led team of 3 junior developers for 2 years with enhanced leadership examples',
+      confidence: 'high'
+    },
+    {
+      id: 'exp-5',
+      requirement: 'Fintech or financial services experience',
+      match: 'HIL generated content now includes payment processing and financial API experience',
+      confidence: 'high'
+    },
+    {
+      id: 'exp-6',
+      requirement: 'Machine learning or AI experience',
+      match: 'Implemented ML recommendation system with detailed technical implementation',
+      confidence: 'high'
+    }
+  ];
 }

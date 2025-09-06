@@ -14,6 +14,7 @@ import { GapAnalysisPanel } from "@/components/hil/GapAnalysisPanel";
 import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
 import { UnifiedGapCard } from "@/components/hil/UnifiedGapCard";
 import { CoverLetterFinalization } from "./CoverLetterFinalization";
+import { ProgressIndicatorWithTooltips } from "./ProgressIndicatorWithTooltips";
 
 interface CoverLetterCreateModalProps {
   isOpen: boolean;
@@ -450,42 +451,13 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
             </DialogDescription>
           </DialogHeader>
 
-          {/* Top Progress Bar */}
+          {/* Top Progress Bar with Tooltips */}
           {hilProgressMetrics && (
-            <div className="w-full bg-card border rounded-lg p-4 mb-4">
-              <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-center">
-                <div className="flex flex-col items-center justify-center">
-                  <div className="text-xs text-muted-foreground mb-2">MATCH WITH GOALS</div>
-                  <Badge variant="outline" className={getRatingColor(hilProgressMetrics.goalsMatch)}>
-                    {hilProgressMetrics.goalsMatch}
-                  </Badge>
-                </div>
-                <div className="flex flex-col items-center justify-center">
-                  <div className="text-xs text-muted-foreground mb-2">MATCH WITH EXPERIENCE</div>
-                  <Badge variant="outline" className={getRatingColor(hilProgressMetrics.experienceMatch)}>
-                    {hilProgressMetrics.experienceMatch}
-                  </Badge>
-                </div>
-                <div className="flex flex-col items-center justify-center">
-                  <div className="text-xs text-muted-foreground mb-2">COVER LETTER RATING</div>
-                  <Badge variant="outline" className={getRatingColor(hilProgressMetrics.coverLetterRating)}>
-                    {hilProgressMetrics.coverLetterRating}
-                  </Badge>
-                </div>
-                <div className="flex flex-col items-center justify-center">
-                  <div className="text-xs text-muted-foreground mb-2">ATS</div>
-                  <div className="text-lg font-bold">{hilProgressMetrics.atsScore}%</div>
-                </div>
-                <div className="flex flex-col items-center justify-center">
-                  <div className="text-xs text-muted-foreground mb-2">Core Reqs</div>
-                  <div className="text-lg font-bold">{hilProgressMetrics.coreRequirementsMet.met}/{hilProgressMetrics.coreRequirementsMet.total}</div>
-                </div>
-                <div className="flex flex-col items-center justify-center">
-                  <div className="text-xs text-muted-foreground mb-2">Preferred Reqs</div>
-                  <div className="text-lg font-bold">{hilProgressMetrics.preferredRequirementsMet.met}/{hilProgressMetrics.preferredRequirementsMet.total}</div>
-                </div>
-              </div>
-            </div>
+            <ProgressIndicatorWithTooltips 
+              metrics={hilProgressMetrics}
+              className="mb-4"
+              isPostHIL={coverLetterGenerated} // Show post-HIL tooltips after content generation
+            />
           )}
 
           {/* Job Description Input - Modal 1 - Only show when NOT generated */}
