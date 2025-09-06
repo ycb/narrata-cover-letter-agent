@@ -70,7 +70,7 @@ export function ProgressIndicatorWithTooltips({
         </MatchExperienceTooltip>
 
         {/* Cover Letter Rating */}
-        <CoverLetterRatingTooltip>
+        <CoverLetterRatingTooltip isPostHIL={isPostHIL}>
           <div className="flex flex-col items-center justify-center">
             <div className="text-xs text-muted-foreground mb-2 underline underline-offset-2">COVER LETTER RATING</div>
             <Badge variant="outline" className={getRatingColor(metrics.coverLetterRating)}>
@@ -80,7 +80,7 @@ export function ProgressIndicatorWithTooltips({
         </CoverLetterRatingTooltip>
 
         {/* ATS Score */}
-        <ATSScoreTooltip atsScore={metrics.atsScore}>
+        <ATSScoreTooltip atsScore={metrics.atsScore} isPostHIL={isPostHIL}>
           <div className="flex flex-col items-center justify-center">
             <div className="text-xs text-muted-foreground mb-2 underline underline-offset-2">ATS</div>
             <Badge variant="outline" className={getATSScoreColor(metrics.atsScore)}>
@@ -140,8 +140,8 @@ function createPostHILRequirements(type: 'core' | 'preferred'): any[] {
       {
         id: 'core-3',
         text: 'Node.js backend development',
-        demonstrated: false,
-        evidence: 'Limited Node.js experience mentioned in current draft'
+        demonstrated: true,
+        evidence: 'HIL generated content now includes Node.js project examples'
       },
       {
         id: 'core-4',
