@@ -303,16 +303,16 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label htmlFor="salary" className="text-lg font-semibold">Minimum Salary</Label>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 px-2 py-1 bg-orange-50 border border-orange-200 rounded-md">
                   <input
                     type="checkbox"
                     id="salary-dealbreaker"
                     checked={!!formData.dealBreakers.salaryMinimum}
                     onChange={() => toggleDealBreaker('salary')}
-                    className="h-3 w-3"
+                    className="h-3 w-3 text-orange-600"
                   />
-                  <Label htmlFor="salary-dealbreaker" className="text-xs text-muted-foreground">
-                    Deal breaker
+                  <Label htmlFor="salary-dealbreaker" className="text-xs text-orange-700 font-medium">
+                    Deal-breaker
                   </Label>
                 </div>
               </div>
@@ -351,16 +351,16 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label className="text-lg font-semibold">Company Maturity</Label>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 px-2 py-1 bg-orange-50 border border-orange-200 rounded-md">
                   <input
                     type="checkbox"
                     id="companyMaturity-dealbreaker"
                     checked={formData.dealBreakers.companyMaturity.length > 0}
                     onChange={() => toggleDealBreaker('companyMaturity')}
-                    className="h-3 w-3"
+                    className="h-3 w-3 text-orange-600"
                   />
-                  <Label htmlFor="companyMaturity-dealbreaker" className="text-xs text-muted-foreground">
-                    Deal breaker
+                  <Label htmlFor="companyMaturity-dealbreaker" className="text-xs text-orange-700 font-medium">
+                    Deal-breaker
                   </Label>
                 </div>
               </div>
@@ -404,16 +404,16 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <Label className="text-lg font-semibold">Work Type</Label>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 px-2 py-1 bg-orange-50 border border-orange-200 rounded-md">
                 <input
                   type="checkbox"
                   id="workType-dealbreaker"
                   checked={formData.dealBreakers.workType.length > 0}
                   onChange={() => toggleDealBreaker('workType')}
-                  className="h-3 w-3"
+                  className="h-3 w-3 text-orange-600"
                 />
-                <Label htmlFor="workType-dealbreaker" className="text-xs text-muted-foreground">
-                  Deal breaker
+                <Label htmlFor="workType-dealbreaker" className="text-xs text-orange-700 font-medium">
+                  Deal-breaker
                 </Label>
               </div>
             </div>
