@@ -8,13 +8,14 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { LinkIcon, Upload, Wand2, RefreshCw, Save, Send, AlertTriangle, CheckCircle, X, Target, Pencil, Sparkles } from "lucide-react";
+import { LinkIcon, Upload, Wand2, RefreshCw, Save, Send, AlertTriangle, CheckCircle, X, Target, Pencil, Sparkles, MessageCircle } from "lucide-react";
 import { HILProgressPanel } from "@/components/hil/HILProgressPanel";
 import { GapAnalysisPanel } from "@/components/hil/GapAnalysisPanel";
 import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
 import { UnifiedGapCard } from "@/components/hil/UnifiedGapCard";
 import { CoverLetterFinalization } from "./CoverLetterFinalization";
 import { ProgressIndicatorWithTooltips } from "./ProgressIndicatorWithTooltips";
+import { FeedbackModal } from "@/components/feedback/FeedbackModal";
 
 interface CoverLetterCreateModalProps {
   isOpen: boolean;
@@ -59,6 +60,7 @@ interface GapAnalysis {
 
 const CoverLetterCreateModal = ({ isOpen, onClose, onCoverLetterCreated }: CoverLetterCreateModalProps) => {
   const [intentionalClose, setIntentionalClose] = useState(false);
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
   const [jobDescriptionMethod, setJobDescriptionMethod] = useState<'url' | 'paste'>('paste');
   const [jobUrl, setJobUrl] = useState('');
   const [jobContent, setJobContent] = useState(`Senior Product Manager - Growth & SaaS Platform
@@ -454,13 +456,26 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
       <Dialog open={isOpen} onOpenChange={handleClose}>
         <DialogContent 
           className="max-w-7xl max-h-[90vh] overflow-y-auto"
-          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
         >
           <DialogHeader className="pb-2">
-            <DialogTitle className="text-2xl font-bold">Create Cover Letter</DialogTitle>
-            <DialogDescription className="text-base">
-              Generate a personalized cover letter for your job application
-            </DialogDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="text-2xl font-bold">Create Cover Letter</DialogTitle>
+                <DialogDescription className="text-base">
+                  Generate a personalized cover letter for your job application
+                </DialogDescription>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="flex items-center gap-2"
+                onClick={() => setIsFeedbackModalOpen(true)}
+              >
+                <MessageCircle className="h-4 w-4" />
+                Provide Feedback
+              </Button>
+            </div>
           </DialogHeader>
 
           {/* Top Progress Bar with Tooltips - Show when draft is ready */}
@@ -732,6 +747,11 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
         coverLetter={generatedLetter}
         onBackToDraft={() => setShowFinalizationModal(false)}
         onSave={handleSaveCoverLetter}
+      />
+      
+      <FeedbackModal
+        isOpen={isFeedbackModalOpen}
+        onClose={() => setIsFeedbackModalOpen(false)}
       />
     </>
   );

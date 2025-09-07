@@ -11,9 +11,11 @@ import {
   Target, 
   TrendingUp,
   BarChart3,
-  Edit
+  Edit,
+  MessageCircle
 } from "lucide-react";
 import FeedbackModal from "./FeedbackModal";
+import { FeedbackModal as GlobalFeedbackModal } from "@/components/feedback/FeedbackModal";
 
 interface LevelEvidence {
   currentLevel: string;
@@ -58,6 +60,7 @@ interface LevelEvidenceModalProps {
 
 const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalProps) => {
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [isGlobalFeedbackModalOpen, setIsGlobalFeedbackModalOpen] = useState(false);
   const getConfidenceColor = (confidence: string) => {
     switch (confidence) {
       case 'high': return 'bg-success text-success-foreground';
@@ -72,7 +75,7 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
       <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent 
         className="max-w-4xl max-h-[90vh] overflow-y-auto"
-        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader className="pb-4">
           <div className="flex items-center justify-between">
@@ -93,6 +96,15 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
               >
                 <Edit className="h-4 w-4" />
                 This looks wrong
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="flex items-center gap-2"
+                onClick={() => setIsGlobalFeedbackModalOpen(true)}
+              >
+                <MessageCircle className="h-4 w-4" />
+                Provide Feedback
               </Button>
             </div>
           </div>
@@ -277,6 +289,11 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
         isOpen={isFeedbackModalOpen}
         onClose={() => setIsFeedbackModalOpen(false)}
         title="Level Assessment Feedback"
+      />
+      
+      <GlobalFeedbackModal
+        isOpen={isGlobalFeedbackModalOpen}
+        onClose={() => setIsGlobalFeedbackModalOpen(false)}
       />
     </>
   );

@@ -4,8 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
-import { X, Tag, Building, User, Calendar, Target, Edit, BarChart3 } from "lucide-react";
+import { X, Tag, Building, User, Calendar, Target, Edit, BarChart3, MessageCircle } from "lucide-react";
 import FeedbackModal from "./FeedbackModal";
+import { FeedbackModal as GlobalFeedbackModal } from "@/components/feedback/FeedbackModal";
 
 interface EvidenceBlurb {
   id: string;
@@ -38,6 +39,7 @@ const EvidenceModal = ({
   overallConfidence
 }: EvidenceModalProps) => {
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [isGlobalFeedbackModalOpen, setIsGlobalFeedbackModalOpen] = useState(false);
   const getConfidenceColor = (confidence: string) => {
     switch (confidence) {
       case 'high': return 'bg-success text-success-foreground';
@@ -61,7 +63,7 @@ const EvidenceModal = ({
       <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent 
         className="max-w-4xl max-h-[90vh] overflow-y-auto"
-        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader className="pb-4">
           <div className="flex items-center justify-between">
@@ -82,6 +84,15 @@ const EvidenceModal = ({
               >
                 <Edit className="h-4 w-4" />
                 This looks wrong
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="flex items-center gap-2"
+                onClick={() => setIsGlobalFeedbackModalOpen(true)}
+              >
+                <MessageCircle className="h-4 w-4" />
+                Provide Feedback
               </Button>
             </div>
           </div>
@@ -231,6 +242,11 @@ const EvidenceModal = ({
         isOpen={isFeedbackModalOpen}
         onClose={() => setIsFeedbackModalOpen(false)}
         title="Assessment Feedback"
+      />
+      
+      <GlobalFeedbackModal
+        isOpen={isGlobalFeedbackModalOpen}
+        onClose={() => setIsGlobalFeedbackModalOpen(false)}
       />
     </>
   );

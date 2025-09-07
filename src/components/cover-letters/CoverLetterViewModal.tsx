@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Copy, Download, Share2, X } from 'lucide-react';
+import { Copy, Download, Share2, X, MessageCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { FeedbackModal } from '@/components/feedback/FeedbackModal';
 
 interface CoverLetterViewModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface CoverLetterViewModalProps {
 
 export function CoverLetterViewModal({ isOpen, onClose, coverLetter }: CoverLetterViewModalProps) {
   const [copied, setCopied] = useState(false);
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
 
   if (!coverLetter) return null;
 
@@ -74,19 +76,31 @@ export function CoverLetterViewModal({ isOpen, onClose, coverLetter }: CoverLett
   const finalLetter = formatCoverLetter();
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent 
         className="max-w-4xl max-h-[90vh] overflow-y-auto"
-        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader className="pb-2">
-          <div>
-            <DialogTitle className="text-2xl font-bold">
-              {coverLetter.title}
-            </DialogTitle>
-            <DialogDescription className="text-base">
-              View and manage your cover letter
-            </DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle className="text-2xl font-bold">
+                {coverLetter.title}
+              </DialogTitle>
+              <DialogDescription className="text-base">
+                View and manage your cover letter
+              </DialogDescription>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="flex items-center gap-2"
+              onClick={() => setIsFeedbackModalOpen(true)}
+            >
+              <MessageCircle className="h-4 w-4" />
+              Provide Feedback
+            </Button>
           </div>
         </DialogHeader>
 
@@ -136,5 +150,11 @@ export function CoverLetterViewModal({ isOpen, onClose, coverLetter }: CoverLett
         </div>
       </DialogContent>
     </Dialog>
+    
+    <FeedbackModal
+      isOpen={isFeedbackModalOpen}
+      onClose={() => setIsFeedbackModalOpen(false)}
+    />
+    </>
   );
 }

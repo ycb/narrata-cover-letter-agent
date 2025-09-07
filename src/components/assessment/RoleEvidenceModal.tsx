@@ -19,10 +19,12 @@ import {
   Puzzle,
   Settings,
   BarChart3,
-  TrendingDown
+  TrendingDown,
+  MessageCircle
 } from "lucide-react";
 import { useState } from "react";
 import FeedbackModal from "./FeedbackModal";
+import { FeedbackModal as GlobalFeedbackModal } from "@/components/feedback/FeedbackModal";
 import { MatchPill } from "./MatchPill";
 
 interface RoleEvidence {
@@ -76,6 +78,7 @@ interface RoleEvidenceModalProps {
 const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps) => {
   const [isTagAnalysisOpen, setIsTagAnalysisOpen] = useState(false);
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [isGlobalFeedbackModalOpen, setIsGlobalFeedbackModalOpen] = useState(false);
 
   const getRelevanceColor = (relevance: string) => {
     if (relevance.includes("High")) return "bg-success text-success-foreground";
@@ -89,7 +92,7 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
       <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent 
         className="max-w-4xl max-h-[90vh] overflow-y-auto"
-        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
       >
         {/* Sticky Header */}
         <DialogHeader className="pb-4">
@@ -111,6 +114,15 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
               >
                 <Edit className="h-4 w-4" />
                 This looks wrong
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="flex items-center gap-2"
+                onClick={() => setIsGlobalFeedbackModalOpen(true)}
+              >
+                <MessageCircle className="h-4 w-4" />
+                Provide Feedback
               </Button>
             </div>
           </div>
@@ -318,6 +330,11 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
         isOpen={isFeedbackModalOpen}
         onClose={() => setIsFeedbackModalOpen(false)}
         title="Specialization Assessment Feedback"
+      />
+      
+      <GlobalFeedbackModal
+        isOpen={isGlobalFeedbackModalOpen}
+        onClose={() => setIsGlobalFeedbackModalOpen(false)}
       />
     </>
   );
