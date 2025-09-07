@@ -11,10 +11,8 @@ import {
   Target, 
   TrendingUp,
   BarChart3,
-  Edit,
   MessageCircle
 } from "lucide-react";
-import FeedbackModal from "./FeedbackModal";
 import { FeedbackModal as GlobalFeedbackModal } from "@/components/feedback/FeedbackModal";
 
 interface LevelEvidence {
@@ -59,7 +57,6 @@ interface LevelEvidenceModalProps {
 }
 
 const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalProps) => {
-  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
   const [isGlobalFeedbackModalOpen, setIsGlobalFeedbackModalOpen] = useState(false);
   const getConfidenceColor = (confidence: string) => {
     switch (confidence) {
@@ -89,21 +86,10 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
             </div>
             <div className="flex items-center gap-2 mt-4">
               <Button 
-                variant="secondary" 
-                size="sm" 
-                className="flex items-center gap-2"
-                onClick={() => setIsFeedbackModalOpen(true)}
-              >
-                <Edit className="h-4 w-4" />
-                This looks wrong
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="flex items-center gap-2"
+                className="h-12 px-4 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center gap-2 min-w-[160px]"
                 onClick={() => setIsGlobalFeedbackModalOpen(true)}
               >
-                <MessageCircle className="h-4 w-4" />
+                <MessageCircle className="h-5 w-5" />
                 Provide Feedback
               </Button>
             </div>
@@ -284,12 +270,6 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
         </div>
       </DialogContent>
       </Dialog>
-      
-      <FeedbackModal
-        isOpen={isFeedbackModalOpen}
-        onClose={() => setIsFeedbackModalOpen(false)}
-        title="Level Assessment Feedback"
-      />
       
       <GlobalFeedbackModal
         isOpen={isGlobalFeedbackModalOpen}
