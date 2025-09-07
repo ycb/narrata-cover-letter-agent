@@ -24,9 +24,9 @@ interface LevelEvidence {
     duration: string;
     companyScale: string[];
   };
-  blurbEvidence: {
-    totalBlurbs: number;
-    relevantBlurbs: number;
+  storyEvidence: {
+    totalStories: number;
+    relevantStories: number;
     tagDensity: { tag: string; count: number }[];
   };
   levelingFramework: {
@@ -121,8 +121,8 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
                   <div className="text-muted-foreground">Next Level</div>
                 </div>
                 <div className="text-center p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{evidence.blurbEvidence.totalBlurbs}</div>
-                  <div className="text-muted-foreground">Total Blurbs</div>
+                  <div className="text-2xl font-bold text-primary">{evidence.storyEvidence.totalStories}</div>
+                  <div className="text-muted-foreground">Total Stories</div>
                 </div>
               </div>
             </CardContent>
@@ -177,11 +177,11 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{evidence.blurbEvidence.relevantBlurbs}</div>
+                  <div className="text-2xl font-bold text-primary">{evidence.storyEvidence.relevantStories}</div>
                   <div className="text-sm text-muted-foreground">Relevant to {evidence.currentLevel}</div>
                 </div>
                 <div className="p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{evidence.blurbEvidence.totalBlurbs}</div>
+                  <div className="text-2xl font-bold text-primary">{evidence.storyEvidence.totalStories}</div>
                   <div className="text-sm text-muted-foreground">Total Approved Stories</div>
                 </div>
               </div>
@@ -189,7 +189,7 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
               <div>
                 <h4 className="font-medium mb-2">Tag Density Analysis</h4>
                 <div className="flex flex-wrap gap-2">
-                  {evidence.blurbEvidence.tagDensity.map((tag) => (
+                  {evidence.storyEvidence.tagDensity.map((tag) => (
                     <Badge key={tag.tag} variant="outline">
                       {tag.tag} ({tag.count})
                     </Badge>

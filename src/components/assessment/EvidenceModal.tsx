@@ -7,7 +7,7 @@ import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
 import { X, Tag, Building, User, Calendar, Target, Edit, BarChart3 } from "lucide-react";
 import FeedbackModal from "./FeedbackModal";
 
-interface EvidenceBlurb {
+interface EvidenceStory {
   id: string;
   title: string;
   content: string;
@@ -24,7 +24,7 @@ interface EvidenceModalProps {
   isOpen: boolean;
   onClose: () => void;
   competency: string;
-  evidence: EvidenceBlurb[];
+  evidence: EvidenceStory[];
   matchedTags: string[];
   overallConfidence: 'high' | 'medium' | 'low';
 }
@@ -171,8 +171,8 @@ const EvidenceModal = ({
             <CardContent>
               <OutcomeMetrics 
                 metrics={evidence
-                  .filter(blurb => blurb.outcomeMetrics && blurb.outcomeMetrics.length > 0)
-                  .flatMap(blurb => blurb.outcomeMetrics || [])
+                  .filter(story => story.outcomeMetrics && story.outcomeMetrics.length > 0)
+                  .flatMap(story => story.outcomeMetrics || [])
                 } 
               />
             </CardContent>
@@ -181,38 +181,38 @@ const EvidenceModal = ({
           {/* Evidence Stories */}
           <div className="section-spacing">
             <h3 className="text-lg font-semibold">Supporting Examples</h3>
-            {evidence.map((blurb) => (
-              <Card key={blurb.id} className="hover:shadow-md transition-shadow">
+            {evidence.map((story) => (
+              <Card key={story.id} className="hover:shadow-md transition-shadow">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <CardTitle className="text-base mb-2">{blurb.title}</CardTitle>
+                      <CardTitle className="text-base mb-2">{story.title}</CardTitle>
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <Building className="h-4 w-4" />
-                          {blurb.sourceCompany}
+                          {story.sourceCompany}
                         </div>
                         <div className="flex items-center gap-1">
                           <User className="h-4 w-4" />
-                          {blurb.sourceRole}
+                          {story.sourceRole}
                         </div>
                         <div className="flex items-center gap-1">
                           <Calendar className="h-4 w-4" />
-                          Used {blurb.timesUsed} times
+                          Used {story.timesUsed} times
                         </div>
                       </div>
                     </div>
-                    <Badge className={getConfidenceColor(blurb.confidence)}>
-                      {blurb.confidence} confidence
+                    <Badge className={getConfidenceColor(story.confidence)}>
+                      {story.confidence} confidence
                     </Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
                   <p className="text-sm text-muted-foreground mb-3 line-clamp-3">
-                    {blurb.content}
+                    {story.content}
                   </p>
                   <div className="flex flex-wrap gap-1">
-                    {blurb.tags.map((tag) => (
+                    {story.tags.map((tag) => (
                       <Badge key={tag} variant="outline" className="text-xs">
                         {tag}
                       </Badge>

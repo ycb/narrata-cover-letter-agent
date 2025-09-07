@@ -41,7 +41,7 @@ const mockAssessment = {
       evidence: "5 case studies tagged 'Execution'",
       tags: ["Execution", "Delivery", "Technical"],
       description: "Consistently delivers complex products with measurable impact",
-      evidenceBlurbs: [
+      evidenceStories: [
         {
           id: "exec-1",
           title: "Growth PM Leadership at SaaS Startup",
@@ -83,7 +83,7 @@ const mockAssessment = {
       evidence: "Samsung + Meta stories with user research",
       tags: ["Research", "User Experience", "Customer"],
       description: "Deep understanding of user needs and market validation",
-      evidenceBlurbs: [
+      evidenceStories: [
         {
           id: "insight-1",
           title: "Customer Research & Strategy",
@@ -109,7 +109,7 @@ const mockAssessment = {
       evidence: "2 strategy-related stories",
       tags: ["Strategy", "Vision", "Roadmap"],
       description: "Developing strategic thinking, needs more leadership examples",
-      evidenceBlurbs: [
+      evidenceStories: [
         {
           id: "strategy-1",
           title: "Platform Strategy Development",
@@ -135,7 +135,7 @@ const mockAssessment = {
       evidence: "Aurora + Meta stories tagged 'XFN Collaboration'",
       tags: ["Leadership", "Collaboration", "Stakeholder"],
       description: "Effective cross-functional collaboration and team influence",
-      evidenceBlurbs: [
+      evidenceStories: [
         {
           id: "influence-1",
           title: "Cross-functional Team Leadership",
@@ -205,9 +205,9 @@ const mockAssessment = {
       duration: "6+ years in product management",
       companyScale: ["Startup", "Scale-up", "Enterprise"]
     },
-    blurbEvidence: {
-      totalBlurbs: 47,
-      relevantBlurbs: 32,
+    storyEvidence: {
+      totalStories: 47,
+      relevantStories: 32,
       tagDensity: [
         { tag: "Leadership", count: 15 },
         { tag: "Strategy", count: 8 },
@@ -1219,7 +1219,7 @@ const Assessment = ({ initialSection }: AssessmentProps) => {
             setSelectedEvidence(null);
           }}
           competency={selectedEvidence.domain}
-          evidence={selectedEvidence.evidenceBlurbs}
+          evidence={selectedEvidence.evidenceStories}
           matchedTags={selectedEvidence.tags}
           overallConfidence={selectedEvidence.level === "Strong" ? "high" : selectedEvidence.level === "Solid" ? "medium" : "low"}
         />
