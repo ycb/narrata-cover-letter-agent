@@ -22,7 +22,7 @@ export const FloatingFeedbackButton: React.FC<FloatingFeedbackButtonProps> = ({
           <Button
             onClick={onClick}
             className={cn(
-              'fixed bottom-6 right-6 z-50 h-12 px-4 rounded-full shadow-lg transition-all duration-200 hover:scale-105 hover:shadow-xl',
+              'fixed bottom-6 right-6 z-[9999] h-12 px-4 rounded-full shadow-lg transition-all duration-200 hover:scale-105 hover:shadow-xl',
               'bg-primary text-primary-foreground hover:bg-primary/90',
               'flex items-center justify-center gap-2',
               'min-w-[160px]',

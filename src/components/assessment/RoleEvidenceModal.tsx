@@ -86,12 +86,11 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={(open) => {
-        // Don't close if feedback modal is open
-        if (!open && isFeedbackModalOpen) return;
-        onClose();
-      }}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent 
+        className="max-w-4xl max-h-[90vh] overflow-y-auto"
+        onPointerDownOutside={(e) => e.preventDefault()}
+      >
         {/* Sticky Header */}
         <DialogHeader className="pb-4">
           <div className="flex items-center justify-between">
