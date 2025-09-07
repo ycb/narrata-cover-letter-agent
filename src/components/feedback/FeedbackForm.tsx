@@ -186,7 +186,7 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
           onChange={(e) => handleInputChange('email', e.target.value)}
         />
         <p className="text-xs text-muted-foreground">
-          We'll only use this to follow up on your feedback if needed.
+          Including your email helps us act on your feedback. When we launch, you'll also get 1 month of free access!
         </p>
         {errors.email && (
           <p className="text-sm text-red-600">{errors.email}</p>
