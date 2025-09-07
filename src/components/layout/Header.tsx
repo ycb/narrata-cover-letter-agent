@@ -84,12 +84,11 @@ export const Header = ({ currentPage }: HeaderProps) => {
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-4">
-            <div className="h-8 w-8 rounded-lg bg-gradient-brand flex items-center justify-center">
-              <Zap className="h-4 w-4 text-primary-foreground" />
-            </div>
-            <span className="text-xl font-bold bg-gradient-brand bg-clip-text text-transparent">
-              TruthLetter
-            </span>
+            <img 
+              src="/narrata-logo.svg" 
+              alt="Narrata" 
+              className="h-8 w-auto"
+            />
           </div>
           
           {/* Dropdown Navigation */}

@@ -54,12 +54,11 @@ const Landing = () => {
       <header className="container py-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="h-8 w-8 rounded-lg bg-gradient-brand flex items-center justify-center">
-              <Zap className="h-4 w-4 text-primary-foreground" />
-            </div>
-            <span className="text-xl font-bold bg-gradient-brand bg-clip-text text-transparent">
-              TruthLetter
-            </span>
+            <img 
+              src="/narrata-logo.svg" 
+              alt="Narrata" 
+              className="h-8 w-auto"
+            />
           </div>
           
           <div className="flex items-center gap-4">
@@ -229,15 +228,14 @@ const Landing = () => {
       <footer className="container py-12 border-t">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="h-6 w-6 rounded bg-gradient-brand flex items-center justify-center">
-              <Zap className="h-3 w-3 text-primary-foreground" />
-            </div>
-            <span className="font-semibold bg-gradient-brand bg-clip-text text-transparent">
-              TruthLetter
-            </span>
+            <img 
+              src="/narrata-logo.svg" 
+              alt="Narrata" 
+              className="h-6 w-auto"
+            />
           </div>
           <p className="text-sm text-muted-foreground">
-            © 2024 TruthLetter. Built for authentic storytelling.
+            © 2024 Narrata. Built for authentic storytelling.
           </p>
         </div>
       </footer>
