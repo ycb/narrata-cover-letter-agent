@@ -166,7 +166,7 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
             </CardContent>
           </Card>
 
-          {/* Blurb Evidence */}
+          {/* Story Evidence */}
           <Card className="section-spacing">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">

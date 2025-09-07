@@ -30,7 +30,7 @@ const Landing = () => {
     {
       icon: Target,
       title: "Personalized Matching",
-      description: "Smart blurb selection based on job requirements and your unique background."
+      description: "Smart story selection based on job requirements and your unique background."
     },
     {
       icon: Brain,
@@ -166,7 +166,7 @@ const Landing = () => {
               </div>
               <div>
                 <h3 className="text-xl font-semibold text-foreground mb-2">
-                  Build Your Blurb Library
+                  Build Your Story Library
                 </h3>
                 <p className="text-muted-foreground">
                   Import from LinkedIn and resume. We extract real achievements and create modular content blocks you approve.
@@ -183,7 +183,7 @@ const Landing = () => {
                   Smart Job Matching
                 </h3>
                 <p className="text-muted-foreground">
-                  Paste any job description. Our AI suggests the best blurbs with confidence scores and reasoning—no guesswork.
+                  Paste any job description. Our AI suggests the best stories with confidence scores and reasoning—no guesswork.
                 </p>
               </div>
             </div>
