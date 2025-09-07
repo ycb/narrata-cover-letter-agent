@@ -87,7 +87,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
             <img 
               src="/narrata-logo.svg" 
               alt="Narrata" 
-              className="h-8 w-auto"
+              className="h-12 w-auto"
             />
             <span className="text-white font-sans text-xl">Narrata</span>
           </div>
@@ -99,10 +99,10 @@ export const Header = ({ currentPage }: HeaderProps) => {
                             <Link
                 to="/dashboard"
                 className={cn(
-                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors hover:text-foreground",
+                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-all hover:font-bold",
                   activePage === "dashboard" 
-                    ? "text-foreground border-b-2 border-primary" 
-                    : "text-muted-foreground"
+                    ? "text-white border-b-2 border-white" 
+                    : "text-white hover:text-white"
                 )}
               >
                 <Target className="h-4 w-4" />
@@ -111,7 +111,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
 
               {/* Work History - Main Link + Dropdown */}
               <div className="relative group">
-                <div className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-muted-foreground cursor-default">
+                <div className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white cursor-default hover:font-bold transition-all">
                   <Briefcase className="h-4 w-4" />
                   Work History
                   <ChevronDown className="h-3 w-3" />
@@ -119,7 +119,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 
                 {/* Hover Dropdown */}
                 <div className="absolute top-full left-0 pt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
-                  <div className="bg-background border rounded-lg shadow-lg p-3 min-w-80">
+                  <div className="border shadow-lg p-3 min-w-80" style={{ backgroundColor: '#121212', borderRadius: '0 0 8px 8px' }}>
                     {/* Timeline View CTA - Spans full width */}
                     <Link
                       to="/work-history"
@@ -178,7 +178,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
 
               {/* Cover Letters - Main Link + Dropdown */}
               <div className="relative group">
-                <div className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-muted-foreground cursor-default">
+                <div className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white cursor-default hover:font-bold transition-all">
                   <Mail className="h-4 w-4" />
                   Cover Letters
                   <ChevronDown className="h-3 w-3" />
@@ -186,7 +186,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 
                 {/* Hover Dropdown */}
                 <div className="absolute top-full left-0 pt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
-                  <div className="bg-background border rounded-lg shadow-lg p-4 min-w-64">
+                  <div className="border shadow-lg p-4 min-w-64" style={{ backgroundColor: '#121212', borderRadius: '0 0 8px 8px' }}>
                     <Link 
                       to="/cover-letters" 
                       className={cn(
@@ -238,10 +238,10 @@ export const Header = ({ currentPage }: HeaderProps) => {
               <div className="relative group">
                 <button 
                   className={cn(
-                    "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors hover:text-foreground cursor-default",
+                    "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-all hover:font-bold cursor-default",
                     activePage === "assessment" 
-                      ? "text-foreground font-bold" 
-                      : "text-muted-foreground"
+                      ? "text-white font-bold" 
+                      : "text-white hover:text-white"
                   )}
                 >
                   <TrendingUp className="h-4 w-4" />
@@ -251,7 +251,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 
                 {/* Hover Dropdown */}
                 <div className="absolute top-full left-0 pt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
-                  <div className="bg-background border rounded-lg shadow-lg p-3 min-w-80">
+                  <div className="border shadow-lg p-3 min-w-80" style={{ backgroundColor: '#121212', borderRadius: '0 0 8px 8px' }}>
                     {/* Overall Level - Spans full width */}
                                <button
              onClick={() => window.location.href = "/assessment/overall-level"}
