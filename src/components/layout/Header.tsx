@@ -80,15 +80,16 @@ export const Header = ({ currentPage }: HeaderProps) => {
   const activePage = getCurrentPage(location.pathname);
 
   return (
-    <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+    <header className="border-b sticky top-0 z-50" style={{ backgroundColor: '#121212' }}>
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-6">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <img 
               src="/narrata-logo.svg" 
               alt="Narrata" 
               className="h-8 w-auto"
             />
+            <span className="text-white font-sans text-xl">Narrata</span>
           </div>
           
           {/* Dropdown Navigation */}

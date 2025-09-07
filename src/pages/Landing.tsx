@@ -51,14 +51,15 @@ const Landing = () => {
   return (
     <div className="min-h-screen bg-gradient-subtle">
       {/* Header */}
-      <header className="container py-6">
+      <header className="container py-6" style={{ backgroundColor: '#121212' }}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <img 
               src="/narrata-logo.svg" 
               alt="Narrata" 
               className="h-8 w-auto"
             />
+            <span className="text-white font-sans text-xl">Narrata</span>
           </div>
           
           <div className="flex items-center gap-4">
