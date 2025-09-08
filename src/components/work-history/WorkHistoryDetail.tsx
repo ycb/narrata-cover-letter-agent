@@ -412,7 +412,7 @@ export const WorkHistoryDetail = ({
                               "flex items-center gap-2 py-4 px-1 border-b-4 font-medium text-sm transition-colors",
                               detailView === 'role' 
                                 ? "border-primary text-primary" 
-                                : "border-transparent text-muted-foreground hover:text-foreground"
+                                : "border-transparent text-muted-foreground hover:text-[#E32D9A]"
                             )}
                 onClick={() => setDetailView('role')}
               >
@@ -424,7 +424,7 @@ export const WorkHistoryDetail = ({
                               "flex items-center gap-2 py-4 px-1 border-b-4 font-medium text-sm transition-colors",
                               detailView === 'stories' 
                                 ? "border-primary text-primary" 
-                                : "border-transparent text-muted-foreground hover:text-foreground"
+                                : "border-transparent text-muted-foreground hover:text-[#E32D9A]"
                             )}
                             onClick={() => setDetailView('stories')}
                           >
@@ -436,7 +436,7 @@ export const WorkHistoryDetail = ({
                               "flex items-center gap-2 py-4 px-1 border-b-4 font-medium text-sm transition-colors",
                               detailView === 'links' 
                                 ? "border-primary text-primary" 
-                                : "border-transparent text-muted-foreground hover:text-foreground"
+                                : "border-transparent text-muted-foreground hover:text-[#E32D9A]"
                             )}
                             onClick={() => setDetailView('links')}
                           >
