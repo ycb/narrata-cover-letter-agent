@@ -99,7 +99,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                             <Link
                 to="/dashboard"
                 className={cn(
-                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-opacity hover:opacity-80",
+                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-opacity opacity-90 hover:opacity-100",
                   activePage === "dashboard" 
                     ? "text-white border-b-2 border-white" 
                     : "text-white"
@@ -112,7 +112,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
               {/* Work History - Main Link + Dropdown */}
               <div className="relative group">
                 <div className={cn(
-                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white cursor-default hover:opacity-80 transition-opacity",
+                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white cursor-default opacity-90 hover:opacity-100 transition-opacity",
                   activePage === "work-history" 
                     ? "border-b-2 border-white" 
                     : ""
@@ -123,15 +123,15 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 </div>
                 
                 {/* Hover Dropdown */}
-                <div className="absolute top-full left-0 pt-2 mt-1.5 opacity-0 group-hover:opacity-80 transition-opacity pointer-events-none group-hover:pointer-events-auto">
+                <div className="absolute top-full left-0 pt-2 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
                   <div className="border-0 shadow-lg p-3 min-w-80" style={{ backgroundColor: '#121212', borderRadius: '0 0 8px 8px' }}>
                     {/* Timeline View CTA - Spans full width */}
                     <Link
                       to="/work-history"
                       className={cn(
-                        "flex items-center justify-center gap-2 px-3 py-2 text-sm hover:opacity-80 rounded-md transition-colors mb-3 border border-white text-white group",
+                        "flex items-center justify-center gap-2 px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity mb-3 border border-white text-white group",
                         activePage === "work-history"
-                          ? "font-bold text-white"
+                          ? "text-white bg-white/10"
                           : "text-white"
                       )}
                     >
@@ -148,9 +148,9 @@ export const Header = ({ currentPage }: HeaderProps) => {
                         <Link 
                           to="/show-all-stories" 
                           className={cn(
-                            "flex items-center justify-between px-3 py-2 text-sm hover:opacity-80 rounded-md transition-colors",
+                            "flex items-center justify-between px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity",
                             isWorkHistoryChild(location.pathname) && location.pathname.startsWith("/show-all-stories")
-                              ? "font-bold text-foreground bg-gray-100"
+                              ? "text-white bg-white/10"
                               : "text-white"
                           )}
                         >
@@ -163,9 +163,9 @@ export const Header = ({ currentPage }: HeaderProps) => {
                         <Link 
                           to="/show-all-links" 
                           className={cn(
-                            "flex items-center justify-between px-3 py-2 text-sm hover:opacity-80 rounded-md transition-colors",
+                            "flex items-center justify-between px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity",
                             isWorkHistoryChild(location.pathname) && location.pathname.startsWith("/show-all-links")
-                              ? "font-bold text-foreground bg-gray-100"
+                              ? "text-white bg-white/10"
                               : "text-white"
                           )}
                         >
@@ -184,7 +184,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
               {/* Cover Letters - Main Link + Dropdown */}
               <div className="relative group">
                 <div className={cn(
-                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white cursor-default hover:opacity-80 transition-opacity",
+                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white cursor-default opacity-90 hover:opacity-100 transition-opacity",
                   activePage === "cover-letters" 
                     ? "border-b-2 border-white" 
                     : ""
@@ -195,14 +195,14 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 </div>
                 
                 {/* Hover Dropdown */}
-                <div className="absolute top-full left-0 pt-2 mt-1.5 opacity-0 group-hover:opacity-80 transition-opacity pointer-events-none group-hover:pointer-events-auto">
+                <div className="absolute top-full left-0 pt-2 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
                   <div className="border-0 shadow-lg p-3 min-w-64" style={{ backgroundColor: '#121212', borderRadius: '0 0 8px 8px' }}>
                     <Link 
                       to="/cover-letters" 
                       className={cn(
-                        "flex items-center justify-between px-3 py-2 text-sm hover:opacity-80 rounded-md transition-colors",
+                        "flex items-center justify-between px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity",
                         location.pathname === "/cover-letters"
-                          ? "font-bold text-white"
+                          ? "text-white bg-white/10"
                           : "text-white"
                       )}
                     >
@@ -214,9 +214,9 @@ export const Header = ({ currentPage }: HeaderProps) => {
                     <Link 
                       to="/saved-sections" 
                       className={cn(
-                        "flex items-center justify-between px-3 py-2 text-sm hover:opacity-80 rounded-md transition-colors",
+                        "flex items-center justify-between px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity",
                         location.pathname === "/saved-sections"
-                          ? "font-bold text-foreground"
+                          ? "text-white bg-white/10"
                           : "text-white"
                       )}
                     >
@@ -229,9 +229,9 @@ export const Header = ({ currentPage }: HeaderProps) => {
                     <Link 
                       to="/cover-letter-template" 
                       className={cn(
-                        "flex items-center justify-between px-3 py-2 text-sm hover:opacity-80 rounded-md transition-colors",
+                        "flex items-center justify-between px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity",
                         location.pathname === "/cover-letter-template"
-                          ? "font-bold text-foreground"
+                          ? "text-white bg-white/10"
                           : "text-white"
                       )}
                     >
@@ -248,7 +248,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
               <div className="relative group">
                 <button 
                   className={cn(
-                    "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-opacity hover:opacity-80 cursor-default",
+                    "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-opacity opacity-90 hover:opacity-100 cursor-default",
                     activePage === "assessment" 
                       ? "text-white border-b-2 border-white" 
                       : "text-white"
@@ -260,12 +260,12 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 </button>
                 
                 {/* Hover Dropdown */}
-                <div className="absolute top-full left-0 pt-2 mt-1.5 opacity-0 group-hover:opacity-80 transition-opacity pointer-events-none group-hover:pointer-events-auto">
+                <div className="absolute top-full left-0 pt-2 mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
                   <div className="border-0 shadow-lg p-3 min-w-80" style={{ backgroundColor: '#121212', borderRadius: '0 0 8px 8px' }}>
                     {/* Overall Level - Spans full width */}
                                <button
              onClick={() => window.location.href = "/assessment/overall-level"}
-             className="flex items-center justify-center gap-2 px-3 py-2 text-sm hover:opacity-80 rounded-md transition-colors mb-3 border border-white text-white group w-full"
+             className="flex items-center justify-center gap-2 px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors mb-3 border border-white text-white group w-full"
            >
              <BarChart3 className="h-4 w-4 transition-colors" />
              Overall Level
@@ -281,25 +281,25 @@ export const Header = ({ currentPage }: HeaderProps) => {
                                                  <div className="space-y-1">
                            <button 
                              onClick={() => window.location.href = "/assessment/competencies/execution"}
-                             className="block px-3 py-2 text-sm hover:opacity-80 rounded-md transition-colors text-white w-full text-left"
+                             className="block px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors text-white w-full text-left"
                            >
                              Execution
                            </button>
                            <button 
                              onClick={() => window.location.href = "/assessment/competencies/customer-insight"}
-                             className="block px-3 py-2 text-sm hover:opacity-80 rounded-md transition-colors text-white w-full text-left"
+                             className="block px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors text-white w-full text-left"
                            >
                              Customer Insight
                            </button>
                            <button 
                              onClick={() => window.location.href = "/assessment/competencies/strategy"}
-                             className="block px-3 py-2 text-sm hover:opacity-80 rounded-md transition-colors text-white w-full text-left"
+                             className="block px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors text-white w-full text-left"
                            >
                              Strategy
                            </button>
                            <button 
                              onClick={() => window.location.href = "/assessment/competencies/influence"}
-                             className="block px-3 py-2 text-sm hover:opacity-80 rounded-md transition-colors text-white w-full text-left"
+                             className="block px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors text-white w-full text-left"
                            >
                              Influence
                            </button>
@@ -314,25 +314,25 @@ export const Header = ({ currentPage }: HeaderProps) => {
                                                  <div className="space-y-1">
                            <button 
                              onClick={() => window.location.href = "/assessment/specializations/growth"}
-                             className="block px-3 py-2 text-sm hover:opacity-80 rounded-md transition-colors text-white w-full text-left"
+                             className="block px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors text-white w-full text-left"
                            >
                              Growth
                            </button>
                            <button 
                              onClick={() => window.location.href = "/assessment/specializations/technical"}
-                             className="block px-3 py-2 text-sm hover:opacity-80 rounded-md transition-colors text-white w-full text-left"
+                             className="block px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors text-white w-full text-left"
                            >
                              Technical
                            </button>
                            <button 
                              onClick={() => window.location.href = "/assessment/specializations/founding"}
-                             className="block px-3 py-2 text-sm hover:opacity-80 rounded-md transition-colors text-white w-full text-left"
+                             className="block px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors text-white w-full text-left"
                            >
                              Founding
                            </button>
                            <button 
                              onClick={() => window.location.href = "/assessment/specializations/platform"}
-                             className="block px-3 py-2 text-sm hover:opacity-80 rounded-md transition-colors text-white w-full text-left"
+                             className="block px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors text-white w-full text-left"
                            >
                              Platform
                            </button>
