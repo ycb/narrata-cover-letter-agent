@@ -1020,7 +1020,7 @@ const Assessment = ({ initialSection }: AssessmentProps) => {
                     </div>
                     
                     {/* Leadership Track Steps */}
-                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-start">
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-start px-6">
                       {/* View IC Track Card */}
                       {/* Mobile: Primary CTA */}
                       <div className="ladder-cta-primary mb-4 lg:mr-6 lg:hidden" onClick={() => setShowLeadershipTrack(false)}>
