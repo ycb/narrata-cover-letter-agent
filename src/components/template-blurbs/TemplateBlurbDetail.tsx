@@ -93,18 +93,17 @@ export const TemplateBlurbDetail = ({
           <div>
             <CardTitle className="flex items-center gap-4">
               <FileText className="h-5 w-5" />
-              {blurb ? 'Edit' : 'Create'} {getSectionTypeLabel(formData.type)} Blurb
+              {blurb ? 'Edit' : 'Create New Saved Section'}
             </CardTitle>
           </div>
           
           <div className="flex gap-2">
-            <Button variant="secondary" onClick={onCancel}>
-              <X className="h-4 w-4 mr-2" />
-              Cancel
+            <Button variant="ghost" size="sm" onClick={onCancel}>
+              <X className="h-4 w-4" />
             </Button>
             <Button onClick={handleSave} disabled={!isFormValid}>
               <Save className="h-4 w-4 mr-2" />
-              Save Blurb
+              Save Section
             </Button>
           </div>
         </div>
@@ -131,7 +130,7 @@ export const TemplateBlurbDetail = ({
 
         {/* Title */}
         <div>
-          <Label htmlFor="blurb-title">Blurb Title</Label>
+          <Label htmlFor="blurb-title">Title</Label>
           <Input
             id="blurb-title"
             value={formData.title}
@@ -155,7 +154,7 @@ export const TemplateBlurbDetail = ({
             className="mt-2"
           />
           <p className="text-xs text-muted-foreground mt-1">
-            Separate tags with commas. Tags help with matching blurbs to job requirements.
+            Separate tags with commas. Tags help with matching saved sections to job requirements.
           </p>
         </div>
 
@@ -194,7 +193,7 @@ export const TemplateBlurbDetail = ({
               Set as Default
             </Label>
             <p className="text-sm text-muted-foreground">
-              Use this blurb as the default for new {getSectionTypeLabel(formData.type).toLowerCase()} sections
+              Use this saved section as the default for new {getSectionTypeLabel(formData.type).toLowerCase()}s
             </p>
           </div>
           <Switch
@@ -228,7 +227,7 @@ export const TemplateBlurbDetail = ({
                   ))}
                 </div>
               )}
-              <h4 className="font-medium mb-2">{formData.title || 'Untitled Blurb'}</h4>
+              <h4 className="font-medium mb-2">{formData.title || 'Untitled Saved Section'}</h4>
               <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                 {formData.content || 'No content yet...'}
               </p>
