@@ -687,7 +687,7 @@ export const WorkHistoryDetail = ({
                       </div>
                     </div>
                     <Badge variant="outline" className="group-hover:bg-primary-foreground group-hover:text-primary group-hover:border-primary-foreground">
-                      {role.blurbs.length} story{role.blurbs.length !== 1 ? 's' : ''}
+                      {role.blurbs.length} story{role.blurbs.length === 1 ? '' : 's'}
                     </Badge>
                   </div>
                   

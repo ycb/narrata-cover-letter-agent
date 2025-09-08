@@ -1259,7 +1259,7 @@ export default function CoverLetterTemplate() {
                                       <p className="text-sm text-muted-foreground">{role.description}</p>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                      <Badge variant="secondary">{role.blurbs.length} story{role.blurbs.length !== 1 ? 's' : ''}</Badge>
+                                      <Badge variant="secondary">{role.blurbs.length} story{role.blurbs.length === 1 ? '' : 's'}</Badge>
                                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
                                     </div>
                                   </div>
