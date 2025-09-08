@@ -676,7 +676,7 @@ export const WorkHistoryDetail = ({
         <div className="flex-1">
           <div className="flex flex-col gap-6"> {/* Design system: 24px between role cards */}
             {selectedCompany.roles.map((role) => (
-              <Card key={role.id} className="assessment-card cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => onRoleSelect?.(role)}>
+              <Card key={role.id} className="assessment-card cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors" onClick={() => onRoleSelect?.(role)}>
                 <CardContent className="assessment-card-content">
                   <div className="flex items-start justify-between">
                     <div>
