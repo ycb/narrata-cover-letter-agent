@@ -254,7 +254,7 @@ export default function ShowAllStories() {
             variant="outline" 
             size="sm"
             onClick={() => handleView(story)}
-            className="hover:bg-[#E32D9A] hover:text-white hover:border-[#E32D9A]"
+            className="hover:text-[#E32D9A] hover:border-[#E32D9A]"
           >
             <Eye className="h-4 w-4 mr-1" />
             View
