@@ -352,17 +352,17 @@ export const Header = ({ currentPage }: HeaderProps) => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 p-3" style={{ backgroundColor: 'rgba(18, 18, 18, 0.9)' }}>
-              <DropdownMenuItem onClick={() => setShowDataModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A]">
+              <DropdownMenuItem onClick={() => setShowDataModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] text-right">
                 <span>My Data</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShowGoalsModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A]">
+              <DropdownMenuItem onClick={() => setShowGoalsModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] text-right">
                 <span>My Goals</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShowVoiceModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A]">
+              <DropdownMenuItem onClick={() => setShowVoiceModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] text-right">
                 <span>My Voice</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A]">
+              <DropdownMenuItem className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] text-right">
                 <span>Log out</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
