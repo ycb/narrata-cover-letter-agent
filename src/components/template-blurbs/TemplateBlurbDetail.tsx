@@ -89,21 +89,10 @@ export const TemplateBlurbDetail = ({
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-4">
-              <FileText className="h-5 w-5" />
-              {blurb ? 'Edit' : 'Create New Saved Section'}
-            </CardTitle>
-          </div>
-          
-          <div className="flex gap-2">
-            <Button onClick={handleSave} disabled={!isFormValid}>
-              <Save className="h-4 w-4 mr-2" />
-              Save Section
-            </Button>
-          </div>
-        </div>
+        <CardTitle className="flex items-center gap-4">
+          <FileText className="h-5 w-5" />
+          {blurb ? 'Edit' : 'Create New Saved Section'}
+        </CardTitle>
       </CardHeader>
       
       <CardContent className="space-y-6">
@@ -232,6 +221,14 @@ export const TemplateBlurbDetail = ({
           </Card>
         </div>
       </CardContent>
+      
+      {/* Footer with Save Button */}
+      <div className="flex justify-end p-6 border-t">
+        <Button onClick={handleSave} disabled={!isFormValid}>
+          <Save className="h-4 w-4 mr-2" />
+          Save Section
+        </Button>
+      </div>
     </Card>
   );
 };

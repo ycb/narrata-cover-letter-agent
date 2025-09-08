@@ -366,6 +366,7 @@ export default function CoverLetters() {
                 variant={statusFilter === "draft" ? "default" : "outline"}
                 size="sm"
                 onClick={() => setStatusFilter("draft")}
+                className="hover:text-[#E32D9A] hover:border-[#E32D9A]"
               >
                 Drafts
               </Button>
@@ -373,6 +374,7 @@ export default function CoverLetters() {
                 variant={statusFilter === "finalized" ? "default" : "outline"}
                 size="sm"
                 onClick={() => setStatusFilter("finalized")}
+                className="hover:text-[#E32D9A] hover:border-[#E32D9A]"
               >
                 Finalized
               </Button>
