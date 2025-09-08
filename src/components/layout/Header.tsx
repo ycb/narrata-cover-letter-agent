@@ -343,18 +343,18 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 <User className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56" style={{ backgroundColor: 'rgba(18, 18, 18, 0.9)' }}>
-              <DropdownMenuItem onClick={() => setShowDataModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity">
+            <DropdownMenuContent align="end" className="w-56 p-3" style={{ backgroundColor: 'rgba(18, 18, 18, 0.9)' }}>
+              <DropdownMenuItem onClick={() => setShowDataModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md">
                 <span>My Data</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShowGoalsModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity">
+              <DropdownMenuItem onClick={() => setShowGoalsModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md">
                 <span>My Goals</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShowVoiceModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity">
+              <DropdownMenuItem onClick={() => setShowVoiceModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md">
                 <span>My Voice</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-white opacity-90 hover:opacity-100 transition-opacity">
+              <DropdownMenuItem className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md">
                 <span>Log out</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
