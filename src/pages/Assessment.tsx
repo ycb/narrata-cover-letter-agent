@@ -976,7 +976,7 @@ const Assessment = ({ initialSection }: AssessmentProps) => {
                       </div>
                       
                       {/* Spacing between tracks (desktop only) */}
-                      <div className="hidden lg:block w-12"></div>
+                      <div className="hidden lg:block w-8"></div>
                       
                       {/* View Leadership Track Card */}
                       {/* Mobile: Primary CTA */}
@@ -1021,26 +1021,6 @@ const Assessment = ({ initialSection }: AssessmentProps) => {
                     
                     {/* Leadership Track Steps */}
                     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-start">
-                      {/* View IC Track Card */}
-                      {/* Mobile: Primary CTA */}
-                      <div className="ladder-cta-primary mb-4 lg:mr-6 lg:hidden" onClick={() => setShowLeadershipTrack(false)}>
-                        <div className="text-sm font-medium flex items-center justify-center gap-2">
-                          View IC Track
-                          <Target className="h-4 w-4" />
-                        </div>
-                      </div>
-                      {/* Desktop: Card with label */}
-                      <div className="hidden lg:block ladder-card-labeled border-blue-600 cursor-pointer mb-4 lg:mr-6" onClick={() => setShowLeadershipTrack(false)}>
-                        <div className="ladder-card-header bg-blue-600">
-                          <div className="text-xs font-normal uppercase tracking-wide">VIEW</div>
-                        </div>
-                        <div className="ladder-card-content">
-                          <div className="text-center">
-                            <div className="text-xs text-blue-900 font-medium">IC Track</div>
-                          </div>
-                        </div>
-                      </div>
-                      
                       {/* Leadership Track Items */}
                       <div className="flex flex-col lg:flex-row lg:items-center relative">
                         {/* Full Height Vertical Separator - Green when viewing Leadership (desktop only) */}
@@ -1127,6 +1107,29 @@ const Assessment = ({ initialSection }: AssessmentProps) => {
                           <div className="text-center">
                             <div className="text-sm font-medium text-green-900 mb-1">Chief Product Officer</div>
                             <div className="text-xs text-muted-foreground text-center">CPO</div>
+                          </div>
+                        </div>
+                        
+                        {/* Spacing between tracks (desktop only) */}
+                        <div className="hidden lg:block w-8"></div>
+                        
+                        {/* View IC Track Card */}
+                        {/* Mobile: Primary CTA */}
+                        <div className="ladder-cta-primary mt-4 lg:hidden" onClick={() => setShowLeadershipTrack(false)}>
+                          <div className="text-sm font-medium flex items-center justify-center gap-2">
+                            View IC Track
+                            <Target className="h-4 w-4" />
+                          </div>
+                        </div>
+                        {/* Desktop: Card with label */}
+                        <div className="hidden lg:block ladder-card-labeled border-blue-500 cursor-pointer mt-4" onClick={() => setShowLeadershipTrack(false)}>
+                          <div className="ladder-card-header bg-blue-600">
+                            <div className="text-xs font-normal uppercase tracking-wide">VIEW</div>
+                          </div>
+                          <div className="ladder-card-content">
+                            <div className="text-center">
+                              <div className="text-xs text-blue-900 font-medium">IC Track</div>
+                            </div>
                           </div>
                         </div>
                       </div>

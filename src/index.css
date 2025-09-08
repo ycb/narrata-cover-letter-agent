@@ -278,8 +278,8 @@ All colors MUST be HSL.
   }
   
   .ladder-card-labeled {
-    @apply ladder-card-base border-2 mx-4;
-    min-width: 150px;
+    @apply ladder-card-base border-2 mx-2;
+    min-width: 140px;
     min-height: 180px;
     border-radius: 0.5rem !important; /* 8px - matches rounded-lg, force override */
     overflow: hidden; /* Ensure inner elements don't break the border radius */
