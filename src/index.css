@@ -20,9 +20,9 @@ All colors MUST be HSL.
     --popover-foreground: 215 25% 15%;
 
     /* CTA Design System - Clear Hierarchy */
-    --cta-primary: 215 85% 25%;
+    --cta-primary: 242 95% 65%;
     --cta-primary-foreground: 210 40% 98%;
-    --cta-primary-hover: 215 85% 30%;
+    --cta-primary-hover: 242 95% 70%;
     
     --cta-secondary: transparent;
     --cta-secondary-foreground: 215 85% 25%;
@@ -35,10 +35,10 @@ All colors MUST be HSL.
     --cta-tertiary-hover: 215 85% 95%;
 
     /* Legacy Brand Colors */
-    --primary: 215 85% 25%;
+    --primary: 242 95% 65%;
     --primary-foreground: 210 40% 98%;
-    --primary-light: 215 85% 35%;
-    --primary-lighter: 215 70% 50%;
+    --primary-light: 242 95% 70%;
+    --primary-lighter: 242 95% 75%;
 
     /* Secondary - Modern Purple */
     --secondary: 255 65% 95%;
@@ -114,9 +114,9 @@ All colors MUST be HSL.
     --popover-foreground: 210 40% 98%;
 
     /* Dark mode CTA System */
-    --cta-primary: 217.2 91.2% 59.8%;
-    --cta-primary-foreground: 222.2 84% 4.9%;
-    --cta-primary-hover: 217.2 91.2% 65%;
+    --cta-primary: 242 95% 65%;
+    --cta-primary-foreground: 210 40% 98%;
+    --cta-primary-hover: 242 95% 70%;
     
     --cta-secondary: transparent;
     --cta-secondary-foreground: 217.2 91.2% 59.8%;
