@@ -128,7 +128,7 @@ const EvidenceModal = ({
               <p>
                 Your {competency} score is based on:
               </p>
-              <ul className="list-disc list-inside space-y-1 ml-4">
+              <ul className="list-disc list-inside space-y-1 ml-4 text-foreground">
                 <li>Number of relevant stories</li>
                 <li>Tag density and relevance to competency</li>
                 <li>Complexity and scale of problems addressed</li>
