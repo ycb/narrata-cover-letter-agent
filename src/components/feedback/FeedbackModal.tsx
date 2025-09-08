@@ -149,3 +149,5 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
     </Dialog>
   );
 };
+
+export default FeedbackModal;
