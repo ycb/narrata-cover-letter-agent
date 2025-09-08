@@ -265,7 +265,7 @@ export const WorkHistoryBlurbSelector = ({
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge variant="secondary" className="text-xs">
-                            {role.blurbs.length} blurb{role.blurbs.length !== 1 ? 's' : ''}
+                            {role.blurbs.length} story{role.blurbs.length !== 1 ? 's' : ''}
                           </Badge>
                           <ChevronRight className="h-4 w-4 text-muted-foreground" />
                         </div>
