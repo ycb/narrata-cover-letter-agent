@@ -540,7 +540,7 @@ export default function CoverLetterTemplate() {
             variant="outline"
             size="sm"
             onClick={() => setShowPreviewModal(true)}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 hover:bg-[#E32D9A] hover:text-white hover:border-[#E32D9A]"
           >
             <Eye className="h-4 w-4" />
             Preview

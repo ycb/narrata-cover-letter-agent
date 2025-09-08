@@ -257,6 +257,7 @@ export default function ShowAllLinks() {
             variant="outline" 
             size="sm"
             onClick={() => handleView(link)}
+            className="hover:bg-[#E32D9A] hover:text-white hover:border-[#E32D9A]"
           >
             <Eye className="h-4 w-4 mr-1" />
             View
