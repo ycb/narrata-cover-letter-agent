@@ -86,7 +86,7 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
             </div>
             <div className="flex items-center gap-2 mt-4">
               <Button 
-                className="h-12 px-4 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center gap-2 min-w-[160px]"
+                className="h-12 px-4 rounded-full bg-[#E32D9A] text-white hover:bg-[#E32D9A]/90 flex items-center justify-center gap-2 min-w-[160px]"
                 onClick={() => setIsGlobalFeedbackModalOpen(true)}
               >
                 <MessageCircle className="h-5 w-5" />

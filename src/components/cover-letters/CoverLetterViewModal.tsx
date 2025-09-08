@@ -93,7 +93,7 @@ export function CoverLetterViewModal({ isOpen, onClose, coverLetter }: CoverLett
               </DialogDescription>
             </div>
             <Button 
-              className="h-12 px-4 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center gap-2 min-w-[160px]"
+              className="h-12 px-4 rounded-full bg-[#E32D9A] text-white hover:bg-[#E32D9A]/90 flex items-center justify-center gap-2 min-w-[160px]"
               onClick={() => setIsFeedbackModalOpen(true)}
             >
               <MessageCircle className="h-5 w-5" />
