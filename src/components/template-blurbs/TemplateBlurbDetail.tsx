@@ -98,9 +98,6 @@ export const TemplateBlurbDetail = ({
           </div>
           
           <div className="flex gap-2">
-            <Button variant="ghost" size="sm" onClick={onCancel}>
-              <X className="h-4 w-4" />
-            </Button>
             <Button onClick={handleSave} disabled={!isFormValid}>
               <Save className="h-4 w-4 mr-2" />
               Save Section
