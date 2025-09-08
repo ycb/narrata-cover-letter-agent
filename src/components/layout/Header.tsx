@@ -98,27 +98,29 @@ export const Header = ({ currentPage }: HeaderProps) => {
               {/* Dashboard - Simple Link */}
                             <Link
                 to="/dashboard"
-                className={cn(
-                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-opacity opacity-90 hover:opacity-100",
-                  activePage === "dashboard" 
-                    ? "text-white border-b-2 border-white" 
-                    : "text-white"
-                )}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-opacity opacity-90 hover:opacity-100 text-white"
               >
                 <Target className="h-4 w-4" />
-                Dashboard
+                <span className={cn(
+                  activePage === "dashboard" 
+                    ? "border-b-2 border-white" 
+                    : ""
+                )}>
+                  Dashboard
+                </span>
               </Link>
 
               {/* Work History - Main Link + Dropdown */}
               <div className="relative group">
-                <div className={cn(
-                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white cursor-default opacity-90 hover:opacity-100 transition-opacity",
-                  activePage === "work-history" 
-                    ? "border-b-2 border-white" 
-                    : ""
-                )}>
+                <div className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white cursor-default opacity-90 hover:opacity-100 transition-opacity">
                   <Briefcase className="h-4 w-4" />
-                  Work History
+                  <span className={cn(
+                    activePage === "work-history" 
+                      ? "border-b-2 border-white" 
+                      : ""
+                  )}>
+                    Work History
+                  </span>
                   <ChevronDown className="h-3 w-3" />
                 </div>
                 
@@ -183,14 +185,15 @@ export const Header = ({ currentPage }: HeaderProps) => {
 
               {/* Cover Letters - Main Link + Dropdown */}
               <div className="relative group">
-                <div className={cn(
-                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white cursor-default opacity-90 hover:opacity-100 transition-opacity",
-                  activePage === "cover-letters" 
-                    ? "border-b-2 border-white" 
-                    : ""
-                )}>
+                <div className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white cursor-default opacity-90 hover:opacity-100 transition-opacity">
                   <Mail className="h-4 w-4" />
-                  Cover Letters
+                  <span className={cn(
+                    activePage === "cover-letters" 
+                      ? "border-b-2 border-white" 
+                      : ""
+                  )}>
+                    Cover Letters
+                  </span>
                   <ChevronDown className="h-3 w-3" />
                 </div>
                 
@@ -246,16 +249,15 @@ export const Header = ({ currentPage }: HeaderProps) => {
 
               {/* Assessment - Main Link + Dropdown */}
               <div className="relative group">
-                <button 
-                  className={cn(
-                    "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-opacity opacity-90 hover:opacity-100 cursor-default",
-                    activePage === "assessment" 
-                      ? "text-white border-b-2 border-white" 
-                      : "text-white"
-                  )}
-                >
+                <button className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-opacity opacity-90 hover:opacity-100 cursor-default text-white">
                   <TrendingUp className="h-4 w-4" />
-                  Assessment
+                  <span className={cn(
+                    activePage === "assessment" 
+                      ? "border-b-2 border-white" 
+                      : ""
+                  )}>
+                    Assessment
+                  </span>
                   <ChevronDown className="h-3 w-3" />
                 </button>
                 
