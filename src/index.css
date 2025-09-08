@@ -32,7 +32,7 @@ All colors MUST be HSL.
     
     --cta-tertiary: transparent;
     --cta-tertiary-foreground: 215 85% 25%;
-    --cta-tertiary-hover: 215 85% 95%;
+    --cta-tertiary-hover: 330 85% 60%;
 
     /* Legacy Brand Colors */
     --primary: 242 95% 65%;
