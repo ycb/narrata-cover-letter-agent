@@ -99,10 +99,10 @@ export const Header = ({ currentPage }: HeaderProps) => {
                             <Link
                 to="/dashboard"
                 className={cn(
-                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-opacity text-white",
+                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-all rounded-md",
                   activePage === "dashboard" 
-                    ? "opacity-100" 
-                    : "opacity-90 hover:opacity-100"
+                    ? "bg-white text-[#121212] hover:bg-white" 
+                    : "text-white opacity-90 hover:opacity-100"
                 )}
               >
                 <Target className="h-4 w-4" />
@@ -112,10 +112,10 @@ export const Header = ({ currentPage }: HeaderProps) => {
               {/* Work History - Main Link + Dropdown */}
               <div className="relative group">
                 <div className={cn(
-                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white cursor-default transition-opacity",
+                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium cursor-default transition-all rounded-md",
                   activePage === "work-history" 
-                    ? "opacity-100" 
-                    : "opacity-90 hover:opacity-100"
+                    ? "bg-white text-[#121212] hover:bg-white" 
+                    : "text-white opacity-90 hover:opacity-100"
                 )}>
                   <Briefcase className="h-4 w-4" />
                   Work History
@@ -184,10 +184,10 @@ export const Header = ({ currentPage }: HeaderProps) => {
               {/* Cover Letters - Main Link + Dropdown */}
               <div className="relative group">
                 <div className={cn(
-                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white cursor-default transition-opacity",
+                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium cursor-default transition-all rounded-md",
                   activePage === "cover-letters" 
-                    ? "opacity-100" 
-                    : "opacity-90 hover:opacity-100"
+                    ? "bg-white text-[#121212] hover:bg-white" 
+                    : "text-white opacity-90 hover:opacity-100"
                 )}>
                   <Mail className="h-4 w-4" />
                   Cover Letters
@@ -247,10 +247,10 @@ export const Header = ({ currentPage }: HeaderProps) => {
               {/* Assessment - Main Link + Dropdown */}
               <div className="relative group">
                 <button className={cn(
-                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-opacity cursor-default text-white",
+                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-all cursor-default rounded-md",
                   activePage === "assessment" 
-                    ? "opacity-100" 
-                    : "opacity-90 hover:opacity-100"
+                    ? "bg-white text-[#121212] hover:bg-white" 
+                    : "text-white opacity-90 hover:opacity-100"
                 )}>
                   <TrendingUp className="h-4 w-4" />
                   Assessment
