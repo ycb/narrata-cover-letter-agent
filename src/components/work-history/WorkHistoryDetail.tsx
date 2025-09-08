@@ -676,29 +676,29 @@ export const WorkHistoryDetail = ({
         <div className="flex-1">
           <div className="flex flex-col gap-6"> {/* Design system: 24px between role cards */}
             {selectedCompany.roles.map((role) => (
-              <Card key={role.id} className="assessment-card cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors" onClick={() => onRoleSelect?.(role)}>
+              <Card key={role.id} className="assessment-card cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors group" onClick={() => onRoleSelect?.(role)}>
                 <CardContent className="assessment-card-content">
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="font-medium text-lg text-foreground">{role.title}</h3>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <h3 className="font-medium text-lg text-foreground group-hover:text-primary-foreground">{role.title}</h3>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground group-hover:text-primary-foreground">
                         <Calendar className="h-4 w-4" />
                         {formatDateRange(role.startDate, role.endDate)}
                       </div>
                     </div>
-                    <Badge variant="outline">
+                    <Badge variant="outline" className="group-hover:bg-primary-foreground group-hover:text-primary group-hover:border-primary-foreground">
                       {role.blurbs.length} story{role.blurbs.length !== 1 ? 's' : ''}
                     </Badge>
                   </div>
                   
                   {role.description && (
-                    <p className="text-muted-foreground">{role.description}</p>
+                    <p className="text-muted-foreground group-hover:text-primary-foreground">{role.description}</p>
                   )}
                   
                   {role.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1">
                       {role.tags.map((tag) => (
-                        <Badge key={tag} variant="secondary" className="text-xs">
+                        <Badge key={tag} variant="secondary" className="text-xs group-hover:bg-primary-foreground group-hover:text-primary">
                           {tag}
                         </Badge>
                       ))}
