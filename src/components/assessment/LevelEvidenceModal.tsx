@@ -13,7 +13,7 @@ import {
   BarChart3,
   Edit
 } from "lucide-react";
-import FeedbackModal from "./FeedbackModal";
+import { FeedbackModal } from "@/components/feedback/FeedbackModal";
 
 interface LevelEvidence {
   currentLevel: string;

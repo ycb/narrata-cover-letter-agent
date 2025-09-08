@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
 import { X, Tag, Building, User, Calendar, Target, Edit, BarChart3 } from "lucide-react";
-import FeedbackModal from "./FeedbackModal";
+import { FeedbackModal } from "@/components/feedback/FeedbackModal";
 
 interface EvidenceStory {
   id: string;

@@ -22,7 +22,7 @@ import {
   TrendingDown
 } from "lucide-react";
 import { useState } from "react";
-import FeedbackModal from "./FeedbackModal";
+import { FeedbackModal } from "@/components/feedback/FeedbackModal";
 import { MatchPill } from "./MatchPill";
 
 interface RoleEvidence {
