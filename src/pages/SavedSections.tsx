@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, FileText, CheckCircle, Edit } from "lucide-react";
 import { TemplateBlurbHierarchical } from "@/components/template-blurbs/TemplateBlurbHierarchical";
 import { TemplateBlurbDetail } from "@/components/template-blurbs/TemplateBlurbDetail";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { type TemplateBlurb } from "@/components/template-blurbs/TemplateBlurbMaster";
 
 // Mock template blurbs library
@@ -164,32 +165,34 @@ export default function SavedSections() {
       </div>
 
       {/* Add Reusable Content Modal */}
-      {showAddReusableContentModal && (
-        <TemplateBlurbDetail
-          blurb={null}
-          isEditing={false}
-          onSave={(blurbData) => {
-            const newBlurb: TemplateBlurb = {
-              id: `custom-${Date.now()}`,
-              type: blurbData.type as 'intro' | 'closer' | 'signature',
-              title: blurbData.title,
-              content: blurbData.content,
-              tags: blurbData.tags,
-              isDefault: blurbData.isDefault,
-              createdAt: blurbData.createdAt,
-              updatedAt: blurbData.updatedAt
-            };
-            setTemplateBlurbs(prev => [...prev, newBlurb]);
-            setShowAddReusableContentModal(false);
-            setNewReusableContent({ title: '', content: '', tags: '', contentType: '' });
-          }}
-          onCancel={() => {
-            setShowAddReusableContentModal(false);
-            setNewReusableContent({ title: '', content: '', tags: '', contentType: '' });
-          }}
-          type={newReusableContent.contentType as 'intro' | 'closer' | 'signature'}
-        />
-      )}
+      <Dialog open={showAddReusableContentModal} onOpenChange={setShowAddReusableContentModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <TemplateBlurbDetail
+            blurb={null}
+            isEditing={false}
+            onSave={(blurbData) => {
+              const newBlurb: TemplateBlurb = {
+                id: `custom-${Date.now()}`,
+                type: blurbData.type as 'intro' | 'closer' | 'signature',
+                title: blurbData.title,
+                content: blurbData.content,
+                tags: blurbData.tags,
+                isDefault: blurbData.isDefault,
+                createdAt: blurbData.createdAt,
+                updatedAt: blurbData.updatedAt
+              };
+              setTemplateBlurbs(prev => [...prev, newBlurb]);
+              setShowAddReusableContentModal(false);
+              setNewReusableContent({ title: '', content: '', tags: '', contentType: '' });
+            }}
+            onCancel={() => {
+              setShowAddReusableContentModal(false);
+              setNewReusableContent({ title: '', content: '', tags: '', contentType: '' });
+            }}
+            type={newReusableContent.contentType as 'intro' | 'closer' | 'signature'}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
