@@ -113,11 +113,11 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div className="text-center p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{evidence.currentLevel}</div>
+                  <div className="text-2xl font-bold text-foreground">{evidence.currentLevel}</div>
                   <div className="text-muted-foreground">Current Level</div>
                 </div>
                 <div className="text-center p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{evidence.nextLevel}</div>
+                  <div className="text-2xl font-bold text-foreground">{evidence.nextLevel}</div>
                   <div className="text-muted-foreground">Next Level</div>
                 </div>
                 <div className="text-center p-3 bg-muted/20 rounded-lg">
