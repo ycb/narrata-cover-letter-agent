@@ -28,7 +28,7 @@ export const OutcomeMetrics: React.FC<OutcomeMetricsProps> = ({
       <ul className="space-y-2">
         {metrics.map((metric, index) => (
           <li key={index} className="flex items-start gap-2">
-            <div className="h-1.5 w-1.5 rounded-full bg-primary mt-2 shrink-0" />
+            <div className="h-1.5 w-1.5 rounded-full bg-foreground mt-2 shrink-0" />
             <span className="text-sm text-foreground">{metric}</span>
           </li>
         ))}

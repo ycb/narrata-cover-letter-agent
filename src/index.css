@@ -446,7 +446,7 @@ All colors MUST be HSL.
   }
 
   .summary-tile-value {
-    @apply text-2xl font-bold text-primary mb-1;
+    @apply text-2xl font-bold text-foreground mb-1;
   }
 
   .summary-tile-label {
