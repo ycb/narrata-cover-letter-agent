@@ -103,7 +103,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 <Target className="h-4 w-4" />
                 <span className={cn(
                   activePage === "dashboard" 
-                    ? "border-b-2 border-white pb-px" 
+                    ? "opacity-100" 
                     : ""
                 )}>
                   Dashboard
@@ -116,7 +116,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                   <Briefcase className="h-4 w-4" />
                   <span className={cn(
                     activePage === "work-history" 
-                      ? "border-b-2 border-white pb-px" 
+                      ? "opacity-100" 
                       : ""
                   )}>
                     Work History
@@ -189,7 +189,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                   <Mail className="h-4 w-4" />
                   <span className={cn(
                     activePage === "cover-letters" 
-                      ? "border-b-2 border-white pb-px" 
+                      ? "opacity-100" 
                       : ""
                   )}>
                     Cover Letters
@@ -253,7 +253,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                   <TrendingUp className="h-4 w-4" />
                   <span className={cn(
                     activePage === "assessment" 
-                      ? "border-b-2 border-white pb-px" 
+                      ? "opacity-100" 
                       : ""
                   )}>
                     Assessment
