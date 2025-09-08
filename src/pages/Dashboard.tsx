@@ -43,7 +43,7 @@ const Dashboard = () => {
                 Welcome back, Alex
               </h1>
               <p className="text-muted-foreground mt-1">
-                Ready to craft your next truth-based cover letter?
+                Ready to land your next interview with strategic storytelling?
               </p>
             </div>
             <Button 

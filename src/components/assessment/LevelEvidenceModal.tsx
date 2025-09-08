@@ -113,15 +113,15 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div className="text-center p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{evidence.currentLevel}</div>
+                  <div className="text-2xl font-bold text-foreground">{evidence.currentLevel}</div>
                   <div className="text-muted-foreground">Current Level</div>
                 </div>
                 <div className="text-center p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{evidence.nextLevel}</div>
+                  <div className="text-2xl font-bold text-foreground">{evidence.nextLevel}</div>
                   <div className="text-muted-foreground">Next Level</div>
                 </div>
                 <div className="text-center p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{evidence.storyEvidence.totalStories}</div>
+                  <div className="text-2xl font-bold text-foreground">{evidence.storyEvidence.totalStories}</div>
                   <div className="text-muted-foreground">Total Stories</div>
                 </div>
               </div>
@@ -177,11 +177,11 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{evidence.storyEvidence.relevantStories}</div>
+                  <div className="text-2xl font-bold text-foreground">{evidence.storyEvidence.relevantStories}</div>
                   <div className="text-sm text-muted-foreground">Relevant to {evidence.currentLevel}</div>
                 </div>
                 <div className="p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{evidence.storyEvidence.totalStories}</div>
+                  <div className="text-2xl font-bold text-foreground">{evidence.storyEvidence.totalStories}</div>
                   <div className="text-sm text-muted-foreground">Total Approved Stories</div>
                 </div>
               </div>

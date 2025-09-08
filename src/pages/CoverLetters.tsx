@@ -465,7 +465,7 @@ export default function CoverLetters() {
                       variant="outline"
                       size="sm"
                       onClick={() => handleView(coverLetter)}
-                      className="flex-1"
+                      className="flex-1 hover:bg-[#E32D9A] hover:text-white hover:border-[#E32D9A]"
                     >
                       <Eye className="h-4 w-4 mr-1" />
                       View
@@ -474,7 +474,7 @@ export default function CoverLetters() {
                       variant="outline"
                       size="sm"
                       onClick={() => handleEdit(coverLetter)}
-                      className="flex-1"
+                      className="flex-1 hover:bg-[#E32D9A] hover:text-white hover:border-[#E32D9A]"
                     >
                       <Edit className="h-4 w-4 mr-1" />
                       Edit

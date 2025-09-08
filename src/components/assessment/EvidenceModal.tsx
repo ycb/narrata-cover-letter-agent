@@ -102,15 +102,15 @@ const EvidenceModal = ({
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div className="text-center p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{evidence.length}</div>
+                  <div className="text-2xl font-bold text-foreground">{evidence.length}</div>
                   <div className="text-muted-foreground">Supporting Examples</div>
                 </div>
                 <div className="text-center p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{matchedTags.length}</div>
+                  <div className="text-2xl font-bold text-foreground">{matchedTags.length}</div>
                   <div className="text-muted-foreground">Matched Tags</div>
                 </div>
                 <div className="text-center p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">
+                  <div className="text-2xl font-bold text-foreground">
                     {Math.round(evidence.reduce((sum, b) => sum + b.timesUsed, 0) / evidence.length)}
                   </div>
                   <div className="text-muted-foreground">Avg Usage</div>
