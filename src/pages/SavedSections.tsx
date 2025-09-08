@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, FileText, CheckCircle, Edit } from "lucide-react";
 import { TemplateBlurbHierarchical } from "@/components/template-blurbs/TemplateBlurbHierarchical";
+import { TemplateBlurbDetail } from "@/components/template-blurbs/TemplateBlurbDetail";
 import { type TemplateBlurb } from "@/components/template-blurbs/TemplateBlurbMaster";
 
 // Mock template blurbs library
@@ -161,6 +162,34 @@ export default function SavedSections() {
           </div>
         </div>
       </div>
+
+      {/* Add Reusable Content Modal */}
+      {showAddReusableContentModal && (
+        <TemplateBlurbDetail
+          blurb={null}
+          isEditing={false}
+          onSave={(blurbData) => {
+            const newBlurb: TemplateBlurb = {
+              id: `custom-${Date.now()}`,
+              type: blurbData.type as 'intro' | 'closer' | 'signature',
+              title: blurbData.title,
+              content: blurbData.content,
+              tags: blurbData.tags,
+              isDefault: blurbData.isDefault,
+              createdAt: blurbData.createdAt,
+              updatedAt: blurbData.updatedAt
+            };
+            setTemplateBlurbs(prev => [...prev, newBlurb]);
+            setShowAddReusableContentModal(false);
+            setNewReusableContent({ title: '', content: '', tags: '', contentType: '' });
+          }}
+          onCancel={() => {
+            setShowAddReusableContentModal(false);
+            setNewReusableContent({ title: '', content: '', tags: '', contentType: '' });
+          }}
+          type={newReusableContent.contentType as 'intro' | 'closer' | 'signature'}
+        />
+      )}
     </div>
   );
 }
