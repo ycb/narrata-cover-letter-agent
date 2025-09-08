@@ -57,9 +57,9 @@ export const Header = ({ currentPage }: HeaderProps) => {
   // Determine current page based on pathname
   const getCurrentPage = (pathname: string): string => {
     if (pathname === "/dashboard") return "dashboard";
-    if (pathname === "/work-history") return "work-history";
-    if (pathname === "/cover-letters" || pathname === "/cover-letter-template" || pathname === "/cover-letter-create") return "cover-letters";
-    if (pathname === "/assessment") return "assessment";
+    if (pathname === "/work-history" || pathname.startsWith("/show-all-stories") || pathname.startsWith("/show-all-links")) return "work-history";
+    if (pathname === "/cover-letters" || pathname === "/cover-letter-template" || pathname === "/cover-letter-create" || pathname === "/saved-sections" || pathname.startsWith("/show-all-saved-sections")) return "cover-letters";
+    if (pathname === "/assessment" || pathname.startsWith("/assessment/")) return "assessment";
     return "";
   };
 
@@ -80,16 +80,16 @@ export const Header = ({ currentPage }: HeaderProps) => {
   const activePage = getCurrentPage(location.pathname);
 
   return (
-    <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+    <header className="border-b sticky top-0 z-50" style={{ backgroundColor: '#121212' }}>
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-6">
-          <div className="flex items-center gap-4">
-            <div className="h-8 w-8 rounded-lg bg-gradient-brand flex items-center justify-center">
-              <Zap className="h-4 w-4 text-primary-foreground" />
-            </div>
-            <span className="text-xl font-bold bg-gradient-brand bg-clip-text text-transparent">
-              TruthLetter
-            </span>
+          <div className="flex items-center gap-3">
+            <img 
+              src="/narrata-logo.svg" 
+              alt="Narrata" 
+              className="h-12 w-auto"
+            />
+            <span className="text-white font-sans text-2xl">Narrata</span>
           </div>
           
           {/* Dropdown Navigation */}
@@ -99,10 +99,10 @@ export const Header = ({ currentPage }: HeaderProps) => {
                             <Link
                 to="/dashboard"
                 className={cn(
-                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors hover:text-foreground",
+                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-all rounded-md",
                   activePage === "dashboard" 
-                    ? "text-foreground border-b-2 border-primary" 
-                    : "text-muted-foreground"
+                    ? "bg-white text-[#121212] hover:bg-white" 
+                    : "text-white opacity-90 hover:opacity-100"
                 )}
               >
                 <Target className="h-4 w-4" />
@@ -111,7 +111,12 @@ export const Header = ({ currentPage }: HeaderProps) => {
 
               {/* Work History - Main Link + Dropdown */}
               <div className="relative group">
-                <div className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-muted-foreground cursor-default">
+                <div className={cn(
+                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium cursor-default transition-all rounded-md",
+                  activePage === "work-history" 
+                    ? "bg-white text-[#121212] hover:bg-white" 
+                    : "text-white opacity-90 hover:opacity-100"
+                )}>
                   <Briefcase className="h-4 w-4" />
                   Work History
                   <ChevronDown className="h-3 w-3" />
@@ -119,15 +124,15 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 
                 {/* Hover Dropdown */}
                 <div className="absolute top-full left-0 pt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
-                  <div className="bg-background border rounded-lg shadow-lg p-3 min-w-80">
+                  <div className="border-0 shadow-lg p-3 min-w-80" style={{ backgroundColor: 'rgba(18, 18, 18, 0.9)', borderRadius: '0 0 8px 8px' }}>
                     {/* Timeline View CTA - Spans full width */}
                     <Link
                       to="/work-history"
                       className={cn(
-                        "flex items-center justify-center gap-2 px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors mb-3 border border-blue-600 text-blue-600 group",
+                        "flex items-center justify-center gap-2 px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity hover:bg-[#E32D9A] mb-3 border border-white text-white group",
                         activePage === "work-history"
-                          ? "font-bold text-blue-600"
-                          : "text-blue-600"
+                          ? "text-white bg-white/10"
+                          : "text-white"
                       )}
                     >
                       <Calendar className="h-4 w-4 transition-colors" />
@@ -136,17 +141,17 @@ export const Header = ({ currentPage }: HeaderProps) => {
                     
                     {/* Table View Section */}
                     <div>
-                      <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                      <div className="px-3 py-2 text-xs font-medium text-white uppercase tracking-wide mb-2">
                         TABLE VIEW
                       </div>
                       <div className="space-y-1">
                         <Link 
                           to="/show-all-stories" 
                           className={cn(
-                            "flex items-center justify-between px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
+                            "flex items-center justify-between px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity hover:bg-[#E32D9A]",
                             isWorkHistoryChild(location.pathname) && location.pathname.startsWith("/show-all-stories")
-                              ? "font-bold text-foreground bg-blue-50"
-                              : "text-muted-foreground"
+                              ? "text-white bg-white/10"
+                              : "text-white"
                           )}
                         >
                           <span className="flex items-center gap-2">
@@ -158,10 +163,10 @@ export const Header = ({ currentPage }: HeaderProps) => {
                         <Link 
                           to="/show-all-links" 
                           className={cn(
-                            "flex items-center justify-between px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
+                            "flex items-center justify-between px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity hover:bg-[#E32D9A]",
                             isWorkHistoryChild(location.pathname) && location.pathname.startsWith("/show-all-links")
-                              ? "font-bold text-foreground bg-blue-50"
-                              : "text-muted-foreground"
+                              ? "text-white bg-white/10"
+                              : "text-white"
                           )}
                         >
                           <span className="flex items-center gap-2">
@@ -178,7 +183,12 @@ export const Header = ({ currentPage }: HeaderProps) => {
 
               {/* Cover Letters - Main Link + Dropdown */}
               <div className="relative group">
-                <div className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-muted-foreground cursor-default">
+                <div className={cn(
+                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium cursor-default transition-all rounded-md",
+                  activePage === "cover-letters" 
+                    ? "bg-white text-[#121212] hover:bg-white" 
+                    : "text-white opacity-90 hover:opacity-100"
+                )}>
                   <Mail className="h-4 w-4" />
                   Cover Letters
                   <ChevronDown className="h-3 w-3" />
@@ -186,14 +196,14 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 
                 {/* Hover Dropdown */}
                 <div className="absolute top-full left-0 pt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
-                  <div className="bg-background border rounded-lg shadow-lg p-4 min-w-64">
+                  <div className="border-0 shadow-lg p-3 min-w-64" style={{ backgroundColor: 'rgba(18, 18, 18, 0.9)', borderRadius: '0 0 8px 8px' }}>
                     <Link 
                       to="/cover-letters" 
                       className={cn(
-                        "flex items-center justify-between px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
+                        "flex items-center justify-between px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity hover:bg-[#E32D9A]",
                         location.pathname === "/cover-letters"
-                          ? "font-bold text-foreground"
-                          : "text-muted-foreground"
+                          ? "text-white bg-white/10"
+                          : "text-white"
                       )}
                     >
                       <span className="flex items-center gap-2">
@@ -204,10 +214,10 @@ export const Header = ({ currentPage }: HeaderProps) => {
                     <Link 
                       to="/saved-sections" 
                       className={cn(
-                        "flex items-center justify-between px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
+                        "flex items-center justify-between px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity hover:bg-[#E32D9A]",
                         location.pathname === "/saved-sections"
-                          ? "font-bold text-foreground"
-                          : "text-muted-foreground"
+                          ? "text-white bg-white/10"
+                          : "text-white"
                       )}
                     >
                       <span className="flex items-center gap-2">
@@ -219,10 +229,10 @@ export const Header = ({ currentPage }: HeaderProps) => {
                     <Link 
                       to="/cover-letter-template" 
                       className={cn(
-                        "flex items-center justify-between px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors",
+                        "flex items-center justify-between px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity hover:bg-[#E32D9A]",
                         location.pathname === "/cover-letter-template"
-                          ? "font-bold text-foreground"
-                          : "text-muted-foreground"
+                          ? "text-white bg-white/10"
+                          : "text-white"
                       )}
                     >
                       <span className="flex items-center gap-2">
@@ -236,14 +246,12 @@ export const Header = ({ currentPage }: HeaderProps) => {
 
               {/* Assessment - Main Link + Dropdown */}
               <div className="relative group">
-                <button 
-                  className={cn(
-                    "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors hover:text-foreground cursor-default",
-                    activePage === "assessment" 
-                      ? "text-foreground font-bold" 
-                      : "text-muted-foreground"
-                  )}
-                >
+                <button className={cn(
+                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-all cursor-default rounded-md",
+                  activePage === "assessment" 
+                    ? "bg-white text-[#121212] hover:bg-white" 
+                    : "text-white opacity-90 hover:opacity-100"
+                )}>
                   <TrendingUp className="h-4 w-4" />
                   Assessment
                   <ChevronDown className="h-3 w-3" />
@@ -251,11 +259,11 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 
                 {/* Hover Dropdown */}
                 <div className="absolute top-full left-0 pt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
-                  <div className="bg-background border rounded-lg shadow-lg p-3 min-w-80">
+                  <div className="border-0 shadow-lg p-3 min-w-80" style={{ backgroundColor: 'rgba(18, 18, 18, 0.9)', borderRadius: '0 0 8px 8px' }}>
                     {/* Overall Level - Spans full width */}
                                <button
              onClick={() => window.location.href = "/assessment/overall-level"}
-             className="flex items-center justify-center gap-2 px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors mb-3 border border-blue-600 text-blue-600 group w-full"
+             className="flex items-center justify-center gap-2 px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors hover:bg-[#E32D9A] mb-3 border border-white text-white group w-full"
            >
              <BarChart3 className="h-4 w-4 transition-colors" />
              Overall Level
@@ -265,31 +273,31 @@ export const Header = ({ currentPage }: HeaderProps) => {
                     <div className="grid grid-cols-2 gap-4">
                       {/* Left Column - Competencies */}
                       <div>
-                        <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                        <div className="px-3 py-2 text-xs font-medium text-white uppercase tracking-wide mb-2">
                           Competencies
                         </div>
                                                  <div className="space-y-1">
                            <button 
                              onClick={() => window.location.href = "/assessment/competencies/execution"}
-                             className="block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors text-muted-foreground w-full text-left"
+                             className="block px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors hover:bg-[#E32D9A] text-white w-full text-left"
                            >
                              Execution
                            </button>
                            <button 
                              onClick={() => window.location.href = "/assessment/competencies/customer-insight"}
-                             className="block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors text-muted-foreground w-full text-left"
+                             className="block px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors hover:bg-[#E32D9A] text-white w-full text-left"
                            >
                              Customer Insight
                            </button>
                            <button 
                              onClick={() => window.location.href = "/assessment/competencies/strategy"}
-                             className="block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors text-muted-foreground w-full text-left"
+                             className="block px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors hover:bg-[#E32D9A] text-white w-full text-left"
                            >
                              Strategy
                            </button>
                            <button 
                              onClick={() => window.location.href = "/assessment/competencies/influence"}
-                             className="block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors text-muted-foreground w-full text-left"
+                             className="block px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors hover:bg-[#E32D9A] text-white w-full text-left"
                            >
                              Influence
                            </button>
@@ -298,31 +306,31 @@ export const Header = ({ currentPage }: HeaderProps) => {
                       
                       {/* Right Column - Specializations */}
                       <div>
-                        <div className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                        <div className="px-3 py-2 text-xs font-medium text-white uppercase tracking-wide mb-2">
                           Specialization
                         </div>
                                                  <div className="space-y-1">
                            <button 
                              onClick={() => window.location.href = "/assessment/specializations/growth"}
-                             className="block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors text-muted-foreground w-full text-left"
+                             className="block px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors hover:bg-[#E32D9A] text-white w-full text-left"
                            >
                              Growth
                            </button>
                            <button 
                              onClick={() => window.location.href = "/assessment/specializations/technical"}
-                             className="block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors text-muted-foreground w-full text-left"
+                             className="block px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors hover:bg-[#E32D9A] text-white w-full text-left"
                            >
                              Technical
                            </button>
                            <button 
                              onClick={() => window.location.href = "/assessment/specializations/founding"}
-                             className="block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors text-muted-foreground w-full text-left"
+                             className="block px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors hover:bg-[#E32D9A] text-white w-full text-left"
                            >
                              Founding
                            </button>
                            <button 
                              onClick={() => window.location.href = "/assessment/specializations/platform"}
-                             className="block px-3 py-2 text-sm hover:bg-blue-600 hover:text-white rounded-md transition-colors text-muted-foreground w-full text-left"
+                             className="block px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors hover:bg-[#E32D9A] text-white w-full text-left"
                            >
                              Platform
                            </button>
@@ -344,17 +352,17 @@ export const Header = ({ currentPage }: HeaderProps) => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 p-3" style={{ backgroundColor: 'rgba(18, 18, 18, 0.9)' }}>
-              <DropdownMenuItem onClick={() => setShowDataModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-transparent focus:bg-transparent">
+              <DropdownMenuItem onClick={() => setShowDataModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A]">
                 <span>My Data</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShowGoalsModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-transparent focus:bg-transparent">
+              <DropdownMenuItem onClick={() => setShowGoalsModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A]">
                 <span>My Goals</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShowVoiceModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-transparent focus:bg-transparent">
+              <DropdownMenuItem onClick={() => setShowVoiceModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A]">
                 <span>My Voice</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-transparent focus:bg-transparent">
+              <DropdownMenuItem className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A]">
                 <span>Log out</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
