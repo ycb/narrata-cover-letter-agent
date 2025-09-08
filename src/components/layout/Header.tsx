@@ -124,7 +124,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 
                 {/* Hover Dropdown */}
                 <div className="absolute top-full left-0 pt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
-                  <div className="border-0 shadow-lg p-3 min-w-80" style={{ backgroundColor: '#121212', borderRadius: '0 0 8px 8px' }}>
+                  <div className="border-0 shadow-lg p-3 min-w-80" style={{ backgroundColor: 'rgba(18, 18, 18, 0.9)', borderRadius: '0 0 8px 8px' }}>
                     {/* Timeline View CTA - Spans full width */}
                     <Link
                       to="/work-history"
@@ -196,7 +196,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 
                 {/* Hover Dropdown */}
                 <div className="absolute top-full left-0 pt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
-                  <div className="border-0 shadow-lg p-3 min-w-64" style={{ backgroundColor: '#121212', borderRadius: '0 0 8px 8px' }}>
+                  <div className="border-0 shadow-lg p-3 min-w-64" style={{ backgroundColor: 'rgba(18, 18, 18, 0.9)', borderRadius: '0 0 8px 8px' }}>
                     <Link 
                       to="/cover-letters" 
                       className={cn(
@@ -259,7 +259,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 
                 {/* Hover Dropdown */}
                 <div className="absolute top-full left-0 pt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
-                  <div className="border-0 shadow-lg p-3 min-w-80" style={{ backgroundColor: '#121212', borderRadius: '0 0 8px 8px' }}>
+                  <div className="border-0 shadow-lg p-3 min-w-80" style={{ backgroundColor: 'rgba(18, 18, 18, 0.9)', borderRadius: '0 0 8px 8px' }}>
                     {/* Overall Level - Spans full width */}
                                <button
              onClick={() => window.location.href = "/assessment/overall-level"}
