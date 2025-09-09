@@ -2,6 +2,8 @@
 
 Tired of generic, robotic cover letters? Cover Letter Agent helps Product Managers land more interviews via intelligent feedback, re-usable content and objective level assessment. ✨
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-narrata.co-blue?style=for-the-badge&logo=react)](http://narrata.co/)
+
 ![Narrata OG Image](http://narrata.co/OG-image.png)
 
 - **Generate cover letters from your real work experience**
