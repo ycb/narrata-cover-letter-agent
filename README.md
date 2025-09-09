@@ -1,18 +1,60 @@
-# Cover Letter Agent
+# 🚀 Cover Letter Agent: AI That Gets PMs In The Door
 
-AI cover letter agent that helps PMs land more interviews via intelligent feedback, re-usable content and objective level assessment.
+Tired of generic, robotic cover letters? Cover Letter Agent helps Product Managers land more interviews via intelligent feedback, re-usable content and objective level assessment. ✨
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-narrata.co-blue?style=for-the-badge&logo=react)](http://narrata.co/)
+![Narrata OG Image](http://narrata.co/OG-image.png)
 
-![OG Image](http://narrata.co/OG-image.png)
+- **Generate cover letters from your real work experience**
+- **Full control—edit, organize, and reuse content with ease.**
+- **Instant draft suggestions tailored to *each* job—never start from scratch.**
+- **Intelligent feedback and objective assessment so you get hired faster.**
 
-## 🎯 Project Overview
+Try the live app [narrata.co](http://narrata.co/) or run locally!
 
-Cover Letter Agent helps PMs create personalized, job-winning cover letters from their real experience. It uses human-controlled AI that never invents achievements you don't have, ensuring truth-based content generation with intelligent feedback and objective assessment.
+---
+
+## How It Works
+
+1. **Add your job history and proven content blurbs.**
+2. **Choose or customize a template.**
+3. **Paste any job posting to get a tailored draft instantly.**
+4. **Edit, personalize, send—land more interviews!**
+
+## Why Cover Letter Agent?
+
+We believe every candidate deserves a great career story—told strategically, easily, and with the help of AI that gets results. Built by PMs, for PMs.
+
+---
+
+## 🛠️ Getting Started Locally
+
+### Prerequisites
+
+- Node.js (via [nvm](https://github.com/nvm-sh/nvm))
+- npm
+
+### Clone & Run
+
+```bash
+git clone https://github.com/ycb/cover-letter-agent-front-end-prototype.git
+cd cover-letter-agent-front-end-prototype
+npm install
+npm run dev
+```
+
+The application will be available at `http://localhost:8080`.
+
+### Available Scripts
+
+- `npm run dev` - Start development server with hot reload
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build locally
+
+---
 
 ## ✨ Key Features
 
-- **Truth-Based Content**: Generate cover letters from real work experience
+- **Experience-Based Content**: Generate cover letters from real work experience
 - **Human Control**: Full oversight and editing capabilities
 - **Template System**: Customizable cover letter templates
 - **Work History Management**: Organize and manage professional experience
@@ -20,35 +62,7 @@ Cover Letter Agent helps PMs create personalized, job-winning cover letters from
 - **Smart Matching**: AI-powered content suggestions based on job requirements
 - **Professional UI**: Clean, intuitive interface built with modern design principles
 
-## 🚀 Getting Started
-
-### Prerequisites
-
-- Node.js & npm - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-### Local Development
-
-```sh
-# Clone the repository
-git clone https://github.com/ycb/cover-letter-agent-front-end-prototype.git
-
-# Navigate to the project directory
-cd cover-letter-agent-front-end-prototype
-
-# Install dependencies
-npm install
-
-# Start the development server
-npm run dev
-```
-
-The application will be available at `http://localhost:3000` (or the next available port).
-
-### Available Scripts
-
-- `npm run dev` - Start development server with hot reload
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build locally
+---
 
 ## 🏗️ Architecture
 
@@ -78,6 +92,8 @@ src/
 └── hooks/              # Custom React hooks
 ```
 
+---
+
 ## 🎨 Design System
 
 ### Button Variants
@@ -91,6 +107,8 @@ src/
 - Consistent `gap-4` spacing between card header elements
 - Floating insert buttons with perfect vertical centering
 - Clean, minimal design with proper visual hierarchy
+
+---
 
 ## 🔧 Development
 
@@ -108,6 +126,8 @@ src/
 3. Use the established design system
 4. Add proper TypeScript types
 5. Test thoroughly before committing
+
+---
 
 ## 📱 Features in Detail
 
@@ -129,17 +149,7 @@ src/
 - **Smart Filtering**: Search and filter by tags, usage, and content
 - **Reusability**: Store proven content for future use
 
-## 🚀 Deployment
-
-### Lovable Deployment
-
-Simply open [Lovable](https://lovable.dev/projects/d67b709e-c9dc-46a5-8bcb-22b432618776) and click on Share -> Publish.
-
-### Custom Domain
-
-To connect a custom domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+---
 
 ## 🤝 Contributing
 
@@ -149,16 +159,16 @@ Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-trick
 4. Test thoroughly
 5. Submit a pull request
 
+---
+
 ## 📄 License
 
 This project is proprietary software. All rights reserved.
 
+---
+
 ## 🔗 Links
 
 - **Live Site**: [http://narrata.co/](http://narrata.co/)
-- **Project URL**: https://lovable.dev/projects/d67b709e-c9dc-46a5-8bcb-22b432618776
 - **Repository**: https://github.com/ycb/cover-letter-agent-front-end-prototype.git
 
----
-
-Built with ❤️ using [Lovable](https://lovable.dev) - The AI-powered development platform.
