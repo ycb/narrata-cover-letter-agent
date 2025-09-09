@@ -11,8 +11,6 @@ import { UserVoiceProvider } from "@/contexts/UserVoiceContext";
 import { Header } from "@/components/layout/Header";
 import { FeedbackSystem } from "@/components/feedback/FeedbackSystem";
 import { FeedbackAdmin } from "@/components/feedback/FeedbackAdmin";
-import { WelcomeModal } from "@/components/onboarding/WelcomeModal";
-import { useWelcomeScreen } from "@/hooks/useWelcomeScreen";
 
 // Environment-based feedback system initialization
 const shouldShowFeedbackSystem = (): boolean => {
@@ -53,7 +51,6 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 function AppLayout() {
-  const { showWelcome, closeWelcome } = useWelcomeScreen();
 
   return (
     <div className="pb-16">
@@ -205,8 +202,6 @@ function AppLayout() {
       {/* Feedback system available on all pages */}
       {shouldShowFeedbackSystem() && <FeedbackSystem />}
       
-      {/* Welcome Modal - shows once per user */}
-      <WelcomeModal isOpen={showWelcome} onClose={closeWelcome} />
     </div>
   );
 }
