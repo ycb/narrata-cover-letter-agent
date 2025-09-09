@@ -17,7 +17,7 @@ Try the live app [narrata.co](http://narrata.co/) or run locally!
 
 ## How It Works
 
-1. **Add your job history and proven content blurbs.**
+1. **Add your job history and proven stories.**
 2. **Choose or customize a template.**
 3. **Paste any job posting to get a tailored draft instantly.**
 4. **Edit, personalize, send—land more interviews!**
@@ -60,7 +60,7 @@ The application will be available at `http://localhost:8080`.
 - **Human Control**: Full oversight and editing capabilities
 - **Template System**: Customizable cover letter templates
 - **Work History Management**: Organize and manage professional experience
-- **Blurb Library**: Store and reuse proven content snippets
+- **Story Library**: Store and reuse proven content snippets
 - **Smart Matching**: AI-powered content suggestions based on job requirements
 - **Professional UI**: Clean, intuitive interface built with modern design principles
 
@@ -86,8 +86,8 @@ src/
 │   ├── ui/             # shadcn/ui components
 │   ├── layout/         # Layout components (Header, etc.)
 │   ├── work-history/   # Work history management
-│   ├── blurbs/         # Content snippet management
-│   └── template-blurbs/ # Template and blurb components
+│   ├── stories/        # Re-usable content management
+│   └── template-content/ # Template and re-usable content components
 ├── pages/              # Main application pages
 ├── types/              # TypeScript type definitions
 ├── lib/                # Utility functions and configurations
@@ -136,7 +136,7 @@ src/
 ### Work History Management
 
 - **Companies & Roles**: Organize professional experience hierarchically
-- **Content Association**: Link blurbs and external links to specific roles
+- **Content Association**: Link stories and external links to specific roles
 - **Data Sources**: Connect LinkedIn and resume data
 
 ### Template System
@@ -145,7 +145,7 @@ src/
 - **Static vs Dynamic**: Choose between fixed content or AI-generated matching
 - **Floating Insert Buttons**: Precise control over section placement
 
-### Blurb Library
+### Story Library
 
 - **Content Organization**: Categorize by type (intro, body, closer, signature)
 - **Smart Filtering**: Search and filter by tags, usage, and content
