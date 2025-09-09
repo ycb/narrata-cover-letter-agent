@@ -4,6 +4,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { betaSignupService } from '../../services/betaSignupService';
 
 interface WelcomeModalProps {
   isOpen: boolean;
@@ -22,13 +23,31 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose }) =
     setIsLoading(true);
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      // Store email for both beta access and feedback form pre-population
+      // Submit to Google Sheets via beta signup service
+      const success = await betaSignupService.submitBetaSignup({
+        email,
+        source: 'welcome-modal',
+        pageUrl: window.location.href,
+        userAgent: navigator.userAgent
+      });
+
+      if (success) {
+        // Store email for feedback form pre-population
+        localStorage.setItem('narrata-beta-email', email);
+        localStorage.setItem('narrata-feedback-email', email);
+        setIsSubmitted(true);
+      } else {
+        // Fallback to localStorage only
+        localStorage.setItem('narrata-beta-email', email);
+        localStorage.setItem('narrata-feedback-email', email);
+        setIsSubmitted(true);
+      }
+    } catch (error) {
+      console.error('Error submitting email:', error);
+      // Fallback to localStorage only
       localStorage.setItem('narrata-beta-email', email);
       localStorage.setItem('narrata-feedback-email', email);
       setIsSubmitted(true);
-    } catch (error) {
-      console.error('Error submitting email:', error);
     } finally {
       setIsLoading(false);
     }
