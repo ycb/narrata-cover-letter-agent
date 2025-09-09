@@ -4,16 +4,23 @@ export const useWelcomeScreen = () => {
   const [showWelcome, setShowWelcome] = useState(false);
 
   useEffect(() => {
-    // Show welcome screen after a short delay to ensure page is loaded
-    const timer = setTimeout(() => {
-      setShowWelcome(true);
-    }, 1000);
+    // Check if user has already seen the welcome screen
+    const hasSeenWelcome = localStorage.getItem('narrata-welcome-seen');
     
-    return () => clearTimeout(timer);
+    if (!hasSeenWelcome) {
+      // Show welcome screen after a short delay to ensure page is loaded
+      const timer = setTimeout(() => {
+        setShowWelcome(true);
+      }, 1000);
+
+      return () => clearTimeout(timer);
+    }
   }, []);
 
   const closeWelcome = () => {
     setShowWelcome(false);
+    // Mark that user has seen the welcome screen
+    localStorage.setItem('narrata-welcome-seen', 'true');
   };
 
   return {
