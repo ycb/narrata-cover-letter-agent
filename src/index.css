@@ -250,10 +250,6 @@ All colors MUST be HSL.
     margin-top: 1.5rem;
   }
   
-  /* Mobile: Tighten spacing at top */
-  .space-y-6 > :not([hidden]) ~ :not([hidden]) {
-    margin-top: 0;
-  }
   
   /* Responsive Ladder Utilities */
   .ladder-step {
