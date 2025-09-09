@@ -15,15 +15,20 @@ interface FeedbackModalProps {
   onFormDataChange?: (field: string, value: string) => void;
 }
 
-const INITIAL_FORM_STATE: FeedbackFormState = {
-  screenshot: '',
-  clickLocation: { x: 0, y: 0 },
-  sentiment: 'neutral',
-  category: 'suggestion',
-  message: '',
-  email: '',
-  isSubmitting: false,
-  errors: {},
+const getInitialFormState = (): FeedbackFormState => {
+  // Check if user provided email in welcome modal
+  const storedEmail = localStorage.getItem('narrata-feedback-email') || '';
+  
+  return {
+    screenshot: '',
+    clickLocation: { x: 0, y: 0 },
+    sentiment: 'neutral',
+    category: 'suggestion',
+    message: '',
+    email: storedEmail,
+    isSubmitting: false,
+    errors: {},
+  };
 };
 
 export const FeedbackModal: React.FC<FeedbackModalProps> = ({
@@ -33,7 +38,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
   initialClickLocation = null,
   onFormDataChange,
 }) => {
-  const [formState, setFormState] = useState<FeedbackFormState>(INITIAL_FORM_STATE);
+  const [formState, setFormState] = useState<FeedbackFormState>(getInitialFormState());
   const [currentStep, setCurrentStep] = useState<'form' | 'success' | 'error'>('form');
   
   const { submitFeedback, isSubmitting, error: submissionError, success, reset } = useFeedbackSubmission();

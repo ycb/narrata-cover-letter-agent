@@ -23,7 +23,9 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose }) =
     
     try {
       await new Promise(resolve => setTimeout(resolve, 1000));
+      // Store email for both beta access and feedback form pre-population
       localStorage.setItem('narrata-beta-email', email);
+      localStorage.setItem('narrata-feedback-email', email);
       setIsSubmitted(true);
     } catch (error) {
       console.error('Error submitting email:', error);
