@@ -2,6 +2,10 @@
 
 An AI-powered tool for generating high-quality, truth-based cover letters with significant human-in-the-loop control.
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-narrata.co-blue?style=for-the-badge&logo=react)](http://narrata.co/)
+
+![OG Image](http://narrata.co/OG-image.png)
+
 ## 🎯 Project Overview
 
 Cover Letter Agent helps users create personalized, job-winning cover letters from their real experience. It uses human-controlled AI that never invents achievements you don't have, ensuring truth-based content generation.
@@ -151,6 +155,7 @@ This project is proprietary software. All rights reserved.
 
 ## 🔗 Links
 
+- **Live Site**: [http://narrata.co/](http://narrata.co/)
 - **Project URL**: https://lovable.dev/projects/d67b709e-c9dc-46a5-8bcb-22b432618776
 - **Repository**: https://github.com/ycb/cover-letter-agent-front-end-prototype.git
 
