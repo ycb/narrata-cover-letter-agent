@@ -1,6 +1,6 @@
 # Cover Letter Agent
 
-An AI-powered tool for generating high-quality, truth-based cover letters with significant human-in-the-loop control.
+AI cover letter agent that helps PMs land more interviews via intelligent feedback, re-usable content and objective level assessment.
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-narrata.co-blue?style=for-the-badge&logo=react)](http://narrata.co/)
 
@@ -8,7 +8,7 @@ An AI-powered tool for generating high-quality, truth-based cover letters with s
 
 ## 🎯 Project Overview
 
-Cover Letter Agent helps users create personalized, job-winning cover letters from their real experience. It uses human-controlled AI that never invents achievements you don't have, ensuring truth-based content generation.
+Cover Letter Agent helps PMs create personalized, job-winning cover letters from their real experience. It uses human-controlled AI that never invents achievements you don't have, ensuring truth-based content generation with intelligent feedback and objective assessment.
 
 ## ✨ Key Features
 
