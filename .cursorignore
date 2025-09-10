@@ -1,0 +1,49 @@
+# Environment variables and sensitive configuration
+.env
+.env.local
+.env.production
+.env.staging
+.env.development
+
+# Google Apps Script with sensitive data
+google-apps-script.js
+
+# Planning and implementation documents
+FEEDBACK_SYSTEM_IMPLEMENTATION_PLAN.md
+HIL_Frontend_Implementation_Plan.md
+HIL_v1.1_Implementation_Plan.md
+FEEDBACK_SYSTEM_ENVIRONMENT.md
+GOOGLE_APPS_SCRIPT_SETUP.md
+GOOGLE_SHEETS_SETUP.md
+SUPABASE_SETUP.md
+HIL_QA_Guide.md
+RLS_TESTING_GUIDE.md
+
+# Build outputs
+dist/
+dist-ssr/
+node_modules/
+
+# Logs
+*.log
+logs/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp

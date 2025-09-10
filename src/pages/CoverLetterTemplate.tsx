@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,8 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Upload, Save, ArrowLeft, Plus, GripVertical, Trash2, Edit, FileText, Library, MoreHorizontal, Copy, Clock } from "lucide-react";
+import { Upload, Save, ArrowLeft, Plus, GripVertical, Trash2, Edit, FileText, Library, MoreHorizontal, Copy, Clock, LayoutTemplate, CheckCircle, X, ChevronRight, BookOpen, Eye } from "lucide-react";
 import { TemplateBanner } from "@/components/layout/TemplateBanner";
 import { Link, useNavigate } from "react-router-dom";
 import { TemplateBlurbHierarchical } from "@/components/template-blurbs/TemplateBlurbHierarchical";
@@ -15,8 +15,12 @@ import { type TemplateBlurb } from "@/components/template-blurbs/TemplateBlurbMa
 import { TemplateBlurbDetail } from "@/components/template-blurbs/TemplateBlurbDetail";
 import { WorkHistoryBlurbSelector } from "@/components/work-history/WorkHistoryBlurbSelector";
 import { SectionInsertButton } from "@/components/template-blurbs/SectionInsertButton";
+import { CoverLetterViewModal } from "@/components/cover-letters/CoverLetterViewModal";
 import type { CoverLetterSection, CoverLetterTemplate, WorkHistoryBlurb } from "@/types/workHistory";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
+import { useTour } from "@/contexts/TourContext";
+import { TourBannerFull } from "@/components/onboarding/TourBannerFull";
 
 // Mock template blurbs library
 const mockTemplateBlurbs: TemplateBlurb[] = [
@@ -63,7 +67,7 @@ const mockTemplateBlurbs: TemplateBlurb[] = [
     type: "closer",
     title: "Eager Follow-up",
     content: "I am excited about the possibility of joining your team and would love to discuss how I can help [Company] achieve its goals. I look forward to hearing from you soon.",
-    tags: ["excitement", "team", "goals", "follow-up"],
+    tags: ["excitement", "team", "goals", "follow up"],
     createdAt: "2024-01-01T00:00:00Z",
     updatedAt: "2024-01-01T00:00:00Z"
   },
@@ -103,6 +107,86 @@ const mockTemplateBlurbs: TemplateBlurb[] = [
     tags: ["respectful", "formal", "courteous"],
     createdAt: "2024-01-01T00:00:00Z",
     updatedAt: "2024-01-01T00:00:00Z"
+  }
+];
+
+// Mock work history data for the modal
+const mockWorkHistory = [
+  {
+    id: 'company-1',
+    name: 'TechCorp Inc.',
+    description: 'Software development company',
+    roles: [
+      {
+        id: 'role-1',
+        title: 'Senior Software Engineer',
+        description: 'Led development of web applications',
+        blurbs: [
+          {
+            id: 'story-1',
+            title: 'Improved Performance by 40%',
+            content: 'Optimized database queries and implemented caching strategies, resulting in a 40% improvement in application performance.',
+            tags: ['performance', 'optimization', 'database'],
+            confidence: 'high',
+            timesUsed: 3,
+            source: 'work-history',
+            status: 'approved',
+            createdAt: '2024-01-01T00:00:00Z',
+            updatedAt: '2024-01-01T00:00:00Z'
+          },
+          {
+            id: 'story-2',
+            title: 'Led Team of 5 Developers',
+            content: 'Successfully led a team of 5 developers to deliver a major feature on time and under budget.',
+            tags: ['leadership', 'team management', 'delivery'],
+            confidence: 'high',
+            timesUsed: 2,
+            source: 'work-history',
+            status: 'approved',
+            createdAt: '2024-01-01T00:00:00Z',
+            updatedAt: '2024-01-01T00:00:00Z'
+          }
+        ],
+        source: 'work-history',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z'
+      }
+    ],
+    source: 'work-history',
+    createdAt: '2024-01-01T00:00:00Z',
+    updatedAt: '2024-01-01T00:00:00Z'
+  },
+  {
+    id: 'company-2',
+    name: 'StartupXYZ',
+    description: 'Innovative startup',
+    roles: [
+      {
+        id: 'role-2',
+        title: 'Full Stack Developer',
+        description: 'Built end-to-end solutions',
+        blurbs: [
+          {
+            id: 'story-3',
+            title: 'Built MVP in 3 Months',
+            content: 'Designed and built a complete MVP from scratch in just 3 months, including frontend, backend, and database.',
+            tags: ['mvp', 'full stack', 'rapid development'],
+            confidence: 'high',
+            timesUsed: 1,
+            source: 'work-history',
+            status: 'approved',
+            createdAt: '2024-01-01T00:00:00Z',
+            updatedAt: '2024-01-01T00:00:00Z'
+          }
+        ],
+        source: 'work-history',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z'
+      }
+    ],
+    source: 'work-history',
+    createdAt: '2024-01-01T00:00:00Z',
+    updatedAt: '2024-01-01T00:00:00Z'
   }
 ];
 
@@ -157,6 +241,7 @@ const mockTemplate: CoverLetterTemplate = {
 
 export default function CoverLetterTemplate() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [template, setTemplate] = useState<CoverLetterTemplate>(mockTemplate);
   const [templateBlurbs, setTemplateBlurbs] = useState<TemplateBlurb[]>(mockTemplateBlurbs);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
@@ -169,6 +254,47 @@ export default function CoverLetterTemplate() {
   const [editingBlurb, setEditingBlurb] = useState<TemplateBlurb | null>(null);
   const [creatingBlurbType, setCreatingBlurbType] = useState<'intro' | 'closer' | 'signature' | null>(null);
   const [showWorkHistorySelector, setShowWorkHistorySelector] = useState(false);
+  const [showAddContentTypeModal, setShowAddContentTypeModal] = useState(false);
+  const [newContentType, setNewContentType] = useState({ label: '', description: '' });
+  const [showAddReusableContentModal, setShowAddReusableContentModal] = useState(false);
+  const [newReusableContent, setNewReusableContent] = useState({ title: '', content: '', tags: '', contentType: '' });
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [userContentTypes, setUserContentTypes] = useState<Array<{
+    type: string;
+    label: string;
+    description: string;
+    icon: React.ComponentType<{ className?: string }>;
+    isDefault: boolean;
+  }>>([]);
+
+  // Add Section Modal State
+  const [showAddSectionModal, setShowAddSectionModal] = useState(false);
+  const [selectedContentType, setSelectedContentType] = useState<'story' | 'saved' | null>(null);
+  const [contentMethod, setContentMethod] = useState<'dynamic' | 'static' | null>(null);
+  const [showSelectionPanel, setShowSelectionPanel] = useState(false);
+  const [selectedCompany, setSelectedCompany] = useState<string>('');
+  const [selectedRole, setSelectedRole] = useState<string>('');
+  const [selectedReusableType, setSelectedReusableType] = useState<string>('');
+  const [selectedContent, setSelectedContent] = useState<any>(null);
+  
+  // Tour integration
+  const { isActive: isTourActive, currentStep: tourStep, tourSteps, currentTourStep, nextStep, previousStep, cancelTour } = useTour();
+
+  // Handle URL parameter for initial tab
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'saved') {
+    }
+  }, [searchParams]);
+
+  // Auto-advance through tabs during tour
+  useEffect(() => {
+    if (isTourActive) {
+      // Start on template tab, then switch to saved sections after 3 seconds
+      setTimeout(() => {
+      }, 3000);
+    }
+  }, [isTourActive]);
 
   const getBlurbTitleByContent = (content: string, sectionType: string) => {
     const blurb = mockTemplateBlurbs.find(b => b.content === content && b.type === sectionType);
@@ -195,30 +321,98 @@ export default function CoverLetterTemplate() {
   };
 
   const addSection = (insertAfterIndex?: number) => {
-    const newSection: CoverLetterSection = {
-      id: `paragraph-${Date.now()}`,
-      type: 'paragraph',
-      isStatic: false,
-      blurbCriteria: {
-        goals: ["describe the purpose of this paragraph"]
-      },
-      order: template.sections.length + 1
-    };
+    setShowAddSectionModal(true);
+  };
+
+  const createSectionFromModal = () => {
+    if (!selectedContentType) return;
+    
+    if (editingSection) {
+      // Update existing section
+      if (contentMethod === 'static' && selectedContent) {
+        updateSection(editingSection, {
+          contentType: selectedContentType === 'story' ? 'work-history' : 'saved',
+          isStatic: true,
+          staticContent: selectedContent.content || selectedContent.staticContent,
+          blurbCriteria: undefined
+        });
+      } else if (contentMethod === 'dynamic') {
+        updateSection(editingSection, {
+          contentType: selectedContentType === 'story' ? 'work-history' : 'saved',
+          isStatic: false,
+          staticContent: undefined,
+          blurbCriteria: {
+            goals: [`add ${selectedContentType === 'story' ? 'work history story' : 'saved section'} based on job description`]
+          }
+        });
+      }
+      
+      // Reset modal state
+      setShowAddSectionModal(false);
+      setSelectedContentType(null);
+      setContentMethod(null);
+      setShowSelectionPanel(false);
+      setSelectedCompany('');
+      setSelectedRole('');
+      setSelectedReusableType('');
+      setSelectedContent(null);
+      setEditingSection(null);
+      return;
+    }
+    
+    // Create new section
+    let newSection: CoverLetterSection;
+    
+    if (contentMethod === 'dynamic') {
+      // For dynamic selection, create a section with blurb criteria
+      newSection = {
+        id: `section-${Date.now()}`,
+        type: 'paragraph',
+        contentType: selectedContentType === 'story' ? 'work-history' : 'saved',
+        isStatic: false,
+        staticContent: undefined,
+        blurbCriteria: {
+          goals: [`add ${selectedContentType === 'story' ? 'work history story' : 'saved section'} based on job description`]
+        },
+        order: template.sections.length + 1
+      };
+    } else {
+      // For static selection, require selected content
+      if (!selectedContent) return;
+      
+      newSection = {
+        id: `section-${Date.now()}`,
+        type: 'paragraph',
+        contentType: selectedContentType === 'story' ? 'work-history' : 'saved',
+        isStatic: true,
+        staticContent: selectedContent.content || selectedContent.staticContent,
+        blurbCriteria: undefined,
+        order: template.sections.length + 1
+      };
+    }
+    
+    console.log('Creating new section:', newSection);
     
     setTemplate(prev => {
-      if (insertAfterIndex === -1) {
-        // Insert at the beginning
-        return { ...prev, sections: [newSection, ...prev.sections] };
-      } else if (insertAfterIndex !== undefined) {
-        // Insert at specific position
-        const newSections = [...prev.sections];
-        newSections.splice(insertAfterIndex + 1, 0, newSection);
-        return { ...prev, sections: newSections };
-      } else {
-        // Add to end (existing behavior)
-        return { ...prev, sections: [...prev.sections, newSection] };
-      }
+      const newSections = [...prev.sections, newSection];
+      console.log('Updated template sections:', newSections);
+      return { ...prev, sections: newSections };
     });
+    
+    // Reset modal state
+    setShowAddSectionModal(false);
+    setSelectedContentType(null);
+    setContentMethod(null);
+    setShowSelectionPanel(false);
+    setSelectedCompany('');
+    setSelectedRole('');
+    setSelectedReusableType('');
+    setSelectedContent(null);
+  };
+
+  const handleContentSelection = (content: any) => {
+    setSelectedContent(content);
+    createSectionFromModal();
   };
 
   const selectBlurbForSection = (sectionId: string, blurb: TemplateBlurb) => {
@@ -291,6 +485,41 @@ export default function CoverLetterTemplate() {
     }
   };
 
+  const handleCreateContentType = () => {
+    if (newContentType.label.trim() && newContentType.description.trim()) {
+      const newType = {
+        type: newContentType.label.toLowerCase().replace(/\s+/g, '-'),
+        label: newContentType.label,
+        description: newContentType.description,
+        icon: FileText,
+        isDefault: false
+      };
+      
+      setUserContentTypes(prev => [...prev, newType]);
+      setNewContentType({ label: '', description: '' });
+      setShowAddContentTypeModal(false);
+    }
+  };
+
+  const handleCreateReusableContent = () => {
+    if (newReusableContent.title.trim() && newReusableContent.content.trim()) {
+      const newBlurb: TemplateBlurb = {
+        id: `${newReusableContent.contentType}-${Date.now()}`,
+        type: newReusableContent.contentType as 'intro' | 'closer' | 'signature',
+        title: newReusableContent.title,
+        content: newReusableContent.content,
+        tags: newReusableContent.tags ? newReusableContent.tags.split(',').map(tag => tag.trim()) : [],
+        isDefault: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      setTemplateBlurbs(prev => [...prev, newBlurb]);
+      setNewReusableContent({ title: '', content: '', tags: '', contentType: '' });
+      setShowAddReusableContentModal(false);
+    }
+  };
+
   const removeSection = (sectionId: string) => {
     setTemplate(prev => ({
       ...prev,
@@ -306,35 +535,51 @@ export default function CoverLetterTemplate() {
     <div className="min-h-screen bg-background">
       <TemplateBanner
         onDone={handleDone}
+        previewButton={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowPreviewModal(true)}
+            className="flex items-center gap-2 hover:text-[#E32D9A] hover:border-[#E32D9A]"
+          >
+            <Eye className="h-4 w-4" />
+            Preview
+          </Button>
+        }
       />
+      <div className={isTourActive ? 'pt-24' : ''}>
       
-      {/* Tabs */}
+      {/* Page Header */}
       <div className="bg-background">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
-            <Tabs defaultValue="template" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="template">Template</TabsTrigger>
-                <TabsTrigger value="library">Blurb Library</TabsTrigger>
-              </TabsList>
-              
-              {/* Content Area */}
-              <TabsContent value="template">
-                <div className="mt-6">
+            <div className="flex items-center justify-between py-6">
+              <div>
+                <h1 className="text-3xl font-bold text-foreground mb-2">Cover Letter Templates</h1>
+                <p className="text-muted-foreground">
+                  Create and manage your cover letter templates
+                </p>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowUploadModal(true)}
+                className="flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add New Template
+              </Button>
+            </div>
+            
+            {/* Content Area */}
+            <div>
+              <div className="template-content-spacing mt-2">
                   {/* Template Settings */}
                   <Card>
                     <CardHeader>
                       <div className="flex items-center justify-between">
                         <CardTitle>Template Settings</CardTitle>
                         <div className="flex items-center gap-4">
-                          <Button 
-                            variant="secondary" 
-                            size="sm"
-                            onClick={() => setShowUploadModal(true)}
-                          >
-                            <Upload className="h-4 w-4 mr-2" />
-                            Upload New Cover Letter
-                          </Button>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -407,7 +652,7 @@ export default function CoverLetterTemplate() {
                                     {getSectionTypeLabel(section.type)} {section.type === 'paragraph' ? `${index}` : ''}
                                   </CardTitle>
                                   <CardDescription>
-                                    {section.isStatic ? 'Static content' : 'Dynamic blurb matching'}
+                                    {section.isStatic ? 'Static content' : 'Dynamic story matching'}
                                   </CardDescription>
                                 </div>
                               </div>
@@ -453,15 +698,28 @@ export default function CoverLetterTemplate() {
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
-                                    {section.isStatic && (
-                                      <DropdownMenuItem onClick={() => {
-                                        setEditingSection(section.id);
-                                        setEditingContent(section.staticContent || '');
-                                      }}>
-                                        <Edit className="mr-2 h-4 w-4" />
-                                        Edit Content
-                                      </DropdownMenuItem>
-                                    )}
+                                    <DropdownMenuItem onClick={() => {
+                                      // Open edit modal with current section data
+                                      if (section.isStatic) {
+                                        // For static sections, pre-fill with current content
+                                        setSelectedContentType(section.contentType === 'work-history' ? 'story' : 'saved');
+                                        setContentMethod('static');
+                                        setSelectedContent({
+                                          content: section.staticContent,
+                                          staticContent: section.staticContent
+                                        });
+                                      } else {
+                                        // For dynamic sections, start with current settings
+                                        setSelectedContentType(section.contentType === 'work-history' ? 'story' : 'saved');
+                                        setContentMethod('dynamic');
+                                        setSelectedContent(null);
+                                      }
+                                      setShowAddSectionModal(true);
+                                      setEditingSection(section.id);
+                                    }}>
+                                      <Edit className="mr-2 h-4 w-4" />
+                                      Edit Content
+                                    </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => {
                                       // TODO: Implement duplicate section
                                       console.log('Duplicate section:', section.id);
@@ -503,7 +761,7 @@ export default function CoverLetterTemplate() {
                               </div>
                             ) : (
                               <div className="text-sm text-muted-foreground">
-                                Use best matching body paragraph blurb based on job description and goals
+                                Use best matching body paragraph story based on job description and goals
                               </div>
                             )}
                           </CardContent>
@@ -549,31 +807,7 @@ export default function CoverLetterTemplate() {
                     />
                   )}
                 </div>
-              </TabsContent>
-
-              <TabsContent value="library">
-                <div className="mt-6">
-                  <TemplateBlurbHierarchical
-                    blurbs={mockTemplateBlurbs.map(blurb => ({
-                      ...blurb,
-                      status: 'approved' as const,
-                      confidence: 'high' as const,
-                      timesUsed: 5,
-                      lastUsed: '2024-01-15',
-                      linkedExternalLinks: [],
-                      externalLinks: []
-                    }))}
-                    selectedBlurbId={undefined}
-                    onSelectBlurb={handleSelectBlurbFromLibrary}
-                    onCreateBlurb={handleCreateBlurb}
-                    onEditBlurb={handleEditBlurb}
-                    onDeleteBlurb={(id) => {
-                      setTemplateBlurbs(prev => prev.filter(blurb => blurb.id !== id));
-                    }}
-                  />
-                </div>
-              </TabsContent>
-            </Tabs>
+            </div>
           </div>
         </div>
       </div>
@@ -585,9 +819,9 @@ export default function CoverLetterTemplate() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Choose a Blurb</CardTitle>
+                  <CardTitle>Choose a Story</CardTitle>
                   <CardDescription>
-                    Select a pre-written blurb for your {getSectionTypeLabel(template.sections.find(s => s.id === selectedSection)?.type || '')} section
+                    Select a pre-written story for your {getSectionTypeLabel(template.sections.find(s => s.id === selectedSection)?.type || '')} section
                   </CardDescription>
                 </div>
                 <Button 
@@ -617,12 +851,12 @@ export default function CoverLetterTemplate() {
                       className="flex items-center gap-2"
                     >
                       <Plus className="h-4 w-4" />
-                      Create New {getSectionTypeLabel(template.sections.find(s => s.id === selectedSection)?.type || '')} Blurb
+                      Create New {getSectionTypeLabel(template.sections.find(s => s.id === selectedSection)?.type || '')} Story
                     </Button>
                   </CardContent>
                 </Card>
                 
-                {/* Existing Blurbs */}
+                {/* Existing Stories */}
                 {getAvailableBlurbs(template.sections.find(s => s.id === selectedSection)?.type || '').map((blurb) => (
                   <Card 
                     key={blurb.id} 
@@ -633,7 +867,7 @@ export default function CoverLetterTemplate() {
                       <h4 className="font-medium mb-2">{blurb.title}</h4>
                       <p className="text-sm text-muted-foreground mb-3">{blurb.content}</p>
                       <div className="text-xs text-muted-foreground">
-                        Click to select this blurb
+                        Click to select this story
                       </div>
                     </CardContent>
                   </Card>
@@ -664,9 +898,10 @@ export default function CoverLetterTemplate() {
                 <CardTitle>Upload New Cover Letter</CardTitle>
                 <button
                   onClick={() => setShowUploadModal(false)}
-                  className="text-sm text-cta-tertiary-foreground hover:text-cta-primary underline"
+                  className="h-6 w-6 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
                 >
-                  Cancel
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Close</span>
                 </button>
               </div>
             </CardHeader>
@@ -700,6 +935,469 @@ export default function CoverLetterTemplate() {
           </Card>
         </div>
       )}
+
+      {/* Add New Content Type Modal */}
+      {showAddContentTypeModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Add New Content Type</CardTitle>
+                <button
+                  onClick={() => setShowAddContentTypeModal(false)}
+                  className="h-6 w-6 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+                >
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Close</span>
+                </button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="content-type-label">Label</Label>
+                  <Input
+                    id="content-type-label"
+                    placeholder="e.g., Experience Summary, Skills Highlight"
+                    value={newContentType.label}
+                    onChange={(e) => setNewContentType({ ...newContentType, label: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="content-type-description">Description</Label>
+                  <Textarea
+                    id="content-type-description"
+                    placeholder="Describe what this content type is for..."
+                    value={newContentType.description}
+                    onChange={(e) => setNewContentType({ ...newContentType, description: e.target.value })}
+                    rows={3}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <Button 
+                  variant="primary" 
+                  className="w-full"
+                  onClick={handleCreateContentType}
+                  disabled={!newContentType.label.trim() || !newContentType.description.trim()}
+                >
+                  Create Content Type
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+              {/* Add Saved Section Modal */}
+      {showAddReusableContentModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Add New {newReusableContent.contentType ? newReusableContent.contentType.charAt(0).toUpperCase() + newReusableContent.contentType.slice(1) : 'Section'}</CardTitle>
+                <button
+                  onClick={() => setShowAddReusableContentModal(false)}
+                  className="h-6 w-6 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+                >
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Close</span>
+                </button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="reusable-content-title">Title</Label>
+                  <Input
+                    id="reusable-content-title"
+                    placeholder="e.g., Professional Introduction, Passionate Closing"
+                    value={newReusableContent.title}
+                    onChange={(e) => setNewReusableContent({ ...newReusableContent, title: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="reusable-content-content">Content</Label>
+                  <Textarea
+                    id="reusable-content-content"
+                    placeholder="Write your content here..."
+                    value={newReusableContent.content}
+                    onChange={(e) => setNewReusableContent({ ...newReusableContent, content: e.target.value })}
+                    rows={4}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="reusable-content-tags">Tags (comma-separated)</Label>
+                  <Input
+                    id="reusable-content-tags"
+                    placeholder="e.g., professional, passionate, technical"
+                    value={newReusableContent.tags}
+                    onChange={(e) => setNewReusableContent({ ...newReusableContent, tags: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <Button 
+                  variant="primary" 
+                  className="w-full"
+                  onClick={handleCreateReusableContent}
+                  disabled={!newReusableContent.title.trim() || !newReusableContent.content.trim()}
+                >
+                  Create Content
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Add New Section Modal */}
+      {showAddSectionModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="w-full max-w-6xl max-h-[90vh] bg-background rounded-lg shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b">
+              <div>
+                <h2 className="text-2xl font-bold">{editingSection ? 'Edit Section' : 'Add New Section'}</h2>
+                <p className="text-muted-foreground">
+                  {editingSection ? 'Modify the content and settings of this section' : 'Choose how you want to add content to your template'}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setShowAddSectionModal(false);
+                  setSelectedContentType(null);
+                  setContentMethod(null);
+                  setShowSelectionPanel(false);
+                  setSelectedCompany('');
+                  setSelectedRole('');
+                  setSelectedReusableType('');
+                  setSelectedContent(null);
+                  setEditingSection(null);
+                }}
+                className="h-8 w-8 p-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex h-auto relative">
+              {/* Single Panel - Content Type Selection */}
+              <div className={`w-full p-6 transition-transform duration-300 ease-in-out ${showSelectionPanel ? '-translate-x-full' : 'translate-x-0'}`}>
+                <div className="space-y-6">
+                  {/* Combined Step 1 & 2: Content Type and Method Selection */}
+                  <div className="space-y-6">
+                    {/* Step 1: Content Type */}
+                    <div className="mb-4">
+                      <Label className="text-base font-medium">1. Choose Content Type</Label>
+                      <div className="flex gap-3 mt-2">
+                        <Button
+                          variant={selectedContentType === 'story' ? 'default' : 'secondary'}
+                          onClick={() => setSelectedContentType('story')}
+                          className="flex-1 h-20 flex-col justify-center items-center gap-1"
+                        >
+                          <div className="text-center">
+                            <div className="font-medium">Story</div>
+                            <div className="text-sm text-muted-foreground">From your work history</div>
+                          </div>
+                        </Button>
+                        <Button
+                          variant={selectedContentType === 'saved' ? 'default' : 'secondary'}
+                          onClick={() => setSelectedContentType('saved')}
+                          className="flex-1 h-20 flex-col justify-center items-center gap-1"
+                        >
+                          <div className="text-center">
+                            <div className="font-medium">Saved Sections</div>
+                            <div className="text-sm text-muted-foreground">Custom templates</div>
+                          </div>
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Step 2: Content Method */}
+                    <div className="mt-4">
+                      <Label className="text-base font-medium">2. Choose Method</Label>
+                      <div className="flex gap-3 mt-2">
+                        <Button
+                          variant={contentMethod === 'dynamic' ? 'default' : 'secondary'}
+                          onClick={() => setContentMethod('dynamic')}
+                          className="flex-1 h-20 flex-col justify-center items-center gap-1"
+                        >
+                          <div className="text-center">
+                            <span className="font-medium">Dynamic (Default)</span>
+                            <span className="text-sm text-muted-foreground block">Intelligently match {selectedContentType === 'story' ? 'stories' : 'content'} based on job description</span>
+                          </div>
+                        </Button>
+                        <Button
+                          variant={contentMethod === 'static' ? 'default' : 'secondary'}
+                          onClick={() => setContentMethod('static')}
+                          className="flex-1 h-20 flex-col justify-center items-center gap-1"
+                        >
+                          <div className="text-center">
+                            <span className="font-medium">Static (Custom)</span>
+                            <span className="text-sm text-muted-foreground block">Choose specific content from your library</span>
+                          </div>
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* CTA Button - Always visible, enabled when both selections are made */}
+                    <div className="pt-4 flex justify-end">
+                      {contentMethod === 'dynamic' && (
+                        <Button
+                          variant="default"
+                          disabled={!selectedContentType || !contentMethod}
+                          onClick={() => {
+                            // Create dynamic section
+                            createSectionFromModal();
+                          }}
+                        >
+                          {editingSection ? 'Update Section' : 'Add Section'}
+                        </Button>
+                      )}
+                      {contentMethod === 'static' && (
+                        <Button
+                          variant="default"
+                          disabled={!selectedContentType || !contentMethod}
+                          onClick={() => {
+                            if (editingSection && selectedContent) {
+                              // If editing and content is already selected, update immediately
+                              createSectionFromModal();
+                            } else {
+                              // Otherwise, show selection panel
+                              setShowSelectionPanel(true);
+                            }
+                          }}
+                        >
+                          {editingSection && selectedContent ? 'Update Section' : 'Continue to Selection'}
+                        </Button>
+                      )}
+                      {!contentMethod && (
+                        <Button
+                          variant="default"
+                          disabled={!selectedContentType || !contentMethod}
+                          onClick={() => {}}
+                        >
+                          {editingSection ? 'Update Section' : 'Add Section'}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+                                {/* Content Selection Panel - Slides in from right */}
+                  <div className={`absolute top-0 right-0 w-full h-full bg-background transition-transform duration-300 ease-in-out ${showSelectionPanel ? 'translate-x-0' : 'translate-x-full'}`}>
+
+                  {/* Content Selection */}
+                  <div className="p-6 h-full overflow-y-auto">
+                    {/* Single Dynamic Back Button - Always visible on slide-in panel */}
+                    <div className="mb-4">
+                      <span 
+                        className="cursor-pointer text-primary hover:text-primary/80 font-medium text-sm"
+                        onClick={() => {
+                          if (selectedRole) {
+                            setSelectedRole('');
+                          } else if (selectedCompany) {
+                            setSelectedCompany('');
+                          } else if (selectedReusableType) {
+                            setSelectedReusableType('');
+                          } else {
+                            // Go back to main modal screen
+                            setShowSelectionPanel(false);
+                          }
+                        }}
+                      >
+                        {selectedRole ? '← Back to Role' : selectedCompany ? '← Back to Company' : selectedReusableType ? '← Back to Content Types' : '← Back'}
+                      </span>
+                    </div>
+                    
+                    {selectedContentType === 'story' && (
+                      /* Story Selection - Single Panel at a time */
+                      <div>
+                        {/* Company Selection */}
+                        {!selectedCompany && (
+                          <div className="space-y-2">
+                            {mockWorkHistory.map((company) => (
+                              <div
+                                key={company.id}
+                                className="p-3 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
+                                onClick={() => setSelectedCompany(company.id)}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <h4 className="font-medium">{company.name}</h4>
+                                    <p className="text-sm text-muted-foreground">{company.description}</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="secondary">{company.roles.length} role{company.roles.length !== 1 ? 's' : ''}</Badge>
+                                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Role Selection */}
+                        {selectedCompany && !selectedRole && (
+                          <div className="space-y-2">
+                            {mockWorkHistory
+                              .find(c => c.id === selectedCompany)
+                              ?.roles.map((role) => (
+                                <div
+                                  key={role.id}
+                                  className="p-3 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
+                                  onClick={() => setSelectedRole(role.id)}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <h4 className="font-medium">{role.title}</h4>
+                                      <p className="text-sm text-muted-foreground">{role.description}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant="secondary">{role.blurbs.length} story{role.blurbs.length === 1 ? '' : 's'}</Badge>
+                                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        )}
+
+                        {/* Story Selection */}
+                        {selectedRole && (
+                          <div className="space-y-3">
+                            {mockWorkHistory
+                              .find(c => c.id === selectedCompany)
+                              ?.roles.find(r => r.id === selectedRole)
+                              ?.blurbs.map((blurb) => (
+                                <div
+                                  key={blurb.id}
+                                  className="p-4 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
+                                  onClick={() => handleContentSelection(blurb)}
+                                >
+                                  <div className="space-y-3">
+                                    <h4 className="font-medium">{blurb.title}</h4>
+                                    <p className="text-sm text-muted-foreground">{blurb.content}</p>
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {selectedContentType === 'saved' && (
+                      /* Saved Sections Selection - Single Panel at a time */
+                      <div>
+                        {/* Content Type Selection */}
+                        {!selectedReusableType && (
+                          <div className="space-y-2">
+                            {['Intro', 'Closing', 'Signature'].map((contentType) => (
+                              <div
+                                key={contentType}
+                                className="p-3 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
+                                onClick={() => setSelectedReusableType(contentType)}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <h4 className="font-medium">{contentType}</h4>
+                                    <p className="text-sm text-muted-foreground">
+                                      {contentType === 'Intro' && 'Opening paragraphs and introductions'}
+                                      {contentType === 'Closing' && 'Closing statements and calls to action'}
+                                      {contentType === 'Signature' && 'Professional sign-offs and contact information'}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="secondary">
+                                      {mockTemplateBlurbs.filter(b => b.type === contentType.toLowerCase()).length} items
+                                    </Badge>
+                                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Content Selection */}
+                        {selectedReusableType && (
+                          <div className="space-y-3">
+                            {mockTemplateBlurbs
+                              .filter(b => b.type === selectedReusableType.toLowerCase())
+                              .map((blurb) => (
+                                <div
+                                  key={blurb.id}
+                                  className="p-4 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
+                                  onClick={() => handleContentSelection(blurb)}
+                                >
+                                  <div className="space-y-3">
+                                    <h4 className="font-medium">{blurb.title}</h4>
+                                    <p className="text-sm text-muted-foreground">{blurb.content}</p>
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Tour Banner */}
+      {isTourActive && currentTourStep && (
+        <TourBannerFull
+          currentStep={tourStep}
+          totalSteps={tourSteps.length}
+          title={currentTourStep.title}
+          description={currentTourStep.description}
+          onNext={nextStep}
+          onPrevious={previousStep}
+          onCancel={cancelTour}
+          canGoNext={tourStep < tourSteps.length - 1}
+          canGoPrevious={tourStep > 0}
+          isLastStep={tourStep === tourSteps.length - 1}
+        />
+      )}
+
+      {/* Preview Modal */}
+      <CoverLetterViewModal
+        isOpen={showPreviewModal}
+        onClose={() => setShowPreviewModal(false)}
+        coverLetter={{
+          id: "preview-template",
+          title: "Template Preview",
+          content: {
+            sections: [
+              {
+                content: `Dear Hiring Manager,
+
+I am writing to express my strong interest in the [Position] role at [Company]. With my background in [Industry/Field], I am excited about the opportunity to contribute to your team's success.
+
+[Your personalized content will appear here based on your template settings and selected work history stories.]
+
+I am particularly excited about this opportunity because your focus on [Company Value/Goal] aligns perfectly with my passion for [Relevant Area]. I am confident that my experience in [Key Skill/Area] and my track record of [Achievement/Result] would make me a valuable addition to your team.
+
+Thank you for considering my application. I look forward to the opportunity to discuss how I can contribute to [Company]'s continued success.
+
+Sincerely,
+[Your Name]`
+              }
+            ]
+          },
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }}
+      />
+      </div>
     </div>
   );
 };

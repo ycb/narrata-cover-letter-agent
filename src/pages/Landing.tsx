@@ -30,7 +30,7 @@ const Landing = () => {
     {
       icon: Target,
       title: "Personalized Matching",
-      description: "Smart blurb selection based on job requirements and your unique background."
+      description: "Smart story selection based on job requirements and your unique background."
     },
     {
       icon: Brain,
@@ -46,27 +46,29 @@ const Landing = () => {
     { value: "95%", label: "User Satisfaction" }
   ];
 
+
+
   return (
     <div className="min-h-screen bg-gradient-subtle">
       {/* Header */}
-      <header className="container py-6">
+      <header className="container py-6" style={{ backgroundColor: '#121212' }}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="h-8 w-8 rounded-lg bg-gradient-brand flex items-center justify-center">
-              <Zap className="h-4 w-4 text-primary-foreground" />
-            </div>
-            <span className="text-xl font-bold bg-gradient-brand bg-clip-text text-transparent">
-              TruthLetter
-            </span>
+          <div className="flex items-center gap-3">
+            <img 
+              src="/narrata-logo.svg" 
+              alt="Narrata" 
+              className="h-8 w-auto"
+            />
+            <span className="text-white font-sans text-xl">Narrata</span>
           </div>
           
           <div className="flex items-center gap-4">
             <Link to="/signin">
               <Button variant="tertiary">Login</Button>
             </Link>
-            <Link to="/signup">
-              <Button variant="primary">Get Started</Button>
-            </Link>
+                          <Link to="/signup">
+                <Button variant="primary">Get Started</Button>
+              </Link>
           </div>
         </div>
       </header>
@@ -164,7 +166,7 @@ const Landing = () => {
               </div>
               <div>
                 <h3 className="text-xl font-semibold text-foreground mb-2">
-                  Build Your Blurb Library
+                  Build Your Story Library
                 </h3>
                 <p className="text-muted-foreground">
                   Import from LinkedIn and resume. We extract real achievements and create modular content blocks you approve.
@@ -181,7 +183,7 @@ const Landing = () => {
                   Smart Job Matching
                 </h3>
                 <p className="text-muted-foreground">
-                  Paste any job description. Our AI suggests the best blurbs with confidence scores and reasoning—no guesswork.
+                  Paste any job description. Our AI suggests the best stories with confidence scores and reasoning—no guesswork.
                 </p>
               </div>
             </div>
@@ -227,15 +229,14 @@ const Landing = () => {
       <footer className="container py-12 border-t">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="h-6 w-6 rounded bg-gradient-brand flex items-center justify-center">
-              <Zap className="h-3 w-3 text-primary-foreground" />
-            </div>
-            <span className="font-semibold bg-gradient-brand bg-clip-text text-transparent">
-              TruthLetter
-            </span>
+            <img 
+              src="/narrata-logo.svg" 
+              alt="Narrata" 
+              className="h-6 w-auto"
+            />
           </div>
           <p className="text-sm text-muted-foreground">
-            © 2024 TruthLetter. Built for authentic storytelling.
+            © 2024 Narrata. Built for authentic storytelling.
           </p>
         </div>
       </footer>

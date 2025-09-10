@@ -8,7 +8,10 @@ import {
   Copy, 
   Files, 
   Trash2,
-  ExternalLink as ExternalLinkIcon
+  ExternalLink as ExternalLinkIcon,
+  TrendingUp,
+  Calendar,
+  Tags
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -48,10 +51,30 @@ export const LinkCard = ({
     <Card className="shadow-soft hover:shadow-medium transition-all duration-200 group">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
-          <h3 className="font-semibold text-lg">{label}</h3>
+          <div className="flex-1 min-w-0">
+            <div className="mb-2">
+              <h3 className="font-semibold text-lg">{label}</h3>
+            </div>
+            
+            {/* Usage Stats */}
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <TrendingUp className="h-4 w-4" />
+                Used {timesUsed} time{timesUsed !== 1 ? 's' : ''}
+              </div>
+              {lastUsed && (
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-4 w-4" />
+                  Last used {new Date(lastUsed).toLocaleDateString()}
+                </div>
+              )}
+            </div>
+          </div>
+                    {/* Actions Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <span className="sr-only">Open menu</span>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -79,45 +102,38 @@ export const LinkCard = ({
       </CardHeader>
       
       <CardContent className="pt-0">
-        {/* URL */}
-        <div className="mb-4">
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1"
-          >
-            {url}
-            <ExternalLinkIcon className="h-3 w-3" />
-          </a>
+
+        {/* Link Content - same as Linked Content from Stories */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between p-2 bg-muted/30 rounded-lg">
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium truncate">{label}</div>
+              <div className="text-xs text-muted-foreground truncate">{url}</div>
+            </div>
+            <Button variant="ghost" size="sm" asChild className="ml-2">
+              <a href={url} target="_blank" rel="noopener noreferrer">
+                <ExternalLinkIcon className="h-3 w-3" />
+              </a>
+            </Button>
+          </div>
         </div>
         
-        {/* Tags section with icon-as-label pattern */}
+        {/* Link Tags - same styling as Role and Story tags */}
         {tags.length > 0 && (
-          <div className="mb-4">
-            <div className="flex items-center gap-4 flex-wrap">
-              <div className="flex items-center gap-2 shrink-0">
-                <Tag className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium text-muted-foreground">Tags</span>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {tags.map((tag) => (
-                  <Badge key={tag} variant="secondary" className="text-xs">
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-2">
+              <Tags className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Link Tags</span>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {tags.map((tag) => (
+                <Badge key={tag} variant="secondary" className="text-xs">
+                  {tag}
+                </Badge>
+              ))}
             </div>
           </div>
         )}
-        
-        {/* Metadata section with divider */}
-        <div className="border-t pt-3">
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span>Used {timesUsed} times</span>
-            {lastUsed && <span>Last used {lastUsed}</span>}
-          </div>
-        </div>
       </CardContent>
     </Card>
   );

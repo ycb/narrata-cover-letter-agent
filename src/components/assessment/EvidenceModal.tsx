@@ -1,10 +1,13 @@
+import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { X, Tag, Building, User, Calendar, Target } from "lucide-react";
+import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
+import { X, Tag, Building, User, Calendar, Target, Edit, BarChart3 } from "lucide-react";
+import { FeedbackModal } from "@/components/feedback/FeedbackModal";
 
-interface EvidenceBlurb {
+interface EvidenceStory {
   id: string;
   title: string;
   content: string;
@@ -14,13 +17,14 @@ interface EvidenceBlurb {
   lastUsed: string;
   timesUsed: number;
   confidence: 'high' | 'medium' | 'low';
+  outcomeMetrics?: string[];
 }
 
 interface EvidenceModalProps {
   isOpen: boolean;
   onClose: () => void;
   competency: string;
-  evidence: EvidenceBlurb[];
+  evidence: EvidenceStory[];
   matchedTags: string[];
   overallConfidence: 'high' | 'medium' | 'low';
 }
@@ -29,10 +33,11 @@ const EvidenceModal = ({
   isOpen, 
   onClose, 
   competency, 
-  evidence, 
-  matchedTags, 
-  overallConfidence 
+  evidence,
+  matchedTags,
+  overallConfidence
 }: EvidenceModalProps) => {
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
   const getConfidenceColor = (confidence: string) => {
     switch (confidence) {
       case 'high': return 'bg-success text-success-foreground';
@@ -52,20 +57,40 @@ const EvidenceModal = ({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <>
+      <Dialog open={isOpen} onOpenChange={(open) => {
+        // Don't close if feedback modal is open
+        if (!open && isFeedbackModalOpen) return;
+        onClose();
+      }}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="pb-4">
-          <DialogTitle className="text-2xl font-bold">
-            Evidence for {competency}
-          </DialogTitle>
-          <DialogDescription className="text-base">
-            Supporting examples from your work history and blurbs
-          </DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle className="text-2xl font-bold">
+                Evidence for {competency}
+              </DialogTitle>
+              <DialogDescription className="text-base">
+                Supporting examples from your work history and stories
+              </DialogDescription>
+            </div>
+            <div className="flex items-center gap-2 mt-4">
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                className="flex items-center gap-2"
+                onClick={() => setIsFeedbackModalOpen(true)}
+              >
+                <Edit className="h-4 w-4" />
+                This looks wrong
+              </Button>
+            </div>
+          </div>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div>
           {/* Summary Stats */}
-          <Card>
+          <Card className="section-spacing">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">Summary</CardTitle>
@@ -77,15 +102,15 @@ const EvidenceModal = ({
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div className="text-center p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{evidence.length}</div>
+                  <div className="text-2xl font-bold text-foreground">{evidence.length}</div>
                   <div className="text-muted-foreground">Supporting Examples</div>
                 </div>
                 <div className="text-center p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{matchedTags.length}</div>
+                  <div className="text-2xl font-bold text-foreground">{matchedTags.length}</div>
                   <div className="text-muted-foreground">Matched Tags</div>
                 </div>
                 <div className="text-center p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">
+                  <div className="text-2xl font-bold text-foreground">
                     {Math.round(evidence.reduce((sum, b) => sum + b.timesUsed, 0) / evidence.length)}
                   </div>
                   <div className="text-muted-foreground">Avg Usage</div>
@@ -94,8 +119,30 @@ const EvidenceModal = ({
             </CardContent>
           </Card>
 
+          {/* How This Was Scored */}
+          <Card className="section-spacing">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Target className="h-5 w-5" />
+                How This Was Scored
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground space-y-2">
+              <p>
+                Your {competency} score is based on:
+              </p>
+              <ul className="list-disc list-inside space-y-1 ml-4 text-foreground">
+                <li>Number of relevant stories</li>
+                <li>Tag density and relevance to competency</li>
+                <li>Complexity and scale of problems addressed</li>
+                <li>Leadership and cross-functional collaboration signals</li>
+                <li>Recency and frequency of usage</li>
+              </ul>
+            </CardContent>
+          </Card>
+
           {/* Matched Tags */}
-          <Card>
+          <Card className="section-spacing">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Tag className="h-5 w-5" />
@@ -113,41 +160,59 @@ const EvidenceModal = ({
             </CardContent>
           </Card>
 
-          {/* Evidence Blurbs */}
-          <div className="space-y-4">
+          {/* Outcome Metrics */}
+          <Card className="section-spacing">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                Outcome Metrics
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <OutcomeMetrics 
+                metrics={evidence
+                  .filter(story => story.outcomeMetrics && story.outcomeMetrics.length > 0)
+                  .flatMap(story => story.outcomeMetrics || [])
+                } 
+              />
+            </CardContent>
+          </Card>
+
+          {/* Evidence Stories */}
+          <div className="section-spacing">
             <h3 className="text-lg font-semibold">Supporting Examples</h3>
-            {evidence.map((blurb) => (
-              <Card key={blurb.id} className="hover:shadow-md transition-shadow">
+            {evidence.map((story) => (
+              <Card key={story.id} className="hover:shadow-md transition-shadow">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <CardTitle className="text-base mb-2">{blurb.title}</CardTitle>
+                      <CardTitle className="text-base mb-2">{story.title}</CardTitle>
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <Building className="h-4 w-4" />
-                          {blurb.sourceCompany}
+                          {story.sourceCompany}
                         </div>
                         <div className="flex items-center gap-1">
                           <User className="h-4 w-4" />
-                          {blurb.sourceRole}
+                          {story.sourceRole}
                         </div>
                         <div className="flex items-center gap-1">
                           <Calendar className="h-4 w-4" />
-                          Used {blurb.timesUsed} times
+                          Used {story.timesUsed} times
                         </div>
                       </div>
                     </div>
-                    <Badge className={getConfidenceColor(blurb.confidence)}>
-                      {blurb.confidence} confidence
+                    <Badge className={getConfidenceColor(story.confidence)}>
+                      {story.confidence} confidence
                     </Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
                   <p className="text-sm text-muted-foreground mb-3 line-clamp-3">
-                    {blurb.content}
+                    {story.content}
                   </p>
                   <div className="flex flex-wrap gap-1">
-                    {blurb.tags.map((tag) => (
+                    {story.tags.map((tag) => (
                       <Badge key={tag} variant="outline" className="text-xs">
                         {tag}
                       </Badge>
@@ -158,34 +223,17 @@ const EvidenceModal = ({
             ))}
           </div>
 
-          {/* How This Was Scored */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Target className="h-5 w-5" />
-                How This Was Scored
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground space-y-2">
-              <p>
-                Your {competency} score is based on:
-              </p>
-              <ul className="list-disc list-inside space-y-1 ml-4">
-                <li>Number of relevant blurbs and stories</li>
-                <li>Tag density and relevance to competency</li>
-                <li>Complexity and scale of problems addressed</li>
-                <li>Leadership and cross-functional collaboration signals</li>
-                <li>Recency and frequency of usage</li>
-              </ul>
-              <p className="mt-3 text-xs">
-                <strong>Note:</strong> This is an LLM inference based on your content. 
-                You can provide feedback to improve accuracy.
-              </p>
-            </CardContent>
-          </Card>
+
         </div>
       </DialogContent>
-    </Dialog>
+      </Dialog>
+      
+      <FeedbackModal
+        isOpen={isFeedbackModalOpen}
+        onClose={() => setIsFeedbackModalOpen(false)}
+        title="Assessment Feedback"
+      />
+    </>
   );
 };
 

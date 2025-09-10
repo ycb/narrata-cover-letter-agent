@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { 
   TrendingUp, 
   Users, 
@@ -13,22 +12,26 @@ import {
   CheckCircle,
   AlertCircle,
   XCircle,
-  Download,
   Edit,
-  MessageSquare,
-  Info
+  Info,
+  FileText,
+  Link
 } from "lucide-react";
 import EvidenceModal from "@/components/assessment/EvidenceModal";
 import LevelEvidenceModal from "@/components/assessment/LevelEvidenceModal";
 import RoleEvidenceModal from "@/components/assessment/RoleEvidenceModal";
+import { SpecializationCard } from "@/components/assessment/SpecializationCard";
+import { CompetencyCard } from "@/components/assessment/CompetencyCard";
+import { usePrototype } from "@/contexts/PrototypeContext";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
-// Mock PM Assessment data for Alex
+// Simplified mock data for testing
 const mockAssessment = {
   currentLevel: "Senior PM" as const,
   confidence: "high" as const,
-  nextLevel: "Principal PM" as const,
+      nextLevel: "Lead PM" as const,
   levelDescription: "Experienced product manager with strong execution and growing strategic influence",
-  inferenceSource: "Based on resume, LinkedIn, and 47 approved blurbs",
+  inferenceSource: "Based on resume, LinkedIn, and 47 approved stories",
   
   competencies: [
     {
@@ -38,28 +41,38 @@ const mockAssessment = {
       evidence: "5 case studies tagged 'Execution'",
       tags: ["Execution", "Delivery", "Technical"],
       description: "Consistently delivers complex products with measurable impact",
-      evidenceBlurbs: [
+      evidenceStories: [
         {
           id: "exec-1",
           title: "Growth PM Leadership at SaaS Startup",
           content: "Led cross-functional product team of 8 to drive 40% user acquisition growth through data-driven experimentation and customer research, resulting in $2M ARR increase.",
-          tags: ["Growth", "Leadership", "SaaS", "Data-Driven"],
+          tags: ["Growth", "Leadership", "SaaS", "Data Driven"],
           sourceRole: "Product Lead",
           sourceCompany: "InnovateTech",
           lastUsed: "2 days ago",
           timesUsed: 12,
-          confidence: "high"
+          confidence: "high",
+          outcomeMetrics: [
+            "40% user acquisition growth",
+            "$2M ARR increase",
+            "Led team of 8 cross-functional members"
+          ]
         },
         {
           id: "exec-2",
           title: "0-1 Product Development Success",
           content: "Built and launched MVP mobile platform from concept to 10K+ users in 6 months, collaborating with design and engineering to validate product-market fit.",
-          tags: ["0-1", "Mobile", "MVP", "Product-Market Fit"],
+          tags: ["0-1", "Mobile", "MVP", "Product Market Fit"],
           sourceRole: "Product Manager",
           sourceCompany: "StartupXYZ",
           lastUsed: "1 week ago",
           timesUsed: 8,
-          confidence: "high"
+          confidence: "high",
+          outcomeMetrics: [
+            "Launched MVP in 6 months",
+            "Reached 10K+ users",
+            "Validated product-market fit"
+          ]
         }
       ]
     },
@@ -70,7 +83,7 @@ const mockAssessment = {
       evidence: "Samsung + Meta stories with user research",
       tags: ["Research", "User Experience", "Customer"],
       description: "Deep understanding of user needs and market validation",
-      evidenceBlurbs: [
+      evidenceStories: [
         {
           id: "insight-1",
           title: "Customer Research & Strategy",
@@ -80,7 +93,12 @@ const mockAssessment = {
           sourceCompany: "Meta",
           lastUsed: "3 days ago",
           timesUsed: 15,
-          confidence: "high"
+          confidence: "high",
+          outcomeMetrics: [
+            "50+ customer interviews conducted",
+            "25% improvement in user satisfaction",
+            "Informed product roadmap decisions"
+          ]
         }
       ]
     },
@@ -88,10 +106,10 @@ const mockAssessment = {
       domain: "Product Strategy",
       level: "Emerging",
       score: 65,
-      evidence: "2 strategy-related blurbs",
+      evidence: "2 strategy-related stories",
       tags: ["Strategy", "Vision", "Roadmap"],
       description: "Developing strategic thinking, needs more leadership examples",
-      evidenceBlurbs: [
+      evidenceStories: [
         {
           id: "strategy-1",
           title: "Platform Strategy Development",
@@ -101,7 +119,12 @@ const mockAssessment = {
           sourceCompany: "TechCorp",
           lastUsed: "2 weeks ago",
           timesUsed: 3,
-          confidence: "medium"
+          confidence: "medium",
+          outcomeMetrics: [
+            "Developed 3-year platform strategy",
+            "Completed market analysis",
+            "Established competitive positioning"
+          ]
         }
       ]
     },
@@ -112,7 +135,7 @@ const mockAssessment = {
       evidence: "Aurora + Meta stories tagged 'XFN Collaboration'",
       tags: ["Leadership", "Collaboration", "Stakeholder"],
       description: "Effective cross-functional collaboration and team influence",
-      evidenceBlurbs: [
+      evidenceStories: [
         {
           id: "influence-1",
           title: "Cross-functional Team Leadership",
@@ -122,7 +145,12 @@ const mockAssessment = {
           sourceCompany: "Aurora",
           lastUsed: "1 month ago",
           timesUsed: 6,
-          confidence: "high"
+          confidence: "high",
+          outcomeMetrics: [
+            "Led 15-person cross-functional team",
+            "Delivered product launch on time",
+            "Completed project under budget"
+          ]
         }
       ]
     }
@@ -133,7 +161,7 @@ const mockAssessment = {
       type: "Growth PM",
       match: 85,
       description: "Data-driven experimentation and user acquisition focus",
-      evidence: "Growth, Leadership, SaaS tags from multiple blurbs",
+      evidence: "Growth, Leadership, SaaS tags from multiple stories",
       typicalProfile: "Startup or scale-up experience, PLG systems and user analytics, B2C focus, A/B testing expertise"
     },
     {
@@ -170,16 +198,16 @@ const mockAssessment = {
   // Level Evidence Data
   levelEvidence: {
     currentLevel: "Senior PM",
-    nextLevel: "Principal PM",
+    nextLevel: "Lead PM",
     confidence: "high",
     resumeEvidence: {
       roleTitles: ["Product Manager", "Senior PM", "Product Lead"],
       duration: "6+ years in product management",
       companyScale: ["Startup", "Scale-up", "Enterprise"]
     },
-    blurbEvidence: {
-      totalBlurbs: 47,
-      relevantBlurbs: 32,
+    storyEvidence: {
+      totalStories: 47,
+      relevantStories: 32,
       tagDensity: [
         { tag: "Leadership", count: 15 },
         { tag: "Strategy", count: 8 },
@@ -208,7 +236,28 @@ const mockAssessment = {
         description: "Limited evidence of board-level presentations and executive influence",
         examples: ["Board presentations", "C-suite collaboration", "Investor communications"]
       }
-    ]
+    ],
+    outcomeMetrics: {
+      roleLevel: [
+        "Led cross-functional team of 12 engineers and designers",
+        "Increased user engagement by 40% through feature optimization",
+        "Launched 3 major product releases ahead of schedule"
+      ],
+      storyLevel: [
+        "Launched MVP in 6 months",
+        "Hired 8 product professionals",
+        "Built high-performing product team from ground up"
+      ],
+      analysis: {
+        totalMetrics: 6,
+        impactLevel: 'team' as const,
+        keyAchievements: [
+          "Team leadership at scale (12+ people)",
+          "Significant user engagement improvement (40%)",
+          "Accelerated product delivery (ahead of schedule)"
+        ]
+      }
+    }
   },
 
   // Role Archetype Evidence Data
@@ -250,7 +299,7 @@ const mockAssessment = {
           company: "StartupXYZ",
           role: "Product Manager",
           relevance: "Highly Relevant",
-          tags: ["0-1", "MVP", "Product-Market Fit"]
+          tags: ["0-1", "MVP", "Product Market Fit"]
         }
       ],
       tagAnalysis: [
@@ -273,27 +322,394 @@ const mockAssessment = {
           description: "Limited experience with enterprise sales and B2B growth",
           suggestions: ["B2B customer development", "Enterprise sales process", "Account-based marketing"]
         }
-      ]
+      ],
+      outcomeMetrics: {
+        roleLevel: [
+          "Led 40% user acquisition growth",
+          "Built MVP to 10K users",
+          "Managed cross-functional team of 8"
+        ],
+        storyLevel: [
+          "Launched MVP in 6 months",
+          "Achieved $2M ARR increase",
+          "Validated product-market fit"
+        ],
+        analysis: {
+          totalMetrics: 6,
+          impactLevel: 'team' as const,
+          keyAchievements: [
+            "Significant user growth (40%)",
+            "Rapid MVP development (6 months)",
+            "Substantial revenue impact ($2M ARR)"
+          ]
+        }
+      }
+    },
+    "Technical PM": {
+      roleType: "Technical PM",
+      matchScore: 70,
+      description: "Technical depth and engineering collaboration",
+      industryPatterns: [
+        {
+          pattern: "Engineering Background",
+          match: true,
+          examples: ["Technical degree", "Engineering experience", "Technical collaboration"]
+        },
+        {
+          pattern: "Platform Products",
+          match: true,
+          examples: ["API design", "Infrastructure", "Developer tools"]
+        },
+        {
+          pattern: "Enterprise SaaS",
+          match: true,
+          examples: ["B2B products", "Technical complexity", "Enterprise integration"]
+        }
+      ],
+      problemComplexity: {
+        level: "Medium-High",
+        examples: ["Technical architecture", "API design", "Platform scalability"],
+        evidence: ["Technical collaboration", "Platform strategy", "Engineering partnerships"]
+      },
+      workHistory: [
+        {
+          company: "TechCorp",
+          role: "Senior PM",
+          relevance: "Moderately Relevant",
+          tags: ["Technical", "Platform", "Enterprise"]
+        }
+      ],
+      tagAnalysis: [
+        {
+          tag: "Technical",
+          count: 8,
+          relevance: 75,
+          examples: ["Technical collaboration", "Platform design", "API strategy"]
+        },
+        {
+          tag: "Engineering",
+          count: 6,
+          relevance: 70,
+          examples: ["Engineering partnerships", "Technical requirements", "Platform architecture"]
+        }
+      ],
+      gaps: [
+        {
+          area: "Deep Technical Expertise",
+          description: "Need more evidence of hands-on technical implementation",
+          suggestions: ["Technical implementation", "Code reviews", "Technical architecture decisions"]
+        }
+      ],
+      outcomeMetrics: {
+        roleLevel: [
+          "Designed scalable API architecture",
+          "Led platform strategy development",
+          "Collaborated with engineering teams"
+        ],
+        storyLevel: [
+          "Improved API performance by 30%",
+          "Reduced technical debt by 25%",
+          "Enhanced platform scalability"
+        ],
+        analysis: {
+          totalMetrics: 6,
+          impactLevel: 'feature' as const,
+          keyAchievements: [
+            "API performance improvement (30%)",
+            "Technical debt reduction (25%)",
+            "Platform scalability enhancement"
+          ]
+        }
+      }
+    },
+    "Founding PM": {
+      roleType: "Founding PM",
+      matchScore: 60,
+      description: "0-1 product development and market validation",
+      industryPatterns: [
+        {
+          pattern: "Early-stage Startup",
+          match: true,
+          examples: ["StartupXYZ", "0-1 products", "MVP development"]
+        },
+        {
+          pattern: "Product-Market Fit",
+          match: true,
+          examples: ["Market validation", "Customer research", "Iteration"]
+        },
+        {
+          pattern: "End-to-End Ownership",
+          match: true,
+          examples: ["Full product lifecycle", "Strategic decisions", "Execution"]
+        }
+      ],
+      problemComplexity: {
+        level: "Medium",
+        examples: ["Product-market fit", "MVP development", "Strategic decisions"],
+        evidence: ["Built MVP to 10K users", "0-1 product development", "Strategic thinking"]
+      },
+      workHistory: [
+        {
+          company: "StartupXYZ",
+          role: "Product Manager",
+          relevance: "Highly Relevant",
+          tags: ["0-1", "MVP", "Product Market Fit"]
+        }
+      ],
+      tagAnalysis: [
+        {
+          tag: "0-1",
+          count: 8,
+          relevance: 80,
+          examples: ["MVP development", "Product-market fit", "Strategic decisions"]
+        },
+        {
+          tag: "MVP",
+          count: 6,
+          relevance: 75,
+          examples: ["Product development", "Market validation", "Iteration"]
+        }
+      ],
+      gaps: [
+        {
+          area: "Fundraising Experience",
+          description: "Limited evidence of fundraising and investor relations",
+          suggestions: ["Investor presentations", "Fundraising strategy", "Financial modeling"]
+        }
+      ],
+      outcomeMetrics: {
+        roleLevel: [
+          "Built MVP from concept to launch",
+          "Led product-market fit validation",
+          "Made strategic product decisions"
+        ],
+        storyLevel: [
+          "Launched MVP in 6 months",
+          "Reached 10K+ users",
+          "Validated product-market fit"
+        ],
+        analysis: {
+          totalMetrics: 6,
+          impactLevel: 'company' as const,
+          keyAchievements: [
+            "Successful MVP launch",
+            "User validation (10K+)",
+            "Product-market fit achieved"
+          ]
+        }
+      }
+    },
+    "Platform PM": {
+      roleType: "Platform PM",
+      matchScore: 45,
+      description: "API and infrastructure product management",
+      industryPatterns: [
+        {
+          pattern: "Developer Platforms",
+          match: false,
+          examples: ["Limited API design", "No developer tools", "No platform focus"]
+        },
+        {
+          pattern: "Infrastructure Products",
+          match: false,
+          examples: ["No infrastructure experience", "Limited technical depth", "No platform strategy"]
+        },
+        {
+          pattern: "Enterprise Integration",
+          match: false,
+          examples: ["Limited enterprise focus", "No integration experience", "No platform thinking"]
+        }
+      ],
+      problemComplexity: {
+        level: "Low",
+        examples: ["Basic product management", "Feature delivery", "User-facing products"],
+        evidence: ["Limited platform experience", "No API design", "No infrastructure focus"]
+      },
+      workHistory: [
+        {
+          company: "Various",
+          role: "Product Manager",
+          relevance: "Low Relevance",
+          tags: ["General PM", "Feature delivery", "User products"]
+        }
+      ],
+      tagAnalysis: [
+        {
+          tag: "Platform",
+          count: 2,
+          relevance: 30,
+          examples: ["Limited platform thinking", "No API focus", "No infrastructure"]
+        },
+        {
+          tag: "API",
+          count: 1,
+          relevance: 20,
+          examples: ["No API design", "No developer experience", "No platform strategy"]
+        }
+      ],
+      gaps: [
+        {
+          area: "Platform Thinking",
+          description: "Need to develop platform and infrastructure mindset",
+          suggestions: ["API design", "Developer experience", "Platform strategy", "Infrastructure products"]
+        }
+      ],
+      outcomeMetrics: {
+        roleLevel: [
+          "Limited platform strategy experience",
+          "No API design or developer tools",
+          "No infrastructure product management"
+        ],
+        storyLevel: [
+          "Basic product management focus",
+          "Feature delivery emphasis",
+          "User-facing product experience"
+        ],
+        analysis: {
+          totalMetrics: 3,
+          impactLevel: 'feature' as const,
+          keyAchievements: [
+            "General product management",
+            "Feature delivery",
+            "User product focus"
+          ]
+        }
+      }
     }
   }
 };
 
-const Assessment = () => {
+interface AssessmentProps {
+  initialSection?: string;
+}
+
+const Assessment = ({ initialSection }: AssessmentProps) => {
+  const { setPrototypeState } = usePrototype();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  
   const [selectedCompetency, setSelectedCompetency] = useState<string | null>(null);
-  const [showFeedback, setShowFeedback] = useState(false);
   const [evidenceModalOpen, setEvidenceModalOpen] = useState(false);
   const [selectedEvidence, setSelectedEvidence] = useState<any>(null);
   const [levelEvidenceModalOpen, setLevelEvidenceModalOpen] = useState(false);
   const [roleEvidenceModalOpen, setRoleEvidenceModalOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
+  const [showLeadershipTrack, setShowLeadershipTrack] = useState(false);
+
+  // Handle initialSection prop for direct navigation
+  useEffect(() => {
+    if (initialSection) {
+      if (initialSection === 'overall-level') {
+        handleShowLevelEvidence();
+      } else if (initialSection.startsWith('competency-')) {
+        const competencyName = initialSection.replace('competency-', '');
+        // Map URL names to actual competency names
+        const competencyMap: Record<string, string> = {
+          'execution': 'Product Execution',
+          'customer-insight': 'Customer Insight',
+          'strategy': 'Product Strategy',
+          'influence': 'Influencing People'
+        };
+        const actualName = competencyMap[competencyName] || competencyName;
+        const competencyData = mockAssessment.competencies.find(
+          c => c.domain === actualName
+        );
+        if (competencyData) {
+          handleShowEvidence(competencyData);
+        }
+      } else if (initialSection.startsWith('specialization-')) {
+        const specializationName = initialSection.replace('specialization-', '');
+        // Map URL names to actual specialization names
+        const specializationMap: Record<string, string> = {
+          'growth': 'Growth PM',
+          'technical': 'Technical PM',
+          'founding': 'Founding PM',
+          'platform': 'Platform PM'
+        };
+        const actualName = specializationMap[specializationName] || specializationName;
+        const specializationData = mockAssessment.roleArchetypes.find(
+          s => s.type === actualName
+        );
+        if (specializationData) {
+          handleShowRoleEvidence(specializationData.type);
+        }
+      }
+    }
+  }, [initialSection]);
+
+  // Handle URL parameters for navigation from Header (legacy support)
+  useEffect(() => {
+    const competency = searchParams.get('competency');
+    const specialization = searchParams.get('specialization');
+    const level = searchParams.get('level');
+    
+    if (competency) {
+      // Find the competency and open its evidence modal
+      const competencyData = mockAssessment.competencies.find(
+        c => c.domain.toLowerCase().includes(competency.toLowerCase())
+      );
+      if (competencyData) {
+        handleShowEvidence(competencyData);
+        // Clear the URL parameter
+        navigate('/assessment', { replace: true });
+      }
+    }
+    
+    if (specialization) {
+      // Find the specialization and open its evidence modal
+      const specializationData = mockAssessment.roleArchetypes.find(
+        s => s.type.toLowerCase().includes(specialization.toLowerCase())
+      );
+      if (specializationData) {
+        handleShowRoleEvidence(specializationData.type);
+        // Clear the URL parameter
+        navigate('/assessment', { replace: true });
+      }
+    }
+
+    if (level === 'overall') {
+      // Open the level evidence modal
+      handleShowLevelEvidence();
+      // Clear the URL parameter
+      navigate('/assessment', { replace: true });
+    }
+  }, [searchParams, navigate]);
+
+  // Smart CTA logic - determine which area needs improvement
+  const getSmartCTA = () => {
+    const dataMetrics = {
+      stories: 47,
+      externalLinks: 3,
+      outcomeMetrics: 5
+    };
+    
+    // Find the metric with the lowest count
+    const weakestArea = Object.entries(dataMetrics).reduce((a, b) => 
+      dataMetrics[a[0]] < dataMetrics[b[0]] ? a : b
+    );
+    
+    const ctaText = {
+      stories: "Add More Stories",
+      externalLinks: "Add External Links", 
+      outcomeMetrics: "Add Outcome Metrics"
+    };
+    
+    return {
+      text: ctaText[weakestArea[0] as keyof typeof ctaText],
+      area: weakestArea[0],
+      count: weakestArea[1]
+    };
+  };
+
+  const smartCTA = getSmartCTA();
 
   const getLevelColor = (level: string) => {
     switch (level) {
-      case "Strong": return "text-success";
-      case "Solid": return "text-primary";
-      case "Emerging": return "text-warning";
-      case "Needs More Evidence": return "text-muted-foreground";
-      default: return "text-foreground";
+      case "Strong": return "text-success border-success/20";
+      case "Solid": return "text-blue-600 border-blue-200";
+      case "Emerging": return "text-warning border-warning/20";
+      case "Needs More Evidence": return "text-muted-foreground border-muted";
+      default: return "text-foreground border-muted";
     }
   };
 
@@ -308,7 +724,7 @@ const Assessment = () => {
 
   const getArchetypeColor = (match: number) => {
     if (match >= 80) return "bg-success text-success-foreground";
-    if (match >= 60) return "bg-primary text-primary-foreground";
+    if (match >= 60) return "bg-foreground text-background";
     if (match >= 40) return "bg-warning text-warning-foreground";
     return "bg-muted text-muted-foreground";
   };
@@ -329,30 +745,95 @@ const Assessment = () => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
-      <main className="container py-8">
-        <div className="max-w-6xl mx-auto space-y-8">
+      <main className="container mx-auto px-4 pb-8">
+        <div className="max-w-6xl mx-auto">
           
-          {/* Header Summary Card */}
-          <Card className="shadow-soft">
-            <CardHeader className="text-center pb-4">
-              <div className="flex items-center justify-center gap-3 mb-4">
-                <Badge className={getConfidenceColor(mockAssessment.confidence)}>
-                  LLM Inferred
-                </Badge>
-                <Badge variant="outline">
-                  {mockAssessment.confidence} confidence
-                </Badge>
+          {/* Page Description */}
+          <p className="text-muted-foreground description-spacing">View your level, evidence and ways to progress</p>
+          
+          {/* Data Sources - Using new layout from DataSources page */}
+          <div className="mb-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold tracking-tight text-lg">Data Sources</h3>
+              <div className="text-right">
+                <span className="text-xs text-muted-foreground mr-2">PROFILE STRENGTH:</span>
+                <Badge className="bg-success text-success-foreground text-xs">Strong</Badge>
               </div>
-              <CardTitle className="text-4xl font-bold text-foreground mb-2 flex items-center justify-center gap-3">
-                You are a <span className="text-primary">{mockAssessment.currentLevel}</span>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-6 w-6 p-0 hover:bg-muted/50"
-                  onClick={handleShowLevelEvidence}
-                >
-                  <Info className="h-4 w-4" />
-                </Button>
+            </div>
+          </div>
+          {/* Stats Overview - Using Cover Letters widget styling */}
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
+            {/* LinkedIn */}
+            <Card className="shadow-soft">
+              <CardContent className="p-4">
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-1 mb-1">
+                    <div className="h-2 w-2 rounded-full bg-success"></div>
+                    <span className="text-xs text-muted-foreground">LinkedIn</span>
+                  </div>
+                  <div className="text-sm font-medium">Connected</div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Resume */}
+            <Card className="shadow-soft">
+              <CardContent className="p-4">
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-1 mb-1">
+                    <div className="h-2 w-2 rounded-full bg-success"></div>
+                    <span className="text-xs text-muted-foreground">Resume</span>
+                  </div>
+                  <div className="text-sm font-medium">Uploaded</div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Outcome Metrics */}
+            <Card className="shadow-soft">
+              <CardContent className="p-4">
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-1 mb-1">
+                    <div className="h-2 w-2 rounded-full bg-success"></div>
+                    <span className="text-xs text-muted-foreground">Outcome Metrics</span>
+                  </div>
+                  <div className="text-sm font-medium">5</div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Stories */}
+            <Card className="shadow-soft">
+              <CardContent className="p-4">
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-1 mb-1">
+                    <div className="h-2 w-2 rounded-full bg-success"></div>
+                    <span className="text-xs text-muted-foreground">Stories</span>
+                  </div>
+                  <div className="text-sm font-medium">47</div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* External Links */}
+            <Card className="shadow-soft">
+              <CardContent className="p-4">
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-1 mb-1">
+                    <div className="h-2 w-2 rounded-full bg-success"></div>
+                    <span className="text-xs text-muted-foreground">External Links</span>
+                  </div>
+                  <div className="text-sm font-medium">3</div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Combined Level Assessment & Career Progression */}
+          <Card className="shadow-soft section-spacing">
+            <CardHeader className="text-center pb-4">
+              <CardTitle className="text-4xl font-bold text-foreground mb-2">
+                You are a <span className="text-foreground">{mockAssessment.currentLevel}</span>
               </CardTitle>
               <CardDescription className="text-lg">
                 {mockAssessment.levelDescription}
@@ -361,65 +842,313 @@ const Assessment = () => {
                 {mockAssessment.inferenceSource}
               </p>
             </CardHeader>
-          </Card>
-
-          {/* PM Ladder Visualization */}
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
-                PM Career Progression
-              </CardTitle>
-              <CardDescription>
-                Your current level and path to the next level
-              </CardDescription>
-            </CardHeader>
+            
             <CardContent>
-              <div className="relative">
-                {/* Progress Bar */}
-                <div className="flex items-center justify-between mb-4">
-                  {mockAssessment.levelProgression.map((level, index) => (
-                    <div key={level.level} className="flex flex-col items-center">
-                      <div className={`h-3 w-3 rounded-full mb-2 ${
-                        level.current 
-                          ? 'bg-primary' 
-                          : index < 2 
-                            ? 'bg-muted' 
-                            : 'bg-muted/30'
-                      }`} />
-                      <div className="text-center">
-                        <div className={`text-sm font-medium ${
-                          level.current ? 'text-primary' : 'text-muted-foreground'
-                        }`}>
-                          {level.level}
+
+              {/* Evidence CTA Button - Above Career Ladder */}
+              <div className="flex justify-center mb-4">
+                <Button 
+                  variant="primary" 
+                  size="lg" 
+                  onClick={handleShowLevelEvidence}
+                >
+                  View Evidence for Overall Level
+                  <TrendingUp className="h-5 w-5 ml-2" />
+                </Button>
+              </div>
+              
+              {/* Dual-Track Career Path Visualization */}
+              <div className="mb-4 relative overflow-hidden -mx-6 my-4">
+                {/* IC Track - Full Width */}
+                <div className={`transition-transform duration-500 ease-in-out ${showLeadershipTrack ? '-translate-x-full' : 'translate-x-0'}`}>
+                  <div className="bg-white">
+                    {/* IC Track Header */}
+                    <div className="text-left mb-4 border-t-2 border-blue-500 pt-4 px-6">
+                      <h3 className="flex items-center gap-2 font-medium text-blue-900">
+                        <Target className="h-5 w-5" />
+                        Individual Contributor Track
+                      </h3>
+                    </div>
+                    
+                    {/* IC Track Steps */}
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-start">
+                      {/* IC Track Items */}
+                      <div className="flex flex-col lg:flex-row lg:items-center relative">
+                        {/* Completed Steps */}
+                        {/* Mobile: Card style */}
+                        <div className="ladder-step-mobile-ic mx-4">
+                          <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-blue-900 mb-1">Associate PM</div>
+                            <div className="text-xs text-muted-foreground text-center">0-2 years</div>
+                          </div>
                         </div>
-                        <div className="text-xs text-muted-foreground w-20 text-center">
-                          {level.description}
+                        {/* Desktop: Original style */}
+                        <div className="ladder-step-desktop ladder-step ladder-step-height">
+                          <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-blue-900 mb-1">Associate PM</div>
+                            <div className="text-xs text-muted-foreground text-center">0-2 years</div>
+                          </div>
+                        </div>
+                        {/* Horizontal connector (desktop) */}
+                        <div className="ladder-conn-h ladder-conn-blue"></div>
+                        {/* Vertical connector (mobile) */}
+                        <div className="ladder-conn-v ladder-conn-blue"></div>
+                        
+                        {/* Mobile: Card style */}
+                        <div className="ladder-step-mobile-ic mx-4">
+                          <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-blue-900 mb-1">PM</div>
+                            <div className="text-xs text-muted-foreground text-center">2-4 years</div>
+                          </div>
+                        </div>
+                        {/* Desktop: Original style */}
+                        <div className="ladder-step-desktop ladder-step ladder-step-height">
+                          <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-blue-900 mb-1">PM</div>
+                            <div className="text-xs text-muted-foreground text-center">2-4 years</div>
+                          </div>
+                        </div>
+                        {/* Horizontal connector (desktop) */}
+                        <div className="ladder-conn-h ladder-conn-blue"></div>
+                        {/* Vertical connector (mobile) */}
+                        <div className="ladder-conn-v ladder-conn-blue"></div>
+                        
+                        {/* Current Step - TODAY Card */}
+                        <div className="ladder-card-labeled border-blue-500 mx-4">
+                          <div className="ladder-card-header bg-blue-600">
+                            <div className="text-xs font-normal uppercase tracking-wide">TODAY</div>
+                          </div>
+                          <div className="ladder-card-content">
+                            <div className="text-center">
+                              <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-3 mx-auto">✓</div>
+                              <div className="text-sm font-medium bg-blue-500 text-white px-3 py-1 rounded-full mb-2">Sr PM</div>
+                              <div className="text-xs text-muted-foreground">4-7 years</div>
+                            </div>
+                          </div>
+                        </div>
+                        {/* Horizontal connector (desktop) */}
+                        <div className="ladder-conn-h ladder-conn-blue"></div>
+                        {/* Vertical connector (mobile) */}
+                        <div className="ladder-conn-v ladder-conn-blue"></div>
+                        
+                        {/* Next Step - NEXT STEP Card */}
+                        <div className="ladder-card-labeled border-blue-500 mx-4">
+                          <div className="ladder-card-header bg-blue-600">
+                            <div className="text-xs font-normal uppercase tracking-wide">NEXT STEP</div>
+                          </div>
+                          <div className="ladder-card-content">
+                            <div className="text-center">
+                              <div className="h-6 w-6 rounded-full border-2 border-blue-500 mb-3 mx-auto" style={{ borderColor: 'rgb(59 130 246)' }}></div>
+                              <div className="text-sm font-medium text-blue-900 mb-2">Lead PM</div>
+                              <div className="text-xs text-muted-foreground">Technical leadership</div>
+                            </div>
+                          </div>
+                        </div>
+                        {/* Horizontal connector (desktop) */}
+                        <div className="ladder-conn-h ladder-conn-blue"></div>
+                        {/* Vertical connector (mobile) */}
+                        <div className="ladder-conn-v ladder-conn-blue"></div>
+                        
+                        {/* Future Step - Dotted Circle */}
+                        {/* Mobile: Card style */}
+                        <div className="ladder-step-mobile-ic mx-4">
+                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-blue-500 mb-2"></div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-blue-900 mb-1">Principal PM</div>
+                            <div className="text-xs text-muted-foreground text-center">Domain expert</div>
+                          </div>
+                        </div>
+                        {/* Desktop: Original style */}
+                        <div className="ladder-step-desktop ladder-step ladder-step-height">
+                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-blue-500 mb-2"></div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-blue-900 mb-1">Principal PM</div>
+                            <div className="text-xs text-muted-foreground text-center">Domain expert</div>
+                          </div>
+                        </div>
+                        
+                        {/* Full Height Vertical Separator - Blue when viewing IC (desktop only) */}
+                        <div className="ladder-separator-ic"></div>
+                      </div>
+                      
+                      {/* Spacing between tracks (desktop only) */}
+                      <div className="hidden lg:block w-12"></div>
+                      
+                      {/* View Leadership Track Card */}
+                      {/* Mobile: Primary CTA */}
+                      <div className="ladder-cta-primary mt-4 lg:hidden" onClick={() => setShowLeadershipTrack(true)}>
+                        <div className="text-sm font-medium flex items-center justify-center gap-2">
+                          View Leadership Track
+                          <TrendingUp className="h-4 w-4" />
+                        </div>
+                      </div>
+                      {/* Desktop: Card with label */}
+                      <div className="hidden lg:block ladder-card-labeled border-green-500 cursor-pointer mt-4" onClick={() => setShowLeadershipTrack(true)}>
+                        <div className="ladder-card-header bg-green-600">
+                          <div className="text-xs font-normal uppercase tracking-wide">VIEW</div>
+                        </div>
+                        <div className="ladder-card-content">
+                          <div className="text-center">
+                            <div className="text-xs text-green-900 font-medium">Leadership Track</div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  ))}
+                    
+                                          {/* IC Guidance Banner */}
+                      <div className="bg-blue-50 border-t-2 border-b-2 border-blue-500 py-4 px-6 mt-4 mb-4">
+                      <div className="text-center">
+                        <p className="text-blue-900 font-medium" style={{ fontSize: '1.1rem' }}>Demonstrate strategic thinking and organizational influence to advance</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 
-                {/* Connection Lines */}
-                <div className="absolute top-1.5 left-6 right-6 h-px bg-muted -z-10" />
-                
-                {/* Next Level Indicator */}
-                <div className="text-center mt-6 p-4 bg-muted/20 rounded-lg">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <Target className="h-4 w-4 text-primary" />
-                    <span className="font-medium">Next Level: {mockAssessment.nextLevel}</span>
+                {/* Leadership Track - Slides in from right */}
+                <div className={`absolute top-0 left-0 w-full transition-transform duration-500 ease-in-out ${showLeadershipTrack ? 'translate-x-0' : 'translate-x-full'}`}>
+                  <div className="bg-white">
+                    {/* Leadership Track Header */}
+                    <div className="text-left mb-4 border-t-2 border-green-500 pt-4 px-6">
+                      <h3 className="flex items-center gap-2 font-medium text-green-900">
+                        <Users className="h-5 w-5" />
+                        Leadership Track
+                      </h3>
+                    </div>
+                    
+                    {/* Leadership Track Steps */}
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-start px-6">
+                      {/* View IC Track Card */}
+                      {/* Mobile: Primary CTA */}
+                      <div className="ladder-cta-primary mb-4 lg:mr-6 lg:hidden" onClick={() => setShowLeadershipTrack(false)}>
+                        <div className="text-sm font-medium flex items-center justify-center gap-2">
+                          View IC Track
+                          <Target className="h-4 w-4" />
+                        </div>
+                      </div>
+                      {/* Desktop: Card with label */}
+                      <div className="hidden lg:block ladder-card-labeled border-blue-600 cursor-pointer mb-4 lg:mr-6" onClick={() => setShowLeadershipTrack(false)}>
+                        <div className="ladder-card-header bg-blue-600">
+                          <div className="text-xs font-normal uppercase tracking-wide">VIEW</div>
+                        </div>
+                        <div className="ladder-card-content">
+                          <div className="text-center">
+                            <div className="text-xs text-blue-900 font-medium">IC Track</div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Leadership Track Items */}
+                      <div className="flex flex-col lg:flex-row lg:items-center relative">
+                        {/* Full Height Vertical Separator - Green when viewing Leadership (desktop only) */}
+                        <div className="ladder-separator-leadership"></div>
+                        
+                        {/* First Step - Group PM / Manager */}
+                        {/* Mobile: Card style */}
+                        <div className="ladder-step-mobile-leadership">
+                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-green-900 mb-1">Group PM / Manager</div>
+                            <div className="text-xs text-muted-foreground text-center">Portfolio oversight</div>
+                          </div>
+                        </div>
+                        {/* Desktop: Original style */}
+                        <div className="ladder-step-desktop ladder-step ladder-step-height">
+                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-green-900 mb-1">Group PM / Manager</div>
+                            <div className="text-xs text-muted-foreground text-center">Portfolio oversight</div>
+                          </div>
+                        </div>
+                        {/* Horizontal connector (desktop) */}
+                        <div className="ladder-conn-h ladder-conn-green"></div>
+                        {/* Vertical connector (mobile) */}
+                        <div className="ladder-conn-v ladder-conn-green"></div>
+                        
+                        {/* Second Step - Director of Product */}
+                        {/* Mobile: Card style */}
+                        <div className="ladder-step-mobile-leadership">
+                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-green-900 mb-1">Director of Product</div>
+                            <div className="text-xs text-muted-foreground text-center">Strategic direction</div>
+                          </div>
+                        </div>
+                        {/* Desktop: Original style */}
+                        <div className="ladder-step-desktop ladder-step ladder-step-height">
+                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-green-900 mb-1">Director of Product</div>
+                            <div className="text-xs text-muted-foreground text-center">Strategic direction</div>
+                          </div>
+                        </div>
+                        {/* Horizontal connector (desktop) */}
+                        <div className="ladder-conn-h ladder-conn-green"></div>
+                        {/* Vertical connector (mobile) */}
+                        <div className="ladder-conn-v ladder-conn-green"></div>
+                        
+                        {/* Third Step - Vice President, Product */}
+                        {/* Mobile: Card style */}
+                        <div className="ladder-step-mobile-leadership">
+                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-green-900 mb-1">Vice President, Product</div>
+                            <div className="text-xs text-muted-foreground text-center">Executive leadership</div>
+                          </div>
+                        </div>
+                        {/* Desktop: Original style */}
+                        <div className="ladder-step-desktop ladder-step ladder-step-height">
+                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-green-900 mb-1">Vice President, Product</div>
+                            <div className="text-xs text-muted-foreground text-center">Executive leadership</div>
+                          </div>
+                        </div>
+                        {/* Horizontal connector (desktop) */}
+                        <div className="ladder-conn-h ladder-conn-green"></div>
+                        {/* Vertical connector (mobile) */}
+                        <div className="ladder-conn-v ladder-conn-green"></div>
+                        
+                        {/* Fourth Step - Chief Product Officer */}
+                        {/* Mobile: Card style */}
+                        <div className="ladder-step-mobile-leadership">
+                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-green-900 mb-1">Chief Product Officer</div>
+                            <div className="text-xs text-muted-foreground text-center">CPO</div>
+                          </div>
+                        </div>
+                        {/* Desktop: Original style */}
+                        <div className="ladder-step-desktop ladder-step ladder-step-height">
+                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
+                          <div className="text-center">
+                            <div className="text-sm font-medium text-green-900 mb-1">Chief Product Officer</div>
+                            <div className="text-xs text-muted-foreground text-center">CPO</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                                          {/* Leadership Guidance Banner */}
+                      <div className="bg-green-50 border-t-2 border-b-2 border-green-500 py-4 px-6 mb-4">
+                      <div className="text-center">
+                        <p className="text-green-900 font-medium" style={{ fontSize: '1.1rem' }}>Develop team leadership skills and strategic organizational thinking to advance</p>
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    Focus on strategic thinking and organizational influence to advance
-                  </p>
                 </div>
               </div>
+              
             </CardContent>
           </Card>
 
+
+
           {/* Competency Breakdown */}
-          <Card className="shadow-soft">
+          <Card className="shadow-soft section-spacing">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5" />
@@ -430,152 +1159,54 @@ const Assessment = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="assessment-grid">
                 {mockAssessment.competencies.map((competency) => (
-                  <div key={competency.domain} className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-medium">{competency.domain}</h3>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleShowEvidence(competency)}
-                          className="h-6 w-6 p-0 hover:bg-muted/50"
-                        >
-                          <FileText className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <Badge className={getLevelColor(competency.level)}>
-                        {competency.level}
-                      </Badge>
-                    </div>
-                    
-                    <Progress value={competency.score} className="h-2" />
-                    
-                    <div className="text-sm text-muted-foreground">
-                      {competency.description}
-                    </div>
-                    
-                    <div className="text-xs text-muted-foreground">
-                      {competency.evidence}
-                    </div>
-                    
-                    <div className="flex flex-wrap gap-1">
-                      {competency.tags.map((tag) => (
-                        <Badge key={tag} variant="outline" className="text-xs">
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
+                  <CompetencyCard
+                    key={competency.domain}
+                    domain={competency.domain}
+                    level={competency.level}
+                    score={competency.score}
+                    description={competency.description}
+                    onViewEvidence={() => handleShowEvidence(competency)}
+                  />
                 ))}
               </div>
             </CardContent>
           </Card>
 
-          {/* Role Archetype Mapping */}
-          <Card className="shadow-soft">
+          {/* Specialization Mapping */}
+          <Card className="shadow-soft section-spacing">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                Role Archetype Mapping
+                Specialization Mapping
               </CardTitle>
               <CardDescription>
                 How your profile matches different PM specializations
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="assessment-grid">
                 {mockAssessment.roleArchetypes.map((archetype) => (
-                  <div key={archetype.type} className="p-4 border rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-medium">{archetype.type}</h4>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-4 w-4 p-0 hover:bg-muted/50"
-                          onClick={() => handleShowRoleEvidence(archetype.type)}
-                        >
-                          <Info className="h-3 w-3" />
-                        </Button>
-                      </div>
-                      <Badge className={getArchetypeColor(archetype.match)}>
-                        {archetype.match}% match
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      {archetype.description}
-                    </p>
-                    <p className="text-xs text-muted-foreground mb-3">
-                      {archetype.evidence}
-                    </p>
-                    <div className="p-3 bg-muted/20 rounded-lg">
-                      <p className="text-xs font-medium text-muted-foreground mb-1">
-                        Typical profile includes:
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {archetype.typicalProfile}
-                      </p>
-                    </div>
-                  </div>
+                  <SpecializationCard
+                    key={archetype.type}
+                    type={archetype.type}
+                    match={archetype.match}
+                    description={archetype.description}
+                    tags={archetype.type === "Growth PM" ? ["Growth", "Leadership", "SaaS"] : 
+                          archetype.type === "Technical PM" ? ["Technical", "Engineering", "Platform"] :
+                          archetype.type === "Founding PM" ? ["0-1", "MVP", "Product-Market Fit"] :
+                          ["Platform", "API", "Infrastructure"]}
+                    experienceLevel={archetype.type === "Growth PM" ? "High" : 
+                                   archetype.type === "Technical PM" ? "Medium" : "Low"}
+                    onViewEvidence={() => handleShowRoleEvidence(archetype.type)}
+                  />
                 ))}
               </div>
             </CardContent>
           </Card>
 
-          {/* Feedback & Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Feedback Panel */}
-            <Card className="shadow-soft">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5" />
-                  Feedback & Corrections
-                </CardTitle>
-                <CardDescription>
-                  Help us improve your assessment
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button 
-                  variant="outline" 
-                  className="w-full"
-                  onClick={() => setShowFeedback(true)}
-                >
-                  <Edit className="h-4 w-4 mr-2" />
-                  This looks wrong
-                </Button>
-                <Button variant="secondary" className="w-full">
-                  <Download className="h-4 w-4 mr-2" />
-                  Export Summary (PDF)
-                </Button>
-              </CardContent>
-            </Card>
 
-            {/* Next Actions */}
-            <Card className="shadow-soft">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="h-5 w-5" />
-                  Next Steps
-                </CardTitle>
-                <CardDescription>
-                  Actions to improve your profile
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button variant="primary" className="w-full">
-                  <Lightbulb className="h-4 w-4 mr-2" />
-                  See Role Gaps
-                </Button>
-                <Button variant="secondary" className="w-full">
-                  <Edit className="h-4 w-4 mr-2" />
-                  Add More Stories
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
         </div>
       </main>
 
@@ -588,7 +1219,7 @@ const Assessment = () => {
             setSelectedEvidence(null);
           }}
           competency={selectedEvidence.domain}
-          evidence={selectedEvidence.evidenceBlurbs}
+          evidence={selectedEvidence.evidenceStories}
           matchedTags={selectedEvidence.tags}
           overallConfidence={selectedEvidence.level === "Strong" ? "high" : selectedEvidence.level === "Solid" ? "medium" : "low"}
         />

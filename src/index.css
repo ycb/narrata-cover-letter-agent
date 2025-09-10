@@ -20,9 +20,9 @@ All colors MUST be HSL.
     --popover-foreground: 215 25% 15%;
 
     /* CTA Design System - Clear Hierarchy */
-    --cta-primary: 215 85% 25%;
+    --cta-primary: 242 95% 65%;
     --cta-primary-foreground: 210 40% 98%;
-    --cta-primary-hover: 215 85% 30%;
+    --cta-primary-hover: 242 95% 70%;
     
     --cta-secondary: transparent;
     --cta-secondary-foreground: 215 85% 25%;
@@ -32,13 +32,13 @@ All colors MUST be HSL.
     
     --cta-tertiary: transparent;
     --cta-tertiary-foreground: 215 85% 25%;
-    --cta-tertiary-hover: 215 85% 95%;
+    --cta-tertiary-hover: 330 85% 60%;
 
     /* Legacy Brand Colors */
-    --primary: 215 85% 25%;
+    --primary: 242 95% 65%;
     --primary-foreground: 210 40% 98%;
-    --primary-light: 215 85% 35%;
-    --primary-lighter: 215 70% 50%;
+    --primary-light: 242 95% 70%;
+    --primary-lighter: 242 95% 75%;
 
     /* Secondary - Modern Purple */
     --secondary: 255 65% 95%;
@@ -114,9 +114,9 @@ All colors MUST be HSL.
     --popover-foreground: 210 40% 98%;
 
     /* Dark mode CTA System */
-    --cta-primary: 217.2 91.2% 59.8%;
-    --cta-primary-foreground: 222.2 84% 4.9%;
-    --cta-primary-hover: 217.2 91.2% 65%;
+    --cta-primary: 242 95% 65%;
+    --cta-primary-foreground: 210 40% 98%;
+    --cta-primary-hover: 242 95% 70%;
     
     --cta-secondary: transparent;
     --cta-secondary-foreground: 217.2 91.2% 59.8%;
@@ -166,4 +166,309 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground;
   }
+}
+
+@layer utilities {
+  .w-12 {
+    width: 3rem;
+    margin-left: 30px;
+  }
+  
+  .py-4 {
+    padding-top: 1.5rem;
+    padding-bottom: 1.5rem;
+  }
+  
+  /* Vertical Rhythm System */
+  .pt-0 {
+    padding-top: 0px;
+  }
+  
+  .mb-6 {
+    margin-bottom: 1.5rem; /* 24px */
+  }
+  
+  .pb-4 {
+    padding-bottom: 1rem;
+    margin-top: 0;
+  }
+  
+
+  
+  .pt-4 {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+  }
+  
+  /* Border System */
+  .border-t-2 {
+    border-bottom-width: 2px;
+    border-top-width: 2px;
+  }
+  
+  /* Padding System */
+  .px-6 {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+    margin-top: 0;
+  }
+  
+  /* Color System - Enhanced Specificity */
+  .border-blue-500 {
+    --tw-border-opacity: 1;
+    border-color: rgb(30 58 138 / var(--tw-text-opacity, .2));
+  }
+  
+  .border-green-500 {
+    --tw-border-opacity: 1;
+    border-color: rgb(20 83 45 / var(--tw-text-opacity, .2));
+  }
+  
+  /* Section Spacing */
+  .section-spacing {
+    margin-bottom: 1.5rem;
+  }
+  
+  .section-spacing:last-child {
+    margin-bottom: 0;
+  }
+  
+  /* Override py-3 for controlled spacing */
+  .py-3 {
+    padding-top: .75rem;
+    padding-bottom: .5rem;
+  }
+
+  /* Custom spacing class for template content */
+  .template-content-spacing {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+  
+  /* Tightened spacing for main sections */
+  .space-y-8 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 1.5rem;
+  }
+  
+  
+  /* Responsive Ladder Utilities */
+  .ladder-step {
+    @apply w-full lg:w-auto lg:min-w-[140px] p-6;
+  }
+  
+  .ladder-step-height {
+    @apply lg:h-56;
+  }
+  
+  /* Base card styles (mobile) */
+  .ladder-card-base {
+    @apply mx-4 rounded-lg shadow-sm overflow-hidden;
+  }
+  
+  .ladder-card-ic {
+    @apply ladder-card-base border-2 border-blue-500 bg-white p-6;
+  }
+  
+  .ladder-card-leadership {
+    @apply ladder-card-base border-2 border-green-500 bg-white p-6;
+  }
+  
+  .ladder-card-labeled {
+    @apply ladder-card-base border-2;
+    min-width: 150px;
+    min-height: 180px;
+    border-radius: 0.5rem !important; /* 8px - matches rounded-lg, force override */
+    overflow: hidden; /* Ensure inner elements don't break the border radius */
+  }
+  
+  .ladder-card-header {
+    @apply text-white text-center py-3 px-4;
+    border-top-left-radius: 0.5rem !important; /* 8px - matches rounded-t-lg */
+    border-top-right-radius: 0.5rem !important; /* 8px - matches rounded-t-lg */
+    margin: -1px -1px 0 -1px; /* Compensate for border and ensure perfect alignment */
+  }
+  
+  .ladder-card-content {
+    @apply bg-white p-6;
+    border-bottom-left-radius: 0.5rem !important; /* 8px - matches rounded-b-lg */
+    border-bottom-right-radius: 0.5rem !important; /* 8px - matches rounded-b-lg */
+    margin: 0 -1px -1px -1px; /* Compensate for border and ensure perfect alignment */
+  }
+  
+  .ladder-cta-primary {
+    @apply ladder-card-base bg-primary text-primary-foreground text-center py-4 px-6 cursor-pointer;
+  }
+  
+
+  
+  .ladder-step-mobile {
+    @apply lg:hidden flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 p-6;
+  }
+  
+  .ladder-step-mobile-ic {
+    @apply lg:hidden flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-blue-500 p-6 mx-4;
+  }
+  
+  .ladder-step-mobile-leadership {
+    @apply lg:hidden flex flex-col items-center rounded-lg overflow-hidden shadow-sm border-2 border-green-500 p-6;
+  }
+  
+  .ladder-step-desktop {
+    @apply hidden lg:flex flex-col items-center justify-center;
+  }
+  
+  .ladder-conn-h {
+    @apply hidden lg:block h-px w-6 mx-6;
+  }
+  
+  .ladder-conn-v {
+    @apply lg:hidden w-px h-6 my-3 mx-auto;
+  }
+  
+  .ladder-conn-blue {
+    @apply bg-blue-200;
+  }
+  
+  .ladder-conn-green {
+    @apply bg-green-200;
+  }
+  
+  .ladder-separator {
+    @apply hidden lg:block;
+  }
+  
+  .ladder-separator-ic {
+    @apply ladder-separator absolute right-0 top-4 bottom-0 w-px bg-blue-300 border-l-2 border-dashed border-blue-500;
+  }
+  
+  .ladder-separator-leadership {
+    @apply ladder-separator absolute left-0 top-4 bottom-0 w-px bg-green-300 border-l-2 border-dashed border-green-500;
+  }
+  
+  .ladder-track-switch {
+    @apply mt-4 lg:mt-0 w-full lg:w-auto lg:ml-6;
+  }
+
+  /* Assessment Card Utilities */
+  .assessment-card {
+    @apply shadow-soft hover:shadow-medium transition-all duration-200;
+  }
+
+  /* Card Content Spacing */
+  .assessment-card-content {
+    @apply p-6;
+  }
+
+  /* Card Content Items Spacing */
+  .assessment-card-content > * + * {
+    @apply mt-4;
+  }
+
+  /* CTA Button Spacing */
+  .assessment-card-content > button:last-child {
+    @apply mt-4;
+  }
+
+  /* Vertical Rhythm Standards */
+  .vertical-rhythm-6 {
+    @apply space-y-6;
+  }
+
+  .vertical-rhythm-4 {
+    @apply space-y-4;
+  }
+
+  .vertical-rhythm-3 {
+    @apply space-y-3;
+  }
+
+  /* Section Spacing */
+.section-spacing {
+  margin-top: 2rem; /* 32px */
+}
+
+  /* Description Text Spacing */
+  .description-spacing {
+    padding-top: 1.5rem; /* 24px */
+    padding-bottom: 1.5rem; /* 24px */
+  }
+
+  /* Line Clamp Utilities */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Top Padding Only */
+  .top-padding-only {
+    padding-top: 1.5rem; /* 24px */
+  }
+
+  /* CTA Button Centering */
+  .cta-center {
+    margin-top: 2.25rem; /* 36px */
+  }
+  
+  @media (min-width: 768px) {
+    .cta-center {
+      margin-top: 2.25rem; /* 36px on desktop (md:flex-row) */
+    }
+  }
+
+  /* Master Component Section Wrapping */
+
+  .assessment-card-mobile {
+    @apply lg:hidden;
+  }
+
+  .assessment-card-desktop {
+    @apply hidden lg:block;
+  }
+
+  /* Modal Utilities */
+  .modal-sticky-header {
+    @apply sticky top-0 bg-background z-10 border-b;
+  }
+
+  .modal-scrollable-content {
+    @apply flex-1 overflow-y-auto;
+  }
+
+  /* Summary Tiles */
+  .summary-tile {
+    @apply text-center p-4 bg-muted/20 rounded-lg;
+  }
+
+  .summary-tile-value {
+    @apply text-2xl font-bold text-foreground mb-1;
+  }
+
+  .summary-tile-label {
+    @apply text-sm text-muted-foreground;
+  }
+
+  /* Evidence Section */
+  .evidence-section {
+    @apply space-y-3;
+  }
+
+  .evidence-item {
+    @apply p-3 border rounded-lg;
+  }
+
+  /* Mobile Responsive Grid */
+  .assessment-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 gap-6;
+  }
+
+  .summary-grid {
+    @apply grid grid-cols-2 md:grid-cols-4 gap-4;
+  }
+}
+
+/* Accordion item spacing */
+.accordion-item-spacing > * + * {
+  margin-top: 1.5rem; /* 24px */
 }

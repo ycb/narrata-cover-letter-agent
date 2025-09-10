@@ -6,29 +6,25 @@ export function PrototypeStateBanner() {
   const navigate = useNavigate();
   const location = useLocation();
   const { prototypeState, setPrototypeState } = usePrototype();
-  
+
   const handleMarketingSite = () => {
     navigate('/');
   };
 
   const handleNewUser = () => {
-    if (location.pathname === '/') {
-      navigate('/work-history');
-    }
+    navigate('/new-user');
     setPrototypeState('new-user');
   };
 
   const handleExistingUser = () => {
-    if (location.pathname === '/') {
-      navigate('/work-history');
-    }
+    navigate('/dashboard');
     setPrototypeState('existing-user');
   };
 
   // Determine current state based on route and prototype state
   const getCurrentState = () => {
     if (location.pathname === '/') return 'marketing';
-    return prototypeState;
+    return prototypeState || 'existing-user'; // Default to existing-user if no state set
   };
   
   return (
@@ -36,7 +32,7 @@ export function PrototypeStateBanner() {
       <div className="container mx-auto px-4 py-2">
         <div className="flex items-center justify-center gap-3 text-sm">
           <span className="text-gray-400">
-            Viewing: {getCurrentState() === 'marketing' ? 'Marketing Site' : getCurrentState() === 'existing-user' ? 'Existing User' : 'New User Onboarding'}
+            Viewing:
           </span>
           
           <button
