@@ -9,8 +9,6 @@ import { Eye, EyeOff, Mail, Lock, Linkedin, AlertCircle, Loader2 } from "lucide-
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/contexts/AuthContext";
-import { OAuthTest } from "@/components/auth/OAuthTest";
-import { SupabaseTest } from "@/components/auth/SupabaseTest";
 
 const SignIn = () => {
   const { signIn, signInWithGoogle, signInWithLinkedIn, loading, error } = useAuth();
@@ -160,9 +158,6 @@ const SignIn = () => {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password">Password</Label>
-                  <Link to="/forgot-password" className="text-sm text-accent hover:underline">
-                    Forgot password?
-                  </Link>
                 </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -188,15 +183,20 @@ const SignIn = () => {
                 </div>
               </div>
 
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="remember"
-                  checked={formData.rememberMe}
-                  onCheckedChange={(checked) => handleInputChange("rememberMe", checked as boolean)}
-                />
-                <Label htmlFor="remember" className="text-sm text-muted-foreground">
-                  Remember me for 30 days
-                </Label>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="remember"
+                    checked={formData.rememberMe}
+                    onCheckedChange={(checked) => handleInputChange("rememberMe", checked as boolean)}
+                  />
+                  <Label htmlFor="remember" className="text-sm text-muted-foreground">
+                    Remember me for 30 days
+                  </Label>
+                </div>
+                <Link to="/forgot-password" className="text-sm text-accent hover:underline">
+                  Forgot password?
+                </Link>
               </div>
 
               <Button 
@@ -226,15 +226,6 @@ const SignIn = () => {
           </CardContent>
         </Card>
 
-        {/* Supabase Configuration Test */}
-        <div className="mt-8">
-          <SupabaseTest />
-        </div>
-
-        {/* OAuth Test Panel */}
-        <div className="mt-8">
-          <OAuthTest />
-        </div>
 
         {/* Footer */}
         <div className="text-center mt-8 text-xs text-muted-foreground">

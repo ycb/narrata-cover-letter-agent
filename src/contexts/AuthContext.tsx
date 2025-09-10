@@ -30,16 +30,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isSigningOut, setIsSigningOut] = useState(false)
 
   // Load user profile when user changes - memoized to prevent unnecessary re-renders
   const loadUserProfile = useCallback(async (userId: string) => {
     try {
-      console.log('Loading profile for user:', userId)
       let profileData = await getUserProfile(userId)
       
       // If profile doesn't exist, create it
       if (!profileData) {
-        console.log('Profile not found, creating new profile for user:', userId)
         const user = await getCurrentUser()
         if (user) {
           const newProfileData = {
@@ -50,7 +49,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           
           profileData = await upsertUserProfile(newProfileData)
-          console.log('Created new profile:', profileData)
         }
       }
       
@@ -101,9 +99,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state change:', event, session?.user?.email)
-      
       if (!mounted) return
+      
+      // Don't process auth state changes during logout
+      if (isSigningOut) {
+        return
+      }
       
       setSession(session)
       setUser(session?.user ?? null)
@@ -111,10 +112,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Load profile if user exists
       if (session?.user) {
-        console.log('Loading profile for user:', session.user.id)
         await loadUserProfile(session.user.id)
       } else {
-        console.log('No user, clearing profile')
         setProfile(null)
       }
       
@@ -124,7 +123,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Timeout protection - force loading to false after 10 seconds
     const timeout = setTimeout(() => {
       if (mounted && loading) {
-        console.log('Auth loading timeout - forcing loading to false')
         setLoading(false)
       }
     }, 10000)
@@ -215,18 +213,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     try {
       setError(null)
-      const { error } = await supabase.auth.signOut()
+      setIsSigningOut(true)
       
-      if (error) {
-        setError(error.message)
-        return { error }
+      // Clear local state immediately for better UX
+      setUser(null)
+      setSession(null)
+      setProfile(null)
+      setLoading(false)
+      
+      // Attempt Supabase signOut with timeout
+      const signOutPromise = supabase.auth.signOut()
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('SignOut timeout')), 3000)
+      )
+      
+      try {
+        const { error } = await Promise.race([signOutPromise, timeoutPromise])
+        if (error) {
+          console.warn('Supabase signOut error (local state already cleared):', error)
+          // Don't set error since we've already cleared local state
+        }
+      } catch (timeoutError) {
+        console.warn('SignOut timed out (local state already cleared)')
+        // Don't set error since we've already cleared local state
       }
 
-      setProfile(null)
       return { error: null }
     } catch (err: any) {
+      console.error('SignOut exception:', err)
       setError(err.message)
       return { error: err }
+    } finally {
+      setIsSigningOut(false)
     }
   }
 
