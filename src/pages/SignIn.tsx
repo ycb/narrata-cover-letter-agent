@@ -37,7 +37,7 @@ const SignIn = () => {
     setFormError(null);
 
     try {
-      const { error } = await signIn(formData.email, formData.password);
+      const { error } = await signIn(formData.email, formData.password, formData.rememberMe);
       
       if (error) {
         setFormError(error.message || 'Sign in failed');
