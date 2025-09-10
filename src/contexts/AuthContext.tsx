@@ -12,7 +12,7 @@ interface AuthContextType {
   loading: boolean
   error: string | null
   signUp: (email: string, password: string, fullName?: string) => Promise<{ error: any }>
-  signIn: (email: string, password: string) => Promise<{ error: any }>
+  signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ error: any }>
   signInWithMagicLink: (email: string) => Promise<{ error: any }>
   signInWithGoogle: () => Promise<{ error: any }>
   signInWithLinkedIn: () => Promise<{ error: any }>
@@ -168,7 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (email: string, password: string, rememberMe = false) => {
     try {
       setError(null)
       const { error } = await supabase.auth.signInWithPassword({
