@@ -133,11 +133,13 @@ function submitBetaSignup(betaData) {
       headerRange.setBackground('#f0f0f0');
     }
     
-    // Check if email already exists
-    const existingEmails = sheet.getRange(2, 2, sheet.getLastRow() - 1, 1).getValues().flat();
-    if (existingEmails.includes(betaData.email)) {
-      console.log('Email already exists in beta testers:', betaData.email);
-      return true; // Consider it successful since email is already registered
+    // Check if email already exists (only if sheet has data)
+    if (sheet.getLastRow() > 1) {
+      const existingEmails = sheet.getRange(2, 2, sheet.getLastRow() - 1, 1).getValues().flat();
+      if (existingEmails.includes(betaData.email)) {
+        console.log('Email already exists in beta testers:', betaData.email);
+        return true; // Consider it successful since email is already registered
+      }
     }
     
     // Prepare the row data
