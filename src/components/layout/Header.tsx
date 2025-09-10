@@ -23,7 +23,7 @@ import {
   Rocket,
   Cpu
 } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { UserGoalsModal } from "@/components/user-goals/UserGoalsModal";
@@ -49,15 +49,38 @@ interface HeaderProps {
 
 export const Header = ({ currentPage }: HeaderProps) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, profile, signOut } = useAuth();
   const [showDataModal, setShowDataModal] = useState(false);
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const { goals, setGoals } = useUserGoals();
   const { voice, setVoice } = useUserVoice();
 
-  const handleSignOut = async () => {
-    await signOut();
+  const handleSignOut = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (isSigningOut) {
+      return;
+    }
+    
+    setIsSigningOut(true);
+    
+    try {
+      const { error } = await signOut();
+      
+      // Always redirect regardless of signOut result
+      // The AuthContext handles clearing local state
+      navigate('/signin', { replace: true });
+    } catch (navError) {
+      console.error('Navigation error:', navError);
+      // Fallback to window.location
+      window.location.href = '/signin';
+    } finally {
+      setIsSigningOut(false);
+    }
   };
   
   // Determine current page based on pathname
@@ -370,9 +393,10 @@ export const Header = ({ currentPage }: HeaderProps) => {
               <DropdownMenuSeparator />
               <DropdownMenuItem 
                 onClick={handleSignOut}
-                className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end"
+                disabled={isSigningOut}
+                className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <span>Log out</span>
+                <span>{isSigningOut ? 'Signing out...' : 'Log out'}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

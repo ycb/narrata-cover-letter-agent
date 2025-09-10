@@ -12,9 +12,6 @@ import {
   Mail
 } from "lucide-react";
 import CoverLetterCreateModal from "@/components/cover-letters/CoverLetterCreateModal";
-import { AuthStatus } from "@/components/auth/AuthStatus";
-import { AuthTestPanel } from "@/components/auth/AuthTestPanel";
-import { OAuthDebug } from "@/components/auth/OAuthDebug";
 
 // Import new simplified v2 components
 import { CoverageMapSimplified } from "@/components/dashboard/CoverageMapSimplified";
@@ -177,12 +174,6 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* Auth Status - For Testing */}
-        <div className="mb-8 space-y-6">
-          <AuthStatus />
-          <AuthTestPanel />
-          <OAuthDebug />
-        </div>
 
         {/* 2 Large Modules Side by Side - Story Gaps + PM Competency */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
