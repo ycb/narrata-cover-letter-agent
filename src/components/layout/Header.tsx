@@ -353,6 +353,13 @@ export const Header = ({ currentPage }: HeaderProps) => {
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Mobile Menu Button */}
+          <button
+            className="md:hidden text-white opacity-90 hover:opacity-100 transition-opacity p-2 rounded-md hover:bg-white/10"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          >
+            {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="text-white opacity-90 hover:opacity-100 transition-opacity">
