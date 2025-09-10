@@ -31,6 +31,7 @@ import { MyVoiceModal } from "@/components/user-voice/MyVoiceModal";
 import { MyDataModal } from "@/components/user-data/MyDataModal";
 import { useUserGoals } from "@/contexts/UserGoalsContext";
 import { useUserVoice } from "@/contexts/UserVoiceContext";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,11 +49,16 @@ interface HeaderProps {
 
 export const Header = ({ currentPage }: HeaderProps) => {
   const location = useLocation();
+  const { user, profile, signOut } = useAuth();
   const [showDataModal, setShowDataModal] = useState(false);
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const { goals, setGoals } = useUserGoals();
   const { voice, setVoice } = useUserVoice();
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
   
   // Determine current page based on pathname
   const getCurrentPage = (pathname: string): string => {
@@ -362,7 +368,10 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 <span>My Voice</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end">
+              <DropdownMenuItem 
+                onClick={handleSignOut}
+                className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end"
+              >
                 <span>Log out</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
