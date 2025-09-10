@@ -348,22 +348,20 @@ export const Header = ({ currentPage }: HeaderProps) => {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Mobile Menu Button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden text-white opacity-90 hover:opacity-100 transition-opacity"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          >
-            {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </Button>
-
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="text-white opacity-90 hover:opacity-100 transition-opacity">
                 <User className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
+
+          {/* Mobile Menu Button - Primary position (rightmost) */}
+          <button
+            className="md:hidden text-white opacity-90 hover:opacity-100 transition-opacity p-2 rounded-md hover:bg-white/10"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          >
+            {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
             <DropdownMenuContent align="end" className="w-56 p-3 rounded-t-none border-0" style={{ backgroundColor: 'rgba(18, 18, 18, 0.9)' }}>
               <DropdownMenuItem onClick={() => setShowDataModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end">
                 <span>My Data</span>
