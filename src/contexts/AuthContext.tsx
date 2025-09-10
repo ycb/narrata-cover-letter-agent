@@ -215,13 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(null)
       setIsSigningOut(true)
       
-      // Clear local state immediately for better UX
-      setUser(null)
-      setSession(null)
-      setProfile(null)
-      setLoading(false)
-      
-      // Attempt Supabase signOut with timeout
+      // First, sign out from Supabase to clear the session
       const signOutPromise = supabase.auth.signOut()
       const timeoutPromise = new Promise<never>((_, reject) => 
         setTimeout(() => reject(new Error('SignOut timeout')), 3000)
@@ -230,12 +224,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const { error } = await Promise.race([signOutPromise, timeoutPromise])
         if (error) {
-          console.warn('Supabase signOut error (local state already cleared):', error)
-          // Don't set error since we've already cleared local state
+          console.warn('Supabase signOut error:', error)
+          // Even if Supabase fails, clear local state
         }
       } catch (timeoutError) {
-        console.warn('SignOut timed out (local state already cleared)')
-        // Don't set error since we've already cleared local state
+        console.warn('SignOut timed out')
+        // Even if timeout, clear local state
+      }
+
+      // Clear local state after Supabase signOut attempt
+      setUser(null)
+      setSession(null)
+      setProfile(null)
+      setLoading(false)
+      
+      // Force clear any remaining session data
+      try {
+        // Clear all Supabase-related localStorage items
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('sb-') && key.includes('auth-token')) {
+            localStorage.removeItem(key)
+          }
+        })
+      } catch (e) {
+        // Ignore localStorage errors
       }
 
       return { error: null }
