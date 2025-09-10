@@ -59,7 +59,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
   // Reset form when modal closes
   useEffect(() => {
     if (!isOpen) {
-      setFormState(INITIAL_FORM_STATE);
+      setFormState(getInitialFormState());
       setCurrentStep('form');
       reset();
     }

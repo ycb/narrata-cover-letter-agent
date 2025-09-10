@@ -134,21 +134,19 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({ isOpen, onClose }) =
                 </div>
               </form>
             </div>
-          ) : (
-            <div className="bg-green-50 p-6 rounded-lg border border-green-200 space-y-4 mb-6">
-              <div className="flex items-center gap-3">
-                <Mail className="h-6 w-6 text-green-600" />
-                <h3 className="text-lg font-semibold text-green-800">
-                  You're In! 🎉
-                </h3>
-              </div>
-              <p className="text-green-700">
-                Thanks for opting in! We'll be in touch about your beta access. 
-                Start exploring and don't forget to leave feedback using the pink 
-                feedback buttons throughout the app.
-              </p>
-            </div>
-          )}
+                 ) : (
+                   <div className="bg-green-50 p-6 rounded-lg border border-green-200 space-y-4 mb-6">
+                     <div className="flex items-center gap-3">
+                       <Mail className="h-6 w-6 text-green-600" />
+                       <h3 className="text-lg font-semibold text-green-800">
+                         You're In! 🎉
+                       </h3>
+                     </div>
+                     <p className="text-green-700">
+                       Thanks for opting in. We will follow up to provide you beta access.
+                     </p>
+                   </div>
+                 )}
 
           <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200 mb-6">
             <MessageCircle className="h-5 w-5 text-blue-600" />
