@@ -29,6 +29,7 @@ interface OnboardingData {
   coverLetter?: string;
   coverLetterFile?: File;
   caseStudies?: string[];
+  caseStudiesFile?: File;
   pmLevel?: string;
   confidence?: number;
   progress?: number;
@@ -117,9 +118,15 @@ export default function NewUserOnboarding() {
     }
   };
 
-  const handleFileUpload = (type: 'resume' | 'coverLetter', file: File) => {
+  const handleFileUpload = (type: 'resume' | 'coverLetter' | 'caseStudies', file: File) => {
     if (type === 'coverLetter') {
       setOnboardingData(prev => ({ ...prev, coverLetterFile: file }));
+    } else if (type === 'caseStudies') {
+      setOnboardingData(prev => ({ 
+        ...prev, 
+        caseStudies: prev.caseStudies ? [...prev.caseStudies, file.name] : [file.name],
+        caseStudiesFile: file
+      }));
     } else {
       setOnboardingData(prev => ({ ...prev, [type]: file }));
     }
@@ -245,7 +252,7 @@ export default function NewUserOnboarding() {
           onUploadComplete={handleUploadComplete}
           onUploadError={handleUploadError}
           optional
-          currentValue={onboardingData.caseStudies?.[0]}
+          currentValue={onboardingData.caseStudiesFile}
         />
       </div>
 

@@ -74,7 +74,7 @@ export const LINKEDIN_CONFIG = {
 // Error messages
 export const ERROR_MESSAGES = {
   FILE_TOO_LARGE: 'File is too large. Please upload a file smaller than 5MB.',
-  INVALID_TYPE: 'Please upload a PDF or DOCX file.',
+  INVALID_TYPE: 'Please upload a supported file type (PDF, DOCX, TXT, or MD).',
   UPLOAD_FAILED: 'Upload failed. Please check your connection and try again.',
   PROCESSING_FAILED: 'File processing failed. Please try uploading again.',
   LINKEDIN_AUTH_FAILED: 'LinkedIn connection failed. Please try again.',

@@ -6,8 +6,15 @@ import type {
   FileValidationResult, 
   StorageUploadResult, 
   UploadResult,
-  FileType 
+  FileType,
+  ProcessingStatus
 } from '@/types/fileUpload';
+
+// Interface for source data from database
+interface SourceData {
+  storage_path: string;
+  processing_status: ProcessingStatus;
+}
 
 // Helper function to get Supabase configuration
 const getSupabaseConfig = () => ({
@@ -41,7 +48,10 @@ export class FileUploadService {
     }
 
     // Check file type
-    const allowedTypes = FILE_UPLOAD_CONFIG.ALLOWED_TYPES[type.toUpperCase() as keyof typeof FILE_UPLOAD_CONFIG.ALLOWED_TYPES];
+    const typeKey = type === 'coverLetter' ? 'COVER_LETTER' : 
+                   type === 'caseStudies' ? 'CASE_STUDIES' : 
+                   type.toUpperCase() as keyof typeof FILE_UPLOAD_CONFIG.ALLOWED_TYPES;
+    const allowedTypes = FILE_UPLOAD_CONFIG.ALLOWED_TYPES[typeKey] as readonly string[];
     if (!allowedTypes.includes(file.type)) {
       return {
         valid: false,
@@ -238,7 +248,7 @@ export class FileUploadService {
    */
   async updateProcessingStatus(
     sourceId: string, 
-    status: 'processing' | 'completed' | 'failed',
+    status: 'pending' | 'processing' | 'completed' | 'failed',
     data?: string | Record<string, unknown>,
     error?: string,
     accessToken?: string
@@ -467,7 +477,7 @@ export class FileUploadService {
       // Delete from storage
       const { error: storageError } = await supabase.storage
         .from(FILE_UPLOAD_CONFIG.STORAGE.BUCKET_NAME)
-        .remove([source.storage_path]);
+        .remove([(source as SourceData).storage_path]);
 
       if (storageError) {
         console.error('Storage delete error:', storageError);
@@ -509,7 +519,7 @@ export class FileUploadService {
         throw new Error('Source not found');
       }
 
-      if (source.processing_status !== 'failed') {
+      if ((source as SourceData).processing_status !== 'failed') {
         throw new Error('Source is not in failed state');
       }
 
