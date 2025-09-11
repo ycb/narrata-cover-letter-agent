@@ -20,7 +20,6 @@ import {
 import { ContentReviewFlow } from "@/components/onboarding/ContentReviewFlow";
 import { FileUploadCard } from "@/components/onboarding/FileUploadCard";
 import { useTour } from "@/contexts/TourContext";
-import { LinkedInDebug } from "@/components/debug/LinkedInDebug";
 
 type OnboardingStep = 'welcome' | 'upload' | 'review';
 
@@ -251,19 +250,7 @@ export default function NewUserOnboarding() {
       </div>
 
         <div className="text-center">
-          {/* Debug info */}
-          <div className="mb-4 p-4 bg-gray-100 rounded text-sm text-left max-w-md mx-auto">
-            <div>Resume: {onboardingData.resume ? '✅' : '❌'}</div>
-            <div>LinkedIn: ⏸️ (Paused - Partnership Program)</div>
-            <div>Cover Letter Text: {onboardingData.coverLetter ? '✅' : '❌'}</div>
-            <div>Cover Letter File: {onboardingData.coverLetterFile ? '✅' : '❌'}</div>
-            <div>Button Disabled: {(!onboardingData.resume || (!onboardingData.coverLetter && !onboardingData.coverLetterFile)) ? 'Yes' : 'No'}</div>
-          </div>
           
-          {/* LinkedIn Debug Component */}
-          <div className="mb-4">
-            <LinkedInDebug />
-          </div>
         
         <Button 
           size="lg" 
