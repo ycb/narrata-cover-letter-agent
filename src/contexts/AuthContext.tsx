@@ -299,7 +299,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setError(null)
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'linkedin',
+        provider: 'linkedin_oidc',
         options: {
           redirectTo: `${window.location.origin}/dashboard`,
         },
