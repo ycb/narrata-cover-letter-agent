@@ -20,6 +20,7 @@ import {
 import { ContentReviewFlow } from "@/components/onboarding/ContentReviewFlow";
 import { FileUploadCard } from "@/components/onboarding/FileUploadCard";
 import { useTour } from "@/contexts/TourContext";
+import { LinkedInDebug } from "@/components/debug/LinkedInDebug";
 
 type OnboardingStep = 'welcome' | 'upload' | 'review';
 
@@ -125,6 +126,20 @@ export default function NewUserOnboarding() {
     }
   };
 
+  const handleUploadComplete = (fileId: string, uploadType: string) => {
+    console.log('Upload completed:', { fileId, uploadType });
+    // Store the file ID for later reference
+    setOnboardingData(prev => ({ 
+      ...prev, 
+      [`${uploadType}FileId`]: fileId 
+    }));
+  };
+
+  const handleUploadError = (error: string) => {
+    console.error('Upload error:', error);
+    // You could show a toast notification here
+  };
+
   const handleLinkedInUrl = (url: string) => {
     setOnboardingData(prev => ({ ...prev, linkedinUrl: url }));
   };
@@ -191,6 +206,8 @@ export default function NewUserOnboarding() {
           description="Upload your resume to get started"
           icon={FileText}
           onFileUpload={handleFileUpload}
+          onUploadComplete={handleUploadComplete}
+          onUploadError={handleUploadError}
           required
           currentValue={onboardingData.resume}
         />
@@ -198,10 +215,13 @@ export default function NewUserOnboarding() {
         <FileUploadCard
           type="linkedin"
           title="LinkedIn Profile"
-          description="Connect your professional profile"
+          description="Connect your professional profile (Coming Soon - Partnership Program)"
           icon={Linkedin}
           onLinkedInUrl={handleLinkedInUrl}
-          required
+          onUploadComplete={handleUploadComplete}
+          onUploadError={handleUploadError}
+          required={false}
+          disabled={true}
           currentValue={onboardingData.linkedinUrl}
         />
         
@@ -211,6 +231,8 @@ export default function NewUserOnboarding() {
           description="Paste or upload your strongest cover letter"
           icon={Mail}
           onTextInput={handleCoverLetterText}
+          onUploadComplete={handleUploadComplete}
+          onUploadError={handleUploadError}
           required
           currentValue={onboardingData.coverLetter}
         />
@@ -221,25 +243,32 @@ export default function NewUserOnboarding() {
           description="Add any relevant case studies or projects"
           icon={BookOpen}
           onFileUpload={handleFileUpload}
+          onUploadComplete={handleUploadComplete}
+          onUploadError={handleUploadError}
           optional
           currentValue={onboardingData.caseStudies?.[0]}
         />
       </div>
 
-      <div className="text-center">
-        {/* Debug info */}
-        <div className="mb-4 p-4 bg-gray-100 rounded text-sm text-left max-w-md mx-auto">
-          <div>Resume: {onboardingData.resume ? '✅' : '❌'}</div>
-          <div>LinkedIn: {onboardingData.linkedinUrl ? '✅' : '❌'}</div>
-          <div>Cover Letter Text: {onboardingData.coverLetter ? '✅' : '❌'}</div>
-          <div>Cover Letter File: {onboardingData.coverLetterFile ? '✅' : '❌'}</div>
-          <div>Button Disabled: {(!onboardingData.resume || !onboardingData.linkedinUrl || (!onboardingData.coverLetter && !onboardingData.coverLetterFile)) ? 'Yes' : 'No'}</div>
-        </div>
+        <div className="text-center">
+          {/* Debug info */}
+          <div className="mb-4 p-4 bg-gray-100 rounded text-sm text-left max-w-md mx-auto">
+            <div>Resume: {onboardingData.resume ? '✅' : '❌'}</div>
+            <div>LinkedIn: ⏸️ (Paused - Partnership Program)</div>
+            <div>Cover Letter Text: {onboardingData.coverLetter ? '✅' : '❌'}</div>
+            <div>Cover Letter File: {onboardingData.coverLetterFile ? '✅' : '❌'}</div>
+            <div>Button Disabled: {(!onboardingData.resume || (!onboardingData.coverLetter && !onboardingData.coverLetterFile)) ? 'Yes' : 'No'}</div>
+          </div>
+          
+          {/* LinkedIn Debug Component */}
+          <div className="mb-4">
+            <LinkedInDebug />
+          </div>
         
         <Button 
           size="lg" 
           onClick={handleNextStep}
-          disabled={!onboardingData.resume || !onboardingData.linkedinUrl || (!onboardingData.coverLetter && !onboardingData.coverLetterFile)}
+          disabled={!onboardingData.resume || (!onboardingData.coverLetter && !onboardingData.coverLetterFile)}
           className="px-8 py-3 text-lg"
         >
           {isProcessing ? (

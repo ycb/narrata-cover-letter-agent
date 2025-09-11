@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { 
   Upload, 
   FileText, 
@@ -13,8 +14,11 @@ import {
   CheckCircle, 
   XCircle,
   AlertTriangle,
-  Link as LinkIcon
+  Link as LinkIcon,
+  RefreshCw
 } from "lucide-react";
+import { useFileUpload, useLinkedInUpload } from "@/hooks/useFileUpload";
+import type { FileType } from "@/types/fileUpload";
 
 interface FileUploadCardProps {
   type: 'resume' | 'linkedin' | 'coverLetter' | 'caseStudies';
@@ -27,6 +31,8 @@ interface FileUploadCardProps {
   required?: boolean;
   optional?: boolean;
   currentValue?: string | File;
+  onUploadComplete?: (fileId: string, type: FileType) => void;
+  onUploadError?: (error: string) => void;
 }
 
 export function FileUploadCard({
@@ -39,21 +45,39 @@ export function FileUploadCard({
   onTextInput,
   required = false,
   optional = false,
-  currentValue
+  currentValue,
+  onUploadComplete,
+  onUploadError
 }: FileUploadCardProps) {
   const [isDragOver, setIsDragOver] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [linkedInUrl, setLinkedInUrl] = useState('');
   const [coverLetterText, setCoverLetterText] = useState('');
+  const [uploadedFileId, setUploadedFileId] = useState<string | null>(null);
 
-  const isCompleted = currentValue && (
+  // Use file upload hooks
+  const fileUpload = useFileUpload({
+    onComplete: (result) => {
+      if (result.success && result.fileId) {
+        setUploadedFileId(result.fileId);
+        onUploadComplete?.(result.fileId, type as FileType);
+      } else {
+        onUploadError?.(result.error || 'Upload failed');
+      }
+    },
+    onError: (error) => {
+      onUploadError?.(error);
+    }
+  });
+
+  const linkedInUpload = useLinkedInUpload();
+
+  const isCompleted = (currentValue && (
     type === 'resume' || type === 'coverLetter' || type === 'caseStudies' 
       ? currentValue instanceof File 
       : type === 'linkedin' 
         ? typeof currentValue === 'string' && currentValue.length > 0
         : false
-  );
+  )) || uploadedFileId !== null;
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -68,7 +92,6 @@ export function FileUploadCard({
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
-    setError(null);
 
     const files = Array.from(e.dataTransfer.files);
     if (files.length === 0) return;
@@ -84,64 +107,46 @@ export function FileUploadCard({
     }
   }, []);
 
-  const handleFileUpload = useCallback((file: File) => {
+  const handleFileUpload = useCallback(async (file: File) => {
     if (!onFileUpload) return;
 
-    setError(null);
-    setIsUploading(true);
-
-    // Validate file type
-    if (type === 'resume') {
-      const validTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-      if (!validTypes.includes(file.type)) {
-        setError('Please upload a PDF or DOCX file');
-        setIsUploading(false);
-        return;
-      }
-    }
-
-    if (type === 'coverLetter' || type === 'caseStudies') {
-      const validTypes = ['text/plain', 'application/pdf', 'text/markdown'];
-      if (!validTypes.includes(file.type)) {
-        setError('Please upload a text, PDF, or Markdown file');
-        setIsUploading(false);
-        return;
-      }
-    }
-
-    // Simulate upload delay
-    setTimeout(() => {
+    // Use real file upload service
+    const result = await fileUpload.uploadFile(file, type as FileType);
+    
+    // Also call the parent callback for compatibility
+    if (result.success) {
       onFileUpload(type as 'resume' | 'coverLetter', file);
-      setIsUploading(false);
-    }, 1000);
-  }, [type, onFileUpload]);
+    }
+  }, [fileUpload, type, onFileUpload]);
 
-  const handleLinkedInSubmit = useCallback(() => {
+  const handleLinkedInSubmit = useCallback(async () => {
     if (!onLinkedInUrl) return;
 
-    setError(null);
+    // Trim whitespace from URL before processing
+    const trimmedUrl = linkedInUrl.trim();
     
-    // Basic LinkedIn URL validation
-    if (!linkedInUrl.includes('linkedin.com/in/')) {
-      setError('Please enter a valid LinkedIn profile URL');
-      return;
+    // Use real LinkedIn upload service
+    const result = await linkedInUpload.connectLinkedIn(trimmedUrl);
+    
+    if (result.success && result.fileId) {
+      setUploadedFileId(result.fileId);
+      onLinkedInUrl(trimmedUrl);
+      onUploadComplete?.(result.fileId, 'linkedin');
+    } else {
+      onUploadError?.(result.error || 'LinkedIn connection failed');
     }
-
-    onLinkedInUrl(linkedInUrl);
-  }, [linkedInUrl, onLinkedInUrl]);
+  }, [linkedInUrl, onLinkedInUrl, linkedInUpload, onUploadComplete, onUploadError]);
 
   const handleCoverLetterSubmit = useCallback(() => {
     if (!onTextInput) return;
-
-    setError(null);
     
     if (coverLetterText.trim().length < 50) {
-      setError('Please enter at least 50 characters');
+      onUploadError?.('Please enter at least 50 characters');
       return;
     }
 
     onTextInput(coverLetterText);
-  }, [coverLetterText, onTextInput]);
+  }, [coverLetterText, onTextInput, onUploadError]);
 
   const renderFileUpload = () => (
     <div className="space-y-4">
@@ -181,17 +186,49 @@ export function FileUploadCard({
         </p>
       </div>
 
-      {error && (
+      {(fileUpload.error || linkedInUpload.error) && (
         <div className="flex items-center gap-2 text-red-600 text-sm">
           <AlertTriangle className="w-4 h-4" />
-          {error}
+          {fileUpload.error || linkedInUpload.error}
         </div>
       )}
 
-      {isUploading && (
-        <div className="flex items-center gap-2 text-blue-600 text-sm">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" />
-          Uploading...
+      {(fileUpload.isUploading || linkedInUpload.isConnecting) && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-blue-600 text-sm">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" />
+            {fileUpload.isUploading ? 'Uploading...' : 'Connecting to LinkedIn...'}
+          </div>
+          {fileUpload.progress.length > 0 && (
+            <div className="space-y-1">
+              {fileUpload.progress.map((progress) => (
+                <div key={progress.fileId} className="space-y-1">
+                  <div className="flex justify-between text-xs text-gray-600">
+                    <span>{progress.fileName}</span>
+                    <span>{progress.progress}%</span>
+                  </div>
+                  <Progress value={progress.progress} className="h-2" />
+                  {progress.status === 'failed' && progress.error && (
+                    <div className="flex items-center gap-2 text-red-600 text-xs">
+                      <XCircle className="w-3 h-3" />
+                      {progress.error}
+                      {progress.retryable && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => fileUpload.retryUpload(progress.fileId)}
+                          className="h-6 px-2 text-xs"
+                        >
+                          <RefreshCw className="w-3 h-3 mr-1" />
+                          Retry
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -221,10 +258,10 @@ export function FileUploadCard({
         </div>
       </div>
 
-      {error && (
+      {linkedInUpload.error && (
         <div className="flex items-center gap-2 text-red-600 text-sm">
           <AlertTriangle className="w-4 h-4" />
-          {error}
+          {linkedInUpload.error}
         </div>
       )}
     </div>
@@ -248,10 +285,10 @@ export function FileUploadCard({
         </p>
       </div>
 
-      {error && (
+      {fileUpload.error && (
         <div className="flex items-center gap-2 text-red-600 text-sm">
           <AlertTriangle className="w-4 h-4" />
-          {error}
+          {fileUpload.error}
         </div>
       )}
 
