@@ -138,7 +138,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
     } finally {
       setIsUploading(false);
     }
-  }, [user, allowedTypes, maxFileSize, onProgress, onComplete, onError]);
+  }, [user, allowedTypes, maxFileSize, onProgress, onComplete, onError, session?.access_token]);
 
   /**
    * Upload multiple files
@@ -203,6 +203,101 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
   }, [user, onComplete, onError]);
 
   /**
+   * Save manual text input to database and process with LLM
+   * Now uses unified uploadContent method
+   */
+  const saveManualText = useCallback(async (text: string, type: FileType): Promise<UploadResult> => {
+    console.log('useFileUpload - saveManualText called with user:', { 
+      hasUser: !!user, 
+      userId: user?.id, 
+      userEmail: user?.email 
+    });
+    
+    if (!user) {
+      const errorMsg = 'User not authenticated';
+      console.error('useFileUpload - No user found:', errorMsg);
+      setError(errorMsg);
+      onError?.(errorMsg);
+      return { success: false, error: errorMsg, retryable: false };
+    }
+
+    // Validate text length
+    if (text.trim().length < 10) {
+      const errorMsg = 'Text must be at least 10 characters long';
+      setError(errorMsg);
+      onError?.(errorMsg);
+      return { success: false, error: errorMsg, retryable: false };
+    }
+
+    const fileId = `manual_${type}_${Date.now()}`;
+    
+    // Create progress entry
+    const progressEntry: FileUploadProgress = {
+      fileId,
+      fileName: `Manual ${type} text`,
+      status: 'pending',
+      progress: 0
+    };
+
+    setProgress(prev => [...prev, progressEntry]);
+    setIsUploading(true);
+    setError(null);
+
+    try {
+      // Update progress to processing
+      setProgress(prev => 
+        prev.map(p => p.fileId === fileId ? { ...p, status: 'processing', progress: 25 } : p)
+      );
+      onProgress?.(progressEntry);
+
+      // Use unified uploadContent method for manual text
+      const result = await fileUploadService.current.uploadContent(text, user.id, type, session?.access_token);
+      
+      if (result.success) {
+        // Update progress to completed
+        setProgress(prev => 
+          prev.map(p => p.fileId === fileId ? { ...p, status: 'completed', progress: 100 } : p)
+        );
+        
+        onComplete?.(result);
+        return result;
+      } else {
+        // Update progress to failed
+        setProgress(prev => 
+          prev.map(p => p.fileId === fileId ? { 
+            ...p, 
+            status: 'failed', 
+            error: result.error,
+            retryable: result.retryable 
+          } : p)
+        );
+        
+        setError(result.error);
+        onError?.(result.error || 'Save failed');
+        return result;
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Save failed';
+      
+      // Update progress to failed
+      setProgress(prev => 
+        prev.map(p => p.fileId === fileId ? { 
+          ...p, 
+          status: 'failed', 
+          error: errorMsg,
+          retryable: true 
+        } : p)
+      );
+      
+      setError(errorMsg);
+      onError?.(errorMsg);
+      return { success: false, error: errorMsg, retryable: true };
+    } finally {
+      setIsUploading(false);
+    }
+  }, [user, onProgress, onComplete, onError, session?.access_token]);
+
+  /**
    * Clear error state
    */
   const clearError = useCallback(() => {
@@ -247,6 +342,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
   return {
     uploadFile,
     uploadFiles,
+    saveManualText,
     isUploading,
     progress,
     error,

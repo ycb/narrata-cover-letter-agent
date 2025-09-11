@@ -151,7 +151,9 @@ export default function NewUserOnboarding() {
   };
 
   const handleCoverLetterText = (text: string) => {
+    console.log('handleCoverLetterText called with:', text);
     setOnboardingData(prev => ({ ...prev, coverLetter: text }));
+    console.log('Updated onboardingData.coverLetter to:', text);
   };
 
   const renderWelcomeStep = () => (
@@ -237,6 +239,7 @@ export default function NewUserOnboarding() {
           description="Paste or upload your strongest cover letter"
           icon={Mail}
           onTextInput={handleCoverLetterText}
+          onFileUpload={handleFileUpload}
           onUploadComplete={handleUploadComplete}
           onUploadError={handleUploadError}
           required

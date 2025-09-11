@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useFileUpload, useLinkedInUpload } from "@/hooks/useFileUpload";
 import type { FileType } from "@/types/fileUpload";
+import { TextExtractionService } from "@/services/textExtractionService";
 
 interface FileUploadCardProps {
   type: 'resume' | 'linkedin' | 'coverLetter' | 'caseStudies';
@@ -53,8 +54,17 @@ export function FileUploadCard({
 }: FileUploadCardProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [linkedInUrl, setLinkedInUrl] = useState('');
-  const [coverLetterText, setCoverLetterText] = useState('');
+  const [coverLetterText, setCoverLetterText] = useState(currentValue || '');
   const [uploadedFileId, setUploadedFileId] = useState<string | null>(null);
+  const [uploadedFileContent, setUploadedFileContent] = useState<string | null>(null);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+
+  // Update local state when currentValue prop changes
+  useEffect(() => {
+    if (type === 'coverLetter' && currentValue) {
+      setCoverLetterText(currentValue);
+    }
+  }, [currentValue, type]);
 
   // Use file upload hooks
   const fileUpload = useFileUpload({
@@ -72,6 +82,11 @@ export function FileUploadCard({
   });
 
   const linkedInUpload = useLinkedInUpload();
+
+  // Smart combination logic
+  const hasUploadedFile = uploadedFileId !== null;
+  const hasTextInput = typeof coverLetterText === 'string' && coverLetterText.trim().length >= 10;
+  const hasBoth = hasUploadedFile && hasTextInput;
 
   const isCompleted = (currentValue && (
     type === 'resume' || type === 'coverLetter' || type === 'caseStudies' 
@@ -112,6 +127,22 @@ export function FileUploadCard({
   const handleFileUpload = useCallback(async (file: File) => {
     if (!onFileUpload) return;
 
+    if (type === 'coverLetter') {
+      // For cover letters, extract content and store it for combination
+      try {
+        const textExtractionService = new TextExtractionService();
+        const extractionResult = await textExtractionService.extractText(file);
+        
+        if (extractionResult.success) {
+          setUploadedFileContent(extractionResult.text!);
+          setUploadedFileName(file.name);
+          console.log('File content extracted for combination:', extractionResult.text!.length, 'characters');
+        }
+      } catch (error) {
+        console.warn('Could not extract file content for combination:', error);
+      }
+    }
+
     // Use real file upload service
     const result = await fileUpload.uploadFile(file, type as FileType);
     
@@ -139,16 +170,58 @@ export function FileUploadCard({
     }
   }, [linkedInUrl, onLinkedInUrl, linkedInUpload, onUploadComplete, onUploadError]);
 
-  const handleCoverLetterSubmit = useCallback(() => {
-    if (!onTextInput) return;
-    
-    if (coverLetterText.trim().length < 50) {
-      onUploadError?.('Please enter at least 50 characters');
+  // Smart submission handler
+  const handleSmartSubmit = useCallback(async () => {
+    if (!hasUploadedFile && !hasTextInput) {
+      onUploadError?.('Please upload a file or enter text');
       return;
     }
 
-    onTextInput(coverLetterText);
-  }, [coverLetterText, onTextInput, onUploadError]);
+    try {
+      let contentToProcess: string;
+      let submissionType: string;
+
+      if (hasBoth) {
+        // Combine file content with additional text
+        contentToProcess = `${uploadedFileContent}\n\n--- Additional Context ---\n${coverLetterText}`;
+        submissionType = 'Combined file and text';
+      } else if (hasUploadedFile) {
+        // Use file content only
+        contentToProcess = uploadedFileContent!;
+        submissionType = 'Uploaded file';
+      } else {
+        // Use text only
+        contentToProcess = typeof coverLetterText === 'string' ? coverLetterText : '';
+        submissionType = 'Manual text';
+      }
+
+      console.log(`Processing ${submissionType}:`, { length: contentToProcess.length });
+      
+      const result = await fileUpload.saveManualText(contentToProcess, 'coverLetter');
+      
+      if (result.success) {
+        console.log(`${submissionType} saved successfully`);
+        onTextInput(contentToProcess);
+        onUploadComplete?.(result.fileId!, 'coverLetter');
+      } else {
+        onUploadError?.(result.error || 'Failed to save content');
+      }
+    } catch (error) {
+      onUploadError?.(error instanceof Error ? error.message : 'Failed to save content');
+    }
+  }, [hasUploadedFile, hasTextInput, hasBoth, uploadedFileContent, coverLetterText, fileUpload, onTextInput, onUploadComplete, onUploadError]);
+
+  // Helper functions for UI
+  const getButtonText = () => {
+    if (hasBoth) return 'Combine File & Text';
+    if (hasUploadedFile) return 'Process Uploaded File';
+    if (hasTextInput) return 'Add Cover Letter Text';
+    return 'Add Cover Letter Text';
+  };
+
+  const getButtonDisabled = () => {
+    return !hasUploadedFile && !hasTextInput;
+  };
 
   const renderFileUpload = () => (
     <div className="space-y-4">
@@ -217,7 +290,7 @@ export function FileUploadCard({
                       {progress.retryable && (
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="secondary"
                           onClick={() => fileUpload.retryUpload(progress.fileId)}
                           className="h-6 px-2 text-xs"
                         >
@@ -326,15 +399,22 @@ export function FileUploadCard({
         </label>
         <Textarea
           placeholder="Paste your best cover letter content here..."
-          value={coverLetterText}
+          value={typeof coverLetterText === 'string' ? coverLetterText : ''}
           onChange={(e) => setCoverLetterText(e.target.value)}
           rows={6}
           className="resize-none"
         />
         <p className="text-xs text-gray-500">
-          Minimum 50 characters. We'll extract stories and sections automatically.
+          Minimum 10 characters. We'll extract stories and sections automatically.
         </p>
       </div>
+
+      {hasBoth && (
+        <div className="flex items-center gap-2 text-blue-600 text-sm bg-blue-50 p-3 rounded-lg">
+          <div className="w-2 h-2 bg-blue-600 rounded-full" />
+          <span>You have both a file and text. We'll combine them into one submission.</span>
+        </div>
+      )}
 
       {fileUpload.error && (
         <div className="flex items-center gap-2 text-red-600 text-sm">
@@ -344,11 +424,11 @@ export function FileUploadCard({
       )}
 
       <Button 
-        onClick={handleCoverLetterSubmit}
-        disabled={coverLetterText.trim().length < 50}
+        onClick={handleSmartSubmit}
+        disabled={getButtonDisabled()}
         className="w-full"
       >
-        Add Cover Letter Text
+        {getButtonText()}
       </Button>
     </div>
   );

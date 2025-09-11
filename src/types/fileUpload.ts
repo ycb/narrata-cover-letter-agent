@@ -164,9 +164,16 @@ export interface UseFileUploadOptions {
 export interface UseFileUploadReturn {
   uploadFile: (file: File, type: FileType) => Promise<UploadResult>;
   uploadFiles: (files: File[], type: FileType) => Promise<UploadResult[]>;
+  saveManualText: (text: string, type: FileType) => Promise<UploadResult>;
   isUploading: boolean;
   progress: FileUploadProgress[];
   error: string | null;
   clearError: () => void;
   retryUpload: (fileId: string) => Promise<UploadResult>;
+  // Additional utility methods
+  clearProgress: () => void;
+  getFileProgress: (fileId: string) => FileUploadProgress | undefined;
+  hasActiveUploads: () => boolean;
+  getFailedUploads: () => FileUploadProgress[];
+  getCompletedUploads: () => FileUploadProgress[];
 }

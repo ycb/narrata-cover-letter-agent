@@ -2,7 +2,7 @@
 import type { TextExtractionResult } from '@/types/fileUpload';
 
 // Dynamic imports for production libraries
-let pdfParse: any = null;
+let pdfjsLib: any = null;
 let mammoth: any = null;
 
 export class TextExtractionService {
@@ -10,11 +10,13 @@ export class TextExtractionService {
    * Initialize production libraries
    */
   private async initializeLibraries(): Promise<void> {
-    if (!pdfParse) {
+    if (!pdfjsLib) {
       try {
-        pdfParse = (await import('pdf-parse')).default;
+        pdfjsLib = await import('pdfjs-dist');
+        // Use local worker file
+        pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
       } catch (error) {
-        console.warn('pdf-parse not available, using fallback');
+        console.warn('pdfjs-dist not available, using fallback');
       }
     }
     
@@ -38,6 +40,8 @@ export class TextExtractionService {
         return await this.extractFromPDF(file);
       } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
         return await this.extractFromDOCX(file);
+      } else if (file.type === 'text/plain' || file.type === 'text/markdown') {
+        return await this.extractFromText(file);
       } else {
         return {
           success: false,
@@ -54,18 +58,30 @@ export class TextExtractionService {
   }
 
   /**
-   * Extract text from PDF file
+   * Extract text from PDF file using PDF.js
    */
   private async extractFromPDF(file: File): Promise<TextExtractionResult> {
     try {
       const arrayBuffer = await file.arrayBuffer();
       
-      if (pdfParse) {
-        // Use production pdf-parse library
-        const data = await pdfParse(arrayBuffer);
+      if (pdfjsLib) {
+        // Use PDF.js library
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let fullText = '';
+        
+        // Extract text from all pages
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+          const page = await pdf.getPage(pageNum);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items
+            .map((item: any) => item.str)
+            .join(' ');
+          fullText += pageText + '\n';
+        }
+        
         return {
           success: true,
-          text: this.cleanText(data.text)
+          text: this.cleanText(fullText)
         };
       } else {
         // Fallback implementation
@@ -116,12 +132,31 @@ export class TextExtractionService {
   }
 
   /**
-   * Fallback PDF parsing (when pdf-parse is not available)
+   * Extract text from plain text files (TXT, MD)
+   */
+  private async extractFromText(file: File): Promise<TextExtractionResult> {
+    try {
+      const text = await file.text();
+      return {
+        success: true,
+        text: this.cleanText(text)
+      };
+    } catch (error) {
+      console.error('Text file extraction error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Text file extraction failed'
+      };
+    }
+  }
+
+  /**
+   * Fallback PDF parsing (when PDF.js is not available)
    */
   private async parsePDFFallback(arrayBuffer: ArrayBuffer): Promise<string> {
-    // Basic fallback - in production, you might want to use PDF.js
-    // For now, return a placeholder that indicates the file was processed
-    return `[PDF content extracted - ${arrayBuffer.byteLength} bytes]`;
+    // Basic fallback - PDF.js failed to load
+    // Return a placeholder that indicates the file was processed but text extraction failed
+    return `[PDF file processed - ${arrayBuffer.byteLength} bytes - Text extraction unavailable]`;
   }
 
   /**

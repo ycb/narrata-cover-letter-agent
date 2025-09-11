@@ -57,6 +57,72 @@ export class LLMAnalysisService {
   }
 
   /**
+   * Analyze cover letter text and extract structured data
+   */
+  async analyzeCoverLetter(text: string): Promise<LLMAnalysisResult> {
+    try {
+      const prompt = this.buildCoverLetterAnalysisPrompt(text);
+      const response = await this.callOpenAI(prompt);
+      
+      if (!response.success) {
+        return {
+          success: false,
+          error: response.error,
+          retryable: response.retryable
+        };
+      }
+
+      // Parse and validate the response
+      const structuredData = this.parseStructuredData(response.data);
+      
+      return {
+        success: true,
+        data: structuredData
+      };
+    } catch (error) {
+      console.error('Cover letter LLM analysis error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Cover letter LLM analysis failed',
+        retryable: true
+      };
+    }
+  }
+
+  /**
+   * Analyze case study text and extract structured data
+   */
+  async analyzeCaseStudy(text: string): Promise<LLMAnalysisResult> {
+    try {
+      const prompt = this.buildCaseStudyAnalysisPrompt(text);
+      const response = await this.callOpenAI(prompt);
+      
+      if (!response.success) {
+        return {
+          success: false,
+          error: response.error,
+          retryable: response.retryable
+        };
+      }
+
+      // Parse and validate the response
+      const structuredData = this.parseStructuredData(response.data);
+      
+      return {
+        success: true,
+        data: structuredData
+      };
+    } catch (error) {
+      console.error('Case study LLM analysis error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Case study LLM analysis failed',
+        retryable: true
+      };
+    }
+  }
+
+  /**
    * Build prompt for resume analysis
    */
   private buildResumeAnalysisPrompt(text: string): string {
@@ -140,6 +206,119 @@ Rules:
   }
 
   /**
+   * Build prompt for cover letter analysis
+   */
+  private buildCoverLetterAnalysisPrompt(text: string): string {
+    return `
+Analyze this cover letter text and extract structured data. Return ONLY valid JSON with no additional text.
+
+Cover Letter Text:
+${text}
+
+Extract the following information and return as JSON:
+
+{
+  "workHistory": [
+    {
+      "id": "unique_id",
+      "company": "Company Name",
+      "title": "Job Title",
+      "startDate": "YYYY-MM-DD",
+      "endDate": "YYYY-MM-DD or null if current",
+      "description": "Job description",
+      "achievements": ["achievement1", "achievement2"],
+      "location": "City, State",
+      "current": true/false
+    }
+  ],
+  "education": [
+    {
+      "id": "unique_id",
+      "institution": "University Name",
+      "degree": "Degree Type",
+      "fieldOfStudy": "Field of Study",
+      "startDate": "YYYY-MM-DD",
+      "endDate": "YYYY-MM-DD",
+      "gpa": "GPA if mentioned",
+      "location": "City, State"
+    }
+  ],
+  "skills": ["skill1", "skill2", "skill3"],
+  "achievements": ["achievement1", "achievement2"],
+  "contactInfo": {
+    "email": "email@example.com",
+    "phone": "phone number if mentioned",
+    "location": "City, State",
+    "website": "website if mentioned",
+    "linkedin": "linkedin if mentioned"
+  },
+  "summary": "Brief professional summary"
+}
+
+Instructions:
+- Extract work experience, education, skills, and achievements mentioned in the cover letter
+- Focus on accomplishments and achievements that demonstrate value
+- Include any specific metrics or results mentioned
+- Extract contact information if present
+- Create a professional summary based on the content
+- Ensure all dates are in YYYY-MM-DD format
+- Generate unique IDs for each item
+- Return valid JSON only, no markdown formatting
+`;
+  }
+
+  /**
+   * Build prompt for case study analysis
+   */
+  private buildCaseStudyAnalysisPrompt(text: string): string {
+    return `
+Analyze this case study text and extract structured data. Return ONLY valid JSON with no additional text.
+
+Case Study Text:
+${text}
+
+Extract the following information and return as JSON:
+
+{
+  "workHistory": [
+    {
+      "id": "unique_id",
+      "company": "Company Name",
+      "title": "Job Title",
+      "startDate": "YYYY-MM-DD",
+      "endDate": "YYYY-MM-DD or null if current",
+      "description": "Project/case study description",
+      "achievements": ["achievement1", "achievement2"],
+      "location": "City, State",
+      "current": true/false
+    }
+  ],
+  "education": [],
+  "skills": ["skill1", "skill2", "skill3"],
+  "achievements": ["achievement1", "achievement2"],
+  "contactInfo": {
+    "email": "email@example.com",
+    "phone": "phone number if mentioned",
+    "location": "City, State",
+    "website": "website if mentioned",
+    "linkedin": "linkedin if mentioned"
+  },
+  "summary": "Brief summary of the case study and its outcomes"
+}
+
+Instructions:
+- Extract project details, methodologies, and outcomes from the case study
+- Focus on technical skills, problem-solving approaches, and measurable results
+- Include any specific metrics, tools, or technologies mentioned
+- Extract any work experience or project context
+- Create a summary highlighting the key outcomes and learnings
+- Ensure all dates are in YYYY-MM-DD format
+- Generate unique IDs for each item
+- Return valid JSON only, no markdown formatting
+`;
+  }
+
+  /**
    * Call OpenAI API
    */
   private async callOpenAI(prompt: string): Promise<{
@@ -160,7 +339,7 @@ Rules:
           messages: [
             {
               role: 'system',
-              content: 'You are an expert at parsing resume data and extracting structured information. Always return valid JSON only.'
+              content: 'You are an expert at parsing resume data and extracting structured information. You must return ONLY valid JSON with no additional text, no markdown formatting, no code blocks, and no explanations. The response must be parseable by JSON.parse().'
             },
             {
               role: 'user',
@@ -197,14 +376,28 @@ Rules:
         };
       }
 
-      // Parse JSON response
+      // Parse JSON response with improved error handling
       try {
-        const parsedData = JSON.parse(content);
+        const parsedData = this.parseJSONResponse(content);
         return {
           success: true,
           data: parsedData
         };
       } catch (parseError) {
+        console.error('JSON parsing error:', parseError);
+        console.error('Raw content:', content);
+        
+        // Try one more time with a simpler prompt
+        try {
+          console.log('Retrying with simplified prompt...');
+          const retryResponse = await this.callOpenAIWithRetry(prompt);
+          if (retryResponse.success) {
+            return retryResponse;
+          }
+        } catch (retryError) {
+          console.error('Retry also failed:', retryError);
+        }
+        
         return {
           success: false,
           error: 'Invalid JSON response from OpenAI',
@@ -218,6 +411,136 @@ Rules:
         error: error instanceof Error ? error.message : 'OpenAI API call failed',
         retryable: true
       };
+    }
+  }
+
+  /**
+   * Retry OpenAI call with a simplified prompt
+   */
+  private async callOpenAIWithRetry(originalPrompt: string): Promise<{
+    success: boolean;
+    data?: Record<string, unknown>;
+    error?: string;
+    retryable?: boolean;
+  }> {
+    const simplifiedPrompt = `
+Extract the following information from this text and return ONLY valid JSON:
+
+${originalPrompt.split('Resume Text:')[1] || originalPrompt.split('Cover Letter Text:')[1] || originalPrompt.split('Case Study Text:')[1] || originalPrompt}
+
+Return this exact JSON structure:
+{
+  "workHistory": [],
+  "education": [],
+  "skills": [],
+  "achievements": [],
+  "contactInfo": {},
+  "summary": ""
+}
+
+IMPORTANT: Return ONLY the JSON object, no other text, no markdown, no explanations.`;
+
+    try {
+      const response = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: OPENAI_CONFIG.MODEL,
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a JSON extraction tool. Return ONLY valid JSON with no additional text.'
+            },
+            {
+              role: 'user',
+              content: simplifiedPrompt
+            }
+          ],
+          max_tokens: OPENAI_CONFIG.MAX_TOKENS,
+          temperature: 0.1, // Lower temperature for more consistent output
+        }),
+      });
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: `HTTP ${response.status}`,
+          retryable: false
+        };
+      }
+
+      const data = await response.json() as Record<string, unknown>;
+      const choices = data.choices as Record<string, unknown>[] | undefined;
+      const firstChoice = choices?.[0];
+      const message = firstChoice?.message as Record<string, unknown> | undefined;
+      const content = message?.content as string | undefined;
+
+      if (!content) {
+        return {
+          success: false,
+          error: 'No content in retry response',
+          retryable: false
+        };
+      }
+
+      const parsedData = this.parseJSONResponse(content);
+      return {
+        success: true,
+        data: parsedData
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Retry failed',
+        retryable: false
+      };
+    }
+  }
+
+  /**
+   * Parse JSON response with improved error handling for common OpenAI response formats
+   */
+  private parseJSONResponse(content: string): Record<string, unknown> {
+    // Remove markdown code blocks if present
+    let cleanedContent = content.trim();
+    
+    // Remove ```json and ``` markers
+    if (cleanedContent.startsWith('```json')) {
+      cleanedContent = cleanedContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+    } else if (cleanedContent.startsWith('```')) {
+      cleanedContent = cleanedContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
+    }
+    
+    // Remove any leading/trailing text that's not JSON
+    const jsonStart = cleanedContent.indexOf('{');
+    const jsonEnd = cleanedContent.lastIndexOf('}');
+    
+    if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+      cleanedContent = cleanedContent.substring(jsonStart, jsonEnd + 1);
+    }
+    
+    // Try to parse the cleaned content
+    try {
+      return JSON.parse(cleanedContent);
+    } catch (error) {
+      // If still failing, try to fix common JSON issues
+      try {
+        // Fix common issues like trailing commas, missing quotes, etc.
+        const fixedContent = cleanedContent
+          .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
+          .replace(/([{,]\s*)(\w+):/g, '$1"$2":') // Add quotes to unquoted keys
+          .replace(/:\s*([^",{\s][^,}\]]*?)(\s*[,}])/g, ': "$1"$2'); // Add quotes to unquoted string values
+        
+        return JSON.parse(fixedContent);
+      } catch (secondError) {
+        console.error('Failed to parse JSON even after cleaning:', secondError);
+        console.error('Original content:', content);
+        console.error('Cleaned content:', cleanedContent);
+        throw new Error(`Invalid JSON response: ${secondError instanceof Error ? secondError.message : 'Unknown error'}`);
+      }
     }
   }
 
