@@ -5,12 +5,42 @@ import { supabase } from '@/lib/supabase';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, CheckCircle } from 'lucide-react';
+import { NameCaptureModal } from '@/components/auth/NameCaptureModal';
 
 export default function AuthCallback() {
-  const { user, loading, error } = useAuth();
+  const { user, loading, error, profile } = useAuth();
   const navigate = useNavigate();
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'name-capture'>('loading');
   const [callbackError, setCallbackError] = useState<string | null>(null);
+  const [showNameCapture, setShowNameCapture] = useState(false);
+
+  // Helper function to check if user has complete name
+  const checkUserHasCompleteName = async (user: any): Promise<boolean> => {
+    try {
+      // Check auth metadata first
+      const authName = user.user_metadata?.full_name || user.user_metadata?.name;
+      if (authName && authName.trim().length > 0) {
+        return true;
+      }
+      
+      // Check profile table
+      const { data: profileData, error } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single();
+      
+      if (error) {
+        console.log('Error checking profile:', error);
+        return false;
+      }
+      
+      return profileData?.full_name && profileData.full_name.trim().length > 0;
+    } catch (err) {
+      console.error('Error checking user name:', err);
+      return false;
+    }
+  };
 
   useEffect(() => {
     const handleAuthCallback = async () => {
@@ -32,8 +62,18 @@ export default function AuthCallback() {
             
             if (event === 'SIGNED_IN' && session) {
               console.log('User signed in successfully:', session.user.email);
-              setStatus('success');
-              setTimeout(() => navigate('/dashboard'), 2000);
+              
+              // Check if user has a complete name
+              const hasCompleteName = await checkUserHasCompleteName(session.user);
+              
+              if (!hasCompleteName) {
+                console.log('User missing complete name, showing name capture modal');
+                setStatus('name-capture');
+                setShowNameCapture(true);
+              } else {
+                setStatus('success');
+                setTimeout(() => navigate('/dashboard'), 2000);
+              }
             } else if (event === 'SIGNED_OUT') {
               console.log('User signed out');
               setCallbackError('Authentication failed');
@@ -56,8 +96,18 @@ export default function AuthCallback() {
 
         if (data.session) {
           console.log('OAuth session found:', data.session.user.email);
-          setStatus('success');
-          setTimeout(() => navigate('/dashboard'), 2000);
+          
+          // Check if user has a complete name
+          const hasCompleteName = await checkUserHasCompleteName(data.session.user);
+          
+          if (!hasCompleteName) {
+            console.log('User missing complete name, showing name capture modal');
+            setStatus('name-capture');
+            setShowNameCapture(true);
+          } else {
+            setStatus('success');
+            setTimeout(() => navigate('/dashboard'), 2000);
+          }
           return;
         }
 
@@ -95,6 +145,12 @@ export default function AuthCallback() {
     handleAuthCallback();
   }, []); // Empty dependency array to run only once
 
+  const handleNameCaptureComplete = () => {
+    setShowNameCapture(false);
+    setStatus('success');
+    setTimeout(() => navigate('/dashboard'), 1000);
+  };
+
   if (loading || status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -103,6 +159,17 @@ export default function AuthCallback() {
           <p className="text-muted-foreground">Completing authentication...</p>
         </div>
       </div>
+    );
+  }
+
+  if (status === 'name-capture') {
+    return (
+      <NameCaptureModal
+        isOpen={showNameCapture}
+        onComplete={handleNameCaptureComplete}
+        userEmail={user?.email}
+        suggestedName={user?.user_metadata?.full_name || user?.user_metadata?.name}
+      />
     );
   }
 

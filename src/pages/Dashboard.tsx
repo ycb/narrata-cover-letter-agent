@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { StatsCard } from "@/components/dashboard/StatsCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +10,9 @@ import {
   TrendingUp, 
   Plus, 
   ArrowRight,
-  Mail
+  Mail,
+  Loader2,
+  AlertTriangle
 } from "lucide-react";
 import CoverLetterCreateModal from "@/components/cover-letters/CoverLetterCreateModal";
 
@@ -18,19 +21,69 @@ import { CoverageMapSimplified } from "@/components/dashboard/CoverageMapSimplif
 import { StoryGapsAndStrength } from "@/components/dashboard/StoryGapsAndStrength";
 import { TopActionNeeded } from "@/components/dashboard/TopActionNeeded";
 
-// Import mock data
-import { mockDashboardV2Data } from "@/lib/dashboard-data";
+// Import real data hook
+import { useDashboardData } from "@/hooks/useDashboardData";
 
 const Dashboard = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const { data: dashboardData, isLoading, error, refetch } = useDashboardData();
+  const { user } = useAuth();
   
-  // Transform mock data for TopActionNeeded
-  const topActions = mockDashboardV2Data.quickActions.map(action => ({
-    ...action,
-    category: action.id.includes('strategy') ? 'stories' as const :
-              action.id.includes('outcomes') ? 'improvement' as const :
-              action.id.includes('leadership') ? 'stories' as const : 'stories' as const
-  }));
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-600" />
+          <p className="text-gray-600">Loading your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <AlertTriangle className="w-8 h-8 text-red-500 mx-auto" />
+          <h3 className="text-xl font-semibold text-gray-900">Error Loading Dashboard</h3>
+          <p className="text-gray-600">{error}</p>
+          <Button onClick={refetch} variant="secondary">
+            Try Again
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show empty state if no data
+  if (!dashboardData) {
+    return (
+      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <FileText className="w-8 h-8 text-gray-400 mx-auto" />
+          <h3 className="text-xl font-semibold text-gray-900">No Data Available</h3>
+          <p className="text-gray-600">Complete your onboarding to see your dashboard.</p>
+          <Button asChild>
+            <Link to="/onboarding">Complete Onboarding</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Transform data for TopActionNeeded (using mock actions for now)
+  const topActions = [
+    {
+      id: 'strategy-gap',
+      title: 'Strengthen Product Strategy',
+      description: 'Add strategic planning examples',
+      priority: 'high' as const,
+      action: '/work-history',
+      context: { role: 'Senior PM', company: 'TechCorp' }
+    }
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
@@ -40,7 +93,7 @@ const Dashboard = () => {
           <div className="flex items-start justify-between mb-6">
             <div>
               <h1 className="text-3xl font-bold text-foreground top-padding-only">
-                Welcome back, Alex
+                Welcome back{dashboardData?.profile?.full_name || user?.email?.split('@')[0] ? `, ${dashboardData?.profile?.full_name || user?.email?.split('@')[0]}` : ''}
               </h1>
               <p className="text-muted-foreground mt-1">
                 Ready to land your next interview with strategic storytelling?
@@ -63,24 +116,33 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <StatsCard
             title="Stories"
-            value={12}
+            value={dashboardData.stats.stories}
             description="Work history entries"
             icon={FileText}
-            trend={{ value: "+3 this month", isPositive: true }}
+            trend={{ 
+              value: `+${dashboardData.stats.lastMonthStories} this month`, 
+              isPositive: dashboardData.stats.lastMonthStories > 0 
+            }}
           />
           <StatsCard
             title="Cover Letters"
-            value={23}
+            value={dashboardData.stats.coverLetters}
             description="Generated this month"
             icon={Mail}
-            trend={{ value: "+12% vs last month", isPositive: true }}
+            trend={{ 
+              value: `+${dashboardData.stats.lastMonthCoverLetters} this month`, 
+              isPositive: dashboardData.stats.lastMonthCoverLetters > 0 
+            }}
           />
           <StatsCard
             title="Senior PM Skills Coverage"
-            value="85%"
+            value={`${dashboardData.stats.skillsCoverage}%`}
             description="PM skills coverage"
             icon={TrendingUp}
-            trend={{ value: "+8% improvement this month", isPositive: true }}
+            trend={{ 
+              value: `+${dashboardData.stats.skillsImprovement}% improvement this month`, 
+              isPositive: dashboardData.stats.skillsImprovement > 0 
+            }}
           />
         </div>
 
@@ -98,35 +160,23 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-3">
-                <div className="p-3 border rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-sm">Sr. Product Manager</span>
-                    <Badge variant="secondary">10 jobs (66%)</Badge>
+                {dashboardData.topRoles.map((role, index) => (
+                  <div key={index} className="p-3 border rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium text-sm">{role.title}</span>
+                      <Badge variant="secondary">{role.count} jobs ({role.percentage}%)</Badge>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Last applied: {role.lastApplied}
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    Last applied: 2 days ago
+                ))}
+                {dashboardData.topRoles.length === 0 && (
+                  <div className="text-center py-4 text-muted-foreground">
+                    <p className="text-sm">No role targeting data available</p>
+                    <p className="text-xs">Complete onboarding to see your targets</p>
                   </div>
-                </div>
-                
-                <div className="p-3 border rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-sm">Lead PM</span>
-                    <Badge variant="secondary">3 jobs (20%)</Badge>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Last applied: 1 week ago
-                  </div>
-                </div>
-
-                <div className="p-3 border rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-sm">Principal PM</span>
-                    <Badge variant="secondary">2 jobs (13%)</Badge>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Last applied: 2 weeks ago
-                  </div>
-                </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -179,16 +229,16 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Story Gaps & Strength - Left Side */}
           <StoryGapsAndStrength 
-            storyStrength={mockDashboardV2Data.storyStrength}
-            gaps={mockDashboardV2Data.resumeGaps}
-            coverage={mockDashboardV2Data.coverageMap.competencies}
+            storyStrength={dashboardData.storyStrength}
+            gaps={dashboardData.resumeGaps}
+            coverage={dashboardData.coverageMap.competencies}
           />
 
           {/* Coverage Map - Right Side */}
           <CoverageMapSimplified 
-            coverage={mockDashboardV2Data.coverageMap.competencies}
-            overallCoverage={mockDashboardV2Data.coverageMap.overallCoverage}
-            priorityGaps={mockDashboardV2Data.coverageMap.priorityGaps}
+            coverage={dashboardData.coverageMap.competencies}
+            overallCoverage={dashboardData.coverageMap.overallCoverage}
+            priorityGaps={dashboardData.coverageMap.priorityGaps}
           />
         </div>
       </main>

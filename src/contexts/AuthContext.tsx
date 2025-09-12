@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from 'react'
 import { User, Session } from '@supabase/supabase-js'
-import { supabase, getUserProfile, upsertUserProfile, getCurrentUser } from '@/lib/supabase'
+import { supabase, getUserProfile, upsertUserProfile, getCurrentUser, safeAuthOperations } from '@/lib/supabase'
 import type { Database } from '@/types/supabase'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -24,6 +24,51 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+// Helper function to extract name from OAuth metadata
+const extractNameFromOAuthMetadata = (metadata: any): string | null => {
+  if (!metadata) return null;
+  
+  // Primary: full_name from metadata
+  if (metadata.full_name && metadata.full_name.trim()) {
+    return metadata.full_name.trim();
+  }
+  
+  // Secondary: name from metadata
+  if (metadata.name && metadata.name.trim()) {
+    return metadata.name.trim();
+  }
+  
+  // Tertiary: first_name + last_name from metadata
+  if (metadata.first_name && metadata.last_name) {
+    return `${metadata.first_name.trim()} ${metadata.last_name.trim()}`.trim();
+  }
+  
+  if (metadata.first_name && metadata.first_name.trim()) {
+    return metadata.first_name.trim();
+  }
+  
+  // Quaternary: given_name + family_name from metadata (Google OAuth)
+  if (metadata.given_name && metadata.family_name) {
+    return `${metadata.given_name.trim()} ${metadata.family_name.trim()}`.trim();
+  }
+  
+  if (metadata.given_name && metadata.given_name.trim()) {
+    return metadata.given_name.trim();
+  }
+  
+  // Quinary: nickname from metadata
+  if (metadata.nickname && metadata.nickname.trim()) {
+    return metadata.nickname.trim();
+  }
+  
+  // Senary: preferred_username from metadata
+  if (metadata.preferred_username && metadata.preferred_username.trim()) {
+    return metadata.preferred_username.trim();
+  }
+  
+  return null;
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
@@ -41,10 +86,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!profileData) {
         const user = await getCurrentUser()
         if (user) {
+          // Enhanced name extraction from OAuth metadata
+          const extractedName = extractNameFromOAuthMetadata(user.user_metadata)
+          
           const newProfileData = {
             id: userId,
             email: user.email || '',
-            full_name: user.user_metadata?.full_name || user.user_metadata?.name || null,
+            full_name: extractedName,
             avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
           }
           
@@ -215,41 +263,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(null)
       setIsSigningOut(true)
       
-      // First, sign out from Supabase to clear the session
-      const signOutPromise = supabase.auth.signOut()
-      const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('SignOut timeout')), 3000)
-      )
+      console.log('Starting sign out process...')
       
-      try {
-        const { error } = await Promise.race([signOutPromise, timeoutPromise])
-        if (error) {
-          console.warn('Supabase signOut error:', error)
-          // Even if Supabase fails, clear local state
-        }
-      } catch (timeoutError) {
-        console.warn('SignOut timed out')
-        // Even if timeout, clear local state
-      }
-
-      // Clear local state after Supabase signOut attempt
+      // Clear local state immediately to prevent hanging
       setUser(null)
       setSession(null)
       setProfile(null)
       setLoading(false)
       
-      // Force clear any remaining session data
+      // Clear all Supabase-related localStorage items
       try {
-        // Clear all Supabase-related localStorage items
+        console.log('Clearing localStorage...')
         Object.keys(localStorage).forEach(key => {
-          if (key.startsWith('sb-') && key.includes('auth-token')) {
+          if (key.startsWith('sb-') || key.includes('supabase') || key.includes('auth')) {
             localStorage.removeItem(key)
           }
         })
+        
+        // Also clear sessionStorage
+        Object.keys(sessionStorage).forEach(key => {
+          if (key.startsWith('sb-') || key.includes('supabase') || key.includes('auth')) {
+            sessionStorage.removeItem(key)
+          }
+        })
       } catch (e) {
-        // Ignore localStorage errors
+        console.warn('Error clearing storage:', e)
       }
-
+      
+      // Try to call Supabase signOut with timeout (non-blocking)
+      try {
+        console.log('Attempting Supabase signOut...')
+        const signOutPromise = supabase.auth.signOut()
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('SignOut timeout')), 3000)
+        )
+        
+        await Promise.race([signOutPromise, timeoutPromise])
+        console.log('Supabase signOut completed')
+      } catch (signOutError) {
+        console.warn('Supabase signOut failed or timed out:', signOutError)
+        // Continue anyway - local state is already cleared
+      }
+      
+      console.log('Sign out process completed')
       return { error: null }
     } catch (err: any) {
       console.error('SignOut exception:', err)

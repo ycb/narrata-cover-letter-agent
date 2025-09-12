@@ -79,7 +79,7 @@ const SignIn = () => {
         {/* Logo/Brand */}
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-foreground mb-2">TruthLetter</h1>
-          <p className="text-muted-foreground">Welcome back to your narrative engine</p>
+          <p className="text-muted-foreground"> to your narrative engine</p>
         </div>
 
         <Card className="shadow-medium">

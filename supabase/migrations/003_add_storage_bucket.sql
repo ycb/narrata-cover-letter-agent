@@ -36,3 +36,4 @@ CREATE POLICY "Users can delete their own files" ON storage.objects
     auth.uid()::text = (storage.foldername(name))[1]
   );
 
+

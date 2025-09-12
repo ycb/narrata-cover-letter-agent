@@ -20,6 +20,7 @@ import {
 import { useFileUpload, useLinkedInUpload } from "@/hooks/useFileUpload";
 import type { FileType } from "@/types/fileUpload";
 import { TextExtractionService } from "@/services/textExtractionService";
+import { UploadProgressBar } from "./UploadProgressBar";
 
 interface FileUploadCardProps {
   type: 'resume' | 'linkedin' | 'coverLetter' | 'caseStudies';
@@ -115,14 +116,14 @@ export function FileUploadCard({
 
     const file = files[0];
     handleFileUpload(file);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       handleFileUpload(file);
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFileUpload = useCallback(async (file: File) => {
     if (!onFileUpload) return;
@@ -268,44 +269,14 @@ export function FileUploadCard({
         </div>
       )}
 
-      {(fileUpload.isUploading || linkedInUpload.isConnecting) && (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-blue-600 text-sm">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" />
-            {fileUpload.isUploading ? 'Uploading...' : 'Connecting to LinkedIn...'}
-          </div>
-          {fileUpload.progress.length > 0 && (
-            <div className="space-y-1">
-              {fileUpload.progress.map((progress) => (
-                <div key={progress.fileId} className="space-y-1">
-                  <div className="flex justify-between text-xs text-gray-600">
-                    <span>{progress.fileName}</span>
-                    <span>{progress.progress}%</span>
-                  </div>
-                  <Progress value={progress.progress} className="h-2" />
-                  {progress.status === 'failed' && progress.error && (
-                    <div className="flex items-center gap-2 text-red-600 text-xs">
-                      <XCircle className="w-3 h-3" />
-                      {progress.error}
-                      {progress.retryable && (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => fileUpload.retryUpload(progress.fileId)}
-                          className="h-6 px-2 text-xs"
-                        >
-                          <RefreshCw className="w-3 h-3 mr-1" />
-                          Retry
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      <UploadProgressBar
+        isUploading={fileUpload.isUploading}
+        isConnecting={linkedInUpload.isConnecting}
+        progress={fileUpload.progress}
+        onRetry={fileUpload.retryUpload}
+        uploadingText="Uploading..."
+        connectingText="Connecting to LinkedIn..."
+      />
     </div>
   );
 
@@ -382,6 +353,16 @@ export function FileUploadCard({
         </div>
       </div>
 
+      {/* Show progress bar for file uploads (when uploading or when file is uploaded) */}
+      {(fileUpload.isUploading || hasUploadedFile) && (
+        <UploadProgressBar
+          isUploading={fileUpload.isUploading}
+          progress={fileUpload.progress}
+          onRetry={fileUpload.retryUpload}
+          uploadingText="Uploading..."
+        />
+      )}
+
       {/* Divider */}
       <div className="relative">
         <div className="absolute inset-0 flex items-center">
@@ -423,13 +404,23 @@ export function FileUploadCard({
         </div>
       )}
 
-      <Button 
-        onClick={handleSmartSubmit}
-        disabled={getButtonDisabled()}
-        className="w-full"
-      >
-        {getButtonText()}
-      </Button>
+      {/* Only show button when user has typed text or uploaded a file */}
+      {(hasTextInput || hasUploadedFile) && (
+        <Button 
+          onClick={handleSmartSubmit}
+          disabled={getButtonDisabled() || fileUpload.isUploading}
+          className="w-full"
+        >
+          {fileUpload.isUploading ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+              Uploading...
+            </>
+          ) : (
+            getButtonText()
+          )}
+        </Button>
+      )}
     </div>
   );
 

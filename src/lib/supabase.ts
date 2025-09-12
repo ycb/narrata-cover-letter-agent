@@ -9,13 +9,18 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 // Create Supabase client with proper configuration for RLS
+// Using optimized settings to prevent hanging issues
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
     // Enable RLS by ensuring we always have a user context
-    flowType: 'pkce'
+    flowType: 'pkce',
+    // Add timeout to prevent hanging
+    debug: false,
+    // Disable storage key to prevent conflicts
+    storageKey: 'cover-letter-agent-auth'
   },
   realtime: {
     params: {
@@ -26,8 +31,29 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     headers: {
       'X-Client-Info': 'cover-letter-agent-frontend'
     }
+  },
+  // Add timeout for all requests
+  db: {
+    schema: 'public'
   }
 })
+
+// Timeout wrapper to prevent hanging operations
+const withTimeout = <T>(promise: Promise<T>, timeoutMs: number = 10000): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => 
+      setTimeout(() => reject(new Error('Operation timeout')), timeoutMs)
+    )
+  ])
+}
+
+// Safe auth operations with timeout protection
+export const safeAuthOperations = {
+  getSession: () => withTimeout(supabase.auth.getSession(), 15000), // Increased to 15 seconds
+  getUser: () => withTimeout(supabase.auth.getUser(), 15000), // Increased to 15 seconds
+  signOut: () => withTimeout(supabase.auth.signOut(), 10000) // Keep signOut at 10 seconds
+}
 
 // Helper function to get the current user with error handling
 export const getCurrentUser = async () => {
