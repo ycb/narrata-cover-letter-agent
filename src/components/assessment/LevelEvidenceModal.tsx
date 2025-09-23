@@ -119,7 +119,7 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
                 </div>
                 <div className="text-center p-3 bg-muted/20 rounded-lg">
                   <div className="text-2xl font-bold text-foreground">{evidence.blurbEvidence.totalBlurbs}</div>
-                  <div className="text-muted-foreground">Total Blurbs</div>
+                  <div className="text-muted-foreground">Total Stories</div>
                 </div>
               </div>
             </CardContent>

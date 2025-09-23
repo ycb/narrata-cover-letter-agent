@@ -121,25 +121,30 @@ export const Header = ({ currentPage }: HeaderProps) => {
                     : "text-white opacity-90 hover:opacity-100"
                 )}>
                   <Briefcase className="h-4 w-4" />
-                  Work History
+                  Experience
                   <ChevronDown className="h-3 w-3" />
                 </div>
                 
                 {/* Hover Dropdown */}
                 <div className="absolute top-full left-0 pt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
                   <div className="border-0 shadow-lg p-3 min-w-80" style={{ backgroundColor: 'rgba(18, 18, 18, 0.9)', borderRadius: '0 0 8px 8px' }}>
-                    {/* Timeline View CTA - Spans full width */}
+                    {/* Timeline View Section */}
+                    <div className="px-3 py-2 text-xs font-medium text-white uppercase tracking-wide mb-2">
+                      TIMELINE VIEW
+                    </div>
+                    
+                    {/* Work History - Normal nav link under Timeline View */}
                     <Link
                       to="/work-history"
                       className={cn(
-                        "flex items-center justify-center gap-2 px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity hover:bg-[#E32D9A] mb-3 border border-white text-white group",
+                        "flex items-center gap-2 px-3 py-2 text-sm opacity-90 hover:opacity-100 transition-opacity hover:bg-white/10 mb-3 text-white",
                         activePage === "work-history"
                           ? "text-white bg-white/10"
                           : "text-white"
                       )}
                     >
                       <Calendar className="h-4 w-4 transition-colors" />
-                      Timeline View
+                      Work History
                     </Link>
                     
                     {/* Table View Section */}
