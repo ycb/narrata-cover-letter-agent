@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
 import { X, Tag, Building, User, Calendar, Target, Edit, BarChart3 } from "lucide-react";
-import { FeedbackModal } from "@/components/feedback/FeedbackModal";
 
 interface EvidenceStory {
   id: string;
@@ -37,7 +36,6 @@ const EvidenceModal = ({
   matchedTags,
   overallConfidence
 }: EvidenceModalProps) => {
-  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
   const getConfidenceColor = (confidence: string) => {
     switch (confidence) {
       case 'high': return 'bg-success text-success-foreground';
@@ -60,7 +58,6 @@ const EvidenceModal = ({
     <>
       <Dialog open={isOpen} onOpenChange={(open) => {
         // Don't close if feedback modal is open
-        if (!open && isFeedbackModalOpen) return;
         onClose();
       }}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -73,17 +70,6 @@ const EvidenceModal = ({
               <DialogDescription className="text-base">
                 Supporting examples from your work history and stories
               </DialogDescription>
-            </div>
-            <div className="flex items-center gap-2 mt-4">
-              <Button 
-                variant="secondary" 
-                size="sm" 
-                className="flex items-center gap-2"
-                onClick={() => setIsFeedbackModalOpen(true)}
-              >
-                <Edit className="h-4 w-4" />
-                This looks wrong
-              </Button>
             </div>
           </div>
         </DialogHeader>
@@ -227,13 +213,6 @@ const EvidenceModal = ({
         </div>
       </DialogContent>
       </Dialog>
-      
-      <FeedbackModal
-        isOpen={isFeedbackModalOpen}
-        onClose={() => setIsFeedbackModalOpen(false)}
-        title="Assessment Feedback"
-      />
-    </>
   );
 };
 

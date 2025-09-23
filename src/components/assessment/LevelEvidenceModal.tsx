@@ -13,7 +13,6 @@ import {
   BarChart3,
   Edit
 } from "lucide-react";
-import { FeedbackModal } from "@/components/feedback/FeedbackModal";
 
 interface LevelEvidence {
   currentLevel: string;
@@ -57,7 +56,6 @@ interface LevelEvidenceModalProps {
 }
 
 const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalProps) => {
-  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
   const getConfidenceColor = (confidence: string) => {
     switch (confidence) {
       case 'high': return 'bg-success text-success-foreground';
@@ -71,7 +69,6 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
     <>
       <Dialog open={isOpen} onOpenChange={(open) => {
         // Don't close if feedback modal is open
-        if (!open && isFeedbackModalOpen) return;
         onClose();
       }}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -84,17 +81,6 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
               <DialogDescription className="text-base">
                 How we determined your current level and path to {evidence.nextLevel}
               </DialogDescription>
-            </div>
-            <div className="flex items-center gap-2 mt-4">
-              <Button 
-                variant="secondary" 
-                size="sm" 
-                className="flex items-center gap-2"
-                onClick={() => setIsFeedbackModalOpen(true)}
-              >
-                <Edit className="h-4 w-4" />
-                This looks wrong
-              </Button>
             </div>
           </div>
         </DialogHeader>
@@ -273,13 +259,6 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
         </div>
       </DialogContent>
       </Dialog>
-      
-      <FeedbackModal
-        isOpen={isFeedbackModalOpen}
-        onClose={() => setIsFeedbackModalOpen(false)}
-        title="Level Assessment Feedback"
-      />
-    </>
   );
 };
 
