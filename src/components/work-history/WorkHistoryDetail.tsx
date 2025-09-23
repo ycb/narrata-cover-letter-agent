@@ -519,10 +519,6 @@ export const WorkHistoryDetail = ({
                     <p className="text-muted-foreground mb-4">
                       Create your first story to showcase your achievements in this role
                     </p>
-                    <Button onClick={onAddStory}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create First Story
-                    </Button>
                   </div>
                 ) : (
                   <div>
@@ -561,10 +557,6 @@ export const WorkHistoryDetail = ({
                     <p className="text-muted-foreground mb-4">
                       Add external links to provide supporting evidence for your stories
                     </p>
-                    <Button onClick={onAddLink}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add First Link
-                    </Button>
                   </div>
                 ) : (
                   <div>
@@ -597,7 +589,7 @@ export const WorkHistoryDetail = ({
     return (
       <div className="space-y-8 h-full flex flex-col">
         {/* Company Header - Clean, No Card Styling */}
-        <div className="border-b pb-6">
+        <div>
           <div className="flex items-start justify-between">
             <div className="space-y-4">
               <div>
@@ -607,26 +599,6 @@ export const WorkHistoryDetail = ({
                 )}
               </div>
               
-              <div className="flex items-center gap-6 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  {selectedCompany.roles.length} role{selectedCompany.roles.length !== 1 ? 's' : ''}
-                </div>
-                <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  {(() => {
-                    const totalBlurbs = selectedCompany.roles.reduce((total, role) => total + role.blurbs.length, 0);
-                    return `${totalBlurbs} story${totalBlurbs !== 1 ? 's' : ''}`;
-                  })()}
-                </div>
-                <div className="flex items-center gap-2">
-                  <LinkIcon className="h-4 w-4" />
-                  {(() => {
-                    const totalLinks = selectedCompany.roles.reduce((total, role) => total + (role.externalLinks?.length || 0), 0);
-                    return `${totalLinks} link${totalLinks !== 1 ? 's' : ''}`;
-                  })()}
-                </div>
-              </div>
             </div>
             
             <DropdownMenu>
@@ -686,9 +658,14 @@ export const WorkHistoryDetail = ({
                         {formatDateRange(role.startDate, role.endDate)}
                       </div>
                     </div>
-                    <Badge variant="outline" className="group-hover:bg-primary-foreground group-hover:text-primary group-hover:border-primary-foreground">
-                      {role.blurbs.length} story{role.blurbs.length === 1 ? '' : 's'}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="group-hover:bg-primary-foreground group-hover:text-primary group-hover:border-primary-foreground">
+                        {role.blurbs.length === 0 ? '0 stories' : `${role.blurbs.length} story${role.blurbs.length === 1 ? '' : 's'}`}
+                      </Badge>
+                      <Badge variant="outline" className="group-hover:bg-primary-foreground group-hover:text-primary group-hover:border-primary-foreground">
+                        {role.externalLinks?.length || 0} link{(role.externalLinks?.length || 0) === 1 ? '' : 's'}
+                      </Badge>
+                    </div>
                   </div>
                   
                   {role.description && (
