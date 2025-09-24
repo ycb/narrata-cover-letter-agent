@@ -370,7 +370,18 @@ export const TemplateBlurbHierarchical = ({
                               className="w-full"
                               onClick={() => {
                                 console.log('Generate content for blurb gap:', blurb.title);
-                                // TODO: Implement content generation
+                                // Create mock gap data for HIL workflow
+                                const mockGapData = {
+                                  id: `blurb-gap-${blurb.id}`,
+                                  type: 'content-enhancement' as const,
+                                  severity: 'medium' as const,
+                                  description: 'Content needs improvement based on cover letter best practices',
+                                  suggestion: 'Add compelling hook, specific company research, and quantified impact to strengthen the opening',
+                                  origin: 'ai' as const,
+                                  existingContent: blurb.content
+                                };
+                                // TODO: Connect to HIL workflow
+                                console.log('Mock gap data:', mockGapData);
                               }}
                             >
                               <Sparkles className="h-4 w-4 mr-2" />
