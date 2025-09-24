@@ -85,6 +85,7 @@ export const WorkHistoryDetail = ({
   
   // Success state management - tracks which gaps have been resolved
   const [resolvedGaps, setResolvedGaps] = useState<Set<string>>(new Set());
+  const [dismissedSuccessCards, setDismissedSuccessCards] = useState<Set<string>>(new Set());
 
   // Mock gap data for content generation
   const mockGapData = {
@@ -134,6 +135,11 @@ export const WorkHistoryDetail = ({
     // Mark this gap as resolved
     if (selectedGap) {
       setResolvedGaps(prev => new Set([...prev, selectedGap.id]));
+      
+      // Auto-dismiss success card after 3 seconds
+      setTimeout(() => {
+        setDismissedSuccessCards(prev => new Set([...prev, selectedGap.id]));
+      }, 3000);
     }
     
     // TODO: Implement content application logic
@@ -143,6 +149,10 @@ export const WorkHistoryDetail = ({
       setIsContentModalOpen(false);
       setSelectedGap(null);
     }, 1000);
+  };
+
+  const handleDismissSuccessCard = (gapId: string) => {
+    setDismissedSuccessCards(prev => new Set([...prev, gapId]));
   };
 
   // Update detail view when initialTab prop changes
@@ -584,11 +594,21 @@ export const WorkHistoryDetail = ({
                             )}
                             
                             {/* Success State - Role Description */}
-                            {resolvedGaps.has('role-description-gap') && (
+                            {resolvedGaps.has('role-description-gap') && !dismissedSuccessCards.has('role-description-gap') && (
                               <div className="mb-6 border-success bg-success/5 p-4 rounded-lg">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <CheckCircle className="h-4 w-4 text-success" />
-                                  <span className="font-medium text-success">Role Description Enhanced</span>
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <CheckCircle className="h-4 w-4 text-success" />
+                                    <span className="font-medium text-success">Role Description Enhanced</span>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0 hover:bg-success/10"
+                                    onClick={() => handleDismissSuccessCard('role-description-gap')}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
                                 </div>
                                 <p className="text-sm text-muted-foreground">
                                   Content has been successfully generated and applied.
@@ -629,11 +649,21 @@ export const WorkHistoryDetail = ({
                             )}
                             
                             {/* Success State - Outcome Metrics */}
-                            {resolvedGaps.has('outcome-metrics-gap') && (
+                            {resolvedGaps.has('outcome-metrics-gap') && !dismissedSuccessCards.has('outcome-metrics-gap') && (
                               <div className="mb-6 border-success bg-success/5 p-4 rounded-lg">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <CheckCircle className="h-4 w-4 text-success" />
-                                  <span className="font-medium text-success">Outcome Metrics Enhanced</span>
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <CheckCircle className="h-4 w-4 text-success" />
+                                    <span className="font-medium text-success">Outcome Metrics Enhanced</span>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0 hover:bg-success/10"
+                                    onClick={() => handleDismissSuccessCard('outcome-metrics-gap')}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
                                 </div>
                                 <p className="text-sm text-muted-foreground">
                                   Content has been successfully generated and applied.
@@ -715,11 +745,21 @@ export const WorkHistoryDetail = ({
                       )}
                       
                       {/* Success State - Story Content */}
-                      {resolvedGaps.has('story-content-gap') && (
+                      {resolvedGaps.has('story-content-gap') && !dismissedSuccessCards.has('story-content-gap') && (
                         <div className="mt-4 border-success bg-success/5 p-4 rounded-lg">
-                          <div className="flex items-center gap-2 mb-2">
-                            <CheckCircle className="h-4 w-4 text-success" />
-                            <span className="font-medium text-success">Story Content Enhanced</span>
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="h-4 w-4 text-success" />
+                              <span className="font-medium text-success">Story Content Enhanced</span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 hover:bg-success/10"
+                              onClick={() => handleDismissSuccessCard('story-content-gap')}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
                           </div>
                           <p className="text-sm text-muted-foreground">
                             Content has been successfully generated and applied.
