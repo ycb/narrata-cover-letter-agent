@@ -350,6 +350,7 @@ export const TemplateBlurbHierarchical = ({
                       </Card>
                       
                       {/* Gap Detection Cards */}
+                      {console.log('Blurb gap check:', blurb.title, (blurb as any).hasGaps, (blurb as any).gapCount)}
                       {(blurb as any).hasGaps && (
                         <div className="mt-4 border-warning bg-warning/5 p-4 rounded-lg">
                           <div className="flex items-center gap-2 mb-2">
