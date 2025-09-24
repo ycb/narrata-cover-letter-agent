@@ -134,18 +134,29 @@ export default function SavedSections() {
 
   const handleApplyContent = (content: string) => {
     console.log('Applied generated content:', content);
+    console.log('Selected gap:', selectedGap);
     
     // Update the blurb content in the templateBlurbs array
     if (selectedGap) {
       const blurbId = selectedGap.id.replace('blurb-gap-', '');
-      setTemplateBlurbs(prev => prev.map(blurb => 
-        blurb.id === blurbId 
-          ? { ...blurb, content: content }
-          : blurb
-      ));
+      console.log('Updating blurb with ID:', blurbId);
+      
+      setTemplateBlurbs(prev => {
+        const updated = prev.map(blurb => 
+          blurb.id === blurbId 
+            ? { ...blurb, content: content }
+            : blurb
+        );
+        console.log('Updated templateBlurbs:', updated);
+        return updated;
+      });
       
       // Mark this gap as resolved
-      setResolvedGaps(prev => new Set([...prev, selectedGap.id]));
+      setResolvedGaps(prev => {
+        const newResolved = new Set([...prev, selectedGap.id]);
+        console.log('Updated resolvedGaps:', newResolved);
+        return newResolved;
+      });
       
       // Auto-dismiss success card after 3 seconds
       setTimeout(() => {
@@ -235,7 +246,7 @@ export default function SavedSections() {
             setIsContentModalOpen(false);
             setSelectedGap(null);
           }}
-          onApply={handleApplyContent}
+          onApplyContent={handleApplyContent}
         />
       )}
     </div>
