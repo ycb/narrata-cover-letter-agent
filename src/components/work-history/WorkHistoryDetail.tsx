@@ -516,6 +516,16 @@ export const WorkHistoryDetail = ({
                                 </Button>
                               </div>
                             )}
+                            
+                            {/* Outcome Metrics */}
+                            <div className={cn(
+                              "mb-6",
+                              (selectedRole as any).hasGaps && "border-warning bg-warning/5 border p-4 rounded-lg"
+                            )}>
+                              <OutcomeMetrics
+                                metrics={selectedRole.outcomeMetrics}
+                              />
+                            </div>
 
                             {/* Gap Detection - Outcome Metrics Gap */}
                             {(selectedRole as any).hasGaps && (
@@ -540,16 +550,6 @@ export const WorkHistoryDetail = ({
                                 </Button>
                               </div>
                             )}
-                            
-                            {/* Outcome Metrics */}
-                            <div className={cn(
-                              "mb-6",
-                              (selectedRole as any).hasGaps && "border-warning bg-warning/5 border p-4 rounded-lg"
-                            )}>
-                              <OutcomeMetrics
-                                metrics={selectedRole.outcomeMetrics}
-                              />
-                            </div>
                             
                             {/* Role Tags */}
                             {selectedRole.tags.length > 0 && (
