@@ -67,6 +67,9 @@ export interface WorkHistoryBlurb {
   timesUsed: number;
   lastUsed?: string;
   linkedExternalLinks?: string[]; // IDs of external links referenced in content
+  // Gap detection properties
+  hasGaps?: boolean;
+  gapCount?: number;
   variations?: BlurbVariation[]; // Optional variations for this blurb
   createdAt: string;
   updatedAt: string;

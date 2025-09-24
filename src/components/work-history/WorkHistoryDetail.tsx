@@ -485,7 +485,10 @@ export const WorkHistoryDetail = ({
             <div>
                             {/* Role Description */}
                             {selectedRole.description && (
-                              <div className="mb-6">
+                              <div className={cn(
+                                "mb-6 p-4 rounded-lg",
+                                (selectedRole as any).hasGaps && "border-warning bg-warning/5 border"
+                              )}>
                                 <p className="text-foreground">{selectedRole.description}</p>
                               </div>
                             )}
@@ -515,10 +518,14 @@ export const WorkHistoryDetail = ({
                             )}
                             
                             {/* Outcome Metrics */}
-                            <OutcomeMetrics
-                              metrics={selectedRole.outcomeMetrics}
-                              className="mb-6"
-                            />
+                            <div className={cn(
+                              "mb-6",
+                              (selectedRole as any).hasGaps && "border-warning bg-warning/5 border p-4 rounded-lg"
+                            )}>
+                              <OutcomeMetrics
+                                metrics={selectedRole.outcomeMetrics}
+                              />
+                            </div>
                             
                             {/* Role Tags */}
                             {selectedRole.tags.length > 0 && (
@@ -562,7 +569,10 @@ export const WorkHistoryDetail = ({
                         .filter(Boolean) as any[];
                       
                       return (
-                        <div key={story.id} className={index > 0 ? "mt-6" : ""}>
+                        <div key={story.id} className={cn(
+                          index > 0 ? "mt-6" : "",
+                          (story as any).hasGaps && "border-warning bg-warning/5 border p-4 rounded-lg"
+                        )}>
                           <StoryCard
                             story={story}
                             linkedLinks={linkedLinks}

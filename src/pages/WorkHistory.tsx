@@ -46,8 +46,7 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
         ],
         // Mock gap detection data
         hasGaps: true,
-        gapCount: 3,
-        gapSeverity: 'high',
+        gapCount: 1,
         blurbs: [
           {
             id: "blurb-1",
@@ -65,6 +64,9 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
             timesUsed: 8,
             lastUsed: "2024-01-15",
             linkedExternalLinks: ["link-1"],
+            // Mock gap detection data
+            hasGaps: true,
+            gapCount: 1,
                           variations: [
                 {
                   id: "var-1",
@@ -130,8 +132,7 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
         ],
         // Mock gap detection data
         hasGaps: true,
-        gapCount: 2,
-        gapSeverity: 'medium',
+        gapCount: 1,
         blurbs: [],
         externalLinks: [],
         createdAt: "2020-06-01T00:00:00Z",
@@ -164,8 +165,7 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
           ],
           // Mock gap detection data
           hasGaps: true,
-          gapCount: 2,
-          gapSeverity: 'high',
+          gapCount: 1,
           blurbs: [
             {
               id: "blurb-2",

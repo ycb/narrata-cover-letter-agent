@@ -5,41 +5,30 @@ import { cn } from '@/lib/utils';
 
 interface IntelligentAlertBadgeProps {
   gapCount: number;
-  severity: 'high' | 'medium';
   onAnalyze: () => void;
   className?: string;
 }
 
 export function IntelligentAlertBadge({
   gapCount,
-  severity,
   onAnalyze,
   className
 }: IntelligentAlertBadgeProps) {
-  const severityConfig = {
-    high: {
-      borderClass: 'border-destructive bg-destructive/10 text-destructive',
-      iconClass: 'text-destructive'
-    },
-    medium: {
-      borderClass: 'border-warning bg-warning/10 text-warning',
-      iconClass: 'text-warning'
-    }
-  };
-
-  const config = severityConfig[severity];
+  // Use consistent orange warning styling
+  const borderClass = 'border-warning bg-warning/10 text-warning';
+  const iconClass = 'text-warning';
 
   return (
     <Badge
       variant="outline"
       className={cn(
         "cursor-pointer hover:opacity-80 transition-opacity",
-        config.borderClass,
+        borderClass,
         className
       )}
       onClick={onAnalyze}
     >
-      <AlertTriangle className={cn("h-3 w-3 mr-1", config.iconClass)} />
+      <AlertTriangle className={cn("h-3 w-3 mr-1", iconClass)} />
       {gapCount}
     </Badge>
   );

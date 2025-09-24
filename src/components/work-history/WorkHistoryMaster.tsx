@@ -131,8 +131,7 @@ export const WorkHistoryMaster = ({
                                 {/* Mock gap detection - replace with real data later */}
                                 {(role as any).hasGaps && (
                                   <IntelligentAlertBadge
-                                    gapCount={(role as any).gapCount || 2}
-                                    severity={(role as any).gapSeverity || 'medium'}
+                                    gapCount={(role as any).gapCount || 1}
                                     onAnalyze={() => {
                                       console.log('Analyze gaps for role:', role.title);
                                       // TODO: Implement gap analysis
