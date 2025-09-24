@@ -506,6 +506,7 @@ export const WorkHistoryDetail = ({
                                 <Button 
                                   variant="secondary" 
                                   size="sm"
+                                  className="w-full"
                                   onClick={() => {
                                     console.log('Generate content for role description gap:', selectedRole?.title);
                                     // TODO: Implement content generation
@@ -540,6 +541,7 @@ export const WorkHistoryDetail = ({
                                 <Button 
                                   variant="secondary" 
                                   size="sm"
+                                  className="w-full"
                                   onClick={() => {
                                     console.log('Generate content for metrics gap:', selectedRole?.title);
                                     // TODO: Implement content generation
@@ -611,17 +613,18 @@ export const WorkHistoryDetail = ({
                               <p className="text-sm text-muted-foreground mb-3">
                                 Story needs more specific examples and quantifiable results.
                               </p>
-                              <Button 
-                                variant="secondary" 
-                                size="sm"
-                                onClick={() => {
-                                  console.log('Generate content for story gap:', story.title);
-                                  // TODO: Implement content generation
-                                }}
-                              >
-                                <Sparkles className="h-4 w-4 mr-2" />
-                                Generate Content
-                              </Button>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => {
+                              console.log('Generate content for story gap:', story.title);
+                              // TODO: Implement content generation
+                            }}
+                          >
+                            <Sparkles className="h-4 w-4 mr-2" />
+                            Generate Content
+                          </Button>
                             </div>
                           )}
                         </div>
