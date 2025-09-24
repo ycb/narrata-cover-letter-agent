@@ -15,10 +15,9 @@ const mockTemplateBlurbs: TemplateBlurb[] = [
     isDefault: true,
     createdAt: "2024-01-01T00:00:00Z",
     updatedAt: "2024-01-01T00:00:00Z",
-    // Mock gap detection data
+    // Mock gap detection data - lacks compelling hook and company research
     hasGaps: true,
-    gapCount: 1,
-    gapSeverity: 'medium'
+    gapCount: 2
   },
   {
     id: "intro-2", 
@@ -47,10 +46,9 @@ const mockTemplateBlurbs: TemplateBlurb[] = [
     isDefault: true,
     createdAt: "2024-01-01T00:00:00Z",
     updatedAt: "2024-01-01T00:00:00Z",
-    // Mock gap detection data
+    // Mock gap detection data - lacks specific call-to-action and personalized content
     hasGaps: true,
-    gapCount: 1,
-    gapSeverity: 'low'
+    gapCount: 2
   },
   {
     id: "closer-2",

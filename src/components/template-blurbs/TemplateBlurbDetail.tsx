@@ -6,7 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Save, X, FileText, Sparkles } from "lucide-react";
+import { Save, X, FileText, Sparkles, AlertTriangle } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { TemplateBlurb } from "./TemplateBlurbMaster";
 
 interface TemplateBlurbDetailProps {
@@ -192,7 +193,10 @@ export const TemplateBlurbDetail = ({
         {/* Preview */}
         <div>
           <Label>Preview</Label>
-          <Card className="mt-2">
+          <Card className={cn(
+            "mt-2",
+            (blurb as any).hasGaps && "border-warning bg-warning/5"
+          )}>
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Badge variant="outline" className="text-xs">
@@ -220,6 +224,31 @@ export const TemplateBlurbDetail = ({
             </CardContent>
           </Card>
         </div>
+        
+        {/* Gap Detection Cards */}
+        {(blurb as any).hasGaps && (
+          <div className="mt-4 border-warning bg-warning/5 p-4 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              <span className="font-medium text-warning">Content Gap</span>
+            </div>
+            <p className="text-sm text-muted-foreground mb-3">
+              Content needs improvement based on cover letter best practices.
+            </p>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-full"
+              onClick={() => {
+                console.log('Generate content for blurb gap:', blurb?.title);
+                // TODO: Implement content generation
+              }}
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              Generate Content
+            </Button>
+          </div>
+        )}
       </CardContent>
       
       {/* Footer with Action Buttons */}
