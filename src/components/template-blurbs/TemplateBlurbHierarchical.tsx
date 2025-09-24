@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, Edit, Trash2, FileText, Clock, CheckCircle, AlertCircle, MoreHorizontal, Copy, Tags, AlertTriangle, Sparkles } from "lucide-react";
+import { Search, Plus, Edit, Trash2, FileText, Clock, CheckCircle, AlertCircle, MoreHorizontal, Copy, Tags, AlertTriangle, Sparkles, X } from "lucide-react";
 import { IntelligentAlertBadge } from "@/components/ui/IntelligentAlertBadge";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
@@ -363,7 +363,7 @@ export const TemplateBlurbHierarchical = ({
                           console.log('Blurb gap check:', blurb.title, (blurb as any).hasGaps, (blurb as any).gapCount);
                           return null;
                         })()}
-                        {(blurb as any).hasGaps && (
+                        {(blurb as any).hasGaps && !resolvedGaps.has(`blurb-gap-${blurb.id}`) && (
                           <div className="mt-4 border-warning bg-warning/5 p-4 rounded-lg">
                             <div className="flex items-center gap-2 mb-2">
                               <AlertTriangle className="h-4 w-4 text-warning" />
@@ -387,6 +387,29 @@ export const TemplateBlurbHierarchical = ({
                               <Sparkles className="h-4 w-4 mr-2" />
                               Generate Content
                             </Button>
+                          </div>
+                        )}
+                        
+                        {/* Success State Cards */}
+                        {resolvedGaps.has(`blurb-gap-${blurb.id}`) && !dismissedSuccessCards.has(`blurb-gap-${blurb.id}`) && (
+                          <div className="mt-4 border-success bg-success/5 p-4 rounded-lg">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <CheckCircle className="h-4 w-4 text-success" />
+                                <span className="font-medium text-success">Content Enhanced</span>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 hover:bg-success/10"
+                                onClick={() => onDismissSuccessCard?.(`blurb-gap-${blurb.id}`)}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              Content has been successfully generated and applied.
+                            </p>
                           </div>
                         )}
                       </React.Fragment>

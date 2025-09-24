@@ -135,8 +135,16 @@ export default function SavedSections() {
   const handleApplyContent = (content: string) => {
     console.log('Applied generated content:', content);
     
-    // Mark this gap as resolved
+    // Update the blurb content in the templateBlurbs array
     if (selectedGap) {
+      const blurbId = selectedGap.id.replace('blurb-gap-', '');
+      setTemplateBlurbs(prev => prev.map(blurb => 
+        blurb.id === blurbId 
+          ? { ...blurb, content: content }
+          : blurb
+      ));
+      
+      // Mark this gap as resolved
       setResolvedGaps(prev => new Set([...prev, selectedGap.id]));
       
       // Auto-dismiss success card after 3 seconds
@@ -144,8 +152,6 @@ export default function SavedSections() {
         setDismissedSuccessCards(prev => new Set([...prev, selectedGap.id]));
       }, 3000);
     }
-    
-    // TODO: Implement content application logic
     
     // Show temporary success state
     setTimeout(() => {
