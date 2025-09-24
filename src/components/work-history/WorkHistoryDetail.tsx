@@ -92,7 +92,8 @@ export const WorkHistoryDetail = ({
       suggestion: 'Add quantifiable results, specific projects, and measurable impact to demonstrate value',
       paragraphId: 'role-description',
       origin: 'ai' as const,
-      addresses: ['quantifiable achievements', 'specific metrics', 'KPIs from past projects']
+      addresses: ['quantifiable achievements', 'specific metrics', 'KPIs from past projects'],
+      existingContent: 'Led product strategy for core platform'
     },
     'outcome-metrics': {
       id: 'outcome-metrics-gap',
@@ -102,7 +103,8 @@ export const WorkHistoryDetail = ({
       suggestion: 'Include percentages, dollar amounts, timeframes, and business impact metrics',
       paragraphId: 'outcome-metrics',
       origin: 'ai' as const,
-      addresses: ['specific percentages', 'dollar amounts', 'timeframes', 'business impact']
+      addresses: ['specific percentages', 'dollar amounts', 'timeframes', 'business impact'],
+      existingContent: 'Increased user engagement by 25% and reduced churn by 15%'
     },
     'story-content': {
       id: 'story-content-gap',
@@ -112,7 +114,8 @@ export const WorkHistoryDetail = ({
       suggestion: 'Add concrete examples, metrics, and outcomes to strengthen the narrative',
       paragraphId: 'story-content',
       origin: 'ai' as const,
-      addresses: ['concrete examples', 'specific metrics', 'measurable outcomes']
+      addresses: ['concrete examples', 'specific metrics', 'measurable outcomes'],
+      existingContent: 'Successfully launched new product features that improved user experience'
     }
   };
 
