@@ -29,6 +29,7 @@ import {
   Sparkles,
   AlertTriangle
 } from "lucide-react";
+import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -76,6 +77,56 @@ export const WorkHistoryDetail = ({
   const [editingRole, setEditingRole] = useState<WorkHistoryRole | null>(null);
   const [isEditingStory, setIsEditingStory] = useState(false);
   const [editingStory, setEditingStory] = useState<WorkHistoryBlurb | null>(null);
+  
+  // Content Generation Modal state
+  const [isContentModalOpen, setIsContentModalOpen] = useState(false);
+  const [selectedGap, setSelectedGap] = useState<any>(null);
+
+  // Mock gap data for content generation
+  const mockGapData = {
+    'role-description': {
+      id: 'role-description-gap',
+      type: 'content-enhancement',
+      severity: 'high',
+      description: 'Role description is too generic and lacks specific achievements',
+      suggestion: 'Add quantifiable results, specific projects, and measurable impact to demonstrate value',
+      paragraphId: 'role-description',
+      origin: 'ai' as const,
+      addresses: ['quantifiable achievements', 'specific metrics', 'KPIs from past projects']
+    },
+    'outcome-metrics': {
+      id: 'outcome-metrics-gap',
+      type: 'content-enhancement',
+      severity: 'high',
+      description: 'Outcome metrics need more specificity and context',
+      suggestion: 'Include percentages, dollar amounts, timeframes, and business impact metrics',
+      paragraphId: 'outcome-metrics',
+      origin: 'ai' as const,
+      addresses: ['specific percentages', 'dollar amounts', 'timeframes', 'business impact']
+    },
+    'story-content': {
+      id: 'story-content-gap',
+      type: 'content-enhancement',
+      severity: 'medium',
+      description: 'Story needs more specific examples and quantifiable results',
+      suggestion: 'Add concrete examples, metrics, and outcomes to strengthen the narrative',
+      paragraphId: 'story-content',
+      origin: 'ai' as const,
+      addresses: ['concrete examples', 'specific metrics', 'measurable outcomes']
+    }
+  };
+
+  const handleGenerateContent = (gapType: string) => {
+    setSelectedGap(mockGapData[gapType as keyof typeof mockGapData]);
+    setIsContentModalOpen(true);
+  };
+
+  const handleApplyContent = (content: string) => {
+    console.log('Applied generated content:', content);
+    // TODO: Implement content application logic
+    setIsContentModalOpen(false);
+    setSelectedGap(null);
+  };
 
   // Update detail view when initialTab prop changes
   useEffect(() => {
@@ -507,10 +558,7 @@ export const WorkHistoryDetail = ({
                                   variant="secondary" 
                                   size="sm"
                                   className="w-full"
-                                  onClick={() => {
-                                    console.log('Generate content for role description gap:', selectedRole?.title);
-                                    // TODO: Implement content generation
-                                  }}
+                                  onClick={() => handleGenerateContent('role-description')}
                                 >
                                   <Sparkles className="h-4 w-4 mr-2" />
                                   Generate Content
@@ -542,10 +590,7 @@ export const WorkHistoryDetail = ({
                                   variant="secondary" 
                                   size="sm"
                                   className="w-full"
-                                  onClick={() => {
-                                    console.log('Generate content for metrics gap:', selectedRole?.title);
-                                    // TODO: Implement content generation
-                                  }}
+                                  onClick={() => handleGenerateContent('outcome-metrics')}
                                 >
                                   <Sparkles className="h-4 w-4 mr-2" />
                                   Generate Content
@@ -617,10 +662,7 @@ export const WorkHistoryDetail = ({
                             variant="secondary"
                             size="sm"
                             className="w-full"
-                            onClick={() => {
-                              console.log('Generate content for story gap:', story.title);
-                              // TODO: Implement content generation
-                            }}
+                            onClick={() => handleGenerateContent('story-content')}
                           >
                             <Sparkles className="h-4 w-4 mr-2" />
                             Generate Content
@@ -670,6 +712,17 @@ export const WorkHistoryDetail = ({
               </div>
             )}
         </div>
+        
+        {/* Content Generation Modal */}
+        <ContentGenerationModal
+          isOpen={isContentModalOpen}
+          onClose={() => {
+            setIsContentModalOpen(false);
+            setSelectedGap(null);
+          }}
+          gap={selectedGap}
+          onApplyContent={handleApplyContent}
+        />
       </div>
     );
   }
