@@ -282,101 +282,103 @@ export const TemplateBlurbHierarchical = ({
                     const StatusIcon = statusConfig.icon;
                     
                     return (
-                      <Card key={blurb.id} className={cn(
-                        "hover:shadow-md transition-shadow",
-                        (blurb as any).hasGaps && "border-warning bg-warning/5"
-                      )}>
-                        <CardContent className="p-6">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-3 mb-3">
-                                <h4 className="font-medium truncate text-base">{blurb.title}</h4>
-                              </div>
-                              <p className="text-sm text-muted-foreground mb-4 line-clamp-2 leading-relaxed">{blurb.content}</p>
-                              <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3">
-                                <span>Used {blurb.timesUsed} times</span>
-                                {blurb.lastUsed && <span>Last used {blurb.lastUsed}</span>}
-                                <span>Updated {new Date(blurb.updatedAt).toLocaleDateString()}</span>
-                              </div>
-                              {blurb.tags.length > 0 && (
-                                <div className="flex flex-wrap gap-2 mt-3">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Tags className="h-4 w-4 text-muted-foreground" />
-                                    <span className="text-sm font-medium">Content Tags</span>
-                                  </div>
-                                  <div className="flex flex-wrap gap-2">
-                                    {blurb.tags.map((tag) => (
-                                      <Badge key={tag} variant="outline" className="text-xs">
-                                        {tag}
-                                      </Badge>
-                                    ))}
-                                  </div>
+                      <React.Fragment key={blurb.id}>
+                        <Card className={cn(
+                          "hover:shadow-md transition-shadow",
+                          (blurb as any).hasGaps && "border-warning bg-warning/5"
+                        )}>
+                          <CardContent className="p-6">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-3 mb-3">
+                                  <h4 className="font-medium truncate text-base">{blurb.title}</h4>
                                 </div>
-                              )}
+                                <p className="text-sm text-muted-foreground mb-4 line-clamp-2 leading-relaxed">{blurb.content}</p>
+                                <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3">
+                                  <span>Used {blurb.timesUsed} times</span>
+                                  {blurb.lastUsed && <span>Last used {blurb.lastUsed}</span>}
+                                  <span>Updated {new Date(blurb.updatedAt).toLocaleDateString()}</span>
+                                </div>
+                                {blurb.tags.length > 0 && (
+                                  <div className="flex flex-wrap gap-2 mt-3">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <Tags className="h-4 w-4 text-muted-foreground" />
+                                      <span className="text-sm font-medium">Content Tags</span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                      {blurb.tags.map((tag) => (
+                                        <Badge key={tag} variant="outline" className="text-xs">
+                                          {tag}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3 ml-6">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                      <span className="sr-only">Open menu</span>
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => onEditBlurb(blurb)}>
+                                      <Edit className="mr-2 h-4 w-4" />
+                                      Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => {
+                                      // TODO: Implement duplicate blurb
+                                      console.log('Duplicate blurb:', blurb.id);
+                                    }}>
+                                      <Copy className="mr-2 h-4 w-4" />
+                                      Duplicate
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem 
+                                      onClick={() => onDeleteBlurb(blurb.id)}
+                                      className="text-destructive"
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-3 ml-6">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                    <span className="sr-only">Open menu</span>
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => onEditBlurb(blurb)}>
-                                    <Edit className="mr-2 h-4 w-4" />
-                                    Edit
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => {
-                                    // TODO: Implement duplicate blurb
-                                    console.log('Duplicate blurb:', blurb.id);
-                                  }}>
-                                    <Copy className="mr-2 h-4 w-4" />
-                                    Duplicate
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem 
-                                    onClick={() => onDeleteBlurb(blurb.id)}
-                                    className="text-destructive"
-                                  >
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Delete
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+                          </CardContent>
+                        </Card>
+                        
+                        {/* Gap Detection Cards */}
+                        {(() => {
+                          console.log('Blurb gap check:', blurb.title, (blurb as any).hasGaps, (blurb as any).gapCount);
+                          return null;
+                        })()}
+                        {(blurb as any).hasGaps && (
+                          <div className="mt-4 border-warning bg-warning/5 p-4 rounded-lg">
+                            <div className="flex items-center gap-2 mb-2">
+                              <AlertTriangle className="h-4 w-4 text-warning" />
+                              <span className="font-medium text-warning">Content Gap</span>
                             </div>
+                            <p className="text-sm text-muted-foreground mb-3">
+                              Content needs improvement based on cover letter best practices.
+                            </p>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="w-full"
+                              onClick={() => {
+                                console.log('Generate content for blurb gap:', blurb.title);
+                                // TODO: Implement content generation
+                              }}
+                            >
+                              <Sparkles className="h-4 w-4 mr-2" />
+                              Generate Content
+                            </Button>
                           </div>
-                        </CardContent>
-                      </Card>
-                      
-                      {/* Gap Detection Cards */}
-                      {(() => {
-                        console.log('Blurb gap check:', blurb.title, (blurb as any).hasGaps, (blurb as any).gapCount);
-                        return null;
-                      })()}
-                      {(blurb as any).hasGaps && (
-                        <div className="mt-4 border-warning bg-warning/5 p-4 rounded-lg">
-                          <div className="flex items-center gap-2 mb-2">
-                            <AlertTriangle className="h-4 w-4 text-warning" />
-                            <span className="font-medium text-warning">Content Gap</span>
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            Content needs improvement based on cover letter best practices.
-                          </p>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            className="w-full"
-                            onClick={() => {
-                              console.log('Generate content for blurb gap:', blurb.title);
-                              // TODO: Implement content generation
-                            }}
-                          >
-                            <Sparkles className="h-4 w-4 mr-2" />
-                            Generate Content
-                          </Button>
-                        </div>
-                      )}
+                        )}
+                      </React.Fragment>
                     );
                   })}
                 </div>
