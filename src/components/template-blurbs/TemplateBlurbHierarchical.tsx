@@ -216,13 +216,28 @@ export const TemplateBlurbHierarchical = ({
                 <div className="flex items-center justify-between w-full pr-4">
                   <div className="flex items-center gap-4">
                     {(() => {
-                      const gapCount = group.blurbs.reduce((total, blurb) => {
+                      // Calculate remaining gap count (original - resolved)
+                      const originalGapCount = group.blurbs.reduce((total, blurb) => {
                         return total + ((blurb as any).gapCount || 0);
                       }, 0);
                       
-                      return gapCount > 0 ? (
+                      // Count resolved gaps for this group
+                      let resolvedCount = 0;
+                      group.blurbs.forEach(blurb => {
+                        if (resolvedGaps.has(`blurb-gap-${blurb.id}`)) {
+                          resolvedCount += ((blurb as any).gapCount || 0);
+                        }
+                      });
+                      
+                      const remainingGapCount = Math.max(0, originalGapCount - resolvedCount);
+                      
+                      // Debug logging
+                      console.log(`Group ${group.type}: original=${originalGapCount}, resolved=${resolvedCount}, remaining=${remainingGapCount}`);
+                      console.log('Resolved gaps:', resolvedGaps);
+                      
+                      return remainingGapCount > 0 ? (
                         <IntelligentAlertBadge
-                          gapCount={gapCount}
+                          gapCount={remainingGapCount}
                           onAnalyze={() => {
                             console.log('Analyze gaps for group:', group.type);
                             // TODO: Implement gap analysis
