@@ -206,7 +206,7 @@ export function ContentGenerationModal({
                   <p className="text-muted-foreground mb-4">
                     Click "Generate Content" to create AI-powered content that addresses this gap.
                   </p>
-                  <Button onClick={handleGenerate} disabled={isGenerating}>
+                  <Button onClick={handleGenerate} disabled={isGenerating} className="w-full">
                     {isGenerating ? (
                       <>
                         <RefreshCw className="h-4 w-4 animate-spin mr-2" />
