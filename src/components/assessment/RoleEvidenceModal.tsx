@@ -300,6 +300,7 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
         </div>
       </DialogContent>
       </Dialog>
+    </>
   );
 };
 

@@ -213,6 +213,7 @@ const EvidenceModal = ({
         </div>
       </DialogContent>
       </Dialog>
+    </>
   );
 };
 

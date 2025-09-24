@@ -259,6 +259,7 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
         </div>
       </DialogContent>
       </Dialog>
+    </>
   );
 };
 
