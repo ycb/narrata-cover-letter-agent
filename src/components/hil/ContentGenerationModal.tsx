@@ -67,7 +67,7 @@ export function ContentGenerationModal({
             break;
             
           case 'role-description':
-            content = `Led product strategy for core platform, ${gap.suggestion.toLowerCase()}.\n\nSpecifically, I increased user engagement by 35% through data-driven product decisions, reduced customer churn by 40% through improved user experience flows, and delivered $2M in additional revenue through strategic feature launches. My experience with SQL, Python, and analytics tools like Tableau enabled me to make informed decisions that drove measurable business impact.`;
+            content = `Led product strategy for core platform. I increased user engagement by 35% through data-driven product decisions, reduced customer churn by 40% through improved user experience flows, and delivered $2M in additional revenue through strategic feature launches. My experience with SQL, Python, and analytics tools like Tableau enabled me to make informed decisions that drove measurable business impact.`;
             break;
             
           case 'outcome-metrics':

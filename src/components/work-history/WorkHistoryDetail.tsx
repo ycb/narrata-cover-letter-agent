@@ -27,7 +27,8 @@ import {
   ChevronRight,
   X,
   Sparkles,
-  AlertTriangle
+  AlertTriangle,
+  CheckCircle
 } from "lucide-react";
 import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
 import {
@@ -81,6 +82,9 @@ export const WorkHistoryDetail = ({
   // Content Generation Modal state
   const [isContentModalOpen, setIsContentModalOpen] = useState(false);
   const [selectedGap, setSelectedGap] = useState<any>(null);
+  
+  // Success state management - tracks which gaps have been resolved
+  const [resolvedGaps, setResolvedGaps] = useState<Set<string>>(new Set());
 
   // Mock gap data for content generation
   const mockGapData = {
@@ -126,9 +130,19 @@ export const WorkHistoryDetail = ({
 
   const handleApplyContent = (content: string) => {
     console.log('Applied generated content:', content);
+    
+    // Mark this gap as resolved
+    if (selectedGap) {
+      setResolvedGaps(prev => new Set([...prev, selectedGap.id]));
+    }
+    
     // TODO: Implement content application logic
-    setIsContentModalOpen(false);
-    setSelectedGap(null);
+    
+    // Show temporary success state
+    setTimeout(() => {
+      setIsContentModalOpen(false);
+      setSelectedGap(null);
+    }, 1000);
   };
 
   // Update detail view when initialTab prop changes
@@ -541,14 +555,14 @@ export const WorkHistoryDetail = ({
                             {selectedRole.description && (
                               <div className={cn(
                                 "mb-6 p-4 rounded-lg",
-                                (selectedRole as any).hasGaps && "border-warning bg-warning/5 border"
+                                (selectedRole as any).hasGaps && !resolvedGaps.has('role-description-gap') && "border-warning bg-warning/5 border"
                               )}>
                                 <p className="text-foreground">{selectedRole.description}</p>
                               </div>
                             )}
                             
                             {/* Gap Detection - Role Description Gap */}
-                            {(selectedRole as any).hasGaps && (
+                            {(selectedRole as any).hasGaps && !resolvedGaps.has('role-description-gap') && (
                               <div className="mb-6 border-warning bg-warning/5 p-4 rounded-lg">
                                 <div className="flex items-center gap-2 mb-2">
                                   <AlertTriangle className="h-4 w-4 text-warning" />
@@ -569,10 +583,23 @@ export const WorkHistoryDetail = ({
                               </div>
                             )}
                             
+                            {/* Success State - Role Description */}
+                            {resolvedGaps.has('role-description-gap') && (
+                              <div className="mb-6 border-success bg-success/5 p-4 rounded-lg">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <CheckCircle className="h-4 w-4 text-success" />
+                                  <span className="font-medium text-success">Role Description Enhanced</span>
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  Content has been successfully generated and applied.
+                                </p>
+                              </div>
+                            )}
+                            
                             {/* Outcome Metrics */}
                             <div className={cn(
                               "mb-6",
-                              (selectedRole as any).hasGaps && "border-warning bg-warning/5 border p-4 rounded-lg"
+                              (selectedRole as any).hasGaps && !resolvedGaps.has('outcome-metrics-gap') && "border-warning bg-warning/5 border p-4 rounded-lg"
                             )}>
                               <OutcomeMetrics
                                 metrics={selectedRole.outcomeMetrics}
@@ -580,7 +607,7 @@ export const WorkHistoryDetail = ({
                             </div>
 
                             {/* Gap Detection - Outcome Metrics Gap */}
-                            {(selectedRole as any).hasGaps && (
+                            {(selectedRole as any).hasGaps && !resolvedGaps.has('outcome-metrics-gap') && (
                               <div className="mb-6 border-warning bg-warning/5 p-4 rounded-lg">
                                 <div className="flex items-center gap-2 mb-2">
                                   <AlertTriangle className="h-4 w-4 text-warning" />
@@ -598,6 +625,19 @@ export const WorkHistoryDetail = ({
                                   <Sparkles className="h-4 w-4 mr-2" />
                                   Generate Content
                                 </Button>
+                              </div>
+                            )}
+                            
+                            {/* Success State - Outcome Metrics */}
+                            {resolvedGaps.has('outcome-metrics-gap') && (
+                              <div className="mb-6 border-success bg-success/5 p-4 rounded-lg">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <CheckCircle className="h-4 w-4 text-success" />
+                                  <span className="font-medium text-success">Outcome Metrics Enhanced</span>
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  Content has been successfully generated and applied.
+                                </p>
                               </div>
                             )}
                             
@@ -650,17 +690,18 @@ export const WorkHistoryDetail = ({
                             onEdit={() => handleEditStory(story)}
                             onDuplicate={() => onDuplicateStory?.(story)}
                             onDelete={() => onDeleteStory?.(story)}
+                            isGapResolved={resolvedGaps.has('story-content-gap')}
                           />
-                          {/* Story Gap Detection */}
-                          {(story as any).hasGaps && (
-                            <div className="mt-4 border-warning bg-warning/5 p-4 rounded-lg">
-                              <div className="flex items-center gap-2 mb-2">
-                                <AlertTriangle className="h-4 w-4 text-warning" />
-                                <span className="font-medium text-warning">Story Content Gap</span>
-                              </div>
-                              <p className="text-sm text-muted-foreground mb-3">
-                                Story needs more specific examples and quantifiable results.
-                              </p>
+                      {/* Story Gap Detection */}
+                      {(story as any).hasGaps && !resolvedGaps.has('story-content-gap') && (
+                        <div className="mt-4 border-warning bg-warning/5 p-4 rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            <AlertTriangle className="h-4 w-4 text-warning" />
+                            <span className="font-medium text-warning">Story Content Gap</span>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-3">
+                            Story needs more specific examples and quantifiable results.
+                          </p>
                           <Button
                             variant="secondary"
                             size="sm"
@@ -670,8 +711,21 @@ export const WorkHistoryDetail = ({
                             <Sparkles className="h-4 w-4 mr-2" />
                             Generate Content
                           </Button>
-                            </div>
-                          )}
+                        </div>
+                      )}
+                      
+                      {/* Success State - Story Content */}
+                      {resolvedGaps.has('story-content-gap') && (
+                        <div className="mt-4 border-success bg-success/5 p-4 rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            <CheckCircle className="h-4 w-4 text-success" />
+                            <span className="font-medium text-success">Story Content Enhanced</span>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Content has been successfully generated and applied.
+                          </p>
+                        </div>
+                      )}
                         </div>
                       );
                     })}
