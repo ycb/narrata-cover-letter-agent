@@ -28,6 +28,10 @@ export interface WorkHistoryRole {
   type: 'full-time' | 'contract' | 'founder';
   startDate: string;
   endDate?: string;
+  // Gap detection properties
+  hasGaps?: boolean;
+  gapCount?: number;
+  gapSeverity?: 'high' | 'medium' | 'low';
   description?: string;
   inferredLevel?: string;
   tags: string[];

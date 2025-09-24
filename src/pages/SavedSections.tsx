@@ -14,7 +14,11 @@ const mockTemplateBlurbs: TemplateBlurb[] = [
     tags: ["professional", "standard", "interest", "background"],
     isDefault: true,
     createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
+    updatedAt: "2024-01-01T00:00:00Z",
+    // Mock gap detection data
+    hasGaps: true,
+    gapCount: 1,
+    gapSeverity: 'medium'
   },
   {
     id: "intro-2", 
@@ -42,7 +46,11 @@ const mockTemplateBlurbs: TemplateBlurb[] = [
     tags: ["professional", "gratitude", "call-to-action", "follow-up"],
     isDefault: true,
     createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
+    updatedAt: "2024-01-01T00:00:00Z",
+    // Mock gap detection data
+    hasGaps: true,
+    gapCount: 1,
+    gapSeverity: 'low'
   },
   {
     id: "closer-2",

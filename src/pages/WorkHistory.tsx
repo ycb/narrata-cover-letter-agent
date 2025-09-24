@@ -44,6 +44,10 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
           "Led cross-functional team of 12 engineers and designers",
           "Launched 3 major product releases ahead of schedule"
         ],
+        // Mock gap detection data
+        hasGaps: true,
+        gapCount: 3,
+        gapSeverity: 'high',
         blurbs: [
           {
             id: "blurb-1",
@@ -124,6 +128,10 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
           "Implemented data-driven decision making process",
           "Reduced time-to-market by 25%"
         ],
+        // Mock gap detection data
+        hasGaps: true,
+        gapCount: 2,
+        gapSeverity: 'medium',
         blurbs: [],
         externalLinks: [],
         createdAt: "2020-06-01T00:00:00Z",
@@ -154,6 +162,10 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
             "Hired and managed team of 8 product professionals",
             "Launched MVP in 6 months"
           ],
+          // Mock gap detection data
+          hasGaps: true,
+          gapCount: 2,
+          gapSeverity: 'high',
           blurbs: [
             {
               id: "blurb-2",
