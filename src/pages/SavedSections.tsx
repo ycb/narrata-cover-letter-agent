@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, FileText, CheckCircle, Edit } from "lucide-react";
 import { TemplateBlurbHierarchical } from "@/components/template-blurbs/TemplateBlurbHierarchical";
 import { type TemplateBlurb } from "@/components/template-blurbs/TemplateBlurbMaster";
+import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
 
 // Mock template blurbs library
 const mockTemplateBlurbs: TemplateBlurb[] = [
@@ -17,7 +18,7 @@ const mockTemplateBlurbs: TemplateBlurb[] = [
     updatedAt: "2024-01-01T00:00:00Z",
     // Mock gap detection data - lacks compelling hook and company research
     hasGaps: true,
-    gapCount: 2
+    gapCount: 1
   },
   {
     id: "intro-2", 
@@ -26,7 +27,10 @@ const mockTemplateBlurbs: TemplateBlurb[] = [
     content: "I was thrilled to discover the [Position] opening at [Company], as it perfectly aligns with my passion for [Industry/Field] and my career goals in [Specific Area].",
     tags: ["passion", "thrilled", "alignment", "career goals"],
     createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
+    updatedAt: "2024-01-01T00:00:00Z",
+    // Mock gap detection data - lacks compelling hook and company research
+    hasGaps: true,
+    gapCount: 1
   },
   {
     id: "intro-3",
@@ -45,10 +49,7 @@ const mockTemplateBlurbs: TemplateBlurb[] = [
     tags: ["professional", "gratitude", "call-to-action", "follow-up"],
     isDefault: true,
     createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z",
-    // Mock gap detection data - lacks specific call-to-action and personalized content
-    hasGaps: true,
-    gapCount: 2
+    updatedAt: "2024-01-01T00:00:00Z"
   },
   {
     id: "closer-2",

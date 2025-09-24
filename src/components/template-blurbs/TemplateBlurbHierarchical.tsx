@@ -207,14 +207,6 @@ export const TemplateBlurbHierarchical = ({
               <AccordionTrigger className="px-6 py-4 hover:no-underline">
                 <div className="flex items-center justify-between w-full pr-4">
                   <div className="flex items-center gap-4">
-                    <group.icon className="h-6 w-6 text-muted-foreground" />
-                    <div className="text-left">
-                      <h3 className="font-semibold text-lg mb-1">{group.label}</h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed">{group.description}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    {/* Gap detection - calculate from individual blurbs */}
                     {(() => {
                       const gapCount = group.blurbs.reduce((total, blurb) => {
                         return total + ((blurb as any).gapCount || 0);
@@ -228,8 +220,16 @@ export const TemplateBlurbHierarchical = ({
                             // TODO: Implement gap analysis
                           }}
                         />
-                      ) : null;
+                      ) : (
+                        <group.icon className="h-6 w-6 text-muted-foreground" />
+                      );
                     })()}
+                    <div className="text-left">
+                      <h3 className="font-semibold text-lg mb-1">{group.label}</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{group.description}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
                     <Button
                       variant="tertiary"
                       size="sm"
