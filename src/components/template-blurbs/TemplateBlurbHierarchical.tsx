@@ -214,17 +214,22 @@ export const TemplateBlurbHierarchical = ({
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    {/* Mock gap detection - replace with real data later */}
-                    {(group as any).hasGaps && (
-                      <IntelligentAlertBadge
-                        gapCount={(group as any).gapCount || 1}
-                        severity={(group as any).gapSeverity || 'medium'}
-                        onAnalyze={() => {
-                          console.log('Analyze gaps for group:', group.type);
-                          // TODO: Implement gap analysis
-                        }}
-                      />
-                    )}
+                    {/* Gap detection - calculate from individual blurbs */}
+                    {(() => {
+                      const gapCount = group.blurbs.reduce((total, blurb) => {
+                        return total + ((blurb as any).gapCount || 0);
+                      }, 0);
+                      
+                      return gapCount > 0 ? (
+                        <IntelligentAlertBadge
+                          gapCount={gapCount}
+                          onAnalyze={() => {
+                            console.log('Analyze gaps for group:', group.type);
+                            // TODO: Implement gap analysis
+                          }}
+                        />
+                      ) : null;
+                    })()}
                     <Button
                       variant="tertiary"
                       size="sm"
