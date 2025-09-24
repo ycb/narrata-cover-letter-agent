@@ -91,6 +91,12 @@ export default function SavedSections() {
     description: string;
     icon: React.ComponentType<{ className?: string }>;
   }>>([]);
+  
+  // HIL Content Generation state
+  const [isContentModalOpen, setIsContentModalOpen] = useState(false);
+  const [selectedGap, setSelectedGap] = useState<any>(null);
+  const [resolvedGaps, setResolvedGaps] = useState<Set<string>>(new Set());
+  const [dismissedSuccessCards, setDismissedSuccessCards] = useState<Set<string>>(new Set());
 
   const handleSelectBlurbFromLibrary = (blurb: TemplateBlurb) => {
     console.log('Selected blurb from library:', blurb);
@@ -109,6 +115,47 @@ export default function SavedSections() {
 
   const handleDeleteBlurb = (id: string) => {
     setTemplateBlurbs(prev => prev.filter(blurb => blurb.id !== id));
+  };
+
+  // HIL Content Generation handlers
+  const handleGenerateContent = (blurb: TemplateBlurb) => {
+    const mockGapData = {
+      id: `blurb-gap-${blurb.id}`,
+      type: 'content-enhancement' as const,
+      severity: 'medium' as const,
+      description: 'Content needs improvement based on cover letter best practices',
+      suggestion: 'Add compelling hook, specific company research, and quantified impact to strengthen the opening',
+      origin: 'ai' as const,
+      existingContent: blurb.content
+    };
+    setSelectedGap(mockGapData);
+    setIsContentModalOpen(true);
+  };
+
+  const handleApplyContent = (content: string) => {
+    console.log('Applied generated content:', content);
+    
+    // Mark this gap as resolved
+    if (selectedGap) {
+      setResolvedGaps(prev => new Set([...prev, selectedGap.id]));
+      
+      // Auto-dismiss success card after 3 seconds
+      setTimeout(() => {
+        setDismissedSuccessCards(prev => new Set([...prev, selectedGap.id]));
+      }, 3000);
+    }
+    
+    // TODO: Implement content application logic
+    
+    // Show temporary success state
+    setTimeout(() => {
+      setIsContentModalOpen(false);
+      setSelectedGap(null);
+    }, 1000);
+  };
+
+  const handleDismissSuccessCard = (gapId: string) => {
+    setDismissedSuccessCards(prev => new Set([...prev, gapId]));
   };
 
   return (
@@ -139,6 +186,10 @@ export default function SavedSections() {
                 onCreateBlurb={handleCreateBlurb}
                 onEditBlurb={handleEditBlurb}
                 onDeleteBlurb={handleDeleteBlurb}
+                onGenerateContent={handleGenerateContent}
+                resolvedGaps={resolvedGaps}
+                dismissedSuccessCards={dismissedSuccessCards}
+                onDismissSuccessCard={handleDismissSuccessCard}
                 contentTypes={[
                   {
                     type: 'intro',
@@ -168,6 +219,19 @@ export default function SavedSections() {
           </div>
         </div>
       </div>
+      
+      {/* HIL Content Generation Modal */}
+      {isContentModalOpen && selectedGap && (
+        <ContentGenerationModal
+          gap={selectedGap}
+          isOpen={isContentModalOpen}
+          onClose={() => {
+            setIsContentModalOpen(false);
+            setSelectedGap(null);
+          }}
+          onApply={handleApplyContent}
+        />
+      )}
     </div>
   );
 }

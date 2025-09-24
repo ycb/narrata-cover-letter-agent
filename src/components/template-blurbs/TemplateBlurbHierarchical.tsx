@@ -39,6 +39,10 @@ interface TemplateBlurbHierarchicalProps {
   onCreateBlurb: (type?: 'intro' | 'closer' | 'signature' | string) => void;
   onEditBlurb: (blurb: TemplateBlurb) => void;
   onDeleteBlurb: (blurbId: string) => void;
+  onGenerateContent?: (blurb: TemplateBlurb) => void;
+  resolvedGaps?: Set<string>;
+  dismissedSuccessCards?: Set<string>;
+  onDismissSuccessCard?: (gapId: string) => void;
   contentTypes?: Array<{
     type: string;
     label: string;
@@ -55,6 +59,10 @@ export const TemplateBlurbHierarchical = ({
   onCreateBlurb,
   onEditBlurb,
   onDeleteBlurb,
+  onGenerateContent,
+  resolvedGaps = new Set(),
+  dismissedSuccessCards = new Set(),
+  onDismissSuccessCard,
   contentTypes = []
 }: TemplateBlurbHierarchicalProps) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -369,19 +377,11 @@ export const TemplateBlurbHierarchical = ({
                               size="sm"
                               className="w-full"
                               onClick={() => {
-                                console.log('Generate content for blurb gap:', blurb.title);
-                                // Create mock gap data for HIL workflow
-                                const mockGapData = {
-                                  id: `blurb-gap-${blurb.id}`,
-                                  type: 'content-enhancement' as const,
-                                  severity: 'medium' as const,
-                                  description: 'Content needs improvement based on cover letter best practices',
-                                  suggestion: 'Add compelling hook, specific company research, and quantified impact to strengthen the opening',
-                                  origin: 'ai' as const,
-                                  existingContent: blurb.content
-                                };
-                                // TODO: Connect to HIL workflow
-                                console.log('Mock gap data:', mockGapData);
+                                if (onGenerateContent) {
+                                  onGenerateContent(blurb);
+                                } else {
+                                  console.log('Generate content for blurb gap:', blurb.title);
+                                }
                               }}
                             >
                               <Sparkles className="h-4 w-4 mr-2" />
