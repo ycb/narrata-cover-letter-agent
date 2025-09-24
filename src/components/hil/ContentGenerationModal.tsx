@@ -5,7 +5,17 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sparkles, RefreshCw, CheckCircle, AlertTriangle } from 'lucide-react';
-import type { GapAnalysis } from './HILProgressPanel';
+interface GapAnalysis {
+  id: string;
+  type: 'core-requirement' | 'preferred-requirement' | 'best-practice' | 'content-enhancement';
+  severity: 'high' | 'medium' | 'low';
+  description: string;
+  suggestion: string;
+  paragraphId?: string;
+  requirementId?: string;
+  origin: 'ai' | 'human' | 'library';
+  addresses?: string[];
+}
 
 interface ContentGenerationModalProps {
   isOpen: boolean;
@@ -207,19 +217,19 @@ export function ContentGenerationModal({
                   
                   <div className="flex items-center justify-between">
                     <div className="flex gap-2">
-                      <Button variant="outline" onClick={handleRegenerate}>
+                      <Button variant="secondary" onClick={handleRegenerate}>
                         <RefreshCw className="h-4 w-4 mr-2" />
                         Regenerate
                       </Button>
                     </div>
                     
                     <div className="flex gap-2">
-                      <Button variant="outline" onClick={handleClose}>
+                      <Button variant="secondary" onClick={handleClose}>
                         Cancel
                       </Button>
                       <Button onClick={handleApply}>
                         <CheckCircle className="h-4 w-4 mr-2" />
-                        Apply to Cover Letter
+                        Apply Content
                       </Button>
                     </div>
                   </div>

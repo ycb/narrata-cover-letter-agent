@@ -9,6 +9,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Building2, Calendar, FileText, Link, Plus, Linkedin, FileText as FileTextIcon } from "lucide-react";
+import { IntelligentAlertBadge } from "@/components/ui/IntelligentAlertBadge";
 import { cn } from "@/lib/utils";
 import type { WorkHistoryCompany, WorkHistoryRole } from "@/types/workHistory";
 
@@ -127,27 +128,16 @@ export const WorkHistoryMaster = ({
                                   : "font-medium group-hover:text-primary-foreground"
                               )}>{role.title}</h4>
                               <div className="flex items-center gap-2 shrink-0">
-                                {role.blurbs.length > 0 && (
-                                  <Badge variant="secondary" className={cn(
-                                    "text-xs flex items-center gap-1",
-                                    selectedRole?.id === role.id 
-                                      ? "bg-muted text-muted-foreground" 
-                                      : "group-hover:bg-primary-foreground group-hover:text-primary"
-                                  )}>
-                                    <FileText className="h-3 w-3" />
-                                    {role.blurbs.length}
-                                  </Badge>
-                                )}
-                                {role.externalLinks.length > 0 && (
-                                  <Badge variant="secondary" className={cn(
-                                    "text-xs flex items-center gap-1",
-                                    selectedRole?.id === role.id 
-                                      ? "bg-muted text-muted-foreground" 
-                                      : "group-hover:bg-primary-foreground group-hover:text-primary"
-                                  )}>
-                                    <Link className="h-3 w-3" />
-                                    {role.externalLinks.length}
-                                  </Badge>
+                                {/* Mock gap detection - replace with real data later */}
+                                {(role as any).hasGaps && (
+                                  <IntelligentAlertBadge
+                                    gapCount={(role as any).gapCount || 2}
+                                    severity={(role as any).gapSeverity || 'medium'}
+                                    onAnalyze={() => {
+                                      console.log('Analyze gaps for role:', role.title);
+                                      // TODO: Implement gap analysis
+                                    }}
+                                  />
                                 )}
                               </div>
                             </div>

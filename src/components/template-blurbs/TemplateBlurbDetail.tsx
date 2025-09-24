@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Save, X, FileText } from "lucide-react";
+import { Save, X, FileText, Sparkles } from "lucide-react";
 import type { TemplateBlurb } from "./TemplateBlurbMaster";
 
 interface TemplateBlurbDetailProps {
@@ -222,8 +222,18 @@ export const TemplateBlurbDetail = ({
         </div>
       </CardContent>
       
-      {/* Footer with Save Button */}
-      <div className="flex justify-end p-6 border-t">
+      {/* Footer with Action Buttons */}
+      <div className="flex justify-between p-6 border-t">
+        <Button 
+          variant="secondary" 
+          onClick={() => {
+            console.log('Generate content for blurb:', blurb?.title);
+            // TODO: Implement content generation
+          }}
+        >
+          <Sparkles className="h-4 w-4 mr-2" />
+          Generate Content
+        </Button>
         <Button onClick={handleSave} disabled={!isFormValid}>
           <Save className="h-4 w-4 mr-2" />
           Save Section

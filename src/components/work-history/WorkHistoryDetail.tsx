@@ -25,7 +25,9 @@ import {
   Trash2,
   Link as LinkIcon,
   ChevronRight,
-  X
+  X,
+  Sparkles,
+  AlertTriangle
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -393,6 +395,13 @@ export const WorkHistoryDetail = ({
                   <Edit className="mr-2 h-4 w-4" />
                   Edit Role
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => {
+                  console.log('Generate content for role:', selectedRole?.title);
+                  // TODO: Implement content generation
+                }}>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Generate Content
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem>
                   <Trash2 className="mr-2 h-4 w-4 text-red-500" />
@@ -478,6 +487,30 @@ export const WorkHistoryDetail = ({
                             {selectedRole.description && (
                               <div className="mb-6">
                                 <p className="text-foreground">{selectedRole.description}</p>
+                              </div>
+                            )}
+                            
+                            {/* Gap Detection - Mock data */}
+                            {(selectedRole as any).hasGaps && (
+                              <div className="mb-6 border-warning bg-warning/5 p-4 rounded-lg">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <AlertTriangle className="h-4 w-4 text-warning" />
+                                  <span className="font-medium text-warning">Content Gaps Detected</span>
+                                </div>
+                                <p className="text-sm text-muted-foreground mb-3">
+                                  Missing quantifiable achievements and specific metrics.
+                                </p>
+                                <Button 
+                                  variant="secondary" 
+                                  size="sm"
+                                  onClick={() => {
+                                    console.log('Generate content for role gaps:', selectedRole?.title);
+                                    // TODO: Implement content generation
+                                  }}
+                                >
+                                  <Sparkles className="h-4 w-4 mr-2" />
+                                  Generate Content
+                                </Button>
                               </div>
                             )}
                             

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 import { Search, Plus, Edit, Trash2, FileText, Clock, CheckCircle, AlertCircle, MoreHorizontal, Copy, Tags } from "lucide-react";
+import { IntelligentAlertBadge } from "@/components/ui/IntelligentAlertBadge";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -213,7 +214,17 @@ export const TemplateBlurbHierarchical = ({
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
-                    <Badge variant="secondary">{group.blurbs.length} items</Badge>
+                    {/* Mock gap detection - replace with real data later */}
+                    {(group as any).hasGaps && (
+                      <IntelligentAlertBadge
+                        gapCount={(group as any).gapCount || 1}
+                        severity={(group as any).gapSeverity || 'medium'}
+                        onAnalyze={() => {
+                          console.log('Analyze gaps for group:', group.type);
+                          // TODO: Implement gap analysis
+                        }}
+                      />
+                    )}
                     <Button
                       variant="tertiary"
                       size="sm"
