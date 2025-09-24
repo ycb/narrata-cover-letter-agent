@@ -493,21 +493,45 @@ export const WorkHistoryDetail = ({
                               </div>
                             )}
                             
-                            {/* Gap Detection - Mock data */}
+                            {/* Gap Detection - Role Description Gap */}
                             {(selectedRole as any).hasGaps && (
                               <div className="mb-6 border-warning bg-warning/5 p-4 rounded-lg">
                                 <div className="flex items-center gap-2 mb-2">
                                   <AlertTriangle className="h-4 w-4 text-warning" />
-                                  <span className="font-medium text-warning">Content Gaps Detected</span>
+                                  <span className="font-medium text-warning">Role Description Gap</span>
                                 </div>
                                 <p className="text-sm text-muted-foreground mb-3">
-                                  Missing quantifiable achievements and specific metrics.
+                                  Role description is too generic. Add specific achievements and quantifiable results.
                                 </p>
                                 <Button 
                                   variant="secondary" 
                                   size="sm"
                                   onClick={() => {
-                                    console.log('Generate content for role gaps:', selectedRole?.title);
+                                    console.log('Generate content for role description gap:', selectedRole?.title);
+                                    // TODO: Implement content generation
+                                  }}
+                                >
+                                  <Sparkles className="h-4 w-4 mr-2" />
+                                  Generate Content
+                                </Button>
+                              </div>
+                            )}
+
+                            {/* Gap Detection - Outcome Metrics Gap */}
+                            {(selectedRole as any).hasGaps && (
+                              <div className="mb-6 border-warning bg-warning/5 p-4 rounded-lg">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <AlertTriangle className="h-4 w-4 text-warning" />
+                                  <span className="font-medium text-warning">Outcome Metrics Gap</span>
+                                </div>
+                                <p className="text-sm text-muted-foreground mb-3">
+                                  Metrics need more specificity. Include percentages, dollar amounts, and timeframes.
+                                </p>
+                                <Button 
+                                  variant="secondary" 
+                                  size="sm"
+                                  onClick={() => {
+                                    console.log('Generate content for metrics gap:', selectedRole?.title);
                                     // TODO: Implement content generation
                                   }}
                                 >
@@ -569,10 +593,7 @@ export const WorkHistoryDetail = ({
                         .filter(Boolean) as any[];
                       
                       return (
-                        <div key={story.id} className={cn(
-                          index > 0 ? "mt-6" : "",
-                          (story as any).hasGaps && "border-warning bg-warning/5 border p-4 rounded-lg"
-                        )}>
+                        <div key={story.id} className={index > 0 ? "mt-6" : ""}>
                           <StoryCard
                             story={story}
                             linkedLinks={linkedLinks}
@@ -580,6 +601,29 @@ export const WorkHistoryDetail = ({
                             onDuplicate={() => onDuplicateStory?.(story)}
                             onDelete={() => onDeleteStory?.(story)}
                           />
+                          {/* Story Gap Detection */}
+                          {(story as any).hasGaps && (
+                            <div className="mt-4 border-warning bg-warning/5 p-4 rounded-lg">
+                              <div className="flex items-center gap-2 mb-2">
+                                <AlertTriangle className="h-4 w-4 text-warning" />
+                                <span className="font-medium text-warning">Story Content Gap</span>
+                              </div>
+                              <p className="text-sm text-muted-foreground mb-3">
+                                Story needs more specific examples and quantifiable results.
+                              </p>
+                              <Button 
+                                variant="secondary" 
+                                size="sm"
+                                onClick={() => {
+                                  console.log('Generate content for story gap:', story.title);
+                                  // TODO: Implement content generation
+                                }}
+                              >
+                                <Sparkles className="h-4 w-4 mr-2" />
+                                Generate Content
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       );
                     })}

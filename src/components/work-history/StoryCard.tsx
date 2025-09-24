@@ -127,7 +127,11 @@ export const StoryCard = ({
   };
 
   return (
-    <Card className={cn("hover:shadow-md transition-shadow", className)}>
+    <Card className={cn(
+      "hover:shadow-md transition-shadow", 
+      (story as any).hasGaps && "border-warning bg-warning/5",
+      className
+    )}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
