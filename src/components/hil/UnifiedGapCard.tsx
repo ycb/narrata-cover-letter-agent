@@ -125,8 +125,8 @@ export function UnifiedGapCard({
                 onClick={onGenerate}
                 className="w-full"
               >
-                <RefreshCw className="h-3 w-3 mr-1" />
-                Generate
+                <Sparkles className="h-3 w-3 mr-1" />
+                Generate Content
               </Button>
             )}
           </div>
