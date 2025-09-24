@@ -252,6 +252,9 @@ export default function WorkHistory() {
   // Handle URL parameters for initial navigation
   const [initialTab, setInitialTab] = useState<'role' | 'stories' | 'links'>('role');
   
+  // Gap resolution state - tracks which gaps have been resolved
+  const [resolvedGaps, setResolvedGaps] = useState<Set<string>>(new Set());
+  
   // Auto-advance through tabs during tour
   useEffect(() => {
     if (isTourActive && workHistory.length > 0) {
@@ -425,6 +428,7 @@ export default function WorkHistory() {
                 selectedCompany={selectedCompany}
                 selectedRole={selectedRole}
                 expandedCompanyId={expandedCompanyId}
+                resolvedGaps={resolvedGaps}
                 onCompanySelect={handleCompanySelect}
                 onRoleSelect={handleRoleSelect}
                 onAddRole={() => setIsAddRoleModalOpen(true)}
@@ -441,6 +445,8 @@ export default function WorkHistory() {
               selectedRole={selectedRole}
               companies={workHistory}
               initialTab={initialTab}
+              resolvedGaps={resolvedGaps}
+              onResolvedGapsChange={setResolvedGaps}
               onRoleSelect={handleRoleSelect}
               onAddRole={() => setIsAddRoleModalOpen(true)}
               onAddStory={handleAddStory}

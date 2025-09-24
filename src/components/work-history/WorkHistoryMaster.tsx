@@ -18,6 +18,7 @@ interface WorkHistoryMasterProps {
   selectedCompany: WorkHistoryCompany | null;
   selectedRole: WorkHistoryRole | null;
   expandedCompanyId: string | null;
+  resolvedGaps: Set<string>;
   onCompanySelect: (company: WorkHistoryCompany) => void;
   onRoleSelect: (role: WorkHistoryRole) => void;
   onAddRole?: () => void;
@@ -31,6 +32,7 @@ export const WorkHistoryMaster = ({
   selectedCompany,
   selectedRole,
   expandedCompanyId,
+  resolvedGaps,
   onCompanySelect,
   onRoleSelect,
   onAddRole,
@@ -48,6 +50,21 @@ export const WorkHistoryMaster = ({
       ? new Date(endDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
       : 'Present';
     return `${start} - ${end}`;
+  };
+
+  // Calculate updated gap count for a role based on resolved gaps
+  const getUpdatedGapCount = (role: WorkHistoryRole) => {
+    if (!(role as any).hasGaps) return 0;
+    
+    const originalGapCount = (role as any).gapCount || 0;
+    let resolvedCount = 0;
+    
+    // Count resolved gaps for this role
+    if (resolvedGaps.has('role-description-gap')) resolvedCount++;
+    if (resolvedGaps.has('outcome-metrics-gap')) resolvedCount++;
+    if (resolvedGaps.has('story-content-gap')) resolvedCount++;
+    
+    return Math.max(0, originalGapCount - resolvedCount);
   };
 
   return (
@@ -129,9 +146,9 @@ export const WorkHistoryMaster = ({
                               )}>{role.title}</h4>
                               <div className="flex items-center gap-2 shrink-0">
                                 {/* Mock gap detection - replace with real data later */}
-                                {(role as any).hasGaps && (
+                                {(role as any).hasGaps && getUpdatedGapCount(role) > 0 && (
                                   <IntelligentAlertBadge
-                                    gapCount={(role as any).gapCount || 1}
+                                    gapCount={getUpdatedGapCount(role)}
                                     onAnalyze={() => {
                                       console.log('Analyze gaps for role:', role.title);
                                       // TODO: Implement gap analysis

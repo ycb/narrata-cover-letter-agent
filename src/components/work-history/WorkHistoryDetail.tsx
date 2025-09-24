@@ -45,6 +45,8 @@ interface WorkHistoryDetailProps {
   selectedRole: WorkHistoryRole | null;
   companies: WorkHistoryCompany[]; // Add companies to find role's company
   initialTab?: 'role' | 'stories' | 'links';
+  resolvedGaps: Set<string>;
+  onResolvedGapsChange: (gaps: Set<string>) => void;
   onRoleSelect?: (role: WorkHistoryRole) => void;
   onAddRole?: () => void;
   onAddStory?: () => void;
@@ -63,6 +65,8 @@ export const WorkHistoryDetail = ({
   selectedRole,
   companies,
   initialTab = 'role',
+  resolvedGaps,
+  onResolvedGapsChange,
   onRoleSelect,
   onAddRole,
   onAddStory,
@@ -83,8 +87,7 @@ export const WorkHistoryDetail = ({
   const [isContentModalOpen, setIsContentModalOpen] = useState(false);
   const [selectedGap, setSelectedGap] = useState<any>(null);
   
-  // Success state management - tracks which gaps have been resolved
-  const [resolvedGaps, setResolvedGaps] = useState<Set<string>>(new Set());
+  // Success state management - tracks which success cards have been dismissed
   const [dismissedSuccessCards, setDismissedSuccessCards] = useState<Set<string>>(new Set());
 
   // Mock gap data for content generation
@@ -134,7 +137,7 @@ export const WorkHistoryDetail = ({
     
     // Mark this gap as resolved
     if (selectedGap) {
-      setResolvedGaps(prev => new Set([...prev, selectedGap.id]));
+      onResolvedGapsChange(new Set([...resolvedGaps, selectedGap.id]));
       
       // Auto-dismiss success card after 3 seconds
       setTimeout(() => {
