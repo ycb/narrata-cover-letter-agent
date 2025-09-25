@@ -76,6 +76,7 @@ interface StoryCardProps {
   onDuplicate?: (story: WorkHistoryBlurb) => void;
   onDelete?: (story: WorkHistoryBlurb) => void;
   className?: string;
+  isGapResolved?: boolean;
 }
 
 export const StoryCard = ({ 
@@ -83,8 +84,9 @@ export const StoryCard = ({
   linkedLinks = [],
   onEdit, 
   onDuplicate, 
-  onDelete,
-  className 
+  onDelete, 
+  className,
+  isGapResolved = false
 }: StoryCardProps) => {
   const [expandedVariations, setExpandedVariations] = useState<Record<string, boolean>>({});
   const getStatusIcon = () => {
@@ -127,7 +129,11 @@ export const StoryCard = ({
   };
 
   return (
-    <Card className={cn("hover:shadow-md transition-shadow", className)}>
+    <Card className={cn(
+      "hover:shadow-md transition-shadow", 
+      (story as any).hasGaps && !isGapResolved && "border-warning bg-warning/5",
+      className
+    )}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">

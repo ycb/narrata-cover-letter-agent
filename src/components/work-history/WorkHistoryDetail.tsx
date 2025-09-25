@@ -25,8 +25,12 @@ import {
   Trash2,
   Link as LinkIcon,
   ChevronRight,
-  X
+  X,
+  Sparkles,
+  AlertTriangle,
+  CheckCircle
 } from "lucide-react";
+import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,6 +45,8 @@ interface WorkHistoryDetailProps {
   selectedRole: WorkHistoryRole | null;
   companies: WorkHistoryCompany[]; // Add companies to find role's company
   initialTab?: 'role' | 'stories' | 'links';
+  resolvedGaps: Set<string>;
+  onResolvedGapsChange: (gaps: Set<string>) => void;
   onRoleSelect?: (role: WorkHistoryRole) => void;
   onAddRole?: () => void;
   onAddStory?: () => void;
@@ -59,6 +65,8 @@ export const WorkHistoryDetail = ({
   selectedRole,
   companies,
   initialTab = 'role',
+  resolvedGaps,
+  onResolvedGapsChange,
   onRoleSelect,
   onAddRole,
   onAddStory,
@@ -74,6 +82,81 @@ export const WorkHistoryDetail = ({
   const [editingRole, setEditingRole] = useState<WorkHistoryRole | null>(null);
   const [isEditingStory, setIsEditingStory] = useState(false);
   const [editingStory, setEditingStory] = useState<WorkHistoryBlurb | null>(null);
+  
+  // Content Generation Modal state
+  const [isContentModalOpen, setIsContentModalOpen] = useState(false);
+  const [selectedGap, setSelectedGap] = useState<any>(null);
+  
+  // Success state management - tracks which success cards have been dismissed
+  const [dismissedSuccessCards, setDismissedSuccessCards] = useState<Set<string>>(new Set());
+
+  // Mock gap data for content generation
+  const mockGapData = {
+    'role-description': {
+      id: 'role-description-gap',
+      type: 'content-enhancement',
+      severity: 'high',
+      description: 'Role description is too generic and lacks specific achievements',
+      suggestion: 'Add quantifiable results, specific projects, and measurable impact to demonstrate value',
+      paragraphId: 'role-description',
+      origin: 'ai' as const,
+      addresses: ['quantifiable achievements', 'specific metrics', 'KPIs from past projects'],
+      existingContent: 'Led product strategy for core platform'
+    },
+    'outcome-metrics': {
+      id: 'outcome-metrics-gap',
+      type: 'content-enhancement',
+      severity: 'high',
+      description: 'Outcome metrics need more specificity and context',
+      suggestion: 'Include percentages, dollar amounts, timeframes, and business impact metrics',
+      paragraphId: 'outcome-metrics',
+      origin: 'ai' as const,
+      addresses: ['specific percentages', 'dollar amounts', 'timeframes', 'business impact'],
+      existingContent: 'Increased user engagement by 25% and reduced churn by 15%'
+    },
+    'story-content': {
+      id: 'story-content-gap',
+      type: 'content-enhancement',
+      severity: 'medium',
+      description: 'Story needs more specific examples and quantifiable results',
+      suggestion: 'Add concrete examples, metrics, and outcomes to strengthen the narrative',
+      paragraphId: 'story-content',
+      origin: 'ai' as const,
+      addresses: ['concrete examples', 'specific metrics', 'measurable outcomes'],
+      existingContent: 'Successfully launched new product features that improved user experience'
+    }
+  };
+
+  const handleGenerateContent = (gapType: string) => {
+    setSelectedGap(mockGapData[gapType as keyof typeof mockGapData]);
+    setIsContentModalOpen(true);
+  };
+
+  const handleApplyContent = (content: string) => {
+    console.log('Applied generated content:', content);
+    
+    // Mark this gap as resolved
+    if (selectedGap) {
+      onResolvedGapsChange(new Set([...resolvedGaps, selectedGap.id]));
+      
+      // Auto-dismiss success card after 3 seconds
+      setTimeout(() => {
+        setDismissedSuccessCards(prev => new Set([...prev, selectedGap.id]));
+      }, 3000);
+    }
+    
+    // TODO: Implement content application logic
+    
+    // Show temporary success state
+    setTimeout(() => {
+      setIsContentModalOpen(false);
+      setSelectedGap(null);
+    }, 1000);
+  };
+
+  const handleDismissSuccessCard = (gapId: string) => {
+    setDismissedSuccessCards(prev => new Set([...prev, gapId]));
+  };
 
   // Update detail view when initialTab prop changes
   useEffect(() => {
@@ -393,6 +476,13 @@ export const WorkHistoryDetail = ({
                   <Edit className="mr-2 h-4 w-4" />
                   Edit Role
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => {
+                  console.log('Generate content for role:', selectedRole?.title);
+                  // TODO: Implement content generation
+                }}>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Generate Content
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem>
                   <Trash2 className="mr-2 h-4 w-4 text-red-500" />
@@ -476,16 +566,113 @@ export const WorkHistoryDetail = ({
             <div>
                             {/* Role Description */}
                             {selectedRole.description && (
-                              <div className="mb-6">
+                              <div className={cn(
+                                "mb-6 p-4 rounded-lg",
+                                (selectedRole as any).hasGaps && !resolvedGaps.has('role-description-gap') && "border-warning bg-warning/5 border"
+                              )}>
                                 <p className="text-foreground">{selectedRole.description}</p>
                               </div>
                             )}
                             
+                            {/* Gap Detection - Role Description Gap */}
+                            {(selectedRole as any).hasGaps && !resolvedGaps.has('role-description-gap') && (
+                              <div className="mb-6 border-warning bg-warning/5 p-4 rounded-lg">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <AlertTriangle className="h-4 w-4 text-warning" />
+                                  <span className="font-medium text-warning">Role Description Gap</span>
+                                </div>
+                                <p className="text-sm text-muted-foreground mb-3">
+                                  Role description is too generic. Add specific achievements and quantifiable results.
+                                </p>
+                                <Button 
+                                  variant="secondary" 
+                                  size="sm"
+                                  className="w-full"
+                                  onClick={() => handleGenerateContent('role-description')}
+                                >
+                                  <Sparkles className="h-4 w-4 mr-2" />
+                                  Generate Content
+                                </Button>
+                              </div>
+                            )}
+                            
+                            {/* Success State - Role Description */}
+                            {resolvedGaps.has('role-description-gap') && !dismissedSuccessCards.has('role-description-gap') && (
+                              <div className="mb-6 border-success bg-success/5 p-4 rounded-lg">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <CheckCircle className="h-4 w-4 text-success" />
+                                    <span className="font-medium text-success">Role Description Enhanced</span>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0 hover:bg-success/10"
+                                    onClick={() => handleDismissSuccessCard('role-description-gap')}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  Content has been successfully generated and applied.
+                                </p>
+                              </div>
+                            )}
+                            
                             {/* Outcome Metrics */}
-                            <OutcomeMetrics
-                              metrics={selectedRole.outcomeMetrics}
-                              className="mb-6"
-                            />
+                            <div className={cn(
+                              "mb-6",
+                              (selectedRole as any).hasGaps && !resolvedGaps.has('outcome-metrics-gap') && "border-warning bg-warning/5 border p-4 rounded-lg"
+                            )}>
+                              <OutcomeMetrics
+                                metrics={selectedRole.outcomeMetrics}
+                              />
+                            </div>
+
+                            {/* Gap Detection - Outcome Metrics Gap */}
+                            {(selectedRole as any).hasGaps && !resolvedGaps.has('outcome-metrics-gap') && (
+                              <div className="mb-6 border-warning bg-warning/5 p-4 rounded-lg">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <AlertTriangle className="h-4 w-4 text-warning" />
+                                  <span className="font-medium text-warning">Outcome Metrics Gap</span>
+                                </div>
+                                <p className="text-sm text-muted-foreground mb-3">
+                                  Metrics need more specificity. Include percentages, dollar amounts, and timeframes.
+                                </p>
+                                <Button 
+                                  variant="secondary" 
+                                  size="sm"
+                                  className="w-full"
+                                  onClick={() => handleGenerateContent('outcome-metrics')}
+                                >
+                                  <Sparkles className="h-4 w-4 mr-2" />
+                                  Generate Content
+                                </Button>
+                              </div>
+                            )}
+                            
+                            {/* Success State - Outcome Metrics */}
+                            {resolvedGaps.has('outcome-metrics-gap') && !dismissedSuccessCards.has('outcome-metrics-gap') && (
+                              <div className="mb-6 border-success bg-success/5 p-4 rounded-lg">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <CheckCircle className="h-4 w-4 text-success" />
+                                    <span className="font-medium text-success">Outcome Metrics Enhanced</span>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0 hover:bg-success/10"
+                                    onClick={() => handleDismissSuccessCard('outcome-metrics-gap')}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  Content has been successfully generated and applied.
+                                </p>
+                              </div>
+                            )}
                             
                             {/* Role Tags */}
                             {selectedRole.tags.length > 0 && (
@@ -536,7 +723,52 @@ export const WorkHistoryDetail = ({
                             onEdit={() => handleEditStory(story)}
                             onDuplicate={() => onDuplicateStory?.(story)}
                             onDelete={() => onDeleteStory?.(story)}
+                            isGapResolved={resolvedGaps.has('story-content-gap')}
                           />
+                      {/* Story Gap Detection */}
+                      {(story as any).hasGaps && !resolvedGaps.has('story-content-gap') && (
+                        <div className="mt-4 border-warning bg-warning/5 p-4 rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            <AlertTriangle className="h-4 w-4 text-warning" />
+                            <span className="font-medium text-warning">Story Content Gap</span>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-3">
+                            Story needs more specific examples and quantifiable results.
+                          </p>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => handleGenerateContent('story-content')}
+                          >
+                            <Sparkles className="h-4 w-4 mr-2" />
+                            Generate Content
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {/* Success State - Story Content */}
+                      {resolvedGaps.has('story-content-gap') && !dismissedSuccessCards.has('story-content-gap') && (
+                        <div className="mt-4 border-success bg-success/5 p-4 rounded-lg">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="h-4 w-4 text-success" />
+                              <span className="font-medium text-success">Story Content Enhanced</span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 hover:bg-success/10"
+                              onClick={() => handleDismissSuccessCard('story-content-gap')}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Content has been successfully generated and applied.
+                          </p>
+                        </div>
+                      )}
                         </div>
                       );
                     })}
@@ -580,6 +812,17 @@ export const WorkHistoryDetail = ({
               </div>
             )}
         </div>
+        
+        {/* Content Generation Modal */}
+        <ContentGenerationModal
+          isOpen={isContentModalOpen}
+          onClose={() => {
+            setIsContentModalOpen(false);
+            setSelectedGap(null);
+          }}
+          gap={selectedGap}
+          onApplyContent={handleApplyContent}
+        />
       </div>
     );
   }

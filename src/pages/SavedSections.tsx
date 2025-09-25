@@ -2,9 +2,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, FileText, CheckCircle, Edit } from "lucide-react";
 import { TemplateBlurbHierarchical } from "@/components/template-blurbs/TemplateBlurbHierarchical";
-import { TemplateBlurbDetail } from "@/components/template-blurbs/TemplateBlurbDetail";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { type TemplateBlurb } from "@/components/template-blurbs/TemplateBlurbMaster";
+import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
 
 // Mock template blurbs library
 const mockTemplateBlurbs: TemplateBlurb[] = [
@@ -16,7 +15,10 @@ const mockTemplateBlurbs: TemplateBlurb[] = [
     tags: ["professional", "standard", "interest", "background"],
     isDefault: true,
     createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
+    updatedAt: "2024-01-01T00:00:00Z",
+    // Mock gap detection data - lacks compelling hook and company research
+    hasGaps: true,
+    gapCount: 1
   },
   {
     id: "intro-2", 
@@ -25,7 +27,10 @@ const mockTemplateBlurbs: TemplateBlurb[] = [
     content: "I was thrilled to discover the [Position] opening at [Company], as it perfectly aligns with my passion for [Industry/Field] and my career goals in [Specific Area].",
     tags: ["passion", "thrilled", "alignment", "career goals"],
     createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
+    updatedAt: "2024-01-01T00:00:00Z",
+    // Mock gap detection data - lacks compelling hook and company research
+    hasGaps: true,
+    gapCount: 1
   },
   {
     id: "intro-3",
@@ -86,6 +91,12 @@ export default function SavedSections() {
     description: string;
     icon: React.ComponentType<{ className?: string }>;
   }>>([]);
+  
+  // HIL Content Generation state
+  const [isContentModalOpen, setIsContentModalOpen] = useState(false);
+  const [selectedGap, setSelectedGap] = useState<any>(null);
+  const [resolvedGaps, setResolvedGaps] = useState<Set<string>>(new Set());
+  const [dismissedSuccessCards, setDismissedSuccessCards] = useState<Set<string>>(new Set());
 
   const handleSelectBlurbFromLibrary = (blurb: TemplateBlurb) => {
     console.log('Selected blurb from library:', blurb);
@@ -104,6 +115,64 @@ export default function SavedSections() {
 
   const handleDeleteBlurb = (id: string) => {
     setTemplateBlurbs(prev => prev.filter(blurb => blurb.id !== id));
+  };
+
+  // HIL Content Generation handlers
+  const handleGenerateContent = (blurb: TemplateBlurb) => {
+    const mockGapData = {
+      id: `blurb-gap-${blurb.id}`,
+      type: 'content-enhancement' as const,
+      severity: 'medium' as const,
+      description: 'Content needs improvement based on cover letter best practices',
+      suggestion: 'Add compelling hook, specific company research, and quantified impact to strengthen the opening',
+      origin: 'ai' as const,
+      existingContent: blurb.content
+    };
+    setSelectedGap(mockGapData);
+    setIsContentModalOpen(true);
+  };
+
+  const handleApplyContent = (content: string) => {
+    console.log('Applied generated content:', content);
+    console.log('Selected gap:', selectedGap);
+    
+    // Update the blurb content in the templateBlurbs array
+    if (selectedGap) {
+      const blurbId = selectedGap.id.replace('blurb-gap-', '');
+      console.log('Updating blurb with ID:', blurbId);
+      
+      setTemplateBlurbs(prev => {
+        const updated = prev.map(blurb => 
+          blurb.id === blurbId 
+            ? { ...blurb, content: content }
+            : blurb
+        );
+        console.log('Updated templateBlurbs:', updated);
+        return updated;
+      });
+      
+      // Mark this gap as resolved
+      setResolvedGaps(prev => {
+        const newResolved = new Set([...prev, selectedGap.id]);
+        console.log('Updated resolvedGaps:', newResolved);
+        return newResolved;
+      });
+      
+      // Auto-dismiss success card after 3 seconds
+      setTimeout(() => {
+        setDismissedSuccessCards(prev => new Set([...prev, selectedGap.id]));
+      }, 3000);
+    }
+    
+    // Show temporary success state
+    setTimeout(() => {
+      setIsContentModalOpen(false);
+      setSelectedGap(null);
+    }, 1000);
+  };
+
+  const handleDismissSuccessCard = (gapId: string) => {
+    setDismissedSuccessCards(prev => new Set([...prev, gapId]));
   };
 
   return (
@@ -134,6 +203,10 @@ export default function SavedSections() {
                 onCreateBlurb={handleCreateBlurb}
                 onEditBlurb={handleEditBlurb}
                 onDeleteBlurb={handleDeleteBlurb}
+                onGenerateContent={handleGenerateContent}
+                resolvedGaps={resolvedGaps}
+                dismissedSuccessCards={dismissedSuccessCards}
+                onDismissSuccessCard={handleDismissSuccessCard}
                 contentTypes={[
                   {
                     type: 'intro',
@@ -163,36 +236,19 @@ export default function SavedSections() {
           </div>
         </div>
       </div>
-
-      {/* Add Reusable Content Modal */}
-      <Dialog open={showAddReusableContentModal} onOpenChange={setShowAddReusableContentModal}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <TemplateBlurbDetail
-            blurb={null}
-            isEditing={false}
-            onSave={(blurbData) => {
-              const newBlurb: TemplateBlurb = {
-                id: `custom-${Date.now()}`,
-                type: blurbData.type as 'intro' | 'closer' | 'signature',
-                title: blurbData.title,
-                content: blurbData.content,
-                tags: blurbData.tags,
-                isDefault: blurbData.isDefault,
-                createdAt: blurbData.createdAt,
-                updatedAt: blurbData.updatedAt
-              };
-              setTemplateBlurbs(prev => [...prev, newBlurb]);
-              setShowAddReusableContentModal(false);
-              setNewReusableContent({ title: '', content: '', tags: '', contentType: '' });
-            }}
-            onCancel={() => {
-              setShowAddReusableContentModal(false);
-              setNewReusableContent({ title: '', content: '', tags: '', contentType: '' });
-            }}
-            type={newReusableContent.contentType as 'intro' | 'closer' | 'signature'}
-          />
-        </DialogContent>
-      </Dialog>
+      
+      {/* HIL Content Generation Modal */}
+      {isContentModalOpen && selectedGap && (
+        <ContentGenerationModal
+          gap={selectedGap}
+          isOpen={isContentModalOpen}
+          onClose={() => {
+            setIsContentModalOpen(false);
+            setSelectedGap(null);
+          }}
+          onApplyContent={handleApplyContent}
+        />
+      )}
     </div>
   );
 }

@@ -9,6 +9,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Building2, Calendar, FileText, Link, Plus, Linkedin, FileText as FileTextIcon } from "lucide-react";
+import { IntelligentAlertBadge } from "@/components/ui/IntelligentAlertBadge";
 import { cn } from "@/lib/utils";
 import type { WorkHistoryCompany, WorkHistoryRole } from "@/types/workHistory";
 
@@ -17,6 +18,7 @@ interface WorkHistoryMasterProps {
   selectedCompany: WorkHistoryCompany | null;
   selectedRole: WorkHistoryRole | null;
   expandedCompanyId: string | null;
+  resolvedGaps: Set<string>;
   onCompanySelect: (company: WorkHistoryCompany) => void;
   onRoleSelect: (role: WorkHistoryRole) => void;
   onAddRole?: () => void;
@@ -30,6 +32,7 @@ export const WorkHistoryMaster = ({
   selectedCompany,
   selectedRole,
   expandedCompanyId,
+  resolvedGaps,
   onCompanySelect,
   onRoleSelect,
   onAddRole,
@@ -47,6 +50,21 @@ export const WorkHistoryMaster = ({
       ? new Date(endDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
       : 'Present';
     return `${start} - ${end}`;
+  };
+
+  // Calculate updated gap count for a role based on resolved gaps
+  const getUpdatedGapCount = (role: WorkHistoryRole) => {
+    if (!(role as any).hasGaps) return 0;
+    
+    const originalGapCount = (role as any).gapCount || 0;
+    let resolvedCount = 0;
+    
+    // Count resolved gaps for this role
+    if (resolvedGaps.has('role-description-gap')) resolvedCount++;
+    if (resolvedGaps.has('outcome-metrics-gap')) resolvedCount++;
+    if (resolvedGaps.has('story-content-gap')) resolvedCount++;
+    
+    return Math.max(0, originalGapCount - resolvedCount);
   };
 
   return (
@@ -127,27 +145,15 @@ export const WorkHistoryMaster = ({
                                   : "font-medium group-hover:text-primary-foreground"
                               )}>{role.title}</h4>
                               <div className="flex items-center gap-2 shrink-0">
-                                {role.blurbs.length > 0 && (
-                                  <Badge variant="secondary" className={cn(
-                                    "text-xs flex items-center gap-1",
-                                    selectedRole?.id === role.id 
-                                      ? "bg-muted text-muted-foreground" 
-                                      : "group-hover:bg-primary-foreground group-hover:text-primary"
-                                  )}>
-                                    <FileText className="h-3 w-3" />
-                                    {role.blurbs.length}
-                                  </Badge>
-                                )}
-                                {role.externalLinks.length > 0 && (
-                                  <Badge variant="secondary" className={cn(
-                                    "text-xs flex items-center gap-1",
-                                    selectedRole?.id === role.id 
-                                      ? "bg-muted text-muted-foreground" 
-                                      : "group-hover:bg-primary-foreground group-hover:text-primary"
-                                  )}>
-                                    <Link className="h-3 w-3" />
-                                    {role.externalLinks.length}
-                                  </Badge>
+                                {/* Mock gap detection - replace with real data later */}
+                                {(role as any).hasGaps && getUpdatedGapCount(role) > 0 && (
+                                  <IntelligentAlertBadge
+                                    gapCount={getUpdatedGapCount(role)}
+                                    onAnalyze={() => {
+                                      console.log('Analyze gaps for role:', role.title);
+                                      // TODO: Implement gap analysis
+                                    }}
+                                  />
                                 )}
                               </div>
                             </div>

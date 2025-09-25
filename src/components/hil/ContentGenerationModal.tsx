@@ -5,7 +5,18 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sparkles, RefreshCw, CheckCircle, AlertTriangle } from 'lucide-react';
-import type { GapAnalysis } from './HILProgressPanel';
+interface GapAnalysis {
+  id: string;
+  type: 'core-requirement' | 'preferred-requirement' | 'best-practice' | 'content-enhancement';
+  severity: 'high' | 'medium' | 'low';
+  description: string;
+  suggestion: string;
+  paragraphId?: string;
+  requirementId?: string;
+  origin: 'ai' | 'human' | 'library';
+  addresses?: string[];
+  existingContent?: string;
+}
 
 interface ContentGenerationModalProps {
   isOpen: boolean;
@@ -53,6 +64,18 @@ export function ContentGenerationModal({
             
           case 'closing':
             content = `I am particularly excited about this opportunity at TechCorp because ${gap.suggestion.toLowerCase()}.\n\nYour focus on sustainable technology solutions and commitment to innovation aligns perfectly with my values and experience. I led a green technology initiative that reduced our infrastructure costs by 30% while improving performance, demonstrating my ability to balance technical excellence with business impact and environmental responsibility. My combination of technical expertise, proven track record of delivering results, and passion for sustainable solutions makes me confident I can contribute significantly to your team's success. I look forward to discussing how my background aligns with your needs and how I can help drive TechCorp's mission forward.`;
+            break;
+            
+          case 'role-description':
+            content = `Led product strategy for core platform. I increased user engagement by 35% through data-driven product decisions, reduced customer churn by 40% through improved user experience flows, and delivered $2M in additional revenue through strategic feature launches. My experience with SQL, Python, and analytics tools like Tableau enabled me to make informed decisions that drove measurable business impact.`;
+            break;
+            
+          case 'outcome-metrics':
+            content = `Increased user engagement by 25% and reduced churn by 15%, ${gap.suggestion.toLowerCase()}.\n\nSpecifically, I achieved a 35% increase in daily active users through A/B testing and optimization, reduced customer acquisition cost by 30% through improved conversion funnels, and delivered $1.5M in additional revenue through strategic product initiatives. These metrics were measured over a 12-month period and validated through user research and business impact analysis.`;
+            break;
+            
+          case 'story-content':
+            content = `Successfully launched new product features that improved user experience, ${gap.suggestion.toLowerCase()}.\n\nSpecifically, I led the development of a recommendation engine that increased user engagement by 45%, implemented a streamlined checkout process that reduced cart abandonment by 25%, and introduced personalization features that boosted user retention by 30%. These features were built using React, Node.js, and machine learning algorithms, resulting in $500K in additional monthly revenue.`;
             break;
             
           default:
@@ -143,9 +166,12 @@ export function ContentGenerationModal({
             <CardContent>
               <div className="p-3 bg-muted/30 rounded-lg">
                 <p className="text-sm text-muted-foreground">
-                  {gap.paragraphId === 'intro' && "I am writing to express my strong interest in the Senior Software Engineer position at TechCorp. With over 5 years of experience in full-stack development and a passion for creating innovative solutions, I am excited about the opportunity to contribute to your team's mission of building cutting-edge technology."}
-                  {gap.paragraphId === 'experience' && "In my previous role as a Lead Developer at InnovateTech, I successfully architected and implemented a microservices platform that reduced system latency by 40% and improved scalability for over 100,000 daily active users. My expertise in React, Node.js, and cloud technologies aligns perfectly with TechCorp's technology stack."}
-                  {gap.paragraphId === 'closing' && "What particularly excites me about TechCorp is your commitment to innovation and sustainable technology solutions. I led a green technology initiative that reduced our infrastructure costs by 30% while improving performance, demonstrating my ability to balance technical excellence with business impact."}
+                  {gap.existingContent || 
+                    (gap.paragraphId === 'intro' && "I am writing to express my strong interest in the Senior Software Engineer position at TechCorp. With over 5 years of experience in full-stack development and a passion for creating innovative solutions, I am excited about the opportunity to contribute to your team's mission of building cutting-edge technology.") ||
+                    (gap.paragraphId === 'experience' && "In my previous role as a Lead Developer at InnovateTech, I successfully architected and implemented a microservices platform that reduced system latency by 40% and improved scalability for over 100,000 daily active users. My expertise in React, Node.js, and cloud technologies aligns perfectly with TechCorp's technology stack.") ||
+                    (gap.paragraphId === 'closing' && "What particularly excites me about TechCorp is your commitment to innovation and sustainable technology solutions. I led a green technology initiative that reduced our infrastructure costs by 30% while improving performance, demonstrating my ability to balance technical excellence with business impact.") ||
+                    "No existing content available."
+                  }
                 </p>
               </div>
             </CardContent>
@@ -177,11 +203,10 @@ export function ContentGenerationModal({
             <CardContent className="space-y-4">
               {!generatedContent ? (
                 <div className="text-center py-8">
-                  <Sparkles className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground mb-4">
                     Click "Generate Content" to create AI-powered content that addresses this gap.
                   </p>
-                  <Button onClick={handleGenerate} disabled={isGenerating}>
+                  <Button onClick={handleGenerate} disabled={isGenerating} className="w-full">
                     {isGenerating ? (
                       <>
                         <RefreshCw className="h-4 w-4 animate-spin mr-2" />
@@ -207,19 +232,19 @@ export function ContentGenerationModal({
                   
                   <div className="flex items-center justify-between">
                     <div className="flex gap-2">
-                      <Button variant="outline" onClick={handleRegenerate}>
+                      <Button variant="secondary" onClick={handleRegenerate}>
                         <RefreshCw className="h-4 w-4 mr-2" />
                         Regenerate
                       </Button>
                     </div>
                     
                     <div className="flex gap-2">
-                      <Button variant="outline" onClick={handleClose}>
+                      <Button variant="secondary" onClick={handleClose}>
                         Cancel
                       </Button>
                       <Button onClick={handleApply}>
                         <CheckCircle className="h-4 w-4 mr-2" />
-                        Apply to Cover Letter
+                        Apply Content
                       </Button>
                     </div>
                   </div>
