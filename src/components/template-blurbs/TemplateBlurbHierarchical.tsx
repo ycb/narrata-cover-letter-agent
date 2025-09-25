@@ -352,6 +352,16 @@ export const TemplateBlurbHierarchical = ({
                                       Edit
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => {
+                                      if (onGenerateContent) {
+                                        onGenerateContent(blurb);
+                                      } else {
+                                        console.log('Generate content for blurb:', blurb.title);
+                                      }
+                                    }}>
+                                      <Sparkles className="mr-2 h-4 w-4" />
+                                      Generate Content
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => {
                                       // TODO: Implement duplicate blurb
                                       console.log('Duplicate blurb:', blurb.id);
                                     }}>
