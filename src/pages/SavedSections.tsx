@@ -98,6 +98,11 @@ export default function SavedSections() {
   const [resolvedGaps, setResolvedGaps] = useState<Set<string>>(new Set());
   const [dismissedSuccessCards, setDismissedSuccessCards] = useState<Set<string>>(new Set());
 
+  // Tag suggestion state
+  const [isTagModalOpen, setIsTagModalOpen] = useState(false);
+  const [tagContent, setTagContent] = useState('');
+  const [suggestedTags, setSuggestedTags] = useState<any[]>([]);
+
   const handleSelectBlurbFromLibrary = (blurb: TemplateBlurb) => {
     console.log('Selected blurb from library:', blurb);
   };
@@ -175,6 +180,96 @@ export default function SavedSections() {
     setDismissedSuccessCards(prev => new Set([...prev, gapId]));
   };
 
+  // Mock tag generation function
+  const generateMockTags = async (content: string): Promise<string[]> => {
+    // No delay for demo purposes
+    const keywords = content.toLowerCase();
+    const suggestedTags: string[] = [];
+    
+    // Industry tags
+    if (keywords.includes('product') || keywords.includes('pm')) {
+      suggestedTags.push('Product Management');
+    }
+    if (keywords.includes('saas') || keywords.includes('software')) {
+      suggestedTags.push('SaaS');
+    }
+    if (keywords.includes('fintech') || keywords.includes('finance')) {
+      suggestedTags.push('Fintech');
+    }
+    if (keywords.includes('healthcare') || keywords.includes('medical')) {
+      suggestedTags.push('Healthcare');
+    }
+    if (keywords.includes('ecommerce') || keywords.includes('retail')) {
+      suggestedTags.push('E-commerce');
+    }
+    
+    // Competency tags
+    if (keywords.includes('strategy') || keywords.includes('strategic')) {
+      suggestedTags.push('Strategy');
+    }
+    if (keywords.includes('growth') || keywords.includes('scale')) {
+      suggestedTags.push('Growth');
+    }
+    if (keywords.includes('ux') || keywords.includes('user experience')) {
+      suggestedTags.push('UX');
+    }
+    if (keywords.includes('data') || keywords.includes('analytics')) {
+      suggestedTags.push('Data Analytics');
+    }
+    if (keywords.includes('leadership') || keywords.includes('team')) {
+      suggestedTags.push('Leadership');
+    }
+    if (keywords.includes('launch') || keywords.includes('release')) {
+      suggestedTags.push('Product Launch');
+    }
+    if (keywords.includes('revenue') || keywords.includes('monetization')) {
+      suggestedTags.push('Monetization');
+    }
+    
+    // Business model tags
+    if (keywords.includes('b2b') || keywords.includes('enterprise')) {
+      suggestedTags.push('B2B');
+    }
+    if (keywords.includes('b2c') || keywords.includes('consumer')) {
+      suggestedTags.push('B2C');
+    }
+    if (keywords.includes('marketplace') || keywords.includes('platform')) {
+      suggestedTags.push('Platform');
+    }
+    
+    // Remove duplicates and limit to 5 tags
+    return [...new Set(suggestedTags)].slice(0, 5);
+  };
+
+  // Tag suggestion handler for Saved Sections
+  const handleTagSuggestions = async (blurb: TemplateBlurb) => {
+    console.log('handleTagSuggestions called with blurb:', blurb);
+    // Generate mock tag suggestions based on blurb content
+    const mockTags = await generateMockTags(blurb.content);
+    console.log('Generated mock tags for blurb:', mockTags);
+    
+    const tagSuggestions = mockTags.map((tag, index) => ({
+      id: `blurb-tag-${index}`,
+      value: tag,
+      confidence: Math.random() > 0.5 ? 'high' : Math.random() > 0.3 ? 'medium' : 'low'
+    }));
+    console.log('Blurb tag suggestions:', tagSuggestions);
+    setSuggestedTags(tagSuggestions);
+    setTagContent(blurb.content);
+    console.log('Setting isTagModalOpen to true for blurb tags');
+    setIsTagModalOpen(true);
+    console.log('Blurb tag modal should be opening now');
+  };
+
+  // Handle applying selected tags
+  const handleApplyTags = (selectedTags: string[]) => {
+    console.log('Applied tags to blurb:', selectedTags);
+    // TODO: Update blurb tags in the data
+    setIsTagModalOpen(false);
+    setSuggestedTags([]);
+    setTagContent('');
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-6">
@@ -204,6 +299,7 @@ export default function SavedSections() {
                 onEditBlurb={handleEditBlurb}
                 onDeleteBlurb={handleDeleteBlurb}
                 onGenerateContent={handleGenerateContent}
+                onTagSuggestions={handleTagSuggestions}
                 resolvedGaps={resolvedGaps}
                 dismissedSuccessCards={dismissedSuccessCards}
                 onDismissSuccessCard={handleDismissSuccessCard}
@@ -247,6 +343,22 @@ export default function SavedSections() {
             setSelectedGap(null);
           }}
           onApplyContent={handleApplyContent}
+        />
+      )}
+
+      {/* Tag Suggestion Modal */}
+      {isTagModalOpen && (
+        <ContentGenerationModal
+          mode="tag-suggestion"
+          content={tagContent}
+          suggestedTags={suggestedTags}
+          isOpen={isTagModalOpen}
+          onClose={() => {
+            setIsTagModalOpen(false);
+            setSuggestedTags([]);
+            setTagContent('');
+          }}
+          onApplyTags={handleApplyTags}
         />
       )}
     </div>
