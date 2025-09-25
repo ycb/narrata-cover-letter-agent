@@ -84,8 +84,15 @@ const SignUp = () => {
       <div className="w-full max-w-md">
         {/* Logo/Brand */}
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-foreground mb-2">TruthLetter</h1>
-          <p className="text-muted-foreground">Create your truth-based narrative engine</p>
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <img 
+              src="/narrata-logo.svg" 
+              alt="Narrata Logo" 
+              className="h-8 w-auto"
+            />
+            <h1 className="text-2xl font-normal text-foreground" style={{ fontFamily: 'Poppins, sans-serif' }}>Narrata</h1>
+          </div>
+          <p className="text-sm text-muted-foreground">AI-powered storytelling for career growth</p>
         </div>
 
         <Card className="shadow-medium">
@@ -260,7 +267,7 @@ const SignUp = () => {
 
         {/* Footer */}
         <div className="text-center mt-8 text-xs text-muted-foreground">
-          <p>© 2024 TruthLetter. All rights reserved.</p>
+          <p>© 2025 Narrata. All rights reserved.</p>
         </div>
       </div>
     </div>
