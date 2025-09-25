@@ -477,8 +477,8 @@ export const WorkHistoryDetail = ({
                   Edit Role
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => {
-                  console.log('Generate content for role:', selectedRole?.title);
-                  // TODO: Implement content generation
+                  // Trigger HIL workflow for role content generation
+                  handleGenerateContent('role-description');
                 }}>
                   <Sparkles className="mr-2 h-4 w-4" />
                   Generate Content
