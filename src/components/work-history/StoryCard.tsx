@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
+import { TagSuggestionButton } from "@/components/ui/TagSuggestionButton";
 import { useState } from "react";
 import { 
   FileText, 
@@ -75,6 +76,7 @@ interface StoryCardProps {
   onEdit?: (story: WorkHistoryBlurb) => void;
   onDuplicate?: (story: WorkHistoryBlurb) => void;
   onDelete?: (story: WorkHistoryBlurb) => void;
+  onTagSuggestions?: (tags: string[]) => void;
   className?: string;
   isGapResolved?: boolean;
 }
@@ -84,7 +86,8 @@ export const StoryCard = ({
   linkedLinks = [],
   onEdit, 
   onDuplicate, 
-  onDelete, 
+  onDelete,
+  onTagSuggestions,
   className,
   isGapResolved = false
 }: StoryCardProps) => {
@@ -207,21 +210,26 @@ export const StoryCard = ({
         />
 
         {/* Tags */}
-        {story.tags.length > 0 && (
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <Tags className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Story Tags</span>
-            </div>
-            <div className="flex flex-wrap gap-1">
-              {story.tags.map((tag) => (
-                <Badge key={tag} variant="secondary" className="text-xs">
-                  {tag}
-                </Badge>
-              ))}
-            </div>
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-2">
+            <Tags className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Story Tags</span>
           </div>
-        )}
+          <div className="flex flex-wrap gap-1">
+            {story.tags.length > 0 && story.tags.map((tag) => (
+              <Badge key={tag} variant="secondary" className="text-xs">
+                {tag}
+              </Badge>
+            ))}
+            <TagSuggestionButton
+              content={story.content}
+              onTagsSuggested={onTagSuggestions}
+              onClick={() => onTagSuggestions([])}
+              variant="tertiary"
+              size="sm"
+            />
+          </div>
+        </div>
 
         {/* Link Details - Above Variations */}
         {linkedLinks.length > 0 && (

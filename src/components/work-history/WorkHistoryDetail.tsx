@@ -31,6 +31,7 @@ import {
   CheckCircle
 } from "lucide-react";
 import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
+import { TagSuggestionButton } from "@/components/ui/TagSuggestionButton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -86,6 +87,11 @@ export const WorkHistoryDetail = ({
   // Content Generation Modal state
   const [isContentModalOpen, setIsContentModalOpen] = useState(false);
   const [selectedGap, setSelectedGap] = useState<any>(null);
+  
+  // Tag suggestion state
+  const [isTagModalOpen, setIsTagModalOpen] = useState(false);
+  const [tagContent, setTagContent] = useState('');
+  const [suggestedTags, setSuggestedTags] = useState<any[]>([]);
   
   // Success state management - tracks which success cards have been dismissed
   const [dismissedSuccessCards, setDismissedSuccessCards] = useState<Set<string>>(new Set());
@@ -156,6 +162,211 @@ export const WorkHistoryDetail = ({
 
   const handleDismissSuccessCard = (gapId: string) => {
     setDismissedSuccessCards(prev => new Set([...prev, gapId]));
+  };
+
+  // Tag suggestion handlers
+  const handleTagSuggestions = (tags: string[]) => {
+    console.log('handleTagSuggestions called with:', tags);
+    // Generate mock tag suggestions based on content
+    const content = `${selectedRole.title} at ${selectedCompany.name}: ${selectedRole.description}`;
+    console.log('Generating tags for content:', content);
+    
+    // Generate mock tags immediately without delay
+    const mockTags = generateMockTagsSync(content);
+    console.log('Generated mock tags:', mockTags);
+    
+    const tagSuggestions = mockTags.map((tag, index) => ({
+      id: `tag-${index}`,
+      value: tag,
+      confidence: Math.random() > 0.5 ? 'high' : Math.random() > 0.3 ? 'medium' : 'low'
+    }));
+    console.log('Tag suggestions:', tagSuggestions);
+    setSuggestedTags(tagSuggestions);
+    setTagContent(content);
+    console.log('Setting isTagModalOpen to true');
+    setIsTagModalOpen(true);
+    console.log('Modal should be opening now');
+  };
+
+  // Mock tag generation function
+  const generateMockTags = async (content: string): Promise<string[]> => {
+    // No delay for demo purposes
+    
+    const keywords = content.toLowerCase();
+    const suggestedTags: string[] = [];
+    
+    // Industry tags
+    if (keywords.includes('product') || keywords.includes('pm')) {
+      suggestedTags.push('Product Management');
+    }
+    if (keywords.includes('saas') || keywords.includes('software')) {
+      suggestedTags.push('SaaS');
+    }
+    if (keywords.includes('fintech') || keywords.includes('finance')) {
+      suggestedTags.push('Fintech');
+    }
+    if (keywords.includes('healthcare') || keywords.includes('medical')) {
+      suggestedTags.push('Healthcare');
+    }
+    if (keywords.includes('ecommerce') || keywords.includes('retail')) {
+      suggestedTags.push('E-commerce');
+    }
+    
+    // Competency tags
+    if (keywords.includes('strategy') || keywords.includes('strategic')) {
+      suggestedTags.push('Strategy');
+    }
+    if (keywords.includes('growth') || keywords.includes('scale')) {
+      suggestedTags.push('Growth');
+    }
+    if (keywords.includes('ux') || keywords.includes('user experience')) {
+      suggestedTags.push('UX');
+    }
+    if (keywords.includes('data') || keywords.includes('analytics')) {
+      suggestedTags.push('Data Analytics');
+    }
+    if (keywords.includes('leadership') || keywords.includes('team')) {
+      suggestedTags.push('Leadership');
+    }
+    if (keywords.includes('launch') || keywords.includes('release')) {
+      suggestedTags.push('Product Launch');
+    }
+    if (keywords.includes('revenue') || keywords.includes('monetization')) {
+      suggestedTags.push('Monetization');
+    }
+    
+    // Business model tags
+    if (keywords.includes('b2b') || keywords.includes('enterprise')) {
+      suggestedTags.push('B2B');
+    }
+    if (keywords.includes('b2c') || keywords.includes('consumer')) {
+      suggestedTags.push('B2C');
+    }
+    if (keywords.includes('marketplace') || keywords.includes('platform')) {
+      suggestedTags.push('Platform');
+    }
+    
+    // Remove duplicates and limit to 5 tags
+    return [...new Set(suggestedTags)].slice(0, 5);
+  };
+
+  const handleApplyTags = (selectedTags: string[]) => {
+    console.log('Applied tags:', selectedTags);
+    // TODO: Update role tags in the data
+    setIsTagModalOpen(false);
+    setSuggestedTags([]);
+  };
+
+  // Company tag suggestion handlers
+  const handleCompanyTagSuggestions = (tags: string[]) => {
+    console.log('handleCompanyTagSuggestions called with:', tags);
+    // Generate mock tag suggestions based on company content
+    const content = `${selectedCompany.name}: ${selectedCompany.description || 'Company information'}`;
+    console.log('Generating company tags for content:', content);
+    
+    // Generate mock tags immediately without delay
+    const mockTags = generateMockTagsSync(content);
+    console.log('Generated company mock tags:', mockTags);
+    
+    const tagSuggestions = mockTags.map((tag, index) => ({
+      id: `company-tag-${index}`,
+      value: tag,
+      confidence: Math.random() > 0.5 ? 'high' : Math.random() > 0.3 ? 'medium' : 'low'
+    }));
+    console.log('Company tag suggestions:', tagSuggestions);
+    setSuggestedTags(tagSuggestions);
+    setTagContent(content);
+    console.log('Setting isTagModalOpen to true for company tags');
+    setIsTagModalOpen(true);
+    console.log('Company tag modal should be opening now');
+  };
+
+  // Story tag suggestion handlers
+  const handleStoryTagSuggestions = async (tags: string[]) => {
+    console.log('handleStoryTagSuggestions called with:', tags);
+    // Get the actual story content from the current story
+    const currentStory = selectedRole?.blurbs?.[0]; // Get first story for now
+    const content = currentStory?.content || 'Story content for analysis';
+    console.log('Generating story tags for content:', content);
+    
+    // Open modal first with loading state
+    setTagContent(content);
+    setSuggestedTags([]); // Start with empty tags to show loading
+    setIsTagModalOpen(true);
+    console.log('Modal opened with loading state');
+    
+    // Generate tags asynchronously
+    const mockTags = await generateMockTags(content);
+    console.log('Generated story mock tags:', mockTags);
+    
+    const tagSuggestions = mockTags.map((tag, index) => ({
+      id: `story-tag-${index}`,
+      value: tag,
+      confidence: Math.random() > 0.5 ? 'high' : Math.random() > 0.3 ? 'medium' : 'low'
+    }));
+    console.log('Story tag suggestions:', tagSuggestions);
+    setSuggestedTags(tagSuggestions);
+    console.log('Updated modal with tag suggestions');
+  };
+
+  // Synchronous mock tag generation for stories
+  const generateMockTagsSync = (content: string): string[] => {
+    const keywords = content.toLowerCase();
+    const suggestedTags: string[] = [];
+    
+    // Story-specific tags
+    if (keywords.includes('achievement') || keywords.includes('success')) {
+      suggestedTags.push('Achievement');
+    }
+    if (keywords.includes('leadership') || keywords.includes('lead')) {
+      suggestedTags.push('Leadership');
+    }
+    if (keywords.includes('innovation') || keywords.includes('creative')) {
+      suggestedTags.push('Innovation');
+    }
+    if (keywords.includes('collaboration') || keywords.includes('team')) {
+      suggestedTags.push('Collaboration');
+    }
+    if (keywords.includes('results') || keywords.includes('impact')) {
+      suggestedTags.push('Results-driven');
+    }
+    if (keywords.includes('growth') || keywords.includes('scale')) {
+      suggestedTags.push('Growth');
+    }
+    if (keywords.includes('technical') || keywords.includes('engineering')) {
+      suggestedTags.push('Technical');
+    }
+    if (keywords.includes('strategy') || keywords.includes('strategic')) {
+      suggestedTags.push('Strategy');
+    }
+    
+    // Remove duplicates and limit to 5 tags
+    return [...new Set(suggestedTags)].slice(0, 5);
+  };
+
+  // Link tag suggestion handlers
+  const handleLinkTagSuggestions = (tags: string[]) => {
+    console.log('handleLinkTagSuggestions called with:', tags);
+    // Get the actual link content from the current link
+    const currentLink = selectedRole?.externalLinks?.[0]; // Get first link for now
+    const content = currentLink ? `${currentLink.label}: ${currentLink.url}` : 'Link content for analysis';
+    console.log('Generating link tags for content:', content);
+    
+    // Generate mock tags immediately without delay
+    const mockTags = generateMockTagsSync(content);
+    console.log('Generated link mock tags:', mockTags);
+    
+    const tagSuggestions = mockTags.map((tag, index) => ({
+      id: `link-tag-${index}`,
+      value: tag,
+      confidence: Math.random() > 0.5 ? 'high' : Math.random() > 0.3 ? 'medium' : 'low'
+    }));
+    console.log('Link tag suggestions:', tagSuggestions);
+    setSuggestedTags(tagSuggestions);
+    setTagContent(content);
+    console.log('Setting isTagModalOpen to true for link tags');
+    setIsTagModalOpen(true);
+    console.log('Link tag modal should be opening now');
   };
 
   // Update detail view when initialTab prop changes
@@ -675,21 +886,29 @@ export const WorkHistoryDetail = ({
                             )}
                             
                             {/* Role Tags */}
-                            {selectedRole.tags.length > 0 && (
-                              <div>
-                                <div className="flex items-center gap-2 mb-2">
-                                  <Tags className="h-4 w-4 text-muted-foreground" />
-                                  <span className="text-sm font-medium">Role Tags</span>
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                  {selectedRole.tags.map((tag) => (
-                                    <Badge key={tag} variant="secondary">
-                                      {tag}
-                                    </Badge>
-                                  ))}
-                                </div>
+                            <div>
+                              <div className="flex items-center gap-2 mb-2">
+                                <Tags className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-sm font-medium">Role Tags</span>
                               </div>
-                            )}
+                              <div className="flex flex-wrap gap-2">
+                                {selectedRole.tags.length > 0 && selectedRole.tags.map((tag) => (
+                                  <Badge key={tag} variant="secondary">
+                                    {tag}
+                                  </Badge>
+                                ))}
+                                <TagSuggestionButton
+                                  content={`${selectedRole.title} at ${selectedCompany.name}: ${selectedRole.description}`}
+                                  onTagsSuggested={handleTagSuggestions}
+                                  onClick={() => {
+                                    setTagContent(`${selectedRole.title} at ${selectedCompany.name}: ${selectedRole.description}`);
+                                    handleTagSuggestions([]);
+                                  }}
+                                  variant="tertiary"
+                                  size="sm"
+                                />
+                              </div>
+                            </div>
                 
               </div>
             )}
@@ -723,6 +942,7 @@ export const WorkHistoryDetail = ({
                             onEdit={() => handleEditStory(story)}
                             onDuplicate={() => onDuplicateStory?.(story)}
                             onDelete={() => onDeleteStory?.(story)}
+                            onTagSuggestions={handleStoryTagSuggestions}
                             isGapResolved={resolvedGaps.has('story-content-gap')}
                           />
                       {/* Story Gap Detection */}
@@ -804,6 +1024,7 @@ export const WorkHistoryDetail = ({
                           onEdit={() => onEditLink?.(link)}
                           onDuplicate={() => {}} // TODO: Implement link duplication
                           onDelete={() => {}} // TODO: Implement link deletion
+                          onTagSuggestions={handleLinkTagSuggestions}
                         />
                       </div>
                     ))}
@@ -822,6 +1043,21 @@ export const WorkHistoryDetail = ({
           }}
           gap={selectedGap}
           onApplyContent={handleApplyContent}
+        />
+
+        {/* Tag Suggestion Modal */}
+        {console.log('Rendering Tag Suggestion Modal:', { isTagModalOpen, tagContent, suggestedTags })}
+        <ContentGenerationModal
+          isOpen={isTagModalOpen}
+          onClose={() => {
+            console.log('Closing tag suggestion modal');
+            setIsTagModalOpen(false);
+            setSuggestedTags([]);
+          }}
+          mode="tag-suggestion"
+          content={tagContent}
+          suggestedTags={suggestedTags}
+          onApplyTags={handleApplyTags}
         />
       </div>
     );
@@ -871,21 +1107,26 @@ export const WorkHistoryDetail = ({
         </div>
 
         {/* Company Tags - Clean Section */}
-        {selectedCompany.tags.length > 0 && (
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <Tags className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Company Tags</span>
-            </div>
-            <div className="flex flex-wrap gap-1 mt-3">
-              {selectedCompany.tags.map((tag) => (
-                <Badge key={tag} variant="secondary" className="text-xs">
-                  {tag}
-                </Badge>
-              ))}
-            </div>
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <Tags className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Company Tags</span>
           </div>
-        )}
+          <div className="flex flex-wrap gap-1 mt-3">
+            {selectedCompany.tags.length > 0 && selectedCompany.tags.map((tag) => (
+              <Badge key={tag} variant="secondary" className="text-xs">
+                {tag}
+              </Badge>
+            ))}
+            <TagSuggestionButton
+              content={`${selectedCompany.name}: ${selectedCompany.description || 'Company information'}`}
+              onTagsSuggested={handleCompanyTagSuggestions}
+              onClick={() => handleCompanyTagSuggestions([])}
+              variant="tertiary"
+              size="sm"
+            />
+          </div>
+        </div>
 
         {/* Roles Section - Cards Only */}
         <div className="flex-1">

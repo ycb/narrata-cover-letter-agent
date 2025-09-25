@@ -18,22 +18,42 @@ interface GapAnalysis {
   existingContent?: string;
 }
 
+interface TagSuggestion {
+  id: string;
+  value: string;
+  confidence: 'high' | 'medium' | 'low';
+}
+
 interface ContentGenerationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  gap: GapAnalysis | null;
-  onApplyContent: (content: string) => void;
+  gap?: GapAnalysis | null;
+  onApplyContent?: (content: string) => void;
+  // Tag suggestion mode
+  mode?: 'gap-detection' | 'tag-suggestion';
+  content?: string;
+  suggestedTags?: TagSuggestion[];
+  onApplyTags?: (tags: string[]) => void;
 }
 
 export function ContentGenerationModal({
   isOpen,
   onClose,
   gap,
-  onApplyContent
+  onApplyContent,
+  mode = 'gap-detection',
+  content,
+  suggestedTags = [],
+  onApplyTags
 }: ContentGenerationModalProps) {
+  console.log('ContentGenerationModal render:', { isOpen, mode, suggestedTags });
   const [generatedContent, setGeneratedContent] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [contentQuality, setContentQuality] = useState<'draft' | 'review' | 'ready'>('draft');
+  
+  // Tag suggestion state
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [isGeneratingTags, setIsGeneratingTags] = useState(false);
 
   const handleGenerate = async () => {
     if (!gap) return;
@@ -111,7 +131,7 @@ export function ContentGenerationModal({
     setContentQuality('draft');
   };
 
-  if (!gap) return null;
+  if (mode === 'gap-detection' && !gap) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -119,30 +139,31 @@ export function ContentGenerationModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            Generate Content
+            {mode === 'tag-suggestion' ? 'Suggest Tags' : 'Generate Content'}
           </DialogTitle>
           <DialogDescription>
-            Generate enhanced content to address this gap
+            {mode === 'tag-suggestion' ? 'AI-powered tag suggestions for your content' : 'Generate enhanced content to address this gap'}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Gap Context */}
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Gap Analysis</CardTitle>
-                <div className="flex items-center gap-2">
-                  <Badge className={gap.severity === 'high' ? 'bg-destructive text-destructive-foreground' : 'bg-warning text-warning-foreground'}>
-                    {gap.severity} priority
-                  </Badge>
-                  <Badge variant="outline">
-                    {gap.type.replace('-', ' ')}
-                  </Badge>
+          {/* Gap Context - Only show in gap detection mode */}
+          {mode === 'gap-detection' && gap && (
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">Gap Analysis</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Badge className={gap.severity === 'high' ? 'bg-destructive text-destructive-foreground' : 'bg-warning text-warning-foreground'}>
+                      {gap.severity} priority
+                    </Badge>
+                    <Badge variant="outline">
+                      {gap.type.replace('-', ' ')}
+                    </Badge>
+                  </div>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
+              </CardHeader>
+              <CardContent className="space-y-4">
               
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
@@ -157,25 +178,28 @@ export function ContentGenerationModal({
               </div>
             </CardContent>
           </Card>
+          )}
 
-          {/* Existing Content */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Existing Content</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="p-3 bg-muted/30 rounded-lg">
-                <p className="text-sm text-muted-foreground">
-                  {gap.existingContent || 
-                    (gap.paragraphId === 'intro' && "I am writing to express my strong interest in the Senior Software Engineer position at TechCorp. With over 5 years of experience in full-stack development and a passion for creating innovative solutions, I am excited about the opportunity to contribute to your team's mission of building cutting-edge technology.") ||
-                    (gap.paragraphId === 'experience' && "In my previous role as a Lead Developer at InnovateTech, I successfully architected and implemented a microservices platform that reduced system latency by 40% and improved scalability for over 100,000 daily active users. My expertise in React, Node.js, and cloud technologies aligns perfectly with TechCorp's technology stack.") ||
-                    (gap.paragraphId === 'closing' && "What particularly excites me about TechCorp is your commitment to innovation and sustainable technology solutions. I led a green technology initiative that reduced our infrastructure costs by 30% while improving performance, demonstrating my ability to balance technical excellence with business impact.") ||
-                    "No existing content available."
-                  }
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Existing Content - Only show in gap detection mode */}
+          {mode === 'gap-detection' && gap && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">Existing Content</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="p-3 bg-muted/30 rounded-lg">
+                  <p className="text-sm text-muted-foreground">
+                    {gap.existingContent || 
+                      (gap.paragraphId === 'intro' && "I am writing to express my strong interest in the Senior Software Engineer position at TechCorp. With over 5 years of experience in full-stack development and a passion for creating innovative solutions, I am excited about the opportunity to contribute to your team's mission of building cutting-edge technology.") ||
+                      (gap.paragraphId === 'experience' && "In my previous role as a Lead Developer at InnovateTech, I successfully architected and implemented a microservices platform that reduced system latency by 40% and improved scalability for over 100,000 daily active users. My expertise in React, Node.js, and cloud technologies aligns perfectly with TechCorp's technology stack.") ||
+                      (gap.paragraphId === 'closing' && "What particularly excites me about TechCorp is your commitment to innovation and sustainable technology solutions. I led a green technology initiative that reduced our infrastructure costs by 30% while improving performance, demonstrating my ability to balance technical excellence with business impact.") ||
+                      "No existing content available."
+                    }
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Content Generation */}
           <Card>
@@ -200,27 +224,79 @@ export function ContentGenerationModal({
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {!generatedContent ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground mb-4">
-                    Click "Generate Content" to create AI-powered content that addresses this gap.
-                  </p>
-                  <Button onClick={handleGenerate} disabled={isGenerating} className="w-full">
-                    {isGenerating ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        Generate Content
-                      </>
-                    )}
+        <CardContent className="space-y-4">
+          {mode === 'tag-suggestion' ? (
+            <div className="space-y-4">
+              <div className="p-3 bg-muted/30 rounded-lg">
+                <p className="text-sm text-muted-foreground mb-2">Content to analyze:</p>
+                <p className="text-sm">{content}</p>
+              </div>
+              
+              {suggestedTags.length > 0 ? (
+                <div className="space-y-3">
+                  <p className="text-sm font-medium">Suggested tags:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {suggestedTags.map((tag) => (
+                      <Badge
+                        key={tag.id}
+                        variant={selectedTags.includes(tag.value) ? "default" : "outline"}
+                        className="cursor-pointer"
+                        onClick={() => {
+                          if (selectedTags.includes(tag.value)) {
+                            setSelectedTags(selectedTags.filter(t => t !== tag.value));
+                          } else {
+                            setSelectedTags([...selectedTags, tag.value]);
+                          }
+                        }}
+                      >
+                        {tag.value}
+                        {tag.confidence === 'high' && <span className="ml-1 text-green-500">✓</span>}
+                        {tag.confidence === 'medium' && <span className="ml-1 text-yellow-500">~</span>}
+                        {tag.confidence === 'low' && <span className="ml-1 text-gray-500">?</span>}
+                      </Badge>
+                    ))}
+                  </div>
+                  
+                  <Button 
+                    onClick={() => onApplyTags?.(selectedTags)}
+                    disabled={selectedTags.length === 0}
+                    className="w-full"
+                  >
+                    Apply {selectedTags.length} selected tags
                   </Button>
                 </div>
               ) : (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground mb-4">
+                    Analyzing content to suggest relevant tags...
+                  </p>
+                  <div className="flex items-center justify-center">
+                    <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                    <span>Generating tag suggestions...</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : !generatedContent ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground mb-4">
+                Click "Generate Content" to create AI-powered content that addresses this gap.
+              </p>
+              <Button onClick={handleGenerate} disabled={isGenerating} className="w-full">
+                {isGenerating ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Generate Content
+                  </>
+                )}
+              </Button>
+            </div>
+          ) : (
                 <>
                   <Textarea
                     value={generatedContent}

@@ -6,6 +6,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Input } from "@/components/ui/input";
 import { Search, Plus, Edit, Trash2, FileText, Clock, CheckCircle, AlertCircle, MoreHorizontal, Copy, Tags, AlertTriangle, Sparkles, X } from "lucide-react";
 import { IntelligentAlertBadge } from "@/components/ui/IntelligentAlertBadge";
+import { TagSuggestionButton } from "@/components/ui/TagSuggestionButton";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -40,6 +41,7 @@ interface TemplateBlurbHierarchicalProps {
   onEditBlurb: (blurb: TemplateBlurb) => void;
   onDeleteBlurb: (blurbId: string) => void;
   onGenerateContent?: (blurb: TemplateBlurb) => void;
+  onTagSuggestions?: (blurb: TemplateBlurb) => void;
   resolvedGaps?: Set<string>;
   dismissedSuccessCards?: Set<string>;
   onDismissSuccessCard?: (gapId: string) => void;
@@ -60,6 +62,7 @@ export const TemplateBlurbHierarchical = ({
   onEditBlurb,
   onDeleteBlurb,
   onGenerateContent,
+  onTagSuggestions,
   resolvedGaps = new Set(),
   dismissedSuccessCards = new Set(),
   onDismissSuccessCard,
@@ -322,21 +325,26 @@ export const TemplateBlurbHierarchical = ({
                                   {blurb.lastUsed && <span>Last used {blurb.lastUsed}</span>}
                                   <span>Updated {new Date(blurb.updatedAt).toLocaleDateString()}</span>
                                 </div>
-                                {blurb.tags.length > 0 && (
-                                  <div className="flex flex-wrap gap-2 mt-3">
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <Tags className="h-4 w-4 text-muted-foreground" />
-                                      <span className="text-sm font-medium">Content Tags</span>
-                                    </div>
-                                    <div className="flex flex-wrap gap-2">
-                                      {blurb.tags.map((tag) => (
-                                        <Badge key={tag} variant="outline" className="text-xs">
-                                          {tag}
-                                        </Badge>
-                                      ))}
-                                    </div>
+                                <div className="flex flex-wrap gap-2 mt-3">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Tags className="h-4 w-4 text-muted-foreground" />
+                                    <span className="text-sm font-medium">Content Tags</span>
                                   </div>
-                                )}
+                                  <div className="flex flex-wrap gap-2">
+                                    {blurb.tags.length > 0 && blurb.tags.map((tag) => (
+                                      <Badge key={tag} variant="outline" className="text-xs">
+                                        {tag}
+                                      </Badge>
+                                    ))}
+                                    <TagSuggestionButton
+                                      content={blurb.content}
+                                      onTagsSuggested={() => onTagSuggestions?.(blurb)}
+                                      onClick={() => onTagSuggestions?.(blurb)}
+                                      variant="tertiary"
+                                      size="sm"
+                                    />
+                                  </div>
+                                </div>
                               </div>
                               <div className="flex items-center gap-3 ml-6">
                                 <DropdownMenu>
