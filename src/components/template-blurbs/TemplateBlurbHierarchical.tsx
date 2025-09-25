@@ -308,7 +308,7 @@ export const TemplateBlurbHierarchical = ({
                       <React.Fragment key={blurb.id}>
                         <Card className={cn(
                           "hover:shadow-md transition-shadow",
-                          (blurb as any).hasGaps && "border-warning bg-warning/5"
+                          (blurb as any).hasGaps && !resolvedGaps.has(`blurb-gap-${blurb.id}`) && "border-warning bg-warning/5"
                         )}>
                           <CardContent className="p-6">
                             <div className="flex items-start justify-between">
