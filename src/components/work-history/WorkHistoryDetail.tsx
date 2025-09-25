@@ -1170,6 +1170,21 @@ export const WorkHistoryDetail = ({
             ))}
           </div>
         </div>
+
+        {/* Tag Suggestion Modal */}
+        {console.log('Rendering Tag Suggestion Modal:', { isTagModalOpen, tagContent, suggestedTags })}
+        <ContentGenerationModal
+          isOpen={isTagModalOpen}
+          onClose={() => {
+            console.log('Closing tag suggestion modal');
+            setIsTagModalOpen(false);
+            setSuggestedTags([]);
+          }}
+          mode="tag-suggestion"
+          content={tagContent}
+          suggestedTags={suggestedTags}
+          onApplyTags={handleApplyTags}
+        />
       </div>
     );
   }
