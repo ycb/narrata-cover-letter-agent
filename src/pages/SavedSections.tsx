@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, FileText, CheckCircle, Edit } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Plus, FileText, CheckCircle, Edit, X } from "lucide-react";
 import { TemplateBlurbHierarchical } from "@/components/template-blurbs/TemplateBlurbHierarchical";
 import { type TemplateBlurb } from "@/components/template-blurbs/TemplateBlurbMaster";
 import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
@@ -248,6 +251,121 @@ export default function SavedSections() {
           }}
           onApplyContent={handleApplyContent}
         />
+      )}
+
+      {/* Add Reusable Content Modal */}
+      {showAddReusableContentModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="w-full max-w-2xl max-h-[90vh] bg-background rounded-lg shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b">
+              <div>
+                <h2 className="text-2xl font-bold">Add New Saved Section</h2>
+                <p className="text-muted-foreground">
+                  Create a new reusable section for your cover letters
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setShowAddReusableContentModal(false);
+                  setNewReusableContent({ title: '', content: '', tags: '', contentType: '' });
+                }}
+                className="h-8 w-8 p-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <div className="p-6">
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="content-type">Section Type</Label>
+                  <Input
+                    id="content-type"
+                    value={newReusableContent.contentType}
+                    onChange={(e) => setNewReusableContent(prev => ({ ...prev, contentType: e.target.value }))}
+                    placeholder="e.g., intro, closer, signature"
+                    className="mt-2"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="title">Title</Label>
+                  <Input
+                    id="title"
+                    value={newReusableContent.title}
+                    onChange={(e) => setNewReusableContent(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="e.g., Professional Opening"
+                    className="mt-2"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="content">Content</Label>
+                  <Textarea
+                    id="content"
+                    value={newReusableContent.content}
+                    onChange={(e) => setNewReusableContent(prev => ({ ...prev, content: e.target.value }))}
+                    placeholder="Enter your section content here..."
+                    rows={6}
+                    className="mt-2"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="tags">Tags</Label>
+                  <Input
+                    id="tags"
+                    value={newReusableContent.tags}
+                    onChange={(e) => setNewReusableContent(prev => ({ ...prev, tags: e.target.value }))}
+                    placeholder="e.g., professional, technical, leadership"
+                    className="mt-2"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Separate tags with commas
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-3 mt-6">
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setShowAddReusableContentModal(false);
+                    setNewReusableContent({ title: '', content: '', tags: '', contentType: '' });
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    // Create new blurb
+                    const newBlurb: TemplateBlurb = {
+                      id: `blurb-${Date.now()}`,
+                      type: newReusableContent.contentType as 'intro' | 'closer' | 'signature',
+                      title: newReusableContent.title,
+                      content: newReusableContent.content,
+                      tags: newReusableContent.tags.split(',').map(tag => tag.trim()).filter(Boolean),
+                      status: 'draft',
+                      confidence: 'medium',
+                      timesUsed: 0,
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString()
+                    };
+                    
+                    setTemplateBlurbs(prev => [...prev, newBlurb]);
+                    setShowAddReusableContentModal(false);
+                    setNewReusableContent({ title: '', content: '', tags: '', contentType: '' });
+                  }}
+                  disabled={!newReusableContent.title || !newReusableContent.content || !newReusableContent.contentType}
+                >
+                  Create Section
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
