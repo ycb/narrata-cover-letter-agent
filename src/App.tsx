@@ -65,7 +65,6 @@ function AppLayout() {
           </ProtectedRoute>
         } />
         <Route path="/marketing" element={<Landing />} />
-        <Route path="/new-user" element={<NewUserOnboarding />} />
         <Route path="/dashboard" element={
           <ProtectedRoute>
             <Header />
@@ -183,9 +182,24 @@ function AppLayout() {
             <SavedSections />
           </ProtectedRoute>
         } />
-        <Route path="/new-user" element={<NewUserOnboarding />} />
-        <Route path="/onboarding-dashboard" element={<OnboardingDashboard />} />
-        <Route path="/new-user-dashboard" element={<NewUserDashboard />} />
+        <Route path="/new-user" element={
+          <ProtectedRoute>
+            <Header />
+            <NewUserOnboarding />
+          </ProtectedRoute>
+        } />
+        <Route path="/onboarding-dashboard" element={
+          <ProtectedRoute>
+            <Header />
+            <OnboardingDashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/new-user-dashboard" element={
+          <ProtectedRoute>
+            <Header />
+            <NewUserDashboard />
+          </ProtectedRoute>
+        } />
         <Route path="/feedback-admin" element={
           <ProtectedRoute>
             <Header />
