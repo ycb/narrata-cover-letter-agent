@@ -5,22 +5,73 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Eye, EyeOff, Mail, Lock, Linkedin, AlertCircle } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Eye, EyeOff, Mail, Lock, Linkedin, AlertCircle, Loader2 } from "lucide-react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useAuth } from "@/contexts/AuthContext";
 
 const SignIn = () => {
+  const { signIn, signInWithGoogle, signInWithLinkedIn, loading, error } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
     rememberMe: false
   });
-  const [showError, setShowError] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const from = location.state?.from?.pathname || "/dashboard";
+  const redirectError = location.state?.error;
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    if (showError) setShowError(false);
+    if (formError) setFormError(null);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setFormError(null);
+
+    try {
+      const { error } = await signIn(formData.email, formData.password, formData.rememberMe);
+      
+      if (error) {
+        setFormError(error.message || 'Sign in failed');
+      } else {
+        navigate(from, { replace: true });
+      }
+    } catch (err: any) {
+      setFormError(err.message || 'An unexpected error occurred');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      const { error } = await signInWithGoogle();
+      if (error) {
+        setFormError(error.message || 'Google sign in failed');
+      }
+    } catch (err: any) {
+      setFormError(err.message || 'An unexpected error occurred');
+    }
+  };
+
+  const handleLinkedInSignIn = async () => {
+    try {
+      const { error } = await signInWithLinkedIn();
+      if (error) {
+        setFormError(error.message || 'LinkedIn sign in failed');
+      }
+    } catch (err: any) {
+      setFormError(err.message || 'An unexpected error occurred');
+    }
   };
 
   return (
@@ -29,9 +80,17 @@ const SignIn = () => {
         {/* Logo/Brand */}
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-foreground mb-2">TruthLetter</h1>
-          <p className="text-muted-foreground">Welcome back to your narrative engine</p>
+          <p className="text-muted-foreground"> to your narrative engine</p>
         </div>
-
+        {/* Error Alert */}
+        {(error || formError || redirectError) && (
+          <Alert className="mb-4"  variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              {formError || error || redirectError || 'An error occurred'}
+            </AlertDescription>
+          </Alert>
+        )}
         <Card className="shadow-medium">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl text-center">Sign In</CardTitle>
@@ -39,26 +98,27 @@ const SignIn = () => {
               Access your truth-based cover letter platform
             </CardDescription>
           </CardHeader>
-          
+
           <CardContent className="space-y-4">
-            {/* Error Alert */}
-            {showError && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Invalid email or password. Please try again.
-                </AlertDescription>
-              </Alert>
-            )}
 
             {/* Social Login Buttons */}
             <div className="space-y-3">
-              <Button variant="secondary" className="w-full gap-2">
+              <Button 
+                variant="secondary" 
+                className="w-full gap-2"
+                onClick={handleLinkedInSignIn}
+                disabled={loading}
+              >
                 <Linkedin className="h-4 w-4" />
                 Continue with LinkedIn
               </Button>
               
-              <Button variant="secondary" className="w-full gap-2">
+              <Button 
+                variant="secondary" 
+                className="w-full gap-2"
+                onClick={handleGoogleSignIn}
+                disabled={loading}
+              >
                 <svg className="h-4 w-4" viewBox="0 0 24 24">
                   <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                   <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -79,7 +139,7 @@ const SignIn = () => {
             </div>
 
             {/* Email Form */}
-            <form className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <div className="relative">
@@ -98,9 +158,6 @@ const SignIn = () => {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password">Password</Label>
-                  <Link to="/forgot-password" className="text-sm text-accent hover:underline">
-                    Forgot password?
-                  </Link>
                 </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -126,19 +183,37 @@ const SignIn = () => {
                 </div>
               </div>
 
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="remember"
-                  checked={formData.rememberMe}
-                  onCheckedChange={(checked) => handleInputChange("rememberMe", checked as boolean)}
-                />
-                <Label htmlFor="remember" className="text-sm text-muted-foreground">
-                  Remember me for 30 days
-                </Label>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="remember"
+                    checked={formData.rememberMe}
+                    onCheckedChange={(checked) => handleInputChange("rememberMe", checked as boolean)}
+                  />
+                  <Label htmlFor="remember" className="text-sm text-muted-foreground">
+                    Remember me for 30 days
+                  </Label>
+                </div>
+                <Link to="/forgot-password" className="text-sm text-accent hover:underline">
+                  Forgot password?
+                </Link>
               </div>
 
-              <Button className="w-full" variant="primary" size="lg">
-                Sign In
+              <Button 
+                type="submit"
+                className="w-full" 
+                variant="primary" 
+                size="lg"
+                disabled={isSubmitting || loading}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Signing In...
+                  </>
+                ) : (
+                  'Sign In'
+                )}
               </Button>
             </form>
 
@@ -150,6 +225,7 @@ const SignIn = () => {
             </div>
           </CardContent>
         </Card>
+
 
         {/* Footer */}
         <div className="text-center mt-8 text-xs text-muted-foreground">

@@ -97,7 +97,7 @@ export function StoryGapsAndStrength({ storyStrength, gaps, coverage }: StoryGap
               Strength Breakdown
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {Object.entries(storyStrength.breakdown).map(([key, score]) => {
+              {storyStrength?.breakdown ? Object.entries(storyStrength.breakdown).map(([key, score]) => {
                 const max = key === 'outcomes' ? 30 : key === 'context' ? 25 : key === 'technical' ? 20 : key === 'influence' ? 15 : 10;
                 const percentage = (score / max) * 100;
                 const label = key === 'outcomes' ? 'Outcomes & Impact' :
@@ -114,7 +114,11 @@ export function StoryGapsAndStrength({ storyStrength, gaps, coverage }: StoryGap
                     </Badge>
                   </div>
                 );
-              })}
+              }) : (
+                <div className="col-span-2 text-center text-muted-foreground py-8">
+                  No story strength data available yet. Complete your onboarding to see your story analysis.
+                </div>
+              )}
             </div>
           </div>
         </div>

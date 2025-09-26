@@ -17,7 +17,7 @@ import {
   Users,
   Lightbulb
 } from "lucide-react";
-import { ContentReviewFlow } from "@/components/onboarding/ContentReviewFlow";
+import { ContentReviewStep } from "@/components/onboarding/ContentReviewStep";
 import { FileUploadCard } from "@/components/onboarding/FileUploadCard";
 import { useTour } from "@/contexts/TourContext";
 
@@ -29,20 +29,32 @@ interface OnboardingData {
   coverLetter?: string;
   coverLetterFile?: File;
   caseStudies?: string[];
+  caseStudiesFile?: File;
   pmLevel?: string;
   confidence?: number;
   progress?: number;
-  extractedRoles?: Array<{
+  approvedContent?: Array<{
     id: string;
-    company: string;
+    type: 'resume' | 'linkedin' | 'coverLetter' | 'caseStudies';
     title: string;
-    dates: string;
-    source: 'resume' | 'linkedin';
-    stories: Array<{
+    source: string;
+    content: string;
+    sections?: Array<{
       id: string;
+      title: string;
       content: string;
-      approved: boolean;
+      type: 'intro' | 'paragraph' | 'closer' | 'signature';
     }>;
+    stories?: Array<{
+      id: string;
+      title: string;
+      content: string;
+      company: string;
+      role: string;
+      dates: string;
+    }>;
+    approved: boolean;
+    confidence: 'high' | 'medium' | 'low';
   }>;
 }
 
@@ -62,44 +74,7 @@ export default function NewUserOnboarding() {
         break;
       case 'upload':
         console.log('Moving from upload to review');
-        // Simulate processing and auto-extract content
-        setIsProcessing(true);
-        setTimeout(() => {
-          console.log('Processing complete, setting review step');
-          setOnboardingData(prev => ({
-            ...prev,
-            pmLevel: 'Product Manager (Mid-Level)',
-            confidence: 65,
-            progress: 75,
-            // Auto-extract roles and stories
-            extractedRoles: [
-              {
-                id: '1',
-                company: 'TechCorp Inc.',
-                title: 'Senior Product Manager',
-                dates: '2022 - Present',
-                source: 'resume',
-                stories: [
-                  { id: '1', content: 'Led cross-functional team of 8 engineers...', approved: false },
-                  { id: '2', content: 'Increased user engagement by 25%...', approved: false }
-                ]
-              },
-              {
-                id: '2',
-                company: 'StartupXYZ',
-                title: 'Product Manager',
-                dates: '2020 - 2022',
-                source: 'linkedin',
-                stories: [
-                  { id: '3', content: 'Launched MVP in 3 months...', approved: false },
-                  { id: '4', content: 'Grew user base from 0 to 10K...', approved: false }
-                ]
-              }
-            ]
-          }));
-          setIsProcessing(false);
-          setCurrentStep('review');
-        }, 1500); // Slightly longer for content processing
+        setCurrentStep('review');
         break;
       case 'review':
         console.log('Moving from review to start tour');
@@ -117,12 +92,32 @@ export default function NewUserOnboarding() {
     }
   };
 
-  const handleFileUpload = (type: 'resume' | 'coverLetter', file: File) => {
+  const handleFileUpload = (type: 'resume' | 'coverLetter' | 'caseStudies', file: File) => {
     if (type === 'coverLetter') {
       setOnboardingData(prev => ({ ...prev, coverLetterFile: file }));
+    } else if (type === 'caseStudies') {
+      setOnboardingData(prev => ({ 
+        ...prev, 
+        caseStudies: prev.caseStudies ? [...prev.caseStudies, file.name] : [file.name],
+        caseStudiesFile: file
+      }));
     } else {
       setOnboardingData(prev => ({ ...prev, [type]: file }));
     }
+  };
+
+  const handleUploadComplete = (fileId: string, uploadType: string) => {
+    console.log('Upload completed:', { fileId, uploadType });
+    // Store the file ID for later reference
+    setOnboardingData(prev => ({ 
+      ...prev, 
+      [`${uploadType}FileId`]: fileId 
+    }));
+  };
+
+  const handleUploadError = (error: string) => {
+    console.error('Upload error:', error);
+    // You could show a toast notification here
   };
 
   const handleLinkedInUrl = (url: string) => {
@@ -130,7 +125,9 @@ export default function NewUserOnboarding() {
   };
 
   const handleCoverLetterText = (text: string) => {
+    console.log('handleCoverLetterText called with:', text);
     setOnboardingData(prev => ({ ...prev, coverLetter: text }));
+    console.log('Updated onboardingData.coverLetter to:', text);
   };
 
   const renderWelcomeStep = () => (
@@ -191,6 +188,8 @@ export default function NewUserOnboarding() {
           description="Upload your resume to get started"
           icon={FileText}
           onFileUpload={handleFileUpload}
+          onUploadComplete={handleUploadComplete}
+          onUploadError={handleUploadError}
           required
           currentValue={onboardingData.resume}
         />
@@ -198,10 +197,13 @@ export default function NewUserOnboarding() {
         <FileUploadCard
           type="linkedin"
           title="LinkedIn Profile"
-          description="Connect your professional profile"
+          description="Connect your professional profile (Coming Soon - Partnership Program)"
           icon={Linkedin}
           onLinkedInUrl={handleLinkedInUrl}
-          required
+          onUploadComplete={handleUploadComplete}
+          onUploadError={handleUploadError}
+          required={false}
+          disabled={true}
           currentValue={onboardingData.linkedinUrl}
         />
         
@@ -211,6 +213,9 @@ export default function NewUserOnboarding() {
           description="Paste or upload your strongest cover letter"
           icon={Mail}
           onTextInput={handleCoverLetterText}
+          onFileUpload={handleFileUpload}
+          onUploadComplete={handleUploadComplete}
+          onUploadError={handleUploadError}
           required
           currentValue={onboardingData.coverLetter}
         />
@@ -221,25 +226,20 @@ export default function NewUserOnboarding() {
           description="Add any relevant case studies or projects"
           icon={BookOpen}
           onFileUpload={handleFileUpload}
+          onUploadComplete={handleUploadComplete}
+          onUploadError={handleUploadError}
           optional
-          currentValue={onboardingData.caseStudies?.[0]}
+          currentValue={onboardingData.caseStudiesFile}
         />
       </div>
 
-      <div className="text-center">
-        {/* Debug info */}
-        <div className="mb-4 p-4 bg-gray-100 rounded text-sm text-left max-w-md mx-auto">
-          <div>Resume: {onboardingData.resume ? '✅' : '❌'}</div>
-          <div>LinkedIn: {onboardingData.linkedinUrl ? '✅' : '❌'}</div>
-          <div>Cover Letter Text: {onboardingData.coverLetter ? '✅' : '❌'}</div>
-          <div>Cover Letter File: {onboardingData.coverLetterFile ? '✅' : '❌'}</div>
-          <div>Button Disabled: {(!onboardingData.resume || !onboardingData.linkedinUrl || (!onboardingData.coverLetter && !onboardingData.coverLetterFile)) ? 'Yes' : 'No'}</div>
-        </div>
+        <div className="text-center">
+          
         
         <Button 
           size="lg" 
           onClick={handleNextStep}
-          disabled={!onboardingData.resume || !onboardingData.linkedinUrl || (!onboardingData.coverLetter && !onboardingData.coverLetterFile)}
+          disabled={!onboardingData.resume || (!onboardingData.coverLetter && !onboardingData.coverLetterFile)}
           className="px-8 py-3 text-lg"
         >
           {isProcessing ? (
@@ -259,39 +259,19 @@ export default function NewUserOnboarding() {
   );
 
   const renderReviewStep = () => {
-    if (!onboardingData.extractedRoles || onboardingData.extractedRoles.length === 0) {
-      return (
-        <div className="text-center space-y-4">
-          <h3 className="text-xl font-semibold">No content to review</h3>
-          <p className="text-muted-foreground">Please upload your documents first.</p>
-        </div>
-      );
-    }
-
     return (
-      <div className="space-y-8">
-        <div className="text-center space-y-4">
-          <h2 className="text-3xl font-bold text-foreground">
-            Review & Approve Your Content
-          </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            We've automatically extracted and organized your content. Review and approve what you'd like to keep.
-          </p>
-        </div>
-
-        <ContentReviewFlow 
-          extractedRoles={onboardingData.extractedRoles}
-          onReviewComplete={(approvedRoles) => {
-            console.log('Review completed, approved roles:', approvedRoles);
-            // Update onboarding data with approved roles
-            setOnboardingData(prev => ({
-              ...prev,
-              extractedRoles: approvedRoles
-            }));
-            handleNextStep();
-          }}
-        />
-      </div>
+      <ContentReviewStep 
+        onReviewComplete={(approvedContent) => {
+          console.log('Review completed, approved content:', approvedContent);
+          // Update onboarding data with approved content
+          setOnboardingData(prev => ({
+            ...prev,
+            approvedContent
+          }));
+          handleNextStep();
+        }}
+        onBack={() => setCurrentStep('upload')}
+      />
     );
   };
 

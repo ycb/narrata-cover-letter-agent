@@ -25,7 +25,7 @@ import {
   Menu,
   X
 } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { UserGoalsModal } from "@/components/user-goals/UserGoalsModal";
@@ -33,6 +33,7 @@ import { MyVoiceModal } from "@/components/user-voice/MyVoiceModal";
 import { MyDataModal } from "@/components/user-data/MyDataModal";
 import { useUserGoals } from "@/contexts/UserGoalsContext";
 import { useUserVoice } from "@/contexts/UserVoiceContext";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,12 +51,40 @@ interface HeaderProps {
 
 export const Header = ({ currentPage }: HeaderProps) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, profile, signOut, getOAuthData } = useAuth();
   const [showDataModal, setShowDataModal] = useState(false);
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { goals, setGoals } = useUserGoals();
   const { voice, setVoice } = useUserVoice();
+
+  const handleSignOut = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (isSigningOut) {
+      return;
+    }
+    
+    setIsSigningOut(true);
+    
+    try {
+      const { error } = await signOut();
+      
+      // Always redirect regardless of signOut result
+      // The AuthContext handles clearing local state
+      navigate('/signin', { replace: true });
+    } catch (navError) {
+      console.error('Navigation error:', navError);
+      // Fallback to window.location
+      window.location.href = '/signin';
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
   
   // Determine current page based on pathname
   const getCurrentPage = (pathname: string): string => {
@@ -358,8 +387,59 @@ export const Header = ({ currentPage }: HeaderProps) => {
         <div className="flex items-center gap-4">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-white opacity-90 hover:opacity-100 transition-opacity">
-                <User className="h-4 w-4" />
+              <Button variant="ghost" className="text-white opacity-90 hover:opacity-100 transition-opacity p-2 h-auto">
+                <div className="flex items-center gap-2">
+                  {/* User Avatar */}
+                  {(() => {
+                    const oauthData = getOAuthData();
+                    const avatarUrl = oauthData.picture || profile?.avatar_url;
+                    
+                    if (avatarUrl) {
+                      return (
+                        <div className="w-8 h-8 rounded-full overflow-hidden bg-muted flex-shrink-0">
+                          <img 
+                            src={avatarUrl} 
+                            alt="Profile" 
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              // Fallback to initials if image fails to load
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const parent = target.parentElement;
+                              if (parent) {
+                                parent.innerHTML = `<div class="w-full h-full bg-white/20 flex items-center justify-center text-white font-semibold text-sm">${(oauthData.firstName || user?.email?.split('@')[0] || 'U').charAt(0).toUpperCase()}</div>`;
+                              }
+                            }}
+                          />
+                        </div>
+                      );
+                    } else {
+                      // Show initials if no avatar
+                      const oauthData = getOAuthData();
+                      const initials = (oauthData.firstName || user?.email?.split('@')[0] || 'U').charAt(0).toUpperCase();
+                      return (
+                        <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+                          {initials}
+                        </div>
+                      );
+                    }
+                  })()}
+                  
+                  {/* User Name */}
+                  <div className="flex flex-col items-start">
+                    <span className="text-sm font-medium">
+                      {(() => {
+                        const oauthData = getOAuthData();
+                        return oauthData.firstName || oauthData.fullName || user?.email?.split('@')[0] || 'User';
+                      })()}
+                    </span>
+                    <span className="text-xs opacity-70">
+                      {user?.email}
+                    </span>
+                  </div>
+                  
+                  <ChevronDown className="h-4 w-4" />
+                </div>
               </Button>
             </DropdownMenuTrigger>
 
@@ -381,8 +461,12 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 <span>My Voice</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end">
-                <span>Log out</span>
+              <DropdownMenuItem 
+                onClick={handleSignOut}
+                disabled={isSigningOut}
+                className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span>{isSigningOut ? 'Signing out...' : 'Log out'}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

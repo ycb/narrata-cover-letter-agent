@@ -3,6 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthErrorBoundary } from "@/components/auth/AuthErrorBoundary";
 import { PrototypeProvider } from "@/contexts/PrototypeContext";
 import { TourProvider } from "@/contexts/TourContext";
 import { UserGoalsProvider } from "@/contexts/UserGoalsContext";
@@ -11,6 +13,7 @@ import { UserVoiceProvider } from "@/contexts/UserVoiceContext";
 import { Header } from "@/components/layout/Header";
 import { FeedbackSystem } from "@/components/feedback/FeedbackSystem";
 import { FeedbackAdmin } from "@/components/feedback/FeedbackAdmin";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
 // Environment-based feedback system initialization
 const shouldShowFeedbackSystem = (): boolean => {
@@ -46,6 +49,7 @@ import NewUserOnboarding from "./pages/NewUserOnboarding";
 import SignUp from "./pages/SignUp";
 import SignIn from "./pages/SignIn";
 import ForgotPassword from "./pages/ForgotPassword";
+import LinkedInCallback from "./pages/LinkedInCallback";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -56,142 +60,157 @@ function AppLayout() {
     <div className="pb-16">
       <Routes>
         <Route path="/" element={
-          <>
+          <ProtectedRoute>
             <Header />
             <Dashboard />
-          </>
+          </ProtectedRoute>
         } />
         <Route path="/marketing" element={<Landing />} />
-        <Route path="/new-user" element={<NewUserOnboarding />} />
         <Route path="/dashboard" element={
-          <>
+          <ProtectedRoute>
             <Header />
             <Dashboard />
-          </>
+          </ProtectedRoute>
         } />
         <Route path="/work-history" element={
-          <>
+          <ProtectedRoute>
             <Header />
             <WorkHistory />
-          </>
+          </ProtectedRoute>
         } />
         <Route path="/cover-letters" element={
-          <>
+          <ProtectedRoute>
             <Header />
             <CoverLetters />
-          </>
+          </ProtectedRoute>
         } />
         <Route path="/cover-letter-template" element={
-          <>
+          <ProtectedRoute>
             <Header />
             <CoverLetterTemplate />
-          </>
+          </ProtectedRoute>
         } />
         <Route path="/assessment" element={
-          <>
+          <ProtectedRoute>
             <Header />
             <Assessment />
-          </>
+          </ProtectedRoute>
         } />
 
         {/* Assessment Section Routes */}
         <Route path="/assessment/overall-level" element={
-          <>
+          <ProtectedRoute>
             <Header />
             <Assessment initialSection="overall-level" />
-          </>
+          </ProtectedRoute>
         } />
         <Route path="/assessment/competencies/execution" element={
-          <>
+          <ProtectedRoute>
             <Header />
             <Assessment initialSection="competency-execution" />
-          </>
+          </ProtectedRoute>
         } />
         <Route path="/assessment/competencies/customer-insight" element={
-          <>
+          <ProtectedRoute>
             <Header />
             <Assessment initialSection="competency-customer-insight" />
-          </>
+          </ProtectedRoute>
         } />
         <Route path="/assessment/competencies/strategy" element={
-          <>
+          <ProtectedRoute>
             <Header />
             <Assessment initialSection="competency-strategy" />
-          </>
+          </ProtectedRoute>
         } />
         <Route path="/assessment/competencies/influence" element={
-          <>
+          <ProtectedRoute>
             <Header />
             <Assessment initialSection="competency-influence" />
-          </>
+          </ProtectedRoute>
         } />
         <Route path="/assessment/specializations/growth" element={
-          <>
+          <ProtectedRoute>
             <Header />
             <Assessment initialSection="specialization-growth" />
-          </>
+          </ProtectedRoute>
         } />
         <Route path="/assessment/specializations/technical" element={
-          <>
+          <ProtectedRoute>
             <Header />
             <Assessment initialSection="specialization-technical" />
-          </>
+          </ProtectedRoute>
         } />
         <Route path="/assessment/specializations/founding" element={
-          <>
+          <ProtectedRoute>
             <Header />
             <Assessment initialSection="specialization-founding" />
-          </>
+          </ProtectedRoute>
         } />
         <Route path="/assessment/specializations/platform" element={
-          <>
+          <ProtectedRoute>
             <Header />
             <Assessment initialSection="specialization-platform" />
-          </>
+          </ProtectedRoute>
         } />
 
         <Route path="/hil-demo" element={
-          <>
+          <ProtectedRoute>
             <Header />
             <HILDemo />
-          </>
+          </ProtectedRoute>
         } />
         <Route path="/tooltip-demo" element={
-          <>
+          <ProtectedRoute>
             <Header />
             <TooltipDemo />
-          </>
+          </ProtectedRoute>
         } />
         <Route path="/show-all-stories" element={
-          <>
+          <ProtectedRoute>
             <Header />
             <ShowAllStories />
-          </>
+          </ProtectedRoute>
         } />
         <Route path="/show-all-links" element={
-          <>
+          <ProtectedRoute>
             <Header />
             <ShowAllLinks />
-          </>
+          </ProtectedRoute>
         } />
         <Route path="/saved-sections" element={
-          <>
+          <ProtectedRoute>
             <Header />
             <SavedSections />
-          </>
+          </ProtectedRoute>
         } />
-        <Route path="/new-user" element={<NewUserOnboarding />} />
-        <Route path="/onboarding-dashboard" element={<OnboardingDashboard />} />
-        <Route path="/new-user-dashboard" element={<NewUserDashboard />} />
+        <Route path="/new-user" element={
+          <ProtectedRoute>
+            <Header />
+            <NewUserOnboarding />
+          </ProtectedRoute>
+        } />
+        <Route path="/onboarding-dashboard" element={
+          <ProtectedRoute>
+            <Header />
+            <OnboardingDashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/new-user-dashboard" element={
+          <ProtectedRoute>
+            <Header />
+            <NewUserDashboard />
+          </ProtectedRoute>
+        } />
         <Route path="/feedback-admin" element={
-          <>
+          <ProtectedRoute>
             <Header />
             <FeedbackAdmin />
-          </>
+          </ProtectedRoute>
         } />
-        <Route path="/signup" element={<SignUp />} />
-        <Route path="/signin" element={<SignIn />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/signup" element={<ProtectedRoute requireAuth={false}><SignUp /></ProtectedRoute>} />
+        <Route path="/signin" element={<ProtectedRoute requireAuth={false}><SignIn /></ProtectedRoute>} />
+        <Route path="/forgot-password" element={<ProtectedRoute requireAuth={false}><ForgotPassword /></ProtectedRoute>} />
+        <Route path="/auth/linkedin/callback" element={<LinkedInCallback />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
@@ -211,17 +230,21 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <PrototypeProvider>
-        <BrowserRouter>
-          <TourProvider>
-            <UserGoalsProvider>
-              <UserVoiceProvider>
-                <AppLayout />
-              </UserVoiceProvider>
-            </UserGoalsProvider>
-          </TourProvider>
-        </BrowserRouter>
-      </PrototypeProvider>
+      <AuthErrorBoundary>
+        <AuthProvider>
+          <PrototypeProvider>
+            <BrowserRouter>
+              <TourProvider>
+                <UserGoalsProvider>
+                  <UserVoiceProvider>
+                    <AppLayout />
+                  </UserVoiceProvider>
+                </UserGoalsProvider>
+              </TourProvider>
+            </BrowserRouter>
+          </PrototypeProvider>
+        </AuthProvider>
+      </AuthErrorBoundary>
     </TooltipProvider>
   </QueryClientProvider>
 );
