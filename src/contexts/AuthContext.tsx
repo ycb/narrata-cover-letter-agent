@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from 'react'
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo, useRef } from 'react'
 import { User, Session } from '@supabase/supabase-js'
 import { supabase, getUserProfile, upsertUserProfile, getCurrentUser, safeAuthOperations } from '@/lib/supabase'
 import type { Database } from '@/types/supabase'
@@ -11,7 +11,7 @@ interface AuthContextType {
   profile: Profile | null
   loading: boolean
   error: string | null
-  signUp: (email: string, password: string, fullName?: string) => Promise<{ error: any }>
+  signUp: (email: string, password: string, fullName?: string) => Promise<{ error: any; message?: string }>
   signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ error: any }>
   signInWithMagicLink: (email: string) => Promise<{ error: any }>
   signInWithGoogle: () => Promise<{ error: any }>
@@ -166,16 +166,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           }
           
-          const newProfileData = {
-            id: userId,
-            email: user.email || '',
-            full_name: fullName,
-            avatar_url: avatarUrl,
+          try {
+            const newProfileData = {
+              id: userId,
+              email: user.email || '',
+              full_name: fullName,
+              avatar_url: avatarUrl,
+            }
+            
+            console.log('💾 Creating profile with data:', newProfileData);
+            profileData = await upsertUserProfile(newProfileData)
+            console.log('✅ Profile created successfully:', profileData);
+          } catch (profileError: any) {
+            // If profile creation fails (e.g., RLS policy violation), 
+            // wait a moment and try to fetch again (trigger might have created it)
+            console.log('Profile creation failed, retrying fetch...', profileError.message)
+            await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second
+            profileData = await getUserProfile(userId)
           }
-          
-          console.log('💾 Creating profile with data:', newProfileData);
-          profileData = await upsertUserProfile(newProfileData)
-          console.log('✅ Profile created successfully:', profileData);
         }
       } else {
         console.log('✅ Existing profile found, using stored data:', profileData);
@@ -185,8 +193,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('🎯 Setting profile in state:', profileData);
       setProfile(profileData)
     } catch (err: any) {
-      console.error('❌ Error loading user profile:', err)
-      setError(err.message)
+      console.error('Error loading user profile:', err)
+      // Don't show toast for profile loading errors - they're not critical
+      // The user can still use the app without a complete profile
     }
   }, [])
 
@@ -206,11 +215,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           setSession(session)
           setUser(session?.user ?? null)
-          
-          // Load profile if user exists
-          if (session?.user) {
-            await loadUserProfile(session.user.id)
-          }
         }
       } catch (err) {
         console.error('Error in getInitialSession:', err)
@@ -255,9 +259,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null)
       setError(null)
       
-      // Load profile if user exists
       if (session?.user) {
-        await loadUserProfile(session.user.id)
+        setProfile(null) // Clear profile first
       } else {
         setProfile(null)
       }
@@ -277,7 +280,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearTimeout(timeout)
       subscription.unsubscribe()
     }
-  }, [loadUserProfile, loading])
+  }, [isSigningOut])
+
+  // Separate effect to load profile when user changes
+  useEffect(() => {
+    if (user?.id) {
+      loadUserProfile(user.id)
+    } else {
+      setProfile(null)
+    }
+  }, [user?.id, loadUserProfile])
 
   const signUp = async (email: string, password: string, fullName?: string) => {
     try {
@@ -297,8 +309,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error }
       }
 
-      // Profile will be created automatically by loadUserProfile
-      // when the auth state change is detected
+      // If user is created and session exists, they're automatically signed in
+      if (data.user && data.session) {
+        console.log('User signed up and automatically signed in:', data.user.email)
+        // The auth state change will be handled by the onAuthStateChange listener
+        return { error: null }
+      }
+
+      // If no session (email confirmation required), show message
+      if (data.user && !data.session) {
+        console.log('User created but email confirmation required:', data.user.email)
+        return { 
+          error: null, 
+          message: 'Please check your email and click the confirmation link to complete your signup.' 
+        }
+      }
       return { error: null }
     } catch (err: any) {
       setError(err.message)

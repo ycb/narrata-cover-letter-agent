@@ -44,6 +44,9 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
           "Led cross-functional team of 12 engineers and designers",
           "Launched 3 major product releases ahead of schedule"
         ],
+        // Mock gap detection data - 2 role gaps + 1 story gap = 3 total
+        hasGaps: true,
+        gapCount: 3,
         blurbs: [
           {
             id: "blurb-1",
@@ -61,6 +64,9 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
             timesUsed: 8,
             lastUsed: "2024-01-15",
             linkedExternalLinks: ["link-1"],
+            // Mock gap detection data
+            hasGaps: true,
+            gapCount: 1,
                           variations: [
                 {
                   id: "var-1",
@@ -124,6 +130,9 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
           "Implemented data-driven decision making process",
           "Reduced time-to-market by 25%"
         ],
+        // No gaps for this role
+        hasGaps: false,
+        gapCount: 0,
         blurbs: [],
         externalLinks: [],
         createdAt: "2020-06-01T00:00:00Z",
@@ -154,6 +163,9 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
             "Hired and managed team of 8 product professionals",
             "Launched MVP in 6 months"
           ],
+          // No gaps for this role
+          hasGaps: false,
+          gapCount: 0,
           blurbs: [
             {
               id: "blurb-2",
@@ -239,6 +251,9 @@ export default function WorkHistory() {
 
   // Handle URL parameters for initial navigation
   const [initialTab, setInitialTab] = useState<'role' | 'stories' | 'links'>('role');
+  
+  // Gap resolution state - tracks which gaps have been resolved
+  const [resolvedGaps, setResolvedGaps] = useState<Set<string>>(new Set());
   
   // Auto-advance through tabs during tour
   useEffect(() => {
@@ -413,6 +428,7 @@ export default function WorkHistory() {
                 selectedCompany={selectedCompany}
                 selectedRole={selectedRole}
                 expandedCompanyId={expandedCompanyId}
+                resolvedGaps={resolvedGaps}
                 onCompanySelect={handleCompanySelect}
                 onRoleSelect={handleRoleSelect}
                 onAddRole={() => setIsAddRoleModalOpen(true)}
@@ -429,6 +445,8 @@ export default function WorkHistory() {
               selectedRole={selectedRole}
               companies={workHistory}
               initialTab={initialTab}
+              resolvedGaps={resolvedGaps}
+              onResolvedGapsChange={setResolvedGaps}
               onRoleSelect={handleRoleSelect}
               onAddRole={() => setIsAddRoleModalOpen(true)}
               onAddStory={handleAddStory}

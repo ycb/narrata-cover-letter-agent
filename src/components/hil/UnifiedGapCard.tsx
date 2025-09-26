@@ -78,26 +78,6 @@ export function UnifiedGapCard({
             </CardTitle>
           </div>
           
-          {/* Right-aligned Chips */}
-          <div className="flex items-center gap-2">
-            {status === 'gap' && severity && (
-              <Badge 
-                className={
-                  severity === 'high' ? 'bg-destructive text-destructive-foreground' : 
-                  severity === 'medium' ? 'bg-warning text-warning-foreground' : 
-                  'bg-muted text-muted-foreground'
-                }
-              >
-                {severity} priority
-              </Badge>
-            )}
-            
-            {/* Origin Tag */}
-            <Badge variant="outline" className={`text-xs px-2 py-1 ${originInfo.className}`}>
-              <OriginIcon className="h-3 w-3 mr-1" />
-              {originInfo.label}
-            </Badge>
-          </div>
         </div>
       </CardHeader>
 
@@ -143,10 +123,10 @@ export function UnifiedGapCard({
                 variant="secondary" 
                 size="sm" 
                 onClick={onGenerate}
-                className="px-6"
+                className="w-full"
               >
-                <RefreshCw className="h-3 w-3 mr-1" />
-                Generate
+                <Sparkles className="h-3 w-3 mr-1" />
+                Generate Content
               </Button>
             )}
           </div>
