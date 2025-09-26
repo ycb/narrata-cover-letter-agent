@@ -86,14 +86,17 @@ export const Header = ({ currentPage }: HeaderProps) => {
     <header className="border-b sticky top-0 z-50" style={{ backgroundColor: '#121212' }}>
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-6">
-          <div className="flex items-center gap-3">
+          <Link 
+            to="/dashboard" 
+            className="flex items-center gap-3 hover:opacity-90 transition-opacity cursor-pointer"
+          >
             <img 
               src="/narrata-logo.svg" 
               alt="Narrata" 
               className="h-12 w-auto"
             />
             <span className="text-white font-sans text-2xl">Narrata</span>
-          </div>
+          </Link>
           
           {/* Dropdown Navigation */}
           <nav className="hidden md:flex">
