@@ -15,6 +15,7 @@ import {
   Loader2,
   AlertTriangle
 } from "lucide-react";
+import { LoadingState } from '@/components/shared/LoadingState';
 import CoverLetterCreateModal from "@/components/cover-letters/CoverLetterCreateModal";
 
 // Import new simplified v2 components
@@ -42,10 +43,10 @@ const Dashboard = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-600" />
-          <p className="text-gray-600">Loading your dashboard...</p>
-        </div>
+        <LoadingState
+          isLoading={true}
+          loadingText="Loading your dashboard..."
+        />
       </div>
     );
   }
@@ -54,14 +55,12 @@ const Dashboard = () => {
   if (error) {
     return (
       <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <AlertTriangle className="w-8 h-8 text-red-500 mx-auto" />
-          <h3 className="text-xl font-semibold text-gray-900">Error Loading Dashboard</h3>
-          <p className="text-gray-600">{error}</p>
-          <Button onClick={refetch} variant="secondary">
-            Try Again
-          </Button>
-        </div>
+        <LoadingState
+          isLoading={false}
+          error={error}
+          onRetry={refetch}
+          errorTitle="Error Loading Dashboard"
+        />
       </div>
     );
   }

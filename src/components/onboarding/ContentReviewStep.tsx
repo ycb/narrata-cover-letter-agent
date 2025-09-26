@@ -18,6 +18,8 @@ import {
   AlertTriangle,
   Loader2
 } from "lucide-react";
+import { LoadingState } from '@/components/shared/LoadingState';
+import { EmptyState } from '@/components/shared/EmptyState';
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Database } from "@/types/supabase";
@@ -408,27 +410,24 @@ export function ContentReviewStep({ onReviewComplete, onBack }: ContentReviewSte
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center space-y-4">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-600" />
-          <p className="text-gray-600">Loading your content...</p>
-        </div>
-      </div>
+      <LoadingState
+        isLoading={true}
+        loadingText="Loading your content..."
+      />
     );
   }
 
   if (extractedContent.length === 0) {
     return (
-      <div className="text-center space-y-6 py-12">
-        <AlertTriangle className="w-12 h-12 text-yellow-500 mx-auto" />
-        <h3 className="text-xl font-semibold text-gray-900">No Content Found</h3>
-        <p className="text-gray-600 max-w-md mx-auto">
-          We couldn't find any processed content from your uploads. Please go back and upload your files.
-        </p>
-        <Button onClick={onBack} variant="secondary">
-          Go Back to Upload
-        </Button>
-      </div>
+      <EmptyState
+        icon={AlertTriangle}
+        title="No Content Found"
+        description="We couldn't find any processed content from your uploads. Please go back and upload your files."
+        action={{
+          label: "Go Back to Upload",
+          onClick: onBack
+        }}
+      />
     );
   }
 

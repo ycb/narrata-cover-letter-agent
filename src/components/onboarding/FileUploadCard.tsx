@@ -21,6 +21,7 @@ import { useFileUpload, useLinkedInUpload } from "@/hooks/useFileUpload";
 import type { FileType } from "@/types/fileUpload";
 import { TextExtractionService } from "@/services/textExtractionService";
 import { UploadProgressBar } from "./UploadProgressBar";
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 interface FileUploadCardProps {
   type: 'resume' | 'linkedin' | 'coverLetter' | 'caseStudies';
@@ -413,7 +414,7 @@ export function FileUploadCard({
         >
           {fileUpload.isUploading ? (
             <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+              <LoadingSpinner size="sm" className="mr-2 text-white" />
               Uploading...
             </>
           ) : (

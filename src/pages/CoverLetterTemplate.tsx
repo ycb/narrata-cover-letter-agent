@@ -21,6 +21,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { cn } from "@/lib/utils";
 import { useTour } from "@/contexts/TourContext";
 import { TourBannerFull } from "@/components/onboarding/TourBannerFull";
+import { FormModal } from "@/components/shared/FormModal";
 
 // Mock template blurbs library
 const mockTemplateBlurbs: TemplateBlurb[] = [
@@ -990,66 +991,53 @@ export default function CoverLetterTemplate() {
       )}
 
               {/* Add Saved Section Modal */}
-      {showAddReusableContentModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Add New {newReusableContent.contentType ? newReusableContent.contentType.charAt(0).toUpperCase() + newReusableContent.contentType.slice(1) : 'Section'}</CardTitle>
-                <button
-                  onClick={() => setShowAddReusableContentModal(false)}
-                  className="h-6 w-6 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
-                >
-                  <X className="h-4 w-4" />
-                  <span className="sr-only">Close</span>
-                </button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="reusable-content-title">Title</Label>
-                  <Input
-                    id="reusable-content-title"
-                    placeholder="e.g., Professional Introduction, Passionate Closing"
-                    value={newReusableContent.title}
-                    onChange={(e) => setNewReusableContent({ ...newReusableContent, title: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="reusable-content-content">Content</Label>
-                  <Textarea
-                    id="reusable-content-content"
-                    placeholder="Write your content here..."
-                    value={newReusableContent.content}
-                    onChange={(e) => setNewReusableContent({ ...newReusableContent, content: e.target.value })}
-                    rows={4}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="reusable-content-tags">Tags (comma-separated)</Label>
-                  <Input
-                    id="reusable-content-tags"
-                    placeholder="e.g., professional, passionate, technical"
-                    value={newReusableContent.tags}
-                    onChange={(e) => setNewReusableContent({ ...newReusableContent, tags: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="flex gap-3 mt-6">
-                <Button 
-                  variant="primary" 
-                  className="w-full"
-                  onClick={handleCreateReusableContent}
-                  disabled={!newReusableContent.title.trim() || !newReusableContent.content.trim()}
-                >
-                  Create Content
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+      <FormModal
+        isOpen={showAddReusableContentModal}
+        onClose={() => setShowAddReusableContentModal(false)}
+        title={`Add New ${newReusableContent.contentType ? newReusableContent.contentType.charAt(0).toUpperCase() + newReusableContent.contentType.slice(1) : 'Section'}`}
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="reusable-content-title">Title</Label>
+            <Input
+              id="reusable-content-title"
+              placeholder="e.g., Professional Introduction, Passionate Closing"
+              value={newReusableContent.title}
+              onChange={(e) => setNewReusableContent({ ...newReusableContent, title: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label htmlFor="reusable-content-content">Content</Label>
+            <Textarea
+              id="reusable-content-content"
+              placeholder="Write your content here..."
+              value={newReusableContent.content}
+              onChange={(e) => setNewReusableContent({ ...newReusableContent, content: e.target.value })}
+              rows={4}
+            />
+          </div>
+          <div>
+            <Label htmlFor="reusable-content-tags">Tags (comma-separated)</Label>
+            <Input
+              id="reusable-content-tags"
+              placeholder="e.g., professional, passionate, technical"
+              value={newReusableContent.tags}
+              onChange={(e) => setNewReusableContent({ ...newReusableContent, tags: e.target.value })}
+            />
+          </div>
         </div>
-      )}
+        <div className="flex gap-3 mt-6">
+          <Button 
+            variant="primary" 
+            className="w-full"
+            onClick={handleCreateReusableContent}
+            disabled={!newReusableContent.title.trim() || !newReusableContent.content.trim()}
+          >
+            Create Content
+          </Button>
+        </div>
+      </FormModal>
 
       {/* Add New Section Modal */}
       {showAddSectionModal && (

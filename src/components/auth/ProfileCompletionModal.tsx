@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, User } from 'lucide-react';
+import { User } from 'lucide-react';
+import { FormModal } from '@/components/shared/FormModal';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 interface ProfileCompletionModalProps {
   isOpen: boolean;
@@ -46,58 +47,55 @@ export default function ProfileCompletionModal({ isOpen, onComplete }: ProfileCo
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-            <User className="w-6 h-6 text-primary" />
+    <FormModal
+      isOpen={isOpen}
+      onClose={() => {}} // Prevent closing without completing profile
+      title="Complete Your Profile"
+      description="Please provide your name to continue using the application."
+      maxWidth="max-w-md"
+      showCloseButton={false}
+      className="text-center"
+    >
+      <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+        <User className="w-6 h-6 text-primary" />
+      </div>
+      
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="fullName">Full Name</Label>
+          <Input
+            id="fullName"
+            type="text"
+            value={formData.fullName}
+            onChange={(e) => handleInputChange('fullName', e.target.value)}
+            placeholder="Enter your full name"
+            required
+            disabled={isSubmitting}
+          />
+        </div>
+
+        {error && (
+          <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+            {error}
           </div>
-          <CardTitle>Complete Your Profile</CardTitle>
-          <CardDescription>
-            Please provide your name to continue using the application.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name</Label>
-              <Input
-                id="fullName"
-                type="text"
-                value={formData.fullName}
-                onChange={(e) => handleInputChange('fullName', e.target.value)}
-                placeholder="Enter your full name"
-                required
-                disabled={isSubmitting}
-              />
-            </div>
+        )}
 
-            {error && (
-              <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
-                {error}
-              </div>
-            )}
-
-            <Button 
-              type="submit" 
-              className="w-full" 
-              disabled={isSubmitting || !formData.fullName.trim()}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Updating Profile...
-                </>
-              ) : (
-                'Complete Profile'
-              )}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+        <Button 
+          type="submit" 
+          className="w-full" 
+          disabled={isSubmitting || !formData.fullName.trim()}
+        >
+          {isSubmitting ? (
+            <>
+              <LoadingSpinner size="sm" className="mr-2" />
+              Updating Profile...
+            </>
+          ) : (
+            'Complete Profile'
+          )}
+        </Button>
+      </form>
+    </FormModal>
   );
 }

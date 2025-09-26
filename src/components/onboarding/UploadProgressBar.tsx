@@ -1,6 +1,7 @@
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { XCircle, RefreshCw } from "lucide-react";
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import type { FileUploadProgress } from "@/types/fileUpload";
 
 interface UploadProgressBarProps {
@@ -27,7 +28,7 @@ export function UploadProgressBar({
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2 text-blue-600 text-sm">
-        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" />
+        <LoadingSpinner size="sm" className="text-blue-600" />
         {isUploading ? uploadingText : connectingText}
       </div>
       {progress.length > 0 && (
