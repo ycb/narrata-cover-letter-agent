@@ -20,52 +20,100 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<{ error: any }>
   updateProfile: (updates: Partial<Profile>) => Promise<{ error: any }>
   refreshProfile: () => Promise<void>
+  refreshOAuthData: () => Promise<void>
+  needsProfileCompletion: () => boolean
+  getOAuthData: () => {
+    fullName: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    picture: string | null;
+  }
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// Helper function to extract name from OAuth metadata
+// Note: Using existing profile columns only (full_name, avatar_url)
+// No additional OAuth metadata storage needed
+
+// Helper function to extract data from OAuth identities
+const extractOAuthData = (identities: any[]): {
+  fullName: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  picture: string | null;
+} => {
+  console.log('🔍 OAuth Identities Analysis:');
+  console.log('Raw identities:', JSON.stringify(identities, null, 2));
+  
+  if (!identities || identities.length === 0) {
+    console.log('❌ No identities provided');
+    return { fullName: null, firstName: null, lastName: null, picture: null };
+  }
+  
+  // Find the most recent identity (LinkedIn preferred, then Google)
+  const linkedinIdentity = identities.find(id => id.provider === 'linkedin_oidc');
+  const googleIdentity = identities.find(id => id.provider === 'google');
+  const identity = linkedinIdentity || googleIdentity || identities[0];
+  
+  console.log('🎯 Using identity from provider:', identity.provider);
+  console.log('📋 Identity data:', JSON.stringify(identity.identity_data, null, 2));
+  
+  const identityData = identity.identity_data || {};
+  
+  // Extract name components
+  let fullName = null;
+  let firstName = null;
+  let lastName = null;
+  
+  // Primary: full_name from identity data
+  if (identityData.full_name && identityData.full_name.trim()) {
+    fullName = identityData.full_name.trim();
+    console.log('✅ Found full_name:', fullName);
+  }
+  
+  // Secondary: name from identity data
+  if (!fullName && identityData.name && identityData.name.trim()) {
+    fullName = identityData.name.trim();
+    console.log('✅ Found name:', fullName);
+  }
+  
+  // Tertiary: given_name + family_name from identity data
+  if (!fullName && identityData.given_name && identityData.family_name) {
+    fullName = `${identityData.given_name.trim()} ${identityData.family_name.trim()}`.trim();
+    console.log('✅ Found given_name + family_name:', fullName);
+  }
+  
+  // Extract individual name components
+  if (identityData.given_name && identityData.given_name.trim()) {
+    firstName = identityData.given_name.trim();
+    console.log('✅ Found given_name:', firstName);
+  }
+  
+  if (identityData.family_name && identityData.family_name.trim()) {
+    lastName = identityData.family_name.trim();
+    console.log('✅ Found family_name:', lastName);
+  }
+  
+  // Extract picture data
+  const picture = identityData.picture || identityData.avatar_url || null;
+  
+  if (picture) {
+    console.log('✅ Found picture:', picture);
+  }
+  
+  console.log('📊 Extracted OAuth data:', {
+    fullName,
+    firstName,
+    lastName,
+    picture
+  });
+  
+  return { fullName, firstName, lastName, picture };
+};
+
+// Legacy function for backward compatibility
 const extractNameFromOAuthMetadata = (metadata: any): string | null => {
-  if (!metadata) return null;
-  
-  // Primary: full_name from metadata
-  if (metadata.full_name && metadata.full_name.trim()) {
-    return metadata.full_name.trim();
-  }
-  
-  // Secondary: name from metadata
-  if (metadata.name && metadata.name.trim()) {
-    return metadata.name.trim();
-  }
-  
-  // Tertiary: first_name + last_name from metadata
-  if (metadata.first_name && metadata.last_name) {
-    return `${metadata.first_name.trim()} ${metadata.last_name.trim()}`.trim();
-  }
-  
-  if (metadata.first_name && metadata.first_name.trim()) {
-    return metadata.first_name.trim();
-  }
-  
-  // Quaternary: given_name + family_name from metadata (Google OAuth)
-  if (metadata.given_name && metadata.family_name) {
-    return `${metadata.given_name.trim()} ${metadata.family_name.trim()}`.trim();
-  }
-  
-  if (metadata.given_name && metadata.given_name.trim()) {
-    return metadata.given_name.trim();
-  }
-  
-  // Quinary: nickname from metadata
-  if (metadata.nickname && metadata.nickname.trim()) {
-    return metadata.nickname.trim();
-  }
-  
-  // Senary: preferred_username from metadata
-  if (metadata.preferred_username && metadata.preferred_username.trim()) {
-    return metadata.preferred_username.trim();
-  }
-  
+  console.log('⚠️ Using legacy extractNameFromOAuthMetadata - consider using extractOAuthData instead');
   return null;
 };
 
@@ -80,29 +128,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Load user profile when user changes - memoized to prevent unnecessary re-renders
   const loadUserProfile = useCallback(async (userId: string) => {
     try {
+      console.log('👤 Loading user profile for ID:', userId);
       let profileData = await getUserProfile(userId)
       
-      // If profile doesn't exist, create it
+      // If profile doesn't exist, create it based on auth method
       if (!profileData) {
+        console.log('🆕 No existing profile found, creating new profile...');
         const user = await getCurrentUser()
         if (user) {
-          // Enhanced name extraction from OAuth metadata
-          const extractedName = extractNameFromOAuthMetadata(user.user_metadata)
+          console.log('👤 Current user data for profile creation:', {
+            id: user.id,
+            email: user.email,
+            identities: user.identities,
+            user_metadata: user.user_metadata
+          });
+          
+          let fullName = null;
+          let avatarUrl = null;
+          
+          // Check if user has OAuth identities (LinkedIn, Google)
+          if (user.identities && user.identities.length > 0) {
+            console.log('🔗 OAuth user detected, extracting OAuth data...');
+            const oauthData = extractOAuthData(user.identities);
+            fullName = oauthData.fullName;
+            avatarUrl = oauthData.picture;
+            console.log('📝 OAuth data extracted:', { fullName, avatarUrl });
+          } else {
+            console.log('📧 Email/password/magic link user detected, using user_metadata...');
+            // For email/password/magic link users, check user_metadata
+            fullName = user.user_metadata?.full_name || null;
+            avatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
+            console.log('📝 User metadata extracted:', { fullName, avatarUrl });
+            
+            // If no name found, this might be a magic link user who needs profile completion
+            if (!fullName) {
+              console.log('⚠️ No name found - user may need profile completion');
+            }
+          }
           
           const newProfileData = {
             id: userId,
             email: user.email || '',
-            full_name: extractedName,
-            avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
+            full_name: fullName,
+            avatar_url: avatarUrl,
           }
           
+          console.log('💾 Creating profile with data:', newProfileData);
           profileData = await upsertUserProfile(newProfileData)
+          console.log('✅ Profile created successfully:', profileData);
         }
+      } else {
+        console.log('✅ Existing profile found, using stored data:', profileData);
+        // Profile exists, use stored data - no need to re-extract
       }
       
+      console.log('🎯 Setting profile in state:', profileData);
       setProfile(profileData)
     } catch (err: any) {
-      console.error('Error loading user profile:', err)
+      console.error('❌ Error loading user profile:', err)
       setError(err.message)
     }
   }, [])
@@ -147,11 +230,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('🔄 Auth State Change:', event);
+      console.log('📧 User email:', session?.user?.email);
+      console.log('🔗 Provider:', session?.user?.app_metadata?.provider);
+      
       if (!mounted) return
       
       // Don't process auth state changes during logout
       if (isSigningOut) {
         return
+      }
+      
+      // Log detailed user metadata for LinkedIn OAuth
+      if (session?.user && event === 'SIGNED_IN') {
+        console.log('🔍 LinkedIn OAuth User Data:');
+        console.log('User ID:', session.user.id);
+        console.log('Email:', session.user.email);
+        console.log('App Metadata:', JSON.stringify(session.user.app_metadata, null, 2));
+        console.log('User Metadata:', JSON.stringify(session.user.user_metadata, null, 2));
+        console.log('Identities:', JSON.stringify(session.user.identities, null, 2));
       }
       
       setSession(session)
@@ -200,15 +297,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error }
       }
 
-      // Create profile if signup was successful
-      if (data.user) {
-        await upsertUserProfile({
-          id: data.user.id,
-          email: data.user.email!,
-          full_name: fullName || null,
-        })
-      }
-
+      // Profile will be created automatically by loadUserProfile
+      // when the auth state change is detected
       return { error: null }
     } catch (err: any) {
       setError(err.message)
@@ -353,6 +443,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithLinkedIn = async () => {
     try {
+      console.log('🔗 Initiating LinkedIn OAuth sign-in...');
+      console.log('📍 Redirect URL:', `${window.location.origin}/dashboard`);
       setError(null)
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'linkedin_oidc',
@@ -360,8 +452,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           redirectTo: `${window.location.origin}/dashboard`,
         },
       })
+      
+      if (error) {
+        console.error('❌ LinkedIn OAuth error:', error);
+      } else {
+        console.log('✅ LinkedIn OAuth initiated successfully');
+      }
+      
       return { error }
     } catch (err: any) {
+      console.error('❌ LinkedIn OAuth exception:', err);
       setError(err.message)
       return { error: err }
     }
@@ -401,6 +501,93 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user, loadUserProfile])
 
+  const refreshOAuthData = useCallback(async () => {
+    if (!user || !profile) return;
+    
+    try {
+      console.log('🔄 Refreshing OAuth data from current identities...');
+      
+      // Extract fresh OAuth data from current identities
+      const oauthData = extractOAuthData(user.identities || []);
+      console.log('📝 Fresh OAuth data:', oauthData);
+      
+      // Update profile with fresh OAuth data using existing columns
+      const updatedProfile = {
+        full_name: oauthData.fullName,
+        avatar_url: oauthData.picture,
+        // Only update existing columns - no additional metadata
+      };
+      
+      console.log('💾 Updating profile with fresh OAuth data:', updatedProfile);
+      await updateProfile(updatedProfile);
+      console.log('✅ OAuth data refreshed successfully');
+    } catch (err: any) {
+      console.error('❌ Error refreshing OAuth data:', err);
+      setError(err.message);
+    }
+  }, [user, profile, updateProfile])
+
+  const needsProfileCompletion = useCallback(() => {
+    // Check if user needs to complete their profile
+    if (!user || !profile) return false;
+    
+    // If no full_name in profile, user needs to complete profile
+    return !profile.full_name || profile.full_name.trim().length === 0;
+  }, [user, profile])
+
+  const getOAuthData = useCallback(() => {
+    console.log('🔍 getOAuthData called with profile:', profile);
+    console.log('🔍 getOAuthData called with user:', user);
+    
+    // First try to get data from stored profile
+    if (profile && profile.full_name) {
+      console.log('✅ Using stored profile data');
+      const fullName = profile.full_name;
+      const firstName = fullName ? fullName.split(' ')[0] : null;
+      const lastName = fullName ? fullName.split(' ').slice(1).join(' ') : null;
+      
+      console.log('📊 Profile data extracted:', {
+        fullName,
+        firstName,
+        lastName,
+        picture: profile.avatar_url
+      });
+      
+      return {
+        fullName: profile.full_name,
+        firstName: firstName,
+        lastName: lastName,
+        picture: profile.avatar_url
+      };
+    }
+    
+    // Fallback: Extract from current user OAuth data if profile is empty
+    if (user && user.identities && user.identities.length > 0) {
+      console.log('🔄 Profile empty, extracting from current user OAuth data');
+      const oauthData = extractOAuthData(user.identities);
+      console.log('📊 OAuth data extracted as fallback:', oauthData);
+      return oauthData;
+    }
+    
+    // Final fallback: Check user_metadata
+    if (user && user.user_metadata) {
+      console.log('🔄 Using user_metadata as final fallback');
+      const fullName = user.user_metadata.full_name;
+      const firstName = fullName ? fullName.split(' ')[0] : null;
+      const lastName = fullName ? fullName.split(' ').slice(1).join(' ') : null;
+      
+      return {
+        fullName: fullName,
+        firstName: firstName,
+        lastName: lastName,
+        picture: user.user_metadata.avatar_url || user.user_metadata.picture || null
+      };
+    }
+    
+    console.log('❌ No data available from any source');
+    return { fullName: null, firstName: null, lastName: null, picture: null };
+  }, [profile, user])
+
   // Memoize the context value to prevent unnecessary re-renders
   const value = useMemo(() => ({
     user,
@@ -417,6 +604,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     resetPassword,
     updateProfile,
     refreshProfile,
+    refreshOAuthData,
+    needsProfileCompletion,
+    getOAuthData,
   }), [
     user,
     session,
@@ -432,6 +622,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     resetPassword,
     updateProfile,
     refreshProfile,
+    refreshOAuthData,
+    needsProfileCompletion,
+    getOAuthData,
   ])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

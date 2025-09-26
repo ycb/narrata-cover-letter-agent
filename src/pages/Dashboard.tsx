@@ -1,14 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import ProfileCompletionModal from "@/components/auth/ProfileCompletionModal";
 import { StatsCard } from "@/components/dashboard/StatsCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
-  FileText, 
-  TrendingUp, 
-  Plus, 
+import {
+  FileText,
+  TrendingUp,
+  Plus,
   ArrowRight,
   Mail,
   Loader2,
@@ -26,9 +27,17 @@ import { useDashboardData } from "@/hooks/useDashboardData";
 
 const Dashboard = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [showProfileCompletion, setShowProfileCompletion] = useState(false);
   const { data: dashboardData, isLoading, error, refetch } = useDashboardData();
-  const { user } = useAuth();
-  
+  const { user, profile, getOAuthData, needsProfileCompletion } = useAuth();
+
+  // Check if user needs profile completion (e.g., magic link users)
+  useEffect(() => {
+    if (user && profile && needsProfileCompletion()) {
+      setShowProfileCompletion(true);
+    }
+  }, [user, profile, needsProfileCompletion]);
+
   // Show loading state
   if (isLoading) {
     return (
@@ -91,17 +100,47 @@ const Dashboard = () => {
         {/* Welcome Section */}
         <div className="mb-8">
           <div className="flex items-start justify-between mb-6">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground top-padding-only">
-                Welcome back{dashboardData?.profile?.full_name || user?.email?.split('@')[0] ? `, ${dashboardData?.profile?.full_name || user?.email?.split('@')[0]}` : ''}
-              </h1>
-              <p className="text-muted-foreground mt-1">
-                Ready to land your next interview with strategic storytelling?
-              </p>
+            <div className="flex items-start gap-4">
+              <div>
+                <h1 className="text-3xl font-bold text-foreground top-padding-only">
+                  {(() => {
+                    const oauthData = getOAuthData();
+                    const firstName = oauthData.firstName;
+                    const fullName = oauthData.fullName || profile?.full_name;
+                    const displayName = firstName || fullName || user?.email?.split('@')[0];
+                    return displayName ? `Welcome back, ${displayName}` : 'Welcome back';
+                  })()}
+                </h1>
+                <p className="text-muted-foreground mt-1">
+                  {(() => {
+                    const oauthData = getOAuthData();
+                    const firstName = oauthData.firstName;
+                    if (firstName) {
+                      return `Ready to land your next interview with strategic storytelling, ${firstName}?`;
+                    }
+                    return 'Ready to land your next interview with strategic storytelling?';
+                  })()}
+                </p>
+                {/* OAuth Provider Info (for debugging) */}
+                {process.env.NODE_ENV === 'development' && (() => {
+                  const oauthData = getOAuthData();
+                  return (
+                    <div className="mt-2 p-2 bg-red-100 border border-red-300 rounded text-xs">
+                      <p className="text-red-800 font-bold">🔍 OAuth Debug Info:</p> <br />
+                      <p className="text-red-700"><strong>Full Name:</strong> {oauthData.fullName || '❌ Not available'}</p>
+                      <p className="text-red-700"><strong>First Name:</strong> {oauthData.firstName || '❌ Not available'}</p>
+                      <p className="text-red-700"><strong>Last Name:</strong> {oauthData.lastName || '❌ Not available'}</p>
+                      <p className="text-red-700"><strong>Avatar:</strong> {oauthData.picture ? '✅ Available' : '❌ Not available'}</p>
+                      <p className="text-red-700"><strong>Profile ID:</strong> {profile?.id || '❌ Not available'}</p>
+                      <p className="text-red-700"><strong>User Email:</strong> {user?.email || '❌ Not available'}</p>
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
-            <Button 
-              variant="brand" 
-              size="lg" 
+            <Button
+              variant="brand"
+              size="lg"
               className="gap-2 cta-center"
               onClick={() => setIsCreateModalOpen(true)}
             >
@@ -129,9 +168,9 @@ const Dashboard = () => {
             value={dashboardData.stats.coverLetters}
             description="Generated this month"
             icon={Mail}
-            trend={{ 
-              value: `+${dashboardData.stats.lastMonthCoverLetters} this month`, 
-              isPositive: dashboardData.stats.lastMonthCoverLetters > 0 
+            trend={{
+              value: `+${dashboardData.stats.lastMonthCoverLetters} this month`,
+              isPositive: dashboardData.stats.lastMonthCoverLetters > 0
             }}
           />
           <StatsCard
@@ -139,9 +178,9 @@ const Dashboard = () => {
             value={`${dashboardData.stats.skillsCoverage}%`}
             description="PM skills coverage"
             icon={TrendingUp}
-            trend={{ 
-              value: `+${dashboardData.stats.skillsImprovement}% improvement this month`, 
-              isPositive: dashboardData.stats.skillsImprovement > 0 
+            trend={{
+              value: `+${dashboardData.stats.skillsImprovement}% improvement this month`,
+              isPositive: dashboardData.stats.skillsImprovement > 0
             }}
           />
         </div>
@@ -199,7 +238,6 @@ const Dashboard = () => {
                   </div>
                   <Badge variant="secondary">12 active</Badge>
                 </div>
-                
                 <div className="flex items-center justify-between p-3 border rounded-lg bg-warning/5">
                   <div className="flex items-center gap-3">
                     <div className="w-2 h-2 bg-warning rounded-full"></div>
@@ -228,14 +266,14 @@ const Dashboard = () => {
         {/* 2 Large Modules Side by Side - Story Gaps + PM Competency */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Story Gaps & Strength - Left Side */}
-          <StoryGapsAndStrength 
+          <StoryGapsAndStrength
             storyStrength={dashboardData.storyStrength}
             gaps={dashboardData.resumeGaps}
             coverage={dashboardData.coverageMap.competencies}
           />
 
           {/* Coverage Map - Right Side */}
-          <CoverageMapSimplified 
+          <CoverageMapSimplified
             coverage={dashboardData.coverageMap.competencies}
             overallCoverage={dashboardData.coverageMap.overallCoverage}
             priorityGaps={dashboardData.coverageMap.priorityGaps}
@@ -244,9 +282,14 @@ const Dashboard = () => {
       </main>
 
       {/* Cover Letter Create Modal */}
-      <CoverLetterCreateModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
+      <CoverLetterCreateModal 
+        isOpen={isCreateModalOpen} 
+        onClose={() => setIsCreateModalOpen(false)} 
+      />
+      
+      <ProfileCompletionModal 
+        isOpen={showProfileCompletion}
+        onComplete={() => setShowProfileCompletion(false)}
       />
     </div>
   );
