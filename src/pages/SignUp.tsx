@@ -6,13 +6,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Eye, EyeOff, Mail, Lock, User, Linkedin, AlertCircle, Loader2 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/contexts/AuthContext";
 
 const SignUp = () => {
   const { signUp, signInWithGoogle, signInWithLinkedIn, loading, error } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -24,6 +25,9 @@ const SignUp = () => {
     agreeTerms: false
   });
   const [formError, setFormError] = useState<string | null>(null);
+  const [isSigningUp, setIsSigningUp] = useState(false);
+
+  const redirectError = location.state?.error;
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -39,19 +43,31 @@ const SignUp = () => {
     }
 
     setIsSubmitting(true);
+    setIsSigningUp(true);
     setFormError(null);
 
     try {
       const fullName = `${formData.firstName} ${formData.lastName}`.trim();
-      const { error } = await signUp(formData.email, formData.password, fullName);
+      const result = await signUp(formData.email, formData.password, fullName);
       
-      if (error) {
-        setFormError(error.message || 'Sign up failed');
+      if (result.error) {
+        setFormError(result.error.message || 'Sign up failed');
+        setIsSigningUp(false);
+      } else if (result.message) {
+        // Email confirmation required
+        setFormError(result.message);
+        setIsSigningUp(false);
       } else {
-        navigate('/dashboard');
+        // User is automatically signed in, show success and redirect
+        setFormError(null);
+        // Small delay to show success state
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 1000);
       }
     } catch (err: any) {
       setFormError(err.message || 'An unexpected error occurred');
+      setIsSigningUp(false);
     } finally {
       setIsSubmitting(false);
     }
@@ -97,12 +113,22 @@ const SignUp = () => {
           </CardHeader>
           
           <CardContent className="space-y-4">
+            {/* Success Alert */}
+            {isSigningUp && !formError && (
+              <Alert className="mb-4" variant="default">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Account created successfully! Redirecting to dashboard...
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* Error Alert */}
-            {(error || formError) && (
+            {(error || formError || redirectError) && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  {formError || error || 'An error occurred'}
+                  {formError || error || redirectError || 'An error occurred'}
                 </AlertDescription>
               </Alert>
             )}
@@ -236,12 +262,17 @@ const SignUp = () => {
                 className="w-full" 
                 variant="primary" 
                 size="lg"
-                disabled={isSubmitting || loading}
+                disabled={isSubmitting || loading || isSigningUp}
               >
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Creating Account...
+                  </>
+                ) : isSigningUp ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Redirecting...
                   </>
                 ) : (
                   'Create Account'

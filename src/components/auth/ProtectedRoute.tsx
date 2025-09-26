@@ -2,8 +2,6 @@ import { ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle } from 'lucide-react'
 
 interface ProtectedRouteProps {
   children: ReactNode
@@ -37,17 +35,9 @@ export function ProtectedRoute({
     )
   }
 
+  // If there's an error, redirect to sign-in instead of showing full-page error
   if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <Alert className="max-w-md">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Authentication error: {error}
-          </AlertDescription>
-        </Alert>
-      </div>
-    )
+    return <Navigate to="/signin" state={{ from: location, error: error }} replace />
   }
 
   if (requireAuth && !user) {
