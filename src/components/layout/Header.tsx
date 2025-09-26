@@ -353,13 +353,6 @@ export const Header = ({ currentPage }: HeaderProps) => {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Mobile Menu Button */}
-          <button
-            className="md:hidden text-white opacity-90 hover:opacity-100 transition-opacity p-2 rounded-md hover:bg-white/10"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          >
-            {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="text-white opacity-90 hover:opacity-100 transition-opacity">
@@ -416,7 +409,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
             <div className="space-y-2">
               <div className="flex items-center gap-3 px-4 py-2 text-sm font-medium text-white opacity-90">
                 <Briefcase className="h-4 w-4" />
-                Work History
+                Experience
               </div>
               <div className="ml-7 space-y-1">
                 <Link
