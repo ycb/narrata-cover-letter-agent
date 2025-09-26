@@ -174,6 +174,7 @@ const Dashboard = () => {
           </Card>
         </div>
 
+
         {/* 2 Large Modules Side by Side - Story Gaps + PM Competency */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Story Gaps & Strength - Left Side */}
