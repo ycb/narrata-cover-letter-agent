@@ -8,7 +8,6 @@ import {
   FileText, 
   Linkedin, 
   Mail, 
-  BookOpen, 
   CheckCircle, 
   ArrowRight,
   Trophy,
@@ -20,6 +19,7 @@ import {
 import { ContentReviewStep } from "@/components/onboarding/ContentReviewStep";
 import { FileUploadCard } from "@/components/onboarding/FileUploadCard";
 import { useTour } from "@/contexts/TourContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 type OnboardingStep = 'welcome' | 'upload' | 'review';
 
@@ -28,14 +28,12 @@ interface OnboardingData {
   linkedinUrl?: string;
   coverLetter?: string;
   coverLetterFile?: File;
-  caseStudies?: string[];
-  caseStudiesFile?: File;
   pmLevel?: string;
   confidence?: number;
   progress?: number;
   approvedContent?: Array<{
     id: string;
-    type: 'resume' | 'linkedin' | 'coverLetter' | 'caseStudies';
+    type: 'resume' | 'linkedin' | 'coverLetter';
     title: string;
     source: string;
     content: string;
@@ -63,6 +61,26 @@ export default function NewUserOnboarding() {
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const { startTour } = useTour();
+  const { user, profile } = useAuth();
+
+  // Check if user signed up with LinkedIn
+  const isLinkedInUser = user?.app_metadata?.provider === 'linkedin_oidc' || 
+                        user?.identities?.some(identity => identity.provider === 'linkedin_oidc');
+  
+  // Extract LinkedIn ID from OAuth data if available
+  const linkedinIdentity = user?.identities?.find(id => id.provider === 'linkedin_oidc');
+  const linkedinId = linkedinIdentity?.identity_data?.id;
+  const linkedinUrl = linkedinId ? `https://linkedin.com/in/${linkedinId}` : onboardingData.linkedinUrl;
+
+  // Debug logging for LinkedIn OAuth data (development only)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔍 LinkedIn OAuth Debug:', {
+      isLinkedInUser,
+      linkedinId,
+      linkedinUrl,
+      provider: user?.app_metadata?.provider
+    });
+  }
 
   const handleNextStep = () => {
     console.log('handleNextStep called, current step:', currentStep);
@@ -92,22 +110,26 @@ export default function NewUserOnboarding() {
     }
   };
 
-  const handleFileUpload = (type: 'resume' | 'coverLetter' | 'caseStudies', file: File) => {
-    if (type === 'coverLetter') {
-      setOnboardingData(prev => ({ ...prev, coverLetterFile: file }));
-    } else if (type === 'caseStudies') {
-      setOnboardingData(prev => ({ 
-        ...prev, 
-        caseStudies: prev.caseStudies ? [...prev.caseStudies, file.name] : [file.name],
-        caseStudiesFile: file
-      }));
+  const handleFileUpload = (type: 'resume' | 'coverLetter', file: File | null) => {
+    if (file === null) {
+      // Clear the file from state
+      if (type === 'coverLetter') {
+        setOnboardingData(prev => ({ ...prev, coverLetterFile: undefined }));
+      } else {
+        setOnboardingData(prev => ({ ...prev, [type]: undefined }));
+      }
     } else {
-      setOnboardingData(prev => ({ ...prev, [type]: file }));
+      // Set the file in state
+      if (type === 'coverLetter') {
+        setOnboardingData(prev => ({ ...prev, coverLetterFile: file }));
+      } else {
+        setOnboardingData(prev => ({ ...prev, [type]: file }));
+      }
     }
   };
 
   const handleUploadComplete = (fileId: string, uploadType: string) => {
-    console.log('Upload completed:', { fileId, uploadType });
+    console.log('Background processing completed:', { fileId, uploadType });
     // Store the file ID for later reference
     setOnboardingData(prev => ({ 
       ...prev, 
@@ -116,8 +138,8 @@ export default function NewUserOnboarding() {
   };
 
   const handleUploadError = (error: string) => {
-    console.error('Upload error:', error);
-    // You could show a toast notification here
+    console.warn('Background processing error:', error);
+    // Don't block user flow, just log the error
   };
 
   const handleLinkedInUrl = (url: string) => {
@@ -131,111 +153,226 @@ export default function NewUserOnboarding() {
   };
 
   const renderWelcomeStep = () => (
-    <div className="text-center space-y-6">
-      <div className="space-y-4">
-        <div className="mx-auto w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-          <Sparkles className="w-10 h-10 text-white" />
+    <div className="space-y-8">
+      {/* Progress Bar */}
+      <Card className="p-6">
+        <div className="flex items-center justify-center relative">
+          <h3 className="font-semibold text-gray-900 absolute left-0">Progress</h3>
+          <div className="flex items-center space-x-8">
+            {/* Step 1: Welcome */}
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                {currentStep === 'welcome' ? (
+                  <div className="w-8 h-8 rounded-full border-2 border-blue-500 bg-blue-500 flex items-center justify-center">
+                    <div className="w-3 h-3 rounded-full bg-white"></div>
+                  </div>
+                ) : (
+                  <CheckCircle className="w-8 h-8 text-green-500" />
+                )}
+              </div>
+              <span className={`text-sm font-medium ${currentStep === 'welcome' ? 'text-blue-600' : 'text-gray-900'}`}>
+                Welcome
+              </span>
+            </div>
+            
+            {/* Connector line */}
+            <div className="w-12 h-0.5 bg-gray-200"></div>
+            
+            {/* Step 2: Upload */}
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                {currentStep === 'upload' ? (
+                  <div className="w-8 h-8 rounded-full border-2 border-blue-500 bg-blue-500 flex items-center justify-center">
+                    <div className="w-3 h-3 rounded-full bg-white"></div>
+                  </div>
+                ) : currentStep === 'welcome' ? (
+                  <div className="w-8 h-8 rounded-full border-2 border-gray-300 bg-white"></div>
+                ) : (
+                  <CheckCircle className="w-8 h-8 text-green-500" />
+                )}
+              </div>
+                     <span className={`text-sm font-medium ${currentStep === 'upload' ? 'text-blue-600' : 'text-gray-900'}`}>
+                       Content
+                     </span>
+            </div>
+            
+            {/* Connector line */}
+            <div className="w-12 h-0.5 bg-gray-200"></div>
+            
+            {/* Step 3: Review */}
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                {currentStep === 'review' ? (
+                  <div className="w-8 h-8 rounded-full border-2 border-blue-500 bg-blue-500 flex items-center justify-center">
+                    <div className="w-3 h-3 rounded-full bg-white"></div>
+                  </div>
+                ) : ['welcome', 'upload'].includes(currentStep) ? (
+                  <div className="w-8 h-8 rounded-full border-2 border-gray-300 bg-white"></div>
+                ) : (
+                  <CheckCircle className="w-8 h-8 text-green-500" />
+                )}
+              </div>
+              <span className={`text-sm font-medium ${currentStep === 'review' ? 'text-blue-600' : 'text-gray-900'}`}>
+                Review
+              </span>
+            </div>
+          </div>
         </div>
-        <h1 className="text-4xl font-bold text-foreground">
-          Welcome to TruthLetter!
-        </h1>
-        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          Let's unlock your job search superpowers.
-        </p>
-      </div>
-      
-      <div className="max-w-md mx-auto space-y-4">
-        <div className="flex items-center gap-3 text-sm text-muted-foreground">
-          <CheckCircle className="w-4 h-4 text-green-500" />
-          <span>Get your personalized PM Level Assessment</span>
-        </div>
-        <div className="flex items-center gap-3 text-sm text-muted-foreground">
-          <CheckCircle className="w-4 h-4 text-green-500" />
-          <span>Build a reusable story library</span>
-        </div>
-        <div className="flex items-center gap-3 text-sm text-muted-foreground">
-          <CheckCircle className="w-4 h-4 text-green-500" />
-          <span>Generate targeted cover letters</span>
-        </div>
-      </div>
+      </Card>
 
-      <Button 
-        size="lg" 
-        onClick={handleNextStep}
-        className="px-8 py-3 text-lg"
-      >
-        Get Started
-        <ArrowRight className="ml-2 w-5 h-5" />
-      </Button>
+      {/* Welcome Content */}
+      <div className="text-center space-y-6">
+        <div className="space-y-4">
+          <div className="mx-auto w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+            <Sparkles className="w-10 h-10 text-white" />
+          </div>
+          <h1 className="text-4xl font-bold text-foreground">
+            Welcome to TruthLetter!
+          </h1>
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            Let's unlock your job search superpowers.
+          </p>
+        </div>
+        
+        <div className="max-w-md mx-auto space-y-4">
+          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            <CheckCircle className="w-4 h-4 text-green-500" />
+            <span>Get your personalized PM Level Assessment</span>
+          </div>
+          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            <CheckCircle className="w-4 h-4 text-green-500" />
+            <span>Build a reusable story library</span>
+          </div>
+          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            <CheckCircle className="w-4 h-4 text-green-500" />
+            <span>Generate targeted cover letters</span>
+          </div>
+        </div>
+
+        <Button 
+          size="lg" 
+          onClick={handleNextStep}
+          className="px-8 py-3 text-lg"
+        >
+          Get Started
+          <ArrowRight className="ml-2 w-5 h-5" />
+        </Button>
+      </div>
     </div>
   );
 
   const renderUploadStep = () => (
     <div className="space-y-8">
+      {/* Progress Bar */}
+      <Card className="p-6">
+        <div className="flex items-center justify-center relative">
+          <h3 className="font-semibold text-gray-900 absolute left-0">Progress</h3>
+          <div className="flex items-center space-x-8">
+            {/* Step 1: Welcome */}
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                {currentStep === 'welcome' ? (
+                  <div className="w-8 h-8 rounded-full border-2 border-blue-500 bg-blue-500 flex items-center justify-center">
+                    <div className="w-3 h-3 rounded-full bg-white"></div>
+                  </div>
+                ) : (
+                  <CheckCircle className="w-8 h-8 text-green-500" />
+                )}
+              </div>
+              <span className={`text-sm font-medium ${currentStep === 'welcome' ? 'text-blue-600' : 'text-gray-900'}`}>
+                Welcome
+              </span>
+            </div>
+            
+            {/* Connector line */}
+            <div className="w-12 h-0.5 bg-gray-200"></div>
+            
+            {/* Step 2: Upload */}
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                {currentStep === 'upload' ? (
+                  <div className="w-8 h-8 rounded-full border-2 border-blue-500 bg-blue-500 flex items-center justify-center">
+                    <div className="w-3 h-3 rounded-full bg-white"></div>
+                  </div>
+                ) : currentStep === 'welcome' ? (
+                  <div className="w-8 h-8 rounded-full border-2 border-gray-300 bg-white"></div>
+                ) : (
+                  <CheckCircle className="w-8 h-8 text-green-500" />
+                )}
+              </div>
+                     <span className={`text-sm font-medium ${currentStep === 'upload' ? 'text-blue-600' : 'text-gray-900'}`}>
+                       Content
+                     </span>
+            </div>
+            
+            {/* Connector line */}
+            <div className="w-12 h-0.5 bg-gray-200"></div>
+            
+            {/* Step 3: Review */}
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                {currentStep === 'review' ? (
+                  <div className="w-8 h-8 rounded-full border-2 border-blue-500 bg-blue-500 flex items-center justify-center">
+                    <div className="w-3 h-3 rounded-full bg-white"></div>
+                  </div>
+                ) : ['welcome', 'upload'].includes(currentStep) ? (
+                  <div className="w-8 h-8 rounded-full border-2 border-gray-300 bg-white"></div>
+                ) : (
+                  <CheckCircle className="w-8 h-8 text-green-500" />
+                )}
+              </div>
+              <span className={`text-sm font-medium ${currentStep === 'review' ? 'text-blue-600' : 'text-gray-900'}`}>
+                Review
+              </span>
+            </div>
+          </div>
+        </div>
+      </Card>
+
       <div className="text-center space-y-4">
-        <h2 className="text-3xl font-bold text-foreground">
-          What Does Your Work Say About You?
-        </h2>
-        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          We analyze your resume, work history, and best cover letter to give you a personalized PM Level Assessment.
-        </p>
+               <h2 className="text-3xl font-bold text-foreground">
+                 Add Your Content
+               </h2>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="flex flex-col gap-6">
         <FileUploadCard
           type="resume"
           title="Resume"
-          description="Upload your resume to get started"
+          description=""
           icon={FileText}
           onFileUpload={handleFileUpload}
           onUploadComplete={handleUploadComplete}
           onUploadError={handleUploadError}
-          required
           currentValue={onboardingData.resume}
         />
         
         <FileUploadCard
           type="linkedin"
           title="LinkedIn Profile"
-          description="Connect your professional profile (Coming Soon - Partnership Program)"
+          description="Enter your LinkedIn profile URL to import work history and skills"
           icon={Linkedin}
           onLinkedInUrl={handleLinkedInUrl}
           onUploadComplete={handleUploadComplete}
           onUploadError={handleUploadError}
-          required={false}
-          disabled={true}
-          currentValue={onboardingData.linkedinUrl}
+          currentValue={linkedinUrl}
         />
         
         <FileUploadCard
           type="coverLetter"
           title="Best Cover Letter"
-          description="Paste or upload your strongest cover letter"
+          description=""
           icon={Mail}
           onTextInput={handleCoverLetterText}
           onFileUpload={handleFileUpload}
           onUploadComplete={handleUploadComplete}
           onUploadError={handleUploadError}
-          required
           currentValue={onboardingData.coverLetter}
         />
         
-        <FileUploadCard
-          type="caseStudies"
-          title="Case Studies (Optional)"
-          description="Add any relevant case studies or projects"
-          icon={BookOpen}
-          onFileUpload={handleFileUpload}
-          onUploadComplete={handleUploadComplete}
-          onUploadError={handleUploadError}
-          optional
-          currentValue={onboardingData.caseStudiesFile}
-        />
       </div>
 
-        <div className="text-center">
-          
-        
+      <div className="text-center">
         <Button 
           size="lg" 
           onClick={handleNextStep}
@@ -260,18 +397,86 @@ export default function NewUserOnboarding() {
 
   const renderReviewStep = () => {
     return (
-      <ContentReviewStep 
-        onReviewComplete={(approvedContent) => {
-          console.log('Review completed, approved content:', approvedContent);
-          // Update onboarding data with approved content
-          setOnboardingData(prev => ({
-            ...prev,
-            approvedContent
-          }));
-          handleNextStep();
-        }}
-        onBack={() => setCurrentStep('upload')}
-      />
+      <div className="space-y-8">
+        {/* Progress Bar */}
+        <Card className="p-6">
+          <div className="flex items-center justify-center relative">
+            <h3 className="font-semibold text-gray-900 absolute left-0">Progress</h3>
+            <div className="flex items-center space-x-8">
+              {/* Step 1: Welcome */}
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  {currentStep === 'welcome' ? (
+                    <div className="w-8 h-8 rounded-full border-2 border-blue-500 bg-blue-500 flex items-center justify-center">
+                      <div className="w-3 h-3 rounded-full bg-white"></div>
+                    </div>
+                  ) : (
+                    <CheckCircle className="w-8 h-8 text-green-500" />
+                  )}
+                </div>
+                <span className={`text-sm font-medium ${currentStep === 'welcome' ? 'text-blue-600' : 'text-gray-900'}`}>
+                  Welcome
+                </span>
+              </div>
+              
+              {/* Connector line */}
+              <div className="w-12 h-0.5 bg-gray-200"></div>
+              
+              {/* Step 2: Upload */}
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  {currentStep === 'upload' ? (
+                    <div className="w-8 h-8 rounded-full border-2 border-blue-500 bg-blue-500 flex items-center justify-center">
+                      <div className="w-3 h-3 rounded-full bg-white"></div>
+                    </div>
+                  ) : currentStep === 'welcome' ? (
+                    <div className="w-8 h-8 rounded-full border-2 border-gray-300 bg-white"></div>
+                  ) : (
+                    <CheckCircle className="w-8 h-8 text-green-500" />
+                  )}
+                </div>
+                     <span className={`text-sm font-medium ${currentStep === 'upload' ? 'text-blue-600' : 'text-gray-900'}`}>
+                       Content
+                     </span>
+              </div>
+              
+              {/* Connector line */}
+              <div className="w-12 h-0.5 bg-gray-200"></div>
+              
+              {/* Step 3: Review */}
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  {currentStep === 'review' ? (
+                    <div className="w-8 h-8 rounded-full border-2 border-blue-500 bg-blue-500 flex items-center justify-center">
+                      <div className="w-3 h-3 rounded-full bg-white"></div>
+                    </div>
+                  ) : ['welcome', 'upload'].includes(currentStep) ? (
+                    <div className="w-8 h-8 rounded-full border-2 border-gray-300 bg-white"></div>
+                  ) : (
+                    <CheckCircle className="w-8 h-8 text-green-500" />
+                  )}
+                </div>
+                <span className={`text-sm font-medium ${currentStep === 'review' ? 'text-blue-600' : 'text-gray-900'}`}>
+                  Review
+                </span>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <ContentReviewStep 
+          onReviewComplete={(approvedContent) => {
+            console.log('Review completed, approved content:', approvedContent);
+            // Update onboarding data with approved content
+            setOnboardingData(prev => ({
+              ...prev,
+              approvedContent
+            }));
+            handleNextStep();
+          }}
+          onBack={() => setCurrentStep('upload')}
+        />
+      </div>
     );
   };
 
@@ -390,58 +595,19 @@ export default function NewUserOnboarding() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Left Sidebar */}
-          <div className="lg:col-span-1">
-            <Card className="p-6">
-              <div className="space-y-4">
-                <h3 className="font-semibold text-gray-900">Progress</h3>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    {currentStep === 'welcome' ? (
-                      <div className="w-4 h-4 rounded-full border-2 border-blue-500 bg-blue-500" />
-                    ) : (
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                    )}
-                    <span className={`text-sm ${currentStep === 'welcome' ? 'font-medium' : ''}`}>
-                      Welcome
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {currentStep === 'upload' ? (
-                      <div className="w-4 h-4 rounded-full border-2 border-blue-500 bg-blue-500" />
-                    ) : currentStep === 'welcome' ? (
-                      <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
-                    ) : (
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                    )}
-                    <span className={`text-sm ${currentStep === 'upload' ? 'font-medium' : ''}`}>
-                      Upload
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {currentStep === 'review' ? (
-                      <div className="w-4 h-4 rounded-full border-2 border-blue-500 bg-blue-500" />
-                    ) : ['welcome', 'upload'].includes(currentStep) ? (
-                      <div className="w-4 h-4 rounded-full border-2 border-gray-300" />
-                    ) : (
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                    )}
-                    <span className={`text-sm ${currentStep === 'review' ? 'font-medium' : ''}`}>
-                      Review
-                    </span>
-                  </div>
 
-                </div>
-              </div>
-            </Card>
-          </div>
-
-          {/* Main Content */}
-          <div className="lg:col-span-3">
-            {renderCurrentStep()}
-          </div>
+        {/* Main Content */}
+        <div className="max-w-4xl mx-auto">
+          {renderCurrentStep()}
         </div>
+        
+        {/* Debug Panel at bottom - Development Only */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="fixed bottom-4 left-4 right-4 p-3 bg-gray-100 border border-gray-300 rounded text-xs">
+            <p className="text-gray-600 font-bold">🔍 Debug: LinkedIn OAuth</p>
+            <p className="text-gray-500">LinkedIn User: {isLinkedInUser ? 'Yes' : 'No'} | ID: {linkedinId || 'None'}</p>
+          </div>
+        )}
       </div>
     </div>
   );

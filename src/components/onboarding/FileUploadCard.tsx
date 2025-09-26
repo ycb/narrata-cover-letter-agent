@@ -28,7 +28,7 @@ interface FileUploadCardProps {
   title: string;
   description: string;
   icon: React.ComponentType<{ className?: string }>;
-  onFileUpload?: (type: 'resume' | 'coverLetter' | 'caseStudies', file: File) => void;
+  onFileUpload?: (type: 'resume' | 'coverLetter' | 'caseStudies', file: File | null) => void;
   onLinkedInUrl?: (url: string) => void;
   onTextInput?: (text: string) => void;
   required?: boolean;
@@ -60,6 +60,7 @@ export function FileUploadCard({
   const [uploadedFileId, setUploadedFileId] = useState<string | null>(null);
   const [uploadedFileContent, setUploadedFileContent] = useState<string | null>(null);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Update local state when currentValue prop changes
   useEffect(() => {
@@ -84,6 +85,14 @@ export function FileUploadCard({
   });
 
   const linkedInUpload = useLinkedInUpload();
+
+  // Unified error message component
+  const ErrorMessage = ({ message }: { message: string }) => (
+    <div className="flex items-center gap-2 text-red-600 text-sm mt-2">
+      <AlertTriangle className="w-4 h-4" />
+      <span>{message}</span>
+    </div>
+  );
 
   // Smart combination logic
   const hasUploadedFile = uploadedFileId !== null;
@@ -126,51 +135,75 @@ export function FileUploadCard({
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleFileUpload = useCallback(async (file: File) => {
+  // Clear errors when user starts typing or interacting
+  const handleLinkedInUrlChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setLinkedInUrl(e.target.value);
+    if (error) setError(null);
+  }, [error]);
+
+  const handleCoverLetterTextChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setCoverLetterText(e.target.value);
+    if (error) setError(null);
+  }, [error]);
+
+  const handleFileUpload = useCallback((file: File) => {
     if (!onFileUpload) return;
 
-    if (type === 'coverLetter') {
-      // For cover letters, extract content and store it for combination
-      try {
-        const textExtractionService = new TextExtractionService();
-        const extractionResult = await textExtractionService.extractText(file);
-        
-        if (extractionResult.success) {
-          setUploadedFileContent(extractionResult.text!);
-          setUploadedFileName(file.name);
-          console.log('File content extracted for combination:', extractionResult.text!.length, 'characters');
-        }
-      } catch (error) {
-        console.warn('Could not extract file content for combination:', error);
-      }
+    // Clear any previous errors
+    setError(null);
+
+    // Validate file size (5MB limit)
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    if (file.size > maxSize) {
+      setError('File size must be less than 5MB');
+      return;
     }
 
-    // Use real file upload service
-    const result = await fileUpload.uploadFile(file, type as FileType);
+    // Validate file type
+    const allowedTypes = ['.pdf', '.docx', '.txt', '.md'];
+    const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+    if (!allowedTypes.includes(fileExtension)) {
+      setError('File type must be PDF, DOCX, TXT, or MD');
+      return;
+    }
+
+    // Store the file immediately for UI
+    onFileUpload(type as 'resume' | 'coverLetter' | 'caseStudies', file);
     
-    // Also call the parent callback for compatibility
-    if (result.success) {
-      onFileUpload(type as 'resume' | 'coverLetter' | 'caseStudies', file);
-    }
-  }, [fileUpload, type, onFileUpload]);
+    // Update local state to show success immediately
+    setUploadedFileName(file.name);
+    setUploadedFileId(`${file.name}_${Date.now()}`);
+    
+    // Call upload complete callback to update parent
+    onUploadComplete?.(`${file.name}_${Date.now()}`, type as FileType);
+  }, [onFileUpload, type, onUploadComplete]);
 
-  const handleLinkedInSubmit = useCallback(async () => {
+  const handleLinkedInSubmit = useCallback(() => {
     if (!onLinkedInUrl) return;
+
+    // Clear any previous errors
+    setError(null);
 
     // Trim whitespace from URL before processing
     const trimmedUrl = linkedInUrl.trim();
     
-    // Use real LinkedIn upload service
-    const result = await linkedInUpload.connectLinkedIn(trimmedUrl);
+    // Validate LinkedIn URL format
+    const linkedinUrlPattern = /^https?:\/\/(www\.)?linkedin\.com\/in\/[a-zA-Z0-9-]+\/?$/;
     
-    if (result.success && result.fileId) {
-      setUploadedFileId(result.fileId);
-      onLinkedInUrl(trimmedUrl);
-      onUploadComplete?.(result.fileId, 'linkedin');
-    } else {
-      onUploadError?.(result.error || 'LinkedIn connection failed');
+    if (!linkedinUrlPattern.test(trimmedUrl)) {
+      setError('Please enter a valid LinkedIn profile URL (e.g., https://linkedin.com/in/username)');
+      return;
     }
-  }, [linkedInUrl, onLinkedInUrl, linkedInUpload, onUploadComplete, onUploadError]);
+    
+    // Store the URL immediately for UI
+    onLinkedInUrl(trimmedUrl);
+    
+    // Update local state to show success immediately
+    setUploadedFileId(`linkedin_${Date.now()}`);
+    
+    // Call upload complete callback to update parent
+    onUploadComplete?.(`linkedin_${Date.now()}`, 'linkedin');
+  }, [linkedInUrl, onLinkedInUrl, onUploadComplete]);
 
   // Smart submission handler
   const handleSmartSubmit = useCallback(async () => {
@@ -237,31 +270,58 @@ export function FileUploadCard({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-        <p className="text-gray-600 mb-2">
-          Drag and drop your file here, or{' '}
-          <label className="text-blue-600 hover:text-blue-700 cursor-pointer">
-            browse
-            <input
-              type="file"
-              className="hidden"
-              accept={
-                type === 'resume' 
-                  ? '.pdf,.docx' 
-                  : type === 'coverLetter' || type === 'caseStudies'
-                    ? '.txt,.pdf,.md'
-                    : '*'
-              }
-              onChange={handleFileSelect}
-            />
+        <div className="flex justify-center mb-6">
+          <Upload className="w-12 h-12 text-gray-400" />
+        </div>
+        <p className="text-gray-600 mb-6">
+          Drag and drop your file here, or
+        </p>
+        <div className="mb-6">
+          <input
+            type="file"
+            className="hidden"
+            accept=".pdf,.docx,.txt,.md"
+            onChange={handleFileSelect}
+            id={`${type}-file`}
+          />
+          <label
+            htmlFor={`${type}-file`}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
+          >
+            Choose File
           </label>
-        </p>
+        </div>
         <p className="text-sm text-gray-500">
-          {type === 'resume' && 'PDF or DOCX files only'}
-          {type === 'coverLetter' && 'Text, PDF, or Markdown files'}
-          {type === 'caseStudies' && 'Text, PDF, or Markdown files'}
+          PDF, DOCX, TXT, MD (max 5MB)
         </p>
+        {error && <ErrorMessage message={error} />}
       </div>
+
+      {/* Add paste option for resume */}
+      {type === 'resume' && (
+        <>
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">OR</span>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">
+              Paste resume content directly for fast and reliable processing
+            </label>
+            <Textarea
+              placeholder="Paste your resume content here..."
+              value={typeof coverLetterText === 'string' ? coverLetterText : ''}
+              onChange={handleCoverLetterTextChange}
+              rows={3}
+            />
+          </div>
+        </>
+      )}
 
       {(fileUpload.error || linkedInUpload.error) && (
         <div className="flex items-center gap-2 text-red-600 text-sm">
@@ -292,17 +352,22 @@ export function FileUploadCard({
             type="url"
             placeholder="https://linkedin.com/in/yourprofile"
             value={linkedInUrl}
-            onChange={(e) => setLinkedInUrl(e.target.value)}
+            onChange={handleLinkedInUrlChange}
             className="flex-1"
           />
           <Button 
             onClick={handleLinkedInSubmit}
             disabled={!linkedInUrl.trim()}
             size="sm"
+            variant="secondary"
           >
             Connect
           </Button>
         </div>
+        {isCompleted && (
+          <p className="text-sm text-green-600">Valid LinkedIn URL</p>
+        )}
+        {error && <ErrorMessage message={error} />}
       </div>
 
       {linkedInUpload.error && (
@@ -316,30 +381,29 @@ export function FileUploadCard({
 
   const renderCoverLetterInput = () => (
     <div className="space-y-4">
-      {/* File Upload Section */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">
-          Upload Cover Letter File
-        </label>
-        <div
-          className={`border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
-            isDragOver 
-              ? 'border-blue-500 bg-blue-50' 
-              : 'border-gray-300 hover:border-gray-400'
-          }`}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-        >
-          <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-          <p className="text-sm text-gray-600 mb-2">
-            Drag and drop your cover letter file here, or
-          </p>
+      {/* File Upload Section - Use unified component */}
+      <div
+        className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+          isDragOver 
+            ? 'border-blue-500 bg-blue-50' 
+            : 'border-gray-300 hover:border-gray-400'
+        }`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        <div className="flex justify-center mb-6">
+          <Upload className="w-12 h-12 text-gray-400" />
+        </div>
+        <p className="text-gray-600 mb-6">
+          Drag and drop your file here, or
+        </p>
+        <div className="mb-6">
           <input
             type="file"
-            accept=".pdf,.txt,.md,.docx"
-            onChange={handleFileSelect}
             className="hidden"
+            accept=".pdf,.docx,.txt,.md"
+            onChange={handleFileSelect}
             id="cover-letter-file"
           />
           <label
@@ -348,10 +412,11 @@ export function FileUploadCard({
           >
             Choose File
           </label>
-          <p className="text-xs text-gray-500 mt-2">
-            Supported formats: PDF, TXT, MD, DOCX (max 5MB)
-          </p>
         </div>
+        <p className="text-sm text-gray-500">
+          PDF, DOCX, TXT, MD (max 5MB)
+        </p>
+        {error && <ErrorMessage message={error} />}
       </div>
 
       {/* Show progress bar for file uploads (when uploading or when file is uploaded) */}
@@ -377,18 +442,14 @@ export function FileUploadCard({
       {/* Text Input Section */}
       <div className="space-y-2">
         <label className="text-sm font-medium text-gray-700">
-          Paste Cover Letter Content
+          Or paste cover letter content directly for fast and reliable processing
         </label>
         <Textarea
           placeholder="Paste your best cover letter content here..."
           value={typeof coverLetterText === 'string' ? coverLetterText : ''}
-          onChange={(e) => setCoverLetterText(e.target.value)}
-          rows={6}
-          className="resize-none"
+          onChange={handleCoverLetterTextChange}
+          rows={3}
         />
-        <p className="text-xs text-gray-500">
-          Minimum 10 characters. We'll extract stories and sections automatically.
-        </p>
       </div>
 
       {hasBoth && (
@@ -439,48 +500,57 @@ export function FileUploadCard({
     <Card className={`transition-all duration-200 ${
       isCompleted ? 'ring-2 ring-green-200 bg-green-50' : ''
     } ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
-      <CardHeader className="pb-4">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-              isCompleted ? 'bg-green-100' : 'bg-gray-100'
-            }`}>
-              <Icon className={`w-6 h-6 ${
-                isCompleted ? 'text-green-600' : 'text-gray-600'
-              }`} />
-            </div>
-            <div>
-              <CardTitle className="text-lg text-gray-900 flex items-center gap-2">
-                {title}
-                {required && <Badge variant="destructive" className="text-xs">Required</Badge>}
-                {optional && <Badge variant="secondary" className="text-xs">Optional</Badge>}
-              </CardTitle>
-              <p className="text-gray-600">{description}</p>
-            </div>
+      <CardHeader className="pb-4 -mx-6 -mt-6 px-6 pt-6">
+        <div className="flex items-center gap-3">
+          <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+            isCompleted ? 'bg-green-100' : 'bg-gray-100'
+          }`}>
+            <Icon className={`w-6 h-6 ${
+              isCompleted ? 'text-green-600' : 'text-gray-600'
+            }`} />
           </div>
-          
-          {isCompleted && (
-            <div className="flex items-center gap-2 text-green-600">
-              <CheckCircle className="w-5 h-5" />
-              <span className="text-sm font-medium">Complete</span>
-            </div>
-          )}
+          <div className="flex-1">
+            <CardTitle className="text-lg text-gray-900 flex items-center gap-2">
+              {title}
+              {required && <Badge variant="destructive" className="text-xs">Required</Badge>}
+              {optional && <Badge variant="secondary" className="text-xs">Optional</Badge>}
+            </CardTitle>
+            <p className="text-gray-600">{description}</p>
+          </div>
         </div>
       </CardHeader>
 
       <CardContent>
-        {isCompleted ? (
-          <div className="text-center py-4">
-            <div className="flex items-center justify-center gap-2 text-green-600 mb-2">
-              <CheckCircle className="w-5 h-5" />
-              <span className="font-medium">Successfully uploaded!</span>
+        {isCompleted && type !== 'linkedin' ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center">
+                  <FileText className="w-4 h-4 text-blue-600" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">{uploadedFileName || 'File uploaded'}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // Clear all file-related state
+                    setUploadedFileId(null);
+                    setUploadedFileName(null);
+                    setUploadedFileContent(null);
+                    setError(null);
+                    // Clear parent state
+                    onFileUpload?.(type as 'resume' | 'coverLetter' | 'caseStudies', null as any);
+                  }}
+                  className="text-gray-600 border-gray-300 hover:bg-gray-50 hover:border-gray-400 hover:underline"
+                >
+                  Remove
+                </Button>
+              </div>
             </div>
-            <p className="text-sm text-gray-600">
-              {type === 'resume' && 'Your resume has been processed and analyzed'}
-              {type === 'linkedin' && 'Your LinkedIn profile has been connected'}
-              {type === 'coverLetter' && 'Your cover letter has been processed'}
-              {type === 'caseStudies' && 'Your case study has been uploaded'}
-            </p>
           </div>
         ) : (
           renderContent()
