@@ -52,7 +52,7 @@ interface HeaderProps {
 export const Header = ({ currentPage }: HeaderProps) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, getOAuthData } = useAuth();
   const [showDataModal, setShowDataModal] = useState(false);
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
@@ -391,8 +391,59 @@ export const Header = ({ currentPage }: HeaderProps) => {
           </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-white opacity-90 hover:opacity-100 transition-opacity">
-                <User className="h-4 w-4" />
+              <Button variant="ghost" className="text-white opacity-90 hover:opacity-100 transition-opacity p-2 h-auto">
+                <div className="flex items-center gap-2">
+                  {/* User Avatar */}
+                  {(() => {
+                    const oauthData = getOAuthData();
+                    const avatarUrl = oauthData.picture || profile?.avatar_url;
+                    
+                    if (avatarUrl) {
+                      return (
+                        <div className="w-8 h-8 rounded-full overflow-hidden bg-muted flex-shrink-0">
+                          <img 
+                            src={avatarUrl} 
+                            alt="Profile" 
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              // Fallback to initials if image fails to load
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const parent = target.parentElement;
+                              if (parent) {
+                                parent.innerHTML = `<div class="w-full h-full bg-white/20 flex items-center justify-center text-white font-semibold text-sm">${(oauthData.firstName || user?.email?.split('@')[0] || 'U').charAt(0).toUpperCase()}</div>`;
+                              }
+                            }}
+                          />
+                        </div>
+                      );
+                    } else {
+                      // Show initials if no avatar
+                      const oauthData = getOAuthData();
+                      const initials = (oauthData.firstName || user?.email?.split('@')[0] || 'U').charAt(0).toUpperCase();
+                      return (
+                        <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+                          {initials}
+                        </div>
+                      );
+                    }
+                  })()}
+                  
+                  {/* User Name */}
+                  <div className="flex flex-col items-start">
+                    <span className="text-sm font-medium">
+                      {(() => {
+                        const oauthData = getOAuthData();
+                        return oauthData.firstName || oauthData.fullName || user?.email?.split('@')[0] || 'User';
+                      })()}
+                    </span>
+                    <span className="text-xs opacity-70">
+                      {user?.email}
+                    </span>
+                  </div>
+                  
+                  <ChevronDown className="h-4 w-4" />
+                </div>
               </Button>
             </DropdownMenuTrigger>
 
