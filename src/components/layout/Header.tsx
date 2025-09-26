@@ -21,7 +21,9 @@ import {
   Users,
   Lightbulb,
   Rocket,
-  Cpu
+  Cpu,
+  Menu,
+  X
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -55,6 +57,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { goals, setGoals } = useUserGoals();
   const { voice, setVoice } = useUserVoice();
 
@@ -147,25 +150,30 @@ export const Header = ({ currentPage }: HeaderProps) => {
                     : "text-white opacity-90 hover:opacity-100"
                 )}>
                   <Briefcase className="h-4 w-4" />
-                  Work History
+                  Experience
                   <ChevronDown className="h-3 w-3" />
                 </div>
                 
                 {/* Hover Dropdown */}
                 <div className="absolute top-full left-0 pt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
                   <div className="border-0 shadow-lg p-3 min-w-80" style={{ backgroundColor: 'rgba(18, 18, 18, 0.9)', borderRadius: '0 0 8px 8px' }}>
-                    {/* Timeline View CTA - Spans full width */}
+                    {/* Timeline View Section */}
+                    <div className="px-3 py-2 text-xs font-medium text-white uppercase tracking-wide mb-2">
+                      TIMELINE VIEW
+                    </div>
+                    
+                    {/* Work History - Normal nav link under Timeline View */}
                     <Link
                       to="/work-history"
                       className={cn(
-                        "flex items-center justify-center gap-2 px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity hover:bg-[#E32D9A] mb-3 border border-white text-white group",
+                        "flex items-center gap-2 px-3 py-2 text-sm opacity-90 hover:opacity-100 transition-opacity hover:bg-white/10 mb-3 text-white",
                         activePage === "work-history"
                           ? "text-white bg-white/10"
                           : "text-white"
                       )}
                     >
                       <Calendar className="h-4 w-4 transition-colors" />
-                      Timeline View
+                      Work History
                     </Link>
                     
                     {/* Table View Section */}
@@ -374,12 +382,27 @@ export const Header = ({ currentPage }: HeaderProps) => {
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Mobile Menu Button */}
+          <button
+            className="md:hidden text-white opacity-90 hover:opacity-100 transition-opacity p-2 rounded-md hover:bg-white/10"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          >
+            {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="text-white opacity-90 hover:opacity-100 transition-opacity">
                 <User className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
+
+          {/* Mobile Menu Button - Primary position (rightmost) */}
+          <button
+            className="md:hidden text-white opacity-90 hover:opacity-100 transition-opacity p-2 rounded-md hover:bg-white/10"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          >
+            {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
             <DropdownMenuContent align="end" className="w-56 p-3 rounded-t-none border-0" style={{ backgroundColor: 'rgba(18, 18, 18, 0.9)' }}>
               <DropdownMenuItem onClick={() => setShowDataModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end">
                 <span>My Data</span>
@@ -402,6 +425,239 @@ export const Header = ({ currentPage }: HeaderProps) => {
           </DropdownMenu>
         </div>
       </div>
+
+      {/* Mobile Navigation Menu */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden border-t" style={{ backgroundColor: '#121212' }}>
+          <div className="container py-4 space-y-4">
+            {/* Dashboard */}
+            <Link
+              to="/dashboard"
+              className={cn(
+                "flex items-center gap-3 px-4 py-3 text-sm font-medium transition-all rounded-md",
+                activePage === "dashboard" 
+                  ? "bg-white text-[#121212]" 
+                  : "text-white opacity-90 hover:opacity-100"
+              )}
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              <Target className="h-4 w-4" />
+              Dashboard
+            </Link>
+
+            {/* Work History */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-3 px-4 py-2 text-sm font-medium text-white opacity-90">
+                <Briefcase className="h-4 w-4" />
+                Work History
+              </div>
+              <div className="ml-7 space-y-1">
+                <Link
+                  to="/work-history"
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-2 text-sm transition-all rounded-md",
+                    activePage === "work-history"
+                      ? "text-white bg-white/10"
+                      : "text-white opacity-75 hover:opacity-100"
+                  )}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <Calendar className="h-4 w-4" />
+                  Timeline View
+                </Link>
+                <Link
+                  to="/show-all-stories"
+                  className={cn(
+                    "flex items-center justify-between px-4 py-2 text-sm transition-all rounded-md",
+                    isWorkHistoryChild(location.pathname) && location.pathname.startsWith("/show-all-stories")
+                      ? "text-white bg-white/10"
+                      : "text-white opacity-75 hover:opacity-100"
+                  )}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <span className="flex items-center gap-3">
+                    <FileText className="h-4 w-4" />
+                    All Stories
+                  </span>
+                  <Badge variant="secondary">47</Badge>
+                </Link>
+                <Link
+                  to="/show-all-links"
+                  className={cn(
+                    "flex items-center justify-between px-4 py-2 text-sm transition-all rounded-md",
+                    isWorkHistoryChild(location.pathname) && location.pathname.startsWith("/show-all-links")
+                      ? "text-white bg-white/10"
+                      : "text-white opacity-75 hover:opacity-100"
+                  )}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <span className="flex items-center gap-3">
+                    <LinkIcon className="h-4 w-4" />
+                    All Links
+                  </span>
+                  <Badge variant="secondary">12</Badge>
+                </Link>
+              </div>
+            </div>
+
+            {/* Cover Letters */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-3 px-4 py-2 text-sm font-medium text-white opacity-90">
+                <Mail className="h-4 w-4" />
+                Cover Letters
+              </div>
+              <div className="ml-7 space-y-1">
+                <Link
+                  to="/cover-letters"
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-2 text-sm transition-all rounded-md",
+                    location.pathname === "/cover-letters"
+                      ? "text-white bg-white/10"
+                      : "text-white opacity-75 hover:opacity-100"
+                  )}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <Trophy className="h-4 w-4" />
+                  All Cover Letters
+                </Link>
+                <Link
+                  to="/saved-sections"
+                  className={cn(
+                    "flex items-center justify-between px-4 py-2 text-sm transition-all rounded-md",
+                    location.pathname === "/saved-sections"
+                      ? "text-white bg-white/10"
+                      : "text-white opacity-75 hover:opacity-100"
+                  )}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <span className="flex items-center gap-3">
+                    <BookOpen className="h-4 w-4" />
+                    Saved Sections
+                  </span>
+                  <Badge variant="secondary">23</Badge>
+                </Link>
+                <Link
+                  to="/cover-letter-template"
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-2 text-sm transition-all rounded-md",
+                    location.pathname === "/cover-letter-template"
+                      ? "text-white bg-white/10"
+                      : "text-white opacity-75 hover:opacity-100"
+                  )}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <LayoutTemplate className="h-4 w-4" />
+                  Edit Template
+                </Link>
+              </div>
+            </div>
+
+            {/* Assessment */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-3 px-4 py-2 text-sm font-medium text-white opacity-90">
+                <TrendingUp className="h-4 w-4" />
+                Assessment
+              </div>
+              <div className="ml-7 space-y-1">
+                <button
+                  onClick={() => {
+                    window.location.href = "/assessment/overall-level";
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="flex items-center gap-3 px-4 py-2 text-sm text-white opacity-75 hover:opacity-100 transition-opacity w-full text-left"
+                >
+                  <BarChart3 className="h-4 w-4" />
+                  Overall Level
+                </button>
+                
+                <div className="space-y-1">
+                  <div className="px-4 py-1 text-xs font-medium text-white opacity-60 uppercase tracking-wide">
+                    Competencies
+                  </div>
+                  <button
+                    onClick={() => {
+                      window.location.href = "/assessment/competencies/execution";
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="block px-4 py-2 text-sm text-white opacity-75 hover:opacity-100 transition-opacity w-full text-left"
+                  >
+                    Execution
+                  </button>
+                  <button
+                    onClick={() => {
+                      window.location.href = "/assessment/competencies/customer-insight";
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="block px-4 py-2 text-sm text-white opacity-75 hover:opacity-100 transition-opacity w-full text-left"
+                  >
+                    Customer Insight
+                  </button>
+                  <button
+                    onClick={() => {
+                      window.location.href = "/assessment/competencies/strategy";
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="block px-4 py-2 text-sm text-white opacity-75 hover:opacity-100 transition-opacity w-full text-left"
+                  >
+                    Strategy
+                  </button>
+                  <button
+                    onClick={() => {
+                      window.location.href = "/assessment/competencies/influence";
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="block px-4 py-2 text-sm text-white opacity-75 hover:opacity-100 transition-opacity w-full text-left"
+                  >
+                    Influence
+                  </button>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="px-4 py-1 text-xs font-medium text-white opacity-60 uppercase tracking-wide">
+                    Specialization
+                  </div>
+                  <button
+                    onClick={() => {
+                      window.location.href = "/assessment/specializations/growth";
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="block px-4 py-2 text-sm text-white opacity-75 hover:opacity-100 transition-opacity w-full text-left"
+                  >
+                    Growth
+                  </button>
+                  <button
+                    onClick={() => {
+                      window.location.href = "/assessment/specializations/technical";
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="block px-4 py-2 text-sm text-white opacity-75 hover:opacity-100 transition-opacity w-full text-left"
+                  >
+                    Technical
+                  </button>
+                  <button
+                    onClick={() => {
+                      window.location.href = "/assessment/specializations/founding";
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="block px-4 py-2 text-sm text-white opacity-75 hover:opacity-100 transition-opacity w-full text-left"
+                  >
+                    Founding
+                  </button>
+                  <button
+                    onClick={() => {
+                      window.location.href = "/assessment/specializations/platform";
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="block px-4 py-2 text-sm text-white opacity-75 hover:opacity-100 transition-opacity w-full text-left"
+                  >
+                    Platform
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
       <MyDataModal
         isOpen={showDataModal}

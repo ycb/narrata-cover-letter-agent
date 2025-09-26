@@ -95,11 +95,7 @@ export function WorkHistoryDetailTabs({ selectedRole }: WorkHistoryDetailTabsPro
               ))
             ) : (
               <div className="text-center py-8">
-                <p className="text-muted-foreground mb-4">No blurbs yet</p>
-                <Button variant="secondary" onClick={handleAddStory}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Your First Story
-                </Button>
+                <p className="text-muted-foreground">No blurbs yet</p>
               </div>
             )}
           </div>
@@ -135,11 +131,7 @@ export function WorkHistoryDetailTabs({ selectedRole }: WorkHistoryDetailTabsPro
               ))
             ) : (
               <div className="text-center py-8">
-                <p className="text-muted-foreground mb-4">No external links yet</p>
-                <Button variant="secondary" onClick={handleAddExternalLink}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Your First External Link
-                </Button>
+                <p className="text-muted-foreground">No external links yet</p>
               </div>
             )}
           </div>
