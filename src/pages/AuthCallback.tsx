@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, CheckCircle } from 'lucide-react';
 
 export default function AuthCallback() {
   const { user, loading, error } = useAuth();
@@ -50,7 +48,7 @@ export default function AuthCallback() {
           console.error('Session error:', sessionError);
           setCallbackError(sessionError.message);
           setStatus('error');
-          setTimeout(() => navigate('/signin'), 3000);
+          setTimeout(() => navigate('/signin'), 2000);
           return;
         }
 
@@ -66,7 +64,7 @@ export default function AuthCallback() {
           console.log('No OAuth parameters found, redirecting to sign in');
           setCallbackError('No authentication data found');
           setStatus('error');
-          setTimeout(() => navigate('/signin'), 3000);
+          setTimeout(() => navigate('/signin'), 2000);
           return;
         }
 
@@ -79,7 +77,7 @@ export default function AuthCallback() {
             console.log('Auth timeout - no session received');
             setCallbackError('Authentication timeout - please try again');
             setStatus('error');
-            setTimeout(() => navigate('/signin'), 3000);
+            setTimeout(() => navigate('/signin'), 2000);
           }
         }, 15000);
 
@@ -87,7 +85,7 @@ export default function AuthCallback() {
         console.error('Auth callback error:', err);
         setCallbackError(err instanceof Error ? err.message : 'Unknown error');
         setStatus('error');
-        setTimeout(() => navigate('/signin'), 3000);
+        setTimeout(() => navigate('/signin'), 2000);
       }
     };
 
@@ -108,25 +106,21 @@ export default function AuthCallback() {
 
   if (status === 'error') {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <Alert className="max-w-md">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            {callbackError || 'Authentication failed. Redirecting to sign in...'}
-          </AlertDescription>
-        </Alert>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <LoadingSpinner size="lg" className="mx-auto mb-4" />
+          <p className="text-muted-foreground">Redirecting to sign in...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <Alert className="max-w-md">
-        <CheckCircle className="h-4 w-4" />
-        <AlertDescription>
-          Authentication successful! Redirecting to dashboard...
-        </AlertDescription>
-      </Alert>
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <LoadingSpinner size="lg" className="mx-auto mb-4" />
+        <p className="text-muted-foreground">Authentication successful! Redirecting to dashboard...</p>
+      </div>
     </div>
   );
 }

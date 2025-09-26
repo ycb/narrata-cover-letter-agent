@@ -25,6 +25,7 @@ const SignIn = () => {
   const [formError, setFormError] = useState<string | null>(null);
 
   const from = location.state?.from?.pathname || "/dashboard";
+  const redirectError = location.state?.error;
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -81,7 +82,15 @@ const SignIn = () => {
           <h1 className="text-2xl font-bold text-foreground mb-2">TruthLetter</h1>
           <p className="text-muted-foreground">Welcome back to your narrative engine</p>
         </div>
-
+        {/* Error Alert */}
+        {(error || formError || redirectError) && (
+          <Alert className="mb-4"  variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              {formError || error || redirectError || 'An error occurred'}
+            </AlertDescription>
+          </Alert>
+        )}
         <Card className="shadow-medium">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl text-center">Sign In</CardTitle>
@@ -89,17 +98,8 @@ const SignIn = () => {
               Access your truth-based cover letter platform
             </CardDescription>
           </CardHeader>
-          
+
           <CardContent className="space-y-4">
-            {/* Error Alert */}
-            {(error || formError) && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  {formError || error || 'An error occurred'}
-                </AlertDescription>
-              </Alert>
-            )}
 
             {/* Social Login Buttons */}
             <div className="space-y-3">
