@@ -22,7 +22,6 @@ import {
   TrendingDown
 } from "lucide-react";
 import { useState } from "react";
-import { FeedbackModal } from "@/components/feedback/FeedbackModal";
 import { MatchPill } from "./MatchPill";
 
 interface RoleEvidence {
@@ -75,7 +74,6 @@ interface RoleEvidenceModalProps {
 
 const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps) => {
   const [isTagAnalysisOpen, setIsTagAnalysisOpen] = useState(false);
-  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
 
   const getRelevanceColor = (relevance: string) => {
     if (relevance.includes("High")) return "bg-success text-success-foreground";
@@ -88,7 +86,6 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
     <>
       <Dialog open={isOpen} onOpenChange={(open) => {
         // Don't close if feedback modal is open
-        if (!open && isFeedbackModalOpen) return;
         onClose();
       }}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -102,17 +99,6 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
               <DialogDescription className="text-base">
                 How we determined your fit for this specialization
               </DialogDescription>
-            </div>
-            <div className="flex items-center gap-2 mt-4">
-              <Button 
-                variant="secondary" 
-                size="sm" 
-                className="flex items-center gap-2"
-                onClick={() => setIsFeedbackModalOpen(true)}
-              >
-                <Edit className="h-4 w-4" />
-                This looks wrong
-              </Button>
             </div>
           </div>
         </DialogHeader>
@@ -314,12 +300,6 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
         </div>
       </DialogContent>
       </Dialog>
-      
-      <FeedbackModal
-        isOpen={isFeedbackModalOpen}
-        onClose={() => setIsFeedbackModalOpen(false)}
-        title="Specialization Assessment Feedback"
-      />
     </>
   );
 };

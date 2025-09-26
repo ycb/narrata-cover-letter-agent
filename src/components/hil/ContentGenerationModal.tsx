@@ -5,24 +5,55 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sparkles, RefreshCw, CheckCircle, AlertTriangle } from 'lucide-react';
-import type { GapAnalysis } from './HILProgressPanel';
+interface GapAnalysis {
+  id: string;
+  type: 'core-requirement' | 'preferred-requirement' | 'best-practice' | 'content-enhancement';
+  severity: 'high' | 'medium' | 'low';
+  description: string;
+  suggestion: string;
+  paragraphId?: string;
+  requirementId?: string;
+  origin: 'ai' | 'human' | 'library';
+  addresses?: string[];
+  existingContent?: string;
+}
+
+interface TagSuggestion {
+  id: string;
+  value: string;
+  confidence: 'high' | 'medium' | 'low';
+}
 
 interface ContentGenerationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  gap: GapAnalysis | null;
-  onApplyContent: (content: string) => void;
+  gap?: GapAnalysis | null;
+  onApplyContent?: (content: string) => void;
+  // Tag suggestion mode
+  mode?: 'gap-detection' | 'tag-suggestion';
+  content?: string;
+  suggestedTags?: TagSuggestion[];
+  onApplyTags?: (tags: string[]) => void;
 }
 
 export function ContentGenerationModal({
   isOpen,
   onClose,
   gap,
-  onApplyContent
+  onApplyContent,
+  mode = 'gap-detection',
+  content,
+  suggestedTags = [],
+  onApplyTags
 }: ContentGenerationModalProps) {
+  console.log('ContentGenerationModal render:', { isOpen, mode, suggestedTags });
   const [generatedContent, setGeneratedContent] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [contentQuality, setContentQuality] = useState<'draft' | 'review' | 'ready'>('draft');
+  
+  // Tag suggestion state
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [isGeneratingTags, setIsGeneratingTags] = useState(false);
 
   const handleGenerate = async () => {
     if (!gap) return;
@@ -53,6 +84,18 @@ export function ContentGenerationModal({
             
           case 'closing':
             content = `I am particularly excited about this opportunity at TechCorp because ${gap.suggestion.toLowerCase()}.\n\nYour focus on sustainable technology solutions and commitment to innovation aligns perfectly with my values and experience. I led a green technology initiative that reduced our infrastructure costs by 30% while improving performance, demonstrating my ability to balance technical excellence with business impact and environmental responsibility. My combination of technical expertise, proven track record of delivering results, and passion for sustainable solutions makes me confident I can contribute significantly to your team's success. I look forward to discussing how my background aligns with your needs and how I can help drive TechCorp's mission forward.`;
+            break;
+            
+          case 'role-description':
+            content = `Led product strategy for core platform. I increased user engagement by 35% through data-driven product decisions, reduced customer churn by 40% through improved user experience flows, and delivered $2M in additional revenue through strategic feature launches. My experience with SQL, Python, and analytics tools like Tableau enabled me to make informed decisions that drove measurable business impact.`;
+            break;
+            
+          case 'outcome-metrics':
+            content = `Increased user engagement by 25% and reduced churn by 15%, ${gap.suggestion.toLowerCase()}.\n\nSpecifically, I achieved a 35% increase in daily active users through A/B testing and optimization, reduced customer acquisition cost by 30% through improved conversion funnels, and delivered $1.5M in additional revenue through strategic product initiatives. These metrics were measured over a 12-month period and validated through user research and business impact analysis.`;
+            break;
+            
+          case 'story-content':
+            content = `Successfully launched new product features that improved user experience, ${gap.suggestion.toLowerCase()}.\n\nSpecifically, I led the development of a recommendation engine that increased user engagement by 45%, implemented a streamlined checkout process that reduced cart abandonment by 25%, and introduced personalization features that boosted user retention by 30%. These features were built using React, Node.js, and machine learning algorithms, resulting in $500K in additional monthly revenue.`;
             break;
             
           default:
@@ -88,7 +131,7 @@ export function ContentGenerationModal({
     setContentQuality('draft');
   };
 
-  if (!gap) return null;
+  if (mode === 'gap-detection' && !gap) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -96,30 +139,31 @@ export function ContentGenerationModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            Generate Content
+            {mode === 'tag-suggestion' ? 'Suggest Tags' : 'Generate Content'}
           </DialogTitle>
           <DialogDescription>
-            Generate enhanced content to address this gap
+            {mode === 'tag-suggestion' ? 'AI-powered tag suggestions for your content' : 'Generate enhanced content to address this gap'}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Gap Context */}
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Gap Analysis</CardTitle>
-                <div className="flex items-center gap-2">
-                  <Badge className={gap.severity === 'high' ? 'bg-destructive text-destructive-foreground' : 'bg-warning text-warning-foreground'}>
-                    {gap.severity} priority
-                  </Badge>
-                  <Badge variant="outline">
-                    {gap.type.replace('-', ' ')}
-                  </Badge>
+          {/* Gap Context - Only show in gap detection mode */}
+          {mode === 'gap-detection' && gap && (
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">Gap Analysis</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Badge className={gap.severity === 'high' ? 'bg-destructive text-destructive-foreground' : 'bg-warning text-warning-foreground'}>
+                      {gap.severity} priority
+                    </Badge>
+                    <Badge variant="outline">
+                      {gap.type.replace('-', ' ')}
+                    </Badge>
+                  </div>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
+              </CardHeader>
+              <CardContent className="space-y-4">
               
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
@@ -134,22 +178,28 @@ export function ContentGenerationModal({
               </div>
             </CardContent>
           </Card>
+          )}
 
-          {/* Existing Content */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Existing Content</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="p-3 bg-muted/30 rounded-lg">
-                <p className="text-sm text-muted-foreground">
-                  {gap.paragraphId === 'intro' && "I am writing to express my strong interest in the Senior Software Engineer position at TechCorp. With over 5 years of experience in full-stack development and a passion for creating innovative solutions, I am excited about the opportunity to contribute to your team's mission of building cutting-edge technology."}
-                  {gap.paragraphId === 'experience' && "In my previous role as a Lead Developer at InnovateTech, I successfully architected and implemented a microservices platform that reduced system latency by 40% and improved scalability for over 100,000 daily active users. My expertise in React, Node.js, and cloud technologies aligns perfectly with TechCorp's technology stack."}
-                  {gap.paragraphId === 'closing' && "What particularly excites me about TechCorp is your commitment to innovation and sustainable technology solutions. I led a green technology initiative that reduced our infrastructure costs by 30% while improving performance, demonstrating my ability to balance technical excellence with business impact."}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Existing Content - Only show in gap detection mode */}
+          {mode === 'gap-detection' && gap && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">Existing Content</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="p-3 bg-muted/30 rounded-lg">
+                  <p className="text-sm text-muted-foreground">
+                    {gap.existingContent || 
+                      (gap.paragraphId === 'intro' && "I am writing to express my strong interest in the Senior Software Engineer position at TechCorp. With over 5 years of experience in full-stack development and a passion for creating innovative solutions, I am excited about the opportunity to contribute to your team's mission of building cutting-edge technology.") ||
+                      (gap.paragraphId === 'experience' && "In my previous role as a Lead Developer at InnovateTech, I successfully architected and implemented a microservices platform that reduced system latency by 40% and improved scalability for over 100,000 daily active users. My expertise in React, Node.js, and cloud technologies aligns perfectly with TechCorp's technology stack.") ||
+                      (gap.paragraphId === 'closing' && "What particularly excites me about TechCorp is your commitment to innovation and sustainable technology solutions. I led a green technology initiative that reduced our infrastructure costs by 30% while improving performance, demonstrating my ability to balance technical excellence with business impact.") ||
+                      "No existing content available."
+                    }
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Content Generation */}
           <Card>
@@ -174,28 +224,79 @@ export function ContentGenerationModal({
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {!generatedContent ? (
-                <div className="text-center py-8">
-                  <Sparkles className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground mb-4">
-                    Click "Generate Content" to create AI-powered content that addresses this gap.
-                  </p>
-                  <Button onClick={handleGenerate} disabled={isGenerating}>
-                    {isGenerating ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        Generate Content
-                      </>
-                    )}
+        <CardContent className="space-y-4">
+          {mode === 'tag-suggestion' ? (
+            <div className="space-y-4">
+              <div className="p-3 bg-muted/30 rounded-lg">
+                <p className="text-sm text-muted-foreground mb-2">Content to analyze:</p>
+                <p className="text-sm">{content}</p>
+              </div>
+              
+              {suggestedTags.length > 0 ? (
+                <div className="space-y-3">
+                  <p className="text-sm font-medium">Suggested tags:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {suggestedTags.map((tag) => (
+                      <Badge
+                        key={tag.id}
+                        variant={selectedTags.includes(tag.value) ? "default" : "outline"}
+                        className="cursor-pointer"
+                        onClick={() => {
+                          if (selectedTags.includes(tag.value)) {
+                            setSelectedTags(selectedTags.filter(t => t !== tag.value));
+                          } else {
+                            setSelectedTags([...selectedTags, tag.value]);
+                          }
+                        }}
+                      >
+                        {tag.value}
+                        {tag.confidence === 'high' && <span className="ml-1 text-green-500">✓</span>}
+                        {tag.confidence === 'medium' && <span className="ml-1 text-yellow-500">~</span>}
+                        {tag.confidence === 'low' && <span className="ml-1 text-gray-500">?</span>}
+                      </Badge>
+                    ))}
+                  </div>
+                  
+                  <Button 
+                    onClick={() => onApplyTags?.(selectedTags)}
+                    disabled={selectedTags.length === 0}
+                    className="w-full"
+                  >
+                    Apply {selectedTags.length} selected tags
                   </Button>
                 </div>
               ) : (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground mb-4">
+                    Analyzing content to suggest relevant tags...
+                  </p>
+                  <div className="flex items-center justify-center">
+                    <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                    <span>Generating tag suggestions...</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : !generatedContent ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground mb-4">
+                Click "Generate Content" to create AI-powered content that addresses this gap.
+              </p>
+              <Button onClick={handleGenerate} disabled={isGenerating} className="w-full">
+                {isGenerating ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Generate Content
+                  </>
+                )}
+              </Button>
+            </div>
+          ) : (
                 <>
                   <Textarea
                     value={generatedContent}
@@ -207,19 +308,19 @@ export function ContentGenerationModal({
                   
                   <div className="flex items-center justify-between">
                     <div className="flex gap-2">
-                      <Button variant="outline" onClick={handleRegenerate}>
+                      <Button variant="secondary" onClick={handleRegenerate}>
                         <RefreshCw className="h-4 w-4 mr-2" />
                         Regenerate
                       </Button>
                     </div>
                     
                     <div className="flex gap-2">
-                      <Button variant="outline" onClick={handleClose}>
+                      <Button variant="secondary" onClick={handleClose}>
                         Cancel
                       </Button>
                       <Button onClick={handleApply}>
                         <CheckCircle className="h-4 w-4 mr-2" />
-                        Apply to Cover Letter
+                        Apply Content
                       </Button>
                     </div>
                   </div>
