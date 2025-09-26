@@ -28,6 +28,10 @@ export interface WorkHistoryRole {
   type: 'full-time' | 'contract' | 'founder';
   startDate: string;
   endDate?: string;
+  // Gap detection properties
+  hasGaps?: boolean;
+  gapCount?: number;
+  gapSeverity?: 'high' | 'medium' | 'low';
   description?: string;
   inferredLevel?: string;
   tags: string[];
@@ -63,6 +67,9 @@ export interface WorkHistoryBlurb {
   timesUsed: number;
   lastUsed?: string;
   linkedExternalLinks?: string[]; // IDs of external links referenced in content
+  // Gap detection properties
+  hasGaps?: boolean;
+  gapCount?: number;
   variations?: BlurbVariation[]; // Optional variations for this blurb
   createdAt: string;
   updatedAt: string;

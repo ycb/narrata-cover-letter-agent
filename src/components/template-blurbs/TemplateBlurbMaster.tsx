@@ -14,6 +14,9 @@ export interface TemplateBlurb {
   isDefault?: boolean;
   createdAt: string;
   updatedAt: string;
+  // Gap detection properties
+  hasGaps?: boolean;
+  gapCount?: number;
 }
 
 interface TemplateBlurbMasterProps {

@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TagSuggestionButton } from "@/components/ui/TagSuggestionButton";
 import { 
   MoreHorizontal, 
   Tag, 
@@ -33,6 +34,7 @@ interface LinkCardProps {
   onCopy?: (id: string) => void;
   onDuplicate?: (id: string) => void;
   onDelete?: (id: string) => void;
+  onTagSuggestions?: (tags: string[]) => void;
 }
 
 export const LinkCard = ({ 
@@ -45,7 +47,8 @@ export const LinkCard = ({
   onEdit,
   onCopy,
   onDuplicate,
-  onDelete
+  onDelete,
+  onTagSuggestions
 }: LinkCardProps) => {
   return (
     <Card className="shadow-soft hover:shadow-medium transition-all duration-200 group">
@@ -119,21 +122,26 @@ export const LinkCard = ({
         </div>
         
         {/* Link Tags - same styling as Role and Story tags */}
-        {tags.length > 0 && (
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <Tags className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">Link Tags</span>
-            </div>
-            <div className="flex flex-wrap gap-1">
-              {tags.map((tag) => (
-                <Badge key={tag} variant="secondary" className="text-xs">
-                  {tag}
-                </Badge>
-              ))}
-            </div>
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-2">
+            <Tags className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Link Tags</span>
           </div>
-        )}
+          <div className="flex flex-wrap gap-1">
+            {tags.length > 0 && tags.map((tag) => (
+              <Badge key={tag} variant="secondary" className="text-xs">
+                {tag}
+              </Badge>
+            ))}
+            <TagSuggestionButton
+              content={`${label}: ${url}`}
+              onTagsSuggested={onTagSuggestions}
+              onClick={() => onTagSuggestions?.([])}
+              variant="tertiary"
+              size="sm"
+            />
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

@@ -6,8 +6,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Save, X, FileText } from "lucide-react";
+import { Save, X, FileText, Sparkles, AlertTriangle } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { TemplateBlurb } from "./TemplateBlurbMaster";
+import { TagSuggestionButton } from "@/components/ui/TagSuggestionButton";
+import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
 
 interface TemplateBlurbDetailProps {
   blurb?: TemplateBlurb;
@@ -31,6 +34,10 @@ export const TemplateBlurbDetail = ({
     tags: blurb?.tags || [],
     isDefault: blurb?.isDefault || false
   });
+
+  // Tag suggestion state
+  const [isTagModalOpen, setIsTagModalOpen] = useState(false);
+  const [suggestedTags, setSuggestedTags] = useState<any[]>([]);
 
   useEffect(() => {
     if (blurb) {
@@ -75,6 +82,66 @@ export const TemplateBlurbDetail = ({
       createdAt: blurb?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     });
+  };
+
+  // Tag suggestion handlers
+  const handleTagSuggestions = async (tags: string[]) => {
+    // Generate mock tag suggestions based on content
+    const mockTags = await generateMockTags(formData.content);
+    
+    const tagSuggestions = mockTags.map((tag, index) => ({
+      id: `tag-${index}`,
+      value: tag,
+      confidence: Math.random() > 0.5 ? 'high' : Math.random() > 0.3 ? 'medium' : 'low'
+    }));
+    setSuggestedTags(tagSuggestions);
+    setIsTagModalOpen(true);
+  };
+
+  // Mock tag generation function
+  const generateMockTags = async (content: string): Promise<string[]> => {
+    // No delay for demo purposes
+    
+    const keywords = content.toLowerCase();
+    const suggestedTags: string[] = [];
+    
+    // Cover letter specific tags
+    if (keywords.includes('passionate') || keywords.includes('excited')) {
+      suggestedTags.push('Passionate');
+    }
+    if (keywords.includes('professional') || keywords.includes('experienced')) {
+      suggestedTags.push('Professional');
+    }
+    if (keywords.includes('technical') || keywords.includes('engineering')) {
+      suggestedTags.push('Technical');
+    }
+    if (keywords.includes('leadership') || keywords.includes('lead')) {
+      suggestedTags.push('Leadership');
+    }
+    if (keywords.includes('innovation') || keywords.includes('creative')) {
+      suggestedTags.push('Innovation');
+    }
+    if (keywords.includes('collaboration') || keywords.includes('team')) {
+      suggestedTags.push('Collaboration');
+    }
+    if (keywords.includes('results') || keywords.includes('achievement')) {
+      suggestedTags.push('Results-driven');
+    }
+    if (keywords.includes('growth') || keywords.includes('scale')) {
+      suggestedTags.push('Growth');
+    }
+    
+    // Remove duplicates and limit to 5 tags
+    return [...new Set(suggestedTags)].slice(0, 5);
+  };
+
+  const handleApplyTags = (selectedTags: string[]) => {
+    setFormData(prev => ({
+      ...prev,
+      tags: [...prev.tags, ...selectedTags.filter(tag => !prev.tags.includes(tag))]
+    }));
+    setIsTagModalOpen(false);
+    setSuggestedTags([]);
   };
 
   const useDefaultContent = () => {
@@ -129,6 +196,20 @@ export const TemplateBlurbDetail = ({
         {/* Tags */}
         <div>
           <Label htmlFor="blurb-tags">Tags</Label>
+          <div className="flex flex-wrap gap-2 mt-2">
+            {formData.tags.length > 0 && formData.tags.map((tag, index) => (
+              <Badge key={index} variant="secondary" className="text-xs">
+                {tag}
+              </Badge>
+            ))}
+            <TagSuggestionButton
+              content={formData.content}
+              onTagsSuggested={handleTagSuggestions}
+              onClick={() => handleTagSuggestions([])}
+              variant="tertiary"
+              size="sm"
+            />
+          </div>
           <Input
             id="blurb-tags"
             value={formData.tags.join(', ')}
@@ -192,7 +273,10 @@ export const TemplateBlurbDetail = ({
         {/* Preview */}
         <div>
           <Label>Preview</Label>
-          <Card className="mt-2">
+          <Card className={cn(
+            "mt-2",
+            (blurb as any).hasGaps && "border-warning bg-warning/5"
+          )}>
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Badge variant="outline" className="text-xs">
@@ -220,15 +304,63 @@ export const TemplateBlurbDetail = ({
             </CardContent>
           </Card>
         </div>
+        
+        {/* Gap Detection Cards */}
+        {(blurb as any).hasGaps && (
+          <div className="mt-4 border-warning bg-warning/5 p-4 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              <span className="font-medium text-warning">Content Gap</span>
+            </div>
+            <p className="text-sm text-muted-foreground mb-3">
+              Content needs improvement based on cover letter best practices.
+            </p>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-full"
+              onClick={() => {
+                console.log('Generate content for blurb gap:', blurb?.title);
+                // TODO: Implement content generation
+              }}
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              Generate Content
+            </Button>
+          </div>
+        )}
       </CardContent>
       
-      {/* Footer with Save Button */}
-      <div className="flex justify-end p-6 border-t">
+      {/* Footer with Action Buttons */}
+      <div className="flex justify-between p-6 border-t">
+        <Button 
+          variant="secondary" 
+          onClick={() => {
+            console.log('Generate content for blurb:', blurb?.title);
+            // TODO: Implement content generation
+          }}
+        >
+          <Sparkles className="h-4 w-4 mr-2" />
+          Generate Content
+        </Button>
         <Button onClick={handleSave} disabled={!isFormValid}>
           <Save className="h-4 w-4 mr-2" />
           Save Section
         </Button>
       </div>
     </Card>
+
+    {/* Tag Suggestion Modal */}
+    <ContentGenerationModal
+      isOpen={isTagModalOpen}
+      onClose={() => {
+        setIsTagModalOpen(false);
+        setSuggestedTags([]);
+      }}
+      mode="tag-suggestion"
+      content={formData.content}
+      suggestedTags={suggestedTags}
+      onApplyTags={handleApplyTags}
+    />
   );
 };

@@ -140,7 +140,7 @@ export const WorkHistoryDrawer = ({
                               </div>
                               <div className="flex items-center gap-2 mt-2">
                                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                  <span>{role.blurbs.length} stories</span>
+                                  <span>{role.blurbs.length === 0 ? '0 stories' : `${role.blurbs.length} story${role.blurbs.length === 1 ? '' : 's'}`}</span>
                                 </div>
                                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                   <span>{role.externalLinks.length} links</span>
