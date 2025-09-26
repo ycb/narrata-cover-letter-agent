@@ -59,7 +59,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
   
   // Determine current page based on pathname
   const getCurrentPage = (pathname: string): string => {
-    if (pathname === "/dashboard") return "dashboard";
+    if (pathname === "/dashboard" || pathname === "/") return "dashboard";
     if (pathname === "/work-history" || pathname.startsWith("/show-all-stories") || pathname.startsWith("/show-all-links")) return "work-history";
     if (pathname === "/cover-letters" || pathname === "/cover-letter-template" || pathname === "/cover-letter-create" || pathname === "/saved-sections" || pathname.startsWith("/show-all-saved-sections")) return "cover-letters";
     if (pathname === "/assessment" || pathname.startsWith("/assessment/")) return "assessment";
