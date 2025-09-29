@@ -6,6 +6,8 @@ AI cover letter agent that helps PMs land more interviews via intelligent feedba
 
 **Live Demo:** [narrata.co](https://narrata.co/)
 
+<img width="1200" height="630" alt="OG-image" src="https://github.com/user-attachments/assets/f7d99371-7f99-490c-ad23-6fc64320bfa8" />
+
 ## Features
 
 - **Intelligent Feedback System**: Get AI-powered feedback on your cover letters
