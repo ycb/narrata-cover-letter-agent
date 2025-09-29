@@ -500,7 +500,7 @@ export function FileUploadCard({
     <Card className={`transition-all duration-200 ${
       isCompleted ? 'ring-2 ring-green-200 bg-green-50' : ''
     } ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
-      <CardHeader className="pb-4 -mx-6 -mt-6 px-6 pt-6">
+      <CardHeader className="!p-6">
         <div className="flex items-center gap-3">
           <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
             isCompleted ? 'bg-green-100' : 'bg-gray-100'
