@@ -43,3 +43,4 @@ RLS_TESTING_GUIDE.md
 *.njsproj
 *.sln
 *.sw?
+.psl_results_example.json
