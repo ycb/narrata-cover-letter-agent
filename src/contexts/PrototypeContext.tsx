@@ -10,7 +10,7 @@ interface PrototypeContextType {
 const PrototypeContext = createContext<PrototypeContextType | undefined>(undefined);
 
 export function PrototypeProvider({ children }: { children: ReactNode }) {
-  const [prototypeState, setPrototypeState] = useState<PrototypeState>('existing-user');
+  const [prototypeState, setPrototypeState] = useState<PrototypeState>('new-user');
 
   return (
     <PrototypeContext.Provider value={{ prototypeState, setPrototypeState }}>

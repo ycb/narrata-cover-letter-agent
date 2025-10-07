@@ -257,8 +257,8 @@ export default function WorkHistory() {
       if (companiesError) throw companiesError;
 
       if (!companies || companies.length === 0) {
-        console.log('No companies found');
-        setWorkHistory([]);
+        console.log('No companies found in database, using sample data as preview');
+        setWorkHistory(sampleWorkHistory);
         setIsLoading(false);
         return;
       }
@@ -586,6 +586,9 @@ export default function WorkHistory() {
     );
   }
 
+  // Check if we're showing sample data (no real data in DB)
+  const isShowingSampleData = workHistory === sampleWorkHistory && !isTourActive;
+
   return (
     <div className="min-h-screen bg-background">
       <main className={`container mx-auto px-4 pb-8 ${isTourActive ? 'pt-24' : ''}`}>
@@ -593,9 +596,14 @@ export default function WorkHistory() {
           <p className="text-muted-foreground description-spacing">Summarize impact with metrics, stories and links</p>
         </div>
 
-
-
-
+        {/* Preview Mode Banner */}
+        {isShowingSampleData && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              <strong>Preview Mode:</strong> You're seeing sample data. Complete the onboarding and approve content to see your own work history here.
+            </p>
+          </div>
+        )}
 
         {hasWorkHistory ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-280px)]">
