@@ -132,7 +132,7 @@ Analyze this resume text and extract structured data. Return ONLY valid JSON wit
 Resume Text:
 ${text}
 
-Extract the following information and return as JSON:
+Extract the following information and return as JSON. IMPORTANT: Extract ALL work history entries, education entries, certifications, and projects mentioned in the resume - do not filter or select only the most recent or relevant ones.
 
 {
   "workHistory": [
@@ -195,13 +195,15 @@ Extract the following information and return as JSON:
 
 Rules:
 - Use realistic dates (convert relative dates like "2020-2022" to "2020-01-01" and "2022-12-31")
-- Extract only information explicitly mentioned in the text
+- Extract ALL information explicitly mentioned in the text - completeness is critical
+- Include every work history entry, education entry, certification, and project found in the resume
 - If information is not available, use null or empty array
 - Ensure all dates are in YYYY-MM-DD format
 - Generate unique IDs for each item
 - Be conservative with achievements - only include clear accomplishments
 - Skills should be specific and technical when possible
 - Return valid JSON only, no markdown formatting
+- Do not skip or filter any entries based on relevance or recency
 `;
   }
 

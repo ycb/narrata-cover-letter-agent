@@ -72,6 +72,14 @@ export const LINKEDIN_CONFIG = {
   MAX_RETRIES: 3
 } as const;
 
+// People Data Labs API configuration
+export const PDL_CONFIG = {
+  API_URL: 'https://api.peopledatalabs.com/v5/person/enrich',
+  TIMEOUT: 15000, // 15 seconds
+  MAX_RETRIES: 2,
+  MIN_LIKELIHOOD: 0.7 // Minimum confidence score to accept results
+} as const;
+
 // Error messages
 export const ERROR_MESSAGES = {
   FILE_TOO_LARGE: 'File is too large. Please upload a file smaller than 5MB.',

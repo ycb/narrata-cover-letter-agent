@@ -16,7 +16,9 @@ import {
   Eye,
   ArrowRight,
   AlertTriangle,
-  Loader2
+  Loader2,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 import { LoadingState } from '@/components/shared/LoadingState';
 import { EmptyState } from '@/components/shared/EmptyState';
@@ -49,6 +51,10 @@ interface ExtractedContent {
     company: string;
     role: string;
     dates: string;
+    location?: string;
+    achievements?: string[];
+    startDate?: string;
+    endDate?: string;
   }>;
   approved: boolean;
   confidence: 'high' | 'medium' | 'low';
@@ -65,6 +71,7 @@ export function ContentReviewStep({ onReviewComplete, onBack }: ContentReviewSte
   const [isProcessing, setIsProcessing] = useState(false);
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [editContent, setEditContent] = useState<string>('');
+  const [collapsedContent, setCollapsedContent] = useState<Set<string>>(new Set());
   const { user, session } = useAuth();
 
   const loadExtractedContent = useCallback(async () => {
@@ -152,6 +159,27 @@ export function ContentReviewStep({ onReviewComplete, onBack }: ContentReviewSte
       if (linkedinResponse.ok) {
         const linkedinData = await linkedinResponse.json();
         linkedinProfile = linkedinData.length > 0 ? linkedinData[0] : null;
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('📊 LINKEDIN PROFILE FROM DATABASE:');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('Full LinkedIn profile:', linkedinProfile);
+        if (linkedinProfile?.experience) {
+          console.log('\n💼 EXPERIENCE ARRAY:');
+          console.log('Count:', linkedinProfile.experience.length);
+          console.log('Full experience data:', JSON.stringify(linkedinProfile.experience, null, 2));
+          linkedinProfile.experience.forEach((exp: any, idx: number) => {
+            console.log(`\nExperience ${idx}:`, {
+              company: exp.company,
+              title: exp.title,
+              startDate: exp.startDate,
+              endDate: exp.endDate,
+              location: exp.location,
+              description: exp.description,
+              achievements: exp.achievements
+            });
+          });
+        }
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       }
 
       const content: ExtractedContent[] = [];
@@ -160,43 +188,116 @@ export function ContentReviewStep({ onReviewComplete, onBack }: ContentReviewSte
       const resumeSource = sources?.find(s => s.file_name.toLowerCase().includes('resume'));
       if (resumeSource && resumeSource.structured_data) {
         const resumeData = resumeSource.structured_data as any;
+        console.log('📄 Processing Resume:', resumeSource.file_name);
+        console.log('Resume structured data keys:', Object.keys(resumeData));
+        console.log('Work history field:', resumeData.workHistory ? 'workHistory' : resumeData.workExperience ? 'workExperience' : 'not found');
+        
+        // Handle both field names (workHistory from LLM, workExperience from old data)
+        const workHistory = resumeData.workHistory || resumeData.workExperience || [];
+        
+        // Calculate confidence based on data quality
+        let resumeConfidence: 'high' | 'medium' | 'low' = 'high';
+        if (workHistory.length === 0) resumeConfidence = 'low';
+        else if (workHistory.length < 2) resumeConfidence = 'medium';
+        else if (!resumeData.skills || resumeData.skills.length < 5) resumeConfidence = 'medium';
+        
         content.push({
           id: `resume-${resumeSource.id}`,
           type: 'resume',
           title: 'Resume Analysis',
           source: resumeSource.file_name,
           content: resumeSource.raw_text || '',
-          stories: resumeData.workExperience?.map((exp: any, index: number) => ({
-            id: `resume-story-${index}`,
+          stories: workHistory.map((exp: any, index: number) => ({
+            id: exp.id || `resume-story-${index}`,
             title: `${exp.title} at ${exp.company}`,
             content: exp.description || '',
             company: exp.company,
             role: exp.title,
-            dates: `${exp.startDate} - ${exp.endDate || 'Present'}`
-          })) || [],
+            dates: `${exp.startDate} - ${exp.endDate || 'Present'}`,
+            location: exp.location,
+            achievements: exp.achievements || [],
+            startDate: exp.startDate,
+            endDate: exp.endDate
+          })),
           approved: false,
-          confidence: 'high'
+          confidence: resumeConfidence
         });
       }
 
       // Process LinkedIn profile
       if (linkedinProfile) {
+        console.log('🌐 Processing LinkedIn Profile from database');
+        
+        const experiences = Array.isArray(linkedinProfile.experience) 
+          ? linkedinProfile.experience 
+          : [];
+        
+        console.log('LinkedIn experiences count:', experiences.length);
+        
+        // Calculate confidence based on data quality
+        let linkedinConfidence: 'high' | 'medium' | 'low' = 'high';
+        if (experiences.length === 0) linkedinConfidence = 'low';
+        else if (experiences.length < 2) linkedinConfidence = 'medium';
+        else if (!linkedinProfile.skills || linkedinProfile.skills.length < 5) linkedinConfidence = 'medium';
+        
+        // Format PDL structured data for nice display
+        const rawData = linkedinProfile.raw_data || {};
+        const formattedContent = `
+          ${linkedinProfile.about}
+
+         ${linkedinProfile.about ? `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━` : ''}
+
+          📊 PROFILE METRICS
+          Work Experience: ${experiences.length} positions
+          Education: ${linkedinProfile.education?.length || 0} institutions
+          Skills: ${linkedinProfile.skills?.length || 0} total
+
+
+          🏢 CURRENT POSITION
+          ${rawData.job_title || 'Not specified'} at ${rawData.job_company_name || 'Not specified'}
+          ${rawData.job_company_industry ? `Industry: ${rawData.job_company_industry}` : ''}
+          ${rawData.job_start_date ? `Since: ${rawData.job_start_date}` : ''}
+
+          💼 WORK EXPERIENCE
+          ${experiences.map((exp: any, idx: number) => {
+            const company = exp.company || 'Unknown Company';
+            const title = exp.title || 'Unknown Role';
+            const dates = `${exp.startDate || exp.start_date || 'N/A'} - ${exp.endDate || exp.end_date || 'Present'}`;
+            const location = exp.location || '';
+            return `${idx + 1}. ${title} at ${company}
+            ${dates}${location ? ` | ${location}` : ''}`;
+          }).join('\n') || 'No work experience data'}
+
+          🎓 EDUCATION
+          ${linkedinProfile.education?.map((edu: any, idx: number) => 
+            `${idx + 1}. ${edu.degree || 'Degree'} - ${edu.institution || 'Unknown Institution'}${edu.fieldOfStudy ? ` (${edu.fieldOfStudy})` : ''}${edu.endDate ? ` - ${edu.endDate}` : ''}`
+          ).join('\n') || 'No education data'}
+
+          🛠️ SKILLS
+          ${linkedinProfile.skills?.slice(0, 15).join(' • ') || 'No skills data'}
+          ${linkedinProfile.skills?.length > 15 ? `\n...and ${linkedinProfile.skills.length - 15} more` : ''}
+          `.trim();
+
         content.push({
           id: `linkedin-${linkedinProfile.id}`,
           type: 'linkedin',
           title: 'LinkedIn Profile',
           source: linkedinProfile.profile_url,
-          content: linkedinProfile.about || '',
-          stories: linkedinProfile.experience?.map((exp: any, index: number) => ({
-            id: `linkedin-story-${index}`,
-            title: `${exp.title} at ${exp.company}`,
+          content: formattedContent,
+          stories: experiences.map((exp: any, index: number) => ({
+            id: exp.id || `linkedin-story-${index}`,
+            title: `${exp.title || 'Unknown Role'} at ${exp.company || 'Unknown Company'}`,
             content: exp.description || '',
-            company: exp.company,
-            role: exp.title,
-            dates: `${exp.startDate} - ${exp.endDate || 'Present'}`
-          })) || [],
+            company: exp.company || '',
+            role: exp.title || '',
+            dates: `${exp.startDate || exp.start_date || ''} - ${exp.endDate || exp.end_date || 'Present'}`,
+            location: exp.location || '',
+            achievements: Array.isArray(exp.achievements) ? exp.achievements : [],
+            startDate: exp.startDate || exp.start_date,
+            endDate: exp.endDate || exp.end_date
+          })),
           approved: false,
-          confidence: 'high'
+          confidence: linkedinConfidence
         });
       }
 
@@ -207,20 +308,27 @@ export function ContentReviewStep({ onReviewComplete, onBack }: ContentReviewSte
       );
       if (coverLetterSource && coverLetterSource.structured_data) {
         const coverLetterData = coverLetterSource.structured_data as any;
+        
+        // Calculate confidence based on extracted data quality
+        const sections = coverLetterData.sections || [];
+        let coverLetterConfidence: 'high' | 'medium' | 'low' = 'medium';
+        if (sections.length >= 3) coverLetterConfidence = 'high';
+        else if (sections.length === 0) coverLetterConfidence = 'low';
+        
         content.push({
           id: `coverletter-${coverLetterSource.id}`,
           type: 'coverLetter',
           title: 'Cover Letter Sections',
           source: coverLetterSource.file_name,
           content: coverLetterSource.raw_text || '',
-          sections: coverLetterData.sections?.map((section: any, index: number) => ({
+          sections: sections.map((section: any, index: number) => ({
             id: `section-${index}`,
             title: section.title || `Section ${index + 1}`,
             content: section.content || '',
             type: section.type || 'paragraph'
-          })) || [],
+          })),
           approved: false,
-          confidence: 'medium'
+          confidence: coverLetterConfidence
         });
       }
 
@@ -275,21 +383,51 @@ export function ContentReviewStep({ onReviewComplete, onBack }: ContentReviewSte
     setEditContent(item.content);
   };
 
-  const handleEditSave = (contentId: string) => {
-    setExtractedContent(prev => 
-      prev.map(item => 
-        item.id === contentId 
-          ? { ...item, content: editContent }
-          : item
-      )
-    );
-    setEditingItem(null);
-    setEditContent('');
+  const handleEditSave = async (contentId: string) => {
+    // Update local state and reprocess to update extracted items
+    console.log('💾 Saving edited content and reprocessing...');
+    
+    try {
+      const item = extractedContent.find(i => i.id === contentId);
+      if (!item) return;
+
+      // Update the content in local state
+      setExtractedContent(prev => 
+        prev.map(item => 
+          item.id === contentId 
+            ? { ...item, content: editContent }
+            : item
+        )
+      );
+
+      // TODO: Optionally re-run LLM analysis on edited content to update extracted items
+      // For now, just update the content - extracted items remain as originally analyzed
+      // This prevents unnecessary API calls and keeps the review process fast
+      
+      setEditingItem(null);
+      setEditContent('');
+      
+      console.log('✅ Content updated in review state (will save on Complete Review)');
+    } catch (error) {
+      console.error('Error updating content:', error);
+    }
   };
 
   const handleEditCancel = () => {
     setEditingItem(null);
     setEditContent('');
+  };
+
+  const toggleContentCollapse = (contentId: string) => {
+    setCollapsedContent(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(contentId)) {
+        newSet.delete(contentId);
+      } else {
+        newSet.add(contentId);
+      }
+      return newSet;
+    });
   };
 
   const handleComplete = async () => {
@@ -315,68 +453,143 @@ export function ContentReviewStep({ onReviewComplete, onBack }: ContentReviewSte
   };
 
   const saveApprovedContent = async (content: ExtractedContent[]) => {
-    if (!user) return;
+    if (!user) {
+      console.error('❌ No user found, cannot save approved content');
+      return;
+    }
+
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('💾 SAVING APPROVED CONTENT TO DATABASE');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('User ID:', user.id);
+    console.log('Approved items count:', content.length);
+    console.log('Approved items:', content);
+
+    let companiesCreated = 0;
+    let workItemsCreated = 0;
+    let storiesCreated = 0;
 
     // Create companies and work items for approved stories
     for (const item of content) {
+      console.log(`\n📦 Processing item: ${item.title} (type: ${item.type})`);
+      console.log('Has stories:', item.stories?.length || 0);
+      
       if (item.stories && item.stories.length > 0) {
         for (const story of item.stories) {
-          // Create or find company
-          const { data: company, error: companyError } = await supabase
-            .from('companies')
-            .upsert({
-              user_id: user.id,
-              name: story.company,
-              description: '',
-              tags: []
-            } as any, { 
-              onConflict: 'user_id,name',
-              ignoreDuplicates: true 
-            })
-            .select()
-            .single() as any;
+          console.log(`\n  📝 Processing story: ${story.title}`);
+          console.log('  Story data:', {
+            company: story.company,
+            role: story.role,
+            startDate: story.startDate,
+            endDate: story.endDate,
+            location: story.location,
+            achievements: story.achievements
+          });
 
-          if (companyError) {
-            console.error('Error creating company:', companyError);
+          // First, check if company already exists
+          const { data: existingCompany } = await supabase
+            .from('companies')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('name', story.company)
+            .maybeSingle();
+
+          let company = existingCompany;
+
+          if (!company) {
+            // Create new company
+            console.log('  ➕ Creating new company:', story.company);
+            const { data: newCompany, error: companyError } = await supabase
+              .from('companies')
+              .insert({
+                user_id: user.id,
+                name: story.company,
+                description: '',
+                tags: []
+              })
+              .select()
+              .single();
+
+            if (companyError) {
+              console.error('  ❌ Error creating company:', companyError);
+              continue;
+            }
+
+            company = newCompany;
+            companiesCreated++;
+            console.log('  ✅ Company created:', company.id);
+          } else {
+            console.log('  ✓ Using existing company:', company.id);
+          }
+
+          if (!company) {
+            console.error('  ❌ Company is null, cannot create work item');
             continue;
           }
 
-          // Create work item
+          // Create work item with actual dates from story
+          console.log('  ➕ Creating work item...');
           const { data: workItem, error: workItemError } = await supabase
             .from('work_items')
             .insert({
               user_id: user.id,
-              company_id: company?.id,
+              company_id: company.id,
               title: story.role,
-              start_date: new Date().toISOString().split('T')[0], // Default date
+              start_date: story.startDate || new Date().toISOString().split('T')[0],
+              end_date: story.endDate || null,
               description: story.content,
               tags: [],
-              achievements: []
-            } as any)
+              achievements: story.achievements || []
+            })
             .select()
-            .single() as any;
+            .single();
 
-          if (workItemError) {
-            console.error('Error creating work item:', workItemError);
+          if (workItemError || !workItem) {
+            console.error('  ❌ Error creating work item:', workItemError);
             continue;
           }
 
-          // Create approved content
-          await supabase
+          workItemsCreated++;
+          console.log('  ✅ Work item created:', workItem.id);
+
+          // Create approved content (story/blurb)
+          console.log('  ➕ Creating approved content...');
+          const { data: approvedContent, error: contentError } = await supabase
             .from('approved_content')
             .insert({
               user_id: user.id,
-              work_item_id: workItem?.id,
+              work_item_id: workItem.id,
               title: story.title,
               content: story.content,
               status: 'approved',
-              confidence: 'high',
-              tags: [],
+              confidence: item.confidence, // Use confidence from the approved item
+              tags: story.achievements?.slice(0, 3) || [], // Use first 3 achievements as tags
               times_used: 0
-            } as any);
+            })
+            .select()
+            .single();
+
+          if (contentError || !approvedContent) {
+            console.error('  ❌ Error creating approved content:', contentError);
+            console.error('  Error details:', contentError);
+            continue;
+          }
+
+          storiesCreated++;
+          console.log('  ✅ Approved content created:', approvedContent.id);
         }
+      } else {
+        console.log('  ⚠️ No stories found for this item, skipping...');
       }
     }
+
+    console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('✅ SAVE COMPLETE');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('Companies created:', companiesCreated);
+    console.log('Work items created:', workItemsCreated);
+    console.log('Stories created:', storiesCreated);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
   };
 
   const getTypeIcon = (type: string) => {
@@ -479,15 +692,12 @@ export function ContentReviewStep({ onReviewComplete, onBack }: ContentReviewSte
                       }`} />
                     </div>
                     <div>
-                      <CardTitle className="text-lg text-gray-900 flex items-center gap-2">
-                        {item.title}
-                        <Badge className={`text-xs ${typeColor}`}>
-                          {item.type}
-                        </Badge>
-                        <Badge className={`text-xs ${confidenceColor}`}>
-                          {item.confidence} confidence
-                        </Badge>
-                      </CardTitle>
+                        <CardTitle className="text-lg text-gray-900 flex items-center gap-2">
+                          {item.title}
+                          <Badge className={`text-xs ${confidenceColor} capitalize`}>
+                            {item.confidence} confidence
+                          </Badge>
+                        </CardTitle>
                       <p className="text-gray-600 text-sm">Source: {item.source}</p>
                     </div>
                   </div>
@@ -508,47 +718,74 @@ export function ContentReviewStep({ onReviewComplete, onBack }: ContentReviewSte
               <CardContent className="space-y-4">
                 {/* Main Content */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Content</label>
-                  {isEditing ? (
-                    <div className="space-y-2">
-                      <Textarea
-                        value={editContent}
-                        onChange={(e) => setEditContent(e.target.value)}
-                        rows={4}
-                        className="resize-none"
-                      />
-                      <div className="flex gap-2">
-                        <Button 
-                          size="sm" 
-                          onClick={() => handleEditSave(item.id)}
-                        >
-                          Save
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="secondary" 
-                          onClick={handleEditCancel}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">
-                        {item.content.substring(0, 300)}
-                        {item.content.length > 300 && '...'}
-                      </p>
-                      <Button 
-                        size="sm" 
-                        variant="secondary" 
-                        onClick={() => handleEditStart(item)}
-                        className="text-xs"
-                      >
-                        <Edit3 className="w-3 h-3 mr-1" />
-                        Edit Content
-                      </Button>
-                    </div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-gray-700">Content</label>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => toggleContentCollapse(item.id)}
+                      className="h-6 px-2"
+                    >
+                      {collapsedContent.has(item.id) ? (
+                        <>
+                          <ChevronDown className="w-4 h-4 mr-1" />
+                          Expand
+                        </>
+                      ) : (
+                        <>
+                          <ChevronUp className="w-4 h-4 mr-1" />
+                          Collapse
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  
+                  {!collapsedContent.has(item.id) && (
+                    <>
+                      {isEditing ? (
+                        <div className="space-y-2">
+                          <Textarea
+                            value={editContent}
+                            onChange={(e) => setEditContent(e.target.value)}
+                            className="min-h-[200px] max-h-[600px] resize-y"
+                            style={{
+                              height: 'auto',
+                              minHeight: '200px'
+                            }}
+                          />
+                          <div className="flex gap-2">
+                            <Button 
+                              size="sm" 
+                              onClick={() => handleEditSave(item.id)}
+                            >
+                              Save
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="secondary" 
+                              onClick={handleEditCancel}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg whitespace-pre-wrap break-words max-h-[300px] overflow-y-auto">
+                            {item.content}
+                          </div>
+                          <Button 
+                            size="sm" 
+                            variant="secondary" 
+                            onClick={() => handleEditStart(item)}
+                            className="text-xs"
+                          >
+                            <Edit3 className="w-3 h-3 mr-1" />
+                            Edit Content
+                          </Button>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -556,27 +793,48 @@ export function ContentReviewStep({ onReviewComplete, onBack }: ContentReviewSte
                 {(item.stories && item.stories.length > 0) && (
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-700">
-                      Extracted Stories ({item.stories.length})
+                      Extracted Work Experience ({item.stories.length})
                     </label>
-                    <div className="space-y-2">
-                      {item.stories.slice(0, 3).map((story) => (
-                        <div key={story.id} className="p-3 bg-gray-50 rounded-lg">
-                          <div className="flex items-center justify-between mb-1">
-                            <h4 className="font-medium text-sm">{story.title}</h4>
-                            <Badge variant="secondary" className="text-xs">
+                    <div className="space-y-3">
+                      {item.stories.map((story) => (
+                        <div key={story.id} className="p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-sm text-gray-900">{story.role}</h4>
+                              <p className="text-sm text-gray-700">{story.company}</p>
+                            </div>
+                            <Badge variant="secondary" className="text-xs shrink-0">
                               {story.dates}
                             </Badge>
                           </div>
-                          <p className="text-xs text-gray-600 line-clamp-2">
-                            {story.content}
-                          </p>
+                          
+                          {story.location && (
+                            <p className="text-xs text-gray-600">
+                              📍 {story.location}
+                            </p>
+                          )}
+                          
+                          {story.content && (
+                            <p className="text-xs text-gray-700 leading-relaxed">
+                              {story.content}
+                            </p>
+                          )}
+                          
+                          {story.achievements && story.achievements.length > 0 && (
+                            <div className="space-y-1 mt-2">
+                              <p className="text-xs font-medium text-gray-700">Key Achievements:</p>
+                              <ul className="space-y-1">
+                                {story.achievements.map((achievement, idx) => (
+                                  <li key={idx} className="text-xs text-gray-600 flex items-start gap-1">
+                                    <span className="text-green-600 mt-0.5">•</span>
+                                    <span className="flex-1">{achievement}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
                         </div>
                       ))}
-                      {item.stories.length > 3 && (
-                        <p className="text-xs text-gray-500">
-                          +{item.stories.length - 3} more stories
-                        </p>
-                      )}
                     </div>
                   </div>
                 )}

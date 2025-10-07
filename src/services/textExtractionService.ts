@@ -69,14 +69,42 @@ export class TextExtractionService {
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         let fullText = '';
         
-        // Extract text from all pages
+        // Extract text from all pages with formatting preservation
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
           const page = await pdf.getPage(pageNum);
           const textContent = await page.getTextContent();
-          const pageText = textContent.items
-            .map((item: any) => item.str)
-            .join(' ');
-          fullText += pageText + '\n';
+          
+          // Preserve formatting by analyzing item positions
+          let lastY = -1;
+          let pageText = '';
+          
+          textContent.items.forEach((item: any, index: number) => {
+            const currentY = item.transform[5]; // Y position
+            const text = item.str;
+            
+            // Skip empty items
+            if (!text.trim()) return;
+            
+            // Detect line breaks based on Y position change
+            if (lastY !== -1 && Math.abs(currentY - lastY) > 5) {
+              // Larger Y difference indicates new line or paragraph
+              if (Math.abs(currentY - lastY) > 15) {
+                pageText += '\n\n'; // Paragraph break
+              } else {
+                pageText += '\n'; // Line break
+              }
+            } else if (index > 0 && lastY === currentY) {
+              // Same line - add space if text doesn't start with punctuation
+              if (!/^[.,;:!?)\]]/.test(text)) {
+                pageText += ' ';
+              }
+            }
+            
+            pageText += text;
+            lastY = currentY;
+          });
+          
+          fullText += pageText + '\n\n'; // Page break
         }
         
         return {
@@ -108,8 +136,14 @@ export class TextExtractionService {
       const arrayBuffer = await file.arrayBuffer();
       
       if (mammoth) {
-        // Use production mammoth library
-        const result = await mammoth.extractRawText({ arrayBuffer });
+        // Use production mammoth library with better formatting preservation
+        const result = await mammoth.extractRawText({ 
+          arrayBuffer,
+          // Preserve paragraph breaks
+          convertImage: mammoth.images.imgElement(() => ({ src: '' }))
+        });
+        
+        // Mammoth's extractRawText already preserves line breaks
         return {
           success: true,
           text: this.cleanText(result.value)
@@ -169,14 +203,43 @@ export class TextExtractionService {
   }
 
   /**
-   * Clean and normalize extracted text
+   * Clean and normalize extracted text while preserving structure
    */
   cleanText(text: string): string {
-    return text
-      .replace(/\r\n/g, '\n') // Normalize line endings
-      .replace(/\n{3,}/g, '\n\n') // Remove excessive line breaks
-      .replace(/\s{2,}/g, ' ') // Remove excessive spaces
+    // First, normalize line endings
+    let cleaned = text.replace(/\r\n/g, '\n');
+    
+    // Preserve bullet points by detecting common bullet characters
+    const bulletPatterns = [
+      /^[\s]*[•●○■□▪▫◆◇★☆✓✔→➤➢⇒]\s+/gm,  // Unicode bullets
+      /^[\s]*[-*+]\s+/gm,                      // ASCII bullets (-, *, +)
+      /^[\s]*\d+[.)]\s+/gm,                    // Numbered lists (1. 2) 3.)
+      /^[\s]*[a-zA-Z][.)]\s+/gm                // Lettered lists (a. b) c.)
+    ];
+    
+    // Mark bullet lines to preserve them
+    bulletPatterns.forEach(pattern => {
+      cleaned = cleaned.replace(pattern, (match) => {
+        // Preserve the bullet but normalize spacing
+        const bullet = match.trim();
+        return `\n${bullet} `;
+      });
+    });
+    
+    // Now clean while preserving structure
+    cleaned = cleaned
+      // Remove excessive blank lines (more than 2 consecutive)
+      .replace(/\n{4,}/g, '\n\n\n')
+      // Remove trailing spaces/tabs from each line
+      .replace(/[ \t]+$/gm, '')
+      // Preserve indentation for bullet points, but normalize to 2 spaces
+      .replace(/^[ \t]+([•●○■□▪▫◆◇★☆✓✔→➤➢⇒*+-])/gm, '  $1')
+      // Collapse excessive spaces in the middle of lines (but keep 2 for structure)
+      .replace(/([^\n]) {4,}/g, '$1  ')
+      // Trim outer whitespace
       .trim();
+    
+    return cleaned;
   }
 
   /**

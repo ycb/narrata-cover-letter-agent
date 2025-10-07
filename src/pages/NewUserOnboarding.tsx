@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { 
   Upload, 
   FileText, 
-  Linkedin, 
+  LinkedinIcon, 
   Mail, 
   CheckCircle, 
   ArrowRight,
@@ -14,12 +14,19 @@ import {
   Sparkles,
   Target,
   Users,
-  Lightbulb
+  Lightbulb,
+  BookOpen,
+  RefreshCw,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 import { ContentReviewStep } from "@/components/onboarding/ContentReviewStep";
 import { FileUploadCard } from "@/components/onboarding/FileUploadCard";
 import { useTour } from "@/contexts/TourContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
+import { useLinkedInUpload } from "@/hooks/useFileUpload";
+import { isValidLinkedInUrl, normalizeLinkedInUrl } from "@/utils/linkedinUtils";
 
 type OnboardingStep = 'welcome' | 'upload' | 'review';
 
@@ -33,7 +40,7 @@ interface OnboardingData {
   progress?: number;
   approvedContent?: Array<{
     id: string;
-    type: 'resume' | 'linkedin' | 'coverLetter';
+    type: 'resume' | 'linkedin' | 'coverLetter' | 'caseStudies';
     title: string;
     source: string;
     content: string;
@@ -60,8 +67,62 @@ export default function NewUserOnboarding() {
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('welcome');
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({});
   const [isProcessing, setIsProcessing] = useState(false);
+  const [resumeCompleted, setResumeCompleted] = useState(false);
+  const [linkedinCompleted, setLinkedinCompleted] = useState(false);
+  const [coverLetterCompleted, setCoverLetterCompleted] = useState(false);
+  const [resumeCollapsed, setResumeCollapsed] = useState(false);
+  const [linkedinCollapsed, setLinkedinCollapsed] = useState(false);
+  const [coverLetterCollapsed, setCoverLetterCollapsed] = useState(false);
+  const linkedinRef = useRef<HTMLDivElement>(null);
+  const coverLetterRef = useRef<HTMLDivElement>(null);
+  const resumeAutoCollapseRef = useRef(false);
+  const linkedinAutoCollapseRef = useRef(false);
+  const coverLetterAutoCollapseRef = useRef(false);
+
+  // Auto-collapse and scroll when steps complete
+  useEffect(() => {
+    if (resumeCompleted) {
+      if (!resumeAutoCollapseRef.current) {
+        setResumeCollapsed(true);
+        resumeAutoCollapseRef.current = true;
+        setTimeout(() => linkedinRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
+      }
+    } else {
+      resumeAutoCollapseRef.current = false;
+      setResumeCollapsed(false);
+    }
+  }, [resumeCompleted]);
+
+  useEffect(() => {
+    if (linkedinCompleted) {
+      if (!linkedinAutoCollapseRef.current) {
+        setLinkedinCollapsed(true);
+        linkedinAutoCollapseRef.current = true;
+        setTimeout(() => coverLetterRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
+      }
+    } else {
+      linkedinAutoCollapseRef.current = false;
+      setLinkedinCollapsed(false);
+    }
+  }, [linkedinCompleted]);
+
+  useEffect(() => {
+    if (coverLetterCompleted) {
+      if (!coverLetterAutoCollapseRef.current) {
+        setCoverLetterCollapsed(true);
+        coverLetterAutoCollapseRef.current = true;
+      }
+    } else {
+      coverLetterAutoCollapseRef.current = false;
+      setCoverLetterCollapsed(false);
+    }
+  }, [coverLetterCompleted]);
+
+  const [autoPopulatingLinkedIn, setAutoPopulatingLinkedIn] = useState(false);
+  const [linkedinAutoCompleted, setLinkedinAutoCompleted] = useState(false);
   const { startTour } = useTour();
   const { user, profile } = useAuth();
+  const linkedInUpload = useLinkedInUpload();
 
   // Check if user signed up with LinkedIn
   const isLinkedInUser = user?.app_metadata?.provider === 'linkedin_oidc' || 
@@ -115,8 +176,10 @@ export default function NewUserOnboarding() {
       // Clear the file from state
       if (type === 'coverLetter') {
         setOnboardingData(prev => ({ ...prev, coverLetterFile: undefined }));
-      } else {
+        setCoverLetterCompleted(false);
+      } else if (type === 'resume') {
         setOnboardingData(prev => ({ ...prev, [type]: undefined }));
+        setResumeCompleted(false);
       }
     } else {
       // Set the file in state
@@ -128,13 +191,28 @@ export default function NewUserOnboarding() {
     }
   };
 
-  const handleUploadComplete = (fileId: string, uploadType: string) => {
+  const handleUploadComplete = async (fileId: string, uploadType: string) => {
     console.log('Background processing completed:', { fileId, uploadType });
     // Store the file ID for later reference
     setOnboardingData(prev => ({ 
       ...prev, 
       [`${uploadType}FileId`]: fileId 
     }));
+    
+    // Mark steps as completed
+    if (uploadType === 'resume') {
+      setResumeCompleted(true);
+      console.log('✅ Resume step completed');
+      
+      // Check if resume contains LinkedIn URL and auto-populate
+      await checkAndAutoPopulateLinkedIn(fileId);
+    } else if (uploadType === 'linkedin') {
+      setLinkedinCompleted(true);
+      console.log('✅ LinkedIn step completed');
+    } else if (uploadType === 'coverLetter') {
+      setCoverLetterCompleted(true);
+      console.log('✅ Cover letter step completed');
+    }
   };
 
   const handleUploadError = (error: string) => {
@@ -144,12 +222,89 @@ export default function NewUserOnboarding() {
 
   const handleLinkedInUrl = (url: string) => {
     setOnboardingData(prev => ({ ...prev, linkedinUrl: url }));
+    // Note: linkedinCompleted will be set by handleUploadComplete when PDL processing finishes
   };
 
   const handleCoverLetterText = (text: string) => {
     console.log('handleCoverLetterText called with:', text);
     setOnboardingData(prev => ({ ...prev, coverLetter: text }));
     console.log('Updated onboardingData.coverLetter to:', text);
+  };
+
+  /**
+   * Check if resume contains LinkedIn URL and auto-populate Step 2
+   */
+  const checkAndAutoPopulateLinkedIn = async (resumeFileId: string) => {
+    if (!user) return;
+
+    try {
+      console.log('🔍 Checking resume for LinkedIn URL...');
+      console.log('Resume file ID:', resumeFileId);
+      
+      // Fetch the uploaded resume's structured data from 'sources' table
+      const { data: fileData, error } = await supabase
+        .from('sources')
+        .select('structured_data')
+        .eq('id', resumeFileId)
+        .eq('user_id', user.id)
+        .single();
+
+      console.log('Query result:', { hasData: !!fileData, error: error?.message });
+
+      if (error || !fileData) {
+        console.log('❌ No resume data found for LinkedIn auto-population');
+        console.log('Error:', error);
+        return;
+      }
+
+      // Check for LinkedIn URL in contactInfo
+      const structuredData = (fileData as any).structured_data;
+      console.log('Structured data:', structuredData);
+      
+      let linkedinUrl = structuredData?.contactInfo?.linkedin;
+      console.log('Raw LinkedIn URL from resume:', linkedinUrl);
+
+      if (!linkedinUrl) {
+        console.log('❌ No LinkedIn URL found in contactInfo');
+        return;
+      }
+
+      // Normalize the URL (handles URLs without protocol like "www.linkedin.com/in/...")
+      const normalizedUrl = normalizeLinkedInUrl(linkedinUrl);
+      console.log('Normalized LinkedIn URL:', normalizedUrl);
+
+      if (normalizedUrl && isValidLinkedInUrl(normalizedUrl)) {
+        console.log('✨ Valid LinkedIn URL found in resume:', normalizedUrl);
+        
+        // Set the normalized LinkedIn URL in state
+        setOnboardingData(prev => ({ ...prev, linkedinUrl: normalizedUrl }));
+        
+        // Show processing state
+        setAutoPopulatingLinkedIn(true);
+        
+        // Auto-trigger LinkedIn enrichment
+        console.log('🚀 Auto-triggering LinkedIn enrichment...');
+        const result = await linkedInUpload.connectLinkedIn(normalizedUrl);
+        
+        if (result.success) {
+          console.log('✅ LinkedIn auto-populated and enriched successfully!');
+          setLinkedinAutoCompleted(true);
+          // Mark as completed
+          await handleUploadComplete(result.fileId || `linkedin_${Date.now()}`, 'linkedin');
+        } else {
+          console.warn('❌ LinkedIn auto-population failed:', result.error);
+          // Still set the URL so user can see it and retry manually if needed
+          console.log('💡 LinkedIn URL is available for manual enrichment');
+        }
+        
+        setAutoPopulatingLinkedIn(false);
+      } else {
+        console.log('❌ Invalid LinkedIn URL after normalization:', linkedinUrl);
+      }
+    } catch (error) {
+      console.error('💥 Error during LinkedIn auto-population:', error);
+      setAutoPopulatingLinkedIn(false);
+    }
   };
 
   const renderWelcomeStep = () => (
@@ -330,45 +485,199 @@ export default function NewUserOnboarding() {
       </Card>
 
       <div className="text-center space-y-4">
-               <h2 className="text-3xl font-bold text-foreground">
-                 Add Your Content
-               </h2>
+        <h2 className="text-3xl font-bold text-foreground">
+          Add Your Content
+        </h2>
+        <p className="text-muted-foreground">
+          Complete each step to unlock the next
+        </p>
       </div>
 
-      <div className="flex flex-col gap-6">
-        <FileUploadCard
-          type="resume"
-          title="Resume"
-          description=""
-          icon={FileText}
-          onFileUpload={handleFileUpload}
-          onUploadComplete={handleUploadComplete}
-          onUploadError={handleUploadError}
-          currentValue={onboardingData.resume}
-        />
+      <div className="flex flex-col gap-6 relative pl-12">
+        {/* Vertical line connecting steps */}
+        <div className="absolute left-0 top-12 bottom-12 w-0.5 bg-gray-200" style={{ left: '-8px' }} />
         
-        <FileUploadCard
-          type="linkedin"
-          title="LinkedIn Profile"
-          description="Enter your LinkedIn profile URL to import work history and skills"
-          icon={Linkedin}
-          onLinkedInUrl={handleLinkedInUrl}
-          onUploadComplete={handleUploadComplete}
-          onUploadError={handleUploadError}
-          currentValue={linkedinUrl}
-        />
+        {/* Step 1: Resume */}
+        <div className="relative">
+          <div className="absolute -left-12 top-6 flex items-center justify-center w-8 h-8 rounded-full border-2 border-blue-500 bg-white text-sm font-semibold text-blue-600 z-10">
+            {resumeCompleted ? <CheckCircle className="w-5 h-5 text-green-500" /> : '1'}
+          </div>
+          {resumeCompleted && resumeCollapsed ? (
+            <Card
+              className="cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => setResumeCollapsed(false)}
+            >
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    <div>
+                      <p className="font-medium">Resume</p>
+                      <p className="text-sm text-muted-foreground">Completed</p>
+                    </div>
+                  </div>
+                  <ChevronDown className="w-5 h-5 text-gray-400" />
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div>
+              {resumeCompleted && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mb-2 text-xs"
+                  onClick={() => setResumeCollapsed(true)}
+                >
+                  <ChevronUp className="w-3 h-3 mr-1" />
+                  Collapse
+                </Button>
+              )}
+              <FileUploadCard
+                type="resume"
+                title="Resume"
+                description="Upload your resume to get started"
+                icon={FileText}
+                onFileUpload={handleFileUpload}
+                onUploadComplete={handleUploadComplete}
+                onUploadError={handleUploadError}
+                currentValue={onboardingData.resume}
+                required={true}
+              />
+            </div>
+          )}
+        </div>
         
-        <FileUploadCard
-          type="coverLetter"
-          title="Best Cover Letter"
-          description=""
-          icon={Mail}
-          onTextInput={handleCoverLetterText}
-          onFileUpload={handleFileUpload}
-          onUploadComplete={handleUploadComplete}
-          onUploadError={handleUploadError}
-          currentValue={onboardingData.coverLetter}
-        />
+        {/* Step 2: LinkedIn */}
+        <div className="relative" ref={linkedinRef}>
+          <div className={`absolute -left-12 top-6 flex items-center justify-center w-8 h-8 rounded-full border-2 ${
+            resumeCompleted ? 'border-blue-500 bg-white' : 'border-gray-300 bg-gray-100'
+          } text-sm font-semibold ${resumeCompleted ? 'text-blue-600' : 'text-gray-400'} z-10`}>
+            {linkedinCompleted ? <CheckCircle className="w-5 h-5 text-green-500" /> : autoPopulatingLinkedIn ? (
+              <RefreshCw className="w-4 h-4 text-blue-600 animate-spin" />
+            ) : '2'}
+          </div>
+          {linkedinCompleted && linkedinCollapsed ? (
+            <Card
+              className="cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => setLinkedinCollapsed(false)}
+            >
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    <div>
+                      <p className="font-medium">LinkedIn Profile</p>
+                      <p className="text-sm text-muted-foreground">
+                        {linkedinAutoCompleted ? 'Auto-completed from resume' : 'Completed'}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronDown className="w-5 h-5 text-gray-400" />
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className={!resumeCompleted ? 'opacity-50 pointer-events-none' : ''}>
+              {linkedinCompleted && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mb-2 text-xs"
+                  onClick={() => setLinkedinCollapsed(true)}
+                >
+                  <ChevronUp className="w-3 h-3 mr-1" />
+                  Collapse
+                </Button>
+              )}
+              {linkedinAutoCompleted && linkedinCompleted && (
+                <div className="mb-2">
+                  <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-200">
+                    <Sparkles className="w-3 h-3 mr-1" />
+                    Auto-completed from resume
+                  </Badge>
+                </div>
+              )}
+              <FileUploadCard
+                type="linkedin"
+                title="LinkedIn Profile"
+                description={autoPopulatingLinkedIn 
+                  ? "✨ Auto-populating from resume..." 
+                  : linkedinAutoCompleted && linkedinCompleted
+                    ? "✅ Successfully enriched with LinkedIn data from your resume"
+                    : resumeCompleted 
+                      ? (linkedinUrl 
+                        ? "LinkedIn URL found in resume - click Connect to enrich" 
+                        : "Enter your LinkedIn URL to enrich your work history")
+                      : "Complete resume upload first"}
+                icon={LinkedinIcon}
+                onLinkedInUrl={handleLinkedInUrl}
+                onUploadComplete={handleUploadComplete}
+                onUploadError={handleUploadError}
+                currentValue={linkedinUrl}
+                disabled={!resumeCompleted || autoPopulatingLinkedIn}
+                required={true}
+              />
+            </div>
+          )}
+        </div>
+        
+        {/* Step 3: Cover Letter */}
+        <div className="relative" ref={coverLetterRef}>
+          <div className={`absolute -left-12 top-6 flex items-center justify-center w-8 h-8 rounded-full border-2 ${
+            linkedinCompleted ? 'border-blue-500 bg-white' : 'border-gray-300 bg-gray-100'
+          } text-sm font-semibold ${linkedinCompleted ? 'text-blue-600' : 'text-gray-400'} z-10`}>
+            {coverLetterCompleted ? <CheckCircle className="w-5 h-5 text-green-500" /> : '3'}
+          </div>
+          {coverLetterCompleted && coverLetterCollapsed ? (
+            <Card
+              className="cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => setCoverLetterCollapsed(false)}
+            >
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                    <div>
+                      <p className="font-medium">Best Cover Letter</p>
+                      <p className="text-sm text-muted-foreground">Completed</p>
+                    </div>
+                  </div>
+                  <ChevronDown className="w-5 h-5 text-gray-400" />
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className={!linkedinCompleted ? 'opacity-50 pointer-events-none' : ''}>
+              {coverLetterCompleted && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mb-2 text-xs"
+                  onClick={() => setCoverLetterCollapsed(true)}
+                >
+                  <ChevronUp className="w-3 h-3 mr-1" />
+                  Collapse
+                </Button>
+              )}
+              <FileUploadCard
+                type="coverLetter"
+                title="Best Cover Letter"
+                description={linkedinCompleted 
+                  ? "Upload or paste your best cover letter example" 
+                  : "Complete LinkedIn step first"}
+                icon={Mail}
+                onTextInput={handleCoverLetterText}
+                onFileUpload={handleFileUpload}
+                onUploadComplete={handleUploadComplete}
+                onUploadError={handleUploadError}
+                currentValue={onboardingData.coverLetter}
+                disabled={!linkedinCompleted}
+                required={true}
+              />
+            </div>
+          )}
+        </div>
         
       </div>
 
@@ -376,13 +685,25 @@ export default function NewUserOnboarding() {
         <Button 
           size="lg" 
           onClick={handleNextStep}
-          disabled={!onboardingData.resume || (!onboardingData.coverLetter && !onboardingData.coverLetterFile)}
+          disabled={!resumeCompleted || !linkedinCompleted || !coverLetterCompleted || isProcessing}
           className="px-8 py-3 text-lg"
         >
           {isProcessing ? (
             <>
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" />
               Analyzing...
+            </>
+          ) : !resumeCompleted ? (
+            <>
+              Upload Resume to Continue
+            </>
+          ) : !linkedinCompleted ? (
+            <>
+              Add LinkedIn to Continue
+            </>
+          ) : !coverLetterCompleted ? (
+            <>
+              Add Cover Letter to Continue
             </>
           ) : (
             <>
@@ -391,6 +712,11 @@ export default function NewUserOnboarding() {
             </>
           )}
         </Button>
+        
+        {/* Progress indicator */}
+        <div className="mt-4 text-sm text-muted-foreground">
+          Step {(resumeCompleted ? 1 : 0) + (linkedinCompleted ? 1 : 0) + (coverLetterCompleted ? 1 : 0)} of 3 completed
+        </div>
       </div>
     </div>
   );
@@ -577,7 +903,7 @@ export default function NewUserOnboarding() {
           console.log('Unknown step, defaulting to welcome');
           return renderWelcomeStep();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error rendering step:', error);
       return (
         <div className="text-center space-y-4">

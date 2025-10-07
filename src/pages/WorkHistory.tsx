@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { WorkHistoryMaster } from "@/components/work-history/WorkHistoryMaster";
 import { WorkHistoryDetail } from "@/components/work-history/WorkHistoryDetail";
@@ -12,11 +12,13 @@ import { AddCompanyModal } from "@/components/work-history/AddCompanyModal";
 import { AddRoleModal } from "@/components/work-history/AddRoleModal";
 import { usePrototype } from "@/contexts/PrototypeContext";
 import { useTour } from "@/contexts/TourContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { TourBannerFull } from "@/components/onboarding/TourBannerFull";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus } from "lucide-react";
-import type { WorkHistoryCompany, WorkHistoryRole, WorkHistoryBlurb } from "@/types/workHistory";
+import { Plus, Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import type { WorkHistoryCompany, WorkHistoryRole, WorkHistoryBlurb, ExternalLink } from "@/types/workHistory";
 
 // Sample data - this would come from your backend
 const sampleWorkHistory: WorkHistoryCompany[] = [
@@ -208,6 +210,9 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
 ];
 
 export default function WorkHistory() {
+  // Auth context
+  const { user } = useAuth();
+  
   // Use global prototype state
   const { prototypeState } = usePrototype();
   
@@ -217,8 +222,168 @@ export default function WorkHistory() {
   // Debug tour state
   console.log('WorkHistory - Tour state:', { isTourActive, tourStep, prototypeState });
   
-  // For existing user state or tour mode, simulate having data
-  const workHistory = (prototypeState === 'existing-user' || isTourActive) ? sampleWorkHistory : [];
+  // State for fetched data
+  const [workHistory, setWorkHistory] = useState<WorkHistoryCompany[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Fetch work history data from database
+  const fetchWorkHistory = useCallback(async () => {
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+      console.log('Fetching work history for user:', user.id);
+
+      // For tour mode, use sample data
+      if (isTourActive || prototypeState === 'existing-user') {
+        console.log('Using sample data for tour/prototype mode');
+        setWorkHistory(sampleWorkHistory);
+        setIsLoading(false);
+        return;
+      }
+
+      // Fetch companies with their work items
+      const { data: companies, error: companiesError } = await supabase
+        .from('companies')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (companiesError) throw companiesError;
+
+      if (!companies || companies.length === 0) {
+        console.log('No companies found');
+        setWorkHistory([]);
+        setIsLoading(false);
+        return;
+      }
+
+      // Fetch work items for all companies
+      const { data: workItems, error: workItemsError } = await supabase
+        .from('work_items')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('start_date', { ascending: false });
+
+      if (workItemsError) throw workItemsError;
+
+      // Fetch approved content (blurbs) for all work items
+      const { data: blurbs, error: blurbsError } = await supabase
+        .from('approved_content')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (blurbsError) throw blurbsError;
+
+      // Fetch external links for all work items
+      const { data: links, error: linksError } = await supabase
+        .from('external_links')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (linksError) throw linksError;
+
+      // Transform database data to WorkHistoryCompany format
+      const transformedData: WorkHistoryCompany[] = companies.map((company: any) => {
+        // Get work items for this company
+        const companyWorkItems = workItems?.filter((item: any) => item.company_id === company.id) || [];
+
+        // Transform work items to roles
+        const roles: WorkHistoryRole[] = companyWorkItems.map((item: any) => {
+          // Get blurbs for this work item
+          const itemBlurbs = blurbs?.filter((blurb: any) => blurb.work_item_id === item.id) || [];
+          
+          // Transform blurbs
+          const transformedBlurbs: WorkHistoryBlurb[] = itemBlurbs.map((blurb: any) => ({
+            id: blurb.id,
+            roleId: blurb.work_item_id,
+            title: blurb.title,
+            content: blurb.content,
+            outcomeMetrics: [], // Can be extracted from content if needed
+            tags: blurb.tags || [],
+            source: 'manual' as const, // Changed from 'database' to valid type
+            status: blurb.status as 'draft' | 'approved' | 'needs-review',
+            confidence: blurb.confidence as 'low' | 'medium' | 'high',
+            timesUsed: blurb.times_used || 0,
+            lastUsed: blurb.last_used || undefined,
+            linkedExternalLinks: [], // Can be populated if needed
+            hasGaps: false, // Can be calculated if needed
+            gapCount: 0,
+            variations: [],
+            createdAt: blurb.created_at,
+            updatedAt: blurb.updated_at
+          }));
+
+          // Get external links for this work item
+          const itemLinks = links?.filter((link: any) => link.work_item_id === item.id) || [];
+          
+          // Transform external links
+          const transformedLinks: ExternalLink[] = itemLinks.map((link: any) => ({
+            id: link.id,
+            roleId: link.work_item_id,
+            url: link.url,
+            label: link.label,
+            type: 'other' as const, // Default type
+            tags: link.tags || [],
+            timesUsed: link.times_used || 0,
+            lastUsed: link.last_used || undefined,
+            createdAt: link.created_at
+          }));
+
+          return {
+            id: item.id,
+            companyId: company.id,
+            title: item.title,
+            type: 'full-time' as const, // Default type
+            startDate: item.start_date,
+            endDate: item.end_date || undefined,
+            description: item.description || '',
+            inferredLevel: '', // Can be calculated if needed
+            tags: item.tags || [],
+            outcomeMetrics: item.achievements || [],
+            blurbs: transformedBlurbs,
+            externalLinks: transformedLinks,
+            hasGaps: false, // Can be calculated if needed
+            gapCount: 0,
+            createdAt: item.created_at,
+            updatedAt: item.updated_at
+          };
+        });
+
+        return {
+          id: company.id,
+          name: company.name,
+          description: company.description || '',
+          tags: company.tags || [],
+          source: 'manual' as const, // Changed from 'database' to valid type
+          createdAt: company.created_at,
+          updatedAt: company.updated_at,
+          roles
+        };
+      });
+
+      console.log('Fetched work history:', transformedData);
+      setWorkHistory(transformedData);
+    } catch (err) {
+      console.error('Error fetching work history:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load work history');
+      setWorkHistory([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, isTourActive, prototypeState]);
+
+  // Fetch data on mount and when user changes
+  useEffect(() => {
+    fetchWorkHistory();
+  }, [fetchWorkHistory]);
   
   // Auto-select first company on page load (no role selected initially)
   const firstCompany = workHistory.length > 0 ? workHistory[0] : null;
@@ -240,14 +405,14 @@ export default function WorkHistory() {
   const [editingLink, setEditingLink] = useState<any>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  // Update selected items when prototype state changes
+  // Update selected items when work history data changes
   useEffect(() => {
     const newFirstCompany = workHistory.length > 0 ? workHistory[0] : null;
     
     setSelectedCompany(newFirstCompany);
     setSelectedRole(null); // Only company selected initially
     setExpandedCompanyId(newFirstCompany?.id || null);
-  }, [prototypeState, workHistory.length]);
+  }, [workHistory]);
 
   // Handle URL parameters for initial navigation
   const [initialTab, setInitialTab] = useState<'role' | 'stories' | 'links'>('role');
@@ -393,6 +558,33 @@ export default function WorkHistory() {
   };
 
   const hasWorkHistory = workHistory.length > 0;
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
+          <p className="text-muted-foreground">Loading your work history...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardContent className="p-6 text-center space-y-4">
+            <p className="text-destructive font-medium">Error loading work history</p>
+            <p className="text-sm text-muted-foreground">{error}</p>
+            <Button onClick={fetchWorkHistory}>Try Again</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
