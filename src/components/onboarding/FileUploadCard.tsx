@@ -61,26 +61,66 @@ export function FileUploadCard({
   const [uploadedFileContent, setUploadedFileContent] = useState<string | null>(null);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [processingStatus, setProcessingStatus] = useState<string>('');
 
   // Update local state when currentValue prop changes
   useEffect(() => {
-    if (type === 'coverLetter' && currentValue) {
+    if (type === 'coverLetter' && typeof currentValue === 'string') {
       setCoverLetterText(currentValue);
+    } else if (type === 'linkedin' && typeof currentValue === 'string') {
+      // Sync LinkedIn URL from parent
+      console.log('Syncing LinkedIn URL from currentValue:', currentValue);
+      setLinkedInUrl(currentValue);
     }
   }, [currentValue, type]);
+
+  // Listen for file upload progress events
+  useEffect(() => {
+    const handleProgress = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { message } = customEvent.detail;
+      setProcessingStatus(message);
+    };
+
+    window.addEventListener('file-upload-progress', handleProgress);
+    return () => window.removeEventListener('file-upload-progress', handleProgress);
+  }, []);
 
   // Use file upload hooks
   const fileUpload = useFileUpload({
     onComplete: (result) => {
       if (result.success && result.fileId) {
         setUploadedFileId(result.fileId);
+        setProcessingStatus('');
         onUploadComplete?.(result.fileId, type as FileType);
       } else {
+        setProcessingStatus('');
         onUploadError?.(result.error || 'Upload failed');
       }
     },
     onError: (error) => {
+      setProcessingStatus('');
       onUploadError?.(error);
+    },
+    onProgress: (progress) => {
+      // Update processing status based on progress
+      if (progress.status === 'pending') {
+        setProcessingStatus('Preparing upload...');
+      } else if (progress.status === 'processing') {
+        if (progress.progress < 30) {
+          setProcessingStatus('Uploading file...');
+        } else if (progress.progress < 60) {
+          setProcessingStatus('Extracting text...');
+        } else if (progress.progress < 90) {
+          setProcessingStatus('Analyzing with AI...');
+        } else {
+          setProcessingStatus('Finalizing...');
+        }
+      } else if (progress.status === 'completed') {
+        setProcessingStatus('Complete!');
+      } else if (progress.status === 'failed') {
+        setProcessingStatus('Failed');
+      }
     }
   });
 
@@ -100,32 +140,28 @@ export function FileUploadCard({
   const hasBoth = hasUploadedFile && hasTextInput;
 
   const isCompleted = (currentValue && (
-    type === 'resume' || type === 'coverLetter' || type === 'caseStudies' 
-      ? currentValue instanceof File 
-      : type === 'linkedin' 
-        ? typeof currentValue === 'string' && currentValue.length > 0
-        : false
-  )) || uploadedFileId !== null;
+    (typeof currentValue === 'string' && currentValue.trim().length > 0) || 
+    currentValue instanceof File
+  )) || 
+    (type === 'linkedin' && linkedInUrl.trim().length > 0);
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragOver(true);
   }, []);
 
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragOver(false);
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragOver(false);
-
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length === 0) return;
-
-    const file = files[0];
-    handleFileUpload(file);
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      handleFileUpload(file);
+    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -146,16 +182,19 @@ export function FileUploadCard({
     if (error) setError(null);
   }, [error]);
 
-  const handleFileUpload = useCallback((file: File) => {
-    if (!onFileUpload) return;
-
+  /**
+   * Handle file upload - ACTUALLY uploads and processes the file
+   */
+  const handleFileUpload = useCallback(async (file: File) => {
     // Clear any previous errors
     setError(null);
+    setProcessingStatus('Validating file...');
 
     // Validate file size (5MB limit)
     const maxSize = 5 * 1024 * 1024; // 5MB in bytes
     if (file.size > maxSize) {
       setError('File size must be less than 5MB');
+      setProcessingStatus('');
       return;
     }
 
@@ -164,19 +203,47 @@ export function FileUploadCard({
     const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
     if (!allowedTypes.includes(fileExtension)) {
       setError('File type must be PDF, DOCX, TXT, or MD');
+      setProcessingStatus('');
       return;
     }
 
-    // Store the file immediately for UI
-    onFileUpload(type as 'resume' | 'coverLetter' | 'caseStudies', file);
+    // Store the file in parent state for UI updates
+    if (onFileUpload) {
+      onFileUpload(type as 'resume' | 'coverLetter' | 'caseStudies', file);
+    }
     
-    // Update local state to show success immediately
+    // Update local state
     setUploadedFileName(file.name);
-    setUploadedFileId(`${file.name}_${Date.now()}`);
+    setProcessingStatus('Starting upload...');
     
-    // Call upload complete callback to update parent
-    onUploadComplete?.(`${file.name}_${Date.now()}`, type as FileType);
-  }, [onFileUpload, type, onUploadComplete]);
+    // ACTUALLY UPLOAD AND PROCESS THE FILE
+    console.log('📤 Triggering actual file upload and processing for:', file.name);
+    try {
+      const result = await fileUpload.uploadFile(file, type as FileType);
+      
+      if (result.success && result.fileId) {
+        console.log('✅ File upload and processing successful, ID:', result.fileId);
+        setUploadedFileId(result.fileId);
+        setProcessingStatus('Complete!');
+        // onUploadComplete will be called by the fileUpload hook's onComplete callback
+      } else {
+        console.error('❌ File upload failed:', result.error);
+        setError(result.error || 'Upload failed');
+        setProcessingStatus('');
+        if (onUploadError) {
+          onUploadError(result.error || 'Upload failed');
+        }
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Upload failed';
+      console.error('❌ File upload exception:', errorMsg);
+      setError(errorMsg);
+      setProcessingStatus('');
+      if (onUploadError) {
+        onUploadError(errorMsg);
+      }
+    }
+  }, [fileUpload, onFileUpload, type, onUploadError]);
 
   const handleLinkedInSubmit = useCallback(() => {
     if (!onLinkedInUrl) return;
@@ -184,18 +251,22 @@ export function FileUploadCard({
     // Clear any previous errors
     setError(null);
 
-    // Trim whitespace from URL before processing
+    // Trim whitespace
     const trimmedUrl = linkedInUrl.trim();
-    
-    // Validate LinkedIn URL format
-    const linkedinUrlPattern = /^https?:\/\/(www\.)?linkedin\.com\/in\/[a-zA-Z0-9-]+\/?$/;
-    
-    if (!linkedinUrlPattern.test(trimmedUrl)) {
-      setError('Please enter a valid LinkedIn profile URL (e.g., https://linkedin.com/in/username)');
+
+    // Basic validation
+    if (!trimmedUrl) {
+      setError('Please enter a LinkedIn URL');
       return;
     }
-    
-    // Store the URL immediately for UI
+
+    // Validate URL format
+    if (!trimmedUrl.includes('linkedin.com')) {
+      setError('Please enter a valid LinkedIn URL');
+      return;
+    }
+
+    // Call the parent handler
     onLinkedInUrl(trimmedUrl);
     
     // Update local state to show success immediately
@@ -236,7 +307,9 @@ export function FileUploadCard({
       
       if (result.success) {
         console.log(`${submissionType} saved successfully`);
-        onTextInput(contentToProcess);
+        if (onTextInput) {
+          onTextInput(contentToProcess);
+        }
         onUploadComplete?.(result.fileId!, 'coverLetter');
       } else {
         onUploadError?.(result.error || 'Failed to save content');
@@ -335,7 +408,7 @@ export function FileUploadCard({
         isConnecting={linkedInUpload.isConnecting}
         progress={fileUpload.progress}
         onRetry={fileUpload.retryUpload}
-        uploadingText="Uploading..."
+        uploadingText={processingStatus || "Processing..."}
         connectingText="Connecting to LinkedIn..."
       />
     </div>
@@ -425,7 +498,7 @@ export function FileUploadCard({
           isUploading={fileUpload.isUploading}
           progress={fileUpload.progress}
           onRetry={fileUpload.retryUpload}
-          uploadingText="Uploading..."
+          uploadingText={processingStatus || "Processing..."}
         />
       )}
 
@@ -442,20 +515,42 @@ export function FileUploadCard({
       {/* Text Input Section */}
       <div className="space-y-2">
         <label className="text-sm font-medium text-gray-700">
-          Or paste cover letter content directly for fast and reliable processing
+          Paste your cover letter text directly
         </label>
         <Textarea
-          placeholder="Paste your best cover letter content here..."
+          placeholder="Paste your cover letter content here..."
           value={typeof coverLetterText === 'string' ? coverLetterText : ''}
           onChange={handleCoverLetterTextChange}
-          rows={3}
+          rows={10}
+          className="font-mono text-sm"
         />
+        <p className="text-xs text-gray-500">
+          {typeof coverLetterText === 'string' ? coverLetterText.length : 0} characters
+        </p>
       </div>
 
-      {hasBoth && (
-        <div className="flex items-center gap-2 text-blue-600 text-sm bg-blue-50 p-3 rounded-lg">
-          <div className="w-2 h-2 bg-blue-600 rounded-full" />
-          <span>You have both a file and text. We'll combine them into one submission.</span>
+      {/* Smart Submit Button - Only show if there's content to process */}
+      {(hasUploadedFile || hasTextInput) && (
+        <div className="pt-4">
+          <Button
+            onClick={handleSmartSubmit}
+            disabled={getButtonDisabled() || fileUpload.isUploading}
+            className="w-full"
+          >
+            {fileUpload.isUploading ? (
+              <>
+                <LoadingSpinner size="sm" className="mr-2" />
+                {processingStatus || 'Processing...'}
+              </>
+            ) : (
+              getButtonText()
+            )}
+          </Button>
+          {hasBoth && (
+            <p className="text-xs text-gray-500 mt-2 text-center">
+              This will combine your uploaded file with the additional text you provided
+            </p>
+          )}
         </div>
       )}
 
@@ -465,96 +560,41 @@ export function FileUploadCard({
           {fileUpload.error}
         </div>
       )}
-
-      {/* Only show button when user has typed text or uploaded a file */}
-      {(hasTextInput || hasUploadedFile) && (
-        <Button 
-          onClick={handleSmartSubmit}
-          disabled={getButtonDisabled() || fileUpload.isUploading}
-          className="w-full"
-        >
-          {fileUpload.isUploading ? (
-            <>
-              <LoadingSpinner size="sm" className="mr-2 text-white" />
-              Uploading...
-            </>
-          ) : (
-            getButtonText()
-          )}
-        </Button>
-      )}
     </div>
   );
 
-  const renderContent = () => {
-    if (type === 'linkedin') {
-      return renderLinkedInInput();
-    }
-    if (type === 'coverLetter') {
-      return renderCoverLetterInput();
-    }
-    return renderFileUpload();
-  };
-
   return (
-    <Card className={`transition-all duration-200 ${
-      isCompleted ? 'ring-2 ring-green-200 bg-green-50' : ''
-    } ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
-      <CardHeader className="!p-6">
+    <Card className={`${disabled ? 'opacity-60' : ''}`}>
+      <CardHeader>
         <div className="flex items-center gap-3">
-          <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-            isCompleted ? 'bg-green-100' : 'bg-gray-100'
-          }`}>
-            <Icon className={`w-6 h-6 ${
-              isCompleted ? 'text-green-600' : 'text-gray-600'
-            }`} />
+          <div className="p-2 rounded-lg bg-blue-50">
+            <Icon className="w-5 h-5 text-blue-600" />
           </div>
           <div className="flex-1">
-            <CardTitle className="text-lg text-gray-900 flex items-center gap-2">
-              {title}
-              {required && <Badge variant="destructive" className="text-xs">Required</Badge>}
-              {optional && <Badge variant="secondary" className="text-xs">Optional</Badge>}
-            </CardTitle>
-            <p className="text-gray-600">{description}</p>
+            <CardTitle className="text-lg">{title}</CardTitle>
+            {description && (
+              <p className="text-sm text-muted-foreground mt-1">{description}</p>
+            )}
           </div>
+          {required && (
+            <Badge variant="secondary" className="text-xs">
+              Required
+            </Badge>
+          )}
+          {optional && (
+            <Badge variant="outline" className="text-xs">
+              Optional
+            </Badge>
+          )}
+          {isCompleted && (
+            <CheckCircle className="w-5 h-5 text-green-500" />
+          )}
         </div>
       </CardHeader>
-
       <CardContent>
-        {isCompleted && type !== 'linkedin' ? (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center">
-                  <FileText className="w-4 h-4 text-blue-600" />
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900">{uploadedFileName || 'File uploaded'}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    // Clear all file-related state
-                    setUploadedFileId(null);
-                    setUploadedFileName(null);
-                    setUploadedFileContent(null);
-                    setError(null);
-                    // Clear parent state
-                    onFileUpload?.(type as 'resume' | 'coverLetter' | 'caseStudies', null as any);
-                  }}
-                  className="text-gray-600 border-gray-300 hover:bg-gray-50 hover:border-gray-400 hover:underline"
-                >
-                  Remove
-                </Button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          renderContent()
-        )}
+        {type === 'linkedin' ? renderLinkedInInput() : 
+         type === 'coverLetter' ? renderCoverLetterInput() : 
+         renderFileUpload()}
       </CardContent>
     </Card>
   );

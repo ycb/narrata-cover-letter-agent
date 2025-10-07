@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -12,7 +12,8 @@ import {
   MoreHorizontal,
   LinkIcon,
   Eye,
-  X
+  X,
+  Loader2
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -24,6 +25,9 @@ import {
 import { ShowAllTemplate, FilterOption, SortOption } from "@/components/shared/ShowAllTemplate";
 import { AddLinkModal } from "@/components/work-history/AddLinkModal";
 import { LinkCard } from "@/components/work-history/LinkCard";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
+import { Card, CardContent } from "@/components/ui/card";
 
 // Mock data for all external links
 const mockAllLinks = [
@@ -80,17 +84,81 @@ const mockAllLinks = [
 ];
 
 export default function ShowAllLinks() {
-  const [links, setLinks] = useState(mockAllLinks);
+  const { user } = useAuth();
+  const [links, setLinks] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isAddLinkModalOpen, setIsAddLinkModalOpen] = useState(false);
   const [viewingLink, setViewingLink] = useState<any>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [editingLink, setEditingLink] = useState<any>(null);
 
+  // Fetch links from database
+  const fetchLinks = useCallback(async () => {
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      // Fetch external links with work item and company info
+      const { data: externalLinks, error: linksError } = await supabase
+        .from('external_links')
+        .select(`
+          *,
+          work_item:work_items!work_item_id (
+            title,
+            company:companies!company_id (
+              name
+            )
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (linksError) throw linksError;
+
+      // Transform to link format
+      const transformedLinks = (externalLinks || []).map((link: any) => {
+        const workItem = link.work_item || {};
+        const company = workItem.company || {};
+        
+        return {
+          id: link.id,
+          title: link.label,
+          url: link.url,
+          company: company.name || 'Unknown Company',
+          role: workItem.title || 'Unknown Role',
+          type: 'other', // Default type
+          date: link.created_at,
+          description: link.label,
+          tags: link.tags || [],
+          timesUsed: link.times_used || 0
+        };
+      });
+
+      setLinks(transformedLinks);
+    } catch (err) {
+      console.error('Error fetching links:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load links');
+      setLinks([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchLinks();
+  }, [fetchLinks]);
+
   // Get unique values for filtering
   const companies = [...new Set(links.map(l => l.company))];
   const roles = [...new Set(links.map(l => l.role))];
   const types = [...new Set(links.map(l => l.type))];
-  const allTags = links.flatMap(l => l.tags);
+  const allTags = links.flatMap(l => l.tags || []);
   const tags = [...new Set(allTags)];
 
 
@@ -159,6 +227,33 @@ export default function ShowAllLinks() {
       default: return "bg-muted text-muted-foreground";
     }
   };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
+          <p className="text-muted-foreground">Loading your links...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardContent className="p-6 text-center space-y-4">
+            <p className="text-destructive font-medium">Error loading links</p>
+            <p className="text-sm text-muted-foreground">{error}</p>
+            <Button onClick={fetchLinks}>Try Again</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const renderHeader = (
     handleSort: (field: keyof any) => void, 

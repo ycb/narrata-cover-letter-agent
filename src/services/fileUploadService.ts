@@ -76,6 +76,39 @@ export class FileUploadService {
   }
 
   /**
+   * Look for an existing fully processed source with the same checksum
+   */
+  private async findExistingSourceByChecksum(
+    userId: string,
+    checksum: string
+  ): Promise<{ id: string; structured_data?: unknown } | null> {
+    try {
+      const { data, error } = await supabase
+        .from('sources')
+        .select('id, processing_status, structured_data')
+        .eq('user_id', userId)
+        .eq('file_checksum', checksum)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (error) {
+        console.error('Checksum lookup failed:', error);
+        return null;
+      }
+
+      if (!data || data.length === 0) {
+        return null;
+      }
+
+      const existing = data.find(entry => entry.processing_status === 'completed');
+      return existing || null;
+    } catch (error) {
+      console.error('Error checking for existing source by checksum:', error);
+      return null;
+    }
+  }
+
+  /**
    * Generate storage path for file
    */
   private generateStoragePath(userId: string, fileName: string): string {
@@ -106,6 +139,7 @@ export class FileUploadService {
       
       // Use direct fetch instead of Supabase client since it's not working
       console.log('Uploading to storage...');
+      window.dispatchEvent(new CustomEvent('file-upload-progress', { detail: { sourceId: '', stage: 'uploading', progress: 15, message: 'Uploading file...' } }));
       
       const { url: supabaseUrl, key: supabaseKey } = getSupabaseConfig();
       
@@ -191,10 +225,11 @@ export class FileUploadService {
     file: File, 
     userId: string, 
     storagePath: string,
-    accessToken?: string
+    accessToken?: string,
+    checksum?: string
   ): Promise<string> {
     try {
-      const checksum = await this.generateChecksum(file);
+      const computedChecksum = checksum ?? await this.generateChecksum(file);
       
       // Use direct fetch instead of Supabase client
       const { url: supabaseUrl, key: supabaseKey } = getSupabaseConfig();
@@ -204,7 +239,7 @@ export class FileUploadService {
         file_name: file.name,
         file_type: file.type,
         file_size: file.size,
-        file_checksum: checksum,
+        file_checksum: computedChecksum,
         storage_path: storagePath,
         processing_status: 'pending'
       };
@@ -306,9 +341,10 @@ export class FileUploadService {
     accessToken?: string
   ): Promise<UploadResult> {
     try {
-      console.log('Starting content upload:', { 
+      console.log('🚀 Starting content upload:', { 
         type, 
         isFile: content instanceof File,
+        fileName: content instanceof File ? content.name : 'manual_text',
         size: content instanceof File ? content.size : content.length 
       });
       
@@ -337,6 +373,34 @@ export class FileUploadService {
         };
       }
 
+      // Compute checksum once for deduplication and record keeping
+      let checksum: string | undefined;
+      try {
+        checksum = await this.generateChecksum(file);
+      } catch (error) {
+        console.warn('Failed to compute checksum for file:', error);
+      }
+
+      // If resume or cover letter matches previously processed content, reuse existing data
+      if ((type === 'resume' || type === 'coverLetter') && checksum) {
+        const existingSource = await this.findExistingSourceByChecksum(userId, checksum);
+        if (existingSource) {
+          console.log(`♻️ Detected duplicate ${type} upload, reusing existing structured data.`);
+          window.dispatchEvent(new CustomEvent('file-upload-progress', { 
+            detail: { 
+              sourceId: existingSource.id, 
+              stage: 'duplicate', 
+              progress: 100, 
+              message: `${type === 'resume' ? 'Resume' : 'Cover letter'} already processed — using saved data.` 
+            } 
+          }));
+          return {
+            success: true,
+            fileId: existingSource.id
+          };
+        }
+      }
+
       // For manual text, skip storage upload and create virtual storage path
       let storagePath: string;
       if (isManualText) {
@@ -356,20 +420,25 @@ export class FileUploadService {
       }
 
       // Create source record
-      const sourceId = await this.createSourceRecord(file, userId, storagePath, accessToken);
+      const sourceId = await this.createSourceRecord(file, userId, storagePath, accessToken, checksum);
 
       // Process content (immediate for small content, background for large)
       const contentSize = isManualText ? (content as string).length : file.size;
+      console.log('📝 Content size:', contentSize, 'bytes. Threshold:', FILE_UPLOAD_CONFIG.IMMEDIATE_PROCESSING_THRESHOLD);
+      
       if (contentSize < FILE_UPLOAD_CONFIG.IMMEDIATE_PROCESSING_THRESHOLD) {
+        console.log('→ Processing IMMEDIATELY (small content)');
         await this.processContent(sourceId, file, content, type, accessToken);
       } else {
+        console.log('→ Processing in BACKGROUND (large content)');
         // For large content, process in background
         this.processContent(sourceId, file, content, type, accessToken).catch(error => {
           console.error('Background processing error:', error);
         });
       }
 
-      console.log('Content upload completed successfully');
+      console.log('✅ Content upload completed successfully');
+      window.dispatchEvent(new CustomEvent('file-upload-progress', { detail: { sourceId, stage: 'complete', progress: 100, message: 'Complete!' } }));
       return {
         success: true,
         fileId: sourceId
@@ -406,6 +475,7 @@ export class FileUploadService {
       if (originalContent instanceof File) {
         // Extract text from uploaded file
         console.log('Extracting text from file:', file.name);
+        window.dispatchEvent(new CustomEvent('file-upload-progress', { detail: { sourceId, stage: 'extracting', progress: 40, message: 'Extracting text from file...' } }));
         const extractionResult = await this.textExtractionService.extractText(file);
         
         if (!extractionResult.success) {
@@ -414,26 +484,37 @@ export class FileUploadService {
         
         extractedText = extractionResult.text!;
         console.log('Text extraction successful, length:', extractedText.length);
+        window.dispatchEvent(new CustomEvent('file-upload-progress', { detail: { sourceId, stage: 'extracted', progress: 55, message: 'Text extracted successfully...' } }));
       } else {
         // Use manual text directly
         extractedText = originalContent;
         console.log('Using manual text directly, length:', extractedText.length);
       }
       
+      // Log raw extracted text
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('📄 RAW EXTRACTED TEXT:');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log(extractedText);
+      console.log('═══════════════════════════════════════════════════════════');
+      
       // Update with raw text
       await this.updateProcessingStatus(sourceId, 'processing', extractedText, undefined, accessToken);
 
       // Analyze text with LLM based on file type
-      console.log('Analyzing text with LLM...');
+      console.log('Analyzing text with LLM for type:', type);
+      window.dispatchEvent(new CustomEvent('file-upload-progress', { detail: { sourceId, stage: 'analyzing', progress: 70, message: 'Analyzing with AI...' } }));
       let analysisResult;
       
       // Determine analysis type based on file name or content
       if (file.name.toLowerCase().includes('cover') || file.name.toLowerCase().includes('letter') || type === 'coverLetter') {
+        console.log('→ Using COVER LETTER analysis');
         analysisResult = await this.llmAnalysisService.analyzeCoverLetter(extractedText);
       } else if (file.name.toLowerCase().includes('case') || file.name.toLowerCase().includes('study') || type === 'caseStudies') {
+        console.log('→ Using CASE STUDY analysis');
         analysisResult = await this.llmAnalysisService.analyzeCaseStudy(extractedText);
       } else {
-        // Default to resume analysis
+        console.log('→ Using RESUME analysis');
         analysisResult = await this.llmAnalysisService.analyzeResume(extractedText);
       }
       
@@ -442,81 +523,42 @@ export class FileUploadService {
       }
 
       const structuredData = analysisResult.data!;
-      console.log('LLM analysis successful, extracted:', {
+      
+      // Log structured data with detailed information
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('📊 STRUCTURED DATA FROM OPENAI PARSING:');
+      window.dispatchEvent(new CustomEvent('file-upload-progress', { detail: { sourceId, stage: 'structuring', progress: 90, message: 'Organizing data...' } }));
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('Summary:', {
         workHistory: structuredData.workHistory?.length || 0,
         education: structuredData.education?.length || 0,
-        skills: structuredData.skills?.length || 0
+        skills: structuredData.skills?.length || 0,
+        certifications: structuredData.certifications?.length || 0,
+        projects: structuredData.projects?.length || 0,
+        hasContactInfo: !!structuredData.contactInfo,
+        hasLinkedIn: !!structuredData.contactInfo?.linkedin
       });
+      console.log('\n📧 Contact Info:');
+      console.log(JSON.stringify(structuredData.contactInfo, null, 2));
+      console.log('\n💼 Work History:');
+      console.log(JSON.stringify(structuredData.workHistory, null, 2));
+      console.log('\n🎓 Education:');
+      console.log(JSON.stringify(structuredData.education, null, 2));
+      console.log('\n🛠️ Skills:');
+      console.log(JSON.stringify(structuredData.skills, null, 2));
+      console.log('\n📜 Certifications:');
+      console.log(JSON.stringify(structuredData.certifications, null, 2));
+      console.log('\n🚀 Projects:');
+      console.log(JSON.stringify(structuredData.projects, null, 2));
+      console.log('\n📝 Summary:');
+      console.log(structuredData.summary);
+      console.log('═══════════════════════════════════════════════════════════');
 
       // Update with structured data
       await this.updateProcessingStatus(sourceId, 'completed', structuredData, undefined, accessToken);
 
     } catch (error) {
       console.error('Content processing error:', error);
-      await this.updateProcessingStatus(
-        sourceId, 
-        'failed', 
-        undefined, 
-        error instanceof Error ? error.message : 'Processing failed',
-        accessToken
-      );
-      throw error;
-    }
-  }
-
-  /**
-   * Process file (extract text and analyze with LLM)
-   * Note: LLM analysis is only used for uploaded documents, not LinkedIn data
-   */
-  async processFile(sourceId: string, file: File, accessToken?: string): Promise<void> {
-    try {
-      // Update status to processing
-      await this.updateProcessingStatus(sourceId, 'processing', undefined, undefined, accessToken);
-
-      // Extract text from file using real service
-      console.log('Extracting text from file:', file.name);
-      const extractionResult = await this.textExtractionService.extractText(file);
-      
-      if (!extractionResult.success) {
-        throw new Error(`Text extraction failed: ${extractionResult.error}`);
-      }
-
-      const extractedText = extractionResult.text!;
-      console.log('Text extraction successful, length:', extractedText.length);
-      
-      // Update with raw text
-      await this.updateProcessingStatus(sourceId, 'processing', extractedText, undefined, accessToken);
-
-      // Analyze text with LLM based on file type
-      console.log('Analyzing text with LLM...');
-      let analysisResult;
-      
-      // Determine analysis type based on file name or content
-      if (file.name.toLowerCase().includes('cover') || file.name.toLowerCase().includes('letter')) {
-        analysisResult = await this.llmAnalysisService.analyzeCoverLetter(extractedText);
-      } else if (file.name.toLowerCase().includes('case') || file.name.toLowerCase().includes('study')) {
-        analysisResult = await this.llmAnalysisService.analyzeCaseStudy(extractedText);
-      } else {
-        // Default to resume analysis
-        analysisResult = await this.llmAnalysisService.analyzeResume(extractedText);
-      }
-      
-      if (!analysisResult.success) {
-        throw new Error(`LLM analysis failed: ${analysisResult.error}`);
-      }
-
-      const structuredData = analysisResult.data!;
-      console.log('LLM analysis successful, extracted:', {
-        workHistory: structuredData.workHistory?.length || 0,
-        education: structuredData.education?.length || 0,
-        skills: structuredData.skills?.length || 0
-      });
-
-      // Update with structured data
-      await this.updateProcessingStatus(sourceId, 'completed', structuredData, undefined, accessToken);
-
-    } catch (error) {
-      console.error('File processing error:', error);
       await this.updateProcessingStatus(
         sourceId, 
         'failed', 

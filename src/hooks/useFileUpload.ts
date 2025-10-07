@@ -1,9 +1,11 @@
 // React hook for file upload functionality
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { FileUploadService } from '@/services/fileUploadService';
 import { LinkedInOAuthService } from '@/services/linkedinOAuthService';
+import { PeopleDataLabsService } from '@/services/peopleDataLabsService';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { extractLinkedInUsername } from '@/utils/linkedinUtils';
 import type { 
   UseFileUploadOptions, 
   UseFileUploadReturn, 
@@ -29,9 +31,28 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
     allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
     maxFileSize = 5 * 1024 * 1024 // 5MB
   } = options;
+  // Listen for file upload progress events from the service
+  useEffect(() => {
+    const handleProgressEvent = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { progress: progressPercent } = customEvent.detail;
+      
+      setProgress(prev => {
+        if (prev.length === 0) return prev;
+        const lastIndex = prev.length - 1;
+        return prev.map((p, idx) => 
+          idx === lastIndex ? { ...p, progress: progressPercent } : p
+        );
+      });
+    };
+
+    window.addEventListener('file-upload-progress', handleProgressEvent);
+    return () => window.removeEventListener('file-upload-progress', handleProgressEvent);
+  }, []);
+
 
   /**
-   * Upload a single file with comprehensive validation and error handling
+   * Upload a single file with progress tracking and detailed status updates
    */
   const uploadFile = useCallback(async (file: File, type: FileType): Promise<UploadResult> => {
     console.log('useFileUpload - uploadFile called with user:', { 
@@ -87,14 +108,29 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
     setError(null);
 
     try {
-      // Update progress to uploading
+      // Stage 1: Uploading (0-30%)
       setProgress(prev => 
-        prev.map(p => p.fileId === fileId ? { ...p, status: 'processing', progress: 25 } : p)
+        prev.map(p => p.fileId === fileId ? { ...p, status: 'processing', progress: 10 } : p)
       );
       onProgress?.(progressEntry);
 
+      // Simulate progress updates during upload
+      const progressInterval = setInterval(() => {
+        setProgress(prev => {
+          const current = prev.find(p => p.fileId === fileId);
+          if (current && current.progress < 90) {
+            const newProgress = Math.min(current.progress + 5, 90);
+            return prev.map(p => p.fileId === fileId ? { ...p, progress: newProgress } : p);
+          }
+          return prev;
+        });
+      }, 500); // Update every 500ms
+
       // Upload file
       const result = await fileUploadService.current.uploadFile(file, user.id, type, session?.access_token);
+      
+      // Clear interval
+      clearInterval(progressInterval);
       
       if (result.success) {
         // Update progress to completed
@@ -138,7 +174,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
     } finally {
       setIsUploading(false);
     }
-  }, [user, allowedTypes, maxFileSize, onProgress, onComplete, onError, session?.access_token]);
+  }, [user, session, allowedTypes, maxFileSize, onProgress, onComplete, onError]);
 
   /**
    * Upload multiple files
@@ -152,8 +188,6 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
     }
 
     const results: UploadResult[] = [];
-    
-    // Upload files sequentially to avoid overwhelming the server
     for (const file of files) {
       const result = await uploadFile(file, type);
       results.push(result);
@@ -166,45 +200,39 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
    * Retry failed upload
    */
   const retryUpload = useCallback(async (fileId: string): Promise<UploadResult> => {
-    if (!user) {
-      const errorMsg = 'User not authenticated';
+    const failedUpload = progress.find(p => p.fileId === fileId && p.status === 'failed');
+    
+    if (!failedUpload) {
+      const errorMsg = 'Upload not found or not in failed state';
       setError(errorMsg);
-      onError?.(errorMsg);
       return { success: false, error: errorMsg, retryable: false };
     }
 
-    try {
-      setIsUploading(true);
-      setError(null);
+    // Remove failed upload from progress
+    setProgress(prev => prev.filter(p => p.fileId !== fileId));
 
-      const result = await fileUploadService.current.retryUpload(fileId, user.id);
+    // Retry upload (if we had the original file reference, we'd use it here)
+    // For now, we'll rely on the service's retry mechanism
+    try {
+      const result = await fileUploadService.current.retryUpload(fileId, user!.id);
       
       if (result.success) {
-        // Update progress to retrying
         setProgress(prev => 
-          prev.map(p => p.fileId === fileId ? { ...p, status: 'processing', progress: 50 } : p)
+          prev.map(p => p.fileId === fileId ? { ...p, status: 'completed', progress: 100 } : p)
         );
-        
         onComplete?.(result);
-      } else {
-        setError(result.error);
-        onError?.(result.error || 'Retry failed');
       }
-
+      
       return result;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Retry failed';
       setError(errorMsg);
-      onError?.(errorMsg);
       return { success: false, error: errorMsg, retryable: true };
-    } finally {
-      setIsUploading(false);
     }
-  }, [user, onComplete, onError]);
+  }, [progress, user, onComplete]);
 
   /**
-   * Save manual text input to database and process with LLM
-   * Now uses unified uploadContent method
+   * Save manual text input
    */
   const saveManualText = useCallback(async (text: string, type: FileType): Promise<UploadResult> => {
     console.log('useFileUpload - saveManualText called with user:', { 
@@ -221,20 +249,11 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
       return { success: false, error: errorMsg, retryable: false };
     }
 
-    // Validate text length
-    if (text.trim().length < 10) {
-      const errorMsg = 'Text must be at least 10 characters long';
-      setError(errorMsg);
-      onError?.(errorMsg);
-      return { success: false, error: errorMsg, retryable: false };
-    }
-
     const fileId = `manual_${type}_${Date.now()}`;
     
-    // Create progress entry
     const progressEntry: FileUploadProgress = {
       fileId,
-      fileName: `Manual ${type} text`,
+      fileName: `Manual ${type}`,
       status: 'pending',
       progress: 0
     };
@@ -244,17 +263,14 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
     setError(null);
 
     try {
-      // Update progress to processing
       setProgress(prev => 
         prev.map(p => p.fileId === fileId ? { ...p, status: 'processing', progress: 25 } : p)
       );
       onProgress?.(progressEntry);
 
-      // Use unified uploadContent method for manual text
       const result = await fileUploadService.current.uploadContent(text, user.id, type, session?.access_token);
       
       if (result.success) {
-        // Update progress to completed
         setProgress(prev => 
           prev.map(p => p.fileId === fileId ? { ...p, status: 'completed', progress: 100 } : p)
         );
@@ -262,7 +278,6 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
         onComplete?.(result);
         return result;
       } else {
-        // Update progress to failed
         setProgress(prev => 
           prev.map(p => p.fileId === fileId ? { 
             ...p, 
@@ -273,13 +288,12 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
         );
         
         setError(result.error);
-        onError?.(result.error || 'Save failed');
+        onError?.(result.error || 'Upload failed');
         return result;
       }
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Save failed';
+      const errorMsg = error instanceof Error ? error.message : 'Upload failed';
       
-      // Update progress to failed
       setProgress(prev => 
         prev.map(p => p.fileId === fileId ? { 
           ...p, 
@@ -295,34 +309,34 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
     } finally {
       setIsUploading(false);
     }
-  }, [user, onProgress, onComplete, onError, session?.access_token]);
+  }, [user, session, onProgress, onComplete, onError]);
 
   /**
-   * Clear error state
+   * Clear error
    */
   const clearError = useCallback(() => {
     setError(null);
   }, []);
 
   /**
-   * Clear progress entries
+   * Clear all progress
    */
   const clearProgress = useCallback(() => {
     setProgress([]);
   }, []);
 
   /**
-   * Get upload progress for a specific file
+   * Get progress for specific file
    */
   const getFileProgress = useCallback((fileId: string): FileUploadProgress | undefined => {
     return progress.find(p => p.fileId === fileId);
   }, [progress]);
 
   /**
-   * Check if any uploads are in progress
+   * Check if there are active uploads
    */
   const hasActiveUploads = useCallback((): boolean => {
-    return progress.some(p => p.status === 'processing' || p.status === 'pending');
+    return progress.some(p => p.status === 'processing');
   }, [progress]);
 
   /**
@@ -358,10 +372,10 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
 }
 
 /**
- * Hook for LinkedIn profile integration
+ * Hook for LinkedIn profile integration with PDL enrichment
  */
 export function useLinkedInUpload() {
-  const { user } = useAuth();
+  const { user, profile, getOAuthData } = useAuth();
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -398,22 +412,22 @@ export function useLinkedInUpload() {
       }
 
       // Check if profile already exists
-      const existingProfile = await supabase
+      const { data: existingProfile, error: existingError } = await supabase
         .from('linkedin_profiles')
         .select('*')
         .eq('user_id', user.id)
         .eq('linkedin_id', linkedinUsername)
         .single();
 
-      if (existingProfile.data) {
+      if (existingProfile && !existingError) {
         console.log('LinkedIn profile already exists, returning existing data');
         return {
           success: true,
-          fileId: existingProfile.data.id
+          fileId: (existingProfile as any).id
         };
       }
 
-      // Try to fetch real LinkedIn data using OAuth
+      // Strategy 1: Try to fetch real LinkedIn data using OAuth
       console.log('Attempting to fetch real LinkedIn data using OAuth...');
       
       const linkedInService = new LinkedInOAuthService();
@@ -421,10 +435,12 @@ export function useLinkedInUpload() {
       
       let profileData;
       let profileId = `linkedin_${Date.now()}`;
+      let dataSource = 'unknown';
       
       if (profileResult.success && profileResult.data) {
-        // Use real LinkedIn data
-        console.log('Successfully fetched real LinkedIn data');
+        // Use real LinkedIn data from OAuth
+        console.log('✅ Successfully fetched real LinkedIn data via OAuth');
+        dataSource = 'linkedin_oauth';
         profileData = {
           id: profileId,
           linkedinId: linkedinUsername,
@@ -440,8 +456,68 @@ export function useLinkedInUpload() {
           projects: profileResult.data.projects
         };
       } else {
-        // Fallback to mock data if OAuth fails
-        console.warn('Failed to fetch real LinkedIn data, using mock data:', profileResult.error);
+        // Strategy 2: Try People Data Labs enrichment
+        console.log('OAuth failed, attempting People Data Labs enrichment...');
+        
+        const pdlService = new PeopleDataLabsService();
+        
+        // Get user's name and resume data for PDL enrichment
+        const oauthData = getOAuthData();
+        const fullName = oauthData.fullName || profile?.full_name;
+        
+        // Try to get resume data to extract company info
+        let resumeData = null;
+        try {
+          const { data: uploadedFiles, error: resumeError } = await supabase
+            .from('sources')
+            .select('structured_data')
+            .eq('user_id', user.id)
+            .eq('file_type', 'resume')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+          
+          if (uploadedFiles && !resumeError) {
+            resumeData = (uploadedFiles as any).structured_data;
+          }
+        } catch (err) {
+          console.log('No resume data found for PDL enrichment');
+        }
+        
+        const pdlResult = await pdlService.enrichFromResumeData(
+          fullName,
+          resumeData,
+          trimmedUrl
+        );
+        
+        if (pdlResult.success && pdlResult.data) {
+          console.log('✅ Successfully enriched LinkedIn data via People Data Labs');
+          console.log('PDL likelihood score:', pdlResult.likelihood);
+          dataSource = 'people_data_labs';
+          
+          // Convert PDL data to our format
+          const structuredData = pdlService.convertToStructuredData(pdlResult.data);
+          
+          profileData = {
+            id: profileId,
+            linkedinId: linkedinUsername,
+            profileUrl: trimmedUrl,
+            firstName: pdlResult.data.first_name || 'Unknown',
+            lastName: pdlResult.data.last_name || 'User',
+            headline: pdlResult.data.headline || pdlResult.data.job_title_name || 'Professional',
+            summary: pdlResult.data.summary || 'No summary available',
+            experience: structuredData.workHistory,
+            education: structuredData.education,
+            skills: structuredData.skills,
+            certifications: structuredData.certifications || [],
+            projects: structuredData.projects || []
+          };
+        } else {
+          // Strategy 3: Fallback to mock data if both OAuth and PDL fail
+          console.warn('Both OAuth and PDL failed, using mock data');
+          console.warn('OAuth error:', profileResult.error);
+          console.warn('PDL error:', pdlResult.error);
+          dataSource = 'mock';
         profileData = {
           id: profileId,
           linkedinId: linkedinUsername,
@@ -515,9 +591,11 @@ export function useLinkedInUpload() {
             }
           ]
         };
+        }
       }
       
       // Store in database (if available)
+      console.log(`📊 LinkedIn data source: ${dataSource}`);
       try {
         const { data, error } = await supabase
           .from('linkedin_profiles')
@@ -532,16 +610,16 @@ export function useLinkedInUpload() {
             certifications: profileData.certifications,
             projects: profileData.projects,
             raw_data: profileData
-          })
+          } as any)
           .select('id')
           .single();
 
         if (error) {
           console.warn('Could not store LinkedIn profile in database:', error.message);
           // Continue with profile data even if database fails
-        } else {
-          console.log('LinkedIn profile stored successfully:', data.id);
-          profileId = data.id;
+        } else if (data) {
+          console.log('LinkedIn profile stored successfully:', (data as any).id);
+          profileId = (data as any).id;
         }
       } catch (dbError) {
         console.warn('Database not available for LinkedIn profile storage:', dbError);
@@ -559,7 +637,7 @@ export function useLinkedInUpload() {
     } finally {
       setIsConnecting(false);
     }
-  }, [user]);
+  }, [user, profile, getOAuthData]);
 
   /**
    * Clear error state

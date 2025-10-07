@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -11,7 +11,8 @@ import {
   Star,
   MoreHorizontal,
   Eye,
-  X
+  X,
+  Loader2
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -24,6 +25,9 @@ import { ShowAllTemplate, FilterOption, SortOption } from "@/components/shared/S
 import { Story } from "@/types/workHistory";
 import { AddStoryModal } from "@/components/work-history/AddStoryModal";
 import { StoryCard } from "@/components/work-history/StoryCard";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
+import { Card, CardContent } from "@/components/ui/card";
 
 // Mock data for all stories
 const mockAllStories: Story[] = [
@@ -80,11 +84,73 @@ const mockAllStories: Story[] = [
 ];
 
 export default function ShowAllStories() {
-  const [stories, setStories] = useState<Story[]>(mockAllStories);
+  const { user } = useAuth();
+  const [stories, setStories] = useState<Story[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isAddStoryModalOpen, setIsAddStoryModalOpen] = useState(false);
   const [viewingStory, setViewingStory] = useState<Story | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [editingStory, setEditingStory] = useState<Story | null>(null);
+
+  // Fetch stories from database
+  const fetchStories = useCallback(async () => {
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      // Fetch approved content (stories/blurbs) with work item and company info
+      const { data: blurbs, error: blurbsError } = await supabase
+        .from('approved_content')
+        .select(`
+          *,
+          work_item:work_items!work_item_id (
+            title,
+            company:companies!company_id (
+              name
+            )
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (blurbsError) throw blurbsError;
+
+      // Transform to Story format
+      const transformedStories: Story[] = (blurbs || []).map((blurb: any) => {
+        const workItem = blurb.work_item || {};
+        const company = workItem.company || {};
+        
+        return {
+          id: blurb.id,
+          title: blurb.title,
+          company: company.name || 'Unknown Company',
+          role: workItem.title || 'Unknown Role',
+          impact: blurb.confidence as 'high' | 'medium' | 'low' || 'medium',
+          metrics: blurb.content.substring(0, 100), // First 100 chars as preview
+          date: blurb.created_at,
+          tags: blurb.tags || []
+        };
+      });
+
+      setStories(transformedStories);
+    } catch (err) {
+      console.error('Error fetching stories:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load stories');
+      setStories([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchStories();
+  }, [fetchStories]);
 
   // Get unique companies, roles, and tags for filtering
   const companies = [...new Set(stories.map(s => s.company))];
@@ -152,6 +218,33 @@ export default function ShowAllStories() {
       default: return "bg-muted text-muted-foreground";
     }
   };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
+          <p className="text-muted-foreground">Loading your stories...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Card className="max-w-md">
+          <CardContent className="p-6 text-center space-y-4">
+            <p className="text-destructive font-medium">Error loading stories</p>
+            <p className="text-sm text-muted-foreground">{error}</p>
+            <Button onClick={fetchStories}>Try Again</Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const renderHeader = (
     handleSort: (field: keyof Story) => void, 
