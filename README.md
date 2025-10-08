@@ -10,8 +10,8 @@ AI cover letter agent that helps PMs land more interviews via intelligent feedba
 
 - **Intelligent Feedback System**: Get AI-powered feedback on your cover letters
 - **Reusable Content Library**: Build and manage your professional content
-- **Objective Assessment**: Data-driven evaluation of your applications
-- **Interview Preparation**: Comprehensive tools for PM interview success
+- **Level Assessment**: Objective assessment based on your work history and stories
+- **Gap Analysis**: Identify the highest-impact changes to achieve your goals 
 
 ## Tech Stack
 
