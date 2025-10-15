@@ -464,14 +464,6 @@ export default function NewUserOnboarding() {
         {/* LinkedIn */}
         <div ref={linkedinRef}>
           <div className={!resumeCompleted ? 'opacity-50 pointer-events-none' : ''}>
-            {linkedinAutoCompleted && linkedinCompleted && (
-              <div className="mb-2">
-                <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-200">
-                  <Sparkles className="w-3 h-3 mr-1" />
-                  LinkedIn profile imported from your resume
-                </Badge>
-              </div>
-            )}
             <FileUploadCard
               type="linkedin"
               title="LinkedIn Profile"
