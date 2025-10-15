@@ -435,7 +435,7 @@ export function FileUploadCard({
       </div>
 
       {/* Show progress bar for file uploads (when uploading or when file is uploaded) */}
-      {(fileUpload.isUploading || hasUploadedFile) && (
+      {(fileUpload.isUploading || uploadedFileId) && (
         <UploadProgressBar
           isUploading={fileUpload.isUploading}
           progress={fileUpload.progress}
