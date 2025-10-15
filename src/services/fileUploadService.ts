@@ -476,7 +476,11 @@ export class FileUploadService {
         // Extract text from uploaded file
         console.log('Extracting text from file:', file.name);
         window.dispatchEvent(new CustomEvent('file-upload-progress', { detail: { sourceId, stage: 'extracting', progress: 40, message: 'Extracting text from file...' } }));
+        const extractionStartTime = performance.now();
         const extractionResult = await this.textExtractionService.extractText(file);
+        const extractionEndTime = performance.now();
+        const extractionDuration = (extractionEndTime - extractionStartTime).toFixed(2);
+        console.warn(`⏱️ Text extraction took: ${extractionDuration}ms`);
         
         if (!extractionResult.success) {
           throw new Error(`Text extraction failed: ${extractionResult.error}`);
@@ -506,6 +510,7 @@ export class FileUploadService {
       window.dispatchEvent(new CustomEvent('file-upload-progress', { detail: { sourceId, stage: 'analyzing', progress: 70, message: 'Analyzing with AI...' } }));
       let analysisResult;
       
+      const llmStartTime = performance.now();
       // Determine analysis type based on file name or content
       if (file.name.toLowerCase().includes('cover') || file.name.toLowerCase().includes('letter') || type === 'coverLetter') {
         console.log('→ Using COVER LETTER analysis');
@@ -517,6 +522,9 @@ export class FileUploadService {
         console.log('→ Using RESUME analysis');
         analysisResult = await this.llmAnalysisService.analyzeResume(extractedText);
       }
+      const llmEndTime = performance.now();
+      const llmDuration = (llmEndTime - llmStartTime).toFixed(2);
+      console.warn(`⏱️ LLM analysis took: ${llmDuration}ms`);
       
       if (!analysisResult.success) {
         throw new Error(`LLM analysis failed: ${analysisResult.error}`);
@@ -555,7 +563,11 @@ export class FileUploadService {
       console.log('═══════════════════════════════════════════════════════════');
 
       // Update with structured data
+      const dbStartTime = performance.now();
       await this.updateProcessingStatus(sourceId, 'completed', structuredData, undefined, accessToken);
+      const dbEndTime = performance.now();
+      const dbDuration = (dbEndTime - dbStartTime).toFixed(2);
+      console.warn(`⏱️ Database save took: ${dbDuration}ms`);
 
     } catch (error) {
       console.error('Content processing error:', error);
