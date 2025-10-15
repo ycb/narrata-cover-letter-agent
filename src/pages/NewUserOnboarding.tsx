@@ -191,6 +191,7 @@ export default function NewUserOnboarding() {
   const checkAndAutoPopulateLinkedIn = async (resumeFileId: string) => {
     if (!user) return;
 
+    const startTime = performance.now();
     try {
       console.log('🔍 Checking resume for LinkedIn URL...');
       console.log('Resume file ID:', resumeFileId);
@@ -237,8 +238,11 @@ export default function NewUserOnboarding() {
         setAutoPopulatingLinkedIn(true);
         
         // Auto-trigger LinkedIn enrichment
+        const linkedInStartTime = performance.now();
         console.log('🚀 Auto-triggering LinkedIn enrichment...');
         const result = await linkedInUpload.connectLinkedIn(normalizedUrl);
+        const linkedInEndTime = performance.now();
+        console.log(`⏱️ LinkedIn PDL API call took: ${(linkedInEndTime - linkedInStartTime).toFixed(2)}ms`);
         
         if (result.success) {
           console.log('✅ LinkedIn auto-populated and enriched successfully!');
@@ -255,9 +259,14 @@ export default function NewUserOnboarding() {
       } else {
         console.log('❌ Invalid LinkedIn URL after normalization:', linkedinUrl);
       }
+      
+      const totalTime = performance.now() - startTime;
+      console.log(`⏱️ Total LinkedIn auto-population took: ${totalTime.toFixed(2)}ms`);
     } catch (error) {
       console.error('💥 Error during LinkedIn auto-population:', error);
       setAutoPopulatingLinkedIn(false);
+      const totalTime = performance.now() - startTime;
+      console.log(`⏱️ LinkedIn auto-population failed after: ${totalTime.toFixed(2)}ms`);
     }
   };
 

@@ -267,9 +267,12 @@ export function FileUploadCard({
     onLinkedInUrl(trimmedUrl);
     
     // Actually call the LinkedIn API for enrichment
+    const manualLinkedInStartTime = performance.now();
     console.log('🚀 Manual LinkedIn enrichment starting...');
     try {
       const result = await linkedInUpload.connectLinkedIn(trimmedUrl);
+      const manualLinkedInEndTime = performance.now();
+      console.log(`⏱️ Manual LinkedIn PDL API call took: ${(manualLinkedInEndTime - manualLinkedInStartTime).toFixed(2)}ms`);
       
       if (result.success && result.fileId) {
         console.log('✅ Manual LinkedIn enrichment successful, ID:', result.fileId);
