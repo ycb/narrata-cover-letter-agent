@@ -568,13 +568,11 @@ export function FileUploadCard({
     } ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
       <CardHeader>
         <div className="flex items-center gap-3">
-          <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-            isCompleted ? 'bg-green-100' : 'bg-gray-100'
-          }`}>
-            <Icon className={`w-6 h-6 ${
-              isCompleted ? 'text-green-600' : 'text-gray-600'
-            }`} />
-          </div>
+          {isCompleted && (
+            <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-green-100">
+              <CheckCircle className="w-6 h-6 text-green-600" />
+            </div>
+          )}
           <div className="flex-1">
             <CardTitle className="text-lg">{title}</CardTitle>
             {description && (
@@ -585,9 +583,6 @@ export function FileUploadCard({
             <Badge variant="outline" className="text-xs">
               Optional
             </Badge>
-          )}
-          {isCompleted && (
-            <CheckCircle className="w-5 h-5 text-green-500" />
           )}
         </div>
       </CardHeader>
