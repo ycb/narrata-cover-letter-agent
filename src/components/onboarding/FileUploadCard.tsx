@@ -488,7 +488,7 @@ export function FileUploadCard({
       <CardHeader>
         <div className="flex items-center gap-3">
           {isCompleted && (
-            <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-green-100">
+            <div className="w-12 h-12 rounded-lg flex items-center justify-start bg-green-100 p-2">
               <CheckCircle className="w-6 h-6 text-green-600" />
             </div>
           )}
