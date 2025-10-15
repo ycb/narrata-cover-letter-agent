@@ -242,7 +242,7 @@ export function FileUploadCard({
     }
   }, [fileUpload, onFileUpload, type, onUploadError]);
 
-  const handleLinkedInSubmit = useCallback(() => {
+  const handleLinkedInSubmit = useCallback(async () => {
     if (!onLinkedInUrl) return;
 
     // Clear any previous errors
@@ -263,15 +263,34 @@ export function FileUploadCard({
       return;
     }
 
-    // Call the parent handler
+    // Call the parent handler to update state
     onLinkedInUrl(trimmedUrl);
     
-    // Update local state to show success immediately
-    setUploadedFileId(`linkedin_${Date.now()}`);
-    
-    // Call upload complete callback to update parent
-    onUploadComplete?.(`linkedin_${Date.now()}`, 'linkedin');
-  }, [linkedInUrl, onLinkedInUrl, onUploadComplete]);
+    // Actually call the LinkedIn API for enrichment
+    console.log('🚀 Manual LinkedIn enrichment starting...');
+    try {
+      const result = await linkedInUpload.connectLinkedIn(trimmedUrl);
+      
+      if (result.success && result.fileId) {
+        console.log('✅ Manual LinkedIn enrichment successful, ID:', result.fileId);
+        setUploadedFileId(result.fileId);
+        onUploadComplete?.(result.fileId, 'linkedin');
+      } else {
+        console.error('❌ Manual LinkedIn enrichment failed:', result.error);
+        setError(result.error || 'LinkedIn connection failed');
+        if (onUploadError) {
+          onUploadError(result.error || 'LinkedIn connection failed');
+        }
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'LinkedIn connection failed';
+      console.error('❌ Manual LinkedIn enrichment exception:', errorMsg);
+      setError(errorMsg);
+      if (onUploadError) {
+        onUploadError(errorMsg);
+      }
+    }
+  }, [linkedInUrl, onLinkedInUrl, onUploadComplete, onUploadError, linkedInUpload]);
 
 
   const renderFileUpload = () => (
@@ -373,11 +392,20 @@ export function FileUploadCard({
           />
           <Button 
             onClick={handleLinkedInSubmit}
-            disabled={!linkedInUrl.trim()}
+            disabled={!linkedInUrl.trim() || linkedInUpload.isConnecting}
             size="sm"
             variant="secondary"
           >
-            Connect
+            {linkedInUpload.isConnecting ? (
+              <>
+                <LoadingSpinner size="sm" className="mr-2" />
+                Connecting...
+              </>
+            ) : uploadedFileId ? (
+              'Connected'
+            ) : (
+              'Connect'
+            )}
           </Button>
         </div>
         {isCompleted && (
@@ -385,6 +413,16 @@ export function FileUploadCard({
         )}
         {error && <ErrorMessage message={error} />}
       </div>
+
+      {/* Show progress bar for LinkedIn connections */}
+      {(linkedInUpload.isConnecting || uploadedFileId) && (
+        <UploadProgressBar
+          isConnecting={linkedInUpload.isConnecting}
+          isUploading={false}
+          progress={[]}
+          connectingText="Connecting to LinkedIn and enriching data..."
+        />
+      )}
 
       {linkedInUpload.error && (
         <div className="flex items-center gap-2 text-red-600 text-sm">
@@ -485,7 +523,7 @@ export function FileUploadCard({
     <Card className={`transition-all duration-200 ${
       isCompleted ? 'ring-2 ring-green-200 bg-green-50' : ''
     } ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
-      <CardHeader className="p-6">
+      <CardHeader>
         <div className="flex items-center gap-3">
           {isCompleted && (
             <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-green-100">
