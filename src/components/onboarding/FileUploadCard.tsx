@@ -272,7 +272,7 @@ export function FileUploadCard({
     try {
       const result = await linkedInUpload.connectLinkedIn(trimmedUrl);
       const manualLinkedInEndTime = performance.now();
-      console.log(`⏱️ Manual LinkedIn PDL API call took: ${(manualLinkedInEndTime - manualLinkedInStartTime).toFixed(2)}ms`);
+      console.warn(`⏱️ Manual LinkedIn PDL API call took: ${(manualLinkedInEndTime - manualLinkedInStartTime).toFixed(2)}ms`);
       
       if (result.success && result.fileId) {
         console.log('✅ Manual LinkedIn enrichment successful, ID:', result.fileId);

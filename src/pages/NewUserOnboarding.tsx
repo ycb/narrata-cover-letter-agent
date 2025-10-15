@@ -242,7 +242,7 @@ export default function NewUserOnboarding() {
         console.log('🚀 Auto-triggering LinkedIn enrichment...');
         const result = await linkedInUpload.connectLinkedIn(normalizedUrl);
         const linkedInEndTime = performance.now();
-        console.log(`⏱️ LinkedIn PDL API call took: ${(linkedInEndTime - linkedInStartTime).toFixed(2)}ms`);
+        console.warn(`⏱️ LinkedIn PDL API call took: ${(linkedInEndTime - linkedInStartTime).toFixed(2)}ms`);
         
         if (result.success) {
           console.log('✅ LinkedIn auto-populated and enriched successfully!');
@@ -261,7 +261,7 @@ export default function NewUserOnboarding() {
       }
       
       const totalTime = performance.now() - startTime;
-      console.log(`⏱️ Total LinkedIn auto-population took: ${totalTime.toFixed(2)}ms`);
+      console.warn(`⏱️ Total LinkedIn auto-population took: ${totalTime.toFixed(2)}ms`);
     } catch (error) {
       console.error('💥 Error during LinkedIn auto-population:', error);
       setAutoPopulatingLinkedIn(false);
