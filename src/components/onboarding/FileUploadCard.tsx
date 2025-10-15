@@ -139,7 +139,8 @@ export function FileUploadCard({
     (typeof currentValue === 'string' && currentValue.trim().length > 0) || 
     currentValue instanceof File
   )) || 
-    (type === 'linkedin' && linkedInUrl.trim().length > 0);
+    (type === 'linkedin' && linkedInUrl.trim().length > 0) ||
+    uploadedFileId !== null;
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
