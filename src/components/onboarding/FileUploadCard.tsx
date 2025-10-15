@@ -139,8 +139,8 @@ export function FileUploadCard({
     (typeof currentValue === 'string' && currentValue.trim().length > 0) || 
     currentValue instanceof File
   )) || 
-    (type === 'linkedin' && linkedInUrl.trim().length > 0) ||
-    uploadedFileId !== null;
+    (type === 'linkedin' && uploadedFileId !== null) ||
+    (type !== 'linkedin' && uploadedFileId !== null);
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -404,7 +404,7 @@ export function FileUploadCard({
                 <LoadingSpinner size="sm" className="mr-2" />
                 Connecting...
               </>
-            ) : (type === 'linkedin' && isCompleted) || uploadedFileId ? (
+            ) : uploadedFileId ? (
               'Connected'
             ) : (
               'Connect'
