@@ -134,10 +134,6 @@ export function FileUploadCard({
     </div>
   );
 
-  // Smart combination logic
-  const hasUploadedFile = uploadedFileId !== null;
-  const hasTextInput = typeof coverLetterText === 'string' && coverLetterText.trim().length >= 10;
-  const hasBoth = hasUploadedFile && hasTextInput;
 
   const isCompleted = (currentValue && (
     (typeof currentValue === 'string' && currentValue.trim().length > 0) || 
@@ -276,60 +272,6 @@ export function FileUploadCard({
     onUploadComplete?.(`linkedin_${Date.now()}`, 'linkedin');
   }, [linkedInUrl, onLinkedInUrl, onUploadComplete]);
 
-  // Smart submission handler
-  const handleSmartSubmit = useCallback(async () => {
-    if (!hasUploadedFile && !hasTextInput) {
-      onUploadError?.('Please upload a file or enter text');
-      return;
-    }
-
-    try {
-      let contentToProcess: string;
-      let submissionType: string;
-
-      if (hasBoth) {
-        // Combine file content with additional text
-        contentToProcess = `${uploadedFileContent}\n\n--- Additional Context ---\n${coverLetterText}`;
-        submissionType = 'Combined file and text';
-      } else if (hasUploadedFile) {
-        // Use file content only
-        contentToProcess = uploadedFileContent!;
-        submissionType = 'Uploaded file';
-      } else {
-        // Use text only
-        contentToProcess = typeof coverLetterText === 'string' ? coverLetterText : '';
-        submissionType = 'Manual text';
-      }
-
-      console.log(`Processing ${submissionType}:`, { length: contentToProcess.length });
-      
-      const result = await fileUpload.saveManualText(contentToProcess, 'coverLetter');
-      
-      if (result.success) {
-        console.log(`${submissionType} saved successfully`);
-        if (onTextInput) {
-          onTextInput(contentToProcess);
-        }
-        onUploadComplete?.(result.fileId!, 'coverLetter');
-      } else {
-        onUploadError?.(result.error || 'Failed to save content');
-      }
-    } catch (error) {
-      onUploadError?.(error instanceof Error ? error.message : 'Failed to save content');
-    }
-  }, [hasUploadedFile, hasTextInput, hasBoth, uploadedFileContent, coverLetterText, fileUpload, onTextInput, onUploadComplete, onUploadError]);
-
-  // Helper functions for UI
-  const getButtonText = () => {
-    if (hasBoth) return 'Combine File & Text';
-    if (hasUploadedFile) return 'Process Uploaded File';
-    if (hasTextInput) return 'Add Cover Letter Text';
-    return 'Add Cover Letter Text';
-  };
-
-  const getButtonDisabled = () => {
-    return !hasUploadedFile && !hasTextInput;
-  };
 
   const renderFileUpload = () => (
     <div className="space-y-4">
@@ -528,30 +470,6 @@ export function FileUploadCard({
         </p>
       </div>
 
-      {/* Smart Submit Button - Only show if there's content to process */}
-      {(hasUploadedFile || hasTextInput) && (
-        <div className="pt-4">
-          <Button
-            onClick={handleSmartSubmit}
-            disabled={getButtonDisabled() || fileUpload.isUploading}
-            className="w-full"
-          >
-            {fileUpload.isUploading ? (
-              <>
-                <LoadingSpinner size="sm" className="mr-2" />
-                {processingStatus || 'Processing...'}
-              </>
-            ) : (
-              getButtonText()
-            )}
-          </Button>
-          {hasBoth && (
-            <p className="text-xs text-gray-500 mt-2 text-center">
-              This will combine your uploaded file with the additional text you provided
-            </p>
-          )}
-        </div>
-      )}
 
       {fileUpload.error && (
         <div className="flex items-center gap-2 text-red-600 text-sm">
