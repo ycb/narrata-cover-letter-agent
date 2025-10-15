@@ -468,7 +468,7 @@ export default function NewUserOnboarding() {
               <div className="mb-2">
                 <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-200">
                   <Sparkles className="w-3 h-3 mr-1" />
-                  Auto-completed from resume
+                  LinkedIn profile imported from your resume
                 </Badge>
               </div>
             )}
@@ -478,7 +478,7 @@ export default function NewUserOnboarding() {
               description={autoPopulatingLinkedIn 
                 ? "✨ Auto-populating from resume..." 
                 : linkedinAutoCompleted && linkedinCompleted
-                  ? "✅ Successfully enriched with LinkedIn data from your resume"
+                  ? "LinkedIn profile imported from your resume"
                   : resumeCompleted 
                     ? (linkedinUrl 
                       ? "LinkedIn URL found in resume - click Connect to enrich" 
