@@ -563,11 +563,17 @@ export function FileUploadCard({
   );
 
   return (
-    <Card className={`${disabled ? 'opacity-60' : ''}`}>
+    <Card className={`transition-all duration-200 ${
+      isCompleted ? 'ring-2 ring-green-200 bg-green-50' : ''
+    } ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
       <CardHeader>
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-blue-50">
-            <Icon className="w-5 h-5 text-blue-600" />
+          <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+            isCompleted ? 'bg-green-100' : 'bg-gray-100'
+          }`}>
+            <Icon className={`w-6 h-6 ${
+              isCompleted ? 'text-green-600' : 'text-gray-600'
+            }`} />
           </div>
           <div className="flex-1">
             <CardTitle className="text-lg">{title}</CardTitle>
@@ -586,9 +592,42 @@ export function FileUploadCard({
         </div>
       </CardHeader>
       <CardContent>
-        {type === 'linkedin' ? renderLinkedInInput() : 
-         type === 'coverLetter' ? renderCoverLetterInput() : 
-         renderFileUpload()}
+        {isCompleted && (type === 'resume' || type === 'coverLetter') && uploadedFileId ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center">
+                  <FileText className="w-4 h-4 text-blue-600" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">{uploadedFileName}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // Clear all file-related state
+                    setUploadedFileId(null);
+                    setUploadedFileName(null);
+                    setUploadedFileContent(null);
+                    setError(null);
+                    // Clear parent state
+                    onFileUpload?.(type as 'resume' | 'coverLetter' | 'caseStudies', null as any);
+                  }}
+                  className="text-gray-600 border-gray-300 hover:bg-gray-50 hover:border-gray-400 hover:underline"
+                >
+                  Remove
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          type === 'linkedin' ? renderLinkedInInput() : 
+          type === 'coverLetter' ? renderCoverLetterInput() : 
+          renderFileUpload()
+        )}
       </CardContent>
     </Card>
   );
