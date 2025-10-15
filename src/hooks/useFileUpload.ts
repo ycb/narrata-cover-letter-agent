@@ -127,7 +127,12 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
       }, 500); // Update every 500ms
 
       // Upload file
+      const uploadStartTime = performance.now();
+      console.log(`🚀 Starting ${type} upload and processing for: ${file.name}`);
       const result = await fileUploadService.current.uploadFile(file, user.id, type, session?.access_token);
+      const uploadEndTime = performance.now();
+      const uploadDuration = (uploadEndTime - uploadStartTime).toFixed(2);
+      console.warn(`⏱️ ${type} upload and processing took: ${uploadDuration}ms`);
       
       // Clear interval
       clearInterval(progressInterval);
@@ -268,7 +273,12 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
       );
       onProgress?.(progressEntry);
 
+      const textStartTime = performance.now();
+      console.log(`🚀 Starting ${type} text processing for manual input`);
       const result = await fileUploadService.current.uploadContent(text, user.id, type, session?.access_token);
+      const textEndTime = performance.now();
+      const textDuration = (textEndTime - textStartTime).toFixed(2);
+      console.warn(`⏱️ ${type} text processing took: ${textDuration}ms`);
       
       if (result.success) {
         setProgress(prev => 
