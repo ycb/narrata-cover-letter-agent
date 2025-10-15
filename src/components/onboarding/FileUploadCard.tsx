@@ -401,7 +401,7 @@ export function FileUploadCard({
                 <LoadingSpinner size="sm" className="mr-2" />
                 Connecting...
               </>
-            ) : uploadedFileId ? (
+            ) : (type === 'linkedin' && isCompleted) || uploadedFileId ? (
               'Connected'
             ) : (
               'Connect'
