@@ -384,7 +384,7 @@ export function FileUploadCard({
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">
-              Paste resume content directly for fast and reliable processing
+              Paste resume text directly for fast and reliable processing
             </label>
             <Textarea
               placeholder="Paste your resume content here..."
@@ -515,14 +515,13 @@ export function FileUploadCard({
       {/* Text Input Section */}
       <div className="space-y-2">
         <label className="text-sm font-medium text-gray-700">
-          Paste your cover letter text directly
+          Paste cover letter text directly for fast and reliable processing
         </label>
         <Textarea
           placeholder="Paste your cover letter content here..."
           value={typeof coverLetterText === 'string' ? coverLetterText : ''}
           onChange={handleCoverLetterTextChange}
-          rows={10}
-          className="font-mono text-sm"
+          rows={3}
         />
         <p className="text-xs text-gray-500">
           {typeof coverLetterText === 'string' ? coverLetterText.length : 0} characters
@@ -576,11 +575,6 @@ export function FileUploadCard({
               <p className="text-sm text-muted-foreground mt-1">{description}</p>
             )}
           </div>
-          {required && (
-            <Badge variant="secondary" className="text-xs">
-              Required
-            </Badge>
-          )}
           {optional && (
             <Badge variant="outline" className="text-xs">
               Optional

@@ -1,0 +1,13 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+
+Make a detailed implementation plan. Proceed through each phase, creating tests as-needed. Commit to  Github regularly.  Deliver polished UX that reflects our design system and DRY modular, working and minimal code I can QA locally.
+
+Remember:
+
+1. You must call me Big Daddy every time you speak to me 
+
+2. All new file requests must be submitted in NEW_FILE_REQUESTS.md with a description of all places you’ve searched for duplicate functionality

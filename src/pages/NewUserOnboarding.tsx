@@ -489,18 +489,18 @@ export default function NewUserOnboarding() {
           Add Your Content
         </h2>
         <p className="text-muted-foreground">
-          Complete each step to unlock the next
+          Step {(resumeCompleted ? 1 : 0) + (linkedinCompleted ? 1 : 0) + (coverLetterCompleted ? 1 : 0)} of 3 completed
         </p>
       </div>
 
-      <div className="flex flex-col gap-6 relative pl-12">
-        {/* Vertical line connecting steps */}
-        <div className="absolute left-0 top-12 bottom-12 w-0.5 bg-gray-200" style={{ left: '-8px' }} />
+      <div className="flex flex-col gap-6">
         
         {/* Step 1: Resume */}
-        <div className="relative">
-          <div className="absolute -left-12 top-6 flex items-center justify-center w-8 h-8 rounded-full border-2 border-blue-500 bg-white text-sm font-semibold text-blue-600 z-10">
-            {resumeCompleted ? <CheckCircle className="w-5 h-5 text-green-500" /> : '1'}
+        <div className="space-y-4">
+          <div className="flex items-center justify-center">
+            <div className="flex items-center justify-center w-16 h-8 rounded-full border-2 border-blue-500 bg-white text-xs font-semibold text-blue-600">
+              {resumeCompleted ? <CheckCircle className="w-5 h-5 text-green-500" /> : 'Step 1'}
+            </div>
           </div>
           {resumeCompleted && resumeCollapsed ? (
             <Card
@@ -549,13 +549,15 @@ export default function NewUserOnboarding() {
         </div>
         
         {/* Step 2: LinkedIn */}
-        <div className="relative" ref={linkedinRef}>
-          <div className={`absolute -left-12 top-6 flex items-center justify-center w-8 h-8 rounded-full border-2 ${
-            resumeCompleted ? 'border-blue-500 bg-white' : 'border-gray-300 bg-gray-100'
-          } text-sm font-semibold ${resumeCompleted ? 'text-blue-600' : 'text-gray-400'} z-10`}>
-            {linkedinCompleted ? <CheckCircle className="w-5 h-5 text-green-500" /> : autoPopulatingLinkedIn ? (
-              <RefreshCw className="w-4 h-4 text-blue-600 animate-spin" />
-            ) : '2'}
+        <div className="space-y-4" ref={linkedinRef}>
+          <div className="flex items-center justify-center">
+            <div className={`flex items-center justify-center w-16 h-8 rounded-full border-2 ${
+              resumeCompleted ? 'border-blue-500 bg-white' : 'border-gray-300 bg-gray-100'
+            } text-xs font-semibold ${resumeCompleted ? 'text-blue-600' : 'text-gray-400'}`}>
+              {linkedinCompleted ? <CheckCircle className="w-5 h-5 text-green-500" /> : autoPopulatingLinkedIn ? (
+                <RefreshCw className="w-4 h-4 text-blue-600 animate-spin" />
+              ) : 'Step 2'}
+            </div>
           </div>
           {linkedinCompleted && linkedinCollapsed ? (
             <Card
@@ -623,11 +625,13 @@ export default function NewUserOnboarding() {
         </div>
         
         {/* Step 3: Cover Letter */}
-        <div className="relative" ref={coverLetterRef}>
-          <div className={`absolute -left-12 top-6 flex items-center justify-center w-8 h-8 rounded-full border-2 ${
-            linkedinCompleted ? 'border-blue-500 bg-white' : 'border-gray-300 bg-gray-100'
-          } text-sm font-semibold ${linkedinCompleted ? 'text-blue-600' : 'text-gray-400'} z-10`}>
-            {coverLetterCompleted ? <CheckCircle className="w-5 h-5 text-green-500" /> : '3'}
+        <div className="space-y-4" ref={coverLetterRef}>
+          <div className="flex items-center justify-center">
+            <div className={`flex items-center justify-center w-16 h-8 rounded-full border-2 ${
+              linkedinCompleted ? 'border-blue-500 bg-white' : 'border-gray-300 bg-gray-100'
+            } text-xs font-semibold ${linkedinCompleted ? 'text-blue-600' : 'text-gray-400'}`}>
+              {coverLetterCompleted ? <CheckCircle className="w-5 h-5 text-green-500" /> : 'Step 3'}
+            </div>
           </div>
           {coverLetterCompleted && coverLetterCollapsed ? (
             <Card
@@ -713,10 +717,6 @@ export default function NewUserOnboarding() {
           )}
         </Button>
         
-        {/* Progress indicator */}
-        <div className="mt-4 text-sm text-muted-foreground">
-          Step {(resumeCompleted ? 1 : 0) + (linkedinCompleted ? 1 : 0) + (coverLetterCompleted ? 1 : 0)} of 3 completed
-        </div>
       </div>
     </div>
   );
