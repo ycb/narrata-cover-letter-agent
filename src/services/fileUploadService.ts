@@ -432,11 +432,18 @@ export class FileUploadService {
       const contentSize = isManualText ? (content as string).length : file.size;
       console.log('📝 Content size:', contentSize, 'bytes. Threshold:', FILE_UPLOAD_CONFIG.IMMEDIATE_PROCESSING_THRESHOLD);
       
-      // Check if we should batch resume + cover letter processing
+      // Always batch resume + cover letter processing
       if (type === 'resume' || type === 'coverLetter') {
         const shouldBatch = await this.handleBatchedProcessing(sourceId, file, content, type, accessToken);
         if (shouldBatch) {
           console.log('→ Batched processing - waiting for both resume and cover letter');
+          return {
+            success: true,
+            fileId: sourceId
+          };
+        } else {
+          // Still in batching mode, don't process immediately
+          console.log('→ Stored for batching - waiting for both resume and cover letter');
           return {
             success: true,
             fileId: sourceId
