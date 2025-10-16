@@ -434,16 +434,17 @@ export class FileUploadService {
       
       // Always batch resume + cover letter processing
       if (type === 'resume' || type === 'coverLetter') {
+        console.warn(`🔄 BATCHING: Processing ${type} upload for batching`);
         const shouldBatch = await this.handleBatchedProcessing(sourceId, file, content, type, accessToken);
         if (shouldBatch) {
-          console.log('→ Batched processing - waiting for both resume and cover letter');
+          console.warn('→ Batched processing - waiting for both resume and cover letter');
           return {
             success: true,
             fileId: sourceId
           };
         } else {
           // Still in batching mode, don't process immediately
-          console.log('→ Stored for batching - waiting for both resume and cover letter');
+          console.warn('→ Stored for batching - waiting for both resume and cover letter');
           return {
             success: true,
             fileId: sourceId
@@ -510,18 +511,18 @@ export class FileUploadService {
     if (type === 'resume') {
       this.pendingResumeText = extractedText;
       this.pendingResumeSourceId = sourceId;
-      console.log('📄 Resume text stored for batching');
+      console.warn('📄 Resume text stored for batching');
     } else if (type === 'coverLetter') {
       this.pendingCoverLetterText = extractedText;
       this.pendingCoverLetterSourceId = sourceId;
-      console.log('📄 Cover letter text stored for batching');
+      console.warn('📄 Cover letter text stored for batching');
     }
     
     // Check if we have both resume and cover letter
     if (this.pendingResumeText && this.pendingCoverLetterText && 
         this.pendingResumeSourceId && this.pendingCoverLetterSourceId) {
       
-      console.log('🚀 Both resume and cover letter ready - starting combined analysis');
+      console.warn('🚀 Both resume and cover letter ready - starting combined analysis');
       
       // Process both together
       await this.processResumeAndCoverLetterTogether(
