@@ -30,6 +30,7 @@ export class LLMAnalysisService {
     try {
       // Calculate optimal token limit based on content analysis
       const optimalTokens = this.calculateOptimalTokens(text, 'resume');
+      console.warn(`🚀 Starting resume analysis with ${optimalTokens} tokens (smart calculation)`);
       
       const prompt = this.buildResumeAnalysisPrompt(text);
       const response = await this.callOpenAI(prompt, optimalTokens);
@@ -66,6 +67,7 @@ export class LLMAnalysisService {
     try {
       // Calculate optimal token limit based on content analysis
       const optimalTokens = this.calculateOptimalTokens(text, 'coverLetter');
+      console.warn(`🚀 Starting cover letter analysis with ${optimalTokens} tokens (smart calculation)`);
       
       const prompt = this.buildCoverLetterAnalysisPrompt(text);
       const response = await this.callOpenAI(prompt, optimalTokens);
@@ -348,7 +350,7 @@ Instructions:
     // Apply bounds: minimum 800, maximum 4000
     const finalTokens = Math.max(800, Math.min(optimalTokens, 4000));
     
-    console.log(`📊 Token calculation: ${extractedText.length} chars → ${baseTokens} base tokens → ${finalTokens} optimal tokens (${type}, complexity: ${complexityMultiplier.toFixed(2)})`);
+    console.warn(`📊 Token calculation: ${extractedText.length} chars → ${baseTokens} base tokens → ${finalTokens} optimal tokens (${type}, complexity: ${complexityMultiplier.toFixed(2)})`);
     
     return finalTokens;
   }
