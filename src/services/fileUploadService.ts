@@ -457,6 +457,54 @@ export class FileUploadService {
   }
 
   /**
+   * Process resume and cover letter together for combined analysis
+   */
+  async processResumeAndCoverLetterTogether(
+    resumeSourceId: string,
+    coverLetterSourceId: string,
+    resumeText: string,
+    coverLetterText: string,
+    accessToken?: string
+  ): Promise<void> {
+    try {
+      console.log('🚀 Starting combined resume + cover letter analysis');
+      
+      // Update both sources to processing status
+      await this.updateProcessingStatus(resumeSourceId, 'processing', undefined, undefined, accessToken);
+      await this.updateProcessingStatus(coverLetterSourceId, 'processing', undefined, undefined, accessToken);
+      
+      const llmStartTime = performance.now();
+      const combinedResult = await this.llmAnalysisService.analyzeResumeAndCoverLetter(resumeText, coverLetterText);
+      const llmEndTime = performance.now();
+      const llmDuration = (llmEndTime - llmStartTime).toFixed(2);
+      console.warn(`⏱️ Combined LLM analysis took: ${llmDuration}ms`);
+      
+      // Update resume with structured data
+      if (combinedResult.resume.success) {
+        await this.updateProcessingStatus(resumeSourceId, 'completed', combinedResult.resume.data, undefined, accessToken);
+        console.log('✅ Resume analysis completed');
+      } else {
+        await this.updateProcessingStatus(resumeSourceId, 'failed', undefined, combinedResult.resume.error, accessToken);
+        console.error('❌ Resume analysis failed:', combinedResult.resume.error);
+      }
+      
+      // Update cover letter with structured data
+      if (combinedResult.coverLetter.success) {
+        await this.updateProcessingStatus(coverLetterSourceId, 'completed', combinedResult.coverLetter.data, undefined, accessToken);
+        console.log('✅ Cover letter analysis completed');
+      } else {
+        await this.updateProcessingStatus(coverLetterSourceId, 'failed', undefined, combinedResult.coverLetter.error, accessToken);
+        console.error('❌ Cover letter analysis failed:', combinedResult.coverLetter.error);
+      }
+      
+    } catch (error) {
+      console.error('Combined processing error:', error);
+      await this.updateProcessingStatus(resumeSourceId, 'failed', undefined, error instanceof Error ? error.message : 'Combined processing failed', accessToken);
+      await this.updateProcessingStatus(coverLetterSourceId, 'failed', undefined, error instanceof Error ? error.message : 'Combined processing failed', accessToken);
+    }
+  }
+
+  /**
    * Process content (file or text) with unified LLM analysis
    */
   async processContent(

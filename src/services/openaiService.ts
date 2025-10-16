@@ -98,6 +98,64 @@ export class LLMAnalysisService {
   }
 
   /**
+   * Analyze resume and cover letter together in a single LLM call
+   */
+  async analyzeResumeAndCoverLetter(resumeText: string, coverLetterText: string): Promise<{
+    resume: LLMAnalysisResult;
+    coverLetter: LLMAnalysisResult;
+  }> {
+    try {
+      const combinedText = `RESUME:\n${resumeText}\n\nCOVER LETTER:\n${coverLetterText}`;
+      
+      // Calculate optimal token limit for combined content
+      const optimalTokens = this.calculateOptimalTokens(combinedText, 'resume');
+      
+      // Check if combined content exceeds safe limit
+      if (optimalTokens > 4000) {
+        console.warn('🚨 Combined content exceeds 4000 tokens, falling back to separate calls');
+        return {
+          resume: await this.analyzeResume(resumeText),
+          coverLetter: await this.analyzeCoverLetter(coverLetterText)
+        };
+      }
+      
+      console.warn(`🚀 Starting combined resume + cover letter analysis with ${optimalTokens} tokens`);
+      
+      const prompt = this.buildCombinedAnalysisPrompt(resumeText, coverLetterText);
+      const response = await this.callOpenAI(prompt, optimalTokens);
+      
+      if (!response.success) {
+        console.warn('🔄 Combined analysis failed, falling back to separate calls');
+        return {
+          resume: await this.analyzeResume(resumeText),
+          coverLetter: await this.analyzeCoverLetter(coverLetterText)
+        };
+      }
+      
+      // Parse combined response into separate results
+      const combinedData = response.data as any;
+      
+      return {
+        resume: {
+          success: true,
+          data: combinedData.resume
+        },
+        coverLetter: {
+          success: true,
+          data: combinedData.coverLetter
+        }
+      };
+    } catch (error) {
+      console.error('Combined analysis error:', error);
+      // Fallback to separate calls
+      return {
+        resume: await this.analyzeResume(resumeText),
+        coverLetter: await this.analyzeCoverLetter(coverLetterText)
+      };
+    }
+  }
+
+  /**
    * Analyze case study text and extract structured data
    */
   async analyzeCaseStudy(text: string): Promise<LLMAnalysisResult> {
@@ -278,6 +336,45 @@ Instructions:
 - Generate unique IDs for each item
 - Return valid JSON only, no markdown formatting
 `;
+  }
+
+  /**
+   * Build prompt for combined resume and cover letter analysis
+   */
+  private buildCombinedAnalysisPrompt(resumeText: string, coverLetterText: string): string {
+    return `Analyze the following resume and cover letter separately. Extract structured data for each document and return a JSON object with separate "resume" and "coverLetter" sections.
+
+RESUME TEXT:
+${resumeText}
+
+COVER LETTER TEXT:
+${coverLetterText}
+
+For the RESUME section, extract:
+- contactInfo: { name, email, phone, linkedin, location }
+- workHistory: [{ company, position, startDate, endDate, description, achievements }]
+- education: [{ institution, degree, field, startDate, endDate, gpa }]
+- skills: [{ category, items }]
+- certifications: [{ name, issuer, date, expiry }]
+- projects: [{ name, description, technologies, url, startDate, endDate }]
+- summary: string
+
+For the COVER LETTER section, extract:
+- recipientInfo: { name, title, company }
+- opening: string
+- body: [{ paragraph, keyPoints }]
+- closing: string
+- callToAction: string
+- tone: string
+- keyMessages: [string]
+
+Return ONLY valid JSON with this structure:
+{
+  "resume": { /* resume structured data */ },
+  "coverLetter": { /* cover letter structured data */ }
+}
+
+Ensure all dates are in YYYY-MM-DD format and generate unique IDs for each item.`;
   }
 
   /**
