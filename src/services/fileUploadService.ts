@@ -432,9 +432,13 @@ export class FileUploadService {
       console.log('📝 Content size:', contentSize, 'bytes. Threshold:', FILE_UPLOAD_CONFIG.IMMEDIATE_PROCESSING_THRESHOLD);
       
       // Handle batching for resume and cover letter
+      console.log(`🔍 BATCHING: type="${type}", condition=${type === 'resume' || type === 'coverLetter'}`);
       if (type === 'resume' || type === 'coverLetter') {
+        console.log(`🔄 ENTERING BATCHING for ${type}`);
         const shouldBatch = await this.handleBatching(sourceId, file, content, type, accessToken);
+        console.log(`🔍 BATCHING RESULT: ${shouldBatch}`);
         if (shouldBatch) {
+          console.log('✅ BATCHING: Returning early - stored for batching');
           return { success: true, fileId: sourceId };
         }
       }
