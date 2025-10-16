@@ -433,25 +433,8 @@ export class FileUploadService {
       const contentSize = isManualText ? (content as string).length : file.size;
       console.log('📝 Content size:', contentSize, 'bytes. Threshold:', FILE_UPLOAD_CONFIG.IMMEDIATE_PROCESSING_THRESHOLD);
       
-      // Always batch resume + cover letter processing
-      if (type === 'resume' || type === 'coverLetter') {
-        console.warn(`🔄 BATCHING: Processing ${type} upload for batching`);
-        const shouldBatch = await this.handleBatchedProcessing(sourceId, file, content, type, accessToken);
-        if (shouldBatch) {
-          console.warn('→ Batched processing - waiting for both resume and cover letter');
-          return {
-            success: true,
-            fileId: sourceId
-          };
-        } else {
-          // Still in batching mode, don't process immediately
-          console.warn('→ Stored for batching - waiting for both resume and cover letter');
-          return {
-            success: true,
-            fileId: sourceId
-          };
-        }
-      }
+      // TEMPORARILY DISABLE BATCHING - Testing GPT-3.5-turbo performance
+      console.warn(`🚀 DIRECT PROCESSING: Processing ${type} upload directly (batching disabled for benchmarking)`);
       
       // Process immediately for non-batched content
       if (contentSize < FILE_UPLOAD_CONFIG.IMMEDIATE_PROCESSING_THRESHOLD) {
