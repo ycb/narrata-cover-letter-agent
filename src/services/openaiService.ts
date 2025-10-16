@@ -28,6 +28,12 @@ export class LLMAnalysisService {
    */
   async analyzeResume(text: string): Promise<LLMAnalysisResult> {
     try {
+      // Check if resume is unusually long
+      const textLength = text.length;
+      if (textLength > 10000) { // ~2.5 pages
+        console.log('📄 Large resume detected:', `${textLength} characters (~${Math.ceil(textLength/4000)} pages)`);
+      }
+      
       const prompt = this.buildResumeAnalysisPrompt(text);
       const response = await this.callOpenAI(prompt);
       
@@ -61,6 +67,12 @@ export class LLMAnalysisService {
    */
   async analyzeCoverLetter(text: string): Promise<LLMAnalysisResult> {
     try {
+      // Check if cover letter is unusually long
+      const textLength = text.length;
+      if (textLength > 5000) { // ~1.25 pages
+        console.log('📄 Large cover letter detected:', `${textLength} characters (~${Math.ceil(textLength/4000)} pages)`);
+      }
+      
       const prompt = this.buildCoverLetterAnalysisPrompt(text);
       const response = await this.callOpenAI(prompt);
       
@@ -321,9 +333,9 @@ Instructions:
   }
 
   /**
-   * Call OpenAI API
+   * Call OpenAI API with intelligent token limit adjustment
    */
-  private async callOpenAI(prompt: string): Promise<{
+  private async callOpenAI(prompt: string, dynamicTokenLimit?: number): Promise<{
     success: boolean;
     data?: Record<string, unknown>;
     error?: string;
@@ -348,7 +360,7 @@ Instructions:
               content: prompt
             }
           ],
-          max_tokens: OPENAI_CONFIG.MAX_TOKENS,
+          max_tokens: dynamicTokenLimit || OPENAI_CONFIG.MAX_TOKENS,
           temperature: OPENAI_CONFIG.TEMPERATURE,
         }),
       });
@@ -357,14 +369,18 @@ Instructions:
         const errorData = await response.json().catch(() => ({}));
         const errorMessage = errorData.error?.message || `HTTP ${response.status}`;
         
-        // Track specific error types for monitoring
+        // Intelligent error handling with auto-healing
         if (errorMessage.includes('maximum context length') || errorMessage.includes('token limit')) {
-          console.error('🚨 TOKEN LIMIT EXCEEDED:', {
-            error: errorMessage,
-            maxTokens: OPENAI_CONFIG.MAX_TOKENS,
-            model: OPENAI_CONFIG.MODEL,
-            timestamp: new Date().toISOString()
-          });
+          console.log('🔄 Auto-healing: Token limit exceeded, retrying with higher limit...');
+          
+          // Calculate new token limit based on prompt length
+          const promptTokens = Math.ceil(prompt.length / 4); // Rough estimate: 1 token ≈ 4 characters
+          const newTokenLimit = Math.min(promptTokens * 2, 4000); // 2x input tokens, max 4000
+          
+          console.log(`📊 Token analysis: Prompt ~${promptTokens} tokens, using ${newTokenLimit} max tokens`);
+          
+          // Retry with higher token limit
+          return this.callOpenAI(prompt, newTokenLimit);
         } else if (errorMessage.includes('rate limit')) {
           console.error('🚨 RATE LIMIT EXCEEDED:', {
             error: errorMessage,
@@ -392,15 +408,18 @@ Instructions:
       const content = message?.content as string | undefined;
       const finishReason = firstChoice?.finish_reason as string | undefined;
 
-      // Monitor for truncated responses (token limit reached)
+      // Intelligent handling for truncated responses
       if (finishReason === 'length') {
-        console.error('🚨 RESPONSE TRUNCATED - TOKEN LIMIT REACHED:', {
-          finishReason,
-          contentLength: content?.length || 0,
-          maxTokens: OPENAI_CONFIG.MAX_TOKENS,
-          model: OPENAI_CONFIG.MODEL,
-          timestamp: new Date().toISOString()
-        });
+        console.log('🔄 Auto-healing: Response truncated, retrying with higher token limit...');
+        
+        // Calculate new token limit based on content length
+        const contentTokens = Math.ceil((content?.length || 0) / 4); // Rough estimate
+        const newTokenLimit = Math.min(contentTokens * 1.5, 4000); // 1.5x current, max 4000
+        
+        console.log(`📊 Truncation analysis: Content ~${contentTokens} tokens, retrying with ${newTokenLimit} max tokens`);
+        
+        // Retry with higher token limit
+        return this.callOpenAI(prompt, newTokenLimit);
       }
 
       if (!content) {
