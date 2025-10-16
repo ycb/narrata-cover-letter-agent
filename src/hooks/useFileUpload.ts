@@ -128,7 +128,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
 
       // Upload file
       const uploadStartTime = performance.now();
-      console.log(`🚀 Starting ${type} upload and processing for: ${file.name}`);
+      console.warn(`🚀 useFileUpload: Starting ${type} upload and processing for: ${file.name}`);
       const result = await fileUploadService.current.uploadFile(file, user.id, type, session?.access_token);
       const uploadEndTime = performance.now();
       const uploadDuration = (uploadEndTime - uploadStartTime).toFixed(2);
