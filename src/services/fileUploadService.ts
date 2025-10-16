@@ -432,7 +432,8 @@ export class FileUploadService {
       console.log('📝 Content size:', contentSize, 'bytes. Threshold:', FILE_UPLOAD_CONFIG.IMMEDIATE_PROCESSING_THRESHOLD);
       
       // Handle batching for resume and cover letter
-      console.log(`🔍 BATCHING CHECK: type=${type}, should batch=${type === 'resume' || type === 'coverLetter'}`);
+      console.log(`🔍 BATCHING CHECK: type="${type}" (${typeof type}), should batch=${type === 'resume' || type === 'coverLetter'}`);
+      console.log(`🔍 TYPE COMPARISON: type === 'resume': ${type === 'resume'}, type === 'coverLetter': ${type === 'coverLetter'}`);
       if (type === 'resume' || type === 'coverLetter') {
         console.log(`🔄 ENTERING BATCHING: ${type} upload`);
         const shouldBatch = await this.handleBatching(sourceId, file, content, type, accessToken);
