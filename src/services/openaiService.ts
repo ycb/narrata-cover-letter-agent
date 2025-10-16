@@ -357,6 +357,27 @@ Instructions:
         const errorData = await response.json().catch(() => ({}));
         const errorMessage = errorData.error?.message || `HTTP ${response.status}`;
         
+        // Track specific error types for monitoring
+        if (errorMessage.includes('maximum context length') || errorMessage.includes('token limit')) {
+          console.error('🚨 TOKEN LIMIT EXCEEDED:', {
+            error: errorMessage,
+            maxTokens: OPENAI_CONFIG.MAX_TOKENS,
+            model: OPENAI_CONFIG.MODEL,
+            timestamp: new Date().toISOString()
+          });
+        } else if (errorMessage.includes('rate limit')) {
+          console.error('🚨 RATE LIMIT EXCEEDED:', {
+            error: errorMessage,
+            timestamp: new Date().toISOString()
+          });
+        } else {
+          console.error('🚨 OPENAI API ERROR:', {
+            error: errorMessage,
+            status: response.status,
+            timestamp: new Date().toISOString()
+          });
+        }
+        
         return {
           success: false,
           error: errorMessage,
@@ -369,6 +390,18 @@ Instructions:
       const firstChoice = choices?.[0];
       const message = firstChoice?.message as Record<string, unknown> | undefined;
       const content = message?.content as string | undefined;
+      const finishReason = firstChoice?.finish_reason as string | undefined;
+
+      // Monitor for truncated responses (token limit reached)
+      if (finishReason === 'length') {
+        console.error('🚨 RESPONSE TRUNCATED - TOKEN LIMIT REACHED:', {
+          finishReason,
+          contentLength: content?.length || 0,
+          maxTokens: OPENAI_CONFIG.MAX_TOKENS,
+          model: OPENAI_CONFIG.MODEL,
+          timestamp: new Date().toISOString()
+        });
+      }
 
       if (!content) {
         return {
@@ -381,6 +414,16 @@ Instructions:
       // Parse JSON response with improved error handling
       try {
         const parsedData = this.parseJSONResponse(content);
+        
+        // Monitor successful responses for quality metrics
+        console.log('✅ LLM RESPONSE SUCCESS:', {
+          contentLength: content.length,
+          finishReason,
+          maxTokens: OPENAI_CONFIG.MAX_TOKENS,
+          model: OPENAI_CONFIG.MODEL,
+          timestamp: new Date().toISOString()
+        });
+        
         return {
           success: true,
           data: parsedData
