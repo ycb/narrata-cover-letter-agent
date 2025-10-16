@@ -494,6 +494,7 @@ export class FileUploadService {
     type: FileType,
     accessToken?: string
   ): Promise<boolean> {
+    console.warn(`🔧 BATCHING METHOD: Called for type: ${type}, file: ${file.name}`);
     // Extract text first
     let extractedText: string;
     
