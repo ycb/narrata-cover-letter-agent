@@ -521,6 +521,8 @@ export class FileUploadService {
     }
     
     // Check if we have both resume and cover letter
+    console.warn(`🔍 BATCHING CHECK: resumeText=${!!this.pendingResumeText}, coverLetterText=${!!this.pendingCoverLetterText}, resumeId=${!!this.pendingResumeSourceId}, coverLetterId=${!!this.pendingCoverLetterSourceId}`);
+    
     if (this.pendingResumeText && this.pendingCoverLetterText && 
         this.pendingResumeSourceId && this.pendingCoverLetterSourceId) {
       
