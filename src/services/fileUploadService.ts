@@ -29,11 +29,6 @@ export class FileUploadService {
   private textExtractionService: TextExtractionService;
   private llmAnalysisService: LLMAnalysisService;
   
-  // Store extracted text for combined analysis
-  private pendingResumeText: string | null = null;
-  private pendingCoverLetterText: string | null = null;
-  private pendingResumeSourceId: string | null = null;
-  private pendingCoverLetterSourceId: string | null = null;
 
   constructor() {
     this.textExtractionService = new TextExtractionService();
@@ -433,10 +428,7 @@ export class FileUploadService {
       const contentSize = isManualText ? (content as string).length : file.size;
       console.log('📝 Content size:', contentSize, 'bytes. Threshold:', FILE_UPLOAD_CONFIG.IMMEDIATE_PROCESSING_THRESHOLD);
       
-      // TEMPORARILY DISABLE BATCHING - Testing GPT-3.5-turbo performance
-      console.warn(`🚀 DIRECT PROCESSING: Processing ${type} upload directly (batching disabled for benchmarking)`);
-      
-      // Process immediately for non-batched content
+      // Process content immediately
       if (contentSize < FILE_UPLOAD_CONFIG.IMMEDIATE_PROCESSING_THRESHOLD) {
         console.log('→ Processing IMMEDIATELY (small content)');
         await this.processContent(sourceId, file, content, type, accessToken);
@@ -467,118 +459,6 @@ export class FileUploadService {
     }
   }
 
-  /**
-   * Handle batched processing for resume and cover letter
-   */
-  private async handleBatchedProcessing(
-    sourceId: string,
-    file: File,
-    content: File | string,
-    type: FileType,
-    accessToken?: string
-  ): Promise<boolean> {
-    console.warn(`🔧 BATCHING METHOD: Called for type: ${type}, file: ${file.name}`);
-    // Extract text first
-    let extractedText: string;
-    
-    if (content instanceof File) {
-      const extractionResult = await this.textExtractionService.extractText(file);
-      if (!extractionResult.success) {
-        console.error('Text extraction failed for batching:', extractionResult.error);
-        return false;
-      }
-      extractedText = extractionResult.text!;
-    } else {
-      extractedText = content;
-    }
-    
-    // Store the extracted text and source ID
-    if (type === 'resume') {
-      this.pendingResumeText = extractedText;
-      this.pendingResumeSourceId = sourceId;
-      console.warn('📄 Resume text stored for batching');
-    } else if (type === 'coverLetter') {
-      this.pendingCoverLetterText = extractedText;
-      this.pendingCoverLetterSourceId = sourceId;
-      console.warn('📄 Cover letter text stored for batching');
-    }
-    
-    // Check if we have both resume and cover letter
-    console.warn(`🔍 BATCHING CHECK: resumeText=${!!this.pendingResumeText}, coverLetterText=${!!this.pendingCoverLetterText}, resumeId=${!!this.pendingResumeSourceId}, coverLetterId=${!!this.pendingCoverLetterSourceId}`);
-    
-    if (this.pendingResumeText && this.pendingCoverLetterText && 
-        this.pendingResumeSourceId && this.pendingCoverLetterSourceId) {
-      
-      console.warn('🚀 Both resume and cover letter ready - starting combined analysis');
-      
-      // Process both together
-      await this.processResumeAndCoverLetterTogether(
-        this.pendingResumeSourceId,
-        this.pendingCoverLetterSourceId,
-        this.pendingResumeText,
-        this.pendingCoverLetterText,
-        accessToken
-      );
-      
-      // Clear pending data
-      this.pendingResumeText = null;
-      this.pendingCoverLetterText = null;
-      this.pendingResumeSourceId = null;
-      this.pendingCoverLetterSourceId = null;
-      
-      return true; // Indicates batching was used
-    }
-    
-    return false; // Indicates individual processing should continue
-  }
-
-  /**
-   * Process resume and cover letter together for combined analysis
-   */
-  async processResumeAndCoverLetterTogether(
-    resumeSourceId: string,
-    coverLetterSourceId: string,
-    resumeText: string,
-    coverLetterText: string,
-    accessToken?: string
-  ): Promise<void> {
-    try {
-      console.log('🚀 Starting combined resume + cover letter analysis');
-      
-      // Update both sources to processing status
-      await this.updateProcessingStatus(resumeSourceId, 'processing', undefined, undefined, accessToken);
-      await this.updateProcessingStatus(coverLetterSourceId, 'processing', undefined, undefined, accessToken);
-      
-      const llmStartTime = performance.now();
-      const combinedResult = await this.llmAnalysisService.analyzeResumeAndCoverLetter(resumeText, coverLetterText);
-      const llmEndTime = performance.now();
-      const llmDuration = (llmEndTime - llmStartTime).toFixed(2);
-      console.warn(`⏱️ Combined LLM analysis took: ${llmDuration}ms`);
-      
-      // Update resume with structured data
-      if (combinedResult.resume.success) {
-        await this.updateProcessingStatus(resumeSourceId, 'completed', combinedResult.resume.data, undefined, accessToken);
-        console.log('✅ Resume analysis completed');
-      } else {
-        await this.updateProcessingStatus(resumeSourceId, 'failed', undefined, combinedResult.resume.error, accessToken);
-        console.error('❌ Resume analysis failed:', combinedResult.resume.error);
-      }
-      
-      // Update cover letter with structured data
-      if (combinedResult.coverLetter.success) {
-        await this.updateProcessingStatus(coverLetterSourceId, 'completed', combinedResult.coverLetter.data, undefined, accessToken);
-        console.log('✅ Cover letter analysis completed');
-      } else {
-        await this.updateProcessingStatus(coverLetterSourceId, 'failed', undefined, combinedResult.coverLetter.error, accessToken);
-        console.error('❌ Cover letter analysis failed:', combinedResult.coverLetter.error);
-      }
-      
-    } catch (error) {
-      console.error('Combined processing error:', error);
-      await this.updateProcessingStatus(resumeSourceId, 'failed', undefined, error instanceof Error ? error.message : 'Combined processing failed', accessToken);
-      await this.updateProcessingStatus(coverLetterSourceId, 'failed', undefined, error instanceof Error ? error.message : 'Combined processing failed', accessToken);
-    }
-  }
 
   /**
    * Process content (file or text) with unified LLM analysis
