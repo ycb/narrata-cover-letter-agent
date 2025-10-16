@@ -28,6 +28,12 @@ import { LLMAnalysisService } from './openaiService';
 export class FileUploadService {
   private textExtractionService: TextExtractionService;
   private llmAnalysisService: LLMAnalysisService;
+  
+  // Store extracted text for combined analysis
+  private pendingResumeText: string | null = null;
+  private pendingCoverLetterText: string | null = null;
+  private pendingResumeSourceId: string | null = null;
+  private pendingCoverLetterSourceId: string | null = null;
 
   constructor() {
     this.textExtractionService = new TextExtractionService();
@@ -426,6 +432,19 @@ export class FileUploadService {
       const contentSize = isManualText ? (content as string).length : file.size;
       console.log('📝 Content size:', contentSize, 'bytes. Threshold:', FILE_UPLOAD_CONFIG.IMMEDIATE_PROCESSING_THRESHOLD);
       
+      // Check if we should batch resume + cover letter processing
+      if (type === 'resume' || type === 'coverLetter') {
+        const shouldBatch = await this.handleBatchedProcessing(sourceId, file, content, type, accessToken);
+        if (shouldBatch) {
+          console.log('→ Batched processing - waiting for both resume and cover letter');
+          return {
+            success: true,
+            fileId: sourceId
+          };
+        }
+      }
+      
+      // Process immediately for non-batched content
       if (contentSize < FILE_UPLOAD_CONFIG.IMMEDIATE_PROCESSING_THRESHOLD) {
         console.log('→ Processing IMMEDIATELY (small content)');
         await this.processContent(sourceId, file, content, type, accessToken);
@@ -454,6 +473,68 @@ export class FileUploadService {
         retryable: true
       };
     }
+  }
+
+  /**
+   * Handle batched processing for resume and cover letter
+   */
+  private async handleBatchedProcessing(
+    sourceId: string,
+    file: File,
+    content: File | string,
+    type: FileType,
+    accessToken?: string
+  ): Promise<boolean> {
+    // Extract text first
+    let extractedText: string;
+    
+    if (content instanceof File) {
+      const extractionResult = await this.textExtractionService.extractText(file);
+      if (!extractionResult.success) {
+        console.error('Text extraction failed for batching:', extractionResult.error);
+        return false;
+      }
+      extractedText = extractionResult.text!;
+    } else {
+      extractedText = content;
+    }
+    
+    // Store the extracted text and source ID
+    if (type === 'resume') {
+      this.pendingResumeText = extractedText;
+      this.pendingResumeSourceId = sourceId;
+      console.log('📄 Resume text stored for batching');
+    } else if (type === 'coverLetter') {
+      this.pendingCoverLetterText = extractedText;
+      this.pendingCoverLetterSourceId = sourceId;
+      console.log('📄 Cover letter text stored for batching');
+    }
+    
+    // Check if we have both resume and cover letter
+    if (this.pendingResumeText && this.pendingCoverLetterText && 
+        this.pendingResumeSourceId && this.pendingCoverLetterSourceId) {
+      
+      console.log('🚀 Both resume and cover letter ready - starting combined analysis');
+      
+      // Process both together
+      await this.processResumeAndCoverLetterTogether(
+        this.pendingResumeSourceId,
+        this.pendingCoverLetterSourceId,
+        this.pendingResumeText,
+        this.pendingCoverLetterText,
+        accessToken
+      );
+      
+      // Clear pending data
+      this.pendingResumeText = null;
+      this.pendingCoverLetterText = null;
+      this.pendingResumeSourceId = null;
+      this.pendingCoverLetterSourceId = null;
+      
+      return true; // Indicates batching was used
+    }
+    
+    return false; // Indicates individual processing should continue
   }
 
   /**
