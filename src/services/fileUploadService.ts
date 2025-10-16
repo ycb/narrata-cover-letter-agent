@@ -408,25 +408,18 @@ export class FileUploadService {
       }
 
       // Create source record
-      console.log(`🔍 ABOUT TO CREATE SOURCE RECORD for ${type}`);
       const sourceId = await this.createSourceRecord(file, userId, storagePath, accessToken, checksum);
-      console.log(`🔍 SOURCE ID CREATED: ${sourceId}`);
 
-      // Process content (immediate for small content, background for large)
-      const contentSize = isManualText ? (content as string).length : file.size;
-      console.log('📝 Content size:', contentSize, 'bytes. Threshold:', FILE_UPLOAD_CONFIG.IMMEDIATE_PROCESSING_THRESHOLD);
-      
       // Handle batching for resume and cover letter
-      console.log(`🔍 BATCHING: type="${type}", condition=${type === 'resume' || type === 'coverLetter'}`);
       if (type === 'resume' || type === 'coverLetter') {
-        console.log(`🔄 ENTERING BATCHING for ${type}`);
         const shouldBatch = await this.handleBatching(sourceId, file, content, type, accessToken);
-        console.log(`🔍 BATCHING RESULT: ${shouldBatch}`);
         if (shouldBatch) {
-          console.log('✅ BATCHING: Returning early - stored for batching');
           return { success: true, fileId: sourceId };
         }
       }
+      
+      // Process content (immediate for small content, background for large)
+      const contentSize = isManualText ? (content as string).length : file.size;
       
       // Check for duplicates AFTER batching logic
       if ((type === 'resume' || type === 'coverLetter') && checksum) {
