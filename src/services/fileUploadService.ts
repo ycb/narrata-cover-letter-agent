@@ -426,6 +426,7 @@ export class FileUploadService {
 
       // Create source record
       const sourceId = await this.createSourceRecord(file, userId, storagePath, accessToken, checksum);
+      console.log(`🔍 SOURCE ID CREATED: ${sourceId}`);
 
       // Process content (immediate for small content, background for large)
       const contentSize = isManualText ? (content as string).length : file.size;
