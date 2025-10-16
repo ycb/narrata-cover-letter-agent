@@ -341,11 +341,12 @@ export class FileUploadService {
    * Handles both file uploads and manual text input
    */
   async uploadContent(
-    content: File | string, 
-    userId: string, 
-    type: FileType, 
+    content: File | string,
+    userId: string,
+    type: FileType,
     accessToken?: string
   ): Promise<UploadResult> {
+    console.warn(`🚀 UPLOAD CONTENT: Starting upload for type: ${type}, content type: ${content instanceof File ? 'File' : 'String'}`);
     try {
       console.log('🚀 Starting content upload:', { 
         type, 
