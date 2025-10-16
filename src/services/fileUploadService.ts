@@ -29,9 +29,6 @@ export class FileUploadService {
   private textExtractionService: TextExtractionService;
   private llmAnalysisService: LLMAnalysisService;
   
-  // Simple batching state
-  private resumeData: { sourceId: string; text: string } | null = null;
-  private coverLetterData: { sourceId: string; text: string } | null = null;
 
   constructor() {
     this.textExtractionService = new TextExtractionService();
@@ -410,18 +407,11 @@ export class FileUploadService {
       // Create source record
       const sourceId = await this.createSourceRecord(file, userId, storagePath, accessToken, checksum);
 
-      // Handle batching for resume and cover letter
-      if (type === 'resume' || type === 'coverLetter') {
-        const shouldBatch = await this.handleBatching(sourceId, file, content, type, accessToken);
-        if (shouldBatch) {
-          return { success: true, fileId: sourceId };
-        }
-      }
       
       // Process content (immediate for small content, background for large)
       const contentSize = isManualText ? (content as string).length : file.size;
       
-      // Check for duplicates AFTER batching logic
+      // Check for duplicates
       if ((type === 'resume' || type === 'coverLetter') && checksum) {
         const existingSource = await this.findExistingSourceByChecksum(userId, checksum);
         if (existingSource) {
@@ -472,104 +462,6 @@ export class FileUploadService {
     }
   }
 
-  /**
-   * Simple batching logic for resume and cover letter
-   */
-  private async handleBatching(
-    sourceId: string,
-    file: File,
-    content: File | string,
-    type: FileType,
-    accessToken?: string
-  ): Promise<boolean> {
-    console.log(`🔄 Batching: Processing ${type} upload`);
-    
-    // Extract text first
-    let extractedText: string;
-    if (content instanceof File) {
-      const extractionResult = await this.textExtractionService.extractText(file);
-      if (!extractionResult.success) {
-        console.error('Text extraction failed for batching:', extractionResult.error);
-        return false;
-      }
-      extractedText = extractionResult.text!;
-    } else {
-      extractedText = content;
-    }
-    
-    // Store the data
-    if (type === 'resume') {
-      this.resumeData = { sourceId, text: extractedText };
-      console.log('📄 Resume stored for batching');
-    } else if (type === 'coverLetter') {
-      this.coverLetterData = { sourceId, text: extractedText };
-      console.log('📄 Cover letter stored for batching');
-    }
-    
-    // Check if we have both files
-    if (this.resumeData && this.coverLetterData) {
-      console.log('🚀 Both files ready - starting combined analysis');
-      await this.processCombinedAnalysis(accessToken);
-      return true;
-    }
-    
-    return true; // Always batch (don't process individually)
-  }
-
-  /**
-   * Process both resume and cover letter together
-   */
-  private async processCombinedAnalysis(accessToken?: string): Promise<void> {
-    if (!this.resumeData || !this.coverLetterData) return;
-    
-    try {
-      console.log('🚀 Starting combined resume + cover letter analysis');
-      
-      // Update both sources to processing status
-      await this.updateProcessingStatus(this.resumeData.sourceId, 'processing', undefined, undefined, accessToken);
-      await this.updateProcessingStatus(this.coverLetterData.sourceId, 'processing', undefined, undefined, accessToken);
-      
-      const llmStartTime = performance.now();
-      const combinedResult = await this.llmAnalysisService.analyzeResumeAndCoverLetter(
-        this.resumeData.text, 
-        this.coverLetterData.text
-      );
-      const llmEndTime = performance.now();
-      const llmDuration = (llmEndTime - llmStartTime).toFixed(2);
-      console.log(`⏱️ Combined LLM analysis took: ${llmDuration}ms`);
-      
-      // Update resume with structured data
-      if (combinedResult.resume.success) {
-        await this.updateProcessingStatus(this.resumeData.sourceId, 'completed', combinedResult.resume.data, undefined, accessToken);
-        console.log('✅ Resume analysis completed');
-      } else {
-        await this.updateProcessingStatus(this.resumeData.sourceId, 'failed', undefined, combinedResult.resume.error, accessToken);
-        console.error('❌ Resume analysis failed:', combinedResult.resume.error);
-      }
-      
-      // Update cover letter with structured data
-      if (combinedResult.coverLetter.success) {
-        await this.updateProcessingStatus(this.coverLetterData.sourceId, 'completed', combinedResult.coverLetter.data, undefined, accessToken);
-        console.log('✅ Cover letter analysis completed');
-      } else {
-        await this.updateProcessingStatus(this.coverLetterData.sourceId, 'failed', undefined, combinedResult.coverLetter.error, accessToken);
-        console.error('❌ Cover letter analysis failed:', combinedResult.coverLetter.error);
-      }
-      
-      // Clear batching data
-      this.resumeData = null;
-      this.coverLetterData = null;
-      
-    } catch (error) {
-      console.error('Combined processing error:', error);
-      await this.updateProcessingStatus(this.resumeData!.sourceId, 'failed', undefined, error instanceof Error ? error.message : 'Combined processing failed', accessToken);
-      await this.updateProcessingStatus(this.coverLetterData!.sourceId, 'failed', undefined, error instanceof Error ? error.message : 'Combined processing failed', accessToken);
-      
-      // Clear batching data on error
-      this.resumeData = null;
-      this.coverLetterData = null;
-    }
-  }
 
   /**
    * Process content (file or text) with unified LLM analysis
