@@ -28,14 +28,11 @@ export class LLMAnalysisService {
    */
   async analyzeResume(text: string): Promise<LLMAnalysisResult> {
     try {
-      // Check if resume is unusually long
-      const textLength = text.length;
-      if (textLength > 10000) { // ~2.5 pages
-        console.log('📄 Large resume detected:', `${textLength} characters (~${Math.ceil(textLength/4000)} pages)`);
-      }
+      // Calculate optimal token limit based on content analysis
+      const optimalTokens = this.calculateOptimalTokens(text, 'resume');
       
       const prompt = this.buildResumeAnalysisPrompt(text);
-      const response = await this.callOpenAI(prompt);
+      const response = await this.callOpenAI(prompt, optimalTokens);
       
       if (!response.success) {
         return {
@@ -67,14 +64,11 @@ export class LLMAnalysisService {
    */
   async analyzeCoverLetter(text: string): Promise<LLMAnalysisResult> {
     try {
-      // Check if cover letter is unusually long
-      const textLength = text.length;
-      if (textLength > 5000) { // ~1.25 pages
-        console.log('📄 Large cover letter detected:', `${textLength} characters (~${Math.ceil(textLength/4000)} pages)`);
-      }
+      // Calculate optimal token limit based on content analysis
+      const optimalTokens = this.calculateOptimalTokens(text, 'coverLetter');
       
       const prompt = this.buildCoverLetterAnalysisPrompt(text);
-      const response = await this.callOpenAI(prompt);
+      const response = await this.callOpenAI(prompt, optimalTokens);
       
       if (!response.success) {
         return {
@@ -106,8 +100,11 @@ export class LLMAnalysisService {
    */
   async analyzeCaseStudy(text: string): Promise<LLMAnalysisResult> {
     try {
+      // Calculate optimal token limit based on content analysis
+      const optimalTokens = this.calculateOptimalTokens(text, 'caseStudies');
+      
       const prompt = this.buildCaseStudyAnalysisPrompt(text);
-      const response = await this.callOpenAI(prompt);
+      const response = await this.callOpenAI(prompt, optimalTokens);
       
       if (!response.success) {
         return {
@@ -330,6 +327,77 @@ Instructions:
 - Generate unique IDs for each item
 - Return valid JSON only, no markdown formatting
 `;
+  }
+
+  /**
+   * Calculate optimal token limit based on extracted text analysis
+   */
+  private calculateOptimalTokens(extractedText: string, type: FileType): number {
+    // Base token estimate (input tokens)
+    const baseTokens = Math.ceil(extractedText.length / 4); // ~4 chars per token
+    
+    // Analyze content complexity
+    const complexityMultiplier = this.analyzeContentComplexity(extractedText);
+    
+    // Get type-specific multiplier
+    const typeMultiplier = this.getTypeMultiplier(type);
+    
+    // Calculate optimal tokens with bounds
+    const optimalTokens = Math.ceil(baseTokens * complexityMultiplier * typeMultiplier);
+    
+    // Apply bounds: minimum 800, maximum 4000
+    const finalTokens = Math.max(800, Math.min(optimalTokens, 4000));
+    
+    console.log(`📊 Token calculation: ${extractedText.length} chars → ${baseTokens} base tokens → ${finalTokens} optimal tokens (${type}, complexity: ${complexityMultiplier.toFixed(2)})`);
+    
+    return finalTokens;
+  }
+
+  /**
+   * Analyze content complexity to determine token multiplier
+   */
+  private analyzeContentComplexity(text: string): number {
+    const lines = text.split('\n').length;
+    const words = text.split(/\s+/).length;
+    const sentences = text.split(/[.!?]+/).length;
+    
+    // Count structured sections
+    const workExperienceCount = (text.match(/experience|employment|work history/gi) || []).length;
+    const educationCount = (text.match(/education|degree|university|college/gi) || []).length;
+    const skillsCount = (text.match(/skills|technologies|proficiencies/gi) || []).length;
+    const projectCount = (text.match(/project|portfolio|achievement/gi) || []).length;
+    
+    // Calculate complexity score
+    let complexityScore = 1.0; // Base multiplier
+    
+    // Length-based complexity
+    if (words > 1000) complexityScore += 0.3;
+    if (words > 2000) complexityScore += 0.2;
+    
+    // Structure-based complexity
+    if (workExperienceCount > 3) complexityScore += 0.2;
+    if (educationCount > 2) complexityScore += 0.1;
+    if (skillsCount > 1) complexityScore += 0.1;
+    if (projectCount > 2) complexityScore += 0.2;
+    
+    // Density-based complexity
+    const avgWordsPerLine = words / lines;
+    if (avgWordsPerLine > 15) complexityScore += 0.1; // Dense content
+    
+    return Math.min(complexityScore, 2.0); // Cap at 2.0x
+  }
+
+  /**
+   * Get type-specific token multiplier
+   */
+  private getTypeMultiplier(type: FileType): number {
+    switch (type) {
+      case 'resume': return 1.0; // Standard multiplier
+      case 'coverLetter': return 0.7; // Cover letters are typically shorter
+      case 'caseStudies': return 1.2; // Case studies can be complex
+      case 'linkedin': return 0.5; // LinkedIn data is structured
+      default: return 1.0;
+    }
   }
 
   /**
