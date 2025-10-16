@@ -408,6 +408,7 @@ export class FileUploadService {
       }
 
       // Create source record
+      console.log(`🔍 ABOUT TO CREATE SOURCE RECORD for ${type}`);
       const sourceId = await this.createSourceRecord(file, userId, storagePath, accessToken, checksum);
       console.log(`🔍 SOURCE ID CREATED: ${sourceId}`);
 
