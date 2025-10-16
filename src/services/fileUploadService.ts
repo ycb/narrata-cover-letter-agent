@@ -386,25 +386,8 @@ export class FileUploadService {
         console.warn('Failed to compute checksum for file:', error);
       }
 
-      // If resume or cover letter matches previously processed content, reuse existing data
-      if ((type === 'resume' || type === 'coverLetter') && checksum) {
-        const existingSource = await this.findExistingSourceByChecksum(userId, checksum);
-        if (existingSource) {
-          console.log(`♻️ Detected duplicate ${type} upload, reusing existing structured data.`);
-          window.dispatchEvent(new CustomEvent('file-upload-progress', { 
-            detail: { 
-              sourceId: existingSource.id, 
-              stage: 'duplicate', 
-              progress: 100, 
-              message: `${type === 'resume' ? 'Resume' : 'Cover letter'} already processed — using saved data.` 
-            } 
-          }));
-          return {
-            success: true,
-            fileId: existingSource.id
-          };
-        }
-      }
+      // Check for duplicates AFTER batching logic
+      // (We'll move this check later in the flow)
 
       // For manual text, skip storage upload and create virtual storage path
       let storagePath: string;
@@ -441,6 +424,26 @@ export class FileUploadService {
         if (shouldBatch) {
           console.log('✅ BATCHING: Returning early - stored for batching');
           return { success: true, fileId: sourceId };
+        }
+      }
+      
+      // Check for duplicates AFTER batching logic
+      if ((type === 'resume' || type === 'coverLetter') && checksum) {
+        const existingSource = await this.findExistingSourceByChecksum(userId, checksum);
+        if (existingSource) {
+          console.log(`♻️ Detected duplicate ${type} upload, reusing existing structured data.`);
+          window.dispatchEvent(new CustomEvent('file-upload-progress', { 
+            detail: { 
+              sourceId: existingSource.id, 
+              stage: 'duplicate', 
+              progress: 100, 
+              message: `${type === 'resume' ? 'Resume' : 'Cover letter'} already processed — using saved data.` 
+            } 
+          }));
+          return {
+            success: true,
+            fileId: existingSource.id
+          };
         }
       }
       
