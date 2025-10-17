@@ -45,6 +45,7 @@ import ShowAllStories from "./pages/ShowAllStories";
 import ShowAllLinks from "./pages/ShowAllLinks";
 import SavedSections from "./pages/SavedSections";
 import NewUserOnboarding from "./pages/NewUserOnboarding";
+import { EvaluationDashboard } from "./components/evaluation/EvaluationDashboard";
 
 import SignUp from "./pages/SignUp";
 import SignIn from "./pages/SignIn";
@@ -205,6 +206,12 @@ function AppLayout() {
           <ProtectedRoute>
             <Header />
             <FeedbackAdmin />
+          </ProtectedRoute>
+        } />
+        <Route path="/evaluation-dashboard" element={
+          <ProtectedRoute>
+            <Header />
+            <EvaluationDashboard />
           </ProtectedRoute>
         } />
         <Route path="/signup" element={<ProtectedRoute requireAuth={false}><SignUp /></ProtectedRoute>} />

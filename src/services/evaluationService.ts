@@ -44,14 +44,17 @@ export class EvaluationService {
     
     try {
       const response = await this.llmService.callOpenAI(prompt, 1000);
-      const result = JSON.parse(response);
+      
+      if (!response.success || !response.data) {
+        throw new Error(`LLM evaluation failed: ${response.error || 'No data returned'}`);
+      }
       
       // Validate the response structure
-      if (!this.isValidEvaluationResult(result)) {
+      if (!this.isValidEvaluationResult(response.data)) {
         throw new Error('Invalid evaluation result structure');
       }
       
-      return result;
+      return response.data as EvaluationResult;
     } catch (error) {
       console.error('Evaluation failed:', error);
       // Return default "No-Go" result on failure
