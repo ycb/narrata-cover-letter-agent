@@ -612,8 +612,8 @@ export class FileUploadService {
         outputTokens: JSON.stringify(structuredData).length / 4,
         latency: llmEndTime - llmStartTime,
         model: 'gpt-3.5-turbo',
-        inputText: extractedText.substring(0, 500), // First 500 chars
-        outputText: JSON.stringify(structuredData).substring(0, 500),
+        inputText: extractedText, // Full text
+        outputText: JSON.stringify(structuredData, null, 2), // Full structured data, formatted
         heuristics,
         evaluation
       });
