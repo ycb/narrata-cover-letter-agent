@@ -36,12 +36,12 @@ Upload 10 synthetic profiles (P01-P10) through Narrata UI and collect evaluation
 
 ### P03 - Riley Gupta (Mid, Fintech, 6 years)
 - **Status:** ✅ Completed
-- **Resume Upload:** ✅ P03_resume.txt (507 bytes) - 519.70ms
-- **Cover Letter Upload:** ✅ P03_cover_letter.txt (555 bytes) - 910.70ms
-- **LinkedIn Data:** ✅ Connected (mock data) - 617.60ms
-- **Console Logs:** ✅ Batching system working, both files stored for combined analysis
-- **Evaluation Results:** ⏳ Pending - batching system was broken, now disabled for individual processing
-- **Notes:** Consistent performance pattern, batching system disabled
+- **Resume Upload:** ✅ P03_resume.txt (507 bytes) - 5908.30ms total (Text extraction: 213.30ms, LLM analysis: 3342.80ms, Database save: 84.90ms)
+- **Cover Letter Upload:** ✅ P03_cover_letter.txt (555 bytes) - 6493.00ms total (Text extraction: 2.20ms, LLM analysis: 4517.30ms, Database save: 87.00ms)
+- **LinkedIn Data:** ✅ Connected (mock data) - 738.00ms
+- **Console Logs:** ✅ LLM processing working, structured data generated for both files
+- **Evaluation Results:** ⏳ Pending - evaluation service has JSON parsing error
+- **Notes:** Third complete test with fixed LLM processing system. Total processing time: ~13.1 seconds
 
 ### P04 - Morgan Patel (Mid, AI/ML, 9 years)
 - **Status:** ✅ Completed
