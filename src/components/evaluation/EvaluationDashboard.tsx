@@ -8,155 +8,119 @@ import { exportLogsToCsv } from '@/utils/evaluationExport';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
-interface EvaluationLog {
-  timestamp: string;
-  sessionId: string;
-  sourceId: string;
-  type: string;
-  inputTokens: number;
-  outputTokens: number;
-  latency: number;
+interface EvaluationRun {
+  id: string;
+  user_id: string;
+  session_id: string;
+  source_id: string;
+  file_type: string;
+  user_type: 'synthetic' | 'real';
+  
+  // Performance Metrics
+  text_extraction_latency_ms: number;
+  llm_analysis_latency_ms: number;
+  database_save_latency_ms: number;
+  total_latency_ms: number;
+  
+  // Token Usage
+  input_tokens: number;
+  output_tokens: number;
   model: string;
-  inputText: string;
-  outputText: string;
-  heuristics?: any;
-  evaluation?: {
-    accuracy: string;
-    relevance: string;
-    personalization: string;
-    clarity_tone: string;
-    framework: string;
-    go_nogo: string;
-    rationale: string;
-  };
-  performance?: {
-    inputLength: number;
-    outputLength: number;
-    tokenEfficiency: number;
-    processingSpeed: number;
-    model: string;
-  };
+  
+  // Evaluation Results
+  accuracy_score: string;
+  relevance_score: string;
+  personalization_score: string;
+  clarity_tone_score: string;
+  framework_score: string;
+  go_nogo_decision: string;
+  evaluation_rationale: string;
+  
+  // Heuristics Data
+  heuristics: any;
+  
+  // Metadata
+  created_at: string;
+  updated_at: string;
 }
 
-interface SupabaseSource {
+interface SourceData {
   id: string;
   file_name: string;
   file_type: string;
-  file_size: number;
-  processing_status: string;
+  raw_text: string;
   structured_data: any;
   created_at: string;
-  updated_at: string;
-  user_id: string;
 }
 
 export const EvaluationDashboard: React.FC = () => {
-  const [logs, setLogs] = useState<EvaluationLog[]>([]);
-  const [selectedLog, setSelectedLog] = useState<EvaluationLog | null>(null);
+  const [evaluationRuns, setEvaluationRuns] = useState<EvaluationRun[]>([]);
+  const [sources, setSources] = useState<SourceData[]>([]);
+  const [selectedRun, setSelectedRun] = useState<EvaluationRun | null>(null);
+  const [selectedSource, setSelectedSource] = useState<SourceData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [supabaseSources, setSupabaseSources] = useState<SupabaseSource[]>([]);
-  const [combinedData, setCombinedData] = useState<EvaluationLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [userTypeFilter, setUserTypeFilter] = useState<'all' | 'synthetic' | 'real'>('all');
   const { user } = useAuth();
 
   useEffect(() => {
-    const fetchLogs = () => {
+    if (!user?.id) return;
+    
+    const fetchEvaluationData = async () => {
+      setLoading(true);
       try {
-        const storedLogs = localStorage.getItem('narrata-eval-logs');
-        if (storedLogs) {
-          const parsedLogs = JSON.parse(storedLogs);
-          setLogs(parsedLogs);
-          console.log('📊 Loaded evaluation logs:', parsedLogs.length);
-        }
-      } catch (error) {
-        console.error('Failed to load evaluation logs:', error);
-      }
-    };
-
-    const fetchSupabaseSources = async () => {
-      if (!user?.id) return;
-      
-      try {
-        const { data, error } = await supabase
-          .from('sources')
+        // Fetch evaluation runs with user type filtering
+        let query = supabase
+          .from('evaluation_runs')
           .select('*')
           .eq('user_id', user.id)
-          .eq('processing_status', 'completed')
           .order('created_at', { ascending: false });
 
-        if (error) {
-          console.error('Failed to fetch sources from Supabase:', error);
+        if (userTypeFilter !== 'all') {
+          query = query.eq('user_type', userTypeFilter);
+        }
+
+        const { data: runs, error: runsError } = await query;
+
+        if (runsError) {
+          console.error('Failed to fetch evaluation runs:', runsError);
           return;
         }
 
-        setSupabaseSources(data || []);
-        console.log('📊 Loaded Supabase sources:', data?.length || 0);
+        // Fetch corresponding sources
+        if (runs && runs.length > 0) {
+          const sourceIds = runs.map(run => run.source_id);
+          const { data: sourcesData, error: sourcesError } = await supabase
+            .from('sources')
+            .select('id, file_name, file_type, raw_text, structured_data, created_at')
+            .in('id', sourceIds);
+
+          if (sourcesError) {
+            console.error('Failed to fetch sources:', sourcesError);
+            return;
+          }
+
+          setSources(sourcesData || []);
+        }
+
+        setEvaluationRuns(runs || []);
+        console.log('📊 Loaded evaluation runs:', runs?.length || 0);
       } catch (error) {
-        console.error('Failed to fetch sources from Supabase:', error);
+        console.error('Failed to fetch evaluation data:', error);
+      } finally {
+        setLoading(false);
       }
     };
 
+    fetchEvaluationData();
+  }, [user?.id, userTypeFilter]);
 
-    fetchLogs();
-    fetchSupabaseSources();
-
-    // Listen for new logs
-    const handleStorageChange = () => {
-      fetchLogs();
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('narrata-eval-log-updated', handleStorageChange);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('narrata-eval-log-updated', handleStorageChange);
-    };
-  }, [user?.id]);
-
-  // Combine data when both sources are loaded
-  useEffect(() => {
-    if (logs.length > 0 && supabaseSources.length > 0) {
-      const combined: EvaluationLog[] = [];
-      
-      // Match localStorage logs with Supabase sources by sourceId
-      logs.forEach(log => {
-        const matchingSource = supabaseSources.find(source => source.id === log.sourceId);
-        if (matchingSource) {
-          // Combine: localStorage input + Supabase output
-          combined.push({
-            ...log,
-            inputText: log.inputText, // Keep full input from localStorage
-            outputText: JSON.stringify(matchingSource.structured_data, null, 2), // Full output from Supabase
-            evaluation: {
-              accuracy: '✅ Accurate',
-              relevance: '✅ Relevant', 
-              personalization: '✅ Personalized',
-              clarity_tone: '✅ Clear',
-              framework: '✅ Structured',
-              go_nogo: '✅ Go',
-              rationale: 'Successfully processed and stored in Supabase'
-            }
-          });
-        } else {
-          // Keep original log if no Supabase match
-          combined.push(log);
-        }
-      });
-      
-      setCombinedData(combined);
-      console.log('📊 Combined data sources:', combined.length);
-    }
-  }, [logs, supabaseSources]);
-
-  const handleExport = () => {
-    exportLogsToCsv(logs);
-  };
-
-  const handleRowClick = (log: EvaluationLog) => {
-    setSelectedLog(log);
+  const handleRowClick = (run: EvaluationRun) => {
+    const source = sources.find(s => s.id === run.source_id);
+    setSelectedRun(run);
+    setSelectedSource(source || null);
     setIsModalOpen(true);
   };
-
 
   const getEvaluationBadgeColor = (value: string) => {
     if (value.includes('✅')) return 'bg-green-100 text-green-800';
@@ -166,20 +130,67 @@ export const EvaluationDashboard: React.FC = () => {
   };
 
   const calculateMetrics = () => {
-    const totalLogs = logs.length;
-    const avgLatency = logs.reduce((sum, log) => sum + (log.performance?.processingSpeed || 0), 0) / totalLogs || 0;
-    const goRate = logs.filter(log => log.evaluation?.go_nogo === '✅ Go').length / totalLogs || 0;
-    const accuracyRate = logs.filter(log => log.evaluation?.accuracy === '✅ Accurate').length / totalLogs || 0;
-    
+    if (evaluationRuns.length === 0) {
+      return {
+        totalEvaluations: 0,
+        avgLatency: 0,
+        goRate: 0,
+        accuracyRate: 0
+      };
+    }
+
+    const totalEvaluations = evaluationRuns.length;
+    const avgLatency = evaluationRuns.reduce((sum, run) => sum + (run.total_latency_ms || 0), 0) / totalEvaluations / 1000; // Convert to seconds
+    const goCount = evaluationRuns.filter(run => run.go_nogo_decision?.includes('✅')).length;
+    const goRate = (goCount / totalEvaluations) * 100;
+    const accurateCount = evaluationRuns.filter(run => run.accuracy_score?.includes('✅')).length;
+    const accuracyRate = (accurateCount / totalEvaluations) * 100;
+
     return {
-      totalLogs,
+      totalEvaluations,
       avgLatency: avgLatency.toFixed(2),
-      goRate: (goRate * 100).toFixed(1),
-      accuracyRate: (accuracyRate * 100).toFixed(1)
+      goRate: goRate.toFixed(1),
+      accuracyRate: accuracyRate.toFixed(1)
     };
   };
 
+  const handleExport = () => {
+    // Convert evaluation runs to CSV format
+    const csvData = evaluationRuns.map(run => {
+      const source = sources.find(s => s.id === run.source_id);
+      return {
+        timestamp: run.created_at,
+        session_id: run.session_id,
+        file_name: source?.file_name || 'Unknown',
+        file_type: run.file_type,
+        model: run.model,
+        total_latency_ms: run.total_latency_ms,
+        input_tokens: run.input_tokens,
+        output_tokens: run.output_tokens,
+        accuracy_score: run.accuracy_score,
+        relevance_score: run.relevance_score,
+        go_nogo_decision: run.go_nogo_decision,
+        evaluation_rationale: run.evaluation_rationale
+      };
+    });
+    
+    exportLogsToCsv(csvData);
+  };
+
   const metrics = calculateMetrics();
+
+  if (loading) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex justify-center items-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading evaluation data...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -199,19 +210,44 @@ export const EvaluationDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* User Type Filter */}
+      <div className="flex gap-2">
+        <Button 
+          onClick={() => setUserTypeFilter('all')}
+          size="sm"
+          variant={userTypeFilter === 'all' ? 'default' : 'outline'}
+        >
+          All Users ({evaluationRuns.length})
+        </Button>
+        <Button 
+          onClick={() => setUserTypeFilter('synthetic')}
+          size="sm"
+          variant={userTypeFilter === 'synthetic' ? 'default' : 'outline'}
+        >
+          Synthetic ({evaluationRuns.filter(r => r.user_type === 'synthetic').length})
+        </Button>
+        <Button 
+          onClick={() => setUserTypeFilter('real')}
+          size="sm"
+          variant={userTypeFilter === 'real' ? 'default' : 'outline'}
+        >
+          Real Users ({evaluationRuns.filter(r => r.user_type === 'real').length})
+        </Button>
+      </div>
+
       {/* Summary Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Evaluations</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Total Evaluations</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics.totalLogs}</div>
+            <div className="text-2xl font-bold">{metrics.totalEvaluations}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Avg. Latency</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Avg. Latency</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{metrics.avgLatency}s</div>
@@ -219,7 +255,7 @@ export const EvaluationDashboard: React.FC = () => {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Go Rate</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Go Rate</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{metrics.goRate}%</div>
@@ -227,7 +263,7 @@ export const EvaluationDashboard: React.FC = () => {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Accuracy Rate</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">Accuracy Rate</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{metrics.accuracyRate}%</div>
@@ -238,78 +274,93 @@ export const EvaluationDashboard: React.FC = () => {
       {/* Table View */}
       <Card>
         <CardHeader>
-          <CardTitle>Combined Evaluation Data ({combinedData.length})</CardTitle>
+          <CardTitle>Evaluation Runs ({evaluationRuns.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>#</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Timestamp</TableHead>
-                <TableHead>Model</TableHead>
-                <TableHead>Latency</TableHead>
-                <TableHead>Go/No-Go</TableHead>
-                <TableHead>Accuracy</TableHead>
-                <TableHead>Relevance</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {combinedData.map((log, index) => (
-                <TableRow 
-                  key={log.sessionId}
-                  className="cursor-pointer hover:bg-gray-50"
-                  onClick={() => handleRowClick(log)}
-                >
-                  <TableCell className="font-medium">#{combinedData.length - index}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{log.type}</Badge>
-                  </TableCell>
-                  <TableCell className="text-sm text-gray-600">
-                    {new Date(log.timestamp).toLocaleString()}
-                  </TableCell>
-                  <TableCell className="text-sm">{log.model}</TableCell>
-                  <TableCell className="text-sm">
-                    {log.performance?.processingSpeed?.toFixed(2)}s
-                  </TableCell>
-                  <TableCell>
-                    {log.evaluation && (
-                      <Badge className={getEvaluationBadgeColor(log.evaluation.go_nogo)}>
-                        {log.evaluation.go_nogo}
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {log.evaluation && (
-                      <Badge variant="outline" className={getEvaluationBadgeColor(log.evaluation.accuracy)}>
-                        {log.evaluation.accuracy}
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {log.evaluation && (
-                      <Badge variant="outline" className={getEvaluationBadgeColor(log.evaluation.relevance)}>
-                        {log.evaluation.relevance}
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRowClick(log);
-                      }}
-                    >
-                      View Details
-                    </Button>
-                  </TableCell>
+          {evaluationRuns.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <p>No evaluation data found.</p>
+              <p className="text-sm mt-2">Upload some files to generate evaluation data.</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>#</TableHead>
+                  <TableHead>File</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>User Type</TableHead>
+                  <TableHead>Timestamp</TableHead>
+                  <TableHead>Model</TableHead>
+                  <TableHead>Latency</TableHead>
+                  <TableHead>Go/No-Go</TableHead>
+                  <TableHead>Accuracy</TableHead>
+                  <TableHead>Relevance</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {evaluationRuns.map((run, index) => {
+                  const source = sources.find(s => s.id === run.source_id);
+                  return (
+                    <TableRow 
+                      key={run.id}
+                      className="cursor-pointer hover:bg-gray-50"
+                      onClick={() => handleRowClick(run)}
+                    >
+                      <TableCell className="font-medium">#{evaluationRuns.length - index}</TableCell>
+                      <TableCell className="text-sm">{source?.file_name || 'Unknown'}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{run.file_type}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant="outline" 
+                          className={run.user_type === 'synthetic' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}
+                        >
+                          {run.user_type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-gray-600">
+                        {new Date(run.created_at).toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-sm">{run.model}</TableCell>
+                      <TableCell className="text-sm">
+                        {(run.total_latency_ms / 1000).toFixed(2)}s
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getEvaluationBadgeColor(run.go_nogo_decision)}>
+                          {run.go_nogo_decision}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={getEvaluationBadgeColor(run.accuracy_score)}>
+                          {run.accuracy_score}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={getEvaluationBadgeColor(run.relevance_score)}>
+                          {run.relevance_score}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRowClick(run);
+                          }}
+                        >
+                          View Details
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
@@ -318,138 +369,138 @@ export const EvaluationDashboard: React.FC = () => {
         <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              Evaluation Details - #{logs.length - logs.findIndex(log => log.sessionId === selectedLog?.sessionId)} - {selectedLog?.type}
+              Evaluation Details - #{evaluationRuns.findIndex(r => r.id === selectedRun?.id) + 1} - {selectedRun?.file_type}
             </DialogTitle>
           </DialogHeader>
           
-          {selectedLog && (
+          {selectedRun && (
             <div className="space-y-6">
               {/* Basic Info */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
-                  <h4 className="font-medium text-sm text-gray-500">Type</h4>
-                  <p className="text-lg">{selectedLog.type}</p>
+                  <h4 className="font-medium text-sm text-gray-600">Type</h4>
+                  <p>{selectedRun.file_type}</p>
                 </div>
                 <div>
-                  <h4 className="font-medium text-sm text-gray-500">Model</h4>
-                  <p className="text-lg">{selectedLog.model}</p>
+                  <h4 className="font-medium text-sm text-gray-600">Model</h4>
+                  <p>{selectedRun.model}</p>
                 </div>
                 <div>
-                  <h4 className="font-medium text-sm text-gray-500">Latency</h4>
-                  <p className="text-lg">{selectedLog.performance?.processingSpeed?.toFixed(2)}s</p>
+                  <h4 className="font-medium text-sm text-gray-600">Latency</h4>
+                  <p>{(selectedRun.total_latency_ms / 1000).toFixed(2)}s</p>
                 </div>
                 <div>
-                  <h4 className="font-medium text-sm text-gray-500">Timestamp</h4>
-                  <p className="text-sm">{new Date(selectedLog.timestamp).toLocaleString()}</p>
+                  <h4 className="font-medium text-sm text-gray-600">Timestamp</h4>
+                  <p>{new Date(selectedRun.created_at).toLocaleString()}</p>
                 </div>
               </div>
 
-              {/* Evaluation Scores */}
-              {selectedLog.evaluation && (
+              {/* Evaluation Results */}
+              <div>
+                <h4 className="font-medium text-lg mb-3">LLM Judge Evaluation</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex justify-between">
+                    <span>Accuracy:</span>
+                    <Badge className={getEvaluationBadgeColor(selectedRun.accuracy_score)}>
+                      {selectedRun.accuracy_score}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Relevance:</span>
+                    <Badge className={getEvaluationBadgeColor(selectedRun.relevance_score)}>
+                      {selectedRun.relevance_score}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Personalization:</span>
+                    <Badge className={getEvaluationBadgeColor(selectedRun.personalization_score)}>
+                      {selectedRun.personalization_score}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Clarity & Tone:</span>
+                    <Badge className={getEvaluationBadgeColor(selectedRun.clarity_tone_score)}>
+                      {selectedRun.clarity_tone_score}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Framework:</span>
+                    <Badge className={getEvaluationBadgeColor(selectedRun.framework_score)}>
+                      {selectedRun.framework_score}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Go/No-Go:</span>
+                    <Badge className={getEvaluationBadgeColor(selectedRun.go_nogo_decision)}>
+                      {selectedRun.go_nogo_decision}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <h5 className="font-medium text-sm text-gray-600">Rationale:</h5>
+                  <p className="text-sm text-gray-700">{selectedRun.evaluation_rationale}</p>
+                </div>
+              </div>
+
+              {/* Input vs Output Comparison */}
+              {selectedSource && (
                 <div>
-                  <h4 className="font-medium mb-3">LLM Judge Evaluation</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <div className="flex justify-between items-center p-3 bg-gray-50 rounded">
-                      <span>Accuracy:</span>
-                      <Badge className={getEvaluationBadgeColor(selectedLog.evaluation.accuracy)}>
-                        {selectedLog.evaluation.accuracy}
-                      </Badge>
+                  <h4 className="font-medium text-lg mb-3">Input vs Output Comparison</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <h5 className="font-medium text-sm text-gray-600 mb-2">Input Text (Full)</h5>
+                      <div className="bg-gray-50 p-4 rounded-lg h-96 overflow-y-auto">
+                        <pre className="text-sm whitespace-pre-wrap">{selectedSource.raw_text}</pre>
+                      </div>
                     </div>
-                    <div className="flex justify-between items-center p-3 bg-gray-50 rounded">
-                      <span>Relevance:</span>
-                      <Badge className={getEvaluationBadgeColor(selectedLog.evaluation.relevance)}>
-                        {selectedLog.evaluation.relevance}
-                      </Badge>
-                    </div>
-                    <div className="flex justify-between items-center p-3 bg-gray-50 rounded">
-                      <span>Personalization:</span>
-                      <Badge className={getEvaluationBadgeColor(selectedLog.evaluation.personalization)}>
-                        {selectedLog.evaluation.personalization}
-                      </Badge>
-                    </div>
-                    <div className="flex justify-between items-center p-3 bg-gray-50 rounded">
-                      <span>Clarity & Tone:</span>
-                      <Badge className={getEvaluationBadgeColor(selectedLog.evaluation.clarity_tone)}>
-                        {selectedLog.evaluation.clarity_tone}
-                      </Badge>
-                    </div>
-                    <div className="flex justify-between items-center p-3 bg-gray-50 rounded">
-                      <span>Framework:</span>
-                      <Badge className={getEvaluationBadgeColor(selectedLog.evaluation.framework)}>
-                        {selectedLog.evaluation.framework}
-                      </Badge>
-                    </div>
-                    <div className="flex justify-between items-center p-3 bg-gray-50 rounded">
-                      <span>Go/No-Go:</span>
-                      <Badge className={getEvaluationBadgeColor(selectedLog.evaluation.go_nogo)}>
-                        {selectedLog.evaluation.go_nogo}
-                      </Badge>
+                    <div>
+                      <h5 className="font-medium text-sm text-gray-600 mb-2">LLM Output (Full)</h5>
+                      <div className="bg-gray-50 p-4 rounded-lg h-96 overflow-y-auto">
+                        <pre className="text-sm whitespace-pre-wrap">
+                          {JSON.stringify(selectedSource.structured_data, null, 2)}
+                        </pre>
+                      </div>
                     </div>
                   </div>
-                  {selectedLog.evaluation.rationale && (
-                    <div className="mt-4">
-                      <h5 className="font-medium text-sm text-gray-500">Rationale:</h5>
-                      <p className="text-sm text-gray-600 mt-1 p-3 bg-gray-50 rounded">
-                        {selectedLog.evaluation.rationale}
-                      </p>
-                    </div>
-                  )}
                 </div>
               )}
 
-              {/* Side-by-side Comparison */}
-              <div>
-                <h4 className="font-medium mb-3">Input vs Output Comparison</h4>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div>
-                    <h5 className="font-medium text-sm text-gray-500 mb-2">Input Text (Full)</h5>
-                    <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
-                      <pre className="text-sm whitespace-pre-wrap">{selectedLog.inputText}</pre>
-                    </div>
-                  </div>
-                  <div>
-                    <h5 className="font-medium text-sm text-gray-500 mb-2">LLM Output (Full)</h5>
-                    <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
-                      <pre className="text-sm whitespace-pre-wrap">{selectedLog.outputText}</pre>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
               {/* Performance Metrics */}
               <div>
-                <h4 className="font-medium mb-3">Performance Metrics</h4>
+                <h4 className="font-medium text-lg mb-3">Performance Metrics</h4>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  <div className="text-center p-3 bg-gray-50 rounded">
-                    <div className="text-2xl font-bold">{selectedLog.inputTokens}</div>
-                    <div className="text-sm text-gray-500">Input Tokens</div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">{selectedRun.input_tokens}</div>
+                    <div className="text-sm text-gray-600">Input Tokens</div>
                   </div>
-                  <div className="text-center p-3 bg-gray-50 rounded">
-                    <div className="text-2xl font-bold">{selectedLog.outputTokens}</div>
-                    <div className="text-sm text-gray-500">Output Tokens</div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">{selectedRun.output_tokens}</div>
+                    <div className="text-sm text-gray-600">Output Tokens</div>
                   </div>
-                  <div className="text-center p-3 bg-gray-50 rounded">
-                    <div className="text-2xl font-bold">{selectedLog.performance?.tokenEfficiency?.toFixed(2)}</div>
-                    <div className="text-sm text-gray-500">Token Efficiency</div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">
+                      {selectedRun.input_tokens > 0 ? (selectedRun.output_tokens / selectedRun.input_tokens).toFixed(2) : '0'}
+                    </div>
+                    <div className="text-sm text-gray-600">Token Efficiency</div>
                   </div>
-                  <div className="text-center p-3 bg-gray-50 rounded">
-                    <div className="text-2xl font-bold">{selectedLog.performance?.processingSpeed?.toFixed(2)}s</div>
-                    <div className="text-sm text-gray-500">Processing Speed</div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">{(selectedRun.total_latency_ms / 1000).toFixed(2)}s</div>
+                    <div className="text-sm text-gray-600">Processing Speed</div>
                   </div>
-                  <div className="text-center p-3 bg-gray-50 rounded">
-                    <div className="text-sm font-bold">{selectedLog.model}</div>
-                    <div className="text-sm text-gray-500">Model</div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold">{selectedRun.model}</div>
+                    <div className="text-sm text-gray-600">Model</div>
                   </div>
                 </div>
               </div>
 
               {/* Heuristics */}
-              {selectedLog.heuristics && (
+              {selectedRun.heuristics && (
                 <div>
-                  <h4 className="font-medium mb-3">Heuristics</h4>
+                  <h4 className="font-medium text-lg mb-3">Heuristics</h4>
                   <div className="bg-gray-50 p-4 rounded-lg">
-                    <pre className="text-sm overflow-auto">
-                      {JSON.stringify(selectedLog.heuristics, null, 2)}
+                    <pre className="text-sm whitespace-pre-wrap">
+                      {JSON.stringify(selectedRun.heuristics, null, 2)}
                     </pre>
                   </div>
                 </div>
