@@ -99,9 +99,18 @@ export const EvaluationDashboard: React.FC = () => {
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Evaluation Dashboard</h1>
-        <Button onClick={handleExport} size="sm">
-          Export to CSV
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={() => window.open('/new-user', '_blank')} 
+            size="sm"
+            variant="outline"
+          >
+            Test Upload
+          </Button>
+          <Button onClick={handleExport} size="sm">
+            Export to CSV
+          </Button>
+        </div>
       </div>
 
       {/* Summary Metrics */}
@@ -257,12 +266,41 @@ export const EvaluationDashboard: React.FC = () => {
                   <div>
                     <h4 className="font-medium">Heuristics</h4>
                     <div className="text-sm text-gray-600">
-                      <pre className="bg-gray-100 p-2 rounded text-xs overflow-auto">
+                      <pre className="bg-gray-100 p-2 rounded text-xs overflow-auto max-h-40">
                         {JSON.stringify(selectedLog.heuristics, null, 2)}
                       </pre>
                     </div>
                   </div>
                 )}
+
+                <div>
+                  <h4 className="font-medium">Input Text (First 500 chars)</h4>
+                  <div className="text-sm text-gray-600">
+                    <pre className="bg-gray-100 p-2 rounded text-xs overflow-auto max-h-40">
+                      {selectedLog.inputText}
+                    </pre>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-medium">LLM Output (First 500 chars)</h4>
+                  <div className="text-sm text-gray-600">
+                    <pre className="bg-gray-100 p-2 rounded text-xs overflow-auto max-h-40">
+                      {selectedLog.outputText}
+                    </pre>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-medium">Performance Metrics</h4>
+                  <div className="text-sm text-gray-600 space-y-1">
+                    <div>Input Tokens: {selectedLog.inputTokens}</div>
+                    <div>Output Tokens: {selectedLog.outputTokens}</div>
+                    <div>Token Efficiency: {selectedLog.performance?.tokenEfficiency?.toFixed(2)}</div>
+                    <div>Processing Speed: {selectedLog.performance?.processingSpeed?.toFixed(2)}s</div>
+                    <div>Model: {selectedLog.model}</div>
+                  </div>
+                </div>
               </div>
             ) : (
               <p className="text-gray-500">Select a log to view details</p>
