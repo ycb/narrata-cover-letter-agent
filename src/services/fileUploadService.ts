@@ -24,10 +24,12 @@ const getSupabaseConfig = () => ({
 // Import real services for text extraction and LLM analysis
 import { TextExtractionService } from './textExtractionService';
 import { LLMAnalysisService } from './openaiService';
+import { EvaluationService } from './evaluationService';
 
 export class FileUploadService {
   private textExtractionService: TextExtractionService;
   private llmAnalysisService: LLMAnalysisService;
+  private evaluationService: EvaluationService;
   
   // Simple batching state
   private pendingResume: { sourceId: string; text: string } | null = null;
@@ -36,6 +38,7 @@ export class FileUploadService {
   constructor() {
     this.textExtractionService = new TextExtractionService();
     this.llmAnalysisService = new LLMAnalysisService();
+    this.evaluationService = new EvaluationService();
   }
 
   /**
@@ -593,6 +596,13 @@ export class FileUploadService {
       // Run code-driven heuristics
       const heuristics = this.runHeuristics(structuredData, type);
 
+      // Run LLM judge evaluation
+      const evaluation = await this.evaluationService.evaluateStructuredData(
+        structuredData, 
+        extractedText, 
+        type as 'resume' | 'coverLetter' | 'linkedin'
+      );
+
       // Log for evaluation tracking
       this.logLLMGeneration({
         sessionId: `sess_${Date.now()}`,
@@ -604,7 +614,8 @@ export class FileUploadService {
         model: 'gpt-3.5-turbo',
         inputText: extractedText.substring(0, 500), // First 500 chars
         outputText: JSON.stringify(structuredData).substring(0, 500),
-        heuristics
+        heuristics,
+        evaluation
       });
 
     } catch (error) {
@@ -916,18 +927,22 @@ export class FileUploadService {
     inputText: string;
     outputText: string;
     heuristics?: any;
+    evaluation?: any;
   }): void {
     const logEntry = {
       timestamp: new Date().toISOString(),
       ...data,
       // Add evaluation metadata
-      evaluation: {
+      performance: {
         inputLength: data.inputText.length,
         outputLength: data.outputText.length,
         tokenEfficiency: data.outputTokens / data.inputTokens,
         processingSpeed: data.latency / 1000, // seconds
         model: data.model
-      }
+      },
+      // Include heuristics and evaluation results
+      heuristics: data.heuristics,
+      evaluation: data.evaluation
     };
 
     // Log to console for now (later we'll send to analytics)
