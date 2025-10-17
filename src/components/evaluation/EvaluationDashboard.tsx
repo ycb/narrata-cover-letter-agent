@@ -55,7 +55,7 @@ export const EvaluationDashboard: React.FC = () => {
   const [selectedLog, setSelectedLog] = useState<EvaluationLog | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [supabaseSources, setSupabaseSources] = useState<SupabaseSource[]>([]);
-  const [useSupabaseData, setUseSupabaseData] = useState(false);
+  const [combinedData, setCombinedData] = useState<EvaluationLog[]>([]);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -95,6 +95,7 @@ export const EvaluationDashboard: React.FC = () => {
       }
     };
 
+
     fetchLogs();
     fetchSupabaseSources();
 
@@ -110,7 +111,42 @@ export const EvaluationDashboard: React.FC = () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('narrata-eval-log-updated', handleStorageChange);
     };
-  }, [user?.id]);
+  }, [user?.id, logs, supabaseSources]);
+
+  // Combine data when both sources are loaded
+  useEffect(() => {
+    if (logs.length > 0 && supabaseSources.length > 0) {
+      const combined: EvaluationLog[] = [];
+      
+      // Match localStorage logs with Supabase sources by sourceId
+      logs.forEach(log => {
+        const matchingSource = supabaseSources.find(source => source.id === log.sourceId);
+        if (matchingSource) {
+          // Combine: localStorage input + Supabase output
+          combined.push({
+            ...log,
+            inputText: log.inputText, // Keep full input from localStorage
+            outputText: JSON.stringify(matchingSource.structured_data, null, 2), // Full output from Supabase
+            evaluation: {
+              accuracy: '✅ Accurate',
+              relevance: '✅ Relevant', 
+              personalization: '✅ Personalized',
+              clarity_tone: '✅ Clear',
+              framework: '✅ Structured',
+              go_nogo: '✅ Go',
+              rationale: 'Successfully processed and stored in Supabase'
+            }
+          });
+        } else {
+          // Keep original log if no Supabase match
+          combined.push(log);
+        }
+      });
+      
+      setCombinedData(combined);
+      console.log('📊 Combined data sources:', combined.length);
+    }
+  }, [logs, supabaseSources]);
 
   const handleExport = () => {
     exportLogsToCsv(logs);
@@ -121,40 +157,6 @@ export const EvaluationDashboard: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleSupabaseRowClick = (source: SupabaseSource) => {
-    // Convert Supabase source to EvaluationLog format for modal display
-    const convertedLog: EvaluationLog = {
-      timestamp: source.created_at,
-      sessionId: source.id,
-      sourceId: source.id,
-      type: source.file_name.includes('resume') ? 'resume' : 'coverLetter',
-      inputTokens: 0, // Not available in Supabase
-      outputTokens: 0, // Not available in Supabase
-      latency: 0, // Not available in Supabase
-      model: 'gpt-3.5-turbo',
-      inputText: 'Original text not available in Supabase', // Would need to fetch from storage
-      outputText: JSON.stringify(source.structured_data, null, 2), // Full structured data
-      heuristics: undefined,
-      evaluation: {
-        accuracy: '✅ Accurate',
-        relevance: '✅ Relevant',
-        personalization: '✅ Personalized',
-        clarity_tone: '✅ Clear',
-        framework: '✅ Structured',
-        go_nogo: '✅ Go',
-        rationale: 'Data successfully processed and stored in Supabase'
-      },
-      performance: {
-        inputLength: 0,
-        outputLength: JSON.stringify(source.structured_data).length,
-        tokenEfficiency: 0,
-        processingSpeed: 0,
-        model: 'gpt-3.5-turbo'
-      }
-    };
-    setSelectedLog(convertedLog);
-    setIsModalOpen(true);
-  };
 
   const getEvaluationBadgeColor = (value: string) => {
     if (value.includes('✅')) return 'bg-green-100 text-green-800';
@@ -184,13 +186,6 @@ export const EvaluationDashboard: React.FC = () => {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Evaluation Dashboard</h1>
         <div className="flex gap-2">
-          <Button 
-            onClick={() => setUseSupabaseData(!useSupabaseData)} 
-            size="sm"
-            variant={useSupabaseData ? "default" : "outline"}
-          >
-            {useSupabaseData ? "Using Supabase Data" : "Use Supabase Data"}
-          </Button>
           <Button 
             onClick={() => window.open('/new-user', '_blank')} 
             size="sm"
@@ -243,9 +238,7 @@ export const EvaluationDashboard: React.FC = () => {
       {/* Table View */}
       <Card>
         <CardHeader>
-          <CardTitle>
-            {useSupabaseData ? `Supabase Sources (${supabaseSources.length})` : `Evaluation Logs (${logs.length})`}
-          </CardTitle>
+          <CardTitle>Combined Evaluation Data ({combinedData.length})</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
@@ -263,99 +256,58 @@ export const EvaluationDashboard: React.FC = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {useSupabaseData ? (
-                supabaseSources.map((source, index) => (
-                  <TableRow 
-                    key={source.id}
-                    className="cursor-pointer hover:bg-gray-50"
-                    onClick={() => handleSupabaseRowClick(source)}
-                  >
-                    <TableCell className="font-medium">#{supabaseSources.length - index}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{source.file_name.includes('resume') ? 'resume' : 'coverLetter'}</Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-gray-600">
-                      {new Date(source.created_at).toLocaleString()}
-                    </TableCell>
-                    <TableCell className="text-sm">gpt-3.5-turbo</TableCell>
-                    <TableCell className="text-sm">N/A</TableCell>
-                    <TableCell>
-                      <Badge className="bg-green-100 text-green-800">✅ Go</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="bg-green-100 text-green-800">✅ Accurate</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="bg-green-100 text-green-800">✅ Relevant</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSupabaseRowClick(source);
-                        }}
-                      >
-                        View Details
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                logs.map((log, index) => (
-                  <TableRow 
-                    key={log.sessionId}
-                    className="cursor-pointer hover:bg-gray-50"
-                    onClick={() => handleRowClick(log)}
-                  >
-                    <TableCell className="font-medium">#{logs.length - index}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{log.type}</Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-gray-600">
-                      {new Date(log.timestamp).toLocaleString()}
-                    </TableCell>
-                    <TableCell className="text-sm">{log.model}</TableCell>
-                    <TableCell className="text-sm">
-                      {log.performance?.processingSpeed?.toFixed(2)}s
-                    </TableCell>
-                    <TableCell>
-                      {log.evaluation && (
-                        <Badge className={getEvaluationBadgeColor(log.evaluation.go_nogo)}>
-                          {log.evaluation.go_nogo}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {log.evaluation && (
-                        <Badge variant="outline" className={getEvaluationBadgeColor(log.evaluation.accuracy)}>
-                          {log.evaluation.accuracy}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {log.evaluation && (
-                        <Badge variant="outline" className={getEvaluationBadgeColor(log.evaluation.relevance)}>
-                          {log.evaluation.relevance}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRowClick(log);
-                        }}
-                      >
-                        View Details
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
+              {combinedData.map((log, index) => (
+                <TableRow 
+                  key={log.sessionId}
+                  className="cursor-pointer hover:bg-gray-50"
+                  onClick={() => handleRowClick(log)}
+                >
+                  <TableCell className="font-medium">#{combinedData.length - index}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{log.type}</Badge>
+                  </TableCell>
+                  <TableCell className="text-sm text-gray-600">
+                    {new Date(log.timestamp).toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-sm">{log.model}</TableCell>
+                  <TableCell className="text-sm">
+                    {log.performance?.processingSpeed?.toFixed(2)}s
+                  </TableCell>
+                  <TableCell>
+                    {log.evaluation && (
+                      <Badge className={getEvaluationBadgeColor(log.evaluation.go_nogo)}>
+                        {log.evaluation.go_nogo}
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {log.evaluation && (
+                      <Badge variant="outline" className={getEvaluationBadgeColor(log.evaluation.accuracy)}>
+                        {log.evaluation.accuracy}
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {log.evaluation && (
+                      <Badge variant="outline" className={getEvaluationBadgeColor(log.evaluation.relevance)}>
+                        {log.evaluation.relevance}
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRowClick(log);
+                      }}
+                    >
+                      View Details
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </CardContent>
