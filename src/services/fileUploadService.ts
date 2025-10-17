@@ -436,7 +436,9 @@ export class FileUploadService {
       
       // Handle batching for resume and cover letter
       if (type === 'resume' || type === 'coverLetter') {
+        console.log(`🔍 DEBUG: About to call handleBatching for type: ${type}`);
         const shouldBatch = await this.handleBatching(sourceId, file, content, type, accessToken);
+        console.log(`🔍 DEBUG: handleBatching returned: ${shouldBatch}`);
         if (shouldBatch) {
           console.log(`🔄 ${type} stored for batching - waiting for both files`);
           return { success: true, fileId: sourceId };
