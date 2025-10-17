@@ -590,6 +590,23 @@ export class FileUploadService {
       const dbDuration = (dbEndTime - dbStartTime).toFixed(2);
       console.warn(`⏱️ Database save took: ${dbDuration}ms`);
 
+      // Run code-driven heuristics
+      const heuristics = this.runHeuristics(structuredData, type);
+
+      // Log for evaluation tracking
+      this.logLLMGeneration({
+        sessionId: `sess_${Date.now()}`,
+        sourceId,
+        type,
+        inputTokens: extractedText.length / 4, // Rough estimate
+        outputTokens: JSON.stringify(structuredData).length / 4,
+        latency: llmEndTime - llmStartTime,
+        model: 'gpt-3.5-turbo',
+        inputText: extractedText.substring(0, 500), // First 500 chars
+        outputText: JSON.stringify(structuredData).substring(0, 500),
+        heuristics
+      });
+
     } catch (error) {
       console.error('Content processing error:', error);
       await this.updateProcessingStatus(
@@ -817,6 +834,124 @@ export class FileUploadService {
       // Clear batching data on error
       this.pendingResume = null;
       this.pendingCoverLetter = null;
+    }
+  }
+
+  /**
+   * Run code-driven heuristics for quality assessment
+   */
+  private runHeuristics(structuredData: any, type: FileType): any {
+    const heuristics = {
+      hasWorkExperience: false,
+      hasEducation: false,
+      hasSkills: false,
+      hasContactInfo: false,
+      workExperienceCount: 0,
+      educationCount: 0,
+      skillsCount: 0,
+      hasQuantifiableMetrics: false,
+      hasCompanyNames: false,
+      hasJobTitles: false,
+      dataCompleteness: 0
+    };
+
+    // Check work experience
+    if (structuredData.workExperience && Array.isArray(structuredData.workExperience)) {
+      heuristics.hasWorkExperience = true;
+      heuristics.workExperienceCount = structuredData.workExperience.length;
+      
+      // Check for quantifiable metrics
+      const workText = JSON.stringify(structuredData.workExperience);
+      heuristics.hasQuantifiableMetrics = /\d+%|\d+\+|\d+[kK]|\$[\d,]+|increased|decreased|improved|reduced|saved|grew|scaled/i.test(workText);
+      
+      // Check for company names and job titles
+      heuristics.hasCompanyNames = /company|inc|corp|ltd|llc|technologies|solutions/i.test(workText);
+      heuristics.hasJobTitles = /manager|director|engineer|analyst|specialist|coordinator|lead|senior|junior/i.test(workText);
+    }
+
+    // Check education
+    if (structuredData.education && Array.isArray(structuredData.education)) {
+      heuristics.hasEducation = true;
+      heuristics.educationCount = structuredData.education.length;
+    }
+
+    // Check skills
+    if (structuredData.skills && Array.isArray(structuredData.skills)) {
+      heuristics.hasSkills = true;
+      heuristics.skillsCount = structuredData.skills.length;
+    }
+
+    // Check contact info
+    if (structuredData.contactInfo) {
+      heuristics.hasContactInfo = !!(structuredData.contactInfo.email || structuredData.contactInfo.phone || structuredData.contactInfo.linkedin);
+    }
+
+    // Calculate data completeness score (0-100)
+    const checks = [
+      heuristics.hasWorkExperience,
+      heuristics.hasEducation,
+      heuristics.hasSkills,
+      heuristics.hasContactInfo,
+      heuristics.hasQuantifiableMetrics,
+      heuristics.hasCompanyNames,
+      heuristics.hasJobTitles
+    ];
+    heuristics.dataCompleteness = Math.round((checks.filter(Boolean).length / checks.length) * 100);
+
+    console.log('🔍 HEURISTICS:', heuristics);
+    return heuristics;
+  }
+
+  /**
+   * Log LLM generation for evaluation tracking
+   */
+  private logLLMGeneration(data: {
+    sessionId: string;
+    sourceId: string;
+    type: FileType;
+    inputTokens: number;
+    outputTokens: number;
+    latency: number;
+    model: string;
+    inputText: string;
+    outputText: string;
+    heuristics?: any;
+  }): void {
+    const logEntry = {
+      timestamp: new Date().toISOString(),
+      ...data,
+      // Add evaluation metadata
+      evaluation: {
+        inputLength: data.inputText.length,
+        outputLength: data.outputText.length,
+        tokenEfficiency: data.outputTokens / data.inputTokens,
+        processingSpeed: data.latency / 1000, // seconds
+        model: data.model
+      }
+    };
+
+    // Log to console for now (later we'll send to analytics)
+    console.log('📊 EVAL LOG:', JSON.stringify(logEntry, null, 2));
+    
+    // Store in localStorage for now (later we'll use proper analytics)
+    try {
+      const existingLogs = JSON.parse(localStorage.getItem('narrata-eval-logs') || '[]');
+      existingLogs.push(logEntry);
+      localStorage.setItem('narrata-eval-logs', JSON.stringify(existingLogs.slice(-50))); // Keep last 50
+    } catch (error) {
+      console.warn('Failed to store eval log:', error);
+    }
+  }
+
+  /**
+   * Get evaluation logs for analysis
+   */
+  getEvaluationLogs(): any[] {
+    try {
+      return JSON.parse(localStorage.getItem('narrata-eval-logs') || '[]');
+    } catch (error) {
+      console.warn('Failed to retrieve eval logs:', error);
+      return [];
     }
   }
 }
