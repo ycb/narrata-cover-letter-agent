@@ -1,0 +1,8 @@
+Dear Hiring Committee,
+
+I build fast paths to yes in checkout. At PayWave I grew conversion by 15% with a steady test cadence and simplified forms, and partnered with Risk to reduce false positives by 8%. Earlier at NeoBanker I improved KYC time‑to‑verify by 28% through API consolidation and clearer states.
+
+Your PM, Checkout Growth role aligns with my strengths in experiment design, instrumentation, and cross‑team execution. I'd focus on shaving milliseconds, clarifying friction points, and sequencing bets to compound impact.
+
+Regards,
+Riley

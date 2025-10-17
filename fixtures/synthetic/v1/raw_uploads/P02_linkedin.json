@@ -1,0 +1,91 @@
+{
+  "id": "pdl_002",
+  "full_name": "Jordan Alvarez",
+  "first_name": "Jordan",
+  "last_name": "Alvarez",
+  "linkedin_url": "https://www.linkedin.com/in/jordan-alvarez-pm",
+  "linkedin_username": "jordan-alvarez-pm",
+  "location_name": "Los Angeles, CA, US",
+  "location_locality": "Los Angeles",
+  "location_region": "CA",
+  "location_country": "US",
+  "summary": "PM with 7 years across solar SaaS and energy analytics. Comfortable with device telemetry, alert tuning, and fleet dashboards.",
+  "headline": "Senior Product Manager | ClimateTech & Energy Analytics",
+  "experience": [
+    {
+      "company": {
+        "name": "Sunlytic",
+        "website": "https://sunlytic.com",
+        "size": "51-200",
+        "industry": "Renewable Energy",
+        "location": {
+          "name": "Los Angeles, CA",
+          "locality": "Los Angeles",
+          "region": "CA",
+          "country": "US"
+        }
+      },
+      "title": {
+        "name": "Senior Product Manager",
+        "role": "Product Manager",
+        "levels": ["Senior"]
+      },
+      "start_date": "2022-01",
+      "end_date": "2025-01",
+      "is_primary": true,
+      "summary": "Launched fleet health monitoring; reduced critical outages 14%. Added SLA reporting for installers; improved response time 18%."
+    },
+    {
+      "company": {
+        "name": "AuricSoft",
+        "website": "https://auricsoft.com",
+        "size": "11-50",
+        "industry": "Software Development",
+        "location": {
+          "name": "Irvine, CA",
+          "locality": "Irvine",
+          "region": "CA",
+          "country": "US"
+        }
+      },
+      "title": {
+        "name": "Product Manager",
+        "role": "Product Manager"
+      },
+      "start_date": "2019-01",
+      "end_date": "2022-01",
+      "summary": "Improved quoting tools; +9% win rate in SMB installer segment."
+    }
+  ],
+  "education": [
+    {
+      "school": {
+        "name": "UC Irvine",
+        "website": "https://uci.edu",
+        "location": {
+          "name": "Irvine, CA",
+          "locality": "Irvine",
+          "region": "CA",
+          "country": "US"
+        }
+      },
+      "degrees": ["Bachelor of Science"],
+      "majors": ["Electrical Engineering"],
+      "start_date": "2013-09",
+      "end_date": "2017-06"
+    }
+  ],
+  "skills": [
+    "Product Management",
+    "ClimateTech",
+    "Energy Analytics",
+    "Telemetry",
+    "Alerting",
+    "Dashboards",
+    "Stakeholder Management",
+    "Solar SaaS",
+    "Fleet Management",
+    "IoT",
+    "Data Analytics"
+  ]
+}

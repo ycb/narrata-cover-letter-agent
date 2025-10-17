@@ -1,0 +1,13 @@
+SUMMARY
+PM with 6 years in payments and checkout optimization. Strong in experimentation and event modeling.
+
+EXPERIENCE
+PayWave — PM, Checkout (2021–2025), New York, NY
+• Increased checkout conversion 15% via experiment backlog and UX simplification.
+• Reduced false positives 8% collaborating with Risk on dynamic rules.
+
+NeoBanker — APM (2019–2021), New York, NY
+• Reduced KYC time‑to‑verify by 28% through API consolidation and clearer states.
+
+EDUCATION
+B.S. Information Systems, NYU

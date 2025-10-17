@@ -1,0 +1,8 @@
+Hello,
+
+I lead ML features people actually adopt. At TalentGraph we paired explainability with human‑in‑the‑loop controls and grew ML usage 10× in a year. We also made system behavior visible through a dashboard that joined model metrics with user feedback.
+
+In your Applied AI role, I'd focus on trust, workflow fit, and measurable productivity: sequencing releases, surfacing reasons, and giving users control.
+
+Best,
+Morgan

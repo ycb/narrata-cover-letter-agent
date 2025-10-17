@@ -1,0 +1,13 @@
+SUMMARY
+Platform PM with 8 years in developer experience, reliability SLAs, and migrations.
+
+EXPERIENCE
+StratusWorks — Sr PM, Platform (2019–2025), Austin, TX
+• Led monolith→services migration; incidents -27%.
+• Introduced feature flags and kill‑switches to de‑risk launches.
+
+DeviceCloud — PM (2015–2019), Austin, TX
+• SDKs and CLI tooling improved internal DX satisfaction 30%.
+
+EDUCATION
+B.S. Computer Engineering, UT Austin

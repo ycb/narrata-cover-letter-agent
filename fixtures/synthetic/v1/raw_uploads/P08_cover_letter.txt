@@ -1,0 +1,8 @@
+Dear Hiring Team,
+
+I'm transitioning from QA/operations into product management. At TestCraft I created a regression suite that reduced release defects by ~20% and set up triage rituals that improved accountability. In operations I built onboarding playbooks and vendor SLAs.
+
+I bring disciplined execution—tight specs, crisp acceptance criteria, and curiosity to learn quickly as an APM.
+
+Best,
+Priya

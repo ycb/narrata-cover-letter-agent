@@ -1,0 +1,13 @@
+SUMMARY
+Senior PM leading ML-assisted workflows. Specializes in explainability and phased rollout.
+
+EXPERIENCE
+TalentGraph — Sr PM, ML Experiences (2020–2025), Boston, MA
+• Introduced XAI reasons + human-in-the-loop; 10× ML usage YoY.
+• Built feedback dashboard that unified precision/recall and user ratings.
+
+AdPilot — Product Manager (2017–2020), Boston, MA
+• Sequenced recommendations into existing workflows; +9% adoption.
+
+EDUCATION
+M.S. Human-Computer Interaction, Northeastern

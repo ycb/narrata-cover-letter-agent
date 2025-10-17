@@ -1,0 +1,13 @@
+SUMMARY
+Early-career PM transitioning from QA/operations; strong in process and documentation.
+
+EXPERIENCE
+TestCraft — QA Analyst (2022–2024), Toronto, ON
+• Built regression suite; cut release defects ~20%.
+• Organized bug triage and release notes cadence.
+
+HelpLoop — Operations Coordinator (2020–2022), Toronto, ON
+• Owned vendor onboarding playbooks and SLAs.
+
+EDUCATION
+B.S. Information Technology, University of Toronto

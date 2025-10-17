@@ -437,16 +437,16 @@ export class FileUploadService {
         }
       }
       
-      // Handle batching for resume and cover letter
-      if (type === 'resume' || type === 'coverLetter') {
-        console.log(`🔍 DEBUG: About to call handleBatching for type: ${type}`);
-        const shouldBatch = await this.handleBatching(sourceId, file, content, type, accessToken);
-        console.log(`🔍 DEBUG: handleBatching returned: ${shouldBatch}`);
-        if (shouldBatch) {
-          console.log(`🔄 ${type} stored for batching - waiting for both files`);
-          return { success: true, fileId: sourceId };
-        }
-      }
+      // BATCHING DISABLED - GPT-3.5-turbo is fast enough for individual processing
+      // if (type === 'resume' || type === 'coverLetter') {
+      //   console.log(`🔍 DEBUG: About to call handleBatching for type: ${type}`);
+      //   const shouldBatch = await this.handleBatching(sourceId, file, content, type, accessToken);
+      //   console.log(`🔍 DEBUG: handleBatching returned: ${shouldBatch}`);
+      //   if (shouldBatch) {
+      //     console.log(`🔄 ${type} stored for batching - waiting for both files`);
+      //     return { success: true, fileId: sourceId };
+      //   }
+      // }
       
       // Process content immediately (non-batched or other types)
       if (contentSize < FILE_UPLOAD_CONFIG.IMMEDIATE_PROCESSING_THRESHOLD) {

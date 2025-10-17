@@ -1,0 +1,93 @@
+{
+  "id": "pdl_010",
+  "full_name": "Sophia Rivera",
+  "first_name": "Sophia",
+  "last_name": "Rivera",
+  "linkedin_url": "https://www.linkedin.com/in/sophia-rivera-pm",
+  "linkedin_username": "sophia-rivera-pm",
+  "location_name": "Los Angeles, CA, US",
+  "location_locality": "Los Angeles",
+  "location_region": "CA",
+  "location_country": "US",
+  "summary": "Director of Product with 12 years across SaaS growth and platform; built a 7‑PM org and delivered multi‑product roadmap.",
+  "headline": "Director of Product | SaaS Growth & Platform Leadership",
+  "experience": [
+    {
+      "company": {
+        "name": "AtlasSuite",
+        "website": "https://atlassuite.com",
+        "size": "201-500",
+        "industry": "Software Development",
+        "location": {
+          "name": "Los Angeles, CA",
+          "locality": "Los Angeles",
+          "region": "CA",
+          "country": "US"
+        }
+      },
+      "title": {
+        "name": "Director of Product",
+        "role": "Product Manager",
+        "levels": ["Director"]
+      },
+      "start_date": "2020-01",
+      "end_date": "2025-01",
+      "is_primary": true,
+      "summary": "Scaled PM org 3→7; established operating cadence and KPIs. Expanded ARR 24% via pricing/packaging and two launches."
+    },
+    {
+      "company": {
+        "name": "Queryly",
+        "website": "https://queryly.com",
+        "size": "51-200",
+        "industry": "Software Development",
+        "location": {
+          "name": "Los Angeles, CA",
+          "locality": "Los Angeles",
+          "region": "CA",
+          "country": "US"
+        }
+      },
+      "title": {
+        "name": "Senior Product Manager",
+        "role": "Product Manager",
+        "levels": ["Senior"]
+      },
+      "start_date": "2016-01",
+      "end_date": "2020-01",
+      "summary": "Activation +18% through onboarding and integrations."
+    }
+  ],
+  "education": [
+    {
+      "school": {
+        "name": "UCLA",
+        "website": "https://ucla.edu",
+        "location": {
+          "name": "Los Angeles, CA",
+          "locality": "Los Angeles",
+          "region": "CA",
+          "country": "US"
+        }
+      },
+      "degrees": ["Bachelor of Science"],
+      "majors": ["Computer Science"],
+      "start_date": "2008-09",
+      "end_date": "2012-06"
+    }
+  ],
+  "skills": [
+    "Product Management",
+    "Leadership",
+    "Strategy",
+    "Coaching",
+    "Pricing",
+    "Packaging",
+    "Portfolio Management",
+    "SaaS Growth",
+    "Platform Development",
+    "Team Building",
+    "ARR Growth",
+    "Product Roadmap"
+  ]
+}

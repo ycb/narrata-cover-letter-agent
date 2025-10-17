@@ -1,0 +1,13 @@
+SUMMARY
+PM with 7 years across solar SaaS and energy analytics. Comfortable with device telemetry, alert tuning, and fleet dashboards.
+
+EXPERIENCE
+Sunlytic — Senior PM (2022–2025), Los Angeles, CA
+• Launched fleet health monitoring; reduced critical outages 14%.
+• Added SLA reporting for installers; improved response time 18%.
+
+AuricSoft — Product Manager (2019–2022), Irvine, CA
+• Improved quoting tools; +9% win rate in SMB installer segment.
+
+EDUCATION
+B.S. Electrical Engineering, UC Irvine

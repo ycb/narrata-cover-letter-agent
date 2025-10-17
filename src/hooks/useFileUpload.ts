@@ -28,7 +28,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
     onComplete,
     onError,
     maxFiles = 5,
-    allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+    allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain', 'text/markdown'],
     maxFileSize = 5 * 1024 * 1024 // 5MB
   } = options;
   // Listen for file upload progress events from the service

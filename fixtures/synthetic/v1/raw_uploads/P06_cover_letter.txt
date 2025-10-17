@@ -1,0 +1,8 @@
+Dear Hiring Manager,
+
+I deliver platform changes that reduce risk and speed delivery. At StratusWorks I led a monolith‑to‑services program that cut incidents by 27% and introduced feature flags and kill‑switches to de‑risk launches. Earlier I shipped SDKs and tooling that improved developer satisfaction by 30%.
+
+I translate reliability into business outcomes by pairing SLAs with product velocity and customer impact.
+
+Sincerely,
+Diego

@@ -8,7 +8,9 @@ export const FILE_UPLOAD_CONFIG = {
   ALLOWED_TYPES: {
     RESUME: [
       'application/pdf',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain',
+      'text/markdown'
     ],
     COVER_LETTER: [
       'text/plain',
@@ -25,7 +27,7 @@ export const FILE_UPLOAD_CONFIG = {
   
   // File extensions for validation
   ALLOWED_EXTENSIONS: {
-    RESUME: ['.pdf', '.docx'],
+    RESUME: ['.pdf', '.docx', '.txt', '.md'],
     COVER_LETTER: ['.txt', '.pdf', '.md', '.docx'],
     CASE_STUDIES: ['.txt', '.pdf', '.md']
   },

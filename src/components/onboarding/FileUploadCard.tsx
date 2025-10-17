@@ -175,9 +175,18 @@ export function FileUploadCard({
   }, [error]);
 
   const handleCoverLetterTextChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setCoverLetterText(e.target.value);
+    const newText = e.target.value;
+    setCoverLetterText(newText);
     if (error) setError(null);
-  }, [error]);
+    
+    // Auto-process text when it's pasted (more than 100 characters suggests a paste)
+    if (newText.length > 100 && onTextInput) {
+      // Small delay to ensure the paste is complete
+      setTimeout(() => {
+        onTextInput(newText.trim());
+      }, 500);
+    }
+  }, [error, onTextInput]);
 
   /**
    * Handle file upload - ACTUALLY uploads and processes the file

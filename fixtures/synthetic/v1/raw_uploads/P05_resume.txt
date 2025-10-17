@@ -1,0 +1,13 @@
+SUMMARY
+PM with 7 years in digital health, clinician workflows, and patient adherence.
+
+EXPERIENCE
+Clinio — Product Manager (2021–2025), Chicago, IL
+• Remote‑monitoring flows improved patient adherence 12%.
+• Reduced alert fatigue 18% via thresholds and batching.
+
+CarePad — APM (2019–2021), Chicago, IL
+• EHR intake forms decreased completion time 20%.
+
+EDUCATION
+B.S. Biomedical Engineering, UIUC
