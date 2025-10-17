@@ -111,7 +111,7 @@ export const EvaluationDashboard: React.FC = () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('narrata-eval-log-updated', handleStorageChange);
     };
-  }, [user?.id, logs, supabaseSources]);
+  }, [user?.id]);
 
   // Combine data when both sources are loaded
   useEffect(() => {
