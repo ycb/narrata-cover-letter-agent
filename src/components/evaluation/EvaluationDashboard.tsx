@@ -449,13 +449,13 @@ export const EvaluationDashboard: React.FC = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <h5 className="font-medium text-sm text-gray-600 mb-2">Input Text (Full)</h5>
-                      <div className="bg-gray-50 p-4 rounded-lg h-96 overflow-y-auto">
+                      <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
                         <pre className="text-sm whitespace-pre-wrap">{selectedSource.raw_text}</pre>
                       </div>
                     </div>
                     <div>
                       <h5 className="font-medium text-sm text-gray-600 mb-2">LLM Output (Full)</h5>
-                      <div className="bg-gray-50 p-4 rounded-lg h-96 overflow-y-auto">
+                      <div className="bg-gray-50 p-4 rounded-lg min-h-96 max-h-screen overflow-y-auto">
                         <pre className="text-sm whitespace-pre-wrap">
                           {JSON.stringify(selectedSource.structured_data, null, 2)}
                         </pre>
