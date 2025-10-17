@@ -12,21 +12,27 @@ Upload 10 synthetic profiles (P01-P10) through Narrata UI and collect evaluation
 
 ### P01 - Avery Chen (Mid, SaaS, 8 years)
 - **Status:** ✅ Completed
-- **Resume Upload:** ✅ P01_resume.txt (806 bytes) - 895.50ms
-- **Cover Letter Upload:** ✅ P01_cover_letter.txt (720 bytes) - 433.50ms
-- **LinkedIn Data:** ✅ Connected (mock data) - 809.00ms
-- **Console Logs:** ✅ Batching system working, both files stored for combined analysis
-- **Evaluation Results:** ⏳ Pending - batching system was broken, now disabled for individual processing
-- **Notes:** File uploads working perfectly, .txt files now supported, batching system disabled
+- **Resume Upload:** ✅ P01_resume.txt (806 bytes) - 6604.70ms total
+  - Text extraction: 9.90ms
+  - LLM analysis: 3970.30ms (GPT-3.5-turbo, 800 tokens)
+  - Database save: 91.20ms
+- **Cover Letter Upload:** ✅ P01_cover_letter.txt (720 bytes) - 5759.40ms total
+  - Text extraction: 2.60ms
+  - LLM analysis: 2213.20ms (GPT-3.5-turbo, 800 tokens)
+  - Database save: 133.30ms
+- **LinkedIn Data:** ✅ Connected (mock data) - 766.70ms
+- **Console Logs:** ✅ LLM processing working, structured data generated for both files
+- **Evaluation Results:** ⏳ Pending - evaluation service has JSON parsing error
+- **Notes:** First complete test with fixed LLM processing system. Total processing time: ~13.1 seconds
 
 ### P02 - Jordan Alvarez (Mid, ClimateTech, 7 years)
 - **Status:** ✅ Completed
-- **Resume Upload:** ✅ P02_resume.txt (511 bytes) - 434.10ms
-- **Cover Letter Upload:** ✅ P02_cover_letter.txt (542 bytes) - 475.90ms
-- **LinkedIn Data:** ✅ Connected (mock data) - 749.00ms
-- **Console Logs:** ✅ Batching system working, both files stored for combined analysis
-- **Evaluation Results:** ⏳ Pending - batching system was broken, now disabled for individual processing
-- **Notes:** Consistent performance with P01, batching system disabled
+- **Resume Upload:** ✅ P02_resume.txt (511 bytes) - 9267.20ms total (Text extraction: 2.10ms, LLM analysis: 6969.40ms, Database save: 89.10ms)
+- **Cover Letter Upload:** ✅ P02_cover_letter.txt (542 bytes) - 5339.80ms total (Text extraction: 3.60ms, LLM analysis: 2149.90ms, Database save: 157.90ms)
+- **LinkedIn Data:** ✅ Connected (mock data) - 681.30ms
+- **Console Logs:** ✅ LLM processing working, structured data generated for both files
+- **Evaluation Results:** ⏳ Pending - evaluation service has JSON parsing error
+- **Notes:** Second complete test with fixed LLM processing system. Total processing time: ~15.3 seconds
 
 ### P03 - Riley Gupta (Mid, Fintech, 6 years)
 - **Status:** ✅ Completed
