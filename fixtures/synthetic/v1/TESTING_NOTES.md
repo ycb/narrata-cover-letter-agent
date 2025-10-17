@@ -54,18 +54,18 @@ Upload 10 synthetic profiles (P01-P10) through Narrata UI and collect evaluation
 
 ### P05 - Samira Khan (Mid, HealthTech, 7 years)
 - **Status:** ✅ Completed
-- **Resume Upload:** ✅ P05_resume.txt (415 bytes) - 9178.50ms total
-  - Text extraction: 14.70ms
-  - LLM analysis: 4027.40ms (GPT-3.5-turbo, 800 tokens)
-  - Database save: 136.50ms
-- **Cover Letter Upload:** ✅ P05_cover_letter.txt (420 bytes) - 7015.10ms total
-  - Text extraction: 3.80ms
-  - LLM analysis: 4229.60ms (GPT-3.5-turbo, 800 tokens)
-  - Database save: 84.40ms
-- **LinkedIn Data:** ✅ Connected (mock data) - 818.90ms
+- **Resume Upload:** ✅ P05_resume.txt (415 bytes) - 8041.50ms total
+  - Text extraction: 28.70ms
+  - LLM analysis: 5790.90ms (GPT-3.5-turbo, 800 tokens)
+  - Database save: 87.50ms
+- **Cover Letter Upload:** ✅ P05_cover_letter.txt (420 bytes) - 5497.70ms total
+  - Text extraction: 3.40ms
+  - LLM analysis: 2980.30ms (GPT-3.5-turbo, 800 tokens)
+  - Database save: 75.60ms
+- **LinkedIn Data:** ✅ Connected (mock data) - 697.00ms
 - **Console Logs:** ✅ LLM processing working, structured data generated for both files
 - **Evaluation Results:** ⏳ Pending - evaluation service has JSON parsing error
-- **Notes:** Second complete test with fixed LLM processing system. Total processing time: ~17.0 seconds 
+- **Notes:** Fifth complete test with fixed LLM processing system. Total processing time: ~14.2 seconds 
 
 ### P06 - Diego Morales (Mid, Platform, 8 years)
 - **Status:** ⏳ Pending
