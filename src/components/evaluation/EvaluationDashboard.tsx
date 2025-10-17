@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { exportLogsToCsv } from '@/utils/evaluationExport';
 
 interface EvaluationLog {
@@ -37,6 +39,7 @@ interface EvaluationLog {
 export const EvaluationDashboard: React.FC = () => {
   const [logs, setLogs] = useState<EvaluationLog[]>([]);
   const [selectedLog, setSelectedLog] = useState<EvaluationLog | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchLogs = () => {
@@ -70,6 +73,11 @@ export const EvaluationDashboard: React.FC = () => {
 
   const handleExport = () => {
     exportLogsToCsv(logs);
+  };
+
+  const handleRowClick = (log: EvaluationLog) => {
+    setSelectedLog(log);
+    setIsModalOpen(true);
   };
 
   const getEvaluationBadgeColor = (value: string) => {
@@ -149,165 +157,229 @@ export const EvaluationDashboard: React.FC = () => {
         </Card>
       </div>
 
-      {/* Logs List */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Evaluation Logs ({logs.length})</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 max-h-96 overflow-y-auto">
+      {/* Table View */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Evaluation Logs ({logs.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>#</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Timestamp</TableHead>
+                <TableHead>Model</TableHead>
+                <TableHead>Latency</TableHead>
+                <TableHead>Go/No-Go</TableHead>
+                <TableHead>Accuracy</TableHead>
+                <TableHead>Relevance</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {logs.map((log, index) => (
-                <div
+                <TableRow 
                   key={log.sessionId}
-                  className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                    selectedLog?.sessionId === log.sessionId ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50'
-                  }`}
-                  onClick={() => setSelectedLog(log)}
+                  className="cursor-pointer hover:bg-gray-50"
+                  onClick={() => handleRowClick(log)}
                 >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="font-medium">#{logs.length - index} - {log.type}</div>
-                      <div className="text-sm text-gray-500">
-                        {new Date(log.timestamp).toLocaleString()}
-                      </div>
-                    </div>
+                  <TableCell className="font-medium">#{logs.length - index}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{log.type}</Badge>
+                  </TableCell>
+                  <TableCell className="text-sm text-gray-600">
+                    {new Date(log.timestamp).toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-sm">{log.model}</TableCell>
+                  <TableCell className="text-sm">
+                    {log.performance?.processingSpeed?.toFixed(2)}s
+                  </TableCell>
+                  <TableCell>
                     {log.evaluation && (
                       <Badge className={getEvaluationBadgeColor(log.evaluation.go_nogo)}>
                         {log.evaluation.go_nogo}
                       </Badge>
                     )}
-                  </div>
-                  {log.evaluation && (
-                    <div className="mt-2 flex gap-1 flex-wrap">
-                      <Badge variant="outline" className="text-xs">
+                  </TableCell>
+                  <TableCell>
+                    {log.evaluation && (
+                      <Badge variant="outline" className={getEvaluationBadgeColor(log.evaluation.accuracy)}>
                         {log.evaluation.accuracy}
                       </Badge>
-                      <Badge variant="outline" className="text-xs">
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {log.evaluation && (
+                      <Badge variant="outline" className={getEvaluationBadgeColor(log.evaluation.relevance)}>
                         {log.evaluation.relevance}
                       </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRowClick(log);
+                      }}
+                    >
+                      View Details
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Modal for Detailed View */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Evaluation Details - #{logs.length - logs.findIndex(log => log.sessionId === selectedLog?.sessionId)} - {selectedLog?.type}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedLog && (
+            <div className="space-y-6">
+              {/* Basic Info */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <h4 className="font-medium text-sm text-gray-500">Type</h4>
+                  <p className="text-lg">{selectedLog.type}</p>
+                </div>
+                <div>
+                  <h4 className="font-medium text-sm text-gray-500">Model</h4>
+                  <p className="text-lg">{selectedLog.model}</p>
+                </div>
+                <div>
+                  <h4 className="font-medium text-sm text-gray-500">Latency</h4>
+                  <p className="text-lg">{selectedLog.performance?.processingSpeed?.toFixed(2)}s</p>
+                </div>
+                <div>
+                  <h4 className="font-medium text-sm text-gray-500">Timestamp</h4>
+                  <p className="text-sm">{new Date(selectedLog.timestamp).toLocaleString()}</p>
+                </div>
+              </div>
+
+              {/* Evaluation Scores */}
+              {selectedLog.evaluation && (
+                <div>
+                  <h4 className="font-medium mb-3">LLM Judge Evaluation</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="flex justify-between items-center p-3 bg-gray-50 rounded">
+                      <span>Accuracy:</span>
+                      <Badge className={getEvaluationBadgeColor(selectedLog.evaluation.accuracy)}>
+                        {selectedLog.evaluation.accuracy}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-gray-50 rounded">
+                      <span>Relevance:</span>
+                      <Badge className={getEvaluationBadgeColor(selectedLog.evaluation.relevance)}>
+                        {selectedLog.evaluation.relevance}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-gray-50 rounded">
+                      <span>Personalization:</span>
+                      <Badge className={getEvaluationBadgeColor(selectedLog.evaluation.personalization)}>
+                        {selectedLog.evaluation.personalization}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-gray-50 rounded">
+                      <span>Clarity & Tone:</span>
+                      <Badge className={getEvaluationBadgeColor(selectedLog.evaluation.clarity_tone)}>
+                        {selectedLog.evaluation.clarity_tone}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-gray-50 rounded">
+                      <span>Framework:</span>
+                      <Badge className={getEvaluationBadgeColor(selectedLog.evaluation.framework)}>
+                        {selectedLog.evaluation.framework}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between items-center p-3 bg-gray-50 rounded">
+                      <span>Go/No-Go:</span>
+                      <Badge className={getEvaluationBadgeColor(selectedLog.evaluation.go_nogo)}>
+                        {selectedLog.evaluation.go_nogo}
+                      </Badge>
+                    </div>
+                  </div>
+                  {selectedLog.evaluation.rationale && (
+                    <div className="mt-4">
+                      <h5 className="font-medium text-sm text-gray-500">Rationale:</h5>
+                      <p className="text-sm text-gray-600 mt-1 p-3 bg-gray-50 rounded">
+                        {selectedLog.evaluation.rationale}
+                      </p>
                     </div>
                   )}
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              )}
 
-        {/* Selected Log Details */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Log Details</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {selectedLog ? (
-              <div className="space-y-4">
-                <div>
-                  <h4 className="font-medium">Basic Info</h4>
-                  <div className="text-sm text-gray-600 space-y-1">
-                    <div>Type: {selectedLog.type}</div>
-                    <div>Model: {selectedLog.model}</div>
-                    <div>Latency: {selectedLog.performance?.processingSpeed?.toFixed(2)}s</div>
-                    <div>Timestamp: {new Date(selectedLog.timestamp).toLocaleString()}</div>
-                  </div>
-                </div>
-
-                {selectedLog.evaluation && (
+              {/* Side-by-side Comparison */}
+              <div>
+                <h4 className="font-medium mb-3">Input vs Output Comparison</h4>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div>
-                    <h4 className="font-medium">LLM Judge Evaluation</h4>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span>Accuracy:</span>
-                        <Badge className={getEvaluationBadgeColor(selectedLog.evaluation.accuracy)}>
-                          {selectedLog.evaluation.accuracy}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Relevance:</span>
-                        <Badge className={getEvaluationBadgeColor(selectedLog.evaluation.relevance)}>
-                          {selectedLog.evaluation.relevance}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Personalization:</span>
-                        <Badge className={getEvaluationBadgeColor(selectedLog.evaluation.personalization)}>
-                          {selectedLog.evaluation.personalization}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Clarity & Tone:</span>
-                        <Badge className={getEvaluationBadgeColor(selectedLog.evaluation.clarity_tone)}>
-                          {selectedLog.evaluation.clarity_tone}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Framework:</span>
-                        <Badge className={getEvaluationBadgeColor(selectedLog.evaluation.framework)}>
-                          {selectedLog.evaluation.framework}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Go/No-Go:</span>
-                        <Badge className={getEvaluationBadgeColor(selectedLog.evaluation.go_nogo)}>
-                          {selectedLog.evaluation.go_nogo}
-                        </Badge>
-                      </div>
-                      {selectedLog.evaluation.rationale && (
-                        <div>
-                          <span className="font-medium">Rationale:</span>
-                          <p className="text-sm text-gray-600 mt-1">{selectedLog.evaluation.rationale}</p>
-                        </div>
-                      )}
+                    <h5 className="font-medium text-sm text-gray-500 mb-2">Input Text (Full)</h5>
+                    <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+                      <pre className="text-sm whitespace-pre-wrap">{selectedLog.inputText}</pre>
                     </div>
                   </div>
-                )}
-
-                {selectedLog.heuristics && (
                   <div>
-                    <h4 className="font-medium">Heuristics</h4>
-                    <div className="text-sm text-gray-600">
-                      <pre className="bg-gray-100 p-2 rounded text-xs overflow-auto max-h-40">
-                        {JSON.stringify(selectedLog.heuristics, null, 2)}
-                      </pre>
+                    <h5 className="font-medium text-sm text-gray-500 mb-2">LLM Output (Full)</h5>
+                    <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+                      <pre className="text-sm whitespace-pre-wrap">{selectedLog.outputText}</pre>
                     </div>
-                  </div>
-                )}
-
-                <div>
-                  <h4 className="font-medium">Input Text (First 500 chars)</h4>
-                  <div className="text-sm text-gray-600">
-                    <pre className="bg-gray-100 p-2 rounded text-xs overflow-auto max-h-40">
-                      {selectedLog.inputText}
-                    </pre>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-medium">LLM Output (First 500 chars)</h4>
-                  <div className="text-sm text-gray-600">
-                    <pre className="bg-gray-100 p-2 rounded text-xs overflow-auto max-h-40">
-                      {selectedLog.outputText}
-                    </pre>
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-medium">Performance Metrics</h4>
-                  <div className="text-sm text-gray-600 space-y-1">
-                    <div>Input Tokens: {selectedLog.inputTokens}</div>
-                    <div>Output Tokens: {selectedLog.outputTokens}</div>
-                    <div>Token Efficiency: {selectedLog.performance?.tokenEfficiency?.toFixed(2)}</div>
-                    <div>Processing Speed: {selectedLog.performance?.processingSpeed?.toFixed(2)}s</div>
-                    <div>Model: {selectedLog.model}</div>
                   </div>
                 </div>
               </div>
-            ) : (
-              <p className="text-gray-500">Select a log to view details</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+
+              {/* Performance Metrics */}
+              <div>
+                <h4 className="font-medium mb-3">Performance Metrics</h4>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  <div className="text-center p-3 bg-gray-50 rounded">
+                    <div className="text-2xl font-bold">{selectedLog.inputTokens}</div>
+                    <div className="text-sm text-gray-500">Input Tokens</div>
+                  </div>
+                  <div className="text-center p-3 bg-gray-50 rounded">
+                    <div className="text-2xl font-bold">{selectedLog.outputTokens}</div>
+                    <div className="text-sm text-gray-500">Output Tokens</div>
+                  </div>
+                  <div className="text-center p-3 bg-gray-50 rounded">
+                    <div className="text-2xl font-bold">{selectedLog.performance?.tokenEfficiency?.toFixed(2)}</div>
+                    <div className="text-sm text-gray-500">Token Efficiency</div>
+                  </div>
+                  <div className="text-center p-3 bg-gray-50 rounded">
+                    <div className="text-2xl font-bold">{selectedLog.performance?.processingSpeed?.toFixed(2)}s</div>
+                    <div className="text-sm text-gray-500">Processing Speed</div>
+                  </div>
+                  <div className="text-center p-3 bg-gray-50 rounded">
+                    <div className="text-sm font-bold">{selectedLog.model}</div>
+                    <div className="text-sm text-gray-500">Model</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Heuristics */}
+              {selectedLog.heuristics && (
+                <div>
+                  <h4 className="font-medium mb-3">Heuristics</h4>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <pre className="text-sm overflow-auto">
+                      {JSON.stringify(selectedLog.heuristics, null, 2)}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
