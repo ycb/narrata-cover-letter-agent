@@ -505,7 +505,7 @@ Instructions:
         
         // Calculate new token limit based on content length
         const contentTokens = Math.ceil((content?.length || 0) / 4); // Rough estimate
-        const newTokenLimit = Math.min(contentTokens * 1.5, 4000); // 1.5x current, max 4000
+        const newTokenLimit = Math.floor(Math.min(contentTokens * 1.5, 4000)); // 1.5x current, max 4000, ensure integer
         
         console.log(`📊 Truncation analysis: Content ~${contentTokens} tokens, retrying with ${newTokenLimit} max tokens`);
         
