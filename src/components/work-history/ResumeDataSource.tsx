@@ -197,45 +197,140 @@ export function ResumeDataSource({ onUploadResume, onRefresh }: ResumeDataSource
   return (
     <Card className="h-full">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <FileText className="h-5 w-5 text-slate-600" />
-          Resume
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <div>
-            <h3 className="text-lg font-semibold">{resumeData.file_name}</h3>
-            <p className="text-sm text-muted-foreground">
-              {formatFileSize(resumeData.file_size)} • {resumeData.file_type.toUpperCase()}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Uploaded {new Date(resumeData.created_at).toLocaleDateString()}
-            </p>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-slate-600" />
+            Resume
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownload}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleUpload}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Replace
+            </Button>
           </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* File Info */}
+        <div className="space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="text-2xl">{getFileTypeIcon(resumeData.file_type)}</div>
+            <div className="flex-1">
+              <h3 className="font-semibold">{resumeData.file_name}</h3>
+              <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
+                <span>{formatFileSize(resumeData.file_size)}</span>
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  {new Date(resumeData.created_at).toLocaleDateString()}
+                </span>
+                <span className="flex items-center gap-1">
+                  <FileType className="h-3 w-3" />
+                  {resumeData.file_type.toUpperCase()}
+                </span>
+              </div>
+              {/* Processing Status */}
+              <div className="mt-2">
+                {resumeData.processing_status === 'completed' && (
+                  <Badge variant="default" className="text-xs">
+                    ✅ Processed
+                  </Badge>
+                )}
+                {resumeData.processing_status === 'processing' && (
+                  <Badge variant="secondary" className="text-xs">
+                    <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                    Processing...
+                  </Badge>
+                )}
+                {resumeData.processing_status === 'failed' && (
+                  <Badge variant="destructive" className="text-xs">
+                    ❌ Failed
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
 
-          {resumeData.raw_text && (
-            <div>
-              <h4 className="font-medium mb-2">Extracted Text</h4>
-              <div className="border rounded-lg p-4 bg-muted/30 max-h-96 overflow-y-auto">
-                <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                  {resumeData.raw_text}
+        <Separator />
+
+        {/* Extracted Text */}
+        {resumeData.raw_text && (
+          <div>
+            <h4 className="font-medium mb-3">Extracted Text</h4>
+            <div className="border rounded-lg p-4 bg-muted/30 max-h-96 overflow-y-auto">
+              <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                {resumeData.raw_text}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <Separator />
+
+        {/* Structured Data Preview */}
+        {resumeData.structured_data && (
+          <div>
+            <h4 className="font-medium mb-3">Parsed Data</h4>
+            <div className="border rounded-lg p-4 bg-muted/30 max-h-96 overflow-y-auto">
+              <div className="text-sm text-muted-foreground">
+                <div className="grid grid-cols-2 gap-4">
+                  {resumeData.structured_data.workHistory && (
+                    <div>
+                      <span className="font-medium">Work History:</span>
+                      <span className="ml-2">
+                        {Array.isArray(resumeData.structured_data.workHistory) 
+                          ? resumeData.structured_data.workHistory.length 
+                          : 0} positions
+                      </span>
+                    </div>
+                  )}
+                  {resumeData.structured_data.skills && (
+                    <div>
+                      <span className="font-medium">Skills:</span>
+                      <span className="ml-2">
+                        {Array.isArray(resumeData.structured_data.skills) 
+                          ? resumeData.structured_data.skills.length 
+                          : 0} skills
+                      </span>
+                    </div>
+                  )}
+                  {resumeData.structured_data.education && (
+                    <div>
+                      <span className="font-medium">Education:</span>
+                      <span className="ml-2">
+                        {Array.isArray(resumeData.structured_data.education) 
+                          ? resumeData.structured_data.education.length 
+                          : 0} entries
+                      </span>
+                    </div>
+                  )}
+                  {resumeData.structured_data.certifications && (
+                    <div>
+                      <span className="font-medium">Certifications:</span>
+                      <span className="ml-2">
+                        {Array.isArray(resumeData.structured_data.certifications) 
+                          ? resumeData.structured_data.certifications.length 
+                          : 0} certifications
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
-          )}
-
-          {resumeData.structured_data && (
-            <div>
-              <h4 className="font-medium mb-2">Structured Data</h4>
-              <div className="border rounded-lg p-4 bg-muted/30 max-h-96 overflow-y-auto">
-                <pre className="text-sm text-muted-foreground">
-                  {JSON.stringify(resumeData.structured_data, null, 2)}
-                </pre>
-              </div>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
