@@ -1,8 +1,14 @@
-Dear Hiring Team,
+Dear Hiring Manager,
 
-I'm a product manager focused on PLG growth with eight years in B2B SaaS. At FlowHub I led an onboarding overhaul that increased Week‑2 activation by 22% and lifted trial‑to‑paid by 11% through a steady experiment cadence and in‑app guidance. I paired this with a clear analytics taxonomy so teams could see impact in real time.
+I am excited to apply for the Senior Product Manager position at your company. With over 6 years of experience in product management, I have a proven track record of driving growth through data-driven experimentation and user-centric design.
 
-Your Senior PM, Growth role maps directly to my strengths: diagnosing friction, sequencing bets, and shipping measurable outcomes. I write clearly, align cross‑functional partners, and keep teams focused on the few metrics that matter. I'd bring a pragmatic plan to instrument funnels, prioritize activation wins, and compound them into expansion.
+At FlowHub, I overhauled our self-serve onboarding process, resulting in a 22% increase in Week-2 activation and 11% improvement in trial-to-paid conversion rates across our SMB segment. I built a comprehensive experimentation cadence that enabled us to run 30+ tests per year, with weekly triage and monthly review processes that became the gold standard across the organization.
 
-Best,
-Avery
+My approach to product management is deeply rooted in understanding user behavior through analytics and experimentation. I defined our analytics taxonomy and created dashboards that are now used by Product Marketing and Customer Success teams for lifecycle targeting. This cross-functional impact demonstrates my ability to think beyond individual features and drive organizational change.
+
+Previously at AcmeCRM, I owned the notifications platform and reduced churn by 3.5% through usage-triggered lifecycle messaging. I also launched persona playbooks that increased engagement by 8% and feature adoption by 6%, showing my ability to scale impact through systematic approaches.
+
+I am particularly drawn to your company's mission and believe my experience in PLG, onboarding optimization, and data-driven experimentation would be valuable in driving your product forward. I would welcome the opportunity to discuss how my background aligns with your team's goals.
+
+Best regards,
+Avery Chen

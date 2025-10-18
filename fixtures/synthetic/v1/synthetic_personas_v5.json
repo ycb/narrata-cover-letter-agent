@@ -1,0 +1,957 @@
+[
+  {
+    "persona_id": "P01",
+    "linkedin_profile": {
+      "basic_info": {
+        "full_name": "Avery Chen",
+        "headline": "Senior Product Manager \u2014 PLG & Onboarding | Experiments, Activation, Analytics",
+        "location": "San Francisco Bay Area, CA, US",
+        "email": "avery@example.com",
+        "websites": [],
+        "current_role": "Senior Product Manager",
+        "current_company": "FlowHub"
+      },
+      "experience": [
+        {
+          "company": "FlowHub",
+          "title": "Senior Product Manager",
+          "employment_type": "Full-time",
+          "location": "San Francisco, CA",
+          "start_date": "2021-05",
+          "end_date": "Present",
+          "platforms": [
+            "Web",
+            "Mobile"
+          ],
+          "description": [
+            "Overhauled self-serve onboarding; Week\u20112 activation +22% and trial\u2192paid +11% across SMB.",
+            "Built experimentation cadence (weekly triage, monthly reviews); 30+ tests/year.",
+            "Defined analytics taxonomy and dashboards adopted by PMM/CS for lifecycle targeting."
+          ]
+        },
+        {
+          "company": "AcmeCRM",
+          "title": "Product Manager",
+          "employment_type": "Full-time",
+          "location": "Remote",
+          "start_date": "2019-02",
+          "end_date": "2021-04",
+          "platforms": [
+            "Web"
+          ],
+          "description": [
+            "Owned notifications platform; churn \u22123.5% via usage-triggered lifecycle messaging.",
+            "Launched persona playbooks; engagement +8% and feature adoption +6%."
+          ]
+        },
+        {
+          "company": "DataDock",
+          "title": "Associate Product Manager",
+          "employment_type": "Full-time",
+          "location": "San Mateo, CA",
+          "start_date": "2016-06",
+          "end_date": "2019-01",
+          "platforms": [
+            "Web"
+          ],
+          "description": [
+            "Delivered admin console; NPS +10 in two quarters; support tickets \u221218%.",
+            "Instituted experiment backlog and readouts to align Eng/Design/CS."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "school": "State University",
+          "degree": "B.S.",
+          "field": "Computer Science",
+          "start_date": "2009-09",
+          "end_date": "2013-06",
+          "location": "United States"
+        }
+      ],
+      "projects": [
+        {
+          "name": "Experimentation Hub",
+          "description": "Internal tooling for test design and readouts across squads."
+        }
+      ],
+      "certifications": [
+        {
+          "name": "Product Analytics",
+          "authority": "Amplitude (synthetic)",
+          "date": "2021-06"
+        }
+      ],
+      "languages": [
+        "English"
+      ],
+      "skills": [
+        "Product Strategy",
+        "Experimentation",
+        "Onboarding",
+        "Analytics",
+        "SQL",
+        "Writing",
+        "Stakeholder Alignment"
+      ]
+    },
+    "resume": "AVERY CHEN\nSan Francisco Bay Area, CA, US | B2B SaaS (PLG) | Users: B2B | Platforms: Web, Mobile\n\nSUMMARY\nAvery Chen is a product manager with 8 years in B2B SaaS (PLG). They work across B2B on web, mobile platforms, combining clear problem framing, disciplined experimentation, and close collaboration with engineering, design, data, and go\u2011to\u2011market teams. Their focus is translating user friction into measurable outcomes while building durable product systems.\n\nCORE STRENGTHS\nFunnel analytics, experiment design, activation/retention, pricing & packaging, lifecycle messaging.\n\nEXPERIENCE\nFlowHub \u2014 Senior Product Manager (2021-05\u2013Present) | San Francisco, CA\n\u2022 Overhauled self-serve onboarding; Week\u20112 activation +22% and trial\u2192paid +11% across SMB.\n\u2022 Built experimentation cadence (weekly triage, monthly reviews); 30+ tests/year.\n\u2022 Defined analytics taxonomy and dashboards adopted by PMM/CS for lifecycle targeting.\n\nAcmeCRM \u2014 Product Manager (2019-02\u20132021-04) | Remote\n\u2022 Owned notifications platform; churn \u22123.5% via usage-triggered lifecycle messaging.\n\u2022 Launched persona playbooks; engagement +8% and feature adoption +6%.\n\nDataDock \u2014 Associate Product Manager (2016-06\u20132019-01) | San Mateo, CA\n\u2022 Delivered admin console; NPS +10 in two quarters; support tickets \u221218%.\n\u2022 Instituted experiment backlog and readouts to align Eng/Design/CS.\n\nEDUCATION\nB.S. Computer Science, State University (2013-06)\n\nTOOLS\nAmplitude/GA4, SQL, Experiment platforms, Flags, Jira/Linear, Figma, Writing",
+    "cover_letter": "Dear Hiring Team,\n\nI\u2019m a product manager with experience leading growth initiatives. I\u2019ve learned that compounding growth comes from disciplined experimentation and clear measurement. Over the past several years, I\u2019ve helped teams translate strategy into shipped impact across web and mobile platforms.\n\nIn my current role as Senior Product Manager at FlowHub, I\u2019ve focused on delivering measurable outcomes through user-centered design and iterative development. I partner with engineering, design, and analytics to align around success metrics, prioritize experiments, and ensure learnings flow across the organization. Recent work included defining analytics taxonomies, optimizing onboarding flows, and introducing processes that improved retention and velocity.\n\nMy approach balances qualitative insight and quantitative rigor. I run structured discovery to identify unmet needs, then design experiments that de-risk investment before full rollout. I believe great product management comes from curiosity, empathy, and clear communication\u2014ensuring stakeholders stay aligned even when the path is uncertain.\n\nBeyond product outcomes, I invest in the health of the teams I support. I\u2019ve led rituals that improve collaboration and transparency, from experiment reviews to release retros. I value psychological safety, candid feedback, and making impact visible through shared dashboards and goals.\n\nI\u2019m excited by opportunities that combine strategy, execution, and learning. I\u2019d welcome a conversation about how my experience could contribute to your roadmap.\n\nRegards,\nAvery Chen",
+    "content_strategy": "growth"
+  },
+  {
+    "persona_id": "P02",
+    "linkedin_profile": {
+      "basic_info": {
+        "full_name": "Jordan Alvarez",
+        "headline": "Senior PM \u2014 Energy Intelligence | Telemetry, Alerts, Fleet Health",
+        "location": "Los Angeles, CA, US",
+        "email": "jordan@example.com",
+        "websites": [],
+        "current_role": "Senior Product Manager",
+        "current_company": "Sunlytic"
+      },
+      "experience": [
+        {
+          "company": "Sunlytic",
+          "title": "Senior Product Manager",
+          "employment_type": "Full-time",
+          "location": "Los Angeles, CA",
+          "start_date": "2022-03",
+          "end_date": "Present",
+          "platforms": [
+            "Web",
+            "Mobile"
+          ],
+          "description": [
+            "Launched fleet health monitoring; critical outages \u221214% YoY; dispatch time \u221212%.",
+            "Introduced SLA reporting and alert tuning; MTTA \u221218% and false alarms \u221221%."
+          ]
+        },
+        {
+          "company": "AuricSoft",
+          "title": "Product Manager",
+          "employment_type": "Full-time",
+          "location": "Irvine, CA",
+          "start_date": "2019-05",
+          "end_date": "2022-02",
+          "platforms": [
+            "Web"
+          ],
+          "description": [
+            "Improved quoting workflow; win rate +9% in SMB; manual entry \u221240% via integrations.",
+            "Shipped device onboarding tool; install time \u221212%; defect rate \u22128%."
+          ]
+        },
+        {
+          "company": "GreenGrid",
+          "title": "Associate PM",
+          "employment_type": "Full-time",
+          "location": "San Diego, CA",
+          "start_date": "2016-12",
+          "end_date": "2019-04",
+          "platforms": [
+            "Web"
+          ],
+          "description": [
+            "Defined telemetry schema for inverter fleet; data completeness \u2192 96%."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "school": "State University",
+          "degree": "B.S.",
+          "field": "Computer Science",
+          "start_date": "2009-09",
+          "end_date": "2013-06",
+          "location": "United States"
+        }
+      ],
+      "projects": [
+        {
+          "name": "Experimentation Hub",
+          "description": "Internal tooling for test design and readouts across squads."
+        }
+      ],
+      "certifications": [
+        {
+          "name": "Product Analytics",
+          "authority": "Amplitude (synthetic)",
+          "date": "2021-06"
+        }
+      ],
+      "languages": [
+        "English"
+      ],
+      "skills": [
+        "Product Strategy",
+        "Experimentation",
+        "Onboarding",
+        "Analytics",
+        "SQL",
+        "Writing",
+        "Stakeholder Alignment"
+      ]
+    },
+    "resume": "JORDAN ALVAREZ\nLos Angeles, CA, US | ClimateTech / Energy Intelligence | Users: B2B (installers, operators) | Platforms: Web, Mobile\n\nSUMMARY\nJordan Alvarez is a product manager with 7 years in ClimateTech / Energy Intelligence. They work across B2B (installers, operators) on web, mobile platforms, combining clear problem framing, disciplined experimentation, and close collaboration with engineering, design, data, and go\u2011to\u2011market teams. Their focus is translating user friction into measurable outcomes while building durable product systems.\n\nCORE STRENGTHS\nSLOs/SLAs, incident analysis, feature flags, migrations, cost/latency trade\u2011offs.\n\nEXPERIENCE\nSunlytic \u2014 Senior Product Manager (2022-03\u2013Present) | Los Angeles, CA\n\u2022 Launched fleet health monitoring; critical outages \u221214% YoY; dispatch time \u221212%.\n\u2022 Introduced SLA reporting and alert tuning; MTTA \u221218% and false alarms \u221221%.\n\nAuricSoft \u2014 Product Manager (2019-05\u20132022-02) | Irvine, CA\n\u2022 Improved quoting workflow; win rate +9% in SMB; manual entry \u221240% via integrations.\n\u2022 Shipped device onboarding tool; install time \u221212%; defect rate \u22128%.\n\nGreenGrid \u2014 Associate PM (2016-12\u20132019-04) | San Diego, CA\n\u2022 Defined telemetry schema for inverter fleet; data completeness \u2192 96%.\n\nEDUCATION\nB.S. Computer Science, State University (2013-06)\n\nTOOLS\nAmplitude/GA4, SQL, Experiment platforms, Flags, Jira/Linear, Figma, Writing",
+    "cover_letter": "Dear Hiring Team,\n\nI\u2019m a product manager with experience leading reliability initiatives. I believe reliability is a core feature\u2014teams earn user trust by making systems predictable and performant. Over the past several years, I\u2019ve helped teams translate strategy into shipped impact across web and mobile platforms.\n\nIn my current role as Senior Product Manager at Sunlytic, I\u2019ve focused on delivering measurable outcomes through user-centered design and iterative development. I partner with engineering, design, and analytics to align around success metrics, prioritize experiments, and ensure learnings flow across the organization. Recent work included defining analytics taxonomies, optimizing onboarding flows, and introducing processes that improved retention and velocity.\n\nMy approach balances qualitative insight and quantitative rigor. I run structured discovery to identify unmet needs, then design experiments that de-risk investment before full rollout. I believe great product management comes from curiosity, empathy, and clear communication\u2014ensuring stakeholders stay aligned even when the path is uncertain.\n\nBeyond product outcomes, I invest in the health of the teams I support. I\u2019ve led rituals that improve collaboration and transparency, from experiment reviews to release retros. I value psychological safety, candid feedback, and making impact visible through shared dashboards and goals.\n\nI\u2019m excited by opportunities that combine strategy, execution, and learning. I\u2019d welcome a conversation about how my experience could contribute to your roadmap.\n\nRegards,\nJordan Alvarez",
+    "content_strategy": "reliability"
+  },
+  {
+    "persona_id": "P03",
+    "linkedin_profile": {
+      "basic_info": {
+        "full_name": "Riley Gupta",
+        "headline": "Product Manager \u2014 Checkout Growth | Conversion, Risk, UX",
+        "location": "New York, NY, US",
+        "email": "riley@example.com",
+        "websites": [],
+        "current_role": "Product Manager, Checkout",
+        "current_company": "PayWave"
+      },
+      "experience": [
+        {
+          "company": "PayWave",
+          "title": "Product Manager, Checkout",
+          "employment_type": "Full-time",
+          "location": "New York, NY",
+          "start_date": "2021-04",
+          "end_date": "Present",
+          "platforms": [
+            "Web",
+            "Mobile"
+          ],
+          "description": [
+            "Raised checkout conversion +15% via simplified forms and async risk checks.",
+            "Partnered with Risk to cut false positives \u22128% using dynamic scoring."
+          ]
+        },
+        {
+          "company": "NeoBanker",
+          "title": "Associate PM",
+          "employment_type": "Full-time",
+          "location": "New York, NY",
+          "start_date": "2019-07",
+          "end_date": "2021-03",
+          "platforms": [
+            "Mobile"
+          ],
+          "description": [
+            "Consolidated KYC APIs; time\u2011to\u2011verify \u221228%; abandonment \u22126% with clearer states.",
+            "Piloted document retry; pass\u2011through +5pp in Gen\u2011Z cohort."
+          ]
+        },
+        {
+          "company": "FinStride",
+          "title": "Product Analyst",
+          "employment_type": "Full-time",
+          "location": "Jersey City, NJ",
+          "start_date": "2017-06",
+          "end_date": "2019-06",
+          "platforms": [
+            "Web"
+          ],
+          "description": [
+            "Modeled onboarding & fraud events; prioritized fixes saving ~1.2s latency."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "school": "State University",
+          "degree": "B.S.",
+          "field": "Computer Science",
+          "start_date": "2009-09",
+          "end_date": "2013-06",
+          "location": "United States"
+        }
+      ],
+      "projects": [
+        {
+          "name": "Experimentation Hub",
+          "description": "Internal tooling for test design and readouts across squads."
+        }
+      ],
+      "certifications": [
+        {
+          "name": "Product Analytics",
+          "authority": "Amplitude (synthetic)",
+          "date": "2021-06"
+        }
+      ],
+      "languages": [
+        "English"
+      ],
+      "skills": [
+        "Product Strategy",
+        "Experimentation",
+        "Onboarding",
+        "Analytics",
+        "SQL",
+        "Writing",
+        "Stakeholder Alignment"
+      ]
+    },
+    "resume": "RILEY GUPTA\nNew York, NY, US | Fintech (Payments & Checkout) | Users: B2C & B2B2C | Platforms: Web, Mobile\n\nSUMMARY\nRiley Gupta is a product manager with 6 years in Fintech (Payments & Checkout). They work across B2C & B2B2C on web, mobile platforms, combining clear problem framing, disciplined experimentation, and close collaboration with engineering, design, data, and go\u2011to\u2011market teams. Their focus is translating user friction into measurable outcomes while building durable product systems.\n\nCORE STRENGTHS\nFunnel analytics, experiment design, activation/retention, pricing & packaging, lifecycle messaging.\n\nEXPERIENCE\nPayWave \u2014 Product Manager, Checkout (2021-04\u2013Present) | New York, NY\n\u2022 Raised checkout conversion +15% via simplified forms and async risk checks.\n\u2022 Partnered with Risk to cut false positives \u22128% using dynamic scoring.\n\nNeoBanker \u2014 Associate PM (2019-07\u20132021-03) | New York, NY\n\u2022 Consolidated KYC APIs; time\u2011to\u2011verify \u221228%; abandonment \u22126% with clearer states.\n\u2022 Piloted document retry; pass\u2011through +5pp in Gen\u2011Z cohort.\n\nFinStride \u2014 Product Analyst (2017-06\u20132019-06) | Jersey City, NJ\n\u2022 Modeled onboarding & fraud events; prioritized fixes saving ~1.2s latency.\n\nEDUCATION\nB.S. Computer Science, State University (2013-06)\n\nTOOLS\nAmplitude/GA4, SQL, Experiment platforms, Flags, Jira/Linear, Figma, Writing",
+    "cover_letter": "Dear Hiring Team,\n\nI\u2019m a product manager with experience leading growth initiatives. I\u2019ve learned that compounding growth comes from disciplined experimentation and clear measurement. Over the past several years, I\u2019ve helped teams translate strategy into shipped impact across web and mobile platforms.\n\nIn my current role as Product Manager, Checkout at PayWave, I\u2019ve focused on delivering measurable outcomes through user-centered design and iterative development. I partner with engineering, design, and analytics to align around success metrics, prioritize experiments, and ensure learnings flow across the organization. Recent work included defining analytics taxonomies, optimizing onboarding flows, and introducing processes that improved retention and velocity.\n\nMy approach balances qualitative insight and quantitative rigor. I run structured discovery to identify unmet needs, then design experiments that de-risk investment before full rollout. I believe great product management comes from curiosity, empathy, and clear communication\u2014ensuring stakeholders stay aligned even when the path is uncertain.\n\nBeyond product outcomes, I invest in the health of the teams I support. I\u2019ve led rituals that improve collaboration and transparency, from experiment reviews to release retros. I value psychological safety, candid feedback, and making impact visible through shared dashboards and goals.\n\nI\u2019m excited by opportunities that combine strategy, execution, and learning. I\u2019d welcome a conversation about how my experience could contribute to your roadmap.\n\nRegards,\nRiley Gupta",
+    "content_strategy": "growth"
+  },
+  {
+    "persona_id": "P04",
+    "linkedin_profile": {
+      "basic_info": {
+        "full_name": "Morgan Patel",
+        "headline": "Senior PM \u2014 Applied AI | Explainability, HITL, Analytics",
+        "location": "Boston, MA, US",
+        "email": "morgan@example.com",
+        "websites": [],
+        "current_role": "Senior PM, ML Experiences",
+        "current_company": "TalentGraph"
+      },
+      "experience": [
+        {
+          "company": "TalentGraph",
+          "title": "Senior PM, ML Experiences",
+          "employment_type": "Full-time",
+          "location": "Boston, MA",
+          "start_date": "2020-02",
+          "end_date": "Present",
+          "platforms": [
+            "Web"
+          ],
+          "description": [
+            "Added explainable reasons and HITL overrides; ML usage 10\u00d7 YoY; satisfaction +12pts.",
+            "Built feedback dashboard merging precision/recall with ratings; cut blind spots by half."
+          ]
+        },
+        {
+          "company": "AdPilot",
+          "title": "Product Manager",
+          "employment_type": "Full-time",
+          "location": "Boston, MA",
+          "start_date": "2017-03",
+          "end_date": "2020-01",
+          "platforms": [
+            "Web"
+          ],
+          "description": [
+            "Sequenced recommendations into workflows; adoption +9% in two quarters; bad recs \u221260%."
+          ]
+        },
+        {
+          "company": "InsightIQ",
+          "title": "Associate PM",
+          "employment_type": "Full-time",
+          "location": "Cambridge, MA",
+          "start_date": "2014-08",
+          "end_date": "2017-02",
+          "platforms": [
+            "Web"
+          ],
+          "description": [
+            "Launched labeling tools; training data quality +6pp."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "school": "State University",
+          "degree": "B.S.",
+          "field": "Computer Science",
+          "start_date": "2009-09",
+          "end_date": "2013-06",
+          "location": "United States"
+        }
+      ],
+      "projects": [
+        {
+          "name": "Experimentation Hub",
+          "description": "Internal tooling for test design and readouts across squads."
+        }
+      ],
+      "certifications": [
+        {
+          "name": "Product Analytics",
+          "authority": "Amplitude (synthetic)",
+          "date": "2021-06"
+        }
+      ],
+      "languages": [
+        "English"
+      ],
+      "skills": [
+        "Product Strategy",
+        "Experimentation",
+        "Onboarding",
+        "Analytics",
+        "SQL",
+        "Writing",
+        "Stakeholder Alignment"
+      ]
+    },
+    "resume": "MORGAN PATEL\nBoston, MA, US | Applied AI / Talent | Users: B2B | Platforms: Web\n\nSUMMARY\nMorgan Patel is a product manager with 9 years in Applied AI / Talent. They work across B2B on web platforms, combining clear problem framing, disciplined experimentation, and close collaboration with engineering, design, data, and go\u2011to\u2011market teams. Their focus is translating user friction into measurable outcomes while building durable product systems.\n\nCORE STRENGTHS\nHuman\u2011in\u2011the\u2011loop, explainability, evaluation sets, risk reviews, gradual rollout.\n\nEXPERIENCE\nTalentGraph \u2014 Senior PM, ML Experiences (2020-02\u2013Present) | Boston, MA\n\u2022 Added explainable reasons and HITL overrides; ML usage 10\u00d7 YoY; satisfaction +12pts.\n\u2022 Built feedback dashboard merging precision/recall with ratings; cut blind spots by half.\n\nAdPilot \u2014 Product Manager (2017-03\u20132020-01) | Boston, MA\n\u2022 Sequenced recommendations into workflows; adoption +9% in two quarters; bad recs \u221260%.\n\nInsightIQ \u2014 Associate PM (2014-08\u20132017-02) | Cambridge, MA\n\u2022 Launched labeling tools; training data quality +6pp.\n\nEDUCATION\nB.S. Computer Science, State University (2013-06)\n\nTOOLS\nAmplitude/GA4, SQL, Experiment platforms, Flags, Jira/Linear, Figma, Writing",
+    "cover_letter": "Dear Hiring Team,\n\nI\u2019m a product manager with experience leading trust initiatives. Working with AI has taught me that adoption depends on transparency, control, and user confidence. Over the past several years, I\u2019ve helped teams translate strategy into shipped impact across web and mobile platforms.\n\nIn my current role as Senior PM, ML Experiences at TalentGraph, I\u2019ve focused on delivering measurable outcomes through user-centered design and iterative development. I partner with engineering, design, and analytics to align around success metrics, prioritize experiments, and ensure learnings flow across the organization. Recent work included defining analytics taxonomies, optimizing onboarding flows, and introducing processes that improved retention and velocity.\n\nMy approach balances qualitative insight and quantitative rigor. I run structured discovery to identify unmet needs, then design experiments that de-risk investment before full rollout. I believe great product management comes from curiosity, empathy, and clear communication\u2014ensuring stakeholders stay aligned even when the path is uncertain.\n\nBeyond product outcomes, I invest in the health of the teams I support. I\u2019ve led rituals that improve collaboration and transparency, from experiment reviews to release retros. I value psychological safety, candid feedback, and making impact visible through shared dashboards and goals.\n\nI\u2019m excited by opportunities that combine strategy, execution, and learning. I\u2019d welcome a conversation about how my experience could contribute to your roadmap.\n\nRegards,\nMorgan Patel",
+    "content_strategy": "trust"
+  },
+  {
+    "persona_id": "P05",
+    "linkedin_profile": {
+      "basic_info": {
+        "full_name": "Samira Khan",
+        "headline": "Product Manager \u2014 Patient Experience | Remote Monitoring, Adherence",
+        "location": "Chicago, IL, US",
+        "email": "samira@example.com",
+        "websites": [],
+        "current_role": "Product Manager",
+        "current_company": "Clinio"
+      },
+      "experience": [
+        {
+          "company": "Clinio",
+          "title": "Product Manager",
+          "employment_type": "Full-time",
+          "location": "Chicago, IL",
+          "start_date": "2021-01",
+          "end_date": "Present",
+          "platforms": [
+            "Mobile",
+            "Web"
+          ],
+          "description": [
+            "Remote\u2011monitoring flows lifted adherence +12% in CHF cohort; readmissions \u22127%.",
+            "Alert fatigue \u221218% with threshold tuning, batching, and team routing."
+          ]
+        },
+        {
+          "company": "CarePad",
+          "title": "Associate PM",
+          "employment_type": "Full-time",
+          "location": "Chicago, IL",
+          "start_date": "2019-05",
+          "end_date": "2020-12",
+          "platforms": [
+            "Web"
+          ],
+          "description": [
+            "EHR intake redesign cut completion time \u221220%; errors \u221215% with progressive disclosure."
+          ]
+        },
+        {
+          "company": "MedSync",
+          "title": "Product Analyst",
+          "employment_type": "Full-time",
+          "location": "Chicago, IL",
+          "start_date": "2017-06",
+          "end_date": "2019-04",
+          "platforms": [
+            "Web"
+          ],
+          "description": [
+            "Mapped clinician workflows; prioritized features reducing time\u2011to\u2011action by 11%."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "school": "University of Illinois Urbana\u2011Champaign",
+          "degree": "B.S.",
+          "field": "Biomedical Engineering",
+          "start_date": "2012-09",
+          "end_date": "2016-05",
+          "location": "Champaign, IL"
+        }
+      ],
+      "projects": [
+        {
+          "name": "Experimentation Hub",
+          "description": "Internal tooling for test design and readouts across squads."
+        }
+      ],
+      "certifications": [
+        {
+          "name": "Product Analytics",
+          "authority": "Amplitude (synthetic)",
+          "date": "2021-06"
+        }
+      ],
+      "languages": [
+        "English"
+      ],
+      "skills": [
+        "Product Strategy",
+        "Experimentation",
+        "Onboarding",
+        "Analytics",
+        "SQL",
+        "Writing",
+        "Stakeholder Alignment"
+      ]
+    },
+    "resume": "SAMIRA KHAN\nChicago, IL, US | HealthTech | Users: B2B (clinicians), B2C (patients) | Platforms: Mobile, Web\n\nSUMMARY\nSamira Khan is a product manager with 7 years in HealthTech. They work across B2B (clinicians), B2C (patients) on mobile, web platforms, combining clear problem framing, disciplined experimentation, and close collaboration with engineering, design, data, and go\u2011to\u2011market teams. Their focus is translating user friction into measurable outcomes while building durable product systems.\n\nCORE STRENGTHS\nClinician/patient journeys, safety & privacy, alerting, adherence, outcomes tracking.\n\nEXPERIENCE\nClinio \u2014 Product Manager (2021-01\u2013Present) | Chicago, IL\n\u2022 Remote\u2011monitoring flows lifted adherence +12% in CHF cohort; readmissions \u22127%.\n\u2022 Alert fatigue \u221218% with threshold tuning, batching, and team routing.\n\nCarePad \u2014 Associate PM (2019-05\u20132020-12) | Chicago, IL\n\u2022 EHR intake redesign cut completion time \u221220%; errors \u221215% with progressive disclosure.\n\nMedSync \u2014 Product Analyst (2017-06\u20132019-04) | Chicago, IL\n\u2022 Mapped clinician workflows; prioritized features reducing time\u2011to\u2011action by 11%.\n\nEDUCATION\nB.S. Biomedical Engineering, University of Illinois Urbana\u2011Champaign (2016-05)\n\nTOOLS\nAmplitude/GA4, SQL, Experiment platforms, Flags, Jira/Linear, Figma, Writing",
+    "cover_letter": "Dear Hiring Team,\n\nI\u2019m a product manager with experience leading empathy initiatives. I\u2019m drawn to problems where empathy and systems thinking intersect\u2014especially in healthcare and well-being. Over the past several years, I\u2019ve helped teams translate strategy into shipped impact across web and mobile platforms.\n\nIn my current role as Product Manager at Clinio, I\u2019ve focused on delivering measurable outcomes through user-centered design and iterative development. I partner with engineering, design, and analytics to align around success metrics, prioritize experiments, and ensure learnings flow across the organization. Recent work included defining analytics taxonomies, optimizing onboarding flows, and introducing processes that improved retention and velocity.\n\nMy approach balances qualitative insight and quantitative rigor. I run structured discovery to identify unmet needs, then design experiments that de-risk investment before full rollout. I believe great product management comes from curiosity, empathy, and clear communication\u2014ensuring stakeholders stay aligned even when the path is uncertain.\n\nBeyond product outcomes, I invest in the health of the teams I support. I\u2019ve led rituals that improve collaboration and transparency, from experiment reviews to release retros. I value psychological safety, candid feedback, and making impact visible through shared dashboards and goals.\n\nI\u2019m excited by opportunities that combine strategy, execution, and learning. I\u2019d welcome a conversation about how my experience could contribute to your roadmap.\n\nRegards,\nSamira Khan",
+    "content_strategy": "empathy"
+  },
+  {
+    "persona_id": "P06",
+    "linkedin_profile": {
+      "basic_info": {
+        "full_name": "Diego Morales",
+        "headline": "Sr PM \u2014 Platform & Reliability | Migrations, SLAs, Tooling",
+        "location": "Austin, TX, US",
+        "email": "diego@example.com",
+        "websites": [],
+        "current_role": "Senior PM, Platform",
+        "current_company": "StratusWorks"
+      },
+      "experience": [
+        {
+          "company": "StratusWorks",
+          "title": "Senior PM, Platform",
+          "employment_type": "Full-time",
+          "location": "Austin, TX",
+          "start_date": "2019-08",
+          "end_date": "Present",
+          "platforms": [
+            "Web",
+            "CLI"
+          ],
+          "description": [
+            "Led monolith\u2192services migration; incidents \u221227%; P95 latency \u221218%.",
+            "Added feature flags and kill\u2011switches; rollback time \u221270%."
+          ]
+        },
+        {
+          "company": "DeviceCloud",
+          "title": "Product Manager",
+          "employment_type": "Full-time",
+          "location": "Austin, TX",
+          "start_date": "2015-06",
+          "end_date": "2019-07",
+          "platforms": [
+            "CLI",
+            "Web"
+          ],
+          "description": [
+            "SDKs/CLI improved internal developer satisfaction +30%; build time \u221222%.",
+            "Instituted SLAs/SLOs and reliability dashboards for weekly ops."
+          ]
+        },
+        {
+          "company": "CodeBridge",
+          "title": "Associate PM",
+          "employment_type": "Full-time",
+          "location": "Austin, TX",
+          "start_date": "2013-06",
+          "end_date": "2015-05",
+          "platforms": [
+            "Web"
+          ],
+          "description": [
+            "Launched developer portal; onboarding \u221225%; support tickets \u221219%."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "school": "State University",
+          "degree": "B.S.",
+          "field": "Computer Science",
+          "start_date": "2009-09",
+          "end_date": "2013-06",
+          "location": "United States"
+        }
+      ],
+      "projects": [
+        {
+          "name": "Experimentation Hub",
+          "description": "Internal tooling for test design and readouts across squads."
+        }
+      ],
+      "certifications": [
+        {
+          "name": "Product Analytics",
+          "authority": "Amplitude (synthetic)",
+          "date": "2021-06"
+        }
+      ],
+      "languages": [
+        "English"
+      ],
+      "skills": [
+        "Product Strategy",
+        "Experimentation",
+        "Onboarding",
+        "Analytics",
+        "SQL",
+        "Writing",
+        "Stakeholder Alignment"
+      ]
+    },
+    "resume": "DIEGO MORALES\nAustin, TX, US | Platform / Developer Experience | Users: Internal Developers (B2E) | Platforms: Web, CLI\n\nSUMMARY\nDiego Morales is a product manager with 8 years in Platform / Developer Experience. They work across Internal Developers (B2E) on web, cli platforms, combining clear problem framing, disciplined experimentation, and close collaboration with engineering, design, data, and go\u2011to\u2011market teams. Their focus is translating user friction into measurable outcomes while building durable product systems.\n\nCORE STRENGTHS\nSLOs/SLAs, incident analysis, feature flags, migrations, cost/latency trade\u2011offs.\n\nEXPERIENCE\nStratusWorks \u2014 Senior PM, Platform (2019-08\u2013Present) | Austin, TX\n\u2022 Led monolith\u2192services migration; incidents \u221227%; P95 latency \u221218%.\n\u2022 Added feature flags and kill\u2011switches; rollback time \u221270%.\n\nDeviceCloud \u2014 Product Manager (2015-06\u20132019-07) | Austin, TX\n\u2022 SDKs/CLI improved internal developer satisfaction +30%; build time \u221222%.\n\u2022 Instituted SLAs/SLOs and reliability dashboards for weekly ops.\n\nCodeBridge \u2014 Associate PM (2013-06\u20132015-05) | Austin, TX\n\u2022 Launched developer portal; onboarding \u221225%; support tickets \u221219%.\n\nEDUCATION\nB.S. Computer Science, State University (2013-06)\n\nTOOLS\nAmplitude/GA4, SQL, Experiment platforms, Flags, Jira/Linear, Figma, Writing",
+    "cover_letter": "Dear Hiring Team,\n\nI\u2019m a product manager with experience leading reliability initiatives. I believe reliability is a core feature\u2014teams earn user trust by making systems predictable and performant. Over the past several years, I\u2019ve helped teams translate strategy into shipped impact across web and mobile platforms.\n\nIn my current role as Senior PM, Platform at StratusWorks, I\u2019ve focused on delivering measurable outcomes through user-centered design and iterative development. I partner with engineering, design, and analytics to align around success metrics, prioritize experiments, and ensure learnings flow across the organization. Recent work included defining analytics taxonomies, optimizing onboarding flows, and introducing processes that improved retention and velocity.\n\nMy approach balances qualitative insight and quantitative rigor. I run structured discovery to identify unmet needs, then design experiments that de-risk investment before full rollout. I believe great product management comes from curiosity, empathy, and clear communication\u2014ensuring stakeholders stay aligned even when the path is uncertain.\n\nBeyond product outcomes, I invest in the health of the teams I support. I\u2019ve led rituals that improve collaboration and transparency, from experiment reviews to release retros. I value psychological safety, candid feedback, and making impact visible through shared dashboards and goals.\n\nI\u2019m excited by opportunities that combine strategy, execution, and learning. I\u2019d welcome a conversation about how my experience could contribute to your roadmap.\n\nRegards,\nDiego Morales",
+    "content_strategy": "reliability"
+  },
+  {
+    "persona_id": "P07",
+    "linkedin_profile": {
+      "basic_info": {
+        "full_name": "Noah Williams",
+        "headline": "Senior PM \u2014 Marketplaces | Search/Match, Pricing, Supply Health",
+        "location": "Seattle, WA, US",
+        "email": "noah@example.com",
+        "websites": [],
+        "current_role": "Senior Product Manager",
+        "current_company": "VendorLoop"
+      },
+      "experience": [
+        {
+          "company": "VendorLoop",
+          "title": "Senior Product Manager",
+          "employment_type": "Full-time",
+          "location": "Seattle, WA",
+          "start_date": "2020-01",
+          "end_date": "Present",
+          "platforms": [
+            "Web"
+          ],
+          "description": [
+            "Match rate +13% via ranking/constraints; request\u2192accept time \u221210%.",
+            "Pricing experiments increased ARPU +6% and take\u2011rate +3pp."
+          ]
+        },
+        {
+          "company": "Dockyard",
+          "title": "Product Manager",
+          "employment_type": "Full-time",
+          "location": "Seattle, WA",
+          "start_date": "2016-05",
+          "end_date": "2019-12",
+          "platforms": [
+            "Web"
+          ],
+          "description": [
+            "SLA benchmarks reduced late deliveries \u22129%; dispute rate \u221211% with scorecards."
+          ]
+        },
+        {
+          "company": "Shiply",
+          "title": "Associate PM",
+          "employment_type": "Full-time",
+          "location": "Seattle, WA",
+          "start_date": "2013-06",
+          "end_date": "2016-04",
+          "platforms": [
+            "Mobile"
+          ],
+          "description": [
+            "Launched mobile shipment tracking MVP; active supply +7% in 90 days."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "school": "State University",
+          "degree": "B.S.",
+          "field": "Computer Science",
+          "start_date": "2009-09",
+          "end_date": "2013-06",
+          "location": "United States"
+        }
+      ],
+      "projects": [
+        {
+          "name": "Experimentation Hub",
+          "description": "Internal tooling for test design and readouts across squads."
+        }
+      ],
+      "certifications": [
+        {
+          "name": "Product Analytics",
+          "authority": "Amplitude (synthetic)",
+          "date": "2021-06"
+        }
+      ],
+      "languages": [
+        "English"
+      ],
+      "skills": [
+        "Product Strategy",
+        "Experimentation",
+        "Onboarding",
+        "Analytics",
+        "SQL",
+        "Writing",
+        "Stakeholder Alignment"
+      ]
+    },
+    "resume": "NOAH WILLIAMS\nSeattle, WA, US | B2B Marketplace | Users: B2B supply & demand | Platforms: Web, Mobile\n\nSUMMARY\nNoah Williams is a product manager with 10 years in B2B Marketplace. They work across B2B supply & demand on web, mobile platforms, combining clear problem framing, disciplined experimentation, and close collaboration with engineering, design, data, and go\u2011to\u2011market teams. Their focus is translating user friction into measurable outcomes while building durable product systems.\n\nCORE STRENGTHS\nSearch/relevance, supply health, constraints & pricing, scorecards, fraud/quality.\n\nEXPERIENCE\nVendorLoop \u2014 Senior Product Manager (2020-01\u2013Present) | Seattle, WA\n\u2022 Match rate +13% via ranking/constraints; request\u2192accept time \u221210%.\n\u2022 Pricing experiments increased ARPU +6% and take\u2011rate +3pp.\n\nDockyard \u2014 Product Manager (2016-05\u20132019-12) | Seattle, WA\n\u2022 SLA benchmarks reduced late deliveries \u22129%; dispute rate \u221211% with scorecards.\n\nShiply \u2014 Associate PM (2013-06\u20132016-04) | Seattle, WA\n\u2022 Launched mobile shipment tracking MVP; active supply +7% in 90 days.\n\nEDUCATION\nB.S. Computer Science, State University (2013-06)\n\nTOOLS\nAmplitude/GA4, SQL, Experiment platforms, Flags, Jira/Linear, Figma, Writing",
+    "cover_letter": "Dear Hiring Team,\n\nI\u2019m a product manager with experience leading marketplace initiatives. I\u2019m energized by the challenge of balancing liquidity, pricing, and quality across two-sided networks. Over the past several years, I\u2019ve helped teams translate strategy into shipped impact across web and mobile platforms.\n\nIn my current role as Senior Product Manager at VendorLoop, I\u2019ve focused on delivering measurable outcomes through user-centered design and iterative development. I partner with engineering, design, and analytics to align around success metrics, prioritize experiments, and ensure learnings flow across the organization. Recent work included defining analytics taxonomies, optimizing onboarding flows, and introducing processes that improved retention and velocity.\n\nMy approach balances qualitative insight and quantitative rigor. I run structured discovery to identify unmet needs, then design experiments that de-risk investment before full rollout. I believe great product management comes from curiosity, empathy, and clear communication\u2014ensuring stakeholders stay aligned even when the path is uncertain.\n\nBeyond product outcomes, I invest in the health of the teams I support. I\u2019ve led rituals that improve collaboration and transparency, from experiment reviews to release retros. I value psychological safety, candid feedback, and making impact visible through shared dashboards and goals.\n\nI\u2019m excited by opportunities that combine strategy, execution, and learning. I\u2019d welcome a conversation about how my experience could contribute to your roadmap.\n\nRegards,\nNoah Williams",
+    "content_strategy": "marketplace"
+  },
+  {
+    "persona_id": "P08",
+    "linkedin_profile": {
+      "basic_info": {
+        "full_name": "Priya Desai",
+        "headline": "Associate PM \u2014 EdTech | QA, Ops-to-PM Transition",
+        "location": "Toronto, ON, CA",
+        "email": "priya@example.com",
+        "websites": [],
+        "current_role": "QA Analyst",
+        "current_company": "TestCraft"
+      },
+      "experience": [
+        {
+          "company": "TestCraft",
+          "title": "QA Analyst",
+          "employment_type": "Full-time",
+          "location": "Toronto, ON",
+          "start_date": "2022-01",
+          "end_date": "2024-08",
+          "platforms": [
+            "Web"
+          ],
+          "description": [
+            "Created regression suite; release defects ~\u221220%; coverage to 82%.",
+            "Set up triage and release notes cadence across Eng/PM."
+          ]
+        },
+        {
+          "company": "HelpLoop",
+          "title": "Operations Coordinator",
+          "employment_type": "Full-time",
+          "location": "Toronto, ON",
+          "start_date": "2020-06",
+          "end_date": "2021-12",
+          "platforms": [
+            "Web"
+          ],
+          "description": [
+            "Built onboarding guides and SLAs; time\u2011to\u2011first\u2011transaction \u221214%."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "school": "University of Toronto",
+          "degree": "B.S.",
+          "field": "Information Technology",
+          "start_date": "2016-09",
+          "end_date": "2020-05",
+          "location": "Toronto, ON"
+        }
+      ],
+      "projects": [
+        {
+          "name": "Experimentation Hub",
+          "description": "Internal tooling for test design and readouts across squads."
+        }
+      ],
+      "certifications": [
+        {
+          "name": "Product Analytics",
+          "authority": "Amplitude (synthetic)",
+          "date": "2021-06"
+        }
+      ],
+      "languages": [
+        "English"
+      ],
+      "skills": [
+        "Product Strategy",
+        "Experimentation",
+        "Onboarding",
+        "Analytics",
+        "SQL",
+        "Writing",
+        "Stakeholder Alignment"
+      ]
+    },
+    "resume": "PRIYA DESAI\nToronto, ON, CA | EdTech | Users: B2B (schools), B2C (learners) | Platforms: Web\n\nSUMMARY\nPriya Desai is a product manager with 2 years in EdTech. They work across B2B (schools), B2C (learners) on web platforms, combining clear problem framing, disciplined experimentation, and close collaboration with engineering, design, data, and go\u2011to\u2011market teams. Their focus is translating user friction into measurable outcomes while building durable product systems.\n\nCORE STRENGTHS\nBacklog management, ticket writing, QA, docs, speed of learning.\n\nEXPERIENCE\nTestCraft \u2014 QA Analyst (2022-01\u20132024-08) | Toronto, ON\n\u2022 Created regression suite; release defects ~\u221220%; coverage to 82%.\n\u2022 Set up triage and release notes cadence across Eng/PM.\n\nHelpLoop \u2014 Operations Coordinator (2020-06\u20132021-12) | Toronto, ON\n\u2022 Built onboarding guides and SLAs; time\u2011to\u2011first\u2011transaction \u221214%.\n\nEDUCATION\nB.S. Information Technology, University of Toronto (2020-05)\n\nTOOLS\nAmplitude/GA4, SQL, Experiment platforms, Flags, Jira/Linear, Figma, Writing",
+    "cover_letter": "Dear Hiring Team,\n\nI\u2019m a product manager with experience leading learner initiatives. Early in my career, I\u2019ve prioritized rapid learning and crisp communication to unblock execution. Over the past several years, I\u2019ve helped teams translate strategy into shipped impact across web and mobile platforms.\n\nIn my current role as QA Analyst at TestCraft, I\u2019ve focused on delivering measurable outcomes through user-centered design and iterative development. I partner with engineering, design, and analytics to align around success metrics, prioritize experiments, and ensure learnings flow across the organization. Recent work included defining analytics taxonomies, optimizing onboarding flows, and introducing processes that improved retention and velocity.\n\nMy approach balances qualitative insight and quantitative rigor. I run structured discovery to identify unmet needs, then design experiments that de-risk investment before full rollout. I believe great product management comes from curiosity, empathy, and clear communication\u2014ensuring stakeholders stay aligned even when the path is uncertain.\n\nBeyond product outcomes, I invest in the health of the teams I support. I\u2019ve led rituals that improve collaboration and transparency, from experiment reviews to release retros. I value psychological safety, candid feedback, and making impact visible through shared dashboards and goals.\n\nI\u2019m excited by opportunities that combine strategy, execution, and learning. I\u2019d welcome a conversation about how my experience could contribute to your roadmap.\n\nRegards,\nPriya Desai",
+    "content_strategy": "learner"
+  },
+  {
+    "persona_id": "P09",
+    "linkedin_profile": {
+      "basic_info": {
+        "full_name": "Leo Martin",
+        "headline": "APM \u2014 Mobile Support | Content Design, Diagnostics",
+        "location": "Boston, MA, US",
+        "email": "leo@example.com",
+        "websites": [],
+        "current_role": "Associate PM",
+        "current_company": "MobileCare"
+      },
+      "experience": [
+        {
+          "company": "MobileCare",
+          "title": "Associate PM",
+          "employment_type": "Full-time",
+          "location": "Boston, MA",
+          "start_date": "2022-03",
+          "end_date": "Present",
+          "platforms": [
+            "Mobile"
+          ],
+          "description": [
+            "Support flow redesign lifted app rating +1.1; time\u2011to\u2011resolution \u221217% with diagnostics.",
+            "Introduced feedback taxonomy; repeat contacts \u22129%."
+          ]
+        },
+        {
+          "company": "CampusApps",
+          "title": "Product Intern",
+          "employment_type": "Full-time",
+          "location": "Boston, MA",
+          "start_date": "2021-06",
+          "end_date": "2021-12",
+          "platforms": [
+            "Mobile"
+          ],
+          "description": [
+            "Prototyped diagnostics screens; task success +9% in tests."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "school": "Tufts University",
+          "degree": "B.S.",
+          "field": "Human Factors",
+          "start_date": "2017-09",
+          "end_date": "2021-05",
+          "location": "Medford, MA"
+        }
+      ],
+      "projects": [
+        {
+          "name": "Experimentation Hub",
+          "description": "Internal tooling for test design and readouts across squads."
+        }
+      ],
+      "certifications": [
+        {
+          "name": "Product Analytics",
+          "authority": "Amplitude (synthetic)",
+          "date": "2021-06"
+        }
+      ],
+      "languages": [
+        "English"
+      ],
+      "skills": [
+        "Product Strategy",
+        "Experimentation",
+        "Onboarding",
+        "Analytics",
+        "SQL",
+        "Writing",
+        "Stakeholder Alignment"
+      ]
+    },
+    "resume": "LEO MARTIN\nBoston, MA, US | Consumer Support / Mobile | Users: B2C | Platforms: Mobile\n\nSUMMARY\nLeo Martin is a product manager with 3 years in Consumer Support / Mobile. They work across B2C on mobile platforms, combining clear problem framing, disciplined experimentation, and close collaboration with engineering, design, data, and go\u2011to\u2011market teams. Their focus is translating user friction into measurable outcomes while building durable product systems.\n\nCORE STRENGTHS\nContent design, diagnostics, CSAT/effort, contact reduction, mobile UX.\n\nEXPERIENCE\nMobileCare \u2014 Associate PM (2022-03\u2013Present) | Boston, MA\n\u2022 Support flow redesign lifted app rating +1.1; time\u2011to\u2011resolution \u221217% with diagnostics.\n\u2022 Introduced feedback taxonomy; repeat contacts \u22129%.\n\nCampusApps \u2014 Product Intern (2021-06\u20132021-12) | Boston, MA\n\u2022 Prototyped diagnostics screens; task success +9% in tests.\n\nEDUCATION\nB.S. Human Factors, Tufts University (2021-05)\n\nTOOLS\nAmplitude/GA4, SQL, Experiment platforms, Flags, Jira/Linear, Figma, Writing",
+    "cover_letter": "Dear Hiring Team,\n\nI\u2019m a product manager with experience leading customer initiatives. I care deeply about how people experience support\u2014making help feel seamless, personal, and proactive. Over the past several years, I\u2019ve helped teams translate strategy into shipped impact across web and mobile platforms.\n\nIn my current role as Associate PM at MobileCare, I\u2019ve focused on delivering measurable outcomes through user-centered design and iterative development. I partner with engineering, design, and analytics to align around success metrics, prioritize experiments, and ensure learnings flow across the organization. Recent work included defining analytics taxonomies, optimizing onboarding flows, and introducing processes that improved retention and velocity.\n\nMy approach balances qualitative insight and quantitative rigor. I run structured discovery to identify unmet needs, then design experiments that de-risk investment before full rollout. I believe great product management comes from curiosity, empathy, and clear communication\u2014ensuring stakeholders stay aligned even when the path is uncertain.\n\nBeyond product outcomes, I invest in the health of the teams I support. I\u2019ve led rituals that improve collaboration and transparency, from experiment reviews to release retros. I value psychological safety, candid feedback, and making impact visible through shared dashboards and goals.\n\nI\u2019m excited by opportunities that combine strategy, execution, and learning. I\u2019d welcome a conversation about how my experience could contribute to your roadmap.\n\nRegards,\nLeo Martin",
+    "content_strategy": "customer"
+  },
+  {
+    "persona_id": "P10",
+    "linkedin_profile": {
+      "basic_info": {
+        "full_name": "Sophia Rivera",
+        "headline": "Director of Product \u2014 Growth & Platform | Org Building, Portfolio",
+        "location": "Los Angeles, CA, US",
+        "email": "sophia@example.com",
+        "websites": [],
+        "current_role": "Director of Product",
+        "current_company": "AtlasSuite"
+      },
+      "experience": [
+        {
+          "company": "AtlasSuite",
+          "title": "Director of Product",
+          "employment_type": "Full-time",
+          "location": "Los Angeles, CA",
+          "start_date": "2020-04",
+          "end_date": "Present",
+          "platforms": [
+            "Web",
+            "Mobile"
+          ],
+          "description": [
+            "Scaled PM org 3\u21927; set cadence/KPIs; roadmap hit rate +18pp.",
+            "ARR +24% via pricing/packaging and two launches; portfolio governance."
+          ]
+        },
+        {
+          "company": "Queryly",
+          "title": "Senior Product Manager",
+          "employment_type": "Full-time",
+          "location": "Los Angeles, CA",
+          "start_date": "2016-01",
+          "end_date": "2020-03",
+          "platforms": [
+            "Web"
+          ],
+          "description": [
+            "Activation +18% via onboarding/integrations; NRR +6pp with expansion motion."
+          ]
+        },
+        {
+          "company": "SiteSpark",
+          "title": "Product Manager",
+          "employment_type": "Full-time",
+          "location": "Los Angeles, CA",
+          "start_date": "2012-06",
+          "end_date": "2015-12",
+          "platforms": [
+            "Web"
+          ],
+          "description": [
+            "Modernized platform; time\u2011to\u2011ship \u221222% with CI/CD and flags."
+          ]
+        }
+      ],
+      "education": [
+        {
+          "school": "State University",
+          "degree": "B.S.",
+          "field": "Computer Science",
+          "start_date": "2009-09",
+          "end_date": "2013-06",
+          "location": "United States"
+        }
+      ],
+      "projects": [
+        {
+          "name": "Experimentation Hub",
+          "description": "Internal tooling for test design and readouts across squads."
+        }
+      ],
+      "certifications": [
+        {
+          "name": "Product Analytics",
+          "authority": "Amplitude (synthetic)",
+          "date": "2021-06"
+        }
+      ],
+      "languages": [
+        "English"
+      ],
+      "skills": [
+        "Product Strategy",
+        "Experimentation",
+        "Onboarding",
+        "Analytics",
+        "SQL",
+        "Writing",
+        "Stakeholder Alignment"
+      ]
+    },
+    "resume": "SOPHIA RIVERA\nLos Angeles, CA, US | SaaS (Growth + Platform) | Users: B2B | Platforms: Web, Mobile\n\nSUMMARY\nSophia Rivera is a product manager with 12 years in SaaS (Growth + Platform). They work across B2B on web, mobile platforms, combining clear problem framing, disciplined experimentation, and close collaboration with engineering, design, data, and go\u2011to\u2011market teams. Their focus is translating user friction into measurable outcomes while building durable product systems.\n\nCORE STRENGTHS\nStrategy, portfolio, operating cadence, coaching PMs, cross\u2011functional alignment.\n\nEXPERIENCE\nAtlasSuite \u2014 Director of Product (2020-04\u2013Present) | Los Angeles, CA\n\u2022 Scaled PM org 3\u21927; set cadence/KPIs; roadmap hit rate +18pp.\n\u2022 ARR +24% via pricing/packaging and two launches; portfolio governance.\n\nQueryly \u2014 Senior Product Manager (2016-01\u20132020-03) | Los Angeles, CA\n\u2022 Activation +18% via onboarding/integrations; NRR +6pp with expansion motion.\n\nSiteSpark \u2014 Product Manager (2012-06\u20132015-12) | Los Angeles, CA\n\u2022 Modernized platform; time\u2011to\u2011ship \u221222% with CI/CD and flags.\n\nEDUCATION\nB.S. Computer Science, State University (2013-06)\n\nTOOLS\nAmplitude/GA4, SQL, Experiment platforms, Flags, Jira/Linear, Figma, Writing",
+    "cover_letter": "Dear Hiring Team,\n\nI\u2019m a product manager with experience leading leadership initiatives. I see product leadership as equal parts strategy, coaching, and operational excellence. Over the past several years, I\u2019ve helped teams translate strategy into shipped impact across web and mobile platforms.\n\nIn my current role as Director of Product at AtlasSuite, I\u2019ve focused on delivering measurable outcomes through user-centered design and iterative development. I partner with engineering, design, and analytics to align around success metrics, prioritize experiments, and ensure learnings flow across the organization. Recent work included defining analytics taxonomies, optimizing onboarding flows, and introducing processes that improved retention and velocity.\n\nMy approach balances qualitative insight and quantitative rigor. I run structured discovery to identify unmet needs, then design experiments that de-risk investment before full rollout. I believe great product management comes from curiosity, empathy, and clear communication\u2014ensuring stakeholders stay aligned even when the path is uncertain.\n\nBeyond product outcomes, I invest in the health of the teams I support. I\u2019ve led rituals that improve collaboration and transparency, from experiment reviews to release retros. I value psychological safety, candid feedback, and making impact visible through shared dashboards and goals.\n\nI\u2019m excited by opportunities that combine strategy, execution, and learning. I\u2019d welcome a conversation about how my experience could contribute to your roadmap.\n\nRegards,\nSophia Rivera",
+    "content_strategy": "leadership"
+  }
+]

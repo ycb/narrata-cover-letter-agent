@@ -1,13 +1,26 @@
-SUMMARY
-PM with 7 years across solar SaaS and energy analytics. Comfortable with device telemetry, alert tuning, and fleet dashboards.
+JORDAN ALVAREZ
+Growth Product Manager | User Acquisition & Retention | Mobile-First
+Austin, TX, US
+jordan@example.com
 
 EXPERIENCE
-Sunlytic — Senior PM (2022–2025), Los Angeles, CA
-• Launched fleet health monitoring; reduced critical outages 14%.
-• Added SLA reporting for installers; improved response time 18%.
 
-AuricSoft — Product Manager (2019–2022), Irvine, CA
-• Improved quoting tools; +9% win rate in SMB installer segment.
+Growth Product Manager | GrowthCo | Mar 2020 - Present
+• Launched viral referral program; user acquisition +45% and CAC -30%
+• Built onboarding funnel optimization; Day-7 retention +18% and time-to-value -40%
+• Implemented push notification strategy; engagement +25% and session frequency +15%
+
+Product Manager | MobileFirst | Jan 2018 - Feb 2020
+• Owned user onboarding flow; activation rate +35% and drop-off -20%
+• Launched gamification features; DAU +22% and user lifetime value +28%
+
+Associate Product Manager | StartupXYZ | Jun 2016 - Dec 2017
+• Led user research initiatives; identified key friction points reducing churn by 15%
+• Implemented A/B testing framework; conversion rate +12% across key funnels
 
 EDUCATION
-B.S. Electrical Engineering, UC Irvine
+MBA Marketing | University of Texas | 2014-2016
+BS Business Administration | Texas A&M | 2010-2014
+
+SKILLS
+Growth Marketing, User Acquisition, Retention, Mobile Product, A/B Testing, Data Analysis, User Research, Product Analytics, Viral Marketing, Onboarding, Gamification

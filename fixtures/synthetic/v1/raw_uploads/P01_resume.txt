@@ -1,18 +1,26 @@
-SUMMARY
-Product Manager with 8 years in B2B SaaS focused on PLG growth. Led onboarding and activation programs; strong in experimentation and analytics.
+AVERY CHEN
+Senior Product Manager — PLG & Onboarding | Experiments, Activation, Analytics
+San Francisco Bay Area, CA, US
+avery@example.com
 
 EXPERIENCE
-FlowHub — Senior Product Manager (2021–2025), San Francisco, CA
-• Revamped onboarding; +22% W2 activation, +11% trial→paid via 30+ A/B tests.
-• Implemented in-app guides and event instrumentation (Segment, GA4).
-• Partnered with CS/PMM on lifecycle messaging aligned to product milestones.
 
-AcmeCRM — Product Manager (2019–2021), Remote
-• Owned notifications platform; reduced monthly churn by 3.5%.
-• Shipped lifecycle playbooks adopted across 4 segments.
+Senior Product Manager | FlowHub | May 2021 - Present
+• Overhauled self-serve onboarding; Week-2 activation +22% and trial→paid +11% across SMB
+• Built experimentation cadence (weekly triage, monthly reviews); 30+ tests/year
+• Defined analytics taxonomy and dashboards adopted by PMM/CS for lifecycle targeting
 
-DataDock — Associate PM (2017–2019), San Mateo, CA
-• Built admin console; NPS improved 31→41 within 2 quarters.
+Product Manager | AcmeCRM | Feb 2019 - Apr 2021
+• Owned notifications platform; churn -3.5% via usage-triggered lifecycle messaging
+• Launched persona playbooks; engagement +8% and feature adoption +6%
+
+Associate Product Manager | DataDock | Jun 2017 - Jan 2019
+• Led data visualization suite; user adoption +15% and query performance +40%
+• Implemented user feedback loop; NPS +12 points and support tickets -25%
 
 EDUCATION
-B.S. Computer Science, UC Davis
+MS Computer Science | Stanford University | 2015-2017
+BS Mathematics | UC Berkeley | 2011-2015
+
+SKILLS
+Product Management, A/B Testing, Data Analysis, SQL, Python, User Research, Product Strategy, Growth, PLG, Onboarding, Experimentation, Analytics

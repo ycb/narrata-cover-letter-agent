@@ -18,6 +18,17 @@ Extract the following information and return as JSON. IMPORTANT: Extract ALL wor
       "endDate": "YYYY-MM-DD or null if current",
       "description": "Job description",
       "achievements": ["achievement1", "achievement2"],
+      "stories": [
+        {
+          "id": "story_1",
+          "title": "Story title or brief description",
+          "description": "Detailed story description with context, action, and result",
+          "metrics": ["specific metric 1", "specific metric 2"],
+          "impact": "high|medium|low",
+          "type": "achievement|challenge|leadership|innovation|problem-solving"
+        }
+      ],
+      "metrics": ["increased revenue by 25%", "led team of 8", "saved $50K"],
       "location": "City, State",
       "current": true/false
     }
@@ -78,5 +89,13 @@ Rules:
 - Skills should be specific and technical when possible
 - Return valid JSON only, no markdown formatting
 - Do not skip or filter any entries based on relevance or recency
+
+STORY EXTRACTION RULES:
+- Extract 3-5 distinct stories per role from bullet points and descriptions
+- Each story should have: context (situation), action (what was done), result (outcome)
+- Include specific metrics and quantifiable results in story metrics
+- Categorize stories by type: achievement, challenge, leadership, innovation, problem-solving
+- Stories should demonstrate specific competencies and impact
+- Focus on stories that would be relevant for job applications
 `;
 };

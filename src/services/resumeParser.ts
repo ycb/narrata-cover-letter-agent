@@ -38,68 +38,27 @@ export interface ContactInfo {
 }
 
 export class ResumeParser {
-  private mockResumeData: ParsedResume = {
-    roles: [
-      {
-        company: "TechCorp",
-        title: "Senior Product Manager",
-        startDate: "2022-01",
-        endDate: "2024-01",
-        achievements: [
-          "Led 5-person team to launch new feature increasing user engagement by 25%",
-          "Managed $2M product roadmap with 3 major releases",
-          "Collaborated with engineering to reduce bug reports by 40%"
-        ],
-        teamSize: 5,
-        technologies: ["React", "Node.js", "AWS"],
-        impact: "Increased user engagement by 25%"
-      },
-      {
-        company: "StartupXYZ",
-        title: "Product Manager",
-        startDate: "2020-03",
-        endDate: "2022-01",
-        achievements: [
-          "Built MVP from concept to launch in 6 months",
-          "Grew user base from 0 to 10,000 in first year",
-          "Established product development processes for 8-person team"
-        ],
-        teamSize: 8,
-        technologies: ["Python", "Django", "PostgreSQL"],
-        impact: "Grew user base from 0 to 10,000"
-      }
-    ],
-    skills: [
-      "Product Strategy", "Data Analysis", "User Research", 
-      "Agile Development", "Stakeholder Management", "A/B Testing"
-    ],
-    education: [
-      {
-        institution: "University of Technology",
-        degree: "Bachelor of Science",
-        field: "Computer Science",
-        graduationYear: "2020"
-      }
-    ],
-    contact: {
-      name: "John Doe",
-      email: "john.doe@email.com",
-      location: "San Francisco, CA",
-      linkedin: "linkedin.com/in/johndoe"
-    },
-    summary: "Experienced Product Manager with 4+ years building user-centric products",
-    totalAchievements: 6,
-    hasQuantifiableResults: true,
-    hasCaseStudies: false
-  };
 
   async parseResume(file: File): Promise<{ data: ParsedResume; result: ParsingResult }> {
     // Simulate parsing delay
     await new Promise(resolve => setTimeout(resolve, 1500));
     
-    // For now, return mock data
-    // In production, this would use actual PDF/DOCX parsing libraries
-    const data = this.mockResumeData;
+    // Return empty data structure - actual parsing will be handled by LLM
+    const data: ParsedResume = {
+      roles: [],
+      skills: [],
+      education: [],
+      contact: {
+        name: "",
+        email: "",
+        location: "",
+        linkedin: ""
+      },
+      summary: "",
+      totalAchievements: 0,
+      hasQuantifiableResults: false,
+      hasCaseStudies: false
+    };
     
     // Generate parsing diagnostics
     const result = this.generateParsingResult(data);

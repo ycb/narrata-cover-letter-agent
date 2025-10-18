@@ -1,13 +1,26 @@
-SUMMARY
-PM with 6 years in payments and checkout optimization. Strong in experimentation and event modeling.
+RILEY GUPTA
+Technical Product Manager | API & Platform | Developer Experience
+Seattle, WA, US
+riley@example.com
 
 EXPERIENCE
-PayWave — PM, Checkout (2021–2025), New York, NY
-• Increased checkout conversion 15% via experiment backlog and UX simplification.
-• Reduced false positives 8% collaborating with Risk on dynamic rules.
 
-NeoBanker — APM (2019–2021), New York, NY
-• Reduced KYC time‑to‑verify by 28% through API consolidation and clearer states.
+Technical Product Manager | DevTools Inc | Jan 2020 - Present
+• Led API platform redesign; developer satisfaction +40% and integration time -50%
+• Built developer portal; API adoption +60% and support tickets -35%
+• Implemented rate limiting and monitoring; API reliability +25% and response time -30%
+
+Product Manager | CloudPlatform | Aug 2017 - Dec 2019
+• Owned SDK and documentation; developer onboarding time -45% and API usage +80%
+• Launched webhook infrastructure; real-time integrations +200% and latency -60%
+
+Associate Product Manager | TechStartup | Jun 2015 - Jul 2017
+• Managed API versioning strategy; backward compatibility +95% and migration success +70%
+• Implemented developer feedback loop; API design satisfaction +30%
 
 EDUCATION
-B.S. Information Systems, NYU
+MS Computer Science | University of Washington | 2013-2015
+BS Computer Science | University of Washington | 2009-2013
+
+SKILLS
+API Design, Platform Product, Developer Experience, Technical Product, SDK Development, Documentation, Webhooks, Rate Limiting, Monitoring, API Versioning, Developer Relations
