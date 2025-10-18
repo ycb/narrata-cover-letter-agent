@@ -21,28 +21,15 @@ import { useAuth } from "@/contexts/AuthContext";
 interface LinkedInProfile {
   id: string;
   user_id: string;
-  name: string;
-  headline: string;
-  location: string;
-  summary: string;
-  experience: Array<{
-    company: string;
-    title: string;
-    startDate: string;
-    endDate?: string;
-    description: string;
-    location?: string;
-  }>;
-  education: Array<{
-    school: string;
-    degree: string;
-    field: string;
-    startDate: string;
-    endDate?: string;
-  }>;
-  skills: string[];
-  connections: number;
+  linkedin_id: string;
   profile_url: string;
+  about: string;
+  experience: any[];
+  education: any[];
+  skills: string[];
+  certifications: any[];
+  projects: any[];
+  raw_data: any;
   created_at: string;
   updated_at: string;
 }
@@ -203,30 +190,18 @@ export function LinkedInDataSource({ onConnectLinkedIn, onRefresh }: LinkedInDat
         {/* Profile Header */}
         <div className="space-y-4">
           <div>
-            <h3 className="text-xl font-semibold">{profile.name}</h3>
-            <p className="text-muted-foreground">{profile.headline}</p>
-            {profile.location && (
-              <div className="flex items-center gap-1 mt-1">
-                <MapPin className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">{profile.location}</span>
-              </div>
-            )}
+            <h3 className="text-xl font-semibold">{profile.linkedin_id}</h3>
+            <p className="text-muted-foreground">LinkedIn Profile</p>
           </div>
           
-          {profile.summary && (
+          {profile.about && (
             <div>
-              <h4 className="font-medium mb-2">Summary</h4>
-              <p className="text-sm text-muted-foreground leading-relaxed">{profile.summary}</p>
+              <h4 className="font-medium mb-2">About</h4>
+              <p className="text-sm text-muted-foreground leading-relaxed">{profile.about}</p>
             </div>
           )}
 
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            {profile.connections && (
-              <div className="flex items-center gap-1">
-                <Users className="h-4 w-4" />
-                <span>{profile.connections.toLocaleString()} connections</span>
-              </div>
-            )}
             <div className="flex items-center gap-1">
               <Calendar className="h-4 w-4" />
               <span>Updated {new Date(profile.updated_at).toLocaleDateString()}</span>

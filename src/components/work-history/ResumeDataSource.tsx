@@ -23,9 +23,11 @@ interface ResumeData {
   file_name: string;
   file_size: number;
   file_type: string;
-  file_url: string;
-  extracted_text: string;
+  storage_path: string;
+  processing_status: string;
+  raw_text: string;
   structured_data: any;
+  processing_error?: string;
   created_at: string;
   updated_at: string;
 }
@@ -53,7 +55,7 @@ export function ResumeDataSource({ onUploadResume, onRefresh }: ResumeDataSource
         .from('sources')
         .select('*')
         .eq('user_id', user.id)
-        .eq('type', 'resume')
+        .eq('source_type', 'resume')
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
@@ -90,11 +92,11 @@ export function ResumeDataSource({ onUploadResume, onRefresh }: ResumeDataSource
   };
 
   const handleDownload = async () => {
-    if (!resumeData?.file_url) return;
+    if (!resumeData?.storage_path) return;
     
     try {
-      const response = await fetch(resumeData.file_url);
-      const blob = await response.blob();
+      // For now, we'll just show the raw text since we don't have a direct download URL
+      const blob = new Blob([resumeData.raw_text], { type: 'text/plain' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -237,6 +239,25 @@ export function ResumeDataSource({ onUploadResume, onRefresh }: ResumeDataSource
                   {resumeData.file_type.toUpperCase()}
                 </span>
               </div>
+              {/* Processing Status */}
+              <div className="mt-2">
+                {resumeData.processing_status === 'completed' && (
+                  <Badge variant="default" className="text-xs">
+                    ✅ Processed
+                  </Badge>
+                )}
+                {resumeData.processing_status === 'processing' && (
+                  <Badge variant="secondary" className="text-xs">
+                    <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                    Processing...
+                  </Badge>
+                )}
+                {resumeData.processing_status === 'failed' && (
+                  <Badge variant="destructive" className="text-xs">
+                    ❌ Failed
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -244,7 +265,7 @@ export function ResumeDataSource({ onUploadResume, onRefresh }: ResumeDataSource
         <Separator />
 
         {/* Extracted Text */}
-        {resumeData.extracted_text && (
+        {resumeData.raw_text && (
           <div>
             <div className="flex items-center justify-between mb-3">
               <h4 className="font-medium">Extracted Text</h4>
@@ -261,11 +282,11 @@ export function ResumeDataSource({ onUploadResume, onRefresh }: ResumeDataSource
               <div className={`text-sm text-muted-foreground leading-relaxed ${
                 showFullText ? '' : 'line-clamp-6'
               }`}>
-                {resumeData.extracted_text}
+                {resumeData.raw_text}
               </div>
-              {!showFullText && resumeData.extracted_text.length > 500 && (
+              {!showFullText && resumeData.raw_text.length > 500 && (
                 <div className="mt-2 text-xs text-muted-foreground">
-                  {Math.ceil(resumeData.extracted_text.length / 1000)}k characters
+                  {Math.ceil(resumeData.raw_text.length / 1000)}k characters
                 </div>
               )}
             </div>
