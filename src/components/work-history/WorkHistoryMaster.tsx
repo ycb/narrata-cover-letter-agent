@@ -206,7 +206,7 @@ export const WorkHistoryMaster = ({
               <Linkedin className="h-4 w-4 mr-2 text-blue-600 group-hover:text-primary-foreground" />
               <div className="flex-1 text-left">
                 <div className="font-medium group-hover:text-primary-foreground">LinkedIn</div>
-                <div className="text-xs text-muted-foreground group-hover:text-primary-foreground">Connect profile</div>
+                <div className="text-xs text-muted-foreground group-hover:text-primary-foreground">Connected</div>
               </div>
             </Button>
             <Button
@@ -218,7 +218,7 @@ export const WorkHistoryMaster = ({
               <FileTextIcon className="h-4 w-4 mr-2 text-slate-600 group-hover:text-primary-foreground" />
               <div className="flex-1 text-left">
                 <div className="font-medium group-hover:text-primary-foreground">Resume</div>
-                <div className="text-xs text-muted-foreground group-hover:text-primary-foreground">Upload document</div>
+                <div className="text-xs text-muted-foreground group-hover:text-primary-foreground">Uploaded</div>
               </div>
             </Button>
           </div>
