@@ -80,8 +80,21 @@ export class SyntheticUserService {
         };
       }
 
-      const currentUser = syntheticUsers?.find(u => u.is_active) || null;
-      const availableUsers = syntheticUsers || [];
+      // Map database fields to component interface
+      const mappedUsers = syntheticUsers?.map(user => ({
+        id: user.id,
+        parentUserId: user.parent_user_id,
+        profileId: user.profile_id,
+        profileName: user.profile_name,
+        email: user.email,
+        isActive: user.is_active,
+        profileData: user.profile_data,
+        createdAt: user.created_at,
+        updatedAt: user.updated_at
+      })) || [];
+
+      const currentUser = mappedUsers.find(u => u.isActive) || null;
+      const availableUsers = mappedUsers;
 
       return {
         currentUser,

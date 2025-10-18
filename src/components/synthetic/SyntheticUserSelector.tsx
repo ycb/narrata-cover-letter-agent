@@ -103,15 +103,15 @@ export const SyntheticUserSelector: React.FC<SyntheticUserSelectorProps> = ({ cl
               <div className="flex items-center space-x-2 flex-1">
                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                   <span className="text-xs font-medium">
-                    {user.profileName.split(' ').map(n => n[0]).join('')}
+                    {user.profileName ? user.profileName.split(' ').map(n => n[0]).join('') : '??'}
                   </span>
                 </div>
                 <div className="flex flex-col">
                   <span className="text-sm font-medium">
-                    {user.profileName}
+                    {user.profileName || 'Unknown Profile'}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    Profile {user.profileId}
+                    Profile {user.profileId || '??'}
                   </span>
                 </div>
               </div>
