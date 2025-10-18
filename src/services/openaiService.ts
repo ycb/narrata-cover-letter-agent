@@ -367,8 +367,8 @@ Instructions:
     // Calculate optimal tokens with bounds
     const optimalTokens = Math.ceil(baseTokens * complexityMultiplier * typeMultiplier);
     
-    // Apply bounds: minimum 500, maximum 1000
-    const finalTokens = Math.max(500, Math.min(optimalTokens, 1000));
+    // Apply bounds: minimum 500, maximum 2000 (allow dynamic calculation to work)
+    const finalTokens = Math.max(500, Math.min(optimalTokens, 2000));
     
     console.warn(`📊 Token calculation: ${extractedText.length} chars → ${baseTokens} base tokens → ${finalTokens} optimal tokens (${type}, complexity: ${complexityMultiplier.toFixed(2)})`);
     
