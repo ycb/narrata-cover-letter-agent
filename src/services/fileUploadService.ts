@@ -242,7 +242,8 @@ export class FileUploadService {
     userId: string, 
     storagePath: string,
     accessToken?: string,
-    checksum?: string
+    checksum?: string,
+    sourceType?: FileType
   ): Promise<string> {
     try {
       const computedChecksum = checksum ?? await this.generateChecksum(file);
@@ -257,7 +258,8 @@ export class FileUploadService {
         file_size: file.size,
         file_checksum: computedChecksum,
         storage_path: storagePath,
-        processing_status: 'pending'
+        processing_status: 'pending',
+        source_type: sourceType || 'resume' // Add source_type with fallback to 'resume'
       };
       
       const response = await fetch(`${supabaseUrl}/rest/v1/sources`, {
@@ -419,8 +421,8 @@ export class FileUploadService {
         storagePath = uploadResult.storagePath!;
       }
 
-      // Create source record
-      const sourceId = await this.createSourceRecord(file, userId, storagePath, accessToken, checksum);
+      // Create source record with correct source_type
+      const sourceId = await this.createSourceRecord(file, userId, storagePath, accessToken, checksum, type);
 
       
       // Process content (immediate for small content, background for large)
