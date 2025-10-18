@@ -318,6 +318,103 @@ export type Database = {
           updated_at?: string
         }
       }
+      sources: {
+        Row: {
+          id: string
+          user_id: string
+          file_name: string
+          file_type: string
+          file_size: number
+          file_checksum: string
+          storage_path: string
+          source_type: 'resume' | 'cover_letter'
+          processing_status: 'pending' | 'processing' | 'completed' | 'failed'
+          raw_text: string | null
+          structured_data: Json | null
+          processing_error: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          file_name: string
+          file_type: string
+          file_size: number
+          file_checksum: string
+          storage_path: string
+          source_type?: 'resume' | 'cover_letter'
+          processing_status?: 'pending' | 'processing' | 'completed' | 'failed'
+          raw_text?: string | null
+          structured_data?: Json | null
+          processing_error?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          file_name?: string
+          file_type?: string
+          file_size?: number
+          file_checksum?: string
+          storage_path?: string
+          source_type?: 'resume' | 'cover_letter'
+          processing_status?: 'pending' | 'processing' | 'completed' | 'failed'
+          raw_text?: string | null
+          structured_data?: Json | null
+          processing_error?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      linkedin_profiles: {
+        Row: {
+          id: string
+          user_id: string
+          linkedin_id: string
+          profile_url: string
+          about: string | null
+          experience: Json | null
+          education: Json | null
+          skills: string[] | null
+          certifications: Json | null
+          projects: Json | null
+          raw_data: Json | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          linkedin_id: string
+          profile_url: string
+          about?: string | null
+          experience?: Json | null
+          education?: Json | null
+          skills?: string[] | null
+          certifications?: Json | null
+          projects?: Json | null
+          raw_data?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          linkedin_id?: string
+          profile_url?: string
+          about?: string | null
+          experience?: Json | null
+          education?: Json | null
+          skills?: string[] | null
+          certifications?: Json | null
+          projects?: Json | null
+          raw_data?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -331,6 +428,8 @@ export type Database = {
       confidence_level: 'low' | 'medium' | 'high'
       letter_status: 'draft' | 'reviewed' | 'finalized'
       go_no_go: 'go' | 'no-go' | 'needs-work'
+      source_type: 'resume' | 'cover_letter'
+      processing_status: 'pending' | 'processing' | 'completed' | 'failed'
     }
   }
 }
