@@ -31,6 +31,7 @@ import { useState } from "react";
 import { UserGoalsModal } from "@/components/user-goals/UserGoalsModal";
 import { MyVoiceModal } from "@/components/user-voice/MyVoiceModal";
 import { MyDataModal } from "@/components/user-data/MyDataModal";
+import { SyntheticUserSelector } from "@/components/synthetic/SyntheticUserSelector";
 import { useUserGoals } from "@/contexts/UserGoalsContext";
 import { useUserVoice } from "@/contexts/UserVoiceContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -460,6 +461,10 @@ export const Header = ({ currentPage }: HeaderProps) => {
               <DropdownMenuItem onClick={() => setShowVoiceModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end">
                 <span>My Voice</span>
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <div className="px-3 py-2">
+                <SyntheticUserSelector className="w-full" />
+              </div>
               <DropdownMenuSeparator />
               <DropdownMenuItem 
                 onClick={handleSignOut}
