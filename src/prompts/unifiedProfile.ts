@@ -123,10 +123,13 @@ METRICS EXTRACTION:
 - Focus on business impact and outcomes
 
 STORY STRUCTURE:
+- Extract ALL unique stories and achievements from all sources - do not limit quantity
 - Organize achievements into coherent narratives
 - Include context, action, and result
 - Categorize by type (achievement, challenge, impact, etc.)
 - Ensure each story demonstrates specific competencies
+- Do not combine or summarize multiple distinct achievements
+- Each bullet point or achievement should become its own story if it contains distinct value
 
 Return valid JSON only, no markdown formatting.`;
 };

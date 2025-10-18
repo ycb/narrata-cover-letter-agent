@@ -36,13 +36,16 @@ Extract the following information and return as JSON:
 }
 
 Instructions:
-- Extract work experience and achievements mentioned in the cover letter
+- Extract ALL work experience and achievements mentioned in the cover letter - do not limit quantity
 - Focus on specific accomplishments and metrics mentioned
 - Include any skills or technologies referenced
 - Extract any contact information if mentioned
 - Create a summary highlighting the key points and achievements
 - Ensure all dates are in YYYY-MM-DD format
 - Generate unique IDs for each item
+- Extract every distinct achievement, project, or accomplishment mentioned
+- Do not combine or summarize multiple achievements into single entries
+- Each bullet point or achievement should become its own entry if it contains distinct value
 - Return valid JSON only, no markdown formatting
 `;
 };

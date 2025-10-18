@@ -91,11 +91,14 @@ Rules:
 - Do not skip or filter any entries based on relevance or recency
 
 STORY EXTRACTION RULES:
-- Extract 3-5 distinct stories per role from bullet points and descriptions
+- Extract ALL unique stories and achievements from each role - do not limit to a specific number
 - Each story should have: context (situation), action (what was done), result (outcome)
 - Include specific metrics and quantifiable results in story metrics
 - Categorize stories by type: achievement, challenge, leadership, innovation, problem-solving
 - Stories should demonstrate specific competencies and impact
 - Focus on stories that would be relevant for job applications
+- Extract every distinct achievement, project, or accomplishment mentioned
+- Do not combine or summarize multiple achievements into single stories
+- Each bullet point or achievement should become its own story if it contains distinct value
 `;
 };
