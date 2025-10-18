@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/accordion";
 import { Building2, Calendar, FileText, Link, Plus, Linkedin, FileText as FileTextIcon } from "lucide-react";
 import { IntelligentAlertBadge } from "@/components/ui/IntelligentAlertBadge";
+import { LinkedInDataSource } from "./LinkedInDataSource";
+import { ResumeDataSource } from "./ResumeDataSource";
 import { cn } from "@/lib/utils";
 import type { WorkHistoryCompany, WorkHistoryRole } from "@/types/workHistory";
 
@@ -192,31 +194,15 @@ export const WorkHistoryMaster = ({
         {/* Data Sources Section - Bottom */}
         <div className="border-t border-muted mt-auto">
           <h2 className="text-lg font-semibold text-foreground mb-3">Data Sources</h2>
-          <div className="space-y-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full justify-start text-left h-auto py-3 px-4 hover:bg-primary hover:text-primary-foreground transition-colors group !rounded-none"
-              onClick={onConnectLinkedIn}
-            >
-              <Linkedin className="h-4 w-4 mr-2 text-blue-600 group-hover:text-primary-foreground" />
-              <div className="flex-1 text-left">
-                <div className="font-medium group-hover:text-primary-foreground">LinkedIn</div>
-                <div className="text-xs text-muted-foreground group-hover:text-primary-foreground">Connect profile</div>
-              </div>
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full justify-start text-left h-auto py-3 px-4 hover:bg-primary hover:text-primary-foreground transition-colors group !rounded-none"
-              onClick={onUploadResume}
-            >
-              <FileTextIcon className="h-4 w-4 mr-2 text-slate-600 group-hover:text-primary-foreground" />
-              <div className="flex-1 text-left">
-                <div className="font-medium group-hover:text-primary-foreground">Resume</div>
-                <div className="text-xs text-muted-foreground group-hover:text-primary-foreground">Upload document</div>
-              </div>
-            </Button>
+          <div className="space-y-4">
+            <LinkedInDataSource 
+              onConnectLinkedIn={onConnectLinkedIn}
+              onRefresh={() => window.location.reload()}
+            />
+            <ResumeDataSource 
+              onUploadResume={onUploadResume}
+              onRefresh={() => window.location.reload()}
+            />
           </div>
         </div>
         </div>
