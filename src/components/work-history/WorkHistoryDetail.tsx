@@ -1067,7 +1067,30 @@ export const WorkHistoryDetail = ({
     );
   }
 
-      // Show company details if only company is selected
+  // Handle different data sources FIRST - before checking selectedCompany
+  if (selectedDataSource === 'linkedin') {
+    return (
+      <div className="h-full">
+        <LinkedInDataSource 
+          onConnectLinkedIn={() => console.log('Connect LinkedIn')}
+          onRefresh={() => window.location.reload()}
+        />
+      </div>
+    );
+  }
+
+  if (selectedDataSource === 'resume') {
+    return (
+      <div className="h-full">
+        <ResumeDataSource 
+          onUploadResume={() => console.log('Upload Resume')}
+          onRefresh={() => window.location.reload()}
+        />
+      </div>
+    );
+  }
+
+  // Show company details if only company is selected
   if (selectedCompany) {
     return (
       <div className="space-y-8 h-full flex flex-col">
@@ -1188,29 +1211,6 @@ export const WorkHistoryDetail = ({
           content={tagContent}
           suggestedTags={suggestedTags}
           onApplyTags={handleApplyTags}
-        />
-      </div>
-    );
-  }
-
-  // Handle different data sources
-  if (selectedDataSource === 'linkedin') {
-    return (
-      <div className="h-full">
-        <LinkedInDataSource 
-          onConnectLinkedIn={() => console.log('Connect LinkedIn')}
-          onRefresh={() => window.location.reload()}
-        />
-      </div>
-    );
-  }
-
-  if (selectedDataSource === 'resume') {
-    return (
-      <div className="h-full">
-        <ResumeDataSource 
-          onUploadResume={() => console.log('Upload Resume')}
-          onRefresh={() => window.location.reload()}
         />
       </div>
     );
