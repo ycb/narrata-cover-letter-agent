@@ -27,6 +27,8 @@ interface WorkHistoryMasterProps {
   onAddCompany?: () => void;
   onConnectLinkedIn?: () => void;
   onUploadResume?: () => void;
+  onLinkedInClick?: () => void;
+  onResumeClick?: () => void;
 }
 
 export const WorkHistoryMaster = ({
@@ -40,7 +42,9 @@ export const WorkHistoryMaster = ({
   onAddRole,
   onAddCompany,
   onConnectLinkedIn,
-  onUploadResume
+  onUploadResume,
+  onLinkedInClick,
+  onResumeClick
 }: WorkHistoryMasterProps) => {
 
   const formatDateRange = (startDate: string, endDate?: string) => {
@@ -195,14 +199,18 @@ export const WorkHistoryMaster = ({
         <div className="border-t border-muted mt-auto">
           <h2 className="text-lg font-semibold text-foreground mb-3">Data Sources</h2>
           <div className="space-y-4">
-            <LinkedInDataSource 
-              onConnectLinkedIn={onConnectLinkedIn}
-              onRefresh={() => window.location.reload()}
-            />
-            <ResumeDataSource 
-              onUploadResume={onUploadResume}
-              onRefresh={() => window.location.reload()}
-            />
+            <div onClick={onLinkedInClick} className="cursor-pointer">
+              <LinkedInDataSource 
+                onConnectLinkedIn={onConnectLinkedIn}
+                onRefresh={() => window.location.reload()}
+              />
+            </div>
+            <div onClick={onResumeClick} className="cursor-pointer">
+              <ResumeDataSource 
+                onUploadResume={onUploadResume}
+                onRefresh={() => window.location.reload()}
+              />
+            </div>
           </div>
         </div>
         </div>

@@ -391,6 +391,7 @@ export default function WorkHistory() {
   
   const [selectedCompany, setSelectedCompany] = useState<WorkHistoryCompany | null>(firstCompany);
   const [selectedRole, setSelectedRole] = useState<WorkHistoryRole | null>(firstRole);
+  const [selectedDataSource, setSelectedDataSource] = useState<'work-history' | 'linkedin' | 'resume'>('work-history');
   
   // Track which company should be expanded in the accordion
   const [expandedCompanyId, setExpandedCompanyId] = useState<string | null>(firstCompany?.id || null);
@@ -557,6 +558,18 @@ export default function WorkHistory() {
     console.log("View resume");
   };
 
+  const handleLinkedInClick = () => {
+    setSelectedDataSource('linkedin');
+    setSelectedCompany(null);
+    setSelectedRole(null);
+  };
+
+  const handleResumeClick = () => {
+    setSelectedDataSource('resume');
+    setSelectedCompany(null);
+    setSelectedRole(null);
+  };
+
   const hasWorkHistory = workHistory.length > 0;
 
   // Loading state
@@ -635,26 +648,29 @@ export default function WorkHistory() {
                 onAddCompany={() => setIsAddCompanyModalOpen(true)}
                 onConnectLinkedIn={handleConnectLinkedIn}
                 onUploadResume={handleUploadResume}
+                onLinkedInClick={handleLinkedInClick}
+                onResumeClick={handleResumeClick}
               />
             </div>
             
             {/* Detail Panel */}
             <div className="lg:col-span-2">
-                          <WorkHistoryDetail
-              selectedCompany={selectedCompany}
-              selectedRole={selectedRole}
-              companies={workHistory}
-              initialTab={initialTab}
-              resolvedGaps={resolvedGaps}
-              onResolvedGapsChange={setResolvedGaps}
-              onRoleSelect={handleRoleSelect}
-              onAddRole={() => setIsAddRoleModalOpen(true)}
-              onAddStory={handleAddStory}
-              onEditStory={handleEditStory}
-              onAddLink={handleAddLink}
-              onEditLink={handleEditLink}
-              onEditCompany={handleEditCompany}
-            />
+              <WorkHistoryDetail
+                selectedCompany={selectedCompany}
+                selectedRole={selectedRole}
+                companies={workHistory}
+                initialTab={initialTab}
+                resolvedGaps={resolvedGaps}
+                onResolvedGapsChange={setResolvedGaps}
+                onRoleSelect={handleRoleSelect}
+                onAddRole={() => setIsAddRoleModalOpen(true)}
+                onAddStory={handleAddStory}
+                onEditStory={handleEditStory}
+                onAddLink={handleAddLink}
+                onEditLink={handleEditLink}
+                onEditCompany={handleEditCompany}
+                selectedDataSource={selectedDataSource}
+              />
             </div>
           </div>
         ) : (

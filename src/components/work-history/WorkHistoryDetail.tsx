@@ -32,6 +32,8 @@ import {
 } from "lucide-react";
 import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
 import { TagSuggestionButton } from "@/components/ui/TagSuggestionButton";
+import { LinkedInDataSource } from "./LinkedInDataSource";
+import { ResumeDataSource } from "./ResumeDataSource";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,6 +58,7 @@ interface WorkHistoryDetailProps {
   onEditStory?: (story: WorkHistoryBlurb) => void;
   onEditLink?: (link: any) => void;
   onDuplicateStory?: (story: WorkHistoryBlurb) => void;
+  selectedDataSource?: 'work-history' | 'linkedin' | 'resume';
   onDeleteStory?: (story: WorkHistoryBlurb) => void;
 }
 
@@ -77,12 +80,36 @@ export const WorkHistoryDetail = ({
   onEditLink,
   onDuplicateStory,
   onDeleteStory,
+  selectedDataSource = 'work-history',
 }: WorkHistoryDetailProps) => {
   const [detailView, setDetailView] = useState<DetailView>(initialTab);
   const [isEditingRole, setIsEditingRole] = useState(false);
   const [editingRole, setEditingRole] = useState<WorkHistoryRole | null>(null);
   const [isEditingStory, setIsEditingStory] = useState(false);
   const [editingStory, setEditingStory] = useState<WorkHistoryBlurb | null>(null);
+
+  // Handle different data sources
+  if (selectedDataSource === 'linkedin') {
+    return (
+      <div className="h-full">
+        <LinkedInDataSource 
+          onConnectLinkedIn={() => console.log('Connect LinkedIn')}
+          onRefresh={() => window.location.reload()}
+        />
+      </div>
+    );
+  }
+
+  if (selectedDataSource === 'resume') {
+    return (
+      <div className="h-full">
+        <ResumeDataSource 
+          onUploadResume={() => console.log('Upload Resume')}
+          onRefresh={() => window.location.reload()}
+        />
+      </div>
+    );
+  }
   
   // Content Generation Modal state
   const [isContentModalOpen, setIsContentModalOpen] = useState(false);
