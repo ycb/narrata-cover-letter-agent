@@ -1043,6 +1043,15 @@ export class FileUploadService {
       // Parse evaluation results
       const evaluation = data.evaluation || {};
       
+      // Determine user_type by checking the source file_name in the database
+      const { data: sourceData } = await supabase
+        .from('sources')
+        .select('file_name')
+        .eq('id', data.sourceId)
+        .single();
+      
+      const userType = sourceData?.file_name?.startsWith('P') ? 'synthetic' : 'real';
+      
       // Store in Supabase evaluation_runs table
       const { error } = await supabase
         .from('evaluation_runs')
@@ -1051,7 +1060,7 @@ export class FileUploadService {
           session_id: data.sessionId,
           source_id: data.sourceId, // This should be the UUID from sources table
           file_type: data.type,
-          user_type: data.sourceId.startsWith('P') ? 'synthetic' : 'real', // Added user_type
+          user_type: userType,
           
           // Performance Metrics
           text_extraction_latency_ms: 0, // TODO: Add granular timing
@@ -1082,14 +1091,22 @@ export class FileUploadService {
         } as any);
 
       if (error) {
-        console.error('Failed to store evaluation run:', error);
+        console.error('❌ Failed to store evaluation run:', error);
+        console.error('Error details:', JSON.stringify(error, null, 2));
+        console.error('Data being inserted:', {
+          user_id: user.id,
+          session_id: data.sessionId,
+          source_id: data.sourceId,
+          file_type: data.type
+        });
         // Fallback to localStorage for now
         this.fallbackToLocalStorage(data);
       } else {
-        console.log('📊 Evaluation run stored in Supabase:', data.sessionId);
+        console.log('✅ Evaluation run stored in Supabase:', data.sessionId);
       }
     } catch (error) {
-      console.error('Error storing evaluation run:', error);
+      console.error('❌ Exception storing evaluation run:', error);
+      console.error('Exception type:', error instanceof Error ? error.message : String(error));
       // Fallback to localStorage for now
       this.fallbackToLocalStorage(data);
     }
