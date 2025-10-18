@@ -17,7 +17,7 @@ Extract the following information and return as JSON. IMPORTANT: Extract ALL wor
       "startDate": "YYYY-MM-DD",
       "endDate": "YYYY-MM-DD or null if current",
       "description": "Job description",
-      "achievements": ["achievement1", "achievement2"],
+      "achievements": ["achievement1", "achievement2", "achievement3"],
       "stories": [
         {
           "id": "story_1",
@@ -100,5 +100,14 @@ STORY EXTRACTION RULES:
 - Extract every distinct achievement, project, or accomplishment mentioned
 - Do not combine or summarize multiple achievements into single stories
 - Each bullet point or achievement should become its own story if it contains distinct value
+
+CRITICAL: You MUST extract stories into the "stories" array for each work history entry. Do not leave stories arrays empty. Each bullet point in the job description should become a story with:
+- title: Brief description of the achievement
+- description: Full context, action, and result
+- metrics: Specific numbers and outcomes mentioned
+- impact: high/medium/low based on the significance
+- type: achievement/challenge/leadership/innovation/problem-solving
+
+ALSO CRITICAL: You MUST populate the "achievements" array for each work history entry. Extract each bullet point as a separate achievement. Do not leave achievements arrays empty.
 `;
 };
