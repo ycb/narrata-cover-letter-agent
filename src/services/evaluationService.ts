@@ -1,5 +1,6 @@
 // Evaluation service for systematic data quality assessment
 import { LLMAnalysisService } from './openaiService';
+import { buildEvaluationPrompt, buildEnhancedEvaluationPrompt } from '../prompts';
 
 export interface EvaluationResult {
   accuracy: '✅ Accurate' | '⚠ Partially Accurate' | '❌ Inaccurate';
@@ -9,6 +10,18 @@ export interface EvaluationResult {
   framework: '✅ Structured' | '⚠ Partial' | '❌ Not Structured';
   go_nogo: '✅ Go' | '❌ No-Go';
   rationale: string;
+}
+
+export interface EnhancedEvaluationResult extends EvaluationResult {
+  // New criteria for unified work history
+  workHistoryDeduplication: '✅ Merged' | '⚠ Partial' | '❌ Duplicates';
+  metricsExtraction: '✅ Complete' | '⚠ Limited' | '❌ Missing';
+  storyStructure: '✅ Clear' | '⚠ Weak' | '❌ Unclear';
+  
+  // New criteria for cover letter templates
+  templateQuality: '✅ Excellent' | '⚠ Good' | '❌ Poor';
+  templateReusability: '✅ Highly Reusable' | '⚠ Somewhat Reusable' | '❌ Not Reusable';
+  templateCompleteness: '✅ Complete' | '⚠ Partial' | '❌ Incomplete';
 }
 
 export interface HeuristicResult {

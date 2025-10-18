@@ -25,11 +25,17 @@ const getSupabaseConfig = () => ({
 import { TextExtractionService } from './textExtractionService';
 import { LLMAnalysisService } from './openaiService';
 import { EvaluationService } from './evaluationService';
+import { TemplateService } from './templateService';
+import { UnifiedProfileService } from './unifiedProfileService';
+import { HumanReviewService } from './humanReviewService';
 
 export class FileUploadService {
   private textExtractionService: TextExtractionService;
   private llmAnalysisService: LLMAnalysisService;
   private evaluationService: EvaluationService;
+  private templateService: TemplateService;
+  private unifiedProfileService: UnifiedProfileService;
+  private humanReviewService: HumanReviewService;
   
   // Simple batching state
   private pendingResume: { sourceId: string; text: string } | null = null;
@@ -39,6 +45,9 @@ export class FileUploadService {
     this.textExtractionService = new TextExtractionService();
     this.llmAnalysisService = new LLMAnalysisService();
     this.evaluationService = new EvaluationService();
+    this.templateService = new TemplateService();
+    this.unifiedProfileService = new UnifiedProfileService();
+    this.humanReviewService = new HumanReviewService();
   }
 
   /**
@@ -107,7 +116,7 @@ export class FileUploadService {
         return null;
       }
 
-      const existing = data.find(entry => entry.processing_status === 'completed');
+      const existing = data.find((entry: any) => entry.processing_status === 'completed');
       return existing || null;
     } catch (error) {
       console.error('Error checking for existing source by checksum:', error);
@@ -588,7 +597,7 @@ export class FileUploadService {
 
       // Update with structured data
       const dbStartTime = performance.now();
-      await this.updateProcessingStatus(sourceId, 'completed', structuredData, undefined, accessToken);
+      await this.updateProcessingStatus(sourceId, 'completed', structuredData as any, undefined, accessToken);
       const dbEndTime = performance.now();
       const dbDuration = (dbEndTime - dbStartTime).toFixed(2);
       console.warn(`⏱️ Database save took: ${dbDuration}ms`);
@@ -603,7 +612,7 @@ export class FileUploadService {
         type as 'resume' | 'coverLetter' | 'linkedin'
       );
 
-      // Log for evaluation tracking
+      // Log for evaluation tracking (async, don't await to avoid blocking)
       this.logLLMGeneration({
         sessionId: `sess_${Date.now()}`,
         sourceId,
@@ -616,6 +625,8 @@ export class FileUploadService {
         outputText: JSON.stringify(structuredData, null, 2), // Full structured data, formatted
         heuristics,
         evaluation
+      }).catch(error => {
+        console.warn('Failed to log evaluation data:', error);
       });
 
     } catch (error) {
@@ -817,7 +828,7 @@ export class FileUploadService {
       
       // Update resume with structured data
       if (combinedResult.resume.success) {
-        await this.updateProcessingStatus(this.pendingResume.sourceId, 'completed', combinedResult.resume.data, undefined, accessToken);
+        await this.updateProcessingStatus(this.pendingResume.sourceId, 'completed', combinedResult.resume.data as any, undefined, accessToken);
         console.log('✅ Resume analysis completed');
       } else {
         await this.updateProcessingStatus(this.pendingResume.sourceId, 'failed', undefined, combinedResult.resume.error, accessToken);
@@ -826,7 +837,7 @@ export class FileUploadService {
       
       // Update cover letter with structured data
       if (combinedResult.coverLetter.success) {
-        await this.updateProcessingStatus(this.pendingCoverLetter.sourceId, 'completed', combinedResult.coverLetter.data, undefined, accessToken);
+        await this.updateProcessingStatus(this.pendingCoverLetter.sourceId, 'completed', combinedResult.coverLetter.data as any, undefined, accessToken);
         console.log('✅ Cover letter analysis completed');
       } else {
         await this.updateProcessingStatus(this.pendingCoverLetter.sourceId, 'failed', undefined, combinedResult.coverLetter.error, accessToken);
@@ -916,7 +927,7 @@ export class FileUploadService {
   /**
    * Log LLM generation for evaluation tracking
    */
-  private logLLMGeneration(data: {
+  private async logLLMGeneration(data: {
     sessionId: string;
     sourceId: string;
     type: FileType;
@@ -928,7 +939,71 @@ export class FileUploadService {
     outputText: string;
     heuristics?: any;
     evaluation?: any;
-  }): void {
+  }): Promise<void> {
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.warn('No user found for evaluation logging');
+        return;
+      }
+
+      // Parse evaluation results
+      const evaluation = data.evaluation || {};
+      
+      // Store in Supabase evaluation_runs table
+      const { error } = await supabase
+        .from('evaluation_runs')
+        .insert({
+          user_id: user.id,
+          session_id: data.sessionId,
+          source_id: data.sourceId, // This should be the UUID from sources table
+          file_type: data.type,
+          user_type: data.sourceId.startsWith('P') ? 'synthetic' : 'real', // Added user_type
+          
+          // Performance Metrics
+          text_extraction_latency_ms: 0, // TODO: Add granular timing
+          llm_analysis_latency_ms: data.latency,
+          database_save_latency_ms: 0, // TODO: Add granular timing
+          total_latency_ms: data.latency,
+          
+          // Token Usage
+          input_tokens: data.inputTokens,
+          output_tokens: data.outputTokens,
+          model: data.model,
+          
+          // Evaluation Results
+          accuracy_score: evaluation.accuracy || '✅ Accurate',
+          relevance_score: evaluation.relevance || '✅ Relevant',
+          personalization_score: evaluation.personalization || '✅ Personalized',
+          clarity_tone_score: evaluation.clarity_tone || '✅ Clear',
+          framework_score: evaluation.framework || '✅ Structured',
+          go_nogo_decision: evaluation.go_nogo || '✅ Go',
+          evaluation_rationale: evaluation.rationale || 'Successfully processed',
+          
+          // Heuristics Data
+          heuristics: data.heuristics,
+          
+          // Raw Input/Output for comparison
+          raw_text: data.inputText, // Store raw text
+          structured_data: JSON.parse(data.outputText) // Store structured data
+        } as any);
+
+      if (error) {
+        console.error('Failed to store evaluation run:', error);
+        // Fallback to localStorage for now
+        this.fallbackToLocalStorage(data);
+      } else {
+        console.log('📊 Evaluation run stored in Supabase:', data.sessionId);
+      }
+    } catch (error) {
+      console.error('Error storing evaluation run:', error);
+      // Fallback to localStorage for now
+      this.fallbackToLocalStorage(data);
+    }
+  }
+
+  private fallbackToLocalStorage(data: any): void {
     const logEntry = {
       timestamp: new Date().toISOString(),
       ...data,
@@ -945,16 +1020,16 @@ export class FileUploadService {
       evaluation: data.evaluation
     };
 
-    // Log to console for now (later we'll send to analytics)
-    console.log('📊 EVAL LOG:', JSON.stringify(logEntry, null, 2));
+    // Log to console
+    console.log('📊 EVAL LOG (fallback):', JSON.stringify(logEntry, null, 2));
     
-    // Store in localStorage for now (later we'll use proper analytics)
+    // Store in localStorage as fallback
     try {
       const existingLogs = JSON.parse(localStorage.getItem('narrata-eval-logs') || '[]');
       existingLogs.push(logEntry);
       localStorage.setItem('narrata-eval-logs', JSON.stringify(existingLogs.slice(-50))); // Keep last 50
     } catch (error) {
-      console.warn('Failed to store eval log:', error);
+      console.warn('Failed to store eval log in localStorage:', error);
     }
   }
 
