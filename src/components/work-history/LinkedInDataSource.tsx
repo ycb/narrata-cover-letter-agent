@@ -162,36 +162,16 @@ export function LinkedInDataSource({ onConnectLinkedIn, onRefresh }: LinkedInDat
   return (
     <Card className="h-full">
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Linkedin className="h-5 w-5 text-blue-600" />
-            LinkedIn Profile
-          </CardTitle>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={isLoading}
-            >
-              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => window.open(profile.profile_url, '_blank')}
-            >
-              <ExternalLink className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+        <CardTitle className="flex items-center gap-2">
+          <Linkedin className="h-5 w-5 text-blue-600" />
+          LinkedIn Profile
+        </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Profile Header */}
+      <CardContent>
         <div className="space-y-4">
           <div>
-            <h3 className="text-xl font-semibold">{profile.linkedin_id}</h3>
-            <p className="text-muted-foreground">LinkedIn Profile</p>
+            <h3 className="text-lg font-semibold">{profile.linkedin_id}</h3>
+            <p className="text-sm text-muted-foreground">LinkedIn Profile</p>
           </div>
           
           {profile.about && (
@@ -201,105 +181,10 @@ export function LinkedInDataSource({ onConnectLinkedIn, onRefresh }: LinkedInDat
             </div>
           )}
 
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <Calendar className="h-4 w-4" />
-              <span>Updated {new Date(profile.updated_at).toLocaleDateString()}</span>
-            </div>
+          <div className="text-sm text-muted-foreground">
+            Updated {new Date(profile.updated_at).toLocaleDateString()}
           </div>
         </div>
-
-        <Separator />
-
-        {/* Experience */}
-        {profile.experience && profile.experience.length > 0 && (
-          <div>
-            <h4 className="font-medium mb-3 flex items-center gap-2">
-              <Briefcase className="h-4 w-4" />
-              Experience ({profile.experience.length})
-            </h4>
-            <div className="space-y-3">
-              {profile.experience.slice(0, 3).map((exp, index) => (
-                <div key={index} className="border rounded-lg p-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h5 className="font-medium">{exp.title}</h5>
-                      <p className="text-sm text-muted-foreground">{exp.company}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {exp.startDate} - {exp.endDate || 'Present'}
-                      </p>
-                      {exp.location && (
-                        <p className="text-xs text-muted-foreground">{exp.location}</p>
-                      )}
-                    </div>
-                  </div>
-                  {exp.description && (
-                    <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
-                      {exp.description}
-                    </p>
-                  )}
-                </div>
-              ))}
-              {profile.experience.length > 3 && (
-                <p className="text-sm text-muted-foreground text-center">
-                  +{profile.experience.length - 3} more positions
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
-        <Separator />
-
-        {/* Education */}
-        {profile.education && profile.education.length > 0 && (
-          <div>
-            <h4 className="font-medium mb-3 flex items-center gap-2">
-              <GraduationCap className="h-4 w-4" />
-              Education ({profile.education.length})
-            </h4>
-            <div className="space-y-2">
-              {profile.education.slice(0, 2).map((edu, index) => (
-                <div key={index} className="border rounded-lg p-3">
-                  <h5 className="font-medium">{edu.degree}</h5>
-                  <p className="text-sm text-muted-foreground">{edu.school}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {edu.startDate} - {edu.endDate || 'Present'}
-                  </p>
-                </div>
-              ))}
-              {profile.education.length > 2 && (
-                <p className="text-sm text-muted-foreground text-center">
-                  +{profile.education.length - 2} more schools
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
-        <Separator />
-
-        {/* Skills */}
-        {profile.skills && profile.skills.length > 0 && (
-          <div>
-            <h4 className="font-medium mb-3 flex items-center gap-2">
-              <Award className="h-4 w-4" />
-              Skills ({profile.skills.length})
-            </h4>
-            <div className="flex flex-wrap gap-2">
-              {profile.skills.slice(0, 10).map((skill, index) => (
-                <Badge key={index} variant="secondary" className="text-xs">
-                  {skill}
-                </Badge>
-              ))}
-              {profile.skills.length > 10 && (
-                <Badge variant="outline" className="text-xs">
-                  +{profile.skills.length - 10} more
-                </Badge>
-              )}
-            </div>
-          </div>
-        )}
       </CardContent>
     </Card>
   );

@@ -87,29 +87,6 @@ export const WorkHistoryDetail = ({
   const [editingRole, setEditingRole] = useState<WorkHistoryRole | null>(null);
   const [isEditingStory, setIsEditingStory] = useState(false);
   const [editingStory, setEditingStory] = useState<WorkHistoryBlurb | null>(null);
-
-  // Handle different data sources
-  if (selectedDataSource === 'linkedin') {
-    return (
-      <div className="h-full">
-        <LinkedInDataSource 
-          onConnectLinkedIn={() => console.log('Connect LinkedIn')}
-          onRefresh={() => window.location.reload()}
-        />
-      </div>
-    );
-  }
-
-  if (selectedDataSource === 'resume') {
-    return (
-      <div className="h-full">
-        <ResumeDataSource 
-          onUploadResume={() => console.log('Upload Resume')}
-          onRefresh={() => window.location.reload()}
-        />
-      </div>
-    );
-  }
   
   // Content Generation Modal state
   const [isContentModalOpen, setIsContentModalOpen] = useState(false);
@@ -1211,6 +1188,29 @@ export const WorkHistoryDetail = ({
           content={tagContent}
           suggestedTags={suggestedTags}
           onApplyTags={handleApplyTags}
+        />
+      </div>
+    );
+  }
+
+  // Handle different data sources
+  if (selectedDataSource === 'linkedin') {
+    return (
+      <div className="h-full">
+        <LinkedInDataSource 
+          onConnectLinkedIn={() => console.log('Connect LinkedIn')}
+          onRefresh={() => window.location.reload()}
+        />
+      </div>
+    );
+  }
+
+  if (selectedDataSource === 'resume') {
+    return (
+      <div className="h-full">
+        <ResumeDataSource 
+          onUploadResume={() => console.log('Upload Resume')}
+          onRefresh={() => window.location.reload()}
         />
       </div>
     );
