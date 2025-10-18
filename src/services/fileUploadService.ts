@@ -605,6 +605,9 @@ export class FileUploadService {
       // Run code-driven heuristics
       const heuristics = this.runHeuristics(structuredData, type);
 
+      // Process structured data into work_items and companies tables
+      await this.processStructuredData(structuredData, sourceId, accessToken);
+
       // Run LLM judge evaluation
       const evaluation = await this.evaluationService.evaluateStructuredData(
         structuredData, 
@@ -639,6 +642,95 @@ export class FileUploadService {
         accessToken
       );
       throw error;
+    }
+  }
+
+  /**
+   * Process structured data into work_items and companies tables
+   */
+  private async processStructuredData(
+    structuredData: any, 
+    sourceId: string, 
+    accessToken?: string
+  ): Promise<void> {
+    try {
+      console.log('🔄 Processing structured data into work_items and companies tables...');
+      
+      if (!structuredData.workHistory || !Array.isArray(structuredData.workHistory)) {
+        console.log('No work history to process');
+        return;
+      }
+
+      const { supabase } = await import('../lib/supabase');
+      
+      // Get the user_id from the source record
+      const { data: sourceData } = await supabase
+        .from('sources')
+        .select('user_id')
+        .eq('id', sourceId)
+        .single();
+      
+      if (!sourceData) {
+        console.error('Source record not found');
+        return;
+      }
+      
+      const userId = sourceData.user_id;
+      
+      // Process each work history entry
+      for (const workItem of structuredData.workHistory) {
+        // First, create or find the company
+        let companyId: string;
+        
+        const { data: existingCompany } = await supabase
+          .from('companies')
+          .select('id')
+          .eq('name', workItem.company)
+          .eq('user_id', userId)
+          .single();
+
+        if (existingCompany) {
+          companyId = existingCompany.id;
+        } else {
+          const { data: newCompany, error: companyError } = await supabase
+            .from('companies')
+            .insert({
+              name: workItem.company,
+              description: workItem.description || '',
+              user_id: userId
+            })
+            .select('id')
+            .single();
+
+          if (companyError) {
+            console.error('Error creating company:', companyError);
+            continue;
+          }
+          companyId = newCompany.id;
+        }
+
+        // Create work item
+        const { error: workItemError } = await supabase
+          .from('work_items')
+          .insert({
+            user_id: userId,
+            company_id: companyId,
+            title: workItem.title,
+            start_date: workItem.startDate,
+            end_date: workItem.endDate,
+            description: workItem.description,
+            achievements: workItem.achievements || [],
+            tags: workItem.tags || []
+          });
+
+        if (workItemError) {
+          console.error('Error creating work item:', workItemError);
+        }
+      }
+
+      console.log('✅ Structured data processed successfully');
+    } catch (error) {
+      console.error('Error processing structured data:', error);
     }
   }
 
