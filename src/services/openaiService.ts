@@ -372,7 +372,8 @@ Instructions:
     
     console.warn(`📊 Token calculation: ${extractedText.length} chars → ${baseTokens} base tokens → ${finalTokens} optimal tokens (${type}, complexity: ${complexityMultiplier.toFixed(2)})`);
     
-    return finalTokens;
+    // Ensure we return an integer
+    return Math.floor(finalTokens);
   }
 
   /**
