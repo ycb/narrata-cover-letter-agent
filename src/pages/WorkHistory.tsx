@@ -467,6 +467,7 @@ export default function WorkHistory() {
   const handleCompanySelect = (company: WorkHistoryCompany) => {
     setSelectedCompany(company);
     setExpandedCompanyId(company.id);
+    setSelectedDataSource('work-history'); // Reset to work history view
     
     // Auto-advance to role detail if company has only one role
     if (company.roles.length === 1) {
@@ -486,6 +487,7 @@ export default function WorkHistory() {
       setSelectedCompany(parentCompany);
       setSelectedRole(role);
       setExpandedCompanyId(parentCompany.id);
+      setSelectedDataSource('work-history'); // Reset to work history view
     }
   };
 
