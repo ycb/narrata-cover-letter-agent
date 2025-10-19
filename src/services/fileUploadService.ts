@@ -891,6 +891,13 @@ export class FileUploadService {
       console.log('📄 Cover letter stored for batching');
     }
     
+    // CRITICAL: Save extracted text to database so the NEXT upload can find it
+    await supabase
+      .from('sources')
+      .update({ raw_text: extractedText })
+      .eq('id', sourceId);
+    console.log(`💾 Saved extracted text to database for ${type}`);
+    
     // Check DATABASE for the other file (since each upload is a new HTTP request/service instance)
     const userId = accessToken ? (await supabase.auth.getUser(accessToken)).data.user?.id : (await supabase.auth.getUser()).data.user?.id;
     
@@ -953,6 +960,17 @@ export class FileUploadService {
       if (combinedResult.resume.success) {
         await this.updateProcessingStatus(this.pendingResume.sourceId, 'completed', combinedResult.resume.data as any, undefined, accessToken);
         console.log('✅ Resume analysis completed');
+        
+        // Log for evaluation tracking
+        await this.logLLMGeneration({
+          sessionId: `sess_${Date.now()}_resume`,
+          sourceId: this.pendingResume.sourceId,
+          type: 'resume',
+          inputText: this.pendingResume.text,
+          outputText: JSON.stringify(combinedResult.resume.data, null, 2),
+          success: true,
+          performanceMs: parseFloat(llmDuration)
+        });
       } else {
         await this.updateProcessingStatus(this.pendingResume.sourceId, 'failed', undefined, combinedResult.resume.error, accessToken);
         console.error('❌ Resume analysis failed:', combinedResult.resume.error);
@@ -962,6 +980,17 @@ export class FileUploadService {
       if (combinedResult.coverLetter.success) {
         await this.updateProcessingStatus(this.pendingCoverLetter.sourceId, 'completed', combinedResult.coverLetter.data as any, undefined, accessToken);
         console.log('✅ Cover letter analysis completed');
+        
+        // Log for evaluation tracking
+        await this.logLLMGeneration({
+          sessionId: `sess_${Date.now()}_coverLetter`,
+          sourceId: this.pendingCoverLetter.sourceId,
+          type: 'coverLetter',
+          inputText: this.pendingCoverLetter.text,
+          outputText: JSON.stringify(combinedResult.coverLetter.data, null, 2),
+          success: true,
+          performanceMs: parseFloat(llmDuration)
+        });
       } else {
         await this.updateProcessingStatus(this.pendingCoverLetter.sourceId, 'failed', undefined, combinedResult.coverLetter.error, accessToken);
         console.error('❌ Cover letter analysis failed:', combinedResult.coverLetter.error);
