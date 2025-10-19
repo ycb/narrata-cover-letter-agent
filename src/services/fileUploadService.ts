@@ -882,7 +882,7 @@ export class FileUploadService {
       extractedText = content;
     }
     
-    // Store the data
+    // Store the data in memory
     if (type === 'resume') {
       this.pendingResume = { sourceId, text: extractedText };
       console.log('📄 Resume stored for batching');
@@ -891,11 +891,37 @@ export class FileUploadService {
       console.log('📄 Cover letter stored for batching');
     }
     
-    // Check if we have both files
-    if (this.pendingResume && this.pendingCoverLetter) {
-      console.log('🚀 Both files ready - starting combined analysis');
-      await this.processCombinedAnalysis(accessToken);
-      return true;
+    // Check DATABASE for the other file (since each upload is a new HTTP request/service instance)
+    const userId = accessToken ? (await supabase.auth.getUser(accessToken)).data.user?.id : (await supabase.auth.getUser()).data.user?.id;
+    
+    if (userId) {
+      const { data: sources } = await supabase
+        .from('sources')
+        .select('id, source_type, raw_text')
+        .eq('user_id', userId)
+        .in('source_type', ['resume', 'cover_letter'])
+        .eq('processing_status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(2);
+      
+      console.log(`🔍 Batching check: Found ${sources?.length || 0} pending files in database`);
+      
+      // If we have both resume and cover letter in database, process them together
+      if (sources && sources.length === 2) {
+        const resumeSource = sources.find(s => s.source_type === 'resume');
+        const coverLetterSource = sources.find(s => s.source_type === 'cover_letter');
+        
+        if (resumeSource && coverLetterSource && resumeSource.raw_text && coverLetterSource.raw_text) {
+          console.log('🚀 Both files ready in database - starting combined analysis');
+          
+          // Set up pending data from database
+          this.pendingResume = { sourceId: resumeSource.id, text: resumeSource.raw_text };
+          this.pendingCoverLetter = { sourceId: coverLetterSource.id, text: coverLetterSource.raw_text };
+          
+          await this.processCombinedAnalysis(accessToken);
+          return true;
+        }
+      }
     }
     
     return true; // Always batch (don't process individually)
