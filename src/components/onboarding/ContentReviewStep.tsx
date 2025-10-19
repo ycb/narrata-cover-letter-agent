@@ -260,10 +260,11 @@ export function ContentReviewStep({ onReviewComplete, onBack }: ContentReviewSte
 
           💼 WORK EXPERIENCE
           ${experiences.map((exp: any, idx: number) => {
-            const company = exp.company || 'Unknown Company';
-            const title = exp.title || 'Unknown Role';
+            // Handle both flat and nested PDL structures
+            const company = typeof exp.company === 'object' ? exp.company.name : (exp.company || 'Unknown Company');
+            const title = typeof exp.title === 'object' ? exp.title.name : (exp.title || 'Unknown Role');
             const dates = `${exp.startDate || exp.start_date || 'N/A'} - ${exp.endDate || exp.end_date || 'Present'}`;
-            const location = exp.location || '';
+            const location = typeof exp.location === 'object' ? exp.location.name : (exp.location || '');
             return `${idx + 1}. ${title} at ${company}
             ${dates}${location ? ` | ${location}` : ''}`;
           }).join('\n') || 'No work experience data'}
@@ -284,18 +285,25 @@ export function ContentReviewStep({ onReviewComplete, onBack }: ContentReviewSte
           title: 'LinkedIn Profile',
           source: linkedinProfile.profile_url,
           content: formattedContent,
-          stories: experiences.map((exp: any, index: number) => ({
-            id: exp.id || `linkedin-story-${index}`,
-            title: `${exp.title || 'Unknown Role'} at ${exp.company || 'Unknown Company'}`,
-            content: exp.description || '',
-            company: exp.company || '',
-            role: exp.title || '',
-            dates: `${exp.startDate || exp.start_date || ''} - ${exp.endDate || exp.end_date || 'Present'}`,
-            location: exp.location || '',
-            achievements: Array.isArray(exp.achievements) ? exp.achievements : [],
-            startDate: exp.startDate || exp.start_date,
-            endDate: exp.endDate || exp.end_date
-          })),
+          stories: experiences.map((exp: any, index: number) => {
+            // Handle both flat and nested PDL structures
+            const company = typeof exp.company === 'object' ? exp.company.name : (exp.company || 'Unknown Company');
+            const title = typeof exp.title === 'object' ? exp.title.name : (exp.title || 'Unknown Role');
+            const location = typeof exp.location === 'object' ? exp.location.name : (exp.location || '');
+            
+            return {
+              id: exp.id || `linkedin-story-${index}`,
+              title: `${title} at ${company}`,
+              content: exp.summary || exp.description || '',
+              company,
+              role: title,
+              dates: `${exp.start_date || exp.startDate || ''} - ${exp.end_date || exp.endDate || 'Present'}`,
+              location,
+              achievements: Array.isArray(exp.achievements) ? exp.achievements : [],
+              startDate: exp.start_date || exp.startDate,
+              endDate: exp.end_date || exp.endDate
+            };
+          }),
           approved: false,
           confidence: linkedinConfidence
         });
