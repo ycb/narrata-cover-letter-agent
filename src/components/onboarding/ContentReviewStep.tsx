@@ -209,10 +209,10 @@ export function ContentReviewStep({ onReviewComplete, onBack }: ContentReviewSte
           content: resumeSource.raw_text || '',
           stories: workHistory.map((exp: any, index: number) => ({
             id: exp.id || `resume-story-${index}`,
-            title: `${exp.title} at ${exp.company}`,
+            title: `${exp.position} at ${exp.company}`,
             content: exp.description || '',
             company: exp.company,
-            role: exp.title,
+            role: exp.position,
             dates: `${exp.startDate} - ${exp.endDate || 'Present'}`,
             location: exp.location,
             achievements: exp.achievements || [],
