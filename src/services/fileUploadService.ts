@@ -720,9 +720,9 @@ export class FileUploadService {
           .insert({
             user_id: userId,
             company_id: companyId,
-            title: workItem.title,
+            title: workItem.position || workItem.title,
             start_date: workItem.startDate,
-            end_date: workItem.endDate,
+            end_date: workItem.endDate === 'Present' ? null : workItem.endDate,
             description: workItem.description,
             achievements: workItem.achievements || [],
             tags: workItem.tags || []
