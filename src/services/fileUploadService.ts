@@ -696,12 +696,21 @@ export class FileUploadService {
 
         if (existingCompany) {
           companyId = existingCompany.id;
+          
+          // Update company tags if they exist
+          if (workItem.companyTags && workItem.companyTags.length > 0) {
+            await supabase
+              .from('companies')
+              .update({ tags: workItem.companyTags })
+              .eq('id', companyId);
+          }
         } else {
           const { data: newCompany, error: companyError } = await supabase
             .from('companies')
             .insert({
               name: workItem.company,
               description: workItem.description || '',
+              tags: workItem.companyTags || [],
               user_id: userId
             })
             .select('id')
@@ -714,8 +723,8 @@ export class FileUploadService {
           companyId = newCompany.id;
         }
 
-        // Create work item
-        const { error: workItemError } = await supabase
+        // Create work item with role-level data
+        const { data: newWorkItem, error: workItemError } = await supabase
           .from('work_items')
           .insert({
             user_id: userId,
@@ -723,13 +732,39 @@ export class FileUploadService {
             title: workItem.position || workItem.title,
             start_date: workItem.startDate,
             end_date: workItem.endDate === 'Present' ? null : workItem.endDate,
-            description: workItem.description,
-            achievements: workItem.achievements || [],
-            tags: workItem.tags || []
-          });
+            description: workItem.roleSummary || workItem.description || '',
+            achievements: workItem.roleMetrics || workItem.achievements || [],
+            tags: workItem.roleTags || workItem.tags || []
+          })
+          .select('id')
+          .single();
 
         if (workItemError) {
           console.error('Error creating work item:', workItemError);
+          continue;
+        }
+
+        // Save stories to approved_content
+        if (workItem.stories && Array.isArray(workItem.stories)) {
+          for (const story of workItem.stories) {
+            const { error: storyError } = await supabase
+              .from('approved_content')
+              .insert({
+                user_id: userId,
+                work_item_id: newWorkItem.id,
+                company_id: companyId,
+                role: workItem.position || workItem.title,
+                title: story.title || story.content?.substring(0, 100),
+                content: story.content || '',
+                tags: story.tags || [],
+                metrics: story.metrics || [],
+                source_id: sourceId
+              });
+
+            if (storyError) {
+              console.error('Error creating story:', storyError);
+            }
+          }
         }
       }
 
