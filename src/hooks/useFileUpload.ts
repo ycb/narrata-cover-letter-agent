@@ -466,10 +466,63 @@ export function useLinkedInUpload() {
           projects: profileResult.data.projects
         };
       } else {
-        // Strategy 2: Try People Data Labs enrichment
-        console.log('OAuth failed, attempting People Data Labs enrichment...');
+        // Strategy 2: Check for synthetic test data (development only)
+        if (import.meta.env.DEV && linkedinUsername) {
+          console.log('🧪 Checking for synthetic LinkedIn data...');
+          
+          // Try to load synthetic fixture data based on LinkedIn username
+          try {
+            // Map common synthetic usernames to profile IDs
+            const syntheticProfiles: Record<string, string> = {
+              'avery-chen': 'P01',
+              'avery-chen-pm': 'P01',
+              'jordan-alvarez': 'P02',
+              'riley-gupta': 'P03',
+              // Add more as needed
+            };
+            
+            const profileId = syntheticProfiles[linkedinUsername];
+            if (profileId) {
+              console.log(`🎯 Detected synthetic profile: ${profileId}`);
+              
+              // Fetch the fixture JSON from the public fixtures folder
+              const fixturePath = `/fixtures/synthetic/v1/raw_uploads/${profileId}_linkedin.json`;
+              const response = await fetch(fixturePath);
+              
+              if (response.ok) {
+                const fixtureData = await response.json();
+                console.log('✅ Loaded synthetic LinkedIn data from fixture');
+                dataSource = 'synthetic_fixture';
+                
+                // Transform PDL format to our format
+                profileData = {
+                  id: profileId,
+                  linkedinId: linkedinUsername,
+                  profileUrl: trimmedUrl,
+                  firstName: fixtureData.first_name || 'Unknown',
+                  lastName: fixtureData.last_name || 'User',
+                  headline: fixtureData.headline || 'Professional',
+                  summary: fixtureData.summary || 'No summary available',
+                  experience: fixtureData.experience || [],
+                  education: fixtureData.education || [],
+                  skills: fixtureData.skills || [],
+                  certifications: [],
+                  projects: []
+                };
+              } else {
+                console.log(`⚠️ Synthetic fixture not found at ${fixturePath}`);
+              }
+            }
+          } catch (err) {
+            console.log('⚠️ Error loading synthetic fixture:', err);
+          }
+        }
         
-        const pdlService = new PeopleDataLabsService();
+        // Strategy 3: Try People Data Labs enrichment
+        if (!profileData) {
+          console.log('Attempting People Data Labs enrichment...');
+          
+          const pdlService = new PeopleDataLabsService();
         
         // Get user's name and resume data for PDL enrichment
         const oauthData = getOAuthData();
@@ -523,8 +576,8 @@ export function useLinkedInUpload() {
             projects: structuredData.projects || []
           };
         } else {
-          // Strategy 3: Fallback to minimal data if both OAuth and PDL fail
-          console.warn('Both OAuth and PDL failed, using minimal data');
+          // Strategy 4: Fallback to minimal data if all strategies fail
+          console.warn('All enrichment strategies failed, using minimal data');
           console.warn('OAuth error:', profileResult.error);
           console.warn('PDL error:', pdlResult.error);
           dataSource = 'minimal';
