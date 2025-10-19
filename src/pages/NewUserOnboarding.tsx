@@ -754,14 +754,6 @@ export default function NewUserOnboarding() {
         <div className="max-w-4xl mx-auto">
           {renderCurrentStep()}
         </div>
-        
-        {/* Debug Panel at bottom - Development Only */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="fixed bottom-4 left-4 right-4 p-3 bg-gray-100 border border-gray-300 rounded text-xs">
-            <p className="text-gray-600 font-bold">🔍 Debug: LinkedIn OAuth</p>
-            <p className="text-gray-500">LinkedIn User: {isLinkedInUser ? 'Yes' : 'No'} | ID: {linkedinId || 'None'}</p>
-          </div>
-        )}
       </div>
     </div>
   );
