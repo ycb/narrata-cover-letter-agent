@@ -518,6 +518,9 @@ export default function NewUserOnboarding() {
           </div>
         </div>
         
+        {/* Progressive Loading Indicator */}
+        <ProgressIndicator />
+        
       </div>
 
       <div className="text-center">
