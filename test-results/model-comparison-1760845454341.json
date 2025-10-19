@@ -1,0 +1,5001 @@
+[
+  {
+    "profile": "P01",
+    "model": "gpt-3.5-turbo",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 10773,
+      "total": 10778
+    },
+    "tokenUsage": {
+      "input": 1190,
+      "output": 1156,
+      "total": 2346
+    },
+    "extractedData": {
+      "companies": 3,
+      "roles": 3,
+      "stories": 6,
+      "metrics": 19,
+      "tags": 36
+    },
+    "cost": 0.002329,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Avery Chen",
+        "email": "avery@example.com",
+        "phone": null,
+        "location": "San Francisco Bay Area, CA",
+        "linkedin": null,
+        "portfolio": null
+      },
+      "workHistory": [
+        {
+          "company": "FlowHub",
+          "companyTags": [
+            "Tech",
+            "Startup",
+            "SaaS"
+          ],
+          "position": "Senior Product Manager",
+          "startDate": "2021-05",
+          "endDate": null,
+          "roleSummary": "Revamped self-serve onboarding, increased activation and trial-to-paid conversion rates. Established experimentation cadence and defined analytics taxonomy.",
+          "roleMetrics": [
+            "Week-2 activation +22%",
+            "Trial→paid +11%"
+          ],
+          "roleTags": [
+            "Product Management",
+            "Experimentation",
+            "Analytics"
+          ],
+          "stories": [
+            {
+              "title": "Onboarding Overhaul",
+              "content": "Context: Improved self-serve onboarding. Action: Revamped the process. Result: Week-2 activation increased by 22% and trial-to-paid conversion by 11%.",
+              "tags": [
+                "User Experience",
+                "Conversion Rate",
+                "Product Optimization"
+              ],
+              "metrics": [
+                "Week-2 activation +22%",
+                "Trial→paid +11%"
+              ]
+            },
+            {
+              "title": "Experimentation Cadence",
+              "content": "Context: Lack of structured testing. Action: Established experimentation cadence. Result: Conducted 30+ tests per year.",
+              "tags": [
+                "Data-Driven Decision Making",
+                "Testing Strategy",
+                "Continuous Improvement"
+              ],
+              "metrics": [
+                "30+ tests/year"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "AcmeCRM",
+          "companyTags": [
+            "CRM",
+            "Mid-sized Company",
+            "Notifications"
+          ],
+          "position": "Product Manager",
+          "startDate": "2019-02",
+          "endDate": "2021-04",
+          "roleSummary": "Managed notifications platform, reduced churn, and launched persona playbooks.",
+          "roleMetrics": [
+            "Churn -3.5%",
+            "Engagement +8%",
+            "Feature adoption +6%"
+          ],
+          "roleTags": [
+            "Product Management",
+            "User Engagement",
+            "Messaging Strategy"
+          ],
+          "stories": [
+            {
+              "title": "Churn Reduction",
+              "content": "Context: High churn rate. Action: Implemented usage-triggered messaging. Result: Reduced churn by 3.5%.",
+              "tags": [
+                "Customer Retention",
+                "Lifecycle Messaging",
+                "Impactful Strategies"
+              ],
+              "metrics": [
+                "Churn -3.5%"
+              ]
+            },
+            {
+              "title": "Persona Playbooks Launch",
+              "content": "Context: Need for personalized engagement. Action: Launched persona playbooks. Result: Increased engagement by 8% and feature adoption by 6%.",
+              "tags": [
+                "Personalization Strategy",
+                "User Engagement",
+                "Feature Adoption"
+              ],
+              "metrics": [
+                "Engagement +8%",
+                "Feature adoption +6%"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "DataDock",
+          "companyTags": [
+            "Data Analytics",
+            "Startup",
+            "SaaS"
+          ],
+          "position": "Associate Product Manager",
+          "startDate": "2017-06",
+          "endDate": "2019-01",
+          "roleSummary": "Led data visualization suite, improved user adoption, and implemented feedback loop.",
+          "roleMetrics": [
+            "User adoption +15%",
+            "Query performance +40%",
+            "NPS +12 points",
+            "Support tickets -25%"
+          ],
+          "roleTags": [
+            "Data Visualization",
+            "User Adoption",
+            "Feedback Loop"
+          ],
+          "stories": [
+            {
+              "title": "Data Visualization Enhancement",
+              "content": "Context: Need for improved data presentation. Action: Led data visualization suite enhancement. Result: Increased user adoption by 15% and query performance by 40%.",
+              "tags": [
+                "Data Presentation",
+                "User Engagement",
+                "Performance Improvement"
+              ],
+              "metrics": [
+                "User adoption +15%",
+                "Query performance +40%"
+              ]
+            },
+            {
+              "title": "Feedback Loop Implementation",
+              "content": "Context: Lack of user feedback integration. Action: Implemented feedback loop. Result: Improved NPS by 12 points and reduced support tickets by 25%.",
+              "tags": [
+                "User-Centric Design",
+                "Customer Satisfaction",
+                "Operational Efficiency"
+              ],
+              "metrics": [
+                "NPS +12 points",
+                "Support tickets -25%"
+              ]
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "Stanford University",
+          "degree": "MS",
+          "field": "Computer Science",
+          "graduationDate": "2017-06",
+          "gpa": null,
+          "honors": []
+        },
+        {
+          "institution": "UC Berkeley",
+          "degree": "BS",
+          "field": "Mathematics",
+          "graduationDate": "2015-06",
+          "gpa": null,
+          "honors": []
+        }
+      ],
+      "skills": [
+        "Product Management",
+        "A/B Testing",
+        "Data Analysis",
+        "SQL",
+        "Python",
+        "User Research",
+        "Product Strategy",
+        "Growth",
+        "PLG",
+        "Onboarding",
+        "Experimentation",
+        "Analytics"
+      ],
+      "certifications": [],
+      "summary": "Senior Product Manager with a strong background in driving growth through data-driven experimentation and user-centric design. Proven track record in optimizing onboarding processes, conducting experiments, and defining analytics strategies."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction is mostly accurate with correct companies, roles, and dates, but some minor details may be missing or slightly misrepresented. Completeness is slightly lacking as not all key experiences and metrics are fully captured, particularly from the cover letter. The structure is well-organized with clear CAR stories, metrics, and tags, making the data easy to understand and navigate."
+    }
+  },
+  {
+    "profile": "P02",
+    "model": "gpt-3.5-turbo",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 12110,
+      "total": 12112
+    },
+    "tokenUsage": {
+      "input": 1180,
+      "output": 1163,
+      "total": 2343
+    },
+    "extractedData": {
+      "companies": 3,
+      "roles": 3,
+      "stories": 7,
+      "metrics": 18,
+      "tags": 39
+    },
+    "cost": 0.0023344999999999998,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Jordan Alvarez",
+        "email": "jordan@example.com",
+        "phone": null,
+        "location": "Austin, TX, US",
+        "linkedin": null,
+        "portfolio": null
+      },
+      "workHistory": [
+        {
+          "company": "GrowthCo",
+          "companyTags": [
+            "Tech",
+            "Startup",
+            "Mobile"
+          ],
+          "position": "Growth Product Manager",
+          "startDate": "2020-03",
+          "endDate": null,
+          "roleSummary": "Led growth initiatives resulting in significant user acquisition and retention improvements.",
+          "roleMetrics": [
+            "User acquisition +45%",
+            "CAC -30%"
+          ],
+          "roleTags": [
+            "Growth Marketing",
+            "User Acquisition",
+            "Retention"
+          ],
+          "stories": [
+            {
+              "title": "Viral Referral Program Success",
+              "content": "Identified need for user growth, launched viral referral program, and achieved +45% user acquisition and -30% CAC.",
+              "tags": [
+                "Viral Marketing",
+                "User Growth",
+                "Cost Reduction"
+              ],
+              "metrics": [
+                "45% user acquisition increase",
+                "30% CAC reduction"
+              ]
+            },
+            {
+              "title": "Onboarding Funnel Optimization",
+              "content": "Optimized onboarding funnel, resulting in +18% Day-7 retention and -40% time-to-value.",
+              "tags": [
+                "Onboarding",
+                "Retention Improvement",
+                "Value Optimization"
+              ],
+              "metrics": [
+                "18% Day-7 retention increase",
+                "40% time-to-value reduction"
+              ]
+            },
+            {
+              "title": "Push Notification Strategy Implementation",
+              "content": "Implemented push notification strategy, boosting engagement by 25% and session frequency by 15%.",
+              "tags": [
+                "Engagement Boost",
+                "Session Frequency Increase",
+                "Notification Strategy"
+              ],
+              "metrics": [
+                "25% engagement increase",
+                "15% session frequency increase"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "MobileFirst",
+          "companyTags": [
+            "Tech",
+            "Established",
+            "Mobile"
+          ],
+          "position": "Product Manager",
+          "startDate": "2018-01",
+          "endDate": "2020-02",
+          "roleSummary": "Managed product development focusing on user onboarding and engagement strategies.",
+          "roleMetrics": [
+            "Activation rate +35%",
+            "Drop-off -20%"
+          ],
+          "roleTags": [
+            "Product Development",
+            "User Onboarding",
+            "Engagement"
+          ],
+          "stories": [
+            {
+              "title": "User Onboarding Flow Enhancement",
+              "content": "Revamped user onboarding flow, increasing activation rates by 35% and reducing drop-off by 20%.",
+              "tags": [
+                "Onboarding Improvement",
+                "Activation Rate Increase",
+                "Drop-off Reduction"
+              ],
+              "metrics": [
+                "35% activation rate increase",
+                "20% drop-off reduction"
+              ]
+            },
+            {
+              "title": "Gamification Features Launch",
+              "content": "Introduced gamification features, resulting in a 22% DAU increase and 28% user lifetime value growth.",
+              "tags": [
+                "Gamification",
+                "DAU Growth",
+                "Lifetime Value Increase"
+              ],
+              "metrics": [
+                "22% DAU increase",
+                "28% lifetime value growth"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "StartupXYZ",
+          "companyTags": [
+            "Tech",
+            "Startup",
+            "N/A"
+          ],
+          "position": "Associate Product Manager",
+          "startDate": "2016-06",
+          "endDate": "2017-12",
+          "roleSummary": "Contributed to product development through user research and testing initiatives.",
+          "roleMetrics": [
+            "Churn reduction by 15%",
+            "Conversion rate +12%"
+          ],
+          "roleTags": [
+            "Product Development",
+            "User Research",
+            "A/B Testing"
+          ],
+          "stories": [
+            {
+              "title": "User Research Impact",
+              "content": "Led user research initiatives, identifying key friction points and reducing churn by 15%.",
+              "tags": [
+                "User Research",
+                "Churn Reduction",
+                "Insights Generation"
+              ],
+              "metrics": [
+                "15% churn reduction"
+              ]
+            },
+            {
+              "title": "A/B Testing Success",
+              "content": "Implemented A/B testing framework, increasing conversion rates by 12% across key funnels.",
+              "tags": [
+                "A/B Testing",
+                "Conversion Rate Improvement",
+                "Testing Framework"
+              ],
+              "metrics": [
+                "12% conversion rate increase"
+              ]
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "University of Texas",
+          "degree": "MBA Marketing",
+          "field": "Marketing",
+          "graduationDate": "2016-06",
+          "gpa": null,
+          "honors": []
+        },
+        {
+          "institution": "Texas A&M",
+          "degree": "BS Business Administration",
+          "field": "Business Administration",
+          "graduationDate": "2014-06",
+          "gpa": null,
+          "honors": []
+        }
+      ],
+      "skills": [
+        "Growth Marketing",
+        "User Acquisition",
+        "Retention",
+        "Mobile Product",
+        "A/B Testing",
+        "Data Analysis",
+        "User Research",
+        "Product Analytics",
+        "Viral Marketing",
+        "Onboarding",
+        "Gamification"
+      ],
+      "certifications": [],
+      "summary": "Experienced Growth Product Manager with a proven track record of driving user acquisition, retention, and engagement through data-driven strategies. Skilled in growth marketing, mobile product development, and user research."
+    },
+    "qualityScores": {
+      "accuracy": 9,
+      "completeness": 8,
+      "structure": 9,
+      "overall": 8.7,
+      "reasoning": "The extraction is highly accurate with correct companies, roles, and dates. Most key experiences and metrics are captured, though some minor details from the cover letter could be included for completeness. The structure is well-organized with clear CAR stories, metrics, and tags, making the data easy to interpret and use."
+    }
+  },
+  {
+    "profile": "P03",
+    "model": "gpt-3.5-turbo",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 7477,
+      "total": 7478
+    },
+    "tokenUsage": {
+      "input": 988,
+      "output": 1129,
+      "total": 2117
+    },
+    "extractedData": {
+      "companies": 3,
+      "roles": 3,
+      "stories": 6,
+      "metrics": 16,
+      "tags": 35
+    },
+    "cost": 0.0021875,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Riley Gupta",
+        "email": "riley@example.com",
+        "phone": null,
+        "location": "Seattle, WA, US",
+        "linkedin": null,
+        "portfolio": null
+      },
+      "workHistory": [
+        {
+          "company": "DevTools Inc",
+          "companyTags": [
+            "Tech",
+            "Established",
+            "API"
+          ],
+          "position": "Technical Product Manager",
+          "startDate": "2020-01",
+          "endDate": null,
+          "roleSummary": "Led API platform redesign resulting in +40% developer satisfaction and -50% integration time.",
+          "roleMetrics": [
+            "API adoption +60%",
+            "Support tickets -35%"
+          ],
+          "roleTags": [
+            "API Design",
+            "Platform Product",
+            "Developer Experience"
+          ],
+          "stories": [
+            {
+              "title": "API Redesign Success",
+              "content": "Context: Legacy API issues. Action: Redesigned API platform. Result: +40% developer satisfaction and -50% integration time.",
+              "tags": [
+                "Innovation",
+                "Problem-Solving",
+                "User Satisfaction"
+              ],
+              "metrics": [
+                "40% developer satisfaction improvement",
+                "50% integration time reduction"
+              ]
+            },
+            {
+              "title": "Developer Portal Impact",
+              "content": "Context: Lack of developer resources. Action: Built developer portal. Result: +60% API adoption and -35% support tickets.",
+              "tags": [
+                "Resource Management",
+                "User Engagement",
+                "Efficiency"
+              ],
+              "metrics": [
+                "60% API adoption increase",
+                "35% support tickets reduction"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "CloudPlatform",
+          "companyTags": [
+            "Cloud",
+            "Growth",
+            "Webhooks"
+          ],
+          "position": "Product Manager",
+          "startDate": "2017-08",
+          "endDate": "2019-12",
+          "roleSummary": "Owned SDK and documentation leading to -45% developer onboarding time and +80% API usage.",
+          "roleMetrics": [
+            "Real-time integrations +200%",
+            "Latency -60%"
+          ],
+          "roleTags": [
+            "SDK Development",
+            "Documentation",
+            "Webhooks"
+          ],
+          "stories": [
+            {
+              "title": "SDK & Documentation Impact",
+              "content": "Context: Poor onboarding experience. Action: Improved SDK and documentation. Result: -45% onboarding time and +80% API usage.",
+              "tags": [
+                "User Onboarding",
+                "Information Accessibility",
+                "Adoption Rate"
+              ],
+              "metrics": [
+                "45% onboarding time reduction",
+                "80% API usage increase"
+              ]
+            },
+            {
+              "title": "Webhook Infrastructure Launch",
+              "content": "Context: Need for real-time integrations. Action: Launched webhook infrastructure. Result: +200% real-time integrations and -60% latency.",
+              "tags": [
+                "Innovation",
+                "Real-Time Communication",
+                "Performance Improvement"
+              ],
+              "metrics": [
+                "200% real-time integrations increase",
+                "60% latency reduction"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "TechStartup",
+          "companyTags": [
+            "Tech",
+            "Startup",
+            "API"
+          ],
+          "position": "Associate Product Manager",
+          "startDate": "2015-06",
+          "endDate": "2017-07",
+          "roleSummary": "Managed API versioning strategy resulting in +95% backward compatibility and +70% migration success.",
+          "roleMetrics": [
+            "API design satisfaction +30%"
+          ],
+          "roleTags": [
+            "API Versioning",
+            "Developer Relations"
+          ],
+          "stories": [
+            {
+              "title": "API Versioning Strategy",
+              "content": "Context: Versioning challenges. Action: Implemented versioning strategy. Result: +95% backward compatibility and +70% migration success.",
+              "tags": [
+                "Strategic Planning",
+                "Compatibility Improvement",
+                "Migration Success"
+              ],
+              "metrics": [
+                "95% backward compatibility increase",
+                "70% migration success increase"
+              ]
+            },
+            {
+              "title": "Developer Feedback Loop",
+              "content": "Context: Lack of feedback integration. Action: Implemented feedback loop. Result: +30% API design satisfaction.",
+              "tags": [
+                "User Feedback",
+                "Continuous Improvement",
+                "User Experience"
+              ],
+              "metrics": [
+                "30% API design satisfaction increase"
+              ]
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "University of Washington",
+          "degree": "MS",
+          "field": "Computer Science",
+          "graduationDate": "2015-05",
+          "gpa": null,
+          "honors": []
+        },
+        {
+          "institution": "University of Washington",
+          "degree": "BS",
+          "field": "Computer Science",
+          "graduationDate": "2013-05",
+          "gpa": null,
+          "honors": []
+        }
+      ],
+      "skills": [
+        "API Design",
+        "Platform Product",
+        "Developer Experience",
+        "Technical Product",
+        "SDK Development",
+        "Documentation",
+        "Webhooks",
+        "Rate Limiting",
+        "Monitoring",
+        "API Versioning",
+        "Developer Relations"
+      ],
+      "certifications": [],
+      "summary": "Experienced Technical Product Manager with a proven track record in API platform redesign, developer satisfaction improvement, and successful product launches. Skilled in SDK development, documentation, and API versioning strategy."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction is mostly accurate with correct companies, roles, and dates, but some facts from the cover letter are missing. Completeness is slightly lacking as not all key experiences and metrics from the cover letter are captured. The structure is well-organized with clear CAR stories, metrics, and tags, contributing to a high score in this area."
+    }
+  },
+  {
+    "profile": "P04",
+    "model": "gpt-3.5-turbo",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 6480,
+      "total": 6482
+    },
+    "tokenUsage": {
+      "input": 814,
+      "output": 631,
+      "total": 1445
+    },
+    "extractedData": {
+      "companies": 2,
+      "roles": 2,
+      "stories": 3,
+      "metrics": 6,
+      "tags": 21
+    },
+    "cost": 0.0013535,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Morgan",
+        "email": "morgan@example.com",
+        "phone": "123-456-7890",
+        "location": "Boston, MA",
+        "linkedin": "linkedin.com/in/morgan",
+        "portfolio": ""
+      },
+      "workHistory": [
+        {
+          "company": "TalentGraph",
+          "companyTags": [
+            "Tech",
+            "Startup",
+            "ML"
+          ],
+          "position": "Senior PM, ML Experiences",
+          "startDate": "2020-01",
+          "endDate": "2025-01",
+          "roleSummary": "Led ML-assisted workflows focusing on explainability and phased rollout.",
+          "roleMetrics": [
+            "10x ML usage YoY",
+            "+9% adoption"
+          ],
+          "roleTags": [
+            "Project Management",
+            "Machine Learning",
+            "User Experience"
+          ],
+          "stories": [
+            {
+              "title": "ML Usage Growth",
+              "content": "Context: Paired explainability with human-in-the-loop controls. Action: Introduced XAI reasons and feedback dashboard. Result: Grew ML usage 10x in a year.",
+              "tags": [
+                "User Adoption",
+                "Explainability",
+                "Growth"
+              ],
+              "metrics": [
+                "10x ML usage increase"
+              ]
+            },
+            {
+              "title": "Feedback Dashboard Impact",
+              "content": "Context: Unified precision/recall and user ratings. Action: Built feedback dashboard. Result: Improved user feedback visibility.",
+              "tags": [
+                "User Feedback",
+                "Dashboard Design",
+                "User Ratings"
+              ],
+              "metrics": [
+                "Improved user feedback visibility"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "AdPilot",
+          "companyTags": [
+            "Tech",
+            "Mid-sized Company",
+            "Recommendation Systems"
+          ],
+          "position": "Product Manager",
+          "startDate": "2017-01",
+          "endDate": "2020-01",
+          "roleSummary": "Managed product features integration into existing workflows.",
+          "roleMetrics": [
+            "+9% adoption"
+          ],
+          "roleTags": [
+            "Product Management",
+            "Workflow Integration",
+            "User Adoption"
+          ],
+          "stories": [
+            {
+              "title": "Workflow Integration Success",
+              "content": "Context: Sequenced recommendations into existing workflows. Action: Integrated recommendations. Result: Achieved 9% increase in adoption.",
+              "tags": [
+                "Integration Success",
+                "Workflow Efficiency",
+                "User Adoption"
+              ],
+              "metrics": [
+                "9% adoption increase"
+              ]
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "Northeastern",
+          "degree": "M.S.",
+          "field": "Human-Computer Interaction",
+          "graduationDate": "YYYY-MM",
+          "gpa": "",
+          "honors": []
+        }
+      ],
+      "skills": [
+        "Project Management",
+        "Machine Learning",
+        "User Experience",
+        "Product Management",
+        "Workflow Integration"
+      ],
+      "certifications": [],
+      "summary": "Senior PM specializing in ML-assisted workflows with a focus on explainability and phased rollout."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction is mostly accurate with correct companies, roles, and dates, but lacks some details like the exact graduation date. Completeness is slightly lower as not all metrics and experiences are fully captured, such as the specific impact of the feedback dashboard. The structure is well-organized with clear CAR stories, metrics, and tags, making it easy to understand the candidate's achievements and skills."
+    }
+  },
+  {
+    "profile": "P05",
+    "model": "gpt-3.5-turbo",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 3328,
+      "total": 3330
+    },
+    "tokenUsage": {
+      "input": 793,
+      "output": 566,
+      "total": 1359
+    },
+    "extractedData": {
+      "companies": 2,
+      "roles": 2,
+      "stories": 2,
+      "metrics": 5,
+      "tags": 18
+    },
+    "cost": 0.0012454999999999999,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Samira",
+        "email": "samira@example.com",
+        "phone": "123-456-7890",
+        "location": "Chicago, IL",
+        "linkedin": "linkedin.com/in/samira",
+        "portfolio": ""
+      },
+      "workHistory": [
+        {
+          "company": "Clinio",
+          "companyTags": [
+            "Digital Health",
+            "Startup",
+            "Remote Monitoring"
+          ],
+          "position": "Product Manager",
+          "startDate": "2021-01",
+          "endDate": "2025-01",
+          "roleSummary": "Led initiatives to improve patient adherence and reduce alert fatigue.",
+          "roleMetrics": [
+            "12% improvement in patient adherence",
+            "18% reduction in alert fatigue"
+          ],
+          "roleTags": [
+            "Product Management",
+            "Healthcare Technology",
+            "Workflow Optimization"
+          ],
+          "stories": [
+            {
+              "title": "Remote Monitoring Enhancement",
+              "content": "Context: Launched remote-monitoring flows. Action: Implemented smarter thresholds. Result: Improved adherence by 12%.",
+              "tags": [
+                "Patient Outcomes",
+                "Efficiency",
+                "HIPAA Compliance"
+              ],
+              "metrics": [
+                "12% improvement in patient adherence"
+              ]
+            },
+            {
+              "title": "Alert Fatigue Reduction",
+              "content": "Context: Addressed alert fatigue issue. Action: Implemented thresholds and batching. Result: Reduced alert fatigue by 18%.",
+              "tags": [
+                "Efficiency",
+                "Threshold Management",
+                "Healthcare Quality"
+              ],
+              "metrics": [
+                "18% reduction in alert fatigue"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "CarePad",
+          "companyTags": [
+            "Healthcare",
+            "Mid-Size Company",
+            "EHR"
+          ],
+          "position": "APM",
+          "startDate": "2019-01",
+          "endDate": "2021-01",
+          "roleSummary": "Focused on optimizing EHR intake forms to enhance efficiency.",
+          "roleMetrics": [
+            "20% decrease in completion time for EHR intake forms"
+          ],
+          "roleTags": [
+            "Product Management",
+            "Healthcare Technology",
+            "Workflow Improvement"
+          ],
+          "stories": []
+        }
+      ],
+      "education": [
+        {
+          "institution": "UIUC",
+          "degree": "B.S.",
+          "field": "Biomedical Engineering",
+          "graduationDate": "YYYY-MM",
+          "gpa": "",
+          "honors": []
+        }
+      ],
+      "skills": [
+        "Product Management",
+        "Healthcare Technology",
+        "Workflow Optimization",
+        "HIPAA Compliance"
+      ],
+      "certifications": [],
+      "summary": "Product Manager with 7 years of experience in digital health, clinician workflows, and patient adherence."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction accurately captures the companies, roles, and key metrics, but the dates are not formatted consistently with the original data. Some details from the cover letter, such as the focus on fewer clicks and clearer alerts, are missing, affecting completeness. The structure is well-organized with clear CAR stories and relevant tags, but the education section lacks a specific graduation date."
+    }
+  },
+  {
+    "profile": "P06",
+    "model": "gpt-3.5-turbo",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 5182,
+      "total": 5192
+    },
+    "tokenUsage": {
+      "input": 805,
+      "output": 637,
+      "total": 1442
+    },
+    "extractedData": {
+      "companies": 2,
+      "roles": 2,
+      "stories": 3,
+      "metrics": 4,
+      "tags": 21
+    },
+    "cost": 0.001358,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Diego",
+        "email": "diego@example.com",
+        "phone": "123-456-7890",
+        "location": "Austin, TX",
+        "linkedin": "linkedin.com/in/diego",
+        "portfolio": ""
+      },
+      "workHistory": [
+        {
+          "company": "StratusWorks",
+          "companyTags": [
+            "Tech",
+            "Mid-Size",
+            "Cloud Services"
+          ],
+          "position": "Sr PM, Platform",
+          "startDate": "2019-01",
+          "endDate": "2025-01",
+          "roleSummary": "Led monolith→services migration reducing incidents by 27% and introduced feature flags and kill‑switches.",
+          "roleMetrics": [
+            "27% decrease in incidents"
+          ],
+          "roleTags": [
+            "Project Management",
+            "Migration",
+            "Risk Management"
+          ],
+          "stories": [
+            {
+              "title": "Monolith to Services Migration",
+              "content": "Context: Legacy monolith system. Action: Led migration to microservices. Result: Reduced incidents by 27%.",
+              "tags": [
+                "Transformation",
+                "Risk Mitigation",
+                "Efficiency"
+              ],
+              "metrics": [
+                "27% decrease in incidents"
+              ]
+            },
+            {
+              "title": "Feature Flags Implementation",
+              "content": "Context: Need to de-risk launches. Action: Introduced feature flags. Result: Improved launch stability.",
+              "tags": [
+                "Risk Management",
+                "Launch Optimization",
+                "Stability"
+              ],
+              "metrics": []
+            }
+          ]
+        },
+        {
+          "company": "DeviceCloud",
+          "companyTags": [
+            "Tech",
+            "Mid-Size",
+            "IoT"
+          ],
+          "position": "PM",
+          "startDate": "2015-01",
+          "endDate": "2019-01",
+          "roleSummary": "Improved internal DX satisfaction by 30% through SDKs and CLI tooling.",
+          "roleMetrics": [
+            "30% increase in internal DX satisfaction"
+          ],
+          "roleTags": [
+            "Product Management",
+            "Developer Experience",
+            "Tooling"
+          ],
+          "stories": [
+            {
+              "title": "SDKs and CLI Tooling Enhancement",
+              "content": "Context: Need to enhance developer experience. Action: Shipped improved SDKs and CLI tooling. Result: Increased developer satisfaction by 30%.",
+              "tags": [
+                "Developer Experience",
+                "Tooling Enhancement",
+                "Satisfaction Improvement"
+              ],
+              "metrics": [
+                "30% increase in internal DX satisfaction"
+              ]
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "UT Austin",
+          "degree": "B.S.",
+          "field": "Computer Engineering",
+          "graduationDate": "YYYY-MM",
+          "gpa": "",
+          "honors": []
+        }
+      ],
+      "skills": [
+        "Project Management",
+        "Migration",
+        "Risk Management",
+        "Product Management",
+        "Developer Experience",
+        "Tooling"
+      ],
+      "certifications": [],
+      "summary": "Platform PM with 8 years in developer experience, reliability SLAs, and migrations."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction is mostly accurate with correct companies, roles, and dates, but the end date for StratusWorks should be 2023, not 2025. Completeness is slightly lacking as the cover letter's emphasis on translating reliability into business outcomes is not captured. The structure is well-organized with clear CAR stories, metrics, and tags, but could include more details from the cover letter."
+    }
+  },
+  {
+    "profile": "P07",
+    "model": "gpt-3.5-turbo",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 3854,
+      "total": 3855
+    },
+    "tokenUsage": {
+      "input": 791,
+      "output": 651,
+      "total": 1442
+    },
+    "extractedData": {
+      "companies": 2,
+      "roles": 2,
+      "stories": 3,
+      "metrics": 6,
+      "tags": 21
+    },
+    "cost": 0.001372,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Noah",
+        "email": "noah@example.com",
+        "phone": "123-456-7890",
+        "location": "Seattle, WA",
+        "linkedin": "linkedin.com/in/noah",
+        "portfolio": ""
+      },
+      "workHistory": [
+        {
+          "company": "VendorLoop",
+          "companyTags": [
+            "B2B Marketplaces",
+            "Startup",
+            "AI/ML"
+          ],
+          "position": "Senior PM",
+          "startDate": "2020-01",
+          "endDate": "2025-01",
+          "roleSummary": "Led initiatives to enhance match rates and ARPU through innovative strategies.",
+          "roleMetrics": [
+            "Improved match rate by 13%",
+            "Increased ARPU by 6%"
+          ],
+          "roleTags": [
+            "Product Management",
+            "Data Analysis",
+            "Marketplace Dynamics"
+          ],
+          "stories": [
+            {
+              "title": "Match Rate Optimization",
+              "content": "Context: Low match rates. Action: Implemented ranking and constraint tuning. Result: Improved match rate by 13%.",
+              "tags": [
+                "Optimization",
+                "Data-driven Decisions",
+                "Performance Improvement"
+              ],
+              "metrics": [
+                "13% improvement in match rate"
+              ]
+            },
+            {
+              "title": "ARPU Enhancement",
+              "content": "Context: Low ARPU. Action: Conducted pricing/packaging experiment. Result: Increased ARPU by 6%.",
+              "tags": [
+                "Revenue Growth",
+                "Experimentation",
+                "Monetization Strategies"
+              ],
+              "metrics": [
+                "6% increase in ARPU"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "Dockyard",
+          "companyTags": [
+            "E-commerce",
+            "Mid-sized Company",
+            "Supply Chain Management"
+          ],
+          "position": "PM",
+          "startDate": "2016-01",
+          "endDate": "2020-01",
+          "roleSummary": "Implemented SLA benchmarking to enhance vendor performance and reduce late deliveries.",
+          "roleMetrics": [
+            "Reduced late deliveries by 9%"
+          ],
+          "roleTags": [
+            "Process Improvement",
+            "Vendor Management",
+            "Benchmarking"
+          ],
+          "stories": [
+            {
+              "title": "SLA Benchmarking Implementation",
+              "content": "Context: High late deliveries. Action: Introduced SLA benchmarking. Result: Reduced late deliveries by 9%.",
+              "tags": [
+                "Process Optimization",
+                "Performance Metrics",
+                "Efficiency Improvement"
+              ],
+              "metrics": [
+                "9% decrease in late deliveries"
+              ]
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "UW",
+          "degree": "B.A.",
+          "field": "Economics",
+          "graduationDate": "YYYY-MM",
+          "gpa": "",
+          "honors": []
+        }
+      ],
+      "skills": [
+        "Product Management",
+        "Data Analysis",
+        "Marketplace Optimization",
+        "Economics"
+      ],
+      "certifications": [],
+      "summary": "Experienced PM specializing in B2B marketplaces and supply/demand dynamics. Proven track record of optimizing systems for measurable outcomes."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction is mostly accurate with correct companies, roles, and metrics, but lacks some details like specific dates and contact information. Completeness is slightly lower due to missing contact details and potential additional context from the cover letter. Structure is strong, with well-organized CAR stories and metrics, but could benefit from more detailed tags and additional context from the cover letter."
+    }
+  },
+  {
+    "profile": "P08",
+    "model": "gpt-3.5-turbo",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 4809,
+      "total": 4815
+    },
+    "tokenUsage": {
+      "input": 787,
+      "output": 638,
+      "total": 1425
+    },
+    "extractedData": {
+      "companies": 2,
+      "roles": 2,
+      "stories": 3,
+      "metrics": 3,
+      "tags": 21
+    },
+    "cost": 0.0013505,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Priya",
+        "email": "priya@example.com",
+        "phone": "123-456-7890",
+        "location": "Toronto, ON",
+        "linkedin": "linkedin.com/in/priya",
+        "portfolio": ""
+      },
+      "workHistory": [
+        {
+          "company": "TestCraft",
+          "companyTags": [
+            "Software",
+            "Startup",
+            "QA Automation"
+          ],
+          "position": "QA Analyst",
+          "startDate": "2022-01",
+          "endDate": "2024-01",
+          "roleSummary": "Built regression suite reducing release defects by ~20% and improved bug triage process.",
+          "roleMetrics": [
+            "Reduced release defects by ~20%"
+          ],
+          "roleTags": [
+            "QA Automation",
+            "Process Improvement",
+            "Documentation"
+          ],
+          "stories": [
+            {
+              "title": "Regression Suite Implementation",
+              "content": "Context: Identified need for regression suite. Action: Developed and implemented suite. Result: Reduced release defects by ~20%.",
+              "tags": [
+                "Efficiency Improvement",
+                "Quality Assurance",
+                "Process Optimization"
+              ],
+              "metrics": [
+                "Reduced release defects by ~20%"
+              ]
+            },
+            {
+              "title": "Bug Triage Optimization",
+              "content": "Context: Identified inefficiencies in bug triage. Action: Organized bug triage process. Result: Improved accountability and efficiency.",
+              "tags": [
+                "Process Optimization",
+                "Accountability",
+                "Efficiency"
+              ],
+              "metrics": [
+                "Improved bug triage process"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "HelpLoop",
+          "companyTags": [
+            "Tech",
+            "Mid-Size",
+            "Operations"
+          ],
+          "position": "Operations Coordinator",
+          "startDate": "2020-01",
+          "endDate": "2022-01",
+          "roleSummary": "Managed vendor onboarding playbooks and SLAs.",
+          "roleMetrics": [],
+          "roleTags": [
+            "Vendor Management",
+            "Process Development",
+            "SLA Management"
+          ],
+          "stories": [
+            {
+              "title": "Vendor Onboarding Playbooks",
+              "content": "Context: Identified need for standardized onboarding. Action: Developed playbooks. Result: Streamlined vendor onboarding process.",
+              "tags": [
+                "Process Standardization",
+                "Efficiency",
+                "Vendor Management"
+              ],
+              "metrics": []
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "University of Toronto",
+          "degree": "B.S.",
+          "field": "Information Technology",
+          "graduationDate": "YYYY-MM",
+          "gpa": "",
+          "honors": []
+        }
+      ],
+      "skills": [
+        "QA Automation",
+        "Process Improvement",
+        "Documentation",
+        "Vendor Management",
+        "SLA Management"
+      ],
+      "certifications": [],
+      "summary": "Early-career PM transitioning from QA/operations with expertise in process improvement, documentation, and vendor management. Skilled in building regression suites, optimizing bug triage, and developing onboarding playbooks."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction accurately captures the companies, roles, and dates, but the email, phone, and LinkedIn details are fabricated. Completeness is slightly lacking as some nuanced details from the cover letter are not fully captured, such as the emphasis on 'disciplined execution' and 'curiosity to learn quickly.' The structure is well-organized with clear CAR stories, metrics, and tags, but could benefit from more detailed metrics and additional context from the cover letter."
+    }
+  },
+  {
+    "profile": "P09",
+    "model": "gpt-3.5-turbo",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 3804,
+      "total": 3806
+    },
+    "tokenUsage": {
+      "input": 750,
+      "output": 472,
+      "total": 1222
+    },
+    "extractedData": {
+      "companies": 1,
+      "roles": 1,
+      "stories": 2,
+      "metrics": 4,
+      "tags": 12
+    },
+    "cost": 0.001083,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Leo",
+        "email": "leo@example.com",
+        "phone": "123-456-7890",
+        "location": "Boston, MA",
+        "linkedin": "linkedin.com/in/leo",
+        "portfolio": ""
+      },
+      "workHistory": [
+        {
+          "company": "MobileCare",
+          "companyTags": [
+            "Mobile Support",
+            "Startup",
+            "Chatbot Technology"
+          ],
+          "position": "Associate PM",
+          "startDate": "2022-01",
+          "endDate": "2025-01",
+          "roleSummary": "Redesigned support flows and prototyped chatbot resulting in improved app rating and reduced time-to-resolution.",
+          "roleMetrics": [
+            "+1.1 app store rating",
+            "-17% time-to-resolution"
+          ],
+          "roleTags": [
+            "UX Design",
+            "Product Management",
+            "Mobile Support"
+          ],
+          "stories": [
+            {
+              "title": "Support Flow Redesign",
+              "content": "Context: Redesigned support flows at MobileCare. Action: Implemented new design strategies. Result: Increased app store rating by 1.1 points.",
+              "tags": [
+                "User Experience Enhancement",
+                "Product Enhancement",
+                "App Store Rating Improvement"
+              ],
+              "metrics": [
+                "+1.1 app store rating"
+              ]
+            },
+            {
+              "title": "Chatbot Prototyping",
+              "content": "Context: Prototyped a chatbot at MobileCare. Action: Developed and tested chatbot functionalities. Result: Reduced time-to-resolution by 17%.",
+              "tags": [
+                "Innovation",
+                "Efficiency Improvement",
+                "Time-to-Resolution Reduction"
+              ],
+              "metrics": [
+                "-17% time-to-resolution"
+              ]
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "Tufts University",
+          "degree": "B.S.",
+          "field": "Human Factors",
+          "graduationDate": "YYYY-MM",
+          "gpa": "",
+          "honors": []
+        }
+      ],
+      "skills": [
+        "UX Design",
+        "Product Management",
+        "Mobile Support"
+      ],
+      "certifications": [],
+      "summary": "Design-led APM with 3 years in mobile support experiences. Pairing UX rigor with measurable outcomes."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction accurately captures the company, role, and key metrics from the resume and cover letter, but the dates are slightly off as the end date should be in the future. The completeness score reflects missing contact details like email and phone, which were not provided in the original documents. The structure is well-organized with clear CAR stories, metrics, and tags, but could benefit from more detailed educational information such as the graduation date."
+    }
+  },
+  {
+    "profile": "P10",
+    "model": "gpt-3.5-turbo",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 5058,
+      "total": 5064
+    },
+    "tokenUsage": {
+      "input": 824,
+      "output": 674,
+      "total": 1498
+    },
+    "extractedData": {
+      "companies": 2,
+      "roles": 2,
+      "stories": 3,
+      "metrics": 6,
+      "tags": 21
+    },
+    "cost": 0.001423,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Sophia",
+        "email": "sophia@example.com",
+        "phone": "123-456-7890",
+        "location": "Los Angeles, CA",
+        "linkedin": "linkedin.com/in/sophia",
+        "portfolio": ""
+      },
+      "workHistory": [
+        {
+          "company": "AtlasSuite",
+          "companyTags": [
+            "SaaS",
+            "Growth Stage",
+            "Platform"
+          ],
+          "position": "Director of Product",
+          "startDate": "2020-01",
+          "endDate": "2025-01",
+          "roleSummary": "Led a 7-PM org, established operating cadence, and increased ARR by 24% through pricing/packaging and launches.",
+          "roleMetrics": [
+            "Scaled PM org 3→7",
+            "Expanded ARR by 24%"
+          ],
+          "roleTags": [
+            "Product Management",
+            "Operating Cadence",
+            "Revenue Growth"
+          ],
+          "stories": [
+            {
+              "title": "Team Scaling Success",
+              "content": "Context: Grew PM org from 3 to 7. Action: Established operating cadence. Result: Scaled PM org effectively.",
+              "tags": [
+                "Team Development",
+                "Operational Efficiency",
+                "Scaling"
+              ],
+              "metrics": [
+                "Increased PM team size by 4"
+              ]
+            },
+            {
+              "title": "Revenue Growth Achievement",
+              "content": "Context: Expanded ARR by 24%. Action: Implemented pricing/packaging changes. Result: Achieved 24% revenue growth.",
+              "tags": [
+                "Revenue Optimization",
+                "Pricing Strategy",
+                "Product Launches"
+              ],
+              "metrics": [
+                "Increased ARR by 24%"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "Queryly",
+          "companyTags": [
+            "SaaS",
+            "Growth Stage",
+            "Search Technology"
+          ],
+          "position": "Senior PM",
+          "startDate": "2016-01",
+          "endDate": "2020-01",
+          "roleSummary": "Improved activation by 18% through onboarding and integrations.",
+          "roleMetrics": [
+            "Increased activation by 18%"
+          ],
+          "roleTags": [
+            "Product Management",
+            "Activation Improvement",
+            "Integration Strategies"
+          ],
+          "stories": [
+            {
+              "title": "Activation Enhancement",
+              "content": "Context: Activation increased by 18%. Action: Improved onboarding and integrations. Result: Achieved 18% activation growth.",
+              "tags": [
+                "User Onboarding",
+                "Integration Success",
+                "User Engagement"
+              ],
+              "metrics": [
+                "Increased activation by 18%"
+              ]
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "UCLA",
+          "degree": "B.S.",
+          "field": "Computer Science",
+          "graduationDate": "YYYY-MM",
+          "gpa": "",
+          "honors": []
+        }
+      ],
+      "skills": [
+        "Product Management",
+        "Revenue Optimization",
+        "Operating Cadence",
+        "User Engagement",
+        "Integration Strategies"
+      ],
+      "certifications": [],
+      "summary": "Director of Product with 12 years of experience in SaaS growth and platform. Led a 7-PM org and delivered multi-product roadmap."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction is mostly accurate with correct companies, roles, and dates, but lacks specific details like the exact graduation date. Completeness is slightly lower due to missing contact information and potential additional metrics or stories that could be derived from the cover letter. The structure is strong, with well-organized CAR stories, metrics, and tags, but could benefit from more detailed breakdowns of achievements."
+    }
+  },
+  {
+    "profile": "P01",
+    "model": "gpt-4o-mini",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 13786,
+      "total": 13789
+    },
+    "tokenUsage": {
+      "input": 1176,
+      "output": 1251,
+      "total": 2427
+    },
+    "extractedData": {
+      "companies": 3,
+      "roles": 3,
+      "stories": 7,
+      "metrics": 16,
+      "tags": 39
+    },
+    "cost": 0.0009269999999999999,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Avery Chen",
+        "email": "avery@example.com",
+        "phone": null,
+        "location": "San Francisco Bay Area, CA, US",
+        "linkedin": null,
+        "portfolio": null
+      },
+      "workHistory": [
+        {
+          "company": "FlowHub",
+          "companyTags": [
+            "SaaS",
+            "Growth Stage",
+            "Analytics"
+          ],
+          "position": "Senior Product Manager",
+          "startDate": "2021-05",
+          "endDate": null,
+          "roleSummary": "Led product management initiatives focusing on onboarding and experimentation to drive user activation and conversion.",
+          "roleMetrics": [
+            "Week-2 activation +22%",
+            "Trial to paid conversion +11%"
+          ],
+          "roleTags": [
+            "Product Management",
+            "Experimentation",
+            "Onboarding"
+          ],
+          "stories": [
+            {
+              "title": "Onboarding Overhaul",
+              "content": "Context: The self-serve onboarding process was underperforming. Action: I overhauled the onboarding process to enhance user experience. Result: Achieved a 22% increase in Week-2 activation.",
+              "tags": [
+                "User Experience",
+                "Growth",
+                "Onboarding"
+              ],
+              "metrics": [
+                "Week-2 activation +22%"
+              ]
+            },
+            {
+              "title": "Experimentation Cadence",
+              "content": "Context: The organization lacked a structured approach to experimentation. Action: I built a comprehensive experimentation cadence with weekly triage and monthly reviews. Result: Enabled 30+ tests per year, setting a new standard.",
+              "tags": [
+                "Process Improvement",
+                "Data-Driven",
+                "Innovation"
+              ],
+              "metrics": [
+                "30+ tests/year"
+              ]
+            },
+            {
+              "title": "Analytics Taxonomy Definition",
+              "content": "Context: There was a need for better analytics for lifecycle targeting. Action: I defined an analytics taxonomy and created dashboards for cross-functional teams. Result: Improved targeting for Product Marketing and Customer Success.",
+              "tags": [
+                "Analytics",
+                "Cross-Functional Collaboration",
+                "Impact"
+              ],
+              "metrics": [
+                "Adoption by PMM/CS teams"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "AcmeCRM",
+          "companyTags": [
+            "SaaS",
+            "Growth Stage",
+            "Messaging"
+          ],
+          "position": "Product Manager",
+          "startDate": "2019-02",
+          "endDate": "2021-04",
+          "roleSummary": "Managed the notifications platform and implemented strategies to reduce churn and increase user engagement.",
+          "roleMetrics": [
+            "Churn -3.5%",
+            "Engagement +8%",
+            "Feature adoption +6%"
+          ],
+          "roleTags": [
+            "Product Management",
+            "Lifecycle Messaging",
+            "User Engagement"
+          ],
+          "stories": [
+            {
+              "title": "Churn Reduction",
+              "content": "Context: High churn rates were affecting growth. Action: I owned the notifications platform and implemented usage-triggered lifecycle messaging. Result: Reduced churn by 3.5%.",
+              "tags": [
+                "Retention",
+                "User Engagement",
+                "Messaging"
+              ],
+              "metrics": [
+                "Churn -3.5%"
+              ]
+            },
+            {
+              "title": "Persona Playbooks Launch",
+              "content": "Context: User engagement was stagnating. Action: I launched persona playbooks to tailor user experiences. Result: Increased engagement by 8% and feature adoption by 6%.",
+              "tags": [
+                "User-Centric Design",
+                "Engagement",
+                "Growth"
+              ],
+              "metrics": [
+                "Engagement +8%",
+                "Feature adoption +6%"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "DataDock",
+          "companyTags": [
+            "Data Analytics",
+            "Startup",
+            "Visualization"
+          ],
+          "position": "Associate Product Manager",
+          "startDate": "2017-06",
+          "endDate": "2019-01",
+          "roleSummary": "Led the development of a data visualization suite, focusing on user adoption and performance improvements.",
+          "roleMetrics": [
+            "User adoption +15%",
+            "Query performance +40%"
+          ],
+          "roleTags": [
+            "Product Management",
+            "Data Visualization",
+            "User Feedback"
+          ],
+          "stories": [
+            {
+              "title": "Data Visualization Suite Leadership",
+              "content": "Context: The data visualization suite needed improvement in user adoption. Action: I led the development and enhancement of the suite. Result: Achieved a 15% increase in user adoption.",
+              "tags": [
+                "Product Development",
+                "User Adoption",
+                "Data"
+              ],
+              "metrics": [
+                "User adoption +15%"
+              ]
+            },
+            {
+              "title": "User Feedback Loop Implementation",
+              "content": "Context: User satisfaction was low, leading to high support tickets. Action: I implemented a user feedback loop to gather insights. Result: Improved NPS by 12 points and reduced support tickets by 25%.",
+              "tags": [
+                "User Research",
+                "Customer Satisfaction",
+                "Feedback"
+              ],
+              "metrics": [
+                "NPS +12 points",
+                "Support tickets -25%"
+              ]
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "Stanford University",
+          "degree": "MS",
+          "field": "Computer Science",
+          "graduationDate": "2017-06",
+          "gpa": null,
+          "honors": []
+        },
+        {
+          "institution": "UC Berkeley",
+          "degree": "BS",
+          "field": "Mathematics",
+          "graduationDate": "2015-05",
+          "gpa": null,
+          "honors": []
+        }
+      ],
+      "skills": [
+        "Product Management",
+        "A/B Testing",
+        "Data Analysis",
+        "SQL",
+        "Python",
+        "User Research",
+        "Product Strategy",
+        "Growth",
+        "PLG",
+        "Onboarding",
+        "Experimentation",
+        "Analytics"
+      ],
+      "certifications": [],
+      "summary": "Senior Product Manager with over 6 years of experience in driving growth through data-driven experimentation and user-centric design."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction is mostly accurate with correct companies, roles, and dates, but there are minor discrepancies in facts such as missing specific metrics or details from the cover letter. Completeness is slightly lacking as not all key experiences and metrics from the cover letter are captured, such as the specific mention of the company's mission. The structure is well-organized with clear CAR stories, metrics, and tags, making it easy to understand the candidate's achievements and roles."
+    }
+  },
+  {
+    "profile": "P02",
+    "model": "gpt-4o-mini",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 13176,
+      "total": 13177
+    },
+    "tokenUsage": {
+      "input": 1165,
+      "output": 1211,
+      "total": 2376
+    },
+    "extractedData": {
+      "companies": 3,
+      "roles": 3,
+      "stories": 7,
+      "metrics": 18,
+      "tags": 39
+    },
+    "cost": 0.00090135,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Jordan Alvarez",
+        "email": "jordan@example.com",
+        "phone": null,
+        "location": "Austin, TX, US",
+        "linkedin": null,
+        "portfolio": null
+      },
+      "workHistory": [
+        {
+          "company": "GrowthCo",
+          "companyTags": [
+            "Technology",
+            "Growth Stage",
+            "Mobile"
+          ],
+          "position": "Growth Product Manager",
+          "startDate": "2020-03",
+          "endDate": null,
+          "roleSummary": "Led growth initiatives focusing on user acquisition and retention through innovative product strategies.",
+          "roleMetrics": [
+            "User acquisition +45%",
+            "CAC -30%"
+          ],
+          "roleTags": [
+            "Growth Marketing",
+            "User Acquisition",
+            "Mobile Product"
+          ],
+          "stories": [
+            {
+              "title": "Viral Referral Program Launch",
+              "content": "Context: Faced with stagnant user growth. Action: Launched a viral referral program. Result: Increased user acquisition by 45% and reduced CAC by 30%.",
+              "tags": [
+                "User Acquisition",
+                "Growth Strategy",
+                "Marketing"
+              ],
+              "metrics": [
+                "User acquisition +45%",
+                "CAC -30%"
+              ]
+            },
+            {
+              "title": "Onboarding Funnel Optimization",
+              "content": "Context: High drop-off rates in user onboarding. Action: Built an optimized onboarding funnel. Result: Improved Day-7 retention by 18% and reduced time-to-value by 40%.",
+              "tags": [
+                "User Retention",
+                "Onboarding",
+                "Product Management"
+              ],
+              "metrics": [
+                "Day-7 retention +18%",
+                "Time-to-value -40%"
+              ]
+            },
+            {
+              "title": "Push Notification Strategy Implementation",
+              "content": "Context: Low user engagement metrics. Action: Implemented a push notification strategy. Result: Increased engagement by 25% and session frequency by 15%.",
+              "tags": [
+                "User Engagement",
+                "Retention",
+                "Data-Driven"
+              ],
+              "metrics": [
+                "Engagement +25%",
+                "Session frequency +15%"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "MobileFirst",
+          "companyTags": [
+            "Technology",
+            "Startup",
+            "Mobile"
+          ],
+          "position": "Product Manager",
+          "startDate": "2018-01",
+          "endDate": "2020-02",
+          "roleSummary": "Managed product features aimed at enhancing user experience and driving engagement.",
+          "roleMetrics": [
+            "Activation rate +35%",
+            "Drop-off -20%"
+          ],
+          "roleTags": [
+            "User Onboarding",
+            "Gamification",
+            "Product Development"
+          ],
+          "stories": [
+            {
+              "title": "User Onboarding Flow Ownership",
+              "content": "Context: Low activation rates in user onboarding. Action: Owned and optimized the user onboarding flow. Result: Increased activation rates by 35% and reduced drop-off by 20%.",
+              "tags": [
+                "User Experience",
+                "Onboarding",
+                "Product Management"
+              ],
+              "metrics": [
+                "Activation rate +35%",
+                "Drop-off -20%"
+              ]
+            },
+            {
+              "title": "Gamification Features Launch",
+              "content": "Context: Need to enhance user engagement. Action: Launched gamification features. Result: Increased DAU by 22% and user lifetime value by 28%.",
+              "tags": [
+                "User Engagement",
+                "Gamification",
+                "Growth"
+              ],
+              "metrics": [
+                "DAU +22%",
+                "User lifetime value +28%"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "StartupXYZ",
+          "companyTags": [
+            "Technology",
+            "Startup",
+            "Mobile"
+          ],
+          "position": "Associate Product Manager",
+          "startDate": "2016-06",
+          "endDate": "2017-12",
+          "roleSummary": "Conducted user research and implemented testing frameworks to improve product performance.",
+          "roleMetrics": [
+            "Churn reduction -15%",
+            "Conversion rate +12%"
+          ],
+          "roleTags": [
+            "User Research",
+            "A/B Testing",
+            "Product Analytics"
+          ],
+          "stories": [
+            {
+              "title": "User Research Initiatives",
+              "content": "Context: High churn rates affecting growth. Action: Led user research initiatives to identify friction points. Result: Reduced churn by 15%.",
+              "tags": [
+                "User Research",
+                "Churn Reduction",
+                "Analytics"
+              ],
+              "metrics": [
+                "Churn -15%"
+              ]
+            },
+            {
+              "title": "A/B Testing Framework Implementation",
+              "content": "Context: Need to optimize conversion rates. Action: Implemented an A/B testing framework. Result: Increased conversion rate by 12% across key funnels.",
+              "tags": [
+                "A/B Testing",
+                "Conversion Optimization",
+                "Data Analysis"
+              ],
+              "metrics": [
+                "Conversion rate +12%"
+              ]
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "University of Texas",
+          "degree": "MBA",
+          "field": "Marketing",
+          "graduationDate": "2016-05",
+          "gpa": null,
+          "honors": []
+        },
+        {
+          "institution": "Texas A&M",
+          "degree": "BS",
+          "field": "Business Administration",
+          "graduationDate": "2014-05",
+          "gpa": null,
+          "honors": []
+        }
+      ],
+      "skills": [
+        "Growth Marketing",
+        "User Acquisition",
+        "Retention",
+        "Mobile Product",
+        "A/B Testing",
+        "Data Analysis",
+        "User Research",
+        "Product Analytics",
+        "Viral Marketing",
+        "Onboarding",
+        "Gamification"
+      ],
+      "certifications": [],
+      "summary": "Growth-focused product manager with over 7 years of experience in user acquisition, retention, and engagement, delivering measurable results through data-driven strategies."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction is mostly accurate with correct companies, roles, and dates. However, some minor details like specific metrics or achievements might be slightly misrepresented or missing. Completeness is moderate as not all stories and metrics from the resume and cover letter are fully captured, such as the specific mention of industry publication features. The structure is well-organized with clear CAR stories, metrics, and tags, making it easy to understand the candidate's contributions and achievements."
+    }
+  },
+  {
+    "profile": "P03",
+    "model": "gpt-4o-mini",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 13844,
+      "total": 13846
+    },
+    "tokenUsage": {
+      "input": 980,
+      "output": 1237,
+      "total": 2217
+    },
+    "extractedData": {
+      "companies": 3,
+      "roles": 3,
+      "stories": 7,
+      "metrics": 19,
+      "tags": 39
+    },
+    "cost": 0.0008892,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Riley Gupta",
+        "email": "riley@example.com",
+        "phone": null,
+        "location": "Seattle, WA, US",
+        "linkedin": null,
+        "portfolio": null
+      },
+      "workHistory": [
+        {
+          "company": "DevTools Inc",
+          "companyTags": [
+            "Software",
+            "Established",
+            "API"
+          ],
+          "position": "Technical Product Manager",
+          "startDate": "2020-01",
+          "endDate": null,
+          "roleSummary": "Led the redesign of the API platform to enhance developer satisfaction and efficiency.",
+          "roleMetrics": [
+            "Developer satisfaction +40%",
+            "Integration time -50%"
+          ],
+          "roleTags": [
+            "API Design",
+            "Developer Experience",
+            "Technical Product"
+          ],
+          "stories": [
+            {
+              "title": "API Platform Redesign",
+              "content": "Context: The API platform was underperforming in developer satisfaction. Action: Led a comprehensive redesign of the platform. Result: Developer satisfaction increased by 40% and integration time decreased by 50%.",
+              "tags": [
+                "User Experience",
+                "Product Development",
+                "API"
+              ],
+              "metrics": [
+                "Developer satisfaction +40%",
+                "Integration time -50%"
+              ]
+            },
+            {
+              "title": "Developer Portal Creation",
+              "content": "Context: There was a need to improve API adoption among developers. Action: Built a developer portal to facilitate access and support. Result: API adoption increased by 60% and support tickets decreased by 35%.",
+              "tags": [
+                "Adoption Strategy",
+                "Support Improvement",
+                "Portal Development"
+              ],
+              "metrics": [
+                "API adoption +60%",
+                "Support tickets -35%"
+              ]
+            },
+            {
+              "title": "Rate Limiting Implementation",
+              "content": "Context: API reliability was a concern for users. Action: Implemented rate limiting and monitoring systems. Result: API reliability improved by 25% and response time reduced by 30%.",
+              "tags": [
+                "Reliability",
+                "Performance Improvement",
+                "Monitoring"
+              ],
+              "metrics": [
+                "API reliability +25%",
+                "Response time -30%"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "CloudPlatform",
+          "companyTags": [
+            "Cloud Computing",
+            "Established",
+            "API"
+          ],
+          "position": "Product Manager",
+          "startDate": "2017-08",
+          "endDate": "2019-12",
+          "roleSummary": "Managed SDK and documentation to enhance developer onboarding and API usage.",
+          "roleMetrics": [
+            "Developer onboarding time -45%",
+            "API usage +80%"
+          ],
+          "roleTags": [
+            "SDK Development",
+            "Documentation",
+            "Developer Relations"
+          ],
+          "stories": [
+            {
+              "title": "SDK and Documentation Ownership",
+              "content": "Context: Developer onboarding was taking too long. Action: Owned the SDK and documentation to streamline the process. Result: Developer onboarding time decreased by 45% and API usage increased by 80%.",
+              "tags": [
+                "Onboarding",
+                "Documentation",
+                "SDK"
+              ],
+              "metrics": [
+                "Developer onboarding time -45%",
+                "API usage +80%"
+              ]
+            },
+            {
+              "title": "Webhook Infrastructure Launch",
+              "content": "Context: Real-time integrations were lacking. Action: Launched a webhook infrastructure to facilitate these integrations. Result: Real-time integrations increased by 200% and latency decreased by 60%.",
+              "tags": [
+                "Integration",
+                "Infrastructure",
+                "Real-time"
+              ],
+              "metrics": [
+                "Real-time integrations +200%",
+                "Latency -60%"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "TechStartup",
+          "companyTags": [
+            "Startup",
+            "Early Stage",
+            "API"
+          ],
+          "position": "Associate Product Manager",
+          "startDate": "2015-06",
+          "endDate": "2017-07",
+          "roleSummary": "Managed API versioning strategy and implemented feedback loops for developers.",
+          "roleMetrics": [
+            "Backward compatibility +95%",
+            "Migration success +70%"
+          ],
+          "roleTags": [
+            "API Versioning",
+            "Developer Feedback",
+            "Product Management"
+          ],
+          "stories": [
+            {
+              "title": "API Versioning Strategy Management",
+              "content": "Context: The API needed to maintain backward compatibility. Action: Managed the API versioning strategy effectively. Result: Backward compatibility improved by 95% and migration success increased by 70%.",
+              "tags": [
+                "Compatibility",
+                "Versioning",
+                "Strategy"
+              ],
+              "metrics": [
+                "Backward compatibility +95%",
+                "Migration success +70%"
+              ]
+            },
+            {
+              "title": "Developer Feedback Loop Implementation",
+              "content": "Context: Developer satisfaction with API design was low. Action: Implemented a feedback loop to gather and act on developer input. Result: API design satisfaction increased by 30%.",
+              "tags": [
+                "Feedback",
+                "Satisfaction",
+                "Design"
+              ],
+              "metrics": [
+                "API design satisfaction +30%"
+              ]
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "University of Washington",
+          "degree": "MS",
+          "field": "Computer Science",
+          "graduationDate": "2015-06",
+          "gpa": null,
+          "honors": []
+        },
+        {
+          "institution": "University of Washington",
+          "degree": "BS",
+          "field": "Computer Science",
+          "graduationDate": "2013-06",
+          "gpa": null,
+          "honors": []
+        }
+      ],
+      "skills": [
+        "API Design",
+        "Platform Product",
+        "Developer Experience",
+        "Technical Product",
+        "SDK Development",
+        "Documentation",
+        "Webhooks",
+        "Rate Limiting",
+        "Monitoring",
+        "API Versioning",
+        "Developer Relations"
+      ],
+      "certifications": [],
+      "summary": "Technical Product Manager with extensive experience in API and platform development, focusing on enhancing developer experience and driving product adoption."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction is mostly accurate with correct companies, roles, and dates, but there are minor discrepancies in the facts and metrics. Completeness is slightly lacking as not all key experiences and metrics from the cover letter are captured. The structure is well-organized with clear CAR stories, metrics, and tags, making it easy to understand the candidate's achievements and skills."
+    }
+  },
+  {
+    "profile": "P04",
+    "model": "gpt-4o-mini",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 8454,
+      "total": 8461
+    },
+    "tokenUsage": {
+      "input": 804,
+      "output": 657,
+      "total": 1461
+    },
+    "extractedData": {
+      "companies": 2,
+      "roles": 2,
+      "stories": 3,
+      "metrics": 6,
+      "tags": 21
+    },
+    "cost": 0.0005147999999999999,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Morgan",
+        "email": "email@example.com",
+        "phone": "123-456-7890",
+        "location": "Boston, MA",
+        "linkedin": "linkedin.com/in/username",
+        "portfolio": "portfolio.com"
+      },
+      "workHistory": [
+        {
+          "company": "TalentGraph",
+          "companyTags": [
+            "Technology",
+            "Growth Stage",
+            "Machine Learning"
+          ],
+          "position": "Sr PM, ML Experiences",
+          "startDate": "2020-01",
+          "endDate": "2025-01",
+          "roleSummary": "Led the development of machine learning features with a focus on explainability and user adoption.",
+          "roleMetrics": [
+            "10× ML usage YoY",
+            "Unified precision/recall and user ratings"
+          ],
+          "roleTags": [
+            "Product Management",
+            "Machine Learning",
+            "User Experience"
+          ],
+          "stories": [
+            {
+              "title": "Growth of ML Usage",
+              "content": "Context: Faced low adoption of ML features. Action: Introduced explainability and human-in-the-loop controls. Result: Achieved 10× growth in ML usage within a year.",
+              "tags": [
+                "Adoption",
+                "Innovation",
+                "Leadership"
+              ],
+              "metrics": [
+                "10× growth in ML usage"
+              ]
+            },
+            {
+              "title": "Feedback Dashboard Development",
+              "content": "Context: Needed to improve user feedback integration. Action: Built a dashboard that unified model metrics with user ratings. Result: Enhanced visibility of system behavior and user satisfaction.",
+              "tags": [
+                "User Feedback",
+                "Data Visualization",
+                "Product Improvement"
+              ],
+              "metrics": [
+                "Unified precision/recall and user ratings"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "AdPilot",
+          "companyTags": [
+            "Advertising Technology",
+            "Growth Stage",
+            "Product Development"
+          ],
+          "position": "Product Manager",
+          "startDate": "2017-01",
+          "endDate": "2020-01",
+          "roleSummary": "Managed product features to enhance user workflows and increase adoption rates.",
+          "roleMetrics": [
+            "+9% adoption"
+          ],
+          "roleTags": [
+            "Product Management",
+            "Workflow Optimization",
+            "User Engagement"
+          ],
+          "stories": [
+            {
+              "title": "Workflow Integration",
+              "content": "Context: Existing workflows lacked effective recommendations. Action: Sequenced recommendations into existing workflows. Result: Increased user adoption by 9%.",
+              "tags": [
+                "User Engagement",
+                "Workflow Efficiency",
+                "Product Strategy"
+              ],
+              "metrics": [
+                "+9% adoption"
+              ]
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "Northeastern",
+          "degree": "M.S.",
+          "field": "Human-Computer Interaction",
+          "graduationDate": "null",
+          "gpa": "null",
+          "honors": []
+        }
+      ],
+      "skills": [
+        "Machine Learning",
+        "Product Management",
+        "User Experience"
+      ],
+      "certifications": [],
+      "summary": "Senior PM with expertise in leading ML-assisted workflows, specializing in explainability and phased rollout."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction is mostly accurate with correct companies, roles, and dates, but lacks specific contact details from the original documents. Completeness is slightly lower due to missing details like the exact graduation date and potential honors. The structure is strong, with well-organized CAR stories and metrics, but could improve by ensuring all relevant information is captured."
+    }
+  },
+  {
+    "profile": "P05",
+    "model": "gpt-4o-mini",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 8029,
+      "total": 8037
+    },
+    "tokenUsage": {
+      "input": 781,
+      "output": 653,
+      "total": 1434
+    },
+    "extractedData": {
+      "companies": 2,
+      "roles": 2,
+      "stories": 3,
+      "metrics": 6,
+      "tags": 21
+    },
+    "cost": 0.00050895,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Samira",
+        "email": "email@example.com",
+        "phone": "123-456-7890",
+        "location": "Chicago, IL",
+        "linkedin": "linkedin.com/in/username",
+        "portfolio": "portfolio.com"
+      },
+      "workHistory": [
+        {
+          "company": "Clinio",
+          "companyTags": [
+            "Digital Health",
+            "Growth Stage",
+            "Remote Monitoring"
+          ],
+          "position": "Product Manager",
+          "startDate": "2021-01",
+          "endDate": "2025-01",
+          "roleSummary": "Led product initiatives to enhance patient adherence and clinician workflows.",
+          "roleMetrics": [
+            "Improved patient adherence by 12%",
+            "Reduced alert fatigue by 18%"
+          ],
+          "roleTags": [
+            "Product Management",
+            "Remote Monitoring",
+            "Patient Engagement"
+          ],
+          "stories": [
+            {
+              "title": "Improved Patient Adherence",
+              "content": "Context: Faced with low patient adherence rates. Action: Launched remote-monitoring flows. Result: Improved adherence by 12%.",
+              "tags": [
+                "Patient Outcomes",
+                "Efficiency",
+                "Product Development"
+              ],
+              "metrics": [
+                "12% increase in patient adherence"
+              ]
+            },
+            {
+              "title": "Reduced Alert Fatigue",
+              "content": "Context: Clinicians overwhelmed by alerts. Action: Implemented thresholds and batching for alerts. Result: Reduced alert fatigue by 18%.",
+              "tags": [
+                "Clinician Efficiency",
+                "Workflow Improvement",
+                "Data Management"
+              ],
+              "metrics": [
+                "18% reduction in alert fatigue"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "CarePad",
+          "companyTags": [
+            "Health Tech",
+            "Startup",
+            "EHR Solutions"
+          ],
+          "position": "APM",
+          "startDate": "2019-01",
+          "endDate": "2021-01",
+          "roleSummary": "Focused on enhancing EHR intake processes to improve efficiency.",
+          "roleMetrics": [
+            "Decreased completion time by 20%"
+          ],
+          "roleTags": [
+            "Product Management",
+            "EHR",
+            "Process Optimization"
+          ],
+          "stories": [
+            {
+              "title": "Streamlined EHR Intake",
+              "content": "Context: EHR intake forms were causing delays. Action: Redesigned forms to be more user-friendly. Result: Decreased completion time by 20%.",
+              "tags": [
+                "User Experience",
+                "Process Improvement",
+                "Efficiency"
+              ],
+              "metrics": [
+                "20% decrease in completion time"
+              ]
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "University of Illinois at Urbana-Champaign",
+          "degree": "B.S.",
+          "field": "Biomedical Engineering",
+          "graduationDate": "YYYY-MM",
+          "gpa": null,
+          "honors": []
+        }
+      ],
+      "skills": [
+        "Product Management",
+        "Data Analysis",
+        "User Experience"
+      ],
+      "certifications": [],
+      "summary": "Product Manager with 7 years of experience in digital health, focusing on clinician workflows and patient adherence."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction is mostly accurate with correct companies, roles, and dates, but lacks specific details like the exact graduation date. Completeness is slightly lower as not all potential skills and experiences from the cover letter are captured, such as HIPAA compliance. The structure is well-organized with clear CAR stories, metrics, and tags, contributing to a high score in this area. Overall, the extraction is strong but could benefit from more detailed completeness."
+    }
+  },
+  {
+    "profile": "P06",
+    "model": "gpt-4o-mini",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 8561,
+      "total": 8563
+    },
+    "tokenUsage": {
+      "input": 797,
+      "output": 649,
+      "total": 1446
+    },
+    "extractedData": {
+      "companies": 2,
+      "roles": 2,
+      "stories": 3,
+      "metrics": 6,
+      "tags": 21
+    },
+    "cost": 0.00050895,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Diego",
+        "email": "email@example.com",
+        "phone": "123-456-7890",
+        "location": "Austin, TX",
+        "linkedin": "linkedin.com/in/username",
+        "portfolio": "portfolio.com"
+      },
+      "workHistory": [
+        {
+          "company": "StratusWorks",
+          "companyTags": [
+            "Technology",
+            "Software Development",
+            "SaaS"
+          ],
+          "position": "Sr PM, Platform",
+          "startDate": "2019-01",
+          "endDate": "2025-01",
+          "roleSummary": "Led platform changes focusing on migration and risk reduction.",
+          "roleMetrics": [
+            "Incidents reduced by 27%",
+            "Improved launch safety with feature flags"
+          ],
+          "roleTags": [
+            "Project Management",
+            "Risk Management",
+            "Software Engineering"
+          ],
+          "stories": [
+            {
+              "title": "Monolith to Services Migration",
+              "content": "Context: Led a migration from a monolithic architecture to microservices. Action: Implemented a structured migration plan and introduced feature flags. Result: Reduced incidents by 27%.",
+              "tags": [
+                "Migration",
+                "Risk Reduction",
+                "Architecture"
+              ],
+              "metrics": [
+                "Incidents decreased by 27%"
+              ]
+            },
+            {
+              "title": "Feature Flags Implementation",
+              "content": "Context: Needed to de-risk product launches. Action: Introduced feature flags and kill-switches. Result: Enhanced launch safety and reduced rollback incidents.",
+              "tags": [
+                "Product Launch",
+                "Risk Management",
+                "Innovation"
+              ],
+              "metrics": [
+                "Improved launch safety"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "DeviceCloud",
+          "companyTags": [
+            "Technology",
+            "Software Development",
+            "Developer Tools"
+          ],
+          "position": "PM",
+          "startDate": "2015-01",
+          "endDate": "2019-01",
+          "roleSummary": "Focused on improving developer experience through tooling.",
+          "roleMetrics": [
+            "Internal developer satisfaction improved by 30%"
+          ],
+          "roleTags": [
+            "Product Management",
+            "Developer Experience",
+            "Tooling"
+          ],
+          "stories": [
+            {
+              "title": "SDKs and CLI Tooling Development",
+              "content": "Context: Identified a need for better developer tools. Action: Developed SDKs and CLI tooling. Result: Improved internal developer satisfaction by 30%.",
+              "tags": [
+                "Developer Tools",
+                "Satisfaction",
+                "Product Development"
+              ],
+              "metrics": [
+                "Satisfaction improved by 30%"
+              ]
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "UT Austin",
+          "degree": "B.S.",
+          "field": "Computer Engineering",
+          "graduationDate": "YYYY-MM",
+          "gpa": null,
+          "honors": []
+        }
+      ],
+      "skills": [
+        "Project Management",
+        "Risk Management",
+        "Software Development"
+      ],
+      "certifications": [],
+      "summary": "Platform PM with 8 years in developer experience, reliability SLAs, and migrations."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction is mostly accurate with correct companies, roles, and dates, but the end date for StratusWorks should be 2023, not 2025. Completeness is slightly lacking as the cover letter's emphasis on translating reliability into business outcomes is not captured. The structure is well-organized with clear CAR stories, metrics, and tags, making it easy to understand the candidate's contributions and achievements."
+    }
+  },
+  {
+    "profile": "P07",
+    "model": "gpt-4o-mini",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 9153,
+      "total": 9157
+    },
+    "tokenUsage": {
+      "input": 780,
+      "output": 658,
+      "total": 1438
+    },
+    "extractedData": {
+      "companies": 2,
+      "roles": 2,
+      "stories": 3,
+      "metrics": 6,
+      "tags": 21
+    },
+    "cost": 0.0005118,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Noah",
+        "email": "email@example.com",
+        "phone": "123-456-7890",
+        "location": "Seattle, WA",
+        "linkedin": "linkedin.com/in/username",
+        "portfolio": "portfolio.com"
+      },
+      "workHistory": [
+        {
+          "company": "VendorLoop",
+          "companyTags": [
+            "B2B Marketplace",
+            "Growth Stage",
+            "Marketplace Technology"
+          ],
+          "position": "Senior PM",
+          "startDate": "2020-01",
+          "endDate": "2025-01",
+          "roleSummary": "Led product management initiatives to optimize marketplace performance and revenue.",
+          "roleMetrics": [
+            "Improved match rate by 13%",
+            "Increased ARPU by 6%"
+          ],
+          "roleTags": [
+            "Product Management",
+            "Data Analysis",
+            "Marketplace Optimization"
+          ],
+          "stories": [
+            {
+              "title": "Match Rate Improvement",
+              "content": "Context: Faced low match rates in the marketplace. Action: Implemented ranking and constraint tuning strategies. Result: Achieved a 13% improvement in match rates.",
+              "tags": [
+                "Performance Improvement",
+                "Data-Driven Decision Making",
+                "Marketplace Efficiency"
+              ],
+              "metrics": [
+                "13% increase in match rate"
+              ]
+            },
+            {
+              "title": "Pricing and Packaging Experiment",
+              "content": "Context: Needed to enhance revenue per user. Action: Launched a pricing and packaging experiment. Result: Increased ARPU by 6%.",
+              "tags": [
+                "Revenue Growth",
+                "Experimentation",
+                "Market Strategy"
+              ],
+              "metrics": [
+                "6% increase in ARPU"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "Dockyard",
+          "companyTags": [
+            "Consulting",
+            "Established",
+            "Software Development"
+          ],
+          "position": "PM",
+          "startDate": "2016-01",
+          "endDate": "2020-01",
+          "roleSummary": "Managed projects to enhance vendor performance and delivery metrics.",
+          "roleMetrics": [
+            "Reduced late deliveries by 9%"
+          ],
+          "roleTags": [
+            "Project Management",
+            "Vendor Management",
+            "Benchmarking"
+          ],
+          "stories": [
+            {
+              "title": "SLA Benchmarking Implementation",
+              "content": "Context: High rates of late deliveries from vendors. Action: Introduced SLA benchmarking for vendors. Result: Reduced late deliveries by 9%.",
+              "tags": [
+                "Operational Efficiency",
+                "Vendor Relations",
+                "Performance Metrics"
+              ],
+              "metrics": [
+                "9% reduction in late deliveries"
+              ]
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "University of Washington",
+          "degree": "B.A.",
+          "field": "Economics",
+          "graduationDate": "YYYY-MM",
+          "gpa": null,
+          "honors": []
+        }
+      ],
+      "skills": [
+        "Product Management",
+        "Data Analysis",
+        "Marketplace Optimization"
+      ],
+      "certifications": [],
+      "summary": "PM with 10 years of experience in B2B marketplaces, focusing on supply and demand dynamics to drive measurable outcomes."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction is mostly accurate with correct companies, roles, and facts, but the dates are not formatted consistently. Completeness is slightly lacking as the cover letter's focus areas (search quality, supply health, pricing levers) are not captured. The structure is well-organized with clear CAR stories, metrics, and tags, but could benefit from more detailed extraction of all mentioned elements."
+    }
+  },
+  {
+    "profile": "P08",
+    "model": "gpt-4o-mini",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 8745,
+      "total": 8751
+    },
+    "tokenUsage": {
+      "input": 775,
+      "output": 726,
+      "total": 1501
+    },
+    "extractedData": {
+      "companies": 2,
+      "roles": 2,
+      "stories": 4,
+      "metrics": 8,
+      "tags": 24
+    },
+    "cost": 0.00055185,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Priya",
+        "email": "email@example.com",
+        "phone": "123-456-7890",
+        "location": "Toronto, ON",
+        "linkedin": "linkedin.com/in/username",
+        "portfolio": "portfolio.com"
+      },
+      "workHistory": [
+        {
+          "company": "TestCraft",
+          "companyTags": [
+            "Software",
+            "Startup",
+            "Automation Testing"
+          ],
+          "position": "QA Analyst",
+          "startDate": "2022-01",
+          "endDate": "2024-01",
+          "roleSummary": "As a QA Analyst, I focused on improving product quality through rigorous testing and documentation.",
+          "roleMetrics": [
+            "Reduced release defects by ~20%",
+            "Established regular bug triage meetings"
+          ],
+          "roleTags": [
+            "Quality Assurance",
+            "Automation",
+            "Process Improvement"
+          ],
+          "stories": [
+            {
+              "title": "Regression Suite Development",
+              "content": "Context: Faced with high defect rates in releases. Action: Built a comprehensive regression suite. Result: Cut release defects by ~20%.",
+              "tags": [
+                "Quality Improvement",
+                "Process Optimization",
+                "Technical Skill"
+              ],
+              "metrics": [
+                "~20% reduction in defects"
+              ]
+            },
+            {
+              "title": "Bug Triage Organization",
+              "content": "Context: Inefficient bug tracking led to delays. Action: Organized a structured bug triage and release notes cadence. Result: Improved accountability and communication.",
+              "tags": [
+                "Team Collaboration",
+                "Process Management",
+                "Communication"
+              ],
+              "metrics": [
+                "Improved accountability in bug resolution"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "HelpLoop",
+          "companyTags": [
+            "Technology",
+            "Startup",
+            "Operations"
+          ],
+          "position": "Operations Coordinator",
+          "startDate": "2020-01",
+          "endDate": "2022-01",
+          "roleSummary": "Managed operational processes and vendor relationships to enhance efficiency.",
+          "roleMetrics": [
+            "Developed onboarding playbooks",
+            "Established SLAs for vendors"
+          ],
+          "roleTags": [
+            "Operations Management",
+            "Vendor Relations",
+            "Process Development"
+          ],
+          "stories": [
+            {
+              "title": "Vendor Onboarding Playbooks",
+              "content": "Context: Needed a standardized process for onboarding vendors. Action: Owned the development of onboarding playbooks. Result: Streamlined vendor onboarding process.",
+              "tags": [
+                "Process Standardization",
+                "Efficiency",
+                "Documentation"
+              ],
+              "metrics": [
+                "Created comprehensive onboarding playbooks"
+              ]
+            },
+            {
+              "title": "SLA Establishment",
+              "content": "Context: Lack of clarity in vendor expectations. Action: Developed and implemented SLAs for vendors. Result: Improved service delivery and accountability.",
+              "tags": [
+                "Service Level Agreements",
+                "Vendor Management",
+                "Accountability"
+              ],
+              "metrics": [
+                "Established clear SLAs for vendor performance"
+              ]
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "University of Toronto",
+          "degree": "B.S.",
+          "field": "Information Technology",
+          "graduationDate": "2020-06",
+          "gpa": null,
+          "honors": []
+        }
+      ],
+      "skills": [
+        "Quality Assurance",
+        "Operations Management",
+        "Process Improvement",
+        "Documentation",
+        "Automation Testing"
+      ],
+      "certifications": [],
+      "summary": "Early-career PM transitioning from QA/operations; strong in process and documentation."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction is mostly accurate with correct companies, roles, and dates, though some minor details like the exact phrasing of role summaries could be improved. Completeness is slightly lacking as not all nuances from the cover letter are captured, such as the emphasis on 'disciplined execution' and 'curiosity to learn quickly.' The structure is well-organized with clear CAR stories, metrics, and tags, making it easy to understand the candidate's achievements and skills."
+    }
+  },
+  {
+    "profile": "P09",
+    "model": "gpt-4o-mini",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 13378,
+      "total": 13387
+    },
+    "tokenUsage": {
+      "input": 740,
+      "output": 527,
+      "total": 1267
+    },
+    "extractedData": {
+      "companies": 1,
+      "roles": 1,
+      "stories": 3,
+      "metrics": 5,
+      "tags": 15
+    },
+    "cost": 0.0004272,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Leo",
+        "email": "email@example.com",
+        "phone": "123-456-7890",
+        "location": "Boston, MA",
+        "linkedin": "linkedin.com/in/username",
+        "portfolio": "portfolio.com"
+      },
+      "workHistory": [
+        {
+          "company": "MobileCare",
+          "companyTags": [
+            "Mobile Support",
+            "Growth Stage",
+            "Technology"
+          ],
+          "position": "Associate PM",
+          "startDate": "2022-01",
+          "endDate": "2025-01",
+          "roleSummary": "Led initiatives to enhance mobile support experiences through design and technology.",
+          "roleMetrics": [
+            "+1.1 app store rating",
+            "-17% time-to-resolution"
+          ],
+          "roleTags": [
+            "UX Design",
+            "Product Management",
+            "Mobile Support"
+          ],
+          "stories": [
+            {
+              "title": "Redesigned Support Flows",
+              "content": "Context: Faced with low app ratings. Action: Redesigned support flows to improve user experience. Result: Lifted app rating by 1.1 points.",
+              "tags": [
+                "User Experience",
+                "Product Improvement",
+                "Customer Satisfaction"
+              ],
+              "metrics": [
+                "+1.1 app store rating"
+              ]
+            },
+            {
+              "title": "Prototyped Chatbot",
+              "content": "Context: High time-to-resolution for support queries. Action: Prototyped a chatbot to assist users. Result: Reduced time-to-resolution by 17%.",
+              "tags": [
+                "Automation",
+                "Efficiency",
+                "Customer Support"
+              ],
+              "metrics": [
+                "-17% time-to-resolution"
+              ]
+            },
+            {
+              "title": "Focus on Proactive Diagnostics",
+              "content": "Context: Users struggled with troubleshooting. Action: Implemented proactive diagnostics in support flows. Result: Improved user trust and reduced effort.",
+              "tags": [
+                "Proactive Support",
+                "User Trust",
+                "Efficiency"
+              ],
+              "metrics": [
+                "Improved user trust"
+              ]
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "Tufts University",
+          "degree": "B.S.",
+          "field": "Human Factors",
+          "graduationDate": "null",
+          "gpa": "null",
+          "honors": []
+        }
+      ],
+      "skills": [
+        "UX Design",
+        "Product Management",
+        "Mobile Support"
+      ],
+      "certifications": [],
+      "summary": "Design-led APM with 3 years in mobile support experiences."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction is mostly accurate with correct company, role, and metrics, but lacks specific contact details and graduation date. Completeness is slightly lacking as not all potential insights from the cover letter are captured, such as the focus on proactive diagnostics. The structure is well-organized with clear CAR stories and metrics, but could benefit from more detailed tags and additional context from the cover letter."
+    }
+  },
+  {
+    "profile": "P10",
+    "model": "gpt-4o-mini",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 8903,
+      "total": 8906
+    },
+    "tokenUsage": {
+      "input": 811,
+      "output": 776,
+      "total": 1587
+    },
+    "extractedData": {
+      "companies": 2,
+      "roles": 2,
+      "stories": 4,
+      "metrics": 7,
+      "tags": 24
+    },
+    "cost": 0.00058725,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Sophia",
+        "email": "email@example.com",
+        "phone": "123-456-7890",
+        "location": "Los Angeles, CA",
+        "linkedin": "linkedin.com/in/username",
+        "portfolio": "portfolio.com"
+      },
+      "workHistory": [
+        {
+          "company": "AtlasSuite",
+          "companyTags": [
+            "SaaS",
+            "Growth Stage",
+            "Platform Technology"
+          ],
+          "position": "Director of Product",
+          "startDate": "2020-01",
+          "endDate": "2025-01",
+          "roleSummary": "Led the product management organization, scaling it from 3 to 7 PMs and driving significant revenue growth.",
+          "roleMetrics": [
+            "Expanded ARR by 24%",
+            "Scaled PM org from 3 to 7"
+          ],
+          "roleTags": [
+            "Product Management",
+            "Growth Strategy",
+            "Team Leadership"
+          ],
+          "stories": [
+            {
+              "title": "Scaling the PM Organization",
+              "content": "Context: The PM org was under-resourced. Action: I scaled the team from 3 to 7 PMs and established an operating cadence. Result: Improved team efficiency and delivery timelines.",
+              "tags": [
+                "Team Growth",
+                "Leadership",
+                "Efficiency"
+              ],
+              "metrics": [
+                "Increased team size by 133%"
+              ]
+            },
+            {
+              "title": "Revenue Growth through Pricing Strategy",
+              "content": "Context: The company needed to enhance revenue. Action: I implemented new pricing and packaging strategies. Result: Achieved a 24% increase in ARR.",
+              "tags": [
+                "Revenue Growth",
+                "Strategic Pricing",
+                "Market Analysis"
+              ],
+              "metrics": [
+                "ARR increased by 24%"
+              ]
+            },
+            {
+              "title": "Successful Product Launches",
+              "content": "Context: Two new products were in development. Action: I led the launches and coordinated cross-functional teams. Result: Successfully brought products to market, contributing to revenue growth.",
+              "tags": [
+                "Product Launch",
+                "Cross-Functional Leadership",
+                "Market Success"
+              ],
+              "metrics": [
+                "Two successful product launches"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "Queryly",
+          "companyTags": [
+            "SaaS",
+            "Growth Stage",
+            "Data Integration"
+          ],
+          "position": "Senior PM",
+          "startDate": "2016-01",
+          "endDate": "2020-01",
+          "roleSummary": "Focused on improving user activation through enhanced onboarding and integrations.",
+          "roleMetrics": [
+            "Increased activation by 18%"
+          ],
+          "roleTags": [
+            "User Experience",
+            "Onboarding",
+            "Data Integration"
+          ],
+          "stories": [
+            {
+              "title": "Enhancing User Activation",
+              "content": "Context: User activation rates were low. Action: I improved the onboarding process and integration capabilities. Result: Achieved an 18% increase in user activation.",
+              "tags": [
+                "User Engagement",
+                "Onboarding Improvement",
+                "Activation Metrics"
+              ],
+              "metrics": [
+                "User activation increased by 18%"
+              ]
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "UCLA",
+          "degree": "B.S.",
+          "field": "Computer Science",
+          "graduationDate": "YYYY-MM",
+          "gpa": null,
+          "honors": []
+        }
+      ],
+      "skills": [
+        "Product Management",
+        "Growth Strategy",
+        "Team Leadership",
+        "User Experience",
+        "Data Integration"
+      ],
+      "certifications": [],
+      "summary": "Director of Product with 12 years of experience in SaaS growth and platform development, skilled in scaling teams and delivering multi-product roadmaps."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction is mostly accurate with correct companies, roles, and dates. However, the email, phone, LinkedIn, and portfolio details are fabricated and not present in the original documents, affecting accuracy. Completeness is slightly lacking as not all nuanced details from the cover letter are captured, such as the specific approach to sequencing bets and aligning GTM with product. The structure is well-organized with clear CAR stories, metrics, and tags, providing a coherent view of the candidate's experiences and achievements."
+    }
+  },
+  {
+    "profile": "P01",
+    "model": "gpt-4o",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 11357,
+      "total": 11360
+    },
+    "tokenUsage": {
+      "input": 1176,
+      "output": 1229,
+      "total": 2405
+    },
+    "extractedData": {
+      "companies": 3,
+      "roles": 3,
+      "stories": 7,
+      "metrics": 17,
+      "tags": 39
+    },
+    "cost": 0.024315,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Avery Chen",
+        "email": "avery@example.com",
+        "phone": "",
+        "location": "San Francisco Bay Area, CA, US",
+        "linkedin": "",
+        "portfolio": ""
+      },
+      "workHistory": [
+        {
+          "company": "FlowHub",
+          "companyTags": [
+            "Technology",
+            "Growth Stage",
+            "SaaS"
+          ],
+          "position": "Senior Product Manager",
+          "startDate": "2021-05",
+          "endDate": null,
+          "roleSummary": "Overhauled onboarding processes and established an experimentation framework, driving significant growth in activation and conversion rates.",
+          "roleMetrics": [
+            "Week-2 activation +22%",
+            "Trial-to-paid conversion +11%"
+          ],
+          "roleTags": [
+            "Product Management",
+            "Experimentation",
+            "Analytics"
+          ],
+          "stories": [
+            {
+              "title": "Onboarding Overhaul",
+              "content": "Context: Self-serve onboarding needed improvement. Action: Redesigned the onboarding process. Result: Achieved a 22% increase in Week-2 activation and an 11% improvement in trial-to-paid conversion.",
+              "tags": [
+                "User Experience",
+                "Growth",
+                "Conversion Optimization"
+              ],
+              "metrics": [
+                "Activation +22%",
+                "Conversion +11%"
+              ]
+            },
+            {
+              "title": "Experimentation Cadence",
+              "content": "Context: Lack of structured experimentation. Action: Built a weekly triage and monthly review process for experiments. Result: Enabled 30+ tests per year, setting a new standard for the organization.",
+              "tags": [
+                "Process Improvement",
+                "Innovation",
+                "Data-Driven"
+              ],
+              "metrics": [
+                "30+ tests/year"
+              ]
+            },
+            {
+              "title": "Analytics Taxonomy",
+              "content": "Context: Need for standardized analytics. Action: Defined analytics taxonomy and created dashboards. Result: Adopted by PMM/CS teams for lifecycle targeting.",
+              "tags": [
+                "Cross-Functional Impact",
+                "Data Strategy",
+                "Lifecycle Management"
+              ],
+              "metrics": [
+                "Adoption by PMM/CS"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "AcmeCRM",
+          "companyTags": [
+            "CRM",
+            "Established",
+            "B2B"
+          ],
+          "position": "Product Manager",
+          "startDate": "2019-02",
+          "endDate": "2021-04",
+          "roleSummary": "Managed the notifications platform and launched persona playbooks, reducing churn and increasing engagement.",
+          "roleMetrics": [
+            "Churn -3.5%",
+            "Engagement +8%"
+          ],
+          "roleTags": [
+            "Lifecycle Messaging",
+            "Engagement",
+            "Product Strategy"
+          ],
+          "stories": [
+            {
+              "title": "Notifications Platform",
+              "content": "Context: High churn rates. Action: Implemented usage-triggered lifecycle messaging. Result: Reduced churn by 3.5%.",
+              "tags": [
+                "Retention",
+                "Lifecycle Messaging",
+                "Customer Engagement"
+              ],
+              "metrics": [
+                "Churn -3.5%"
+              ]
+            },
+            {
+              "title": "Persona Playbooks",
+              "content": "Context: Need for targeted engagement strategies. Action: Launched persona playbooks. Result: Increased engagement by 8% and feature adoption by 6%.",
+              "tags": [
+                "Targeted Marketing",
+                "User Engagement",
+                "Feature Adoption"
+              ],
+              "metrics": [
+                "Engagement +8%",
+                "Adoption +6%"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "DataDock",
+          "companyTags": [
+            "Data Analytics",
+            "Startup",
+            "Big Data"
+          ],
+          "position": "Associate Product Manager",
+          "startDate": "2017-06",
+          "endDate": "2019-01",
+          "roleSummary": "Led the development of a data visualization suite and implemented a user feedback loop, enhancing user satisfaction and performance.",
+          "roleMetrics": [
+            "User adoption +15%",
+            "Query performance +40%"
+          ],
+          "roleTags": [
+            "Data Visualization",
+            "User Feedback",
+            "Performance Optimization"
+          ],
+          "stories": [
+            {
+              "title": "Data Visualization Suite",
+              "content": "Context: Need for improved data visualization. Action: Led the development of a new suite. Result: Increased user adoption by 15% and improved query performance by 40%.",
+              "tags": [
+                "Innovation",
+                "User Experience",
+                "Performance"
+              ],
+              "metrics": [
+                "Adoption +15%",
+                "Performance +40%"
+              ]
+            },
+            {
+              "title": "User Feedback Loop",
+              "content": "Context: Lack of user feedback integration. Action: Implemented a feedback loop. Result: Increased NPS by 12 points and reduced support tickets by 25%.",
+              "tags": [
+                "Customer Satisfaction",
+                "Feedback Integration",
+                "Support Reduction"
+              ],
+              "metrics": [
+                "NPS +12",
+                "Tickets -25%"
+              ]
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "Stanford University",
+          "degree": "MS",
+          "field": "Computer Science",
+          "graduationDate": "2017-06",
+          "gpa": "",
+          "honors": []
+        },
+        {
+          "institution": "UC Berkeley",
+          "degree": "BS",
+          "field": "Mathematics",
+          "graduationDate": "2015-06",
+          "gpa": "",
+          "honors": []
+        }
+      ],
+      "skills": [
+        "Product Management",
+        "A/B Testing",
+        "Data Analysis",
+        "SQL",
+        "Python",
+        "User Research",
+        "Product Strategy",
+        "Growth",
+        "PLG",
+        "Onboarding",
+        "Experimentation",
+        "Analytics"
+      ],
+      "certifications": [],
+      "summary": "Experienced Senior Product Manager with over 6 years in driving growth through data-driven experimentation and user-centric design. Proven track record in enhancing onboarding processes and implementing successful product strategies."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction is mostly accurate with correct companies, roles, and dates, but some minor details might be missing or slightly misrepresented. Completeness is slightly lower as not all metrics and stories from the cover letter are fully captured, such as the cross-functional impact at FlowHub. The structure is strong, with well-organized data and clear CAR stories, metrics, and tags, but could benefit from more detailed tagging and categorization."
+    }
+  },
+  {
+    "profile": "P02",
+    "model": "gpt-4o",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 9839,
+      "total": 9840
+    },
+    "tokenUsage": {
+      "input": 1165,
+      "output": 1229,
+      "total": 2394
+    },
+    "extractedData": {
+      "companies": 3,
+      "roles": 3,
+      "stories": 7,
+      "metrics": 19,
+      "tags": 39
+    },
+    "cost": 0.02426,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Jordan Alvarez",
+        "email": "jordan@example.com",
+        "phone": "",
+        "location": "Austin, TX, US",
+        "linkedin": "",
+        "portfolio": ""
+      },
+      "workHistory": [
+        {
+          "company": "GrowthCo",
+          "companyTags": [
+            "Growth Marketing",
+            "Established",
+            "Mobile"
+          ],
+          "position": "Growth Product Manager",
+          "startDate": "2020-03",
+          "endDate": null,
+          "roleSummary": "Led growth initiatives focusing on user acquisition and retention, achieving significant improvements in key metrics.",
+          "roleMetrics": [
+            "User acquisition +45%",
+            "CAC -30%",
+            "Day-7 retention +18%"
+          ],
+          "roleTags": [
+            "Growth Marketing",
+            "User Acquisition",
+            "Retention"
+          ],
+          "stories": [
+            {
+              "title": "Viral Referral Program",
+              "content": "Context: Need to boost user acquisition cost-effectively. Action: Launched a viral referral program. Result: Increased user acquisition by 45% and reduced CAC by 30%.",
+              "tags": [
+                "Viral Marketing",
+                "Cost Efficiency",
+                "User Growth"
+              ],
+              "metrics": [
+                "User acquisition +45%",
+                "CAC -30%"
+              ]
+            },
+            {
+              "title": "Onboarding Funnel Optimization",
+              "content": "Context: Improve user retention and engagement. Action: Built and optimized onboarding funnel. Result: Improved Day-7 retention by 18% and reduced time-to-value by 40%.",
+              "tags": [
+                "User Retention",
+                "Onboarding",
+                "User Experience"
+              ],
+              "metrics": [
+                "Day-7 retention +18%",
+                "Time-to-value -40%"
+              ]
+            },
+            {
+              "title": "Push Notification Strategy",
+              "content": "Context: Enhance user engagement and session frequency. Action: Implemented a push notification strategy. Result: Increased engagement by 25% and session frequency by 15%.",
+              "tags": [
+                "User Engagement",
+                "Notification Strategy",
+                "Frequency"
+              ],
+              "metrics": [
+                "Engagement +25%",
+                "Session frequency +15%"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "MobileFirst",
+          "companyTags": [
+            "Mobile Technology",
+            "Mid-Stage",
+            "App Development"
+          ],
+          "position": "Product Manager",
+          "startDate": "2018-01",
+          "endDate": "2020-02",
+          "roleSummary": "Managed product features and user flows, significantly enhancing user activation and engagement.",
+          "roleMetrics": [
+            "Activation rate +35%",
+            "DAU +22%"
+          ],
+          "roleTags": [
+            "Product Management",
+            "User Activation",
+            "Gamification"
+          ],
+          "stories": [
+            {
+              "title": "User Onboarding Flow",
+              "content": "Context: High drop-off rates during onboarding. Action: Redesigned user onboarding flow. Result: Increased activation rate by 35% and reduced drop-off by 20%.",
+              "tags": [
+                "User Activation",
+                "Onboarding",
+                "Flow Optimization"
+              ],
+              "metrics": [
+                "Activation rate +35%",
+                "Drop-off -20%"
+              ]
+            },
+            {
+              "title": "Gamification Features",
+              "content": "Context: Enhance user engagement and lifetime value. Action: Launched gamification features. Result: Increased DAU by 22% and user lifetime value by 28%.",
+              "tags": [
+                "User Engagement",
+                "Gamification",
+                "Lifetime Value"
+              ],
+              "metrics": [
+                "DAU +22%",
+                "User lifetime value +28%"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "StartupXYZ",
+          "companyTags": [
+            "Startup",
+            "Early-Stage",
+            "Tech"
+          ],
+          "position": "Associate Product Manager",
+          "startDate": "2016-06",
+          "endDate": "2017-12",
+          "roleSummary": "Conducted user research and implemented testing frameworks to improve conversion rates.",
+          "roleMetrics": [
+            "Churn -15%",
+            "Conversion rate +12%"
+          ],
+          "roleTags": [
+            "User Research",
+            "A/B Testing",
+            "Conversion Optimization"
+          ],
+          "stories": [
+            {
+              "title": "User Research Initiatives",
+              "content": "Context: High churn rates due to user friction. Action: Led user research to identify friction points. Result: Reduced churn by 15%.",
+              "tags": [
+                "User Research",
+                "Churn Reduction",
+                "Friction Points"
+              ],
+              "metrics": [
+                "Churn -15%"
+              ]
+            },
+            {
+              "title": "A/B Testing Framework",
+              "content": "Context: Need to optimize conversion rates. Action: Implemented A/B testing framework. Result: Increased conversion rate by 12% across key funnels.",
+              "tags": [
+                "Conversion Optimization",
+                "A/B Testing",
+                "Framework Implementation"
+              ],
+              "metrics": [
+                "Conversion rate +12%"
+              ]
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "University of Texas",
+          "degree": "MBA",
+          "field": "Marketing",
+          "graduationDate": "2016-05",
+          "gpa": "",
+          "honors": []
+        },
+        {
+          "institution": "Texas A&M",
+          "degree": "BS",
+          "field": "Business Administration",
+          "graduationDate": "2014-05",
+          "gpa": "",
+          "honors": []
+        }
+      ],
+      "skills": [
+        "Growth Marketing",
+        "User Acquisition",
+        "Retention",
+        "Mobile Product",
+        "A/B Testing",
+        "Data Analysis",
+        "User Research",
+        "Product Analytics",
+        "Viral Marketing",
+        "Onboarding",
+        "Gamification"
+      ],
+      "certifications": [],
+      "summary": "Growth-focused product manager with over 7 years of experience in user acquisition, retention, and engagement. Proven track record of delivering measurable results through data-driven and user-centric strategies."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction is mostly accurate with correct companies, roles, and dates, but there are minor discrepancies in facts such as missing phone number and LinkedIn. Completeness is slightly lacking as not all metrics and stories from the cover letter are captured, such as the industry publication feature. The structure is well-organized with clear CAR stories, metrics, and tags, making it easy to understand the candidate's achievements and skills."
+    }
+  },
+  {
+    "profile": "P03",
+    "model": "gpt-4o",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 10209,
+      "total": 10211
+    },
+    "tokenUsage": {
+      "input": 980,
+      "output": 1223,
+      "total": 2203
+    },
+    "extractedData": {
+      "companies": 3,
+      "roles": 3,
+      "stories": 7,
+      "metrics": 19,
+      "tags": 39
+    },
+    "cost": 0.023245000000000002,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Riley Gupta",
+        "email": "riley@example.com",
+        "phone": "",
+        "location": "Seattle, WA, US",
+        "linkedin": "",
+        "portfolio": ""
+      },
+      "workHistory": [
+        {
+          "company": "DevTools Inc",
+          "companyTags": [
+            "Developer Tools",
+            "Established",
+            "API"
+          ],
+          "position": "Technical Product Manager",
+          "startDate": "2020-01",
+          "endDate": null,
+          "roleSummary": "Led the redesign of API platforms and built a developer portal to enhance developer experience and API adoption.",
+          "roleMetrics": [
+            "Developer satisfaction +40%",
+            "Integration time -50%"
+          ],
+          "roleTags": [
+            "API Design",
+            "Developer Experience",
+            "Platform Product"
+          ],
+          "stories": [
+            {
+              "title": "API Platform Redesign",
+              "content": "Context: The existing API platform needed improvements. Action: Led the redesign of the API platform. Result: Increased developer satisfaction by 40% and reduced integration time by 50%.",
+              "tags": [
+                "Innovation",
+                "User Experience",
+                "Leadership"
+              ],
+              "metrics": [
+                "Developer satisfaction +40%",
+                "Integration time -50%"
+              ]
+            },
+            {
+              "title": "Developer Portal Creation",
+              "content": "Context: Developers needed better resources for API adoption. Action: Built a comprehensive developer portal. Result: Increased API adoption by 60% and reduced support tickets by 35%.",
+              "tags": [
+                "Resource Development",
+                "Support Reduction",
+                "Adoption"
+              ],
+              "metrics": [
+                "API adoption +60%",
+                "Support tickets -35%"
+              ]
+            },
+            {
+              "title": "Rate Limiting and Monitoring Implementation",
+              "content": "Context: API reliability and response time needed improvement. Action: Implemented rate limiting and monitoring. Result: Improved API reliability by 25% and reduced response time by 30%.",
+              "tags": [
+                "Reliability",
+                "Performance",
+                "Monitoring"
+              ],
+              "metrics": [
+                "API reliability +25%",
+                "Response time -30%"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "CloudPlatform",
+          "companyTags": [
+            "Cloud Services",
+            "Growth",
+            "SDK"
+          ],
+          "position": "Product Manager",
+          "startDate": "2017-08",
+          "endDate": "2019-12",
+          "roleSummary": "Managed SDK and documentation, and launched webhook infrastructure to enhance real-time integrations.",
+          "roleMetrics": [
+            "Developer onboarding time -45%",
+            "API usage +80%"
+          ],
+          "roleTags": [
+            "SDK Development",
+            "Documentation",
+            "Webhooks"
+          ],
+          "stories": [
+            {
+              "title": "SDK and Documentation Ownership",
+              "content": "Context: Developers faced challenges with onboarding. Action: Managed SDK and improved documentation. Result: Reduced developer onboarding time by 45% and increased API usage by 80%.",
+              "tags": [
+                "Onboarding",
+                "Documentation",
+                "SDK"
+              ],
+              "metrics": [
+                "Onboarding time -45%",
+                "API usage +80%"
+              ]
+            },
+            {
+              "title": "Webhook Infrastructure Launch",
+              "content": "Context: Needed to improve real-time integrations. Action: Launched a new webhook infrastructure. Result: Increased real-time integrations by 200% and reduced latency by 60%.",
+              "tags": [
+                "Integration",
+                "Real-Time",
+                "Latency Reduction"
+              ],
+              "metrics": [
+                "Real-time integrations +200%",
+                "Latency -60%"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "TechStartup",
+          "companyTags": [
+            "Startup",
+            "Technology",
+            "API"
+          ],
+          "position": "Associate Product Manager",
+          "startDate": "2015-06",
+          "endDate": "2017-07",
+          "roleSummary": "Managed API versioning strategy and implemented a developer feedback loop to improve API design satisfaction.",
+          "roleMetrics": [
+            "Backward compatibility +95%",
+            "Migration success +70%"
+          ],
+          "roleTags": [
+            "API Versioning",
+            "Feedback Loop",
+            "Design"
+          ],
+          "stories": [
+            {
+              "title": "API Versioning Strategy Management",
+              "content": "Context: Needed to ensure backward compatibility. Action: Managed API versioning strategy. Result: Achieved 95% backward compatibility and 70% migration success.",
+              "tags": [
+                "Versioning",
+                "Compatibility",
+                "Migration"
+              ],
+              "metrics": [
+                "Backward compatibility +95%",
+                "Migration success +70%"
+              ]
+            },
+            {
+              "title": "Developer Feedback Loop Implementation",
+              "content": "Context: Needed to improve API design satisfaction. Action: Implemented a developer feedback loop. Result: Increased API design satisfaction by 30%.",
+              "tags": [
+                "Feedback",
+                "Design Improvement",
+                "Satisfaction"
+              ],
+              "metrics": [
+                "API design satisfaction +30%"
+              ]
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "University of Washington",
+          "degree": "MS",
+          "field": "Computer Science",
+          "graduationDate": "2015-06",
+          "gpa": "",
+          "honors": []
+        },
+        {
+          "institution": "University of Washington",
+          "degree": "BS",
+          "field": "Computer Science",
+          "graduationDate": "2013-06",
+          "gpa": "",
+          "honors": []
+        }
+      ],
+      "skills": [
+        "API Design",
+        "Platform Product",
+        "Developer Experience",
+        "Technical Product",
+        "SDK Development",
+        "Documentation",
+        "Webhooks",
+        "Rate Limiting",
+        "Monitoring",
+        "API Versioning",
+        "Developer Relations"
+      ],
+      "certifications": [],
+      "summary": "Experienced Technical Product Manager with a strong background in API and platform development. Proven track record in enhancing developer experience and driving API adoption through strategic product management and innovative solutions."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction is mostly accurate with correct companies, roles, and dates, but some facts from the cover letter are missing. Completeness is slightly lacking as not all key experiences and metrics from the cover letter are captured. The structure is well-organized with clear CAR stories, metrics, and tags, contributing to a high score in this area."
+    }
+  },
+  {
+    "profile": "P04",
+    "model": "gpt-4o",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 7020,
+      "total": 7027
+    },
+    "tokenUsage": {
+      "input": 804,
+      "output": 648,
+      "total": 1452
+    },
+    "extractedData": {
+      "companies": 2,
+      "roles": 2,
+      "stories": 3,
+      "metrics": 6,
+      "tags": 21
+    },
+    "cost": 0.013740000000000002,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Morgan",
+        "email": "",
+        "phone": "",
+        "location": "Boston, MA",
+        "linkedin": "",
+        "portfolio": ""
+      },
+      "workHistory": [
+        {
+          "company": "TalentGraph",
+          "companyTags": [
+            "Technology",
+            "Growth Stage",
+            "Machine Learning"
+          ],
+          "position": "Sr PM, ML Experiences",
+          "startDate": "2020-01",
+          "endDate": "2025-01",
+          "roleSummary": "Led the development of ML-assisted workflows with a focus on explainability and user adoption.",
+          "roleMetrics": [
+            "10× ML usage YoY",
+            "Unified precision/recall and user ratings"
+          ],
+          "roleTags": [
+            "Explainability",
+            "Human-in-the-loop",
+            "Machine Learning"
+          ],
+          "stories": [
+            {
+              "title": "XAI and Human-in-the-loop Implementation",
+              "content": "Context: ML features lacked user adoption. Action: Introduced explainability and human-in-the-loop controls. Result: Achieved 10× increase in ML usage within a year.",
+              "tags": [
+                "User Adoption",
+                "Explainability",
+                "Control"
+              ],
+              "metrics": [
+                "10× ML usage increase"
+              ]
+            },
+            {
+              "title": "Feedback Dashboard Development",
+              "content": "Context: Need for better system behavior visibility. Action: Built a dashboard combining model metrics with user feedback. Result: Enhanced user understanding and trust in ML systems.",
+              "tags": [
+                "User Feedback",
+                "Dashboard",
+                "Trust"
+              ],
+              "metrics": [
+                "Unified precision/recall and user ratings"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "AdPilot",
+          "companyTags": [
+            "Advertising",
+            "Established",
+            "Recommendation Systems"
+          ],
+          "position": "Product Manager",
+          "startDate": "2017-01",
+          "endDate": "2020-01",
+          "roleSummary": "Managed product features to integrate recommendations into existing workflows, enhancing user engagement.",
+          "roleMetrics": [
+            "+9% adoption"
+          ],
+          "roleTags": [
+            "Product Management",
+            "Workflow Integration",
+            "Recommendations"
+          ],
+          "stories": [
+            {
+              "title": "Recommendation Workflow Integration",
+              "content": "Context: Existing workflows lacked recommendation features. Action: Sequenced recommendations into workflows. Result: Achieved a 9% increase in adoption.",
+              "tags": [
+                "Workflow Integration",
+                "User Engagement",
+                "Adoption"
+              ],
+              "metrics": [
+                "+9% adoption"
+              ]
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "Northeastern",
+          "degree": "M.S.",
+          "field": "Human-Computer Interaction",
+          "graduationDate": "",
+          "gpa": "",
+          "honors": []
+        }
+      ],
+      "skills": [
+        "Explainability",
+        "Human-in-the-loop",
+        "Product Management"
+      ],
+      "certifications": [],
+      "summary": "Senior PM specializing in ML-assisted workflows with a focus on explainability and phased rollout. Proven track record in increasing ML adoption and integrating user feedback."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction is mostly accurate with correct companies, roles, and dates, but lacks some details like specific graduation dates and contact information. Completeness is slightly lower due to missing elements such as email and phone number, and not all metrics are fully detailed. The structure is strong, with well-organized CAR stories and relevant tags, but could benefit from more comprehensive data capture."
+    }
+  },
+  {
+    "profile": "P05",
+    "model": "gpt-4o",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 5031,
+      "total": 5035
+    },
+    "tokenUsage": {
+      "input": 781,
+      "output": 671,
+      "total": 1452
+    },
+    "extractedData": {
+      "companies": 2,
+      "roles": 2,
+      "stories": 3,
+      "metrics": 6,
+      "tags": 21
+    },
+    "cost": 0.013970000000000002,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Samira",
+        "email": "",
+        "phone": "",
+        "location": "Chicago, IL",
+        "linkedin": "",
+        "portfolio": ""
+      },
+      "workHistory": [
+        {
+          "company": "Clinio",
+          "companyTags": [
+            "Digital Health",
+            "Established",
+            "Remote Monitoring"
+          ],
+          "position": "Product Manager",
+          "startDate": "2021-01",
+          "endDate": "2025-01",
+          "roleSummary": "Led initiatives to improve patient adherence and reduce alert fatigue through innovative remote-monitoring solutions.",
+          "roleMetrics": [
+            "Improved patient adherence by 12%",
+            "Reduced alert fatigue by 18%"
+          ],
+          "roleTags": [
+            "Remote Monitoring",
+            "Patient Adherence",
+            "Clinician Workflows"
+          ],
+          "stories": [
+            {
+              "title": "Improving Patient Adherence",
+              "content": "Context: Patients struggled with adherence to remote monitoring. Action: Launched new remote-monitoring flows. Result: Improved patient adherence by 12%.",
+              "tags": [
+                "Patient Outcomes",
+                "Innovation",
+                "Adherence"
+              ],
+              "metrics": [
+                "12% improvement in adherence"
+              ]
+            },
+            {
+              "title": "Reducing Alert Fatigue",
+              "content": "Context: Clinicians faced alert fatigue. Action: Implemented smarter thresholds and batching. Result: Reduced alert fatigue by 18%.",
+              "tags": [
+                "Clinician Efficiency",
+                "Alert Management",
+                "Thresholds"
+              ],
+              "metrics": [
+                "18% reduction in alert fatigue"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "CarePad",
+          "companyTags": [
+            "Healthcare",
+            "Startup",
+            "EHR"
+          ],
+          "position": "Associate Product Manager",
+          "startDate": "2019-01",
+          "endDate": "2021-01",
+          "roleSummary": "Focused on optimizing EHR processes to enhance clinician efficiency and patient data management.",
+          "roleMetrics": [
+            "Decreased EHR intake form completion time by 20%"
+          ],
+          "roleTags": [
+            "EHR",
+            "Process Optimization",
+            "Clinician Efficiency"
+          ],
+          "stories": [
+            {
+              "title": "Streamlining EHR Intake",
+              "content": "Context: EHR intake forms were time-consuming. Action: Redesigned forms for efficiency. Result: Decreased completion time by 20%.",
+              "tags": [
+                "Process Improvement",
+                "Efficiency",
+                "EHR"
+              ],
+              "metrics": [
+                "20% reduction in completion time"
+              ]
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "University of Illinois at Urbana-Champaign",
+          "degree": "Bachelor of Science",
+          "field": "Biomedical Engineering",
+          "graduationDate": "",
+          "gpa": "",
+          "honors": []
+        }
+      ],
+      "skills": [
+        "Remote Monitoring",
+        "EHR",
+        "Patient Adherence",
+        "Clinician Workflows",
+        "HIPAA Compliance"
+      ],
+      "certifications": [],
+      "summary": "Product Manager with 7 years of experience in digital health, specializing in clinician workflows and patient adherence. Proven track record of improving patient outcomes and enhancing clinician efficiency through innovative solutions."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction accurately captures the companies, roles, and key metrics, but there are minor discrepancies in dates and missing contact information. Completeness is slightly lacking as not all potential stories and details from the cover letter are fully captured. The structure is strong, with well-organized CAR stories, metrics, and tags, but could benefit from more detailed educational information."
+    }
+  },
+  {
+    "profile": "P06",
+    "model": "gpt-4o",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 7532,
+      "total": 7534
+    },
+    "tokenUsage": {
+      "input": 797,
+      "output": 638,
+      "total": 1435
+    },
+    "extractedData": {
+      "companies": 2,
+      "roles": 2,
+      "stories": 3,
+      "metrics": 4,
+      "tags": 21
+    },
+    "cost": 0.013555000000000001,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Diego",
+        "email": "",
+        "phone": "",
+        "location": "Austin, TX",
+        "linkedin": "",
+        "portfolio": ""
+      },
+      "workHistory": [
+        {
+          "company": "StratusWorks",
+          "companyTags": [
+            "Technology",
+            "Established",
+            "Cloud Services"
+          ],
+          "position": "Sr PM, Platform",
+          "startDate": "2019-01",
+          "endDate": "2025-01",
+          "roleSummary": "Led platform initiatives to improve reliability and reduce incidents through strategic migrations and feature management.",
+          "roleMetrics": [
+            "Incidents reduced by 27%"
+          ],
+          "roleTags": [
+            "Project Management",
+            "Platform Engineering",
+            "Risk Management"
+          ],
+          "stories": [
+            {
+              "title": "Monolith to Services Migration",
+              "content": "Context: StratusWorks needed to improve system reliability. Action: Led a monolith-to-services migration. Result: Reduced incidents by 27%.",
+              "tags": [
+                "System Architecture",
+                "Reliability",
+                "Leadership"
+              ],
+              "metrics": [
+                "Incidents reduced by 27%"
+              ]
+            },
+            {
+              "title": "Feature Flags Implementation",
+              "content": "Context: Risky launches were affecting platform stability. Action: Introduced feature flags and kill-switches. Result: De-risked launches and improved stability.",
+              "tags": [
+                "Risk Management",
+                "Innovation",
+                "Product Stability"
+              ],
+              "metrics": []
+            }
+          ]
+        },
+        {
+          "company": "DeviceCloud",
+          "companyTags": [
+            "Technology",
+            "Growth Stage",
+            "Developer Tools"
+          ],
+          "position": "PM",
+          "startDate": "2015-01",
+          "endDate": "2019-01",
+          "roleSummary": "Enhanced developer experience through improved SDKs and tooling, leading to increased satisfaction.",
+          "roleMetrics": [
+            "Developer satisfaction improved by 30%"
+          ],
+          "roleTags": [
+            "Developer Experience",
+            "SDK Development",
+            "Tooling"
+          ],
+          "stories": [
+            {
+              "title": "SDKs and CLI Tooling Enhancement",
+              "content": "Context: Developer satisfaction was low due to inadequate tools. Action: Shipped improved SDKs and CLI tooling. Result: Increased developer satisfaction by 30%.",
+              "tags": [
+                "Developer Experience",
+                "Tooling",
+                "Customer Satisfaction"
+              ],
+              "metrics": [
+                "Developer satisfaction improved by 30%"
+              ]
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "UT Austin",
+          "degree": "B.S.",
+          "field": "Computer Engineering",
+          "graduationDate": "",
+          "gpa": "",
+          "honors": []
+        }
+      ],
+      "skills": [
+        "Project Management",
+        "Platform Engineering",
+        "Risk Management",
+        "Developer Experience",
+        "SDK Development"
+      ],
+      "certifications": [],
+      "summary": "Platform PM with 8 years in developer experience, reliability SLAs, and migrations. Delivers platform changes that reduce risk and speed delivery."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction is mostly accurate with correct company names, roles, and dates, but the end date for StratusWorks should be 2023 instead of 2025. Completeness is slightly lacking as the cover letter's emphasis on translating reliability into business outcomes is not fully captured. The structure is well-organized with clear CAR stories, metrics, and tags, but could benefit from more detailed metrics and additional context from the cover letter."
+    }
+  },
+  {
+    "profile": "P07",
+    "model": "gpt-4o",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 7630,
+      "total": 7639
+    },
+    "tokenUsage": {
+      "input": 780,
+      "output": 630,
+      "total": 1410
+    },
+    "extractedData": {
+      "companies": 2,
+      "roles": 2,
+      "stories": 3,
+      "metrics": 6,
+      "tags": 21
+    },
+    "cost": 0.01335,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Noah",
+        "email": "",
+        "phone": "",
+        "location": "Seattle, WA",
+        "linkedin": "",
+        "portfolio": ""
+      },
+      "workHistory": [
+        {
+          "company": "VendorLoop",
+          "companyTags": [
+            "B2B",
+            "Marketplace",
+            "Technology"
+          ],
+          "position": "Senior PM",
+          "startDate": "2020-01",
+          "endDate": "2025-01",
+          "roleSummary": "Led initiatives to optimize marketplace systems, improving match rates and increasing ARPU.",
+          "roleMetrics": [
+            "Improved match rate by 13%",
+            "Increased ARPU by 6%"
+          ],
+          "roleTags": [
+            "Marketplace Optimization",
+            "Pricing Strategy",
+            "Supply/Demand Dynamics"
+          ],
+          "stories": [
+            {
+              "title": "Match Rate Improvement",
+              "content": "Context: VendorLoop's match rate needed enhancement. Action: Implemented ranking and constraint tuning. Result: Improved match rate by 13%.",
+              "tags": [
+                "Optimization",
+                "Algorithm Tuning",
+                "Performance Improvement"
+              ],
+              "metrics": [
+                "13% improvement in match rate"
+              ]
+            },
+            {
+              "title": "ARPU Increase",
+              "content": "Context: ARPU growth was a priority. Action: Launched pricing and packaging experiments. Result: Achieved a 6% increase in ARPU.",
+              "tags": [
+                "Revenue Growth",
+                "Pricing Strategy",
+                "Experimentation"
+              ],
+              "metrics": [
+                "6% increase in ARPU"
+              ]
+            }
+          ]
+        },
+        {
+          "company": "Dockyard",
+          "companyTags": [
+            "B2B",
+            "Marketplace",
+            "Technology"
+          ],
+          "position": "PM",
+          "startDate": "2016-01",
+          "endDate": "2020-01",
+          "roleSummary": "Focused on improving vendor performance and delivery metrics.",
+          "roleMetrics": [
+            "Reduced late deliveries by 9%"
+          ],
+          "roleTags": [
+            "Vendor Management",
+            "Performance Benchmarking",
+            "Logistics"
+          ],
+          "stories": [
+            {
+              "title": "SLA Benchmarking",
+              "content": "Context: High rate of late deliveries. Action: Introduced SLA benchmarking for vendors. Result: Reduced late deliveries by 9%.",
+              "tags": [
+                "Vendor Performance",
+                "Benchmarking",
+                "Logistics Improvement"
+              ],
+              "metrics": [
+                "9% reduction in late deliveries"
+              ]
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "University of Washington",
+          "degree": "B.A.",
+          "field": "Economics",
+          "graduationDate": "",
+          "gpa": "",
+          "honors": []
+        }
+      ],
+      "skills": [
+        "Marketplace Optimization",
+        "Pricing Strategy",
+        "Vendor Management"
+      ],
+      "certifications": [],
+      "summary": "PM with 10 years of experience in B2B marketplaces, specializing in optimizing supply/demand dynamics and improving key performance metrics."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction accurately captures the companies, roles, and key metrics, but lacks some details such as specific dates and additional contact information. The completeness is slightly lower due to missing elements like the email and phone number, and the absence of a graduation date. The structure is strong, with well-organized CAR stories, metrics, and tags, providing a clear and detailed view of the candidate's experiences and achievements."
+    }
+  },
+  {
+    "profile": "P08",
+    "model": "gpt-4o",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 6382,
+      "total": 6383
+    },
+    "tokenUsage": {
+      "input": 775,
+      "output": 655,
+      "total": 1430
+    },
+    "extractedData": {
+      "companies": 2,
+      "roles": 2,
+      "stories": 4,
+      "metrics": 2,
+      "tags": 24
+    },
+    "cost": 0.0137,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Priya",
+        "email": "",
+        "phone": "",
+        "location": "Toronto, ON",
+        "linkedin": "",
+        "portfolio": ""
+      },
+      "workHistory": [
+        {
+          "company": "TestCraft",
+          "companyTags": [
+            "Technology",
+            "Mid-stage",
+            "Software Development"
+          ],
+          "position": "QA Analyst",
+          "startDate": "2022-01",
+          "endDate": "2024-01",
+          "roleSummary": "Developed a regression suite and organized bug triage processes to enhance product quality.",
+          "roleMetrics": [
+            "Reduced release defects by ~20%"
+          ],
+          "roleTags": [
+            "QA",
+            "Process Improvement",
+            "Software Testing"
+          ],
+          "stories": [
+            {
+              "title": "Regression Suite Development",
+              "content": "Context: High defect rates in releases. Action: Developed a comprehensive regression suite. Result: Reduced release defects by ~20%.",
+              "tags": [
+                "Quality Improvement",
+                "Process Optimization",
+                "Testing"
+              ],
+              "metrics": [
+                "Reduced release defects by ~20%"
+              ]
+            },
+            {
+              "title": "Bug Triage Organization",
+              "content": "Context: Inefficient bug triage process. Action: Organized bug triage and release notes cadence. Result: Improved accountability and streamlined release process.",
+              "tags": [
+                "Process Management",
+                "Accountability",
+                "Efficiency"
+              ],
+              "metrics": []
+            }
+          ]
+        },
+        {
+          "company": "HelpLoop",
+          "companyTags": [
+            "Operations",
+            "Startup",
+            "Service Industry"
+          ],
+          "position": "Operations Coordinator",
+          "startDate": "2020-01",
+          "endDate": "2022-01",
+          "roleSummary": "Managed vendor onboarding and service level agreements to enhance operational efficiency.",
+          "roleMetrics": [],
+          "roleTags": [
+            "Operations",
+            "Vendor Management",
+            "Process Documentation"
+          ],
+          "stories": [
+            {
+              "title": "Vendor Onboarding Playbooks",
+              "content": "Context: Need for standardized vendor onboarding. Action: Developed comprehensive onboarding playbooks. Result: Streamlined vendor integration process.",
+              "tags": [
+                "Standardization",
+                "Efficiency",
+                "Vendor Management"
+              ],
+              "metrics": []
+            },
+            {
+              "title": "Service Level Agreements",
+              "content": "Context: Inconsistent service levels with vendors. Action: Established and managed vendor SLAs. Result: Improved service consistency and vendor accountability.",
+              "tags": [
+                "Service Management",
+                "Accountability",
+                "Consistency"
+              ],
+              "metrics": []
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "University of Toronto",
+          "degree": "B.S.",
+          "field": "Information Technology",
+          "graduationDate": "",
+          "gpa": "",
+          "honors": []
+        }
+      ],
+      "skills": [
+        "Process Documentation",
+        "Quality Assurance",
+        "Operations Management"
+      ],
+      "certifications": [],
+      "summary": "Early-career PM transitioning from QA/operations; strong in process and documentation. Brings disciplined execution with tight specs and crisp acceptance criteria."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction is mostly accurate with correct companies, roles, and dates, but lacks contact details like email and phone. Completeness is slightly lower as some details from the cover letter, such as the mention of 'curiosity to learn quickly as an APM,' are not captured. The structure is strong, with well-organized CAR stories and relevant tags, but could include more metrics for completeness."
+    }
+  },
+  {
+    "profile": "P09",
+    "model": "gpt-4o",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 4373,
+      "total": 4376
+    },
+    "tokenUsage": {
+      "input": 740,
+      "output": 533,
+      "total": 1273
+    },
+    "extractedData": {
+      "companies": 1,
+      "roles": 1,
+      "stories": 3,
+      "metrics": 4,
+      "tags": 15
+    },
+    "cost": 0.011695,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Leo",
+        "email": "",
+        "phone": "",
+        "location": "Boston, MA",
+        "linkedin": "",
+        "portfolio": ""
+      },
+      "workHistory": [
+        {
+          "company": "MobileCare",
+          "companyTags": [
+            "Mobile Support",
+            "Established",
+            "App Development"
+          ],
+          "position": "Associate PM",
+          "startDate": "2022-01",
+          "endDate": "2025-01",
+          "roleSummary": "Led design initiatives to improve user experience and operational efficiency in mobile support.",
+          "roleMetrics": [
+            "Increased app store rating by 1.1 points",
+            "Reduced time-to-resolution by 17%"
+          ],
+          "roleTags": [
+            "UX Design",
+            "Prototyping",
+            "Mobile Support"
+          ],
+          "stories": [
+            {
+              "title": "App Store Rating Improvement",
+              "content": "Context: MobileCare's app had a low user rating. Action: Redesigned support flows to enhance user experience. Result: Increased app store rating by 1.1 points.",
+              "tags": [
+                "User Experience",
+                "Design Impact",
+                "Customer Satisfaction"
+              ],
+              "metrics": [
+                "+1.1 app store rating"
+              ]
+            },
+            {
+              "title": "Chatbot Prototyping",
+              "content": "Context: High time-to-resolution in customer support. Action: Prototyped a chatbot to streamline support processes. Result: Reduced time-to-resolution by 17%.",
+              "tags": [
+                "Innovation",
+                "Efficiency",
+                "Technology Integration"
+              ],
+              "metrics": [
+                "-17% time-to-resolution"
+              ]
+            },
+            {
+              "title": "Proactive Diagnostics",
+              "content": "Context: Need to lower customer effort and improve trust. Action: Focused on proactive diagnostics and clear content. Result: Enhanced customer trust and reduced support effort.",
+              "tags": [
+                "Proactivity",
+                "Customer Trust",
+                "Content Clarity"
+              ],
+              "metrics": []
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "Tufts University",
+          "degree": "B.S.",
+          "field": "Human Factors",
+          "graduationDate": "",
+          "gpa": "",
+          "honors": []
+        }
+      ],
+      "skills": [
+        "UX Design",
+        "Prototyping",
+        "Customer Support"
+      ],
+      "certifications": [],
+      "summary": "Design-led Associate Product Manager with 3 years of experience in mobile support, specializing in UX design and process optimization to achieve measurable outcomes."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction is mostly accurate with correct company, role, and metrics. However, the dates are slightly off as the resume states 2022-2025, which is future-dated. Completeness is slightly lacking as the cover letter's focus on proactive diagnostics is not fully captured in the work history. The structure is well-organized with clear CAR stories and relevant tags, but could benefit from more detailed metrics and additional context from the cover letter."
+    }
+  },
+  {
+    "profile": "P10",
+    "model": "gpt-4o",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 7625,
+      "total": 7632
+    },
+    "tokenUsage": {
+      "input": 811,
+      "output": 711,
+      "total": 1522
+    },
+    "extractedData": {
+      "companies": 2,
+      "roles": 2,
+      "stories": 4,
+      "metrics": 6,
+      "tags": 24
+    },
+    "cost": 0.01472,
+    "errors": [],
+    "rawOutput": {
+      "contactInfo": {
+        "name": "Sophia",
+        "email": "",
+        "phone": "",
+        "location": "Los Angeles, CA",
+        "linkedin": "",
+        "portfolio": ""
+      },
+      "workHistory": [
+        {
+          "company": "AtlasSuite",
+          "companyTags": [
+            "SaaS",
+            "Growth Stage",
+            "Product Management"
+          ],
+          "position": "Director of Product",
+          "startDate": "2020-01",
+          "endDate": "2025-01",
+          "roleSummary": "Led the expansion of the product management organization and drove significant ARR growth through strategic initiatives.",
+          "roleMetrics": [
+            "Scaled PM org from 3 to 7",
+            "Expanded ARR by 24%"
+          ],
+          "roleTags": [
+            "Leadership",
+            "Strategic Planning",
+            "SaaS"
+          ],
+          "stories": [
+            {
+              "title": "Scaling the PM Organization",
+              "content": "Context: The PM team needed expansion to support growth. Action: Scaled the team from 3 to 7 members. Result: Improved team capacity and efficiency.",
+              "tags": [
+                "Team Building",
+                "Leadership",
+                "Growth"
+              ],
+              "metrics": [
+                "Scaled team from 3 to 7"
+              ]
+            },
+            {
+              "title": "ARR Expansion",
+              "content": "Context: ARR needed improvement. Action: Implemented new pricing and packaging strategies. Result: Achieved a 24% increase in ARR.",
+              "tags": [
+                "Revenue Growth",
+                "Strategic Pricing",
+                "Product Launch"
+              ],
+              "metrics": [
+                "ARR increased by 24%"
+              ]
+            },
+            {
+              "title": "Operating Cadence Establishment",
+              "content": "Context: Lack of structured processes. Action: Established operating cadence and KPIs. Result: Enhanced team performance and accountability.",
+              "tags": [
+                "Process Improvement",
+                "KPI Development",
+                "Efficiency"
+              ],
+              "metrics": []
+            }
+          ]
+        },
+        {
+          "company": "Queryly",
+          "companyTags": [
+            "SaaS",
+            "Established",
+            "Search Technology"
+          ],
+          "position": "Senior Product Manager",
+          "startDate": "2016-01",
+          "endDate": "2020-01",
+          "roleSummary": "Focused on improving user activation through enhanced onboarding and integration strategies.",
+          "roleMetrics": [
+            "Increased activation by 18%"
+          ],
+          "roleTags": [
+            "User Experience",
+            "Onboarding",
+            "Integration"
+          ],
+          "stories": [
+            {
+              "title": "User Activation Improvement",
+              "content": "Context: Low user activation rates. Action: Enhanced onboarding and integration processes. Result: Increased activation by 18%.",
+              "tags": [
+                "User Engagement",
+                "Onboarding",
+                "Integration"
+              ],
+              "metrics": [
+                "Activation increased by 18%"
+              ]
+            }
+          ]
+        }
+      ],
+      "education": [
+        {
+          "institution": "UCLA",
+          "degree": "B.S.",
+          "field": "Computer Science",
+          "graduationDate": "",
+          "gpa": "",
+          "honors": []
+        }
+      ],
+      "skills": [
+        "Product Management",
+        "Strategic Planning",
+        "Team Leadership"
+      ],
+      "certifications": [],
+      "summary": "Director of Product with 12 years of experience in SaaS growth and platform development. Successfully built and led a product management organization, delivering a multi-product roadmap and achieving significant ARR growth."
+    },
+    "qualityScores": {
+      "accuracy": 8.5,
+      "completeness": 7,
+      "structure": 9,
+      "overall": 8.2,
+      "reasoning": "The extraction accurately captures key details such as company names, roles, and dates, but lacks contact information like email and phone. Completeness is slightly lower due to missing details from the cover letter, such as the candidate's approach to sequencing bets and coaching PMs. The structure is strong, with well-organized CAR stories, metrics, and tags, but could benefit from more comprehensive coverage of all experiences mentioned in the original documents."
+    }
+  }
+]
