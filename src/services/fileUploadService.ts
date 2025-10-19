@@ -610,8 +610,9 @@ export class FileUploadService {
       // Run code-driven heuristics
       const heuristics = this.runHeuristics(structuredData, type);
 
-      // Process structured data into work_items and companies tables
-      await this.processStructuredData(structuredData, sourceId, accessToken);
+      // DISABLED: Work items now created only after user review and approval in ContentReviewStep
+      // This prevents duplicate work items and ensures user has control over what's saved
+      // await this.processStructuredData(structuredData, sourceId, accessToken);
 
       // Run LLM judge evaluation
       const evaluation = await this.evaluationService.evaluateStructuredData(
@@ -961,8 +962,9 @@ export class FileUploadService {
         await this.updateProcessingStatus(this.pendingResume.sourceId, 'completed', combinedResult.resume.data as any, undefined, accessToken);
         console.log('✅ Resume analysis completed');
         
-        // Process structured data into work_items and companies
-        await this.processStructuredData(combinedResult.resume.data, this.pendingResume.sourceId, accessToken);
+        // DISABLED: Work items now created only after user review and approval in ContentReviewStep
+        // This prevents duplicate work items and ensures user has control over what's saved
+        // await this.processStructuredData(combinedResult.resume.data, this.pendingResume.sourceId, accessToken);
         
         // Log for evaluation tracking
         await this.logLLMGeneration({
