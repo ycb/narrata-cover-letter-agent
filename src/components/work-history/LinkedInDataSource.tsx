@@ -210,27 +210,35 @@ export function LinkedInDataSource({ onConnectLinkedIn, onRefresh }: LinkedInDat
               Experience ({profile.experience.length})
             </h4>
             <div className="space-y-3">
-              {profile.experience.slice(0, 3).map((exp, index) => (
-                <div key={index} className="border rounded-lg p-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h5 className="font-medium">{exp.title}</h5>
-                      <p className="text-sm text-muted-foreground">{exp.company}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {exp.startDate} - {exp.endDate || 'Present'}
-                      </p>
-                      {exp.location && (
-                        <p className="text-xs text-muted-foreground">{exp.location}</p>
-                      )}
+              {profile.experience.slice(0, 3).map((exp, index) => {
+                // Flatten nested objects from PDL API
+                const title = typeof exp.title === 'object' ? exp.title?.name : (exp.title || 'Unknown Role');
+                const company = typeof exp.company === 'object' ? exp.company?.name : (exp.company || 'Unknown Company');
+                const location = typeof exp.location === 'object' ? exp.location?.name : (exp.location || '');
+                const description = typeof exp.description === 'object' ? String(exp.description) : exp.description;
+                
+                return (
+                  <div key={index} className="border rounded-lg p-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h5 className="font-medium">{title}</h5>
+                        <p className="text-sm text-muted-foreground">{company}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {exp.startDate} - {exp.endDate || 'Present'}
+                        </p>
+                        {location && (
+                          <p className="text-xs text-muted-foreground">{location}</p>
+                        )}
+                      </div>
                     </div>
+                    {description && (
+                      <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                        {description}
+                      </p>
+                    )}
                   </div>
-                  {exp.description && (
-                    <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
-                      {exp.description}
-                    </p>
-                  )}
-                </div>
-              ))}
+                );
+              })}
               {profile.experience.length > 3 && (
                 <p className="text-sm text-muted-foreground text-center">
                   +{profile.experience.length - 3} more positions
@@ -250,15 +258,21 @@ export function LinkedInDataSource({ onConnectLinkedIn, onRefresh }: LinkedInDat
               Education ({profile.education.length})
             </h4>
             <div className="space-y-2">
-              {profile.education.slice(0, 2).map((edu, index) => (
-                <div key={index} className="border rounded-lg p-3">
-                  <h5 className="font-medium">{edu.degree}</h5>
-                  <p className="text-sm text-muted-foreground">{edu.school}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {edu.startDate} - {edu.endDate || 'Present'}
-                  </p>
-                </div>
-              ))}
+              {profile.education.slice(0, 2).map((edu, index) => {
+                // Flatten nested objects from PDL API
+                const degree = typeof edu.degree === 'object' ? edu.degree?.name : (edu.degree || 'Unknown Degree');
+                const school = typeof edu.school === 'object' ? edu.school?.name : (edu.school || 'Unknown School');
+                
+                return (
+                  <div key={index} className="border rounded-lg p-3">
+                    <h5 className="font-medium">{degree}</h5>
+                    <p className="text-sm text-muted-foreground">{school}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {edu.startDate} - {edu.endDate || 'Present'}
+                    </p>
+                  </div>
+                );
+              })}
               {profile.education.length > 2 && (
                 <p className="text-sm text-muted-foreground text-center">
                   +{profile.education.length - 2} more schools
