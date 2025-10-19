@@ -251,6 +251,9 @@ export class FileUploadService {
       // Use direct fetch instead of Supabase client
       const { url: supabaseUrl, key: supabaseKey } = getSupabaseConfig();
       
+      // Convert camelCase FileType to snake_case for database
+      const dbSourceType = sourceType === 'coverLetter' ? 'cover_letter' : (sourceType || 'resume');
+      
       const insertData = {
         user_id: userId,
         file_name: file.name,
@@ -259,7 +262,7 @@ export class FileUploadService {
         file_checksum: computedChecksum,
         storage_path: storagePath,
         processing_status: 'pending',
-        source_type: sourceType || 'resume' // Add source_type with fallback to 'resume'
+        source_type: dbSourceType // Convert FileType to database format
       };
       
       const response = await fetch(`${supabaseUrl}/rest/v1/sources`, {
