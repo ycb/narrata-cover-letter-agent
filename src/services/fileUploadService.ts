@@ -688,6 +688,15 @@ export class FileUploadService {
       let storiesCreated = 0;
       let storiesFailed = 0;
       
+      // Debug: Log raw workHistory structure to see if stories are present
+      console.log('🔍 DEBUG: Sample workHistory item:', {
+        company: structuredData.workHistory[0]?.company,
+        hasStories: !!structuredData.workHistory[0]?.stories,
+        storiesCount: structuredData.workHistory[0]?.stories?.length || 0,
+        storiesType: typeof structuredData.workHistory[0]?.stories,
+        keys: Object.keys(structuredData.workHistory[0] || {})
+      });
+      
       // Process each work history entry
       for (const workItem of structuredData.workHistory) {
         // First, create or find the company

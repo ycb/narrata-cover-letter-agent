@@ -36,7 +36,7 @@ Return ONLY valid JSON with this exact structure:
           "type": "increase"
         }
       ],
-      "stories": [
+      "stories": [  // REQUIRED: Extract 1-3+ stories per role and place them HERE in this array
         {
           "id": "1",
           "title": "Brief story title (5-8 words)",
@@ -84,8 +84,9 @@ CRITICAL EXTRACTION RULES:
    - Ideally all stories have an associated metric, but this is not universal
    - If a story has a metric, the metric is associated on the story level
    - Metrics can also be associated on the role level
-   - Extract ALL unique stories per role from ALL data sources provided (LinkedIn, Resume, Cover Letter)
+   - Extract ALL unique stories per role and PLACE THEM IN THE workHistory[].stories[] ARRAY for that specific role
    - Use EXACT text from resume for story.content
+   - EVERY work history entry MUST include a stories[] array (even if empty, though you should extract at least 1-3 stories per role)
 
 2. METRICS (Story & Role Level):
    Story Metrics:
@@ -169,6 +170,8 @@ EXAMPLE OUTPUT (FlowHub role from resume):
     }
   ]
 }
+
+CRITICAL REMINDER: Each workHistory entry MUST include populated stories[] arrays. Extract 1-3+ stories per role from the resume text and place them in workHistory[].stories[].
 
 Return ONLY the JSON object. No markdown, no explanations, no additional text.
 `;
