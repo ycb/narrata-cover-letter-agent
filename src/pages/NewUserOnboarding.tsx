@@ -18,7 +18,7 @@ import {
   BookOpen,
   RefreshCw,
 } from "lucide-react";
-import { ContentReviewStep } from "@/components/onboarding/ContentReviewStep";
+import { ImportSummaryStep } from "@/components/onboarding/ImportSummaryStep";
 import { FileUploadCard } from "@/components/onboarding/FileUploadCard";
 import { useTour } from "@/contexts/TourContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -617,24 +617,18 @@ export default function NewUserOnboarding() {
                   )}
                 </div>
                 <span className={`text-sm font-medium ${currentStep === 'review' ? 'text-blue-600' : 'text-gray-900'}`}>
-                  Review
+                  Summary
                 </span>
               </div>
             </div>
           </div>
         </Card>
 
-        <ContentReviewStep 
-          onReviewComplete={(approvedContent) => {
-            console.log('Review completed, approved content:', approvedContent);
-            // Update onboarding data with approved content
-            setOnboardingData(prev => ({
-              ...prev,
-              approvedContent
-            }));
+        <ImportSummaryStep 
+          onNext={() => {
+            console.log('Starting product tour');
             handleNextStep();
           }}
-          onBack={() => setCurrentStep('upload')}
         />
       </div>
     );
