@@ -1135,9 +1135,9 @@ export class FileUploadService {
           
           // Performance Metrics
           text_extraction_latency_ms: 0, // TODO: Add granular timing
-          llm_analysis_latency_ms: data.latency,
+          llm_analysis_latency_ms: Math.round(data.latency),
           database_save_latency_ms: 0, // TODO: Add granular timing
-          total_latency_ms: data.latency,
+          total_latency_ms: Math.round(data.latency),
           
           // Token Usage
           input_tokens: data.inputTokens,
