@@ -523,63 +523,64 @@ export function useLinkedInUpload() {
           console.log('Attempting People Data Labs enrichment...');
           
           const pdlService = new PeopleDataLabsService();
-        
-        // Get user's name and resume data for PDL enrichment
-        const oauthData = getOAuthData();
-        const fullName = oauthData.fullName || profile?.full_name;
-        
-        // Try to get resume data to extract company info
-        let resumeData = null;
-        try {
-          const { data: uploadedFiles, error: resumeError } = await supabase
-            .from('sources')
-            .select('structured_data')
-            .eq('user_id', user.id)
-            .eq('file_type', 'resume')
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
           
-          if (uploadedFiles && !resumeError) {
-            resumeData = (uploadedFiles as any).structured_data;
+          // Get user's name and resume data for PDL enrichment
+          const oauthData = getOAuthData();
+          const fullName = oauthData.fullName || profile?.full_name;
+          
+          // Try to get resume data to extract company info
+          let resumeData = null;
+          try {
+            const { data: uploadedFiles, error: resumeError } = await supabase
+              .from('sources')
+              .select('structured_data')
+              .eq('user_id', user.id)
+              .eq('file_type', 'resume')
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .single();
+            
+            if (uploadedFiles && !resumeError) {
+              resumeData = (uploadedFiles as any).structured_data;
+            }
+          } catch (err) {
+            console.log('No resume data found for PDL enrichment');
           }
-        } catch (err) {
-          console.log('No resume data found for PDL enrichment');
+          
+          const pdlResult = await pdlService.enrichFromResumeData(
+            fullName,
+            resumeData,
+            trimmedUrl
+          );
+          
+          if (pdlResult.success && pdlResult.data) {
+            console.log('✅ Successfully enriched LinkedIn data via People Data Labs');
+            console.log('PDL likelihood score:', pdlResult.likelihood);
+            dataSource = 'people_data_labs';
+            
+            // Convert PDL data to our format
+            const structuredData = pdlService.convertToStructuredData(pdlResult.data);
+            
+            profileData = {
+              id: profileId,
+              linkedinId: linkedinUsername,
+              profileUrl: trimmedUrl,
+              firstName: pdlResult.data.first_name || 'Unknown',
+              lastName: pdlResult.data.last_name || 'User',
+              headline: pdlResult.data.headline || pdlResult.data.job_title_name || 'Professional',
+              summary: pdlResult.data.summary || 'No summary available',
+              experience: structuredData.workHistory,
+              education: structuredData.education,
+              skills: structuredData.skills,
+              certifications: structuredData.certifications || [],
+              projects: structuredData.projects || []
+            };
+          }
         }
         
-        const pdlResult = await pdlService.enrichFromResumeData(
-          fullName,
-          resumeData,
-          trimmedUrl
-        );
-        
-        if (pdlResult.success && pdlResult.data) {
-          console.log('✅ Successfully enriched LinkedIn data via People Data Labs');
-          console.log('PDL likelihood score:', pdlResult.likelihood);
-          dataSource = 'people_data_labs';
-          
-          // Convert PDL data to our format
-          const structuredData = pdlService.convertToStructuredData(pdlResult.data);
-          
-          profileData = {
-            id: profileId,
-            linkedinId: linkedinUsername,
-            profileUrl: trimmedUrl,
-            firstName: pdlResult.data.first_name || 'Unknown',
-            lastName: pdlResult.data.last_name || 'User',
-            headline: pdlResult.data.headline || pdlResult.data.job_title_name || 'Professional',
-            summary: pdlResult.data.summary || 'No summary available',
-            experience: structuredData.workHistory,
-            education: structuredData.education,
-            skills: structuredData.skills,
-            certifications: structuredData.certifications || [],
-            projects: structuredData.projects || []
-          };
-        } else {
-          // Strategy 4: Fallback to minimal data if all strategies fail
+        // Strategy 4: Fallback to minimal data if all strategies fail
+        if (!profileData) {
           console.warn('All enrichment strategies failed, using minimal data');
-          console.warn('OAuth error:', profileResult.error);
-          console.warn('PDL error:', pdlResult.error);
           dataSource = 'minimal';
           profileData = {
             id: profileId,
@@ -593,9 +594,9 @@ export function useLinkedInUpload() {
             education: [],
             skills: [],
             certifications: [],
-             projects: []
-           };
-         }
+            projects: []
+          };
+        }
       }
       
       // Store in database (if available)
