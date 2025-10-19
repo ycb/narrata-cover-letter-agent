@@ -52,7 +52,7 @@ Extract the following information and return as JSON. IMPORTANT: Extract ALL wor
     "phone": "phone number",
     "location": "City, State",
     "website": "website URL",
-    "linkedin": "LinkedIn URL"
+    "linkedin": "Full LinkedIn URL (e.g., https://linkedin.com/in/username) or just the username. Extract from URLs or text patterns like 'linkedin.com/in/xxx' or '@username'"
   },
   "summary": "Professional summary if present",
   "certifications": [

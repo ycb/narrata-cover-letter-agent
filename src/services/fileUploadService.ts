@@ -961,6 +961,9 @@ export class FileUploadService {
         await this.updateProcessingStatus(this.pendingResume.sourceId, 'completed', combinedResult.resume.data as any, undefined, accessToken);
         console.log('✅ Resume analysis completed');
         
+        // Process structured data into work_items and companies
+        await this.processStructuredData(combinedResult.resume.data, this.pendingResume.sourceId, accessToken);
+        
         // Log for evaluation tracking
         await this.logLLMGeneration({
           sessionId: `sess_${Date.now()}_resume`,
@@ -969,7 +972,7 @@ export class FileUploadService {
           inputText: this.pendingResume.text,
           outputText: JSON.stringify(combinedResult.resume.data, null, 2),
           success: true,
-          performanceMs: parseFloat(llmDuration)
+          latency: parseFloat(llmDuration)
         });
       } else {
         await this.updateProcessingStatus(this.pendingResume.sourceId, 'failed', undefined, combinedResult.resume.error, accessToken);
@@ -989,7 +992,7 @@ export class FileUploadService {
           inputText: this.pendingCoverLetter.text,
           outputText: JSON.stringify(combinedResult.coverLetter.data, null, 2),
           success: true,
-          performanceMs: parseFloat(llmDuration)
+          latency: parseFloat(llmDuration)
         });
       } else {
         await this.updateProcessingStatus(this.pendingCoverLetter.sourceId, 'failed', undefined, combinedResult.coverLetter.error, accessToken);
