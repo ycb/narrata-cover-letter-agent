@@ -178,15 +178,20 @@ export function FileUploadCard({
     const newText = e.target.value;
     setCoverLetterText(newText);
     if (error) setError(null);
-    
-    // Auto-process text when it's pasted (more than 100 characters suggests a paste)
-    if (newText.length > 100 && onTextInput) {
-      // Small delay to ensure the paste is complete
-      setTimeout(() => {
-        onTextInput(newText.trim());
-      }, 500);
+  }, [error]);
+
+  // Auto-process text when it's pasted (debounced)
+  useEffect(() => {
+    if (coverLetterText && coverLetterText.length > 100 && onTextInput) {
+      setProcessingStatus('Processing pasted text...');
+      const timer = setTimeout(() => {
+        onTextInput(coverLetterText.trim());
+        setProcessingStatus('');
+      }, 1000); // Increased delay to 1 second
+      
+      return () => clearTimeout(timer);
     }
-  }, [error, onTextInput]);
+  }, [coverLetterText, onTextInput]);
 
   /**
    * Handle file upload - ACTUALLY uploads and processes the file

@@ -540,9 +540,9 @@ export function useLinkedInUpload() {
             education: [],
             skills: [],
             certifications: [],
-            projects: []
-        };
-        }
+             projects: []
+           };
+         }
       }
       
       // Store in database (if available)
