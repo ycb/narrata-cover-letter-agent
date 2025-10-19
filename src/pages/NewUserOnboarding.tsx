@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { ImportSummaryStep } from "@/components/onboarding/ImportSummaryStep";
 import { FileUploadCard } from "@/components/onboarding/FileUploadCard";
+import { ProgressIndicator } from "@/components/onboarding/ProgressIndicator";
 import { useTour } from "@/contexts/TourContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";

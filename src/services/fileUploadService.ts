@@ -769,6 +769,16 @@ export class FileUploadService {
       }
 
       console.log('✅ Structured data processed successfully');
+      
+      // Emit progress update
+      window.dispatchEvent(new CustomEvent('upload:progress', {
+        detail: {
+          step: 'complete',
+          progress: 1.0,
+          message: 'Import complete!',
+          details: 'Ready to review your work history'
+        }
+      }));
     } catch (error) {
       console.error('Error processing structured data:', error);
     }
@@ -995,6 +1005,16 @@ export class FileUploadService {
       if (combinedResult.resume.success) {
         await this.updateProcessingStatus(this.pendingResume.sourceId, 'completed', combinedResult.resume.data as any, undefined, accessToken);
         console.log('✅ Resume analysis completed');
+        
+        // Emit progress update
+        window.dispatchEvent(new CustomEvent('upload:progress', {
+          detail: {
+            step: 'saving',
+            progress: 0.7,
+            message: 'Saving work history and stories...',
+            details: 'Creating companies, roles, and approved content'
+          }
+        }));
         
         // Auto-save extracted data to database
         await this.processStructuredData(combinedResult.resume.data, this.pendingResume.sourceId, accessToken);

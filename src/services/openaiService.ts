@@ -347,8 +347,11 @@ Instructions:
    * Calculate optimal token limit based on extracted text analysis
    */
   private calculateOptimalTokens(extractedText: string, type: FileType): number {
-    // Base token estimate (input tokens)
-    const baseTokens = Math.ceil(extractedText.length / 4); // ~4 chars per token
+    // Improved token estimate (more accurate char-to-token ratio)
+    const contentTokens = Math.ceil(extractedText.length / 3.5); // Better ratio: ~3.5 chars per token
+    
+    // Structured output overhead (JSON structure, arrays, nested objects)
+    const structureOverhead = type === 'resume' ? 1200 : 800; // More overhead for complex resume structure
     
     // Analyze content complexity
     const complexityMultiplier = this.analyzeContentComplexity(extractedText);
@@ -356,13 +359,17 @@ Instructions:
     // Get type-specific multiplier
     const typeMultiplier = this.getTypeMultiplier(type);
     
-    // Calculate optimal tokens with bounds
-    const optimalTokens = Math.ceil(baseTokens * complexityMultiplier * typeMultiplier);
+    // Calculate base output tokens needed
+    const baseOutputTokens = Math.ceil(contentTokens * complexityMultiplier * typeMultiplier);
     
-    // Apply bounds: minimum 500, maximum 2000 (allow dynamic calculation to work)
-    const finalTokens = Math.max(500, Math.min(optimalTokens, 2000));
+    // Add structure overhead and safety buffer
+    const safetyBuffer = 1.35; // 35% safety buffer to avoid retries
+    const optimalTokens = Math.ceil((baseOutputTokens + structureOverhead) * safetyBuffer);
     
-    console.warn(`📊 Token calculation: ${extractedText.length} chars → ${baseTokens} base tokens → ${finalTokens} optimal tokens (${type}, complexity: ${complexityMultiplier.toFixed(2)})`);
+    // Apply bounds: minimum 800, maximum 3000 (increased to handle complex content)
+    const finalTokens = Math.max(800, Math.min(optimalTokens, 3000));
+    
+    console.warn(`📊 Token calculation: ${extractedText.length} chars → ${contentTokens} content tokens + ${structureOverhead} overhead → ${finalTokens} max tokens (${type}, complexity: ${complexityMultiplier.toFixed(2)}, buffer: ${safetyBuffer}x)`);
     
     // Ensure we return an integer
     return Math.floor(finalTokens);
