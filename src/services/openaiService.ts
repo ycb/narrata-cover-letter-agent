@@ -265,39 +265,31 @@ Instructions:
    * Build prompt for combined resume and cover letter analysis
    */
   private buildCombinedAnalysisPrompt(resumeText: string, coverLetterText: string): string {
-    return `Analyze the following resume and cover letter separately. Extract structured data for each document and return a JSON object with separate "resume" and "coverLetter" sections.
+    // Use the comprehensive prompts from the prompts directory
+    const resumePrompt = buildResumeAnalysisPrompt(resumeText);
+    const coverLetterPrompt = buildCoverLetterAnalysisPrompt(coverLetterText);
+    
+    return `Analyze the following resume and cover letter together. Extract structured data for each document and return a JSON object with separate "resume" and "coverLetter" sections.
 
-RESUME TEXT:
-${resumeText}
+IMPORTANT: Cross-reference information between documents. If the cover letter mentions work experiences, metrics, or stories not fully detailed in the resume, include them in the resume section's workHistory with appropriate annotations.
 
-COVER LETTER TEXT:
-${coverLetterText}
+RESUME ANALYSIS:
+${resumePrompt}
 
-For the RESUME section, extract:
-- contactInfo: { name, email, phone, linkedin, location }
-- workHistory: [{ company, position, startDate, endDate, description, achievements }]
-- education: [{ institution, degree, field, startDate, endDate, gpa }]
-- skills: [{ category, items }]
-- certifications: [{ name, issuer, date, expiry }]
-- projects: [{ name, description, technologies, url, startDate, endDate }]
-- summary: string
+---
 
-For the COVER LETTER section, extract:
-- recipientInfo: { name, title, company }
-- opening: string
-- body: [{ paragraph, keyPoints }]
-- closing: string
-- callToAction: string
-- tone: string
-- keyMessages: [string]
+COVER LETTER ANALYSIS:
+${coverLetterPrompt}
 
-Return ONLY valid JSON with this structure:
+---
+
+Return as JSON with this top-level structure:
 {
-  "resume": { /* resume structured data */ },
-  "coverLetter": { /* cover letter structured data */ }
+  "resume": { /* comprehensive resume structured data using the schema above */ },
+  "coverLetter": { /* cover letter structured data using the schema above */ }
 }
 
-Ensure all dates are in YYYY-MM-DD format and generate unique IDs for each item.`;
+Return ONLY valid JSON with no additional text or markdown formatting. Ensure all dates are in YYYY-MM-DD format and generate unique IDs for each item.`;
   }
 
   /**
