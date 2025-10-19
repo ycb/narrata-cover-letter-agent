@@ -40,7 +40,7 @@ Return ONLY valid JSON with this exact structure:
         {
           "id": "1",
           "title": "Brief story title (5-8 words)",
-          "content": "Full bullet text exactly as written",
+          "content": "Full text exactly as written",
           "problem": "What challenge or opportunity (optional)",
           "action": "What was done (optional)",
           "outcome": "What resulted (optional)",
