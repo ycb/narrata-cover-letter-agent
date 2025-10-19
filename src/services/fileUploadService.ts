@@ -628,7 +628,7 @@ export class FileUploadService {
         inputTokens: extractedText.length / 4, // Rough estimate
         outputTokens: JSON.stringify(structuredData).length / 4,
         latency: llmEndTime - llmStartTime,
-        model: 'gpt-3.5-turbo',
+        model: import.meta.env.VITE_OPENAI_MODEL || 'gpt-4o-mini',
         inputText: extractedText, // Full text
         outputText: JSON.stringify(structuredData, null, 2), // Full structured data, formatted
         heuristics,
@@ -971,8 +971,12 @@ export class FileUploadService {
           type: 'resume',
           inputText: this.pendingResume.text,
           outputText: JSON.stringify(combinedResult.resume.data, null, 2),
-          success: true,
-          latency: parseFloat(llmDuration)
+          inputTokens: combinedResult.resume.metadata?.usage?.prompt_tokens || 0,
+          outputTokens: combinedResult.resume.metadata?.usage?.completion_tokens || 0,
+          model: combinedResult.resume.metadata?.model || 'gpt-4o-mini',
+          latency: parseFloat(llmDuration),
+          heuristics: {},
+          evaluation: {}
         });
       } else {
         await this.updateProcessingStatus(this.pendingResume.sourceId, 'failed', undefined, combinedResult.resume.error, accessToken);
@@ -991,8 +995,12 @@ export class FileUploadService {
           type: 'coverLetter',
           inputText: this.pendingCoverLetter.text,
           outputText: JSON.stringify(combinedResult.coverLetter.data, null, 2),
-          success: true,
-          latency: parseFloat(llmDuration)
+          inputTokens: combinedResult.coverLetter.metadata?.usage?.prompt_tokens || 0,
+          outputTokens: combinedResult.coverLetter.metadata?.usage?.completion_tokens || 0,
+          model: combinedResult.coverLetter.metadata?.model || 'gpt-4o-mini',
+          latency: parseFloat(llmDuration),
+          heuristics: {},
+          evaluation: {}
         });
       } else {
         await this.updateProcessingStatus(this.pendingCoverLetter.sourceId, 'failed', undefined, combinedResult.coverLetter.error, accessToken);
