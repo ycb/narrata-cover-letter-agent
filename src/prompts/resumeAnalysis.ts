@@ -80,12 +80,12 @@ Return ONLY valid JSON with this exact structure:
 CRITICAL EXTRACTION RULES:
 
 1. STORIES (Most Important):
-   - Each bullet point under a job = ONE story
-   - ALWAYS create 3-5 stories per role (more if available)
-   - Include the main responsibility/description as story #1
-   - Each subsequent achievement/bullet = separate story
+   - Stories explain actions, challenges and constraints leading to a result
+   - Ideally all stories have an associated metric, but this is not universal
+   - If a story has a metric, the metric is associated on the story level
+   - Metrics can also be associated on the role level
+   - Extract ALL unique stories per role from ALL data sources provided (LinkedIn, Resume, Cover Letter)
    - Use EXACT text from resume for story.content
-   - Extract title as first 5-8 words of the bullet
 
 2. METRICS (Story & Role Level):
    Story Metrics:
@@ -94,8 +94,8 @@ CRITICAL EXTRACTION RULES:
    - Example: "+22%" with context "Week-2 activation" and type "increase"
    
    Role Metrics:
-   - Aggregate the top 3-5 metrics across all stories for this role
-   - These show overall impact of the role
+   - A user may often summarize metrics at the role level. If found, use these as role-level metrics.
+   - These are important top-level metrics that show overall impact in a role
 
 3. TAGS (Three Levels):
    Company Tags (2-3 tags):
@@ -123,6 +123,7 @@ CRITICAL EXTRACTION RULES:
 6. ROLE SUMMARY:
    - 1-2 sentences summarizing: area of ownership, why it matters, top result
    - Example: "Owned onboarding, experimentation cadence, and analytics taxonomy to drive activation and conversion. Led 30+ A/B tests yearly."
+   - This should be distinct from stories. Purpose is to explain areas of responsibility, scope, team size, etc -- not the specific actions taken or results.
 
 EXAMPLE OUTPUT (FlowHub role from resume):
 {
