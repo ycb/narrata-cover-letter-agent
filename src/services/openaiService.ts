@@ -363,11 +363,12 @@ Instructions:
     const baseOutputTokens = Math.ceil(contentTokens * complexityMultiplier * typeMultiplier);
     
     // Add structure overhead and safety buffer
-    const safetyBuffer = 1.35; // 35% safety buffer to avoid retries
-    const optimalTokens = Math.ceil((baseOutputTokens + structureOverhead) * safetyBuffer);
+    const safetyBuffer = 1.8; // 80% safety buffer to avoid retries (increased from 1.35x based on production testing)
+    const fixedOverhead = 500; // Additional fixed overhead for story extraction
+    const optimalTokens = Math.ceil((baseOutputTokens + structureOverhead) * safetyBuffer + fixedOverhead);
     
-    // Apply bounds: minimum 800, maximum 3000 (increased to handle complex content)
-    const finalTokens = Math.max(800, Math.min(optimalTokens, 3000));
+    // Apply bounds: minimum 800, maximum 5000 (increased to handle complex story extraction)
+    const finalTokens = Math.max(800, Math.min(optimalTokens, 5000));
     
     console.warn(`📊 Token calculation: ${extractedText.length} chars → ${contentTokens} content tokens + ${structureOverhead} overhead → ${finalTokens} max tokens (${type}, complexity: ${complexityMultiplier.toFixed(2)}, buffer: ${safetyBuffer}x)`);
     

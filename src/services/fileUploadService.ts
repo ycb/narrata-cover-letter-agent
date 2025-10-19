@@ -682,6 +682,12 @@ export class FileUploadService {
       
       const userId = sourceData.user_id;
       
+      // Track insertion stats
+      let companiesCreated = 0;
+      let workItemsCreated = 0;
+      let storiesCreated = 0;
+      let storiesFailed = 0;
+      
       // Process each work history entry
       for (const workItem of structuredData.workHistory) {
         // First, create or find the company
@@ -721,6 +727,7 @@ export class FileUploadService {
             continue;
           }
           companyId = newCompany.id;
+          companiesCreated++;
         }
 
         // Create work item with role-level data
@@ -744,10 +751,31 @@ export class FileUploadService {
           continue;
         }
 
+        workItemsCreated++;
+
+        // Validate that we have valid FK references before inserting stories
+        if (!newWorkItem?.id) {
+          console.error('❌ Cannot insert stories: work_item_id is missing');
+          continue;
+        }
+
+        if (!companyId) {
+          console.error('❌ Cannot insert stories: company_id is missing');
+          continue;
+        }
+
         // Save stories to approved_content
         if (workItem.stories && Array.isArray(workItem.stories)) {
+          console.log(`📝 Inserting ${workItem.stories.length} stories for work item ${newWorkItem.id}`);
+          
           for (const story of workItem.stories) {
-            const { error: storyError } = await supabase
+            // Validate story has required content
+            if (!story.content && !story.title) {
+              console.warn('⚠️ Skipping story with no content or title');
+              continue;
+            }
+
+            const { data: insertedStory, error: storyError } = await supabase
               .from('approved_content')
               .insert({
                 user_id: userId,
@@ -759,14 +787,35 @@ export class FileUploadService {
                 tags: story.tags || [],
                 metrics: story.metrics || [],
                 source_id: sourceId
-              });
+              })
+              .select('id')
+              .single();
 
             if (storyError) {
-              console.error('Error creating story:', storyError);
+              console.error('❌ Error creating story:', {
+                error: storyError,
+                story_title: story.title,
+                work_item_id: newWorkItem.id,
+                company_id: companyId,
+                user_id: userId
+              });
+              storiesFailed++;
+            } else {
+              console.log(`✅ Story created successfully: ${insertedStory?.id}`);
+              storiesCreated++;
             }
           }
         }
       }
+
+      // Log summary statistics
+      console.log('📊 Database Insert Summary:', {
+        companiesCreated,
+        workItemsCreated,
+        storiesCreated,
+        storiesFailed,
+        totalWorkHistory: structuredData.workHistory.length
+      });
 
       console.log('✅ Structured data processed successfully');
       
