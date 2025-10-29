@@ -70,7 +70,8 @@ export class LLMAnalysisService {
       const optimalTokens = this.calculateOptimalTokens(text, 'coverLetter');
       console.warn(`🚀 Starting cover letter analysis with ${optimalTokens} tokens (smart calculation)`);
       
-      const prompt = this.buildCoverLetterAnalysisPrompt(text);
+      // Use the dedicated cover letter prompt that extracts STORIES and TEMPLATE signals
+      const prompt = buildCoverLetterAnalysisPrompt(text);
       const response = await this.callOpenAI(prompt, optimalTokens);
       
       if (!response.success) {
@@ -81,12 +82,13 @@ export class LLMAnalysisService {
         };
       }
 
-      // Parse and validate the response
-      const structuredData = this.parseStructuredData(response.data);
+      // For cover letters we want the richer story-centric schema as-is
+      const structuredData = response.data as Record<string, unknown>;
       
       return {
         success: true,
-        data: structuredData
+        // Keep type compatibility while storing the richer schema in the database
+        data: structuredData as unknown as StructuredResumeData
       };
     } catch (error) {
       console.error('Cover letter LLM analysis error:', error);
@@ -199,67 +201,7 @@ export class LLMAnalysisService {
     return buildResumeAnalysisPrompt(text);
   }
 
-  /**
-   * Build prompt for cover letter analysis
-   */
-  private buildCoverLetterAnalysisPrompt(text: string): string {
-    return `
-Analyze this cover letter text and extract structured data. Return ONLY valid JSON with no additional text.
-
-Cover Letter Text:
-${text}
-
-Extract the following information and return as JSON:
-
-{
-  "workHistory": [
-    {
-      "id": "unique_id",
-      "company": "Company Name",
-      "title": "Job Title",
-      "startDate": "YYYY-MM-DD",
-      "endDate": "YYYY-MM-DD or null if current",
-      "description": "Job description",
-      "achievements": ["achievement1", "achievement2"],
-      "location": "City, State",
-      "current": true/false
-    }
-  ],
-  "education": [
-    {
-      "id": "unique_id",
-      "institution": "University Name",
-      "degree": "Degree Type",
-      "fieldOfStudy": "Field of Study",
-      "startDate": "YYYY-MM-DD",
-      "endDate": "YYYY-MM-DD",
-      "gpa": "GPA if mentioned",
-      "location": "City, State"
-    }
-  ],
-  "skills": ["skill1", "skill2", "skill3"],
-  "achievements": ["achievement1", "achievement2"],
-  "contactInfo": {
-    "email": "email@example.com",
-    "phone": "phone number if mentioned",
-    "location": "City, State",
-    "website": "website if mentioned",
-    "linkedin": "linkedin if mentioned"
-  },
-  "summary": "Brief professional summary"
-}
-
-Instructions:
-- Extract work experience, education, skills, and achievements mentioned in the cover letter
-- Focus on accomplishments and achievements that demonstrate value
-- Include any specific metrics or results mentioned
-- Extract contact information if present
-- Create a professional summary based on the content
-- Ensure all dates are in YYYY-MM-DD format
-- Generate unique IDs for each item
-- Return valid JSON only, no markdown formatting
-`;
-  }
+  // Removed legacy cover letter prompt; we rely on prompts/coverLetterAnalysis.ts
 
   /**
    * Build prompt for combined resume and cover letter analysis

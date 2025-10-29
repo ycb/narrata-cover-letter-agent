@@ -150,16 +150,18 @@ Respond in JSON only:
       dataCompleteness: 0
     };
 
-    // Check work experience
-    if (structuredData.workExperience && Array.isArray(structuredData.workExperience)) {
+    // Normalize work history key (support both workHistory and workExperience)
+    const workHistory = Array.isArray(structuredData.workHistory)
+      ? structuredData.workHistory
+      : Array.isArray(structuredData.workExperience)
+        ? structuredData.workExperience
+        : [];
+
+    if (workHistory.length > 0) {
       heuristics.hasWorkExperience = true;
-      heuristics.workExperienceCount = structuredData.workExperience.length;
-      
-      // Check for quantifiable metrics
-      const workText = JSON.stringify(structuredData.workExperience);
+      heuristics.workExperienceCount = workHistory.length;
+      const workText = JSON.stringify(workHistory);
       heuristics.hasQuantifiableMetrics = /\d+%|\d+\+|\d+[kK]|\$[\d,]+|increased|decreased|improved|reduced|saved|grew|scaled/i.test(workText);
-      
-      // Check for company names and job titles
       heuristics.hasCompanyNames = /company|inc|corp|ltd|llc|technologies|solutions/i.test(workText);
       heuristics.hasJobTitles = /manager|director|engineer|analyst|specialist|coordinator|lead|senior|junior/i.test(workText);
     }
@@ -179,6 +181,42 @@ Respond in JSON only:
     // Check contact info
     if (structuredData.contactInfo) {
       heuristics.hasContactInfo = !!(structuredData.contactInfo.email || structuredData.contactInfo.phone || structuredData.contactInfo.linkedin);
+    }
+
+    // Cover letter specific signals (stories + referenced entities)
+    if (type === 'coverLetter') {
+      const stories = Array.isArray(structuredData.stories) ? structuredData.stories : [];
+      const entityRefs = structuredData.entityRefs || {};
+      const workRefs = Array.isArray(entityRefs.workHistoryRefs) ? entityRefs.workHistoryRefs : [];
+      const eduRefs = Array.isArray(entityRefs.educationRefs) ? entityRefs.educationRefs : [];
+
+      if (!heuristics.hasSkills && Array.isArray(structuredData.skillsMentioned)) {
+        heuristics.hasSkills = structuredData.skillsMentioned.length > 0;
+        heuristics.skillsCount = structuredData.skillsMentioned.length;
+      }
+
+      if (!heuristics.hasWorkExperience && workRefs.length > 0) {
+        heuristics.hasWorkExperience = true;
+        heuristics.workExperienceCount = workRefs.length;
+      }
+
+      if (!heuristics.hasEducation && eduRefs.length > 0) {
+        heuristics.hasEducation = true;
+        heuristics.educationCount = eduRefs.length;
+      }
+
+      // Quant metrics present across stories
+      if (!heuristics.hasQuantifiableMetrics) {
+        heuristics.hasQuantifiableMetrics = stories.some((s: any) => Array.isArray(s.metrics) && s.metrics.some((m: any) => m && (m.value !== null && m.value !== undefined)));
+      }
+
+      // Company names / job titles inferred from work refs
+      if (!heuristics.hasCompanyNames) {
+        heuristics.hasCompanyNames = workRefs.some((w: any) => !!w?.company);
+      }
+      if (!heuristics.hasJobTitles) {
+        heuristics.hasJobTitles = workRefs.some((w: any) => !!w?.title);
+      }
     }
 
     // Calculate data completeness score (0-100)

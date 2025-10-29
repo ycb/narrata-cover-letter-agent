@@ -51,6 +51,7 @@ interface SourceData {
   raw_text: string;
   structured_data: any;
   created_at: string;
+  storage_path?: string;
 }
 
 export const EvaluationDashboard: React.FC = () => {
@@ -58,6 +59,7 @@ export const EvaluationDashboard: React.FC = () => {
   const [sources, setSources] = useState<SourceData[]>([]);
   const [selectedRun, setSelectedRun] = useState<EvaluationRun | null>(null);
   const [selectedSource, setSelectedSource] = useState<SourceData | null>(null);
+  const [rawFileUrl, setRawFileUrl] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userTypeFilter, setUserTypeFilter] = useState<'all' | 'synthetic' | 'real'>('all');
@@ -92,7 +94,7 @@ export const EvaluationDashboard: React.FC = () => {
           const sourceIds = runs.map(run => run.source_id);
           const { data: sourcesData, error: sourcesError } = await supabase
             .from('sources')
-            .select('id, file_name, file_type, raw_text, structured_data, created_at')
+            .select('id, file_name, file_type, raw_text, structured_data, created_at, storage_path')
             .in('id', sourceIds);
 
           if (sourcesError) {
@@ -121,6 +123,33 @@ export const EvaluationDashboard: React.FC = () => {
     setSelectedSource(source || null);
     setIsModalOpen(true);
   };
+
+  // Generate signed URL for raw file when source is selected
+  useEffect(() => {
+    const generateFileUrl = async () => {
+      if (selectedSource?.storage_path) {
+        try {
+          const { data, error } = await supabase.storage
+            .from('user-files')
+            .createSignedUrl(selectedSource.storage_path, 3600); // 1 hour expiry
+          
+          if (error) {
+            console.error('Failed to generate signed URL:', error);
+            setRawFileUrl(null);
+          } else {
+            setRawFileUrl(data.signedUrl);
+          }
+        } catch (error) {
+          console.error('Error generating file URL:', error);
+          setRawFileUrl(null);
+        }
+      } else {
+        setRawFileUrl(null);
+      }
+    };
+
+    generateFileUrl();
+  }, [selectedSource?.storage_path]);
 
   const getEvaluationBadgeColor = (value: string) => {
     if (value.includes('✅')) return 'bg-green-100 text-green-800';
@@ -178,6 +207,41 @@ export const EvaluationDashboard: React.FC = () => {
   };
 
   const metrics = calculateMetrics();
+
+  // Build the centered header label: logged-in user or logged-in / synthetic name
+  const getLoggedInDisplayName = (): string => {
+    const fullName = (user?.user_metadata as any)?.full_name as string | undefined;
+    return fullName || user?.email || (user?.id ?? 'User');
+  };
+
+  const extractSyntheticName = (): string => {
+    const sd: any = selectedSource?.structured_data || {};
+    const candidates = [
+      sd?.basic_info?.fullname,
+      sd?.basic_info?.full_name,
+      sd?.contactInfo?.name,
+      sd?.contactInfo?.fullName
+    ];
+    for (const c of candidates) {
+      if (c && typeof c === 'string') return c as string;
+    }
+    const fileCodeMatch = selectedSource?.file_name?.match(/(P\d{2})/i);
+    if (fileCodeMatch) {
+      const code = fileCodeMatch[1].toUpperCase();
+      const nameMap: Record<string, string> = { P01: 'Avery Chen' };
+      return nameMap[code] || code;
+    }
+    return 'Synthetic';
+  };
+
+  const getHeaderUserText = (): string => {
+    const logged = getLoggedInDisplayName();
+    if (selectedRun?.user_type === 'synthetic') {
+      const synthetic = extractSyntheticName();
+      return `${logged} / ${synthetic}`;
+    }
+    return logged;
+  };
 
   if (loading) {
     return (
@@ -367,95 +431,165 @@ export const EvaluationDashboard: React.FC = () => {
       {/* Modal for Detailed View */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              Evaluation Details - #{evaluationRuns.findIndex(r => r.id === selectedRun?.id) + 1} - {selectedRun?.file_type}
-            </DialogTitle>
-          </DialogHeader>
+          <div className="grid grid-cols-3 items-center pr-10">
+            <h2 className="text-lg font-semibold leading-none tracking-tight truncate">
+              {selectedSource?.file_name || `Evaluation Details`}
+            </h2>
+            <div className="text-lg font-semibold leading-none tracking-tight text-center truncate">{getHeaderUserText()}</div>
+            {selectedRun && (
+              <div className="text-xs text-gray-500 whitespace-nowrap justify-self-end">
+                <span className="mr-1">Timestamp:</span>
+                <span className="font-semibold text-gray-700">{new Date(selectedRun.created_at).toLocaleString()}</span>
+              </div>
+            )}
+          </div>
           
           {selectedRun && (
-            <div className="space-y-6">
-              {/* Basic Info */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div>
-                  <h4 className="font-medium text-sm text-gray-600">Type</h4>
-                  <p>{selectedRun.file_type}</p>
+            <div className="space-y-8">
+              {/* Meta Data */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center">
+                  <div className="text-sm text-gray-600">Type</div>
+                  <div className="text-2xl font-bold">{selectedRun.file_type}</div>
                 </div>
-                <div>
-                  <h4 className="font-medium text-sm text-gray-600">Model</h4>
-                  <p>{selectedRun.model}</p>
+                <div className="text-center">
+                  <div className="text-sm text-gray-600">Model</div>
+                  <div className="text-2xl font-bold">{selectedRun.model}</div>
                 </div>
-                <div>
-                  <h4 className="font-medium text-sm text-gray-600">Latency</h4>
-                  <p>{(selectedRun.total_latency_ms / 1000).toFixed(2)}s</p>
-                </div>
-                <div>
-                  <h4 className="font-medium text-sm text-gray-600">Timestamp</h4>
-                  <p>{new Date(selectedRun.created_at).toLocaleString()}</p>
+                <div className="text-center">
+                  <div className="text-sm text-gray-600">Processing Speed</div>
+                  <div className="text-2xl font-bold">{(selectedRun.total_latency_ms / 1000).toFixed(2)}s</div>
                 </div>
               </div>
 
-              {/* Evaluation Results */}
-              <div>
-                <h4 className="font-medium text-lg mb-3">LLM Judge Evaluation</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex justify-between">
-                    <span>Accuracy:</span>
-                    <Badge className={getEvaluationBadgeColor(selectedRun.accuracy_score)}>
-                      {selectedRun.accuracy_score}
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Relevance:</span>
-                    <Badge className={getEvaluationBadgeColor(selectedRun.relevance_score)}>
-                      {selectedRun.relevance_score}
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Personalization:</span>
-                    <Badge className={getEvaluationBadgeColor(selectedRun.personalization_score)}>
-                      {selectedRun.personalization_score}
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Clarity & Tone:</span>
-                    <Badge className={getEvaluationBadgeColor(selectedRun.clarity_tone_score)}>
-                      {selectedRun.clarity_tone_score}
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Framework:</span>
-                    <Badge className={getEvaluationBadgeColor(selectedRun.framework_score)}>
-                      {selectedRun.framework_score}
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Go/No-Go:</span>
-                    <Badge className={getEvaluationBadgeColor(selectedRun.go_nogo_decision)}>
-                      {selectedRun.go_nogo_decision}
-                    </Badge>
-                  </div>
+              {/* Summary & Heuristics (combined) */}
+              <h3 className="text-lg font-semibold">Summary</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Evaluation badges in heuristic-style tiles */}
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <span>Go/No-Go</span>
+                  <Badge className={getEvaluationBadgeColor(selectedRun.go_nogo_decision)}>
+                    {selectedRun.go_nogo_decision}
+                  </Badge>
                 </div>
-                <div className="mt-4">
-                  <h5 className="font-medium text-sm text-gray-600">Rationale:</h5>
-                  <p className="text-sm text-gray-700">{selectedRun.evaluation_rationale}</p>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <span>Accuracy</span>
+                  <Badge className={getEvaluationBadgeColor(selectedRun.accuracy_score)}>{selectedRun.accuracy_score}</Badge>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <span>Relevance</span>
+                  <Badge className={getEvaluationBadgeColor(selectedRun.relevance_score)}>{selectedRun.relevance_score}</Badge>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <span>Personalization</span>
+                  <Badge className={getEvaluationBadgeColor(selectedRun.personalization_score)}>{selectedRun.personalization_score}</Badge>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <span>Clarity & Tone</span>
+                  <Badge className={getEvaluationBadgeColor(selectedRun.clarity_tone_score)}>{selectedRun.clarity_tone_score}</Badge>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <span>Framework</span>
+                  <Badge className={getEvaluationBadgeColor(selectedRun.framework_score)}>{selectedRun.framework_score}</Badge>
+                </div>
+
+                {/* Heuristic booleans */}
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <span>Work Experience</span>
+                  <Badge className={getEvaluationBadgeColor(selectedRun.heuristics?.hasWorkExperience ? '✅' : '❌')}>
+                    {selectedRun.heuristics?.hasWorkExperience ? 'Present' : 'Missing'}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <span>Education</span>
+                  <Badge className={getEvaluationBadgeColor(selectedRun.heuristics?.hasEducation ? '✅' : '❌')}>
+                    {selectedRun.heuristics?.hasEducation ? 'Present' : 'Missing'}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <span>Skills</span>
+                  <Badge className={getEvaluationBadgeColor(selectedRun.heuristics?.hasSkills ? '✅' : '❌')}>
+                    {selectedRun.heuristics?.hasSkills ? 'Present' : 'Missing'}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <span>Contact Info</span>
+                  <Badge className={getEvaluationBadgeColor(selectedRun.heuristics?.hasContactInfo ? '✅' : '❌')}>
+                    {selectedRun.heuristics?.hasContactInfo ? 'Present' : 'Missing'}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <span>Quant Metrics</span>
+                  <Badge className={getEvaluationBadgeColor(selectedRun.heuristics?.hasQuantifiableMetrics ? '✅' : '❌')}>
+                    {selectedRun.heuristics?.hasQuantifiableMetrics ? 'Yes' : 'No'}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <span>Company Names</span>
+                  <Badge className={getEvaluationBadgeColor(selectedRun.heuristics?.hasCompanyNames ? '✅' : '❌')}>
+                    {selectedRun.heuristics?.hasCompanyNames ? 'Present' : 'Missing'}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <span>Job Titles</span>
+                  <Badge className={getEvaluationBadgeColor(selectedRun.heuristics?.hasJobTitles ? '✅' : '❌')}>
+                    {selectedRun.heuristics?.hasJobTitles ? 'Present' : 'Missing'}
+                  </Badge>
+                </div>
+
+                {/* Counts and completeness */}
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <span>Work Items</span>
+                  <span className="font-semibold">{selectedRun.heuristics?.workExperienceCount ?? 0}</span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <span>Education Entries</span>
+                  <span className="font-semibold">{selectedRun.heuristics?.educationCount ?? 0}</span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <span>Skills Count</span>
+                  <span className="font-semibold">{selectedRun.heuristics?.skillsCount ?? 0}</span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg md:col-span-3">
+                  <span>Data Completeness</span>
+                  <span className="font-semibold">{selectedRun.heuristics?.dataCompleteness ?? 0}%</span>
+                </div>
+
+                {/* Rationale spanning full width */}
+                <div className="md:col-span-3 bg-gray-50 p-4 rounded-lg text-sm text-gray-700">
+                  <span className="block text-gray-600 mb-1">Rationale</span>
+                  {selectedRun.evaluation_rationale}
                 </div>
               </div>
 
+              {/* Details */}
+              <h3 className="text-lg font-semibold">Details</h3>
               {/* Input vs Output Comparison */}
               {selectedSource && (
                 <div>
                   <h4 className="font-medium text-lg mb-3">Input vs Output Comparison</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <h5 className="font-medium text-sm text-gray-600 mb-2">Input Text (Full)</h5>
-                      <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+                      <div className="flex items-center justify-between mb-2">
+                        <h5 className="font-medium text-sm text-gray-600">Input Text (Full)</h5>
+                        {rawFileUrl && (
+                          <a
+                            href={rawFileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-600 hover:text-blue-800 underline"
+                          >
+                            View Raw File
+                          </a>
+                        )}
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-lg">
                         <pre className="text-sm whitespace-pre-wrap">{selectedSource.raw_text}</pre>
                       </div>
                     </div>
                     <div>
                       <h5 className="font-medium text-sm text-gray-600 mb-2">LLM Output (Full)</h5>
-                      <div className="bg-gray-50 p-4 rounded-lg min-h-96 max-h-screen overflow-y-auto">
+                      <div className="bg-gray-50 p-4 rounded-lg">
                         <pre className="text-sm whitespace-pre-wrap">
                           {JSON.stringify(selectedSource.structured_data, null, 2)}
                         </pre>
@@ -465,46 +599,34 @@ export const EvaluationDashboard: React.FC = () => {
                 </div>
               )}
 
-              {/* Performance Metrics */}
-              <div>
-                <h4 className="font-medium text-lg mb-3">Performance Metrics</h4>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">{selectedRun.input_tokens}</div>
-                    <div className="text-sm text-gray-600">Input Tokens</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">{selectedRun.output_tokens}</div>
-                    <div className="text-sm text-gray-600">Output Tokens</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">
-                      {selectedRun.input_tokens > 0 ? (selectedRun.output_tokens / selectedRun.input_tokens).toFixed(2) : '0'}
-                    </div>
-                    <div className="text-sm text-gray-600">Token Efficiency</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">{(selectedRun.total_latency_ms / 1000).toFixed(2)}s</div>
-                    <div className="text-sm text-gray-600">Processing Speed</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold">{selectedRun.model}</div>
-                    <div className="text-sm text-gray-600">Model</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Heuristics */}
-              {selectedRun.heuristics && (
+              {/* Cover Letter Stories Summary */}
+              {selectedRun?.file_type === 'coverLetter' && selectedSource?.structured_data?.stories && Array.isArray((selectedSource as any).structured_data.stories) && (
                 <div>
-                  <h4 className="font-medium text-lg mb-3">Heuristics</h4>
+                  <h4 className="font-medium text-lg mb-3">Cover Letter Stories</h4>
                   <div className="bg-gray-50 p-4 rounded-lg">
-                    <pre className="text-sm whitespace-pre-wrap">
-                      {JSON.stringify(selectedRun.heuristics, null, 2)}
-                    </pre>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm text-gray-600">Story Count</span>
+                      <span className="text-base font-semibold">{(selectedSource as any).structured_data.stories.length}</span>
+                    </div>
+                    <div>
+                      <h5 className="font-medium text-sm text-gray-600 mb-2">Top Stories</h5>
+                      <ul className="list-disc pl-5 space-y-1">
+                        {((selectedSource as any).structured_data.stories as any[])
+                          .slice(0, 5)
+                          .map((story: any, idx: number) => (
+                            <li key={idx} className="text-sm text-gray-800">
+                              {story.title || story.summary || story.id}
+                            </li>
+                          ))}
+                      </ul>
+                    </div>
                   </div>
                 </div>
               )}
+
+              {/* Performance Metrics removed as redundant */}
+
+              {/* Heuristics removed; combined above */}
             </div>
           )}
         </DialogContent>

@@ -1084,11 +1084,13 @@ export class FileUploadService {
           type: 'resume',
           inputText: this.pendingResume.text,
           outputText: JSON.stringify(combinedResult.resume.data, null, 2),
-          inputTokens: combinedResult.resume.metadata?.usage?.prompt_tokens || 0,
-          outputTokens: combinedResult.resume.metadata?.usage?.completion_tokens || 0,
+          // Fallback to length-based estimate when usage is unavailable
+          inputTokens: (combinedResult as any).resume?.metadata?.usage?.prompt_tokens || Math.round(this.pendingResume.text.length / 4),
+          outputTokens: (combinedResult as any).resume?.metadata?.usage?.completion_tokens || Math.round(JSON.stringify(combinedResult.resume.data).length / 4),
           model: combinedResult.resume.metadata?.model || 'gpt-4o-mini',
           latency: parseFloat(llmDuration),
-          heuristics: {},
+          // Compute heuristics for resume structured data
+          heuristics: this.runHeuristics(combinedResult.resume.data, 'resume'),
           evaluation: {}
         });
       } else {
@@ -1108,11 +1110,13 @@ export class FileUploadService {
           type: 'coverLetter',
           inputText: this.pendingCoverLetter.text,
           outputText: JSON.stringify(combinedResult.coverLetter.data, null, 2),
-          inputTokens: combinedResult.coverLetter.metadata?.usage?.prompt_tokens || 0,
-          outputTokens: combinedResult.coverLetter.metadata?.usage?.completion_tokens || 0,
+          // Fallback to length-based estimate when usage is unavailable
+          inputTokens: (combinedResult as any).coverLetter?.metadata?.usage?.prompt_tokens || Math.round(this.pendingCoverLetter.text.length / 4),
+          outputTokens: (combinedResult as any).coverLetter?.metadata?.usage?.completion_tokens || Math.round(JSON.stringify(combinedResult.coverLetter.data).length / 4),
           model: combinedResult.coverLetter.metadata?.model || 'gpt-4o-mini',
           latency: parseFloat(llmDuration),
-          heuristics: {},
+          // Compute heuristics for cover letter structured data
+          heuristics: this.runHeuristics(combinedResult.coverLetter.data, 'coverLetter'),
           evaluation: {}
         });
       } else {
@@ -1153,16 +1157,18 @@ export class FileUploadService {
       dataCompleteness: 0
     };
 
-    // Check work experience
-    if (structuredData.workExperience && Array.isArray(structuredData.workExperience)) {
+    // Normalize work history key (support both workHistory and workExperience)
+    const workHistory = Array.isArray(structuredData.workHistory)
+      ? structuredData.workHistory
+      : Array.isArray(structuredData.workExperience)
+        ? structuredData.workExperience
+        : [];
+
+    if (workHistory.length > 0) {
       heuristics.hasWorkExperience = true;
-      heuristics.workExperienceCount = structuredData.workExperience.length;
-      
-      // Check for quantifiable metrics
-      const workText = JSON.stringify(structuredData.workExperience);
+      heuristics.workExperienceCount = workHistory.length;
+      const workText = JSON.stringify(workHistory);
       heuristics.hasQuantifiableMetrics = /\d+%|\d+\+|\d+[kK]|\$[\d,]+|increased|decreased|improved|reduced|saved|grew|scaled/i.test(workText);
-      
-      // Check for company names and job titles
       heuristics.hasCompanyNames = /company|inc|corp|ltd|llc|technologies|solutions/i.test(workText);
       heuristics.hasJobTitles = /manager|director|engineer|analyst|specialist|coordinator|lead|senior|junior/i.test(workText);
     }
@@ -1182,6 +1188,42 @@ export class FileUploadService {
     // Check contact info
     if (structuredData.contactInfo) {
       heuristics.hasContactInfo = !!(structuredData.contactInfo.email || structuredData.contactInfo.phone || structuredData.contactInfo.linkedin);
+    }
+
+    // Cover letter specific signals (stories + referenced entities)
+    if (type === 'coverLetter') {
+      const stories = Array.isArray(structuredData.stories) ? structuredData.stories : [];
+      const entityRefs = structuredData.entityRefs || {};
+      const workRefs = Array.isArray(entityRefs.workHistoryRefs) ? entityRefs.workHistoryRefs : [];
+      const eduRefs = Array.isArray(entityRefs.educationRefs) ? entityRefs.educationRefs : [];
+
+      if (!heuristics.hasSkills && Array.isArray(structuredData.skillsMentioned)) {
+        heuristics.hasSkills = structuredData.skillsMentioned.length > 0;
+        heuristics.skillsCount = structuredData.skillsMentioned.length;
+      }
+
+      if (!heuristics.hasWorkExperience && workRefs.length > 0) {
+        heuristics.hasWorkExperience = true;
+        heuristics.workExperienceCount = workRefs.length;
+      }
+
+      if (!heuristics.hasEducation && eduRefs.length > 0) {
+        heuristics.hasEducation = true;
+        heuristics.educationCount = eduRefs.length;
+      }
+
+      // Quant metrics present across stories
+      if (!heuristics.hasQuantifiableMetrics) {
+        heuristics.hasQuantifiableMetrics = stories.some((s: any) => Array.isArray(s.metrics) && s.metrics.some((m: any) => m && (m.value !== null && m.value !== undefined)));
+      }
+
+      // Company names / job titles inferred from work refs
+      if (!heuristics.hasCompanyNames) {
+        heuristics.hasCompanyNames = workRefs.some((w: any) => !!w?.company);
+      }
+      if (!heuristics.hasJobTitles) {
+        heuristics.hasJobTitles = workRefs.some((w: any) => !!w?.title);
+      }
     }
 
     // Calculate data completeness score (0-100)
