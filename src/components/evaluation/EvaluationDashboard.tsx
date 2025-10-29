@@ -430,37 +430,43 @@ export const EvaluationDashboard: React.FC = () => {
 
       {/* Modal for Detailed View */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
-          <div className="grid grid-cols-3 items-center pr-10">
-            <h2 className="text-lg font-semibold leading-none tracking-tight truncate">
-              {selectedSource?.file_name || `Evaluation Details`}
-            </h2>
-            <div className="text-lg font-semibold leading-none tracking-tight text-center truncate">{getHeaderUserText()}</div>
-            {selectedRun && (
-              <div className="text-xs text-gray-500 whitespace-nowrap justify-self-end">
-                <span className="mr-1">Timestamp:</span>
-                <span className="font-semibold text-gray-700">{new Date(selectedRun.created_at).toLocaleString()}</span>
-              </div>
-            )}
-          </div>
+        <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto p-0">
+          {/* Header section with 1.5rem padding */}
+          <section className="p-6 pb-0">
+            <div className="grid grid-cols-3 items-center gap-4 pr-10">
+              <h2 className="text-lg font-semibold leading-tight tracking-tight truncate">
+                {selectedSource?.file_name || `Evaluation Details`}
+              </h2>
+              <div className="text-lg font-semibold leading-tight tracking-tight text-center truncate">{getHeaderUserText()}</div>
+              {selectedRun && (
+                <div className="text-lg font-semibold leading-tight tracking-tight whitespace-nowrap justify-self-end truncate">
+                  {new Date(selectedRun.created_at).toLocaleString()}
+                </div>
+              )}
+            </div>
+          </section>
+          
+          <hr className="mx-6 border-gray-200" />
           
           {selectedRun && (
-            <div className="space-y-8">
+            <div className="px-6 space-y-8">
               {/* Meta Data */}
-              <div className="grid grid-cols-3 gap-4">
-                <div className="text-center">
+              <div className="grid grid-cols-3 gap-4 pt-6 pb-6">
+                <div className="text-center space-y-0.5">
                   <div className="text-sm text-gray-600">Type</div>
                   <div className="text-2xl font-bold">{selectedRun.file_type}</div>
                 </div>
-                <div className="text-center">
+                <div className="text-center space-y-0.5">
                   <div className="text-sm text-gray-600">Model</div>
                   <div className="text-2xl font-bold">{selectedRun.model}</div>
                 </div>
-                <div className="text-center">
+                <div className="text-center space-y-0.5">
                   <div className="text-sm text-gray-600">Processing Speed</div>
                   <div className="text-2xl font-bold">{(selectedRun.total_latency_ms / 1000).toFixed(2)}s</div>
                 </div>
               </div>
+
+              <hr className="border-gray-200" />
 
               {/* Summary & Heuristics (combined) */}
               <h3 className="text-lg font-semibold">Summary</h3>
