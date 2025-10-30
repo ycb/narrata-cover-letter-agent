@@ -270,7 +270,7 @@ export const EvaluationDashboard: React.FC = () => {
   // Helper to render work history entry in friendly format
   const renderWorkHistoryEntry = (entry: any, idx: number) => {
     const company = entry.company || entry.companyDisplay || 'Unknown Company';
-    const position = entry.position || entry.titleDisplay || entry.role || 'Unknown Position';
+    const position = entry.title || entry.titleDisplay || entry.titleCanonical || entry.role || entry.position || 'Unknown Position';
     const startDate = entry.startDate || entry.dateRange?.start;
     const endDate = entry.endDate || entry.dateRange?.end;
     const isCurrent = entry.current || (endDate === null && entry.dateRange?.current === true);
@@ -968,6 +968,113 @@ export const EvaluationDashboard: React.FC = () => {
                       </button>
                     );
                   })()}
+
+                  {/* Contact Info - Cover letter placement (5th for CL order) */}
+                  {selectedRun?.file_type === 'coverLetter' && (() => {
+                    const contactInfo = selectedSource?.structured_data?.contactInfo || selectedSource?.structured_data?.contact_info || {};
+                    const hasEntries = Object.keys(contactInfo).length > 0;
+                    const isExpanded = expandedCategories.has('contactInfo');
+                    return (
+                      <div className={`bg-gray-50 rounded-lg ${hasEntries ? 'cursor-pointer hover:bg-gray-100' : ''}`}>
+                        <div 
+                          className={`flex items-center justify-between p-3 ${hasEntries ? '' : 'pointer-events-none'}`}
+                          onClick={() => hasEntries && toggleCategory('contactInfo')}
+                        >
+                          <div className="flex items-center gap-2">
+                            {hasEntries && (isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />)}
+                            <span>Contact Info</span>
+                          </div>
+                          <Badge className={getEvaluationBadgeColor(hasEntries ? '✅' : '❌')}>
+                            {hasEntries ? `${Object.keys(contactInfo).length} found` : 'None'}
+                          </Badge>
+                        </div>
+                        {hasEntries && isExpanded && (
+                          <div className="px-3 pb-3">
+                            <div className="bg-white p-3 rounded border border-gray-200 space-y-2 relative">
+                              <div className="absolute top-2 right-2">
+                                <FlagButton
+                                  dataPath={'contactInfo'}
+                                  dataType={'contact_info'}
+                                  hasFlags={getFlagsForPath('contactInfo').length > 0}
+                                  flagCount={getFlagsForPath('contactInfo').length}
+                                  onClick={() => handleFlagClick('contact_info', 'contactInfo', contactInfo)}
+                                  size="sm"
+                                />
+                              </div>
+                              <div className="pr-8">
+                              {contactInfo.name && (
+                                <div className="text-sm">
+                                  <span className="font-medium text-gray-600">Name: </span>
+                                  <span className="text-gray-900">{contactInfo.name}</span>
+                                </div>
+                              )}
+                              {contactInfo.email && (
+                                <div className="text-sm">
+                                  <span className="font-medium text-gray-600">Email: </span>
+                                  <span className="text-gray-900">{contactInfo.email}</span>
+                                </div>
+                              )}
+                              {contactInfo.phone && (
+                                <div className="text-sm">
+                                  <span className="font-medium text-gray-600">Phone: </span>
+                                  <span className="text-gray-900">{contactInfo.phone}</span>
+                                </div>
+                              )}
+                              {contactInfo.location && (
+                                <div className="text-sm">
+                                  <span className="font-medium text-gray-600">Location: </span>
+                                  <span className="text-gray-900">{contactInfo.location}</span>
+                                </div>
+                              )}
+                              {contactInfo.linkedin && (
+                                <div className="text-sm">
+                                  <span className="font-medium text-gray-600">LinkedIn: </span>
+                                  <a href={contactInfo.linkedin} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                    {contactInfo.linkedin}
+                                  </a>
+                                </div>
+                              )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        {!hasEntries && (
+                          <div className="px-3 pb-3 text-xs text-gray-500">No contact info extracted</div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Education - Cover letter placement (8th for CL order) */}
+                  {selectedRun?.file_type === 'coverLetter' && (() => {
+                    const education = selectedSource?.structured_data?.education || [];
+                    const hasEntries = Array.isArray(education) && education.length > 0;
+                    const isExpanded = expandedCategories.has('education');
+                    return (
+                      <div className={`bg-gray-50 rounded-lg ${hasEntries ? 'cursor-pointer hover:bg-gray-100' : ''}`}>
+                        <div 
+                          className={`flex items-center justify-between p-3 ${hasEntries ? '' : 'pointer-events-none'}`}
+                          onClick={() => hasEntries && toggleCategory('education')}
+                        >
+                          <div className="flex items-center gap-2">
+                            {hasEntries && (isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />)}
+                            <span>Education</span>
+                          </div>
+                          <Badge className={getEvaluationBadgeColor(hasEntries ? '✅' : '❌')}>
+                            {hasEntries ? `${education.length} found` : 'None'}
+                          </Badge>
+                        </div>
+                        {hasEntries && isExpanded && (
+                          <div className="px-3 pb-3 space-y-3 max-h-96 overflow-y-auto">
+                            {education.map((entry: any, idx: number) => renderEducationEntry(entry, idx))}
+                          </div>
+                        )}
+                        {!hasEntries && (
+                          <div className="px-3 pb-3 text-xs text-gray-500">No education extracted</div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Work Experience - Only show for resume/LinkedIn, not cover letters */}
@@ -985,15 +1092,11 @@ export const EvaluationDashboard: React.FC = () => {
                             {hasEntries && (isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />)}
                             <span>Work Experience</span>
                           </div>
-                          <Badge className={getEvaluationBadgeColor(selectedRun.heuristics?.hasWorkExperience ? '✅' : '❌')}>
-                            {selectedRun.heuristics?.hasWorkExperience ? 'Present' : 'Missing'}
-                    </Badge>
+                          <Badge className={getEvaluationBadgeColor(hasEntries ? '✅' : '❌')}>
+                            {hasEntries ? `${workHistory.length} found` : 'None'}
+                          </Badge>
                   </div>
-                        {hasEntries && (
-                          <div className="px-3 pb-3">
-                            <span className="text-xs text-gray-500">{workHistory.length} {workHistory.length === 1 ? 'entry' : 'entries'}</span>
-                          </div>
-                        )}
+                        {/* removed sub-count line to keep consistent labeling */}
                         {hasEntries && isExpanded && (
                           <div className="px-3 pb-3 space-y-3 max-h-96 overflow-y-auto">
                             {workHistory.map((entry: any, idx: number) => renderWorkHistoryEntry(entry, idx))}
@@ -1006,8 +1109,8 @@ export const EvaluationDashboard: React.FC = () => {
                     );
                   })()}
 
-                  {/* Education - Collapsible if has entries */}
-                  {(() => {
+                  {/* Education - Collapsible if has entries (hide for cover letters here; rendered at end for CL order) */}
+                  {selectedRun?.file_type !== 'coverLetter' && (() => {
                     const education = selectedSource?.structured_data?.education || [];
                     const hasEntries = Array.isArray(education) && education.length > 0;
                     const isExpanded = expandedCategories.has('education');
@@ -1021,15 +1124,11 @@ export const EvaluationDashboard: React.FC = () => {
                             {hasEntries && (isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />)}
                             <span>Education</span>
                           </div>
-                          <Badge className={getEvaluationBadgeColor(selectedRun.heuristics?.hasEducation ? '✅' : '❌')}>
-                            {selectedRun.heuristics?.hasEducation ? 'Present' : 'Missing'}
-                    </Badge>
+                          <Badge className={getEvaluationBadgeColor(hasEntries ? '✅' : '❌')}>
+                            {hasEntries ? `${education.length} found` : 'None'}
+                          </Badge>
                   </div>
-                        {hasEntries && (
-                          <div className="px-3 pb-3">
-                            <span className="text-xs text-gray-500">{education.length} {education.length === 1 ? 'entry' : 'entries'}</span>
-                          </div>
-                        )}
+                        {/* removed sub-count line to keep consistent labeling */}
                         {hasEntries && isExpanded && (
                           <div className="px-3 pb-3 space-y-3 max-h-96 overflow-y-auto">
                             {education.map((entry: any, idx: number) => renderEducationEntry(entry, idx))}
@@ -1115,8 +1214,8 @@ export const EvaluationDashboard: React.FC = () => {
                     );
                   })()}
 
-                  {/* Contact Info - Collapsible if present */}
-                  {(() => {
+                  {/* Contact Info - Collapsible if present (resume/LI early; CL rendered later to match order) */}
+                  {selectedRun?.file_type !== 'coverLetter' && (() => {
                     const contactInfo = selectedSource?.structured_data?.contactInfo || selectedSource?.structured_data?.contact_info || {};
                     const hasEntries = Object.keys(contactInfo).length > 0;
                     const isExpanded = expandedCategories.has('contactInfo');
@@ -1130,9 +1229,9 @@ export const EvaluationDashboard: React.FC = () => {
                             {hasEntries && (isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />)}
                             <span>Contact Info</span>
                           </div>
-                          <Badge className={getEvaluationBadgeColor(selectedRun.heuristics?.hasContactInfo ? '✅' : '❌')}>
-                            {selectedRun.heuristics?.hasContactInfo ? 'Present' : 'Missing'}
-                    </Badge>
+                          <Badge className={getEvaluationBadgeColor(hasEntries ? '✅' : '❌')}>
+                            {hasEntries ? `${Object.keys(contactInfo).length} found` : 'None'}
+                          </Badge>
                   </div>
                         {hasEntries && isExpanded && (
                           <div className="px-3 pb-3">
@@ -1191,7 +1290,7 @@ export const EvaluationDashboard: React.FC = () => {
                     );
                   })()}
 
-                  {/* Cover Letter Stories - Collapsible if has entries */}
+                  {/* Cover Letter Stories - Collapsible if has entries (1st for CL order) */}
                   {selectedRun?.file_type === 'coverLetter' && (() => {
                     const stories = selectedSource?.structured_data?.stories || [];
                     const hasEntries = Array.isArray(stories) && stories.length > 0;
@@ -1424,50 +1523,49 @@ export const EvaluationDashboard: React.FC = () => {
                     );
                   })()}
 
-                  {/* Metrics - Collapsible if has entries */}
+                  {/* Metrics - Collapsible if has entries (2nd for CL order) */}
                   {(() => {
                     const workHistory = selectedSource?.structured_data?.workHistory || selectedSource?.structured_data?.work_history || [];
                     const allMetrics: Array<{ metric: any; parent: { type: 'role' | 'story'; company?: string; position?: string; storyTitle?: string }; path: string }> = [];
                     
-                    // Collect role-level metrics
-                    workHistory.forEach((entry: any, entryIdx: number) => {
-                      const company = entry.company || entry.companyDisplay || entry.companyCanonical || 'Unknown Company';
-                      const position = entry.position || entry.titleDisplay || entry.titleCanonical || entry.role || 'Unknown Position';
-                      
-                      if (entry.roleMetrics && Array.isArray(entry.roleMetrics)) {
-                        entry.roleMetrics.forEach((metric: any, metricIdx: number) => {
-                          // Use parentType from metric if available, otherwise infer from location
-                          const parentType = metric.parentType || 'role';
-                          allMetrics.push({
-                            metric,
-                            parent: { type: parentType, company, position },
-                            path: `workHistory[${entryIdx}].roleMetrics[${metricIdx}]`
-                          });
-                        });
-                      }
-                      
-                      // Collect story-level metrics from work history stories
-                      if (entry.stories && Array.isArray(entry.stories)) {
-                        entry.stories.forEach((story: any, storyIdx: number) => {
-                          if (story.metrics && Array.isArray(story.metrics)) {
-                            story.metrics.forEach((metric: any, metricIdx: number) => {
-                              // Use parentType from metric if available, otherwise infer from location
-                              const parentType = metric.parentType || 'story';
-                              allMetrics.push({
-                                metric,
-                                parent: { 
-                                  type: parentType, 
-                                  company, 
-                                  position,
-                                  storyTitle: story.title || story.id || 'Untitled Story'
-                                },
-                                path: `workHistory[${entryIdx}].stories[${storyIdx}].metrics[${metricIdx}]`
-                              });
+                    // Collect role/story metrics from work history (exclude for cover letters)
+                    if (selectedRun?.file_type !== 'coverLetter') {
+                      workHistory.forEach((entry: any, entryIdx: number) => {
+                        const company = entry.company || entry.companyDisplay || entry.companyCanonical || 'Unknown Company';
+                        const position = entry.position || entry.titleDisplay || entry.titleCanonical || entry.role || 'Unknown Position';
+                        
+                        if (entry.roleMetrics && Array.isArray(entry.roleMetrics)) {
+                          entry.roleMetrics.forEach((metric: any, metricIdx: number) => {
+                            const parentType = metric.parentType || 'role';
+                            allMetrics.push({
+                              metric,
+                              parent: { type: parentType, company, position },
+                              path: `workHistory[${entryIdx}].roleMetrics[${metricIdx}]`
                             });
-                          }
-                        });
-                      }
-                    });
+                          });
+                        }
+                        
+                        if (entry.stories && Array.isArray(entry.stories)) {
+                          entry.stories.forEach((story: any, storyIdx: number) => {
+                            if (story.metrics && Array.isArray(story.metrics)) {
+                              story.metrics.forEach((metric: any, metricIdx: number) => {
+                                const parentType = metric.parentType || 'story';
+                                allMetrics.push({
+                                  metric,
+                                  parent: { 
+                                    type: parentType, 
+                                    company, 
+                                    position,
+                                    storyTitle: story.title || story.id || 'Untitled Story'
+                                  },
+                                  path: `workHistory[${entryIdx}].stories[${storyIdx}].metrics[${metricIdx}]`
+                                });
+                              });
+                            }
+                          });
+                        }
+                      });
+                    }
                     
                     // Collect story-level metrics from cover letter stories
                     const stories = selectedSource?.structured_data?.stories || [];
@@ -1600,8 +1698,8 @@ export const EvaluationDashboard: React.FC = () => {
                     );
                   })()}
 
-                  {/* Location - Only for resume/LinkedIn (separate from Contact Info) */}
-                  {selectedRun?.file_type !== 'coverLetter' && (() => {
+                  {/* Location - Show for all file types (4th for CL order) */}
+                  {(() => {
                     const contactInfo = selectedSource?.structured_data?.contactInfo || selectedSource?.structured_data?.contact_info || {};
                     const location = contactInfo.location;
                     const hasLocation = !!location;
@@ -1613,7 +1711,7 @@ export const EvaluationDashboard: React.FC = () => {
                           <span>Location</span>
                           <div className="flex items-center gap-2">
                             <Badge className={getEvaluationBadgeColor(hasLocation ? '✅' : '❌')}>
-                              {hasLocation ? 'Present' : 'Missing'}
+                              {hasLocation ? '1 found' : 'None'}
                             </Badge>
                             <FlagButton
                               dataPath={locationPath}
@@ -1637,7 +1735,7 @@ export const EvaluationDashboard: React.FC = () => {
                     );
                   })()}
 
-                  {/* Company Names - Collapsible if has entries */}
+                  {/* Company Names - Collapsible if has entries (7th for CL order) */}
                   {(() => {
                     const workHistory = selectedSource?.structured_data?.workHistory || selectedSource?.structured_data?.work_history || [];
                     const stories = selectedSource?.structured_data?.stories || [];
@@ -1688,7 +1786,7 @@ export const EvaluationDashboard: React.FC = () => {
                             <span>Company Names</span>
                           </div>
                           <Badge className={getEvaluationBadgeColor(hasEntries ? '✅' : '❌')}>
-                            {hasEntries ? `${uniqueCompanies.length} found` : workHistory.length > 0 ? '0 found' : 'Missing'}
+                            {hasEntries ? `${uniqueCompanies.length} found` : 'None'}
                           </Badge>
                         </div>
                         {hasEntries && isExpanded && (
@@ -1727,7 +1825,7 @@ export const EvaluationDashboard: React.FC = () => {
                     );
                   })()}
 
-                  {/* Job Titles - Collapsible if has entries */}
+                  {/* Job Titles - Collapsible if has entries (6th for CL order) */}
                   {(() => {
                     const workHistory = selectedSource?.structured_data?.workHistory || selectedSource?.structured_data?.work_history || [];
                     const stories = selectedSource?.structured_data?.stories || [];
@@ -1758,7 +1856,7 @@ export const EvaluationDashboard: React.FC = () => {
                             <span>Job Titles</span>
                           </div>
                           <Badge className={getEvaluationBadgeColor(hasEntries ? '✅' : '❌')}>
-                            {hasEntries ? `${uniqueTitles.length} found` : 'Missing'}
+                            {hasEntries ? `${uniqueTitles.length} found` : 'None'}
                           </Badge>
                         </div>
                         {hasEntries && isExpanded && (
@@ -1793,13 +1891,7 @@ export const EvaluationDashboard: React.FC = () => {
                     );
                   })()}
 
-                  {/* Work Items Count - Summary only (resume/LinkedIn only, not cover letters) */}
-                  {selectedRun?.file_type !== 'coverLetter' && (
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <span>Work Items</span>
-                      <span className="font-semibold">{selectedRun.heuristics?.workExperienceCount ?? 0}</span>
-                    </div>
-                  )}
+                  {/* Work Items summary removed as redundant */}
 
                 </div>
               </div>
