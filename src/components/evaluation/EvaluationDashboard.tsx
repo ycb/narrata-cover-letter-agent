@@ -8,6 +8,11 @@ import { exportLogsToCsv } from '@/utils/evaluationExport';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { FlagButton } from './FlagButton';
+import { FlagModal } from './FlagModal';
+import { DataQualityService, type DataQualityFlag } from '@/services/dataQualityService';
+import { FlagsSummaryPanel } from './FlagsSummaryPanel';
 
 interface EvaluationRun {
   id: string;
@@ -66,6 +71,13 @@ export const EvaluationDashboard: React.FC = () => {
   const [userTypeFilter, setUserTypeFilter] = useState<'all' | 'synthetic' | 'real'>('all');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const { user } = useAuth();
+  const [flags, setFlags] = useState<DataQualityFlag[]>([]);
+  const [flagModalOpen, setFlagModalOpen] = useState(false);
+  const [flaggingItem, setFlaggingItem] = useState<{
+    dataType: DataQualityFlag['data_type'];
+    dataPath: string;
+    dataSnapshot?: any;
+  } | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -93,7 +105,7 @@ export const EvaluationDashboard: React.FC = () => {
 
         // Fetch corresponding sources
         if (runs && runs.length > 0) {
-          const sourceIds = runs.map(run => run.source_id);
+          const sourceIds = (runs as EvaluationRun[]).map((run: EvaluationRun) => run.source_id);
           const { data: sourcesData, error: sourcesError } = await supabase
             .from('sources')
             .select('id, file_name, file_type, raw_text, structured_data, created_at, storage_path')
@@ -119,13 +131,50 @@ export const EvaluationDashboard: React.FC = () => {
     fetchEvaluationData();
   }, [user?.id, userTypeFilter]);
 
-  const handleRowClick = (run: EvaluationRun) => {
+  const handleRowClick = async (run: EvaluationRun) => {
     const source = sources.find(s => s.id === run.source_id);
     setSelectedRun(run);
     setSelectedSource(source || null);
     setExpandedCategories(new Set()); // Reset expanded categories when opening a new run
     setIsModalOpen(true);
+    try {
+      const fetched = await DataQualityService.getFlagsForEvaluationRun(run.id);
+      setFlags(fetched);
+    } catch (e) {
+      console.error('Failed to load flags', e);
+      setFlags([]);
+    }
   };
+
+  const handleFlagClick = (dataType: DataQualityFlag['data_type'], dataPath: string, dataSnapshot?: any) => {
+    setFlaggingItem({ dataType, dataPath, dataSnapshot });
+    setFlagModalOpen(true);
+  };
+
+  const handleFlagSubmit = async (
+    flag: Omit<DataQualityFlag, 'id' | 'created_at' | 'updated_at' | 'evaluation_run_id' | 'reviewer_id' | 'status'>
+  ) => {
+    if (!selectedRun?.id || !user?.id) return;
+    await DataQualityService.createFlag({
+      ...flag,
+      evaluation_run_id: selectedRun.id,
+      reviewer_id: user.id,
+    } as any);
+    const refreshed = await DataQualityService.getFlagsForEvaluationRun(selectedRun.id);
+    setFlags(refreshed);
+    setFlagModalOpen(false);
+    setFlaggingItem(null);
+  };
+
+  const getFlagsForPath = (dataPath: string): DataQualityFlag[] => flags.filter(f => f.data_path === dataPath && f.status === 'open');
+
+  useEffect(() => {
+    if (!isModalOpen) {
+      setFlagModalOpen(false);
+      setFlaggingItem(null);
+      setFlags([]);
+    }
+  }, [isModalOpen]);
 
   // Generate signed URL for raw file when source is selected
   useEffect(() => {
@@ -174,6 +223,50 @@ export const EvaluationDashboard: React.FC = () => {
     });
   };
 
+  // Compute available categories and expand/collapse all
+  const getAvailableCategories = (): string[] => {
+    const categories: string[] = [];
+    const sd: any = selectedSource?.structured_data || {};
+    const workHistory = sd.workHistory || sd.work_history || [];
+    const education = sd.education || [];
+    const skillsArray = sd.skills || [];
+    const skillsMentioned = sd.skillsMentioned || [];
+    const contactInfo = sd.contactInfo || sd.contact_info || {};
+    const stories = sd.stories || [];
+    const hasMetrics = (() => {
+      let found = false;
+      (workHistory || []).forEach((entry: any) => {
+        if (Array.isArray(entry?.roleMetrics) && entry.roleMetrics.length > 0) found = true;
+        (entry?.stories || []).forEach((st: any) => {
+          if (Array.isArray(st?.metrics) && st.metrics.length > 0) found = true;
+        });
+      });
+      (stories || []).forEach((st: any) => {
+        if (Array.isArray(st?.metrics) && st.metrics.length > 0) found = true;
+      });
+      return found;
+    })();
+
+    if (selectedRun?.file_type !== 'coverLetter' && Array.isArray(workHistory) && workHistory.length > 0) categories.push('workHistory');
+    if (Array.isArray(education) && education.length > 0) categories.push('education');
+    if ([...(skillsArray || []), ...(skillsMentioned || [])].length > 0) categories.push('skills');
+    if (Object.keys(contactInfo || {}).length > 0) categories.push('contactInfo');
+    if (selectedRun?.file_type === 'coverLetter' && Array.isArray(stories) && stories.length > 0) categories.push('stories');
+    if (hasMetrics) categories.push('quantMetrics');
+    categories.push('companyNames', 'jobTitles');
+    return categories;
+  };
+
+  const toggleExpandAll = () => {
+    const available = getAvailableCategories();
+    const allOpen = available.every(c => expandedCategories.has(c));
+    if (allOpen) {
+      setExpandedCategories(new Set());
+    } else {
+      setExpandedCategories(new Set(available));
+    }
+  };
+
   // Helper to render work history entry in friendly format
   const renderWorkHistoryEntry = (entry: any, idx: number) => {
     const company = entry.company || entry.companyDisplay || 'Unknown Company';
@@ -188,23 +281,24 @@ export const EvaluationDashboard: React.FC = () => {
     const roleMetrics = entry.roleMetrics || [];
     const roleSummary = entry.roleSummary || entry.description || entry.descriptionCombined;
 
+    const workPath = `workHistory[${idx}]`;
+    const itemFlags = getFlagsForPath(workPath);
     return (
-      <div key={idx} className="bg-white p-4 rounded-lg border border-gray-200 space-y-3">
-        <div>
+      <div key={idx} className="bg-white p-4 rounded-lg border border-gray-200 space-y-3 relative">
+        <div className="absolute top-2 right-2">
+          <FlagButton
+            dataPath={workPath}
+            dataType="work_history"
+            hasFlags={itemFlags.length > 0}
+            flagCount={itemFlags.length}
+            onClick={() => handleFlagClick('work_history', workPath, entry)}
+          />
+        </div>
+        <div className="pr-8">
           <div className="flex items-start justify-between mb-1">
             <div>
               <div className="font-semibold text-base text-gray-900">{position}</div>
               <div className="text-sm text-gray-700">{company}</div>
-            </div>
-            <div className="text-right text-sm text-gray-600">
-              {startDate && (
-                <div>{new Date(startDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })}</div>
-              )}
-              {endDate ? (
-                <div>→ {new Date(endDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })}</div>
-              ) : isCurrent ? (
-                <div>→ Present</div>
-              ) : null}
             </div>
           </div>
           {location && (
@@ -250,37 +344,100 @@ export const EvaluationDashboard: React.FC = () => {
 
         {stories.length > 0 && (
           <div className="space-y-2 border-t pt-2">
-            <div className="text-xs font-medium text-gray-600">
+          <div className="text-xs font-medium text-gray-600">
               Stories ({stories.length}):
             </div>
-            {stories.map((story: any, storyIdx: number) => (
-              <div key={storyIdx} className="text-xs bg-gray-50 p-2 rounded border-l-2 border-blue-300">
+            {stories.map((story: any, storyIdx: number) => {
+              const storyPath = `${workPath}.stories[${storyIdx}]`;
+              const storyFlags = getFlagsForPath(storyPath);
+              return (
+              <div key={storyIdx} className="text-xs bg-gray-50 p-2 rounded border-l-2 border-blue-300 relative">
+                <div className="absolute top-1 right-1">
+                  <FlagButton
+                    dataPath={storyPath}
+                    dataType="story"
+                    hasFlags={storyFlags.length > 0}
+                    flagCount={storyFlags.length}
+                    onClick={() => handleFlagClick('story', storyPath, story)}
+                    size="sm"
+                  />
+                </div>
+                <div className="pr-6">
+                {/* Compact header to keep room for flag */}
+                <div className="text-xs text-gray-600">
+                  {/* work-history context already includes company/role above; keep only title here */}
+                </div>
                 <div className="font-medium text-gray-800">{story.title || story.id}</div>
                 {story.content && (
                   <div className="text-gray-600 mt-1">{story.content}</div>
                 )}
                 {story.metrics && story.metrics.length > 0 && (
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {story.metrics.map((m: any, mIdx: number) => (
-                      <span key={mIdx} className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">
-                        {m.value} {m.context}
-                      </span>
-                    ))}
+                  <div className="mt-2">
+                    <div className="text-[11px] font-medium text-gray-600 mb-1">Metrics</div>
+                    <div className="flex flex-wrap gap-1">
+                    {story.metrics.map((m: any, mIdx: number) => {
+                      const metricPath = `${storyPath}.metrics[${mIdx}]`;
+                      const metricFlags = getFlagsForPath(metricPath);
+                      return (
+                        <span key={mIdx} className="relative inline-flex items-center gap-1 text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">
+                          {m.value} {m.context}
+                          <FlagButton
+                            dataPath={metricPath}
+                            dataType="metric"
+                            hasFlags={metricFlags.length > 0}
+                            flagCount={metricFlags.length}
+                            onClick={() => handleFlagClick('metric', metricPath, m)}
+                            size="sm"
+                          />
+                        </span>
+                      )
+                    })}
+                    </div>
                   </div>
                 )}
                 {story.tags && story.tags.length > 0 && (
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {story.tags.map((tag: string, tIdx: number) => (
-                      <Badge key={tIdx} variant="outline" className="text-xs bg-gray-100 text-gray-600 border-gray-300">
-                        {tag}
-                      </Badge>
-                    ))}
+                  <div className="mt-2">
+                    <div className="text-[11px] font-medium text-gray-600 mb-1">Tags</div>
+                    <div className="flex flex-wrap gap-1">
+                    {story.tags.map((tag: string, tIdx: number) => {
+                      const tagPath = `${storyPath}.tags[${tIdx}]`;
+                      const tagFlags = getFlagsForPath(tagPath);
+                      return (
+                        <span key={tIdx} className="relative inline-flex items-center gap-1">
+                          <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600 border-gray-300">
+                            {tag}
+                          </Badge>
+                          <FlagButton
+                            dataPath={tagPath}
+                            dataType={'tag'}
+                            hasFlags={tagFlags.length > 0}
+                            flagCount={tagFlags.length}
+                            onClick={() => handleFlagClick('tag', tagPath, tag)}
+                            size="sm"
+                          />
+                        </span>
+                      )
+                    })}
+                    </div>
                   </div>
                 )}
+                </div>
               </div>
-            ))}
+            )})}
           </div>
         )}
+
+        {/* Dates moved to bottom to free space for flag */}
+        <div className="text-sm text-gray-600 pt-1">
+          {startDate && (
+            <span>{new Date(startDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })}</span>
+          )}
+          {endDate ? (
+            <span> → {new Date(endDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })}</span>
+          ) : isCurrent ? (
+            <span> → Present</span>
+          ) : null}
+        </div>
       </div>
     );
   };
@@ -294,8 +451,20 @@ export const EvaluationDashboard: React.FC = () => {
     const endDate = entry.endDate;
     const gpa = entry.gpa;
 
+    const eduPath = `education[${idx}]`;
+    const eduFlags = getFlagsForPath(eduPath);
     return (
-      <div key={idx} className="bg-white p-3 rounded-lg border border-gray-200">
+      <div key={idx} className="bg-white p-3 rounded-lg border border-gray-200 relative">
+        <div className="absolute top-2 right-2">
+          <FlagButton
+            dataPath={eduPath}
+            dataType="education"
+            hasFlags={eduFlags.length > 0}
+            flagCount={eduFlags.length}
+            onClick={() => handleFlagClick('education', eduPath, entry)}
+          />
+        </div>
+        <div className="pr-8">
         <div className="font-semibold text-sm text-gray-900">{institution}</div>
         <div className="text-sm text-gray-700">
           {degree && field ? `${degree} in ${field}` : degree || field}
@@ -309,6 +478,7 @@ export const EvaluationDashboard: React.FC = () => {
         {gpa && (
           <div className="text-xs text-gray-500 mt-1">GPA: {gpa}</div>
         )}
+        </div>
       </div>
     );
   };
@@ -337,22 +507,50 @@ export const EvaluationDashboard: React.FC = () => {
           <div key={idx} className="bg-white p-3 rounded-lg border border-gray-200">
             <div className="font-medium text-sm text-gray-700 mb-2">{cat.category}</div>
             <div className="flex flex-wrap gap-2">
-              {cat.items.map((item: string, itemIdx: number) => (
-                <Badge key={itemIdx} variant="outline" className="text-xs bg-gray-50 text-gray-700">
-                  {item}
-                </Badge>
-              ))}
+              {cat.items.map((item: string, itemIdx: number) => {
+                const path = `skills[${idx}].items[${itemIdx}]`;
+                const sFlags = getFlagsForPath(path);
+                return (
+                  <span key={itemIdx} className="relative inline-flex items-center gap-1">
+                    <Badge variant="outline" className="text-xs bg-gray-50 text-gray-700">
+                      {item}
+                    </Badge>
+                    <FlagButton
+                      dataPath={path}
+                      dataType={'skill'}
+                      hasFlags={sFlags.length > 0}
+                      flagCount={sFlags.length}
+                      onClick={() => handleFlagClick('skill', path, item)}
+                      size="sm"
+                    />
+                  </span>
+                )
+              })}
             </div>
           </div>
         ))}
         {allSkills.length > 0 && (
           <div className="bg-white p-3 rounded-lg border border-gray-200">
             <div className="flex flex-wrap gap-2">
-              {allSkills.map((skill: string, idx: number) => (
-                <Badge key={idx} variant="outline" className="text-xs bg-gray-50 text-gray-700">
-                  {skill}
-                </Badge>
-              ))}
+              {allSkills.map((skill: string, idx: number) => {
+                const path = `skills[${idx}]`;
+                const sFlags = getFlagsForPath(path);
+                return (
+                  <span key={idx} className="relative inline-flex items-center gap-1">
+                    <Badge variant="outline" className="text-xs bg-gray-50 text-gray-700">
+                      {skill}
+                    </Badge>
+                    <FlagButton
+                      dataPath={path}
+                      dataType={'skill'}
+                      hasFlags={sFlags.length > 0}
+                      flagCount={sFlags.length}
+                      onClick={() => handleFlagClick('skill', path, skill)}
+                      size="sm"
+                    />
+                  </span>
+                )
+              })}
             </div>
           </div>
         )}
@@ -500,7 +698,7 @@ export const EvaluationDashboard: React.FC = () => {
           <Button 
             onClick={() => window.open('/new-user', '_blank')} 
             size="sm"
-            variant="outline"
+            variant="secondary"
           >
             Test Upload
           </Button>
@@ -515,21 +713,21 @@ export const EvaluationDashboard: React.FC = () => {
         <Button 
           onClick={() => setUserTypeFilter('all')}
           size="sm"
-          variant={userTypeFilter === 'all' ? 'default' : 'outline'}
+          variant={userTypeFilter === 'all' ? 'default' : 'secondary'}
         >
           All Users ({evaluationRuns.length})
         </Button>
         <Button 
           onClick={() => setUserTypeFilter('synthetic')}
           size="sm"
-          variant={userTypeFilter === 'synthetic' ? 'default' : 'outline'}
+          variant={userTypeFilter === 'synthetic' ? 'default' : 'secondary'}
         >
           Synthetic ({evaluationRuns.filter(r => r.user_type === 'synthetic').length})
         </Button>
         <Button 
           onClick={() => setUserTypeFilter('real')}
           size="sm"
-          variant={userTypeFilter === 'real' ? 'default' : 'outline'}
+          variant={userTypeFilter === 'real' ? 'default' : 'secondary'}
         >
           Real Users ({evaluationRuns.filter(r => r.user_type === 'real').length})
         </Button>
@@ -646,7 +844,7 @@ export const EvaluationDashboard: React.FC = () => {
                       <TableCell>
                         <Button 
                           size="sm" 
-                          variant="outline"
+                          variant="secondary"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleRowClick(run);
@@ -666,7 +864,7 @@ export const EvaluationDashboard: React.FC = () => {
 
       {/* Modal for Detailed View */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto p-0">
+        <DialogContent className={cn("max-w-7xl h-[90vh] p-0", flagModalOpen ? 'overflow-hidden' : 'overflow-y-auto')}>
           {/* Header section with 1.5rem padding */}
           <section className="p-6 pb-0">
             <div className="grid grid-cols-3 items-center gap-4 pr-10">
@@ -685,7 +883,9 @@ export const EvaluationDashboard: React.FC = () => {
           <hr className="mx-6 border-gray-200" />
           
           {selectedRun && (
-            <div className="px-6 space-y-8">
+            <div className={cn('relative', flagModalOpen ? 'flex min-h-0 h-full' : '')}>
+              {/* Left content */}
+              <div className={cn('px-6 space-y-8', flagModalOpen ? 'flex-1 overflow-y-auto min-w-0' : '')}>
               {/* Meta Data */}
               <div className="grid grid-cols-3 gap-4 pt-6 pb-6">
                 <div className="text-center space-y-0.5">
@@ -748,7 +948,8 @@ export const EvaluationDashboard: React.FC = () => {
 
               {/* Extracted Data Categories */}
               <div className="pt-6">
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
                   <h3 className="text-lg font-semibold">
                     Extracted Data Categories
                   </h3>
@@ -758,6 +959,16 @@ export const EvaluationDashboard: React.FC = () => {
                     </Badge>
                   )}
                   </div>
+                  {(() => {
+                    const available = getAvailableCategories();
+                    const allOpen = available.length > 0 && available.every(c => expandedCategories.has(c));
+                    return (
+                      <button onClick={toggleExpandAll} className="text-sm text-blue-600 hover:text-blue-800 hover:underline disabled:text-gray-400" disabled={available.length === 0}>
+                        {allOpen ? 'Collapse All' : 'Expand All'}
+                      </button>
+                    );
+                  })()}
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Work Experience - Only show for resume/LinkedIn, not cover letters */}
                   {selectedRun?.file_type !== 'coverLetter' && (() => {
@@ -900,6 +1111,7 @@ export const EvaluationDashboard: React.FC = () => {
                 </div>
                         )}
               </div>
+
                     );
                   })()}
 
@@ -924,7 +1136,18 @@ export const EvaluationDashboard: React.FC = () => {
                   </div>
                         {hasEntries && isExpanded && (
                           <div className="px-3 pb-3">
-                            <div className="bg-white p-3 rounded border border-gray-200 space-y-2">
+                            <div className="bg-white p-3 rounded border border-gray-200 space-y-2 relative">
+                              <div className="absolute top-2 right-2">
+                                <FlagButton
+                                  dataPath={'contactInfo'}
+                                  dataType={'contact_info'}
+                                  hasFlags={getFlagsForPath('contactInfo').length > 0}
+                                  flagCount={getFlagsForPath('contactInfo').length}
+                                  onClick={() => handleFlagClick('contact_info', 'contactInfo', contactInfo)}
+                                  size="sm"
+                                />
+                              </div>
+                              <div className="pr-8">
                               {contactInfo.name && (
                                 <div className="text-sm">
                                   <span className="font-medium text-gray-600">Name: </span>
@@ -957,6 +1180,7 @@ export const EvaluationDashboard: React.FC = () => {
                                   </a>
                                 </div>
                               )}
+                              </div>
                             </div>
                           </div>
                         )}
@@ -1007,111 +1231,188 @@ export const EvaluationDashboard: React.FC = () => {
                             {storiesWithContext.length > 0 && (
                 <div>
                                 <div className="text-xs font-medium text-gray-600 mb-2">Stories with Company/Role Context ({storiesWithContext.length})</div>
-                                {storiesWithContext.map((story: any, idx: number) => (
-                                  <div key={idx} className="bg-white p-3 rounded border border-blue-200 border-l-4 mb-2">
-                                    <div className="flex items-start justify-between mb-1">
-                                      <div className="font-medium text-sm text-gray-900">{story.title || story.id}</div>
+                                {storiesWithContext.map((story: any, idx: number) => {
+                                  const storyIndex = stories.findIndex((s: any) => s === story);
+                                  const storyPath = storyIndex >= 0 ? `stories[${storyIndex}]` : `storiesWithContext[${idx}]`;
+                                  const storyFlags = getFlagsForPath(storyPath);
+                                  return (
+                                  <div key={idx} className="bg-white p-3 rounded border border-blue-200 border-l-4 mb-2 relative">
+                                    <div className="absolute top-2 right-2">
+                                      <FlagButton
+                                        dataPath={storyPath}
+                                        dataType="story"
+                                        hasFlags={storyFlags.length > 0}
+                                        flagCount={storyFlags.length}
+                                        onClick={() => handleFlagClick('story', storyPath, story)}
+                                        size="sm"
+                                      />
+                                    </div>
+                                    <div className="pr-8">
                                       {(story.company || story.titleRole) && (
-                                        <div className="text-xs text-gray-600">
-                                          {story.company && <span className="mr-2">{story.company}</span>}
-                                          {story.titleRole && <span>{story.titleRole}</span>}
-                      </div>
+                                        <div className="text-xs text-gray-600 mb-0.5">
+                                          {story.company && story.titleRole ? `${story.company}: ${story.titleRole}` : (story.company || story.titleRole)}
+                                        </div>
                                       )}
-                    </div>
-                                    {story.summary && (
-                                      <div className="text-sm text-gray-700 mt-1">{story.summary}</div>
-                                    )}
-                                    {story.content && (
-                                      <div className="text-xs text-gray-600 mt-1">{story.content}</div>
-                                    )}
-                                    {story.star && (
-                                      <div className="mt-2 space-y-1 text-xs">
-                                        {story.star.situation && (
-                                          <div><span className="font-medium">Situation: </span>{story.star.situation}</div>
-                                        )}
-                                        {story.star.task && (
-                                          <div><span className="font-medium">Task: </span>{story.star.task}</div>
-                                        )}
-                                        {story.star.action && (
-                                          <div><span className="font-medium">Action: </span>{story.star.action}</div>
-                                        )}
-                                        {story.star.result && (
-                                          <div><span className="font-medium">Result: </span>{story.star.result}</div>
-                                        )}
-                                      </div>
-                                    )}
-                                    {story.metrics && story.metrics.length > 0 && (
-                                      <div className="mt-2 flex flex-wrap gap-1">
-                                        {story.metrics.map((m: any, mIdx: number) => (
-                                          <span key={mIdx} className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">
-                                            {m.value}{m.unit} {m.name}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    )}
-                                    {story.tags && (story.tags.skills || story.tags.functions || story.tags.domains) && (
-                                      <div className="mt-2 flex flex-wrap gap-1">
-                                        {[...(story.tags.skills || []), ...(story.tags.functions || []), ...(story.tags.domains || [])].map((tag: string, tIdx: number) => (
-                                          <Badge key={tIdx} variant="outline" className="text-xs bg-gray-100 text-gray-600 border-gray-300">
-                                            {tag}
-                                          </Badge>
-                                        ))}
-                                      </div>
-                                    )}
+                                      <div className="font-medium text-sm text-gray-900">{story.title || story.id}</div>
+                                      {story.summary && (
+                                        <div className="text-sm text-gray-700 mt-1">{story.summary}</div>
+                                      )}
+                                      {story.content && (
+                                        <div className="text-xs text-gray-600 mt-1">{story.content}</div>
+                                      )}
+                                      {story.star && (
+                                        <div className="mt-2 space-y-1 text-xs">
+                                          {story.star.situation && (
+                                            <div><span className="font-medium">Situation: </span>{story.star.situation}</div>
+                                          )}
+                                          {story.star.task && (
+                                            <div><span className="font-medium">Task: </span>{story.star.task}</div>
+                                          )}
+                                          {story.star.action && (
+                                            <div><span className="font-medium">Action: </span>{story.star.action}</div>
+                                          )}
+                                          {story.star.result && (
+                                            <div><span className="font-medium">Result: </span>{story.star.result}</div>
+                                          )}
+                                        </div>
+                                      )}
+                                      {story.metrics && story.metrics.length > 0 && (
+                                        <div className="mt-2">
+                                          <div className="text-[11px] font-medium text-gray-600 mb-1">Metrics</div>
+                                          <div className="flex flex-wrap gap-1">
+                                            {story.metrics.map((m: any, mIdx: number) => {
+                                              const metricPath = `${storyPath}.metrics[${mIdx}]`;
+                                              const metricFlags = getFlagsForPath(metricPath);
+                                              return (
+                                                <span key={mIdx} className="relative inline-flex items-center gap-1 text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">
+                                                  {m.value}{m.unit} {m.name}
+                                                  <FlagButton
+                                                    dataPath={metricPath}
+                                                    dataType="metric"
+                                                    hasFlags={metricFlags.length > 0}
+                                                    flagCount={metricFlags.length}
+                                                    onClick={() => handleFlagClick('metric', metricPath, m)}
+                                                    size="sm"
+                                                  />
+                                                </span>
+                                              )
+                                            })}
+                                          </div>
+                                        </div>
+                                      )}
+                                      {story.tags && (story.tags.skills || story.tags.functions || story.tags.domains) && (
+                                        <div className="mt-2">
+                                          <div className="text-[11px] font-medium text-gray-600 mb-1">Tags</div>
+                                          <div className="mt-1 flex flex-wrap gap-1">
+                                            {[...(story.tags.skills || []), ...(story.tags.functions || []), ...(story.tags.domains || [])].map((tag: string, tIdx: number) => {
+                                              const tagPath = `${storyPath}.tags[${tIdx}]`;
+                                              const tagFlags = getFlagsForPath(tagPath);
+                                              return (
+                                                <span key={tIdx} className="relative inline-flex items-center gap-1">
+                                                  <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600 border-gray-300">
+                                                    {tag}
+                                                  </Badge>
+                                                  <FlagButton
+                                                    dataPath={tagPath}
+                                                    dataType={'tag'}
+                                                    hasFlags={tagFlags.length > 0}
+                                                    flagCount={tagFlags.length}
+                                                    onClick={() => handleFlagClick('tag', tagPath, tag)}
+                                                    size="sm"
+                                                  />
+                                                </span>
+                                              )
+                                            })}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
-                                ))}
+                                )})}
                               </div>
                             )}
                             {storiesWithoutContext.length > 0 && (
                     <div>
                                 <div className="text-xs font-medium text-gray-600 mb-2">Stories without Company/Role Context ({storiesWithoutContext.length})</div>
-                                {storiesWithoutContext.map((story: any, idx: number) => (
-                                  <div key={idx} className="bg-white p-3 rounded border border-gray-200 border-l-4 mb-2">
-                                    <div className="flex items-start justify-between mb-1">
+                                {storiesWithoutContext.map((story: any, idx: number) => {
+                                  const storyIndex = stories.findIndex((s: any) => s === story);
+                                  const storyPath = storyIndex >= 0 ? `stories[${storyIndex}]` : `storiesWithoutContext[${idx}]`;
+                                  const storyFlags = getFlagsForPath(storyPath);
+                                  return (
+                                  <div key={idx} className="bg-white p-3 rounded border border-gray-200 border-l-4 mb-2 relative">
+                                    <div className="absolute top-2 right-2">
+                                      <FlagButton
+                                        dataPath={storyPath}
+                                        dataType="story"
+                                        hasFlags={storyFlags.length > 0}
+                                        flagCount={storyFlags.length}
+                                        onClick={() => handleFlagClick('story', storyPath, story)}
+                                        size="sm"
+                                      />
+                                    </div>
+                                    <div className="pr-8">
                                       <div className="font-medium text-sm text-gray-900">{story.title || story.id}</div>
-                      </div>
-                                    {story.summary && (
-                                      <div className="text-sm text-gray-700 mt-1">{story.summary}</div>
-                                    )}
-                                    {story.content && (
-                                      <div className="text-xs text-gray-600 mt-1">{story.content}</div>
-                                    )}
-                                    {story.star && (
-                                      <div className="mt-2 space-y-1 text-xs">
-                                        {story.star.situation && (
-                                          <div><span className="font-medium">Situation: </span>{story.star.situation}</div>
-                                        )}
-                                        {story.star.task && (
-                                          <div><span className="font-medium">Task: </span>{story.star.task}</div>
-                                        )}
-                                        {story.star.action && (
-                                          <div><span className="font-medium">Action: </span>{story.star.action}</div>
-                                        )}
-                                        {story.star.result && (
-                                          <div><span className="font-medium">Result: </span>{story.star.result}</div>
-                                        )}
-                    </div>
-                                    )}
-                                    {story.metrics && story.metrics.length > 0 && (
-                                      <div className="mt-2 flex flex-wrap gap-1">
-                                        {story.metrics.map((m: any, mIdx: number) => (
-                                          <span key={mIdx} className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">
-                                            {m.value}{m.unit} {m.name}
-                                          </span>
-                                        ))}
-                  </div>
-                                    )}
-                                    {story.tags && (story.tags.skills || story.tags.functions || story.tags.domains) && (
-                                      <div className="mt-2 flex flex-wrap gap-1">
-                                        {[...(story.tags.skills || []), ...(story.tags.functions || []), ...(story.tags.domains || [])].map((tag: string, tIdx: number) => (
-                                          <Badge key={tIdx} variant="outline" className="text-xs bg-gray-100 text-gray-600 border-gray-300">
-                                            {tag}
-                                          </Badge>
-                                        ))}
-                </div>
-              )}
+                                      {story.summary && (
+                                        <div className="text-sm text-gray-700 mt-1">{story.summary}</div>
+                                      )}
+                                      {story.content && (
+                                        <div className="text-xs text-gray-600 mt-1">{story.content}</div>
+                                      )}
+                                      {story.star && (
+                                        <div className="mt-2 space-y-1 text-xs">
+                                          {story.star.situation && (
+                                            <div><span className="font-medium">Situation: </span>{story.star.situation}</div>
+                                          )}
+                                          {story.star.task && (
+                                            <div><span className="font-medium">Task: </span>{story.star.task}</div>
+                                          )}
+                                          {story.star.action && (
+                                            <div><span className="font-medium">Action: </span>{story.star.action}</div>
+                                          )}
+                                          {story.star.result && (
+                                            <div><span className="font-medium">Result: </span>{story.star.result}</div>
+                                          )}
+                                        </div>
+                                      )}
+                                      {story.metrics && story.metrics.length > 0 && (
+                                        <div className="mt-2">
+                                          <div className="text-[11px] font-medium text-gray-600 mb-1">Metrics</div>
+                                          <div className="flex flex-wrap gap-1">
+                                            {story.metrics.map((m: any, mIdx: number) => {
+                                              const metricPath = `${storyPath}.metrics[${mIdx}]`;
+                                              const metricFlags = getFlagsForPath(metricPath);
+                                              return (
+                                                <span key={mIdx} className="relative inline-flex items-center gap-1 text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">
+                                                  {m.value}{m.unit} {m.name}
+                                                  <FlagButton
+                                                    dataPath={metricPath}
+                                                    dataType="metric"
+                                                    hasFlags={metricFlags.length > 0}
+                                                    flagCount={metricFlags.length}
+                                                    onClick={() => handleFlagClick('metric', metricPath, m)}
+                                                    size="sm"
+                                                  />
+                                                </span>
+                                              )
+                                            })}
+                                          </div>
+                                        </div>
+                                      )}
+                                      {story.tags && (story.tags.skills || story.tags.functions || story.tags.domains) && (
+                                        <div className="mt-2">
+                                          <div className="text-[11px] font-medium text-gray-600 mb-1">Tags</div>
+                                          <div className="mt-1 flex flex-wrap gap-1">
+                                            {[...(story.tags.skills || []), ...(story.tags.functions || []), ...(story.tags.domains || [])].map((tag: string, tIdx: number) => (
+                                              <Badge key={tIdx} variant="outline" className="text-xs bg-gray-100 text-gray-600 border-gray-300">
+                                                {tag}
+                                              </Badge>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
-                                ))}
+                                )})}
                               </div>
                             )}
                           </div>
@@ -1123,32 +1424,33 @@ export const EvaluationDashboard: React.FC = () => {
                     );
                   })()}
 
-                  {/* Quant Metrics - Collapsible if has entries */}
+                  {/* Metrics - Collapsible if has entries */}
                   {(() => {
                     const workHistory = selectedSource?.structured_data?.workHistory || selectedSource?.structured_data?.work_history || [];
-                    const allMetrics: Array<{ metric: any; parent: { type: 'role' | 'story'; company?: string; position?: string; storyTitle?: string } }> = [];
+                    const allMetrics: Array<{ metric: any; parent: { type: 'role' | 'story'; company?: string; position?: string; storyTitle?: string }; path: string }> = [];
                     
                     // Collect role-level metrics
-                    workHistory.forEach((entry: any) => {
+                    workHistory.forEach((entry: any, entryIdx: number) => {
                       const company = entry.company || entry.companyDisplay || entry.companyCanonical || 'Unknown Company';
                       const position = entry.position || entry.titleDisplay || entry.titleCanonical || entry.role || 'Unknown Position';
                       
                       if (entry.roleMetrics && Array.isArray(entry.roleMetrics)) {
-                        entry.roleMetrics.forEach((metric: any) => {
+                        entry.roleMetrics.forEach((metric: any, metricIdx: number) => {
                           // Use parentType from metric if available, otherwise infer from location
                           const parentType = metric.parentType || 'role';
                           allMetrics.push({
                             metric,
-                            parent: { type: parentType, company, position }
+                            parent: { type: parentType, company, position },
+                            path: `workHistory[${entryIdx}].roleMetrics[${metricIdx}]`
                           });
                         });
                       }
                       
                       // Collect story-level metrics from work history stories
                       if (entry.stories && Array.isArray(entry.stories)) {
-                        entry.stories.forEach((story: any) => {
+                        entry.stories.forEach((story: any, storyIdx: number) => {
                           if (story.metrics && Array.isArray(story.metrics)) {
-                            story.metrics.forEach((metric: any) => {
+                            story.metrics.forEach((metric: any, metricIdx: number) => {
                               // Use parentType from metric if available, otherwise infer from location
                               const parentType = metric.parentType || 'story';
                               allMetrics.push({
@@ -1158,7 +1460,8 @@ export const EvaluationDashboard: React.FC = () => {
                                   company, 
                                   position,
                                   storyTitle: story.title || story.id || 'Untitled Story'
-                                }
+                                },
+                                path: `workHistory[${entryIdx}].stories[${storyIdx}].metrics[${metricIdx}]`
                               });
                             });
                           }
@@ -1168,11 +1471,11 @@ export const EvaluationDashboard: React.FC = () => {
                     
                     // Collect story-level metrics from cover letter stories
                     const stories = selectedSource?.structured_data?.stories || [];
-                    stories.forEach((story: any) => {
+                    stories.forEach((story: any, storyIdx: number) => {
                       if (story.metrics && Array.isArray(story.metrics)) {
                         const company = story.company || 'Unknown Company';
                         const titleRole = story.titleRole || 'Unknown Role';
-                        story.metrics.forEach((metric: any) => {
+                        story.metrics.forEach((metric: any, metricIdx: number) => {
                           // Use parentType from metric if available, otherwise infer from location
                           const parentType = metric.parentType || 'story';
                           allMetrics.push({
@@ -1182,7 +1485,8 @@ export const EvaluationDashboard: React.FC = () => {
                               company,
                               position: titleRole,
                               storyTitle: story.title || story.id || 'Untitled Story'
-                            }
+                            },
+                            path: `stories[${storyIdx}].metrics[${metricIdx}]`
                           });
                         });
                       }
@@ -1198,8 +1502,8 @@ export const EvaluationDashboard: React.FC = () => {
                         >
                           <div className="flex items-center gap-2">
                             {hasEntries && (isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />)}
-                            <span>Quant Metrics</span>
-                  </div>
+                            <span>Metrics</span>
+                          </div>
                           <Badge className={getEvaluationBadgeColor(hasEntries ? '✅' : '❌')}>
                             {hasEntries ? `${allMetrics.length} found` : 'None'}
                           </Badge>
@@ -1207,7 +1511,7 @@ export const EvaluationDashboard: React.FC = () => {
                         {hasEntries && isExpanded && (
                           <div className="px-3 pb-3 space-y-3 max-h-96 overflow-y-auto">
                             {allMetrics.map((item: any, idx: number) => {
-                              const { metric, parent } = item;
+                              const { metric, parent, path } = item;
                               
                               // Format metric as readable string: "number unit label/scope"
                               // Examples: "11% trial-to-paid conversion rates", "30 tests run per year"
@@ -1250,8 +1554,18 @@ export const EvaluationDashboard: React.FC = () => {
                               const metricText = formatMetric(metric);
                               
                               return (
-                                <div key={idx} className="bg-white p-3 rounded border border-gray-200">
-                                  <div className="mb-2 pb-2 border-b border-gray-100">
+                                <div key={idx} className="bg-white p-3 rounded border border-gray-200 relative">
+                                  <div className="absolute top-2 right-2">
+                                    <FlagButton
+                                      dataPath={path}
+                                      dataType="metric"
+                                      hasFlags={getFlagsForPath(path).length > 0}
+                                      flagCount={getFlagsForPath(path).length}
+                                      onClick={() => handleFlagClick('metric', path, metric)}
+                                      size="sm"
+                                    />
+                                  </div>
+                                  <div className="mb-2 pb-2 border-b border-gray-100 pr-8">
                                     <div className="flex items-center gap-2">
                                       <Badge variant="outline" className={`text-xs ${parent.type === 'role' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-purple-50 text-purple-700 border-purple-200'}`}>
                                         {parent.type === 'role' ? 'Role-Level' : 'Story-Level'}
@@ -1266,7 +1580,7 @@ export const EvaluationDashboard: React.FC = () => {
                   </div>
                                     )}
                   </div>
-                                  <div className="text-sm text-gray-900 font-medium">
+                                  <div className="text-sm text-gray-900 font-medium pr-8">
                                     {metricText}
                   </div>
                                   {metric.type && (
@@ -1281,6 +1595,43 @@ export const EvaluationDashboard: React.FC = () => {
                         )}
                         {!hasEntries && (
                           <div className="px-3 pb-3 text-xs text-gray-500">No quantifiable metrics extracted</div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Location - Only for resume/LinkedIn (separate from Contact Info) */}
+                  {selectedRun?.file_type !== 'coverLetter' && (() => {
+                    const contactInfo = selectedSource?.structured_data?.contactInfo || selectedSource?.structured_data?.contact_info || {};
+                    const location = contactInfo.location;
+                    const hasLocation = !!location;
+                    const locationPath = 'contactInfo.location';
+                    const locationFlags = getFlagsForPath(locationPath);
+                    return (
+                      <div className="bg-gray-50 rounded-lg">
+                        <div className="flex items-center justify-between p-3">
+                          <span>Location</span>
+                          <div className="flex items-center gap-2">
+                            <Badge className={getEvaluationBadgeColor(hasLocation ? '✅' : '❌')}>
+                              {hasLocation ? 'Present' : 'Missing'}
+                            </Badge>
+                            <FlagButton
+                              dataPath={locationPath}
+                              dataType="location"
+                              hasFlags={locationFlags.length > 0}
+                              flagCount={locationFlags.length}
+                              onClick={() => handleFlagClick('location', locationPath, location)}
+                              size="sm"
+                            />
+                          </div>
+                        </div>
+                        {hasLocation && (
+                          <div className="px-3 pb-3">
+                            <div className="text-sm text-gray-900">{location}</div>
+                          </div>
+                        )}
+                        {!hasLocation && (
+                          <div className="px-3 pb-3 text-xs text-gray-500">No location extracted</div>
                         )}
                       </div>
                     );
@@ -1343,11 +1694,25 @@ export const EvaluationDashboard: React.FC = () => {
                         {hasEntries && isExpanded && (
                           <div className="px-3 pb-3">
                             <div className="flex flex-wrap gap-2">
-                              {uniqueCompanies.map((company: string, idx: number) => (
-                                <Badge key={idx} variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                                  {company}
-                                </Badge>
-                              ))}
+                              {uniqueCompanies.map((company: string, idx: number) => {
+                                const path = `companyNames[${idx}]`;
+                                const cFlags = getFlagsForPath(path);
+                                return (
+                                  <span key={idx} className="relative inline-flex items-center gap-1">
+                                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                      {company}
+                                    </Badge>
+                                    <FlagButton
+                                      dataPath={path}
+                                      dataType={'company'}
+                                      hasFlags={cFlags.length > 0}
+                                      flagCount={cFlags.length}
+                                      onClick={() => handleFlagClick('company', path, company)}
+                                      size="sm"
+                                    />
+                                  </span>
+                                );
+                              })}
                             </div>
                           </div>
                         )}
@@ -1399,11 +1764,25 @@ export const EvaluationDashboard: React.FC = () => {
                         {hasEntries && isExpanded && (
                           <div className="px-3 pb-3">
                             <div className="flex flex-wrap gap-2">
-                              {uniqueTitles.map((title: string, idx: number) => (
-                                <Badge key={idx} variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                                  {title}
-                                </Badge>
-                              ))}
+                              {uniqueTitles.map((title: string, idx: number) => {
+                                const path = `jobTitles[${idx}]`;
+                                const tFlags = getFlagsForPath(path);
+                                return (
+                                  <span key={idx} className="relative inline-flex items-center gap-1">
+                                    <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                                      {title}
+                                    </Badge>
+                                    <FlagButton
+                                      dataPath={path}
+                                      dataType={'title'}
+                                      hasFlags={tFlags.length > 0}
+                                      flagCount={tFlags.length}
+                                      onClick={() => handleFlagClick('title', path, title)}
+                                      size="sm"
+                                    />
+                                  </span>
+                                );
+                              })}
                             </div>
                           </div>
                         )}
@@ -1466,6 +1845,19 @@ export const EvaluationDashboard: React.FC = () => {
               {/* Performance Metrics removed as redundant */}
 
               {/* Heuristics removed; combined above */}
+              </div>
+              {/* Right drawer */}
+              {flagModalOpen && flaggingItem && (
+                <FlagModal
+                  isOpen={flagModalOpen}
+                  onClose={() => { setFlagModalOpen(false); setFlaggingItem(null) }}
+                  onSubmit={handleFlagSubmit}
+                  dataType={flaggingItem.dataType}
+                  dataPath={flaggingItem.dataPath}
+                  dataSnapshot={flaggingItem.dataSnapshot}
+                  existingFlags={getFlagsForPath(flaggingItem.dataPath)}
+                />
+              )}
             </div>
           )}
         </DialogContent>
