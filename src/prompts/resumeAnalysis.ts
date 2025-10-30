@@ -33,7 +33,8 @@ Return ONLY valid JSON with this exact structure:
         {
           "value": "+22%",
           "context": "Week-2 activation",
-          "type": "increase"
+          "type": "increase",
+          "parentType": "role"
         }
       ],
       "stories": [  // REQUIRED: Extract 1-3+ stories per role and place them HERE in this array
@@ -45,11 +46,15 @@ Return ONLY valid JSON with this exact structure:
           "action": "What was done (optional)",
           "outcome": "What resulted (optional)",
           "tags": ["experimentation", "activation", "analytics"],
+          "linkedToRole": true,  // true if story clearly belongs to this workHistory entry
+          "company": "Company Name",  // Reference to parent company (same as workHistory.company)
+          "position": "Job Title",  // Reference to parent position (same as workHistory.position)
           "metrics": [
             {
               "value": "+22%",
               "context": "Week-2 activation", 
-              "type": "increase"
+              "type": "increase",
+              "parentType": "story"
             }
           ]
         }
@@ -87,16 +92,23 @@ CRITICAL EXTRACTION RULES:
    - Extract ALL unique stories per role and PLACE THEM IN THE workHistory[].stories[] ARRAY for that specific role
    - Use EXACT text from resume for story.content
    - EVERY work history entry MUST include a stories[] array (even if empty, though you should extract at least 1-3 stories per role)
+   - CRITICAL: Stories MUST be placed in the stories[] array of the workHistory entry they belong to (same company/role)
+   - If a story cannot be linked to any work history entry, it should still be included but mark it as orphan by including "orphan": true
+   - Each story should reference its parent role through context: include company name and position from the parent workHistory entry
 
 2. METRICS (Story & Role Level):
    Story Metrics:
    - Extract ALL numbers: percentages ("+22%", "-3.5%"), counts ("30+"), money ("$2M")
-   - Each metric needs: value, context, type (increase/decrease/absolute)
-   - Example: "+22%" with context "Week-2 activation" and type "increase"
+   - Each metric needs: value, context, type (increase/decrease/absolute), parentType ("story")
+   - Example: {"value": "+22%", "context": "Week-2 activation", "type": "increase", "parentType": "story"}
+   - These metrics belong to specific stories within a role
    
    Role Metrics:
    - A user may often summarize metrics at the role level. If found, use these as role-level metrics.
+   - Each metric needs: value, context, type (increase/decrease/absolute), parentType ("role")
+   - Example: {"value": "+22%", "context": "Week-2 activation", "type": "increase", "parentType": "role"}
    - These are important top-level metrics that show overall impact in a role
+   - CRITICAL: Always include "parentType" field set to "role" for roleMetrics and "story" for story metrics
 
 3. TAGS (Three Levels):
    Company Tags (2-3 tags):
@@ -137,9 +149,9 @@ EXAMPLE OUTPUT (FlowHub role from resume):
   "roleTags": ["growth", "activation", "experimentation", "analytics", "process"],
   "roleSummary": "Owned onboarding optimization and experimentation cadence for PLG SaaS platform, driving activation and trial conversion across SMB segment.",
   "roleMetrics": [
-    {"value": "+22%", "context": "Week-2 activation", "type": "increase"},
-    {"value": "+11%", "context": "trial-to-paid conversion", "type": "increase"},
-    {"value": "30+", "context": "tests per year", "type": "absolute"}
+    {"value": "+22%", "context": "Week-2 activation", "type": "increase", "parentType": "role"},
+    {"value": "+11%", "context": "trial-to-paid conversion", "type": "increase", "parentType": "role"},
+    {"value": "30+", "context": "tests per year", "type": "absolute", "parentType": "role"}
   ],
   "stories": [
     {
@@ -148,8 +160,8 @@ EXAMPLE OUTPUT (FlowHub role from resume):
       "content": "Overhauled self-serve onboarding; Week-2 activation +22% and trial→paid +11% across SMB",
       "tags": ["onboarding", "activation", "growth"],
       "metrics": [
-        {"value": "+22%", "context": "Week-2 activation", "type": "increase"},
-        {"value": "+11%", "context": "trial-to-paid conversion", "type": "increase"}
+        {"value": "+22%", "context": "Week-2 activation", "type": "increase", "parentType": "story"},
+        {"value": "+11%", "context": "trial-to-paid conversion", "type": "increase", "parentType": "story"}
       ]
     },
     {
@@ -158,7 +170,7 @@ EXAMPLE OUTPUT (FlowHub role from resume):
       "content": "Built experimentation cadence (weekly triage, monthly reviews); 30+ tests/year",
       "tags": ["experimentation", "process"],
       "metrics": [
-        {"value": "30+", "context": "tests per year", "type": "absolute"}
+        {"value": "30+", "context": "tests per year", "type": "absolute", "parentType": "story"}
       ]
     },
     {

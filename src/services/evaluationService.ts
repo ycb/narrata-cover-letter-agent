@@ -183,11 +183,10 @@ Respond in JSON only:
       heuristics.hasContactInfo = !!(structuredData.contactInfo.email || structuredData.contactInfo.phone || structuredData.contactInfo.linkedin);
     }
 
-    // Cover letter specific signals (stories + referenced entities)
+    // Cover letter specific signals (stories only - cover letters don't provide work history)
     if (type === 'coverLetter') {
       const stories = Array.isArray(structuredData.stories) ? structuredData.stories : [];
       const entityRefs = structuredData.entityRefs || {};
-      const workRefs = Array.isArray(entityRefs.workHistoryRefs) ? entityRefs.workHistoryRefs : [];
       const eduRefs = Array.isArray(entityRefs.educationRefs) ? entityRefs.educationRefs : [];
 
       if (!heuristics.hasSkills && Array.isArray(structuredData.skillsMentioned)) {
@@ -195,10 +194,8 @@ Respond in JSON only:
         heuristics.skillsCount = structuredData.skillsMentioned.length;
       }
 
-      if (!heuristics.hasWorkExperience && workRefs.length > 0) {
-        heuristics.hasWorkExperience = true;
-        heuristics.workExperienceCount = workRefs.length;
-      }
+      // Cover letters do NOT provide work history - workExperienceCount stays 0
+      // hasWorkExperience should remain false for cover letters
 
       if (!heuristics.hasEducation && eduRefs.length > 0) {
         heuristics.hasEducation = true;
@@ -210,12 +207,12 @@ Respond in JSON only:
         heuristics.hasQuantifiableMetrics = stories.some((s: any) => Array.isArray(s.metrics) && s.metrics.some((m: any) => m && (m.value !== null && m.value !== undefined)));
       }
 
-      // Company names / job titles inferred from work refs
+      // Company names / job titles inferred from stories (not work history refs)
       if (!heuristics.hasCompanyNames) {
-        heuristics.hasCompanyNames = workRefs.some((w: any) => !!w?.company);
+        heuristics.hasCompanyNames = stories.some((s: any) => !!s?.company);
       }
       if (!heuristics.hasJobTitles) {
-        heuristics.hasJobTitles = workRefs.some((w: any) => !!w?.title);
+        heuristics.hasJobTitles = stories.some((s: any) => !!s?.titleRole || !!s?.position);
       }
     }
 

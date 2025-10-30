@@ -18,8 +18,8 @@ interface SourceData {
 
 // Helper function to get Supabase configuration
 const getSupabaseConfig = () => ({
-  url: import.meta.env.VITE_SUPABASE_URL,
-  key: import.meta.env.VITE_SUPABASE_ANON_KEY
+  url: (import.meta.env?.VITE_SUPABASE_URL) || (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_URL : undefined) || '',
+  key: (import.meta.env?.VITE_SUPABASE_ANON_KEY) || (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_ANON_KEY : undefined) || ''
 });
 // Import real services for text extraction and LLM analysis
 import { TextExtractionService } from './textExtractionService';
@@ -610,8 +610,22 @@ export class FileUploadService {
       // Run code-driven heuristics
       const heuristics = this.runHeuristics(structuredData, type);
 
-      // Auto-save extracted data to database
-      await this.processStructuredData(structuredData, sourceId, accessToken);
+      // Auto-save extracted data to database (resume only - has workHistory)
+      if (type === 'resume') {
+        await this.processStructuredData(structuredData, sourceId, accessToken);
+      }
+      
+      // Normalize skills for both resume and cover letter
+      const { data: sourceData } = await supabase
+        .from('sources')
+        .select('user_id')
+        .eq('id', sourceId)
+        .single();
+      
+      if (sourceData && sourceData.user_id) {
+        const skillsSourceType = type === 'coverLetter' ? 'cover_letter' : 'resume';
+        await this.normalizeSkills(structuredData, sourceId, sourceData.user_id, skillsSourceType, accessToken);
+      }
 
       // Run LLM judge evaluation
       const evaluation = await this.evaluationService.evaluateStructuredData(
@@ -628,12 +642,12 @@ export class FileUploadService {
         inputTokens: extractedText.length / 4, // Rough estimate
         outputTokens: JSON.stringify(structuredData).length / 4,
         latency: llmEndTime - llmStartTime,
-        model: import.meta.env.VITE_OPENAI_MODEL || 'gpt-4o-mini',
+        model: import.meta.env?.VITE_OPENAI_MODEL || (typeof process !== 'undefined' ? process.env.VITE_OPENAI_MODEL : undefined) || 'gpt-4o-mini',
         inputText: extractedText, // Full text
         outputText: JSON.stringify(structuredData, null, 2), // Full structured data, formatted
         heuristics,
         evaluation
-      }).catch(error => {
+      }, accessToken).catch(error => {
         console.warn('Failed to log evaluation data:', error);
       });
 
@@ -740,6 +754,14 @@ export class FileUploadService {
         }
 
         // Create work item with role-level data
+        // Store role-level metrics as structured JSONB
+        const roleMetrics = Array.isArray(workItem.roleMetrics) 
+          ? workItem.roleMetrics.map((m: any) => ({
+              ...m,
+              parentType: m.parentType || 'role' // Ensure parentType is set
+            }))
+          : [];
+        
         const { data: newWorkItem, error: workItemError } = await supabase
           .from('work_items')
           .insert({
@@ -749,8 +771,10 @@ export class FileUploadService {
             start_date: workItem.startDate,
             end_date: workItem.endDate === 'Present' ? null : workItem.endDate,
             description: workItem.roleSummary || workItem.description || '',
-            achievements: workItem.roleMetrics || workItem.achievements || [],
-            tags: workItem.roleTags || workItem.tags || []
+            achievements: workItem.roleMetrics?.map((m: any) => `${m.value || ''} ${m.context || ''}`).filter(Boolean) || workItem.achievements || [], // Keep TEXT[] for backward compatibility
+            tags: workItem.roleTags || workItem.tags || [],
+            metrics: roleMetrics, // NEW: Structured JSONB metrics
+            source_id: sourceId // NEW: Track data lineage
           })
           .select('id')
           .single();
@@ -784,18 +808,25 @@ export class FileUploadService {
               continue;
             }
 
+            // Store story-level metrics as structured JSONB
+            const storyMetrics = Array.isArray(story.metrics)
+              ? story.metrics.map((m: any) => ({
+                  ...m,
+                  parentType: m.parentType || 'story' // Ensure parentType is set
+                }))
+              : [];
+            
             const { data: insertedStory, error: storyError } = await supabase
               .from('approved_content')
               .insert({
                 user_id: userId,
                 work_item_id: newWorkItem.id,
-                company_id: companyId,
-                role: workItem.position || workItem.title,
+                company_id: companyId, // NEW: Denormalized for query performance
                 title: story.title || story.content?.substring(0, 100),
                 content: story.content || '',
                 tags: story.tags || [],
-                metrics: story.metrics || [],
-                source_id: sourceId
+                metrics: storyMetrics, // NEW: Structured JSONB metrics (story-level)
+                source_id: sourceId // NEW: Track data lineage
               })
               .select('id')
               .single();
@@ -816,6 +847,9 @@ export class FileUploadService {
           }
         }
       }
+
+      // Normalize skills to user_skills table
+      await this.normalizeSkills(structuredData, sourceId, userId, 'resume', accessToken);
 
       // Log summary statistics
       console.log('📊 Database Insert Summary:', {
@@ -839,6 +873,139 @@ export class FileUploadService {
       }));
     } catch (error) {
       console.error('Error processing structured data:', error);
+    }
+  }
+
+  /**
+   * Normalize skills from structured data to user_skills table
+   */
+  private async normalizeSkills(
+    structuredData: any,
+    sourceId: string,
+    userId: string,
+    sourceType: 'resume' | 'cover_letter',
+    accessToken?: string
+  ): Promise<void> {
+    try {
+      const { supabase } = await import('../lib/supabase');
+      
+      // Create authenticated client if accessToken provided
+      let dbClient: any = supabase;
+      if (accessToken) {
+        const { createClient } = await import('@supabase/supabase-js');
+        const supabaseUrl = (import.meta.env?.VITE_SUPABASE_URL) || (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_URL : undefined) || '';
+        const supabaseKey = (import.meta.env?.VITE_SUPABASE_ANON_KEY) || (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_ANON_KEY : undefined) || '';
+        dbClient = createClient(supabaseUrl, supabaseKey, {
+          global: { headers: { Authorization: `Bearer ${accessToken}` } }
+        });
+      }
+
+      let skillsInserted = 0;
+      let skillsFailed = 0;
+
+      if (sourceType === 'resume') {
+        // Extract skills from resume structured_data.skills
+        // Handle both formats: [{category: "...", items: [...]}] and ["skill1", "skill2"]
+        const skillsArray = structuredData.skills || [];
+        
+        if (Array.isArray(skillsArray) && skillsArray.length > 0) {
+          // Check if first item is an object (categorized format)
+          if (typeof skillsArray[0] === 'object' && skillsArray[0].category) {
+            // Categorized format: [{category: "...", items: [...]}]
+            for (const categoryObj of skillsArray) {
+              const category = categoryObj.category || null;
+              const items = Array.isArray(categoryObj.items) ? categoryObj.items : [];
+              
+              for (const skillItem of items) {
+                const skill = typeof skillItem === 'string' ? skillItem : (skillItem.skill || String(skillItem));
+                
+                if (skill && skill.trim()) {
+                  const { error } = await dbClient
+                    .from('user_skills')
+                    .insert({
+                      user_id: userId,
+                      skill: skill.trim(),
+                      category: category,
+                      source_type: 'resume',
+                      source_id: sourceId
+                    });
+
+                  if (error) {
+                    // Ignore unique constraint violations (skill already exists from this source)
+                    if (error.code !== '23505') {
+                      console.warn('⚠️ Error inserting skill:', error);
+                      skillsFailed++;
+                    }
+                  } else {
+                    skillsInserted++;
+                  }
+                }
+              }
+            }
+          } else {
+            // Simple string array format: ["skill1", "skill2"]
+            for (const skillItem of skillsArray) {
+              const skill = typeof skillItem === 'string' ? skillItem : String(skillItem);
+              
+              if (skill && skill.trim()) {
+                const { error } = await dbClient
+                  .from('user_skills')
+                  .insert({
+                    user_id: userId,
+                    skill: skill.trim(),
+                    source_type: 'resume',
+                    source_id: sourceId
+                  });
+
+                if (error) {
+                  if (error.code !== '23505') {
+                    console.warn('⚠️ Error inserting skill:', error);
+                    skillsFailed++;
+                  }
+                } else {
+                  skillsInserted++;
+                }
+              }
+            }
+          }
+        }
+      } else if (sourceType === 'cover_letter') {
+        // Extract skills from cover letter structured_data.skillsMentioned
+        const skillsMentioned = structuredData.skillsMentioned || [];
+        
+        if (Array.isArray(skillsMentioned) && skillsMentioned.length > 0) {
+          for (const skillItem of skillsMentioned) {
+            const skill = typeof skillItem === 'string' ? skillItem : String(skillItem);
+            
+            if (skill && skill.trim()) {
+              const { error } = await dbClient
+                .from('user_skills')
+                .insert({
+                  user_id: userId,
+                  skill: skill.trim(),
+                  source_type: 'cover_letter',
+                  source_id: sourceId
+                });
+
+              if (error) {
+                if (error.code !== '23505') {
+                  console.warn('⚠️ Error inserting skill:', error);
+                  skillsFailed++;
+                }
+              } else {
+                skillsInserted++;
+              }
+            }
+          }
+        }
+      }
+
+      if (skillsInserted > 0 || skillsFailed > 0) {
+        console.log(`📊 Skills normalization: ${skillsInserted} inserted, ${skillsFailed} failed`);
+      }
+    } catch (error) {
+      console.error('Error normalizing skills:', error);
+      // Don't throw - skills normalization failure shouldn't break the upload
     }
   }
 
@@ -995,17 +1162,79 @@ export class FileUploadService {
     }
     
     // CRITICAL: Save extracted text to database so the NEXT upload can find it
-    await supabase
-      .from('sources')
-      .update({ raw_text: extractedText })
-      .eq('id', sourceId);
+    // Use authenticated client if accessToken provided
+    if (accessToken) {
+      const { createClient } = await import('@supabase/supabase-js');
+      const { url, key } = getSupabaseConfig();
+      const authSupabase = createClient(url, key, {
+        global: {
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
+        }
+      });
+      const { error } = await authSupabase
+        .from('sources')
+        .update({ raw_text: extractedText })
+        .eq('id', sourceId);
+      if (error) {
+        console.error('Failed to save raw_text:', error);
+      }
+    } else {
+      const { error } = await supabase
+        .from('sources')
+        .update({ raw_text: extractedText })
+        .eq('id', sourceId);
+      if (error) {
+        console.error('Failed to save raw_text:', error);
+      }
+    }
     console.log(`💾 Saved extracted text to database for ${type}`);
     
     // Check DATABASE for the other file (since each upload is a new HTTP request/service instance)
-    const userId = accessToken ? (await supabase.auth.getUser(accessToken)).data.user?.id : (await supabase.auth.getUser()).data.user?.id;
+    // If userId is provided directly, use it; otherwise try to get from auth
+    let userId: string | undefined;
+    
+    if (accessToken) {
+      // Create authenticated Supabase client
+      const { createClient } = await import('@supabase/supabase-js');
+      const { url, key } = getSupabaseConfig();
+      const authSupabase = createClient(url, key, {
+        global: {
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
+        }
+      });
+      
+      const { data: { user }, error } = await authSupabase.auth.getUser();
+      if (!error && user) {
+        userId = user.id;
+      }
+    } else {
+      // Fallback to default supabase client
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (!error && user) {
+        userId = user.id;
+      }
+    }
     
     if (userId) {
-      const { data: sources } = await supabase
+      // Use authenticated client for query if accessToken provided
+      let queryClient = supabase;
+      if (accessToken) {
+        const { createClient } = await import('@supabase/supabase-js');
+        const { url, key } = getSupabaseConfig();
+        queryClient = createClient(url, key, {
+          global: {
+            headers: {
+              Authorization: `Bearer ${accessToken}`
+            }
+          }
+        });
+      }
+      
+      const { data: sources } = await queryClient
         .from('sources')
         .select('id, source_type, raw_text')
         .eq('user_id', userId)
@@ -1032,6 +1261,8 @@ export class FileUploadService {
           return true;
         }
       }
+    } else {
+      console.warn('⚠️ Could not determine userId for batching check');
     }
     
     return true; // Always batch (don't process individually)
@@ -1092,7 +1323,7 @@ export class FileUploadService {
           // Compute heuristics for resume structured data
           heuristics: this.runHeuristics(combinedResult.resume.data, 'resume'),
           evaluation: {}
-        });
+        }, accessToken);
       } else {
         await this.updateProcessingStatus(this.pendingResume.sourceId, 'failed', undefined, combinedResult.resume.error, accessToken);
         console.error('❌ Resume analysis failed:', combinedResult.resume.error);
@@ -1102,6 +1333,17 @@ export class FileUploadService {
       if (combinedResult.coverLetter.success) {
         await this.updateProcessingStatus(this.pendingCoverLetter.sourceId, 'completed', combinedResult.coverLetter.data as any, undefined, accessToken);
         console.log('✅ Cover letter analysis completed');
+        
+        // Normalize skills from cover letter
+        const { data: coverLetterSourceData } = await supabase
+          .from('sources')
+          .select('user_id')
+          .eq('id', this.pendingCoverLetter.sourceId)
+          .single();
+        
+        if (coverLetterSourceData && coverLetterSourceData.user_id) {
+          await this.normalizeSkills(combinedResult.coverLetter.data, this.pendingCoverLetter.sourceId, coverLetterSourceData.user_id, 'cover_letter', accessToken);
+        }
         
         // Log for evaluation tracking
         await this.logLLMGeneration({
@@ -1118,7 +1360,7 @@ export class FileUploadService {
           // Compute heuristics for cover letter structured data
           heuristics: this.runHeuristics(combinedResult.coverLetter.data, 'coverLetter'),
           evaluation: {}
-        });
+        }, accessToken);
       } else {
         await this.updateProcessingStatus(this.pendingCoverLetter.sourceId, 'failed', undefined, combinedResult.coverLetter.error, accessToken);
         console.error('❌ Cover letter analysis failed:', combinedResult.coverLetter.error);
@@ -1190,11 +1432,10 @@ export class FileUploadService {
       heuristics.hasContactInfo = !!(structuredData.contactInfo.email || structuredData.contactInfo.phone || structuredData.contactInfo.linkedin);
     }
 
-    // Cover letter specific signals (stories + referenced entities)
+    // Cover letter specific signals (stories only - cover letters don't provide work history)
     if (type === 'coverLetter') {
       const stories = Array.isArray(structuredData.stories) ? structuredData.stories : [];
       const entityRefs = structuredData.entityRefs || {};
-      const workRefs = Array.isArray(entityRefs.workHistoryRefs) ? entityRefs.workHistoryRefs : [];
       const eduRefs = Array.isArray(entityRefs.educationRefs) ? entityRefs.educationRefs : [];
 
       if (!heuristics.hasSkills && Array.isArray(structuredData.skillsMentioned)) {
@@ -1202,10 +1443,8 @@ export class FileUploadService {
         heuristics.skillsCount = structuredData.skillsMentioned.length;
       }
 
-      if (!heuristics.hasWorkExperience && workRefs.length > 0) {
-        heuristics.hasWorkExperience = true;
-        heuristics.workExperienceCount = workRefs.length;
-      }
+      // Cover letters do NOT provide work history - workExperienceCount stays 0
+      // hasWorkExperience should remain false for cover letters
 
       if (!heuristics.hasEducation && eduRefs.length > 0) {
         heuristics.hasEducation = true;
@@ -1217,12 +1456,12 @@ export class FileUploadService {
         heuristics.hasQuantifiableMetrics = stories.some((s: any) => Array.isArray(s.metrics) && s.metrics.some((m: any) => m && (m.value !== null && m.value !== undefined)));
       }
 
-      // Company names / job titles inferred from work refs
+      // Company names / job titles inferred from stories (not work history refs)
       if (!heuristics.hasCompanyNames) {
-        heuristics.hasCompanyNames = workRefs.some((w: any) => !!w?.company);
+        heuristics.hasCompanyNames = stories.some((s: any) => !!s?.company);
       }
       if (!heuristics.hasJobTitles) {
-        heuristics.hasJobTitles = workRefs.some((w: any) => !!w?.title);
+        heuristics.hasJobTitles = stories.some((s: any) => !!s?.titleRole || !!s?.position);
       }
     }
 
@@ -1257,11 +1496,37 @@ export class FileUploadService {
     outputText: string;
     heuristics?: any;
     evaluation?: any;
-  }): Promise<void> {
+  }, accessToken?: string): Promise<void> {
     try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      // Use authenticated client if accessToken provided, otherwise use default
+      let dbClient = supabase;
+      let userId: string | undefined;
+      
+      if (accessToken) {
+        const { createClient } = await import('@supabase/supabase-js');
+        const { url, key } = getSupabaseConfig();
+        dbClient = createClient(url, key, {
+          global: {
+            headers: {
+              Authorization: `Bearer ${accessToken}`
+            }
+          }
+        });
+        
+        // Get user from authenticated client
+        const { data: { user }, error } = await dbClient.auth.getUser();
+        if (!error && user) {
+          userId = user.id;
+        }
+      } else {
+        // Fallback to default client
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (!error && user) {
+          userId = user.id;
+        }
+      }
+      
+      if (!userId) {
         console.warn('No user found for evaluation logging');
         return;
       }
@@ -1270,7 +1535,7 @@ export class FileUploadService {
       const evaluation = data.evaluation || {};
       
       // Determine user_type by checking the source file_name in the database
-      const { data: sourceData } = await supabase
+      const { data: sourceData } = await dbClient
         .from('sources')
         .select('file_name')
         .eq('id', data.sourceId)
@@ -1279,10 +1544,10 @@ export class FileUploadService {
       const userType = sourceData?.file_name?.startsWith('P') ? 'synthetic' : 'real';
       
       // Store in Supabase evaluation_runs table
-      const { error } = await supabase
+      const { error } = await dbClient
         .from('evaluation_runs')
         .insert({
-          user_id: user.id,
+          user_id: userId,
           session_id: data.sessionId,
           source_id: data.sourceId, // This should be the UUID from sources table
           file_type: data.type,

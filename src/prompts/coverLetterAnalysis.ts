@@ -40,9 +40,10 @@ OUTPUT JSON SCHEMA:
     {
       "id": "story_<hash>",
       "title": "Short, human-readable title",
-      "company": "string|null",
-      "titleRole": "string|null",
-      "dateRange": { "start": "YYYY-MM-DD|null", "end": "YYYY-MM-DD|null", "current": true|false|null },
+      "company": "string|null",  // REQUIRED: Company name from work history if story references a specific role
+      "titleRole": "string|null",  // REQUIRED: Job title/position from work history if story references a specific role
+      "dateRange": { "start": "YYYY-MM-DD|null", "end": "YYYY-MM-DD|null", "current": true|false|null },  // Date range if story can be linked to a specific role period
+      "linkedToWorkHistory": false,  // REQUIRED: Always false for cover letters (they don't provide work history)
       "summary": "1–2 sentence abstract of the story outcome and impact",
       "star": {
         "situation": "Context or problem",
@@ -57,7 +58,8 @@ OUTPUT JSON SCHEMA:
           "unit": "%|$|users|...|null",
           "direction": "up|down|null",
           "period": "e.g., 30d|Q1 2024|YoY|null",
-          "confidence": 0.0-1.0
+          "confidence": 0.0-1.0,
+          "parentType": "story"
         }
       ],
       "tags": {
@@ -93,9 +95,6 @@ OUTPUT JSON SCHEMA:
   },
   "skillsMentioned": ["deduped lowercase slugs"],
   "entityRefs": {
-    "workHistoryRefs": [
-      { "company": "string|null", "title": "string|null", "dateRange": { "start": "YYYY-MM-DD|null", "end": "YYYY-MM-DD|null", "current": true|false|null } }
-    ],
     "educationRefs": []
   },
   "metadata": { 
@@ -111,6 +110,16 @@ RULES:
 - Focus on purpose labeling and readability, not tokenization.
 - Do NOT invent metrics or companies; use null where unclear and include a warning.
 - Normalize tags to lowercase canonical forms (e.g., "plg", "xai", "nlp", "derms", "vpp").
+- CRITICAL: All metrics in stories must include "parentType": "story" field.
+
+STORY COMPANY/ROLE CONTEXT:
+- For each story, extract company and role context if mentioned:
+  - Include company name if story references a specific company
+  - Include titleRole if story references a specific job title/position
+  - These fields help identify which role the story relates to, but cover letters do NOT provide work history entries
+  - Stories should always have linkedToWorkHistory: false since cover letters don't contain work history
+  - Use company and titleRole for context only, not for creating work history entries
+
 - Keep everything concise, accurate, and JSON-valid.
 - Return ONLY valid JSON matching this schema.
 `;

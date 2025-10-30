@@ -55,7 +55,7 @@ export const FILE_UPLOAD_CONFIG = {
 
 // OpenAI configuration
 export const OPENAI_CONFIG = {
-  MODEL: import.meta.env.VITE_OPENAI_MODEL || 'gpt-3.5-turbo',
+  MODEL: (import.meta.env?.VITE_OPENAI_MODEL) || (typeof process !== 'undefined' ? process.env.VITE_OPENAI_MODEL : undefined) || 'gpt-3.5-turbo',
   MAX_TOKENS: 2000,
   TEMPERATURE: 0.1,
   TIMEOUT: 30000, // 30 seconds

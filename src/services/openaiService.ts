@@ -16,7 +16,7 @@ export class LLMAnalysisService {
   private baseUrl: string;
 
   constructor() {
-    this.apiKey = import.meta.env.VITE_OPENAI_KEY;
+    this.apiKey = (import.meta.env?.VITE_OPENAI_KEY) || (typeof process !== 'undefined' ? process.env.VITE_OPENAI_KEY : undefined) || '';
     this.baseUrl = 'https://api.openai.com/v1';
     
     if (!this.apiKey) {
@@ -107,50 +107,27 @@ export class LLMAnalysisService {
     resume: LLMAnalysisResult;
     coverLetter: LLMAnalysisResult;
   }> {
+    // PERFORMANCE OPTIMIZATION: Use parallel separate calls by default
+    // Combined analysis (108s) is 4x slower than parallel separate calls (~27s based on model comparison data)
+    // Parallel calls: max(13.8s, 13.8s) ≈ 14s vs Combined: 108s
+    // Trade-off: Lose cross-referencing but gain 4x speed improvement
+    console.warn('🚀 Starting PARALLEL resume + cover letter analysis (optimized for speed)');
+    
     try {
-      const combinedText = `RESUME:\n${resumeText}\n\nCOVER LETTER:\n${coverLetterText}`;
-      
-      // Calculate optimal token limit for combined content
-      const optimalTokens = this.calculateOptimalTokens(combinedText, 'resume');
-      
-      // Check if combined content exceeds safe limit
-      if (optimalTokens > 4000) {
-        console.warn('🚨 Combined content exceeds 4000 tokens, falling back to separate calls');
-        return {
-          resume: await this.analyzeResume(resumeText),
-          coverLetter: await this.analyzeCoverLetter(coverLetterText)
-        };
-      }
-      
-      console.warn(`🚀 Starting combined resume + cover letter analysis with ${optimalTokens} tokens`);
-      
-      const prompt = this.buildCombinedAnalysisPrompt(resumeText, coverLetterText);
-      const response = await this.callOpenAI(prompt, optimalTokens);
-      
-      if (!response.success) {
-        console.warn('🔄 Combined analysis failed, falling back to separate calls');
-        return {
-          resume: await this.analyzeResume(resumeText),
-          coverLetter: await this.analyzeCoverLetter(coverLetterText)
-        };
-      }
-      
-      // Parse combined response into separate results
-      const combinedData = response.data as any;
+      // Run both analyses in parallel for maximum performance
+      const [resumeResult, coverLetterResult] = await Promise.all([
+        this.analyzeResume(resumeText),
+        this.analyzeCoverLetter(coverLetterText)
+      ]);
       
       return {
-        resume: {
-          success: true,
-          data: combinedData.resume
-        },
-        coverLetter: {
-          success: true,
-          data: combinedData.coverLetter
-        }
+        resume: resumeResult,
+        coverLetter: coverLetterResult
       };
     } catch (error) {
-      console.error('Combined analysis error:', error);
-      // Fallback to separate calls
+      console.error('Parallel analysis error:', error);
+      // If parallel fails, try sequential as last resort
+      console.warn('🔄 Parallel analysis failed, falling back to sequential calls');
       return {
         resume: await this.analyzeResume(resumeText),
         coverLetter: await this.analyzeCoverLetter(coverLetterText)
