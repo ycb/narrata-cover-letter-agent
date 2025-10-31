@@ -385,7 +385,8 @@ export default function WorkHistory() {
       // Get work item IDs for filtering blurbs and links (already filtered by profile if applicable)
       const workItemIds = workItems?.map(wi => wi.id) || [];
       
-      // Fetch approved content (blurbs) - filter by work items if available
+      // Fetch approved content (blurbs) - only stories linked to work items
+      // Stories MUST be associated with work_items - no orphan stories
       let blurbsQuery = supabase
         .from('approved_content')
         .select('*')
@@ -393,6 +394,9 @@ export default function WorkHistory() {
       
       if (workItemIds.length > 0) {
         blurbsQuery = blurbsQuery.in('work_item_id', workItemIds);
+      } else {
+        // If no work items, no stories to show
+        blurbsQuery = blurbsQuery.is('work_item_id', null); // This will return empty
       }
       
       const { data: blurbs, error: blurbsError } = await blurbsQuery

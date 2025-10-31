@@ -19,8 +19,12 @@ OBJECTIVES:
 2) For each paragraph, identify its FUNCTION (intro | story | closer | other).
 3) Describe its PURPOSE (e.g., mission-alignment, demonstrating relevant experience, addressing requirements, showing leadership, explaining motivation, etc.).
 4) Summarize what the paragraph accomplishes and why it matters.
-5) Extract any STORIES (distinct examples or accomplishments) in STAR form for reuse elsewhere.
-6) Infer the writer’s tone, voice, and style.
+5) Extract any STORIES (distinct examples or accomplishments) in STAR form for reuse elsewhere - MUST be linked to a specific work history role (company + role).
+6) Distinguish between:
+   - STORIES: Concrete examples linked to specific work history roles (have company/role context)
+   - ROLE-LEVEL METRICS: Quantified impact/achievements for a role (update work_items, not stories)
+   - PROFILE DATA: Goals, values, preferences, voice, skills without work history context
+7) Infer the writer's tone, voice, and style (profile-level data).
 
 OUTPUT JSON SCHEMA:
 {
@@ -94,6 +98,32 @@ OUTPUT JSON SCHEMA:
     }
   },
   "skillsMentioned": ["deduped lowercase slugs"],
+  "profileData": {
+    "goals": ["Career goal 1", "Relocation preference", "Industry focus", "etc."],
+    "voice": {
+      "tone": ["executive", "concise", "metric-forward", "mission-forward", "story-first", "friendly", "formal", "direct"],
+      "style": "Brief description of writing style and communication preferences",
+      "persona": ["leader", "IC", "founder", "player-coach"]
+    },
+    "preferences": ["B2B2C", "mobile apps", "leadership roles", "relocation to NYC", "etc."]
+  },
+  "roleLevelMetrics": [
+    {
+      "company": "Company Name",  // REQUIRED: Must match existing work history
+      "titleRole": "Job Title",  // REQUIRED: Must match existing work history role
+      "metrics": [
+        {
+          "name": "e.g., Revenue, Conversion, Churn",
+          "value": "number|null",
+          "unit": "%|$|users|...|null",
+          "direction": "up|down|null",
+          "context": "Brief description of the metric context",
+          "parentType": "role"
+        }
+      ],
+      "summary": "Role-level summary of responsibility, team structure, overall impact, challenges overcome"
+    }
+  ],
   "entityRefs": {
     "educationRefs": []
   },
@@ -112,13 +142,28 @@ RULES:
 - Normalize tags to lowercase canonical forms (e.g., "plg", "xai", "nlp", "derms", "vpp").
 - CRITICAL: All metrics in stories must include "parentType": "story" field.
 
-STORY COMPANY/ROLE CONTEXT:
-- For each story, extract company and role context if mentioned:
-  - Include company name if story references a specific company
-  - Include titleRole if story references a specific job title/position
-  - These fields help identify which role the story relates to, but cover letters do NOT provide work history entries
-  - Stories should always have linkedToWorkHistory: false since cover letters don't contain work history
-  - Use company and titleRole for context only, not for creating work history entries
+CRITICAL DISTINCTIONS:
+
+STORY EXTRACTION:
+- Stories MUST be linked to a specific work history role (company + role)
+- If a paragraph describes an accomplishment but lacks company/role context, it's NOT a story - it may be:
+  * Profile data (goals, values, skills) → store in profileData
+  * Role-level metric without story context → store in roleLevelMetrics
+- Only extract as a story if you can identify BOTH company and role mentioned in the text
+- Company and titleRole fields are REQUIRED for stories - use null if not identifiable
+
+ROLE-LEVEL METRICS:
+- Quantified achievements that update existing work_items (not new stories)
+- Must include company and titleRole that match existing work history
+- Examples: "At AcmeCRM, increased revenue by 25%" (metric, not full story)
+- Use roleLevelMetrics array for these, not stories array
+
+PROFILE DATA:
+- Career goals, values, preferences, voice, writing style
+- Skills mentioned without work history context
+- Relocation preferences, industry focus, leadership style
+- Store in profileData object
+- Extract tone/voice/style from overall letter structure
 
 - Keep everything concise, accurate, and JSON-valid.
 - Return ONLY valid JSON matching this schema.

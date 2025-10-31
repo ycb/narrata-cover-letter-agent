@@ -619,6 +619,11 @@ export class FileUploadService {
         await this.processStructuredData(structuredData, sourceId, accessToken);
       }
       
+      // Match cover letter stories to existing work_items and extract profile data
+      if (type === 'coverLetter') {
+        await this.processCoverLetterData(structuredData, sourceId, accessToken);
+      }
+      
       // Normalize skills for both resume and cover letter
       const { data: sourceData } = await supabase
         .from('sources')
@@ -738,6 +743,13 @@ export class FileUploadService {
       
       // Process each work history entry
       for (const workItem of structuredData.workHistory) {
+        // Skip work items without a valid title - every role needs a title
+        const workItemTitle = workItem.position || workItem.title;
+        if (!workItemTitle || workItemTitle.trim() === '') {
+          console.warn(`⚠️ Skipping work item for ${workItem.company || 'Unknown'}: missing position/title`);
+          continue;
+        }
+
         // First, create or find the company
         let companyId: string;
         
@@ -792,7 +804,7 @@ export class FileUploadService {
           .insert({
             user_id: userId,
             company_id: companyId,
-            title: workItem.position || workItem.title,
+            title: workItemTitle.trim(),
             start_date: workItem.startDate,
             end_date: workItem.endDate === 'Present' ? null : workItem.endDate,
             description: workItem.roleSummary || workItem.description || '',
@@ -898,6 +910,349 @@ export class FileUploadService {
       }));
     } catch (error) {
       console.error('Error processing structured data:', error);
+    }
+  }
+
+  /**
+   * Process cover letter data: match stories to work_items, extract profile data (goals, voice, skills)
+   * Stories MUST be linked to work_items - if no match found, it's likely profile data, not a story
+   */
+  private async processCoverLetterData(
+    structuredData: any,
+    sourceId: string,
+    accessToken?: string
+  ): Promise<void> {
+    try {
+      // Use authenticated client if accessToken provided
+      let dbClient: any;
+      if (accessToken) {
+        const { createClient } = await import('@supabase/supabase-js');
+        const url = (import.meta.env?.VITE_SUPABASE_URL) || (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_URL : '');
+        const key = (import.meta.env?.VITE_SUPABASE_ANON_KEY) || (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_ANON_KEY : '');
+        dbClient = createClient(url, key, {
+          global: {
+            headers: {
+              Authorization: `Bearer ${accessToken}`
+            }
+          }
+        });
+      } else {
+        const { supabase } = await import('../lib/supabase');
+        dbClient = supabase;
+      }
+
+      // Get the user_id from the source record
+      const { data: sourceData, error: sourceError } = await dbClient
+        .from('sources')
+        .select('user_id')
+        .eq('id', sourceId)
+        .single();
+      
+      if (sourceError || !sourceData) {
+        console.error('❌ Error fetching source record for cover letter processing:', sourceError);
+        return;
+      }
+
+      const userId = sourceData.user_id;
+      let storiesMatched = 0;
+      let storiesSkipped = 0;
+      let profileDataExtracted = false;
+
+      // 1. Process top-level stories - match to existing work_items
+      if (structuredData.stories && Array.isArray(structuredData.stories) && structuredData.stories.length > 0) {
+        console.log(`📝 Processing ${structuredData.stories.length} cover letter stories...`);
+
+        for (const story of structuredData.stories) {
+          // Validate story has required content
+          if (!story.content && !story.title) {
+            console.warn('⚠️ Skipping story with no content or title');
+            continue;
+          }
+
+          // Try to match story to existing work_item by company/role
+          const workItemMatch = await this.matchStoryToWorkItem(story, userId, dbClient);
+          
+          if (workItemMatch) {
+            // This is a story - save to approved_content linked to work_item
+            const storyMetrics = Array.isArray(story.metrics)
+              ? story.metrics.map((m: any) => ({
+                  ...m,
+                  parentType: m.parentType || 'story'
+                }))
+              : [];
+            
+            const { error: storyError } = await dbClient
+              .from('approved_content')
+              .insert({
+                user_id: userId,
+                work_item_id: workItemMatch.workItemId,
+                company_id: workItemMatch.companyId,
+                title: story.title || story.content?.substring(0, 100),
+                content: story.content || '',
+                tags: story.tags || [],
+                metrics: storyMetrics,
+                source_id: sourceId
+              });
+
+            if (storyError) {
+              console.error('❌ Error creating cover letter story:', storyError);
+              storiesSkipped++;
+            } else {
+              console.log(`✅ Story matched to work_item: ${workItemMatch.companyName} - ${workItemMatch.roleTitle}`);
+              storiesMatched++;
+            }
+          } else {
+            // No work_item match - this is likely profile data (goals, values, skills), not a story
+            console.log(`⚠️ Story couldn't be matched to work_item - treating as profile data: "${story.title || story.content?.substring(0, 50)}"`);
+            storiesSkipped++;
+            // TODO: Extract as profile data (goals, voice, skills)
+            profileDataExtracted = true;
+          }
+        }
+      }
+
+      // 2. Extract profile-level data (goals, voice, preferences)
+      if (structuredData.profileData) {
+        await this.updateProfileData(structuredData.profileData, userId, dbClient);
+        profileDataExtracted = true;
+      }
+
+      // 3. Extract role-level metrics (not stories - update existing work_items)
+      if (structuredData.roleLevelMetrics && Array.isArray(structuredData.roleLevelMetrics)) {
+        await this.updateRoleLevelMetrics(structuredData.roleLevelMetrics, userId, dbClient, sourceId);
+      }
+
+      console.log(`📊 Cover letter processing summary: ${storiesMatched} stories matched, ${storiesSkipped} skipped (likely profile data)`);
+    } catch (error) {
+      console.error('Error processing cover letter data:', error);
+    }
+  }
+
+  /**
+   * Match a story to an existing work_item by company/role mentioned in the story
+   * Returns match info or null if no match found
+   */
+  private async matchStoryToWorkItem(
+    story: any,
+    userId: string,
+    dbClient: any
+  ): Promise<{ workItemId: string; companyId: string; companyName: string; roleTitle: string } | null> {
+    // Extract company and role from story content or explicit fields
+    const companyName = story.company || this.extractCompanyFromText(story.content || story.title || '');
+    const roleTitle = story.titleRole || story.role || this.extractRoleFromText(story.content || '');
+
+    if (!companyName) {
+      // No company mentioned - can't match to work_item
+      return null;
+    }
+
+    // Find company
+    const { data: company } = await dbClient
+      .from('companies')
+      .select('id, name')
+      .eq('name', companyName)
+      .eq('user_id', userId)
+      .single();
+    
+    if (!company) {
+      return null;
+    }
+
+    // Find matching work_item
+    let workItemQuery = dbClient
+      .from('work_items')
+      .select('id, title')
+      .eq('company_id', company.id)
+      .eq('user_id', userId);
+    
+    // If role is mentioned, try to match by title
+    if (roleTitle) {
+      workItemQuery = workItemQuery.ilike('title', `%${roleTitle}%`);
+    }
+    
+    const { data: workItem } = await workItemQuery.single();
+    
+    if (workItem) {
+      return {
+        workItemId: workItem.id,
+        companyId: company.id,
+        companyName: company.name,
+        roleTitle: workItem.title
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Extract company name from text (simple heuristic)
+   */
+  private extractCompanyFromText(text: string): string | null {
+    // Look for patterns like "At CompanyName," or "While at CompanyName"
+    const match = text.match(/(?:at|from|while at|during my time at)\s+([A-Z][A-Za-z0-9\s&]+?)(?:[,;]|\.|$)/i);
+    return match ? match[1].trim() : null;
+  }
+
+  /**
+   * Extract role/title from text (simple heuristic)
+   */
+  private extractRoleFromText(text: string): string | null {
+    // Look for patterns like "as a Product Manager" or "in my role as..."
+    const match = text.match(/(?:as (?:a|an)\s+|in my role as|while serving as)\s+([A-Z][A-Za-z\s]+?)(?:[,;]|\.|$)/i);
+    return match ? match[1].trim() : null;
+  }
+
+  /**
+   * Update profile data (goals, user_voice) in profiles table
+   */
+  private async updateProfileData(
+    profileData: any,
+    userId: string,
+    dbClient: any
+  ): Promise<void> {
+    try {
+      const updates: { goals?: string; user_voice?: string } = {};
+
+      // Extract and format goals
+      if (profileData.goals && Array.isArray(profileData.goals) && profileData.goals.length > 0) {
+        updates.goals = JSON.stringify(profileData.goals);
+      }
+
+      // Extract and format user voice
+      if (profileData.voice) {
+        const voiceData = {
+          tone: profileData.voice.tone || [],
+          style: profileData.voice.style || '',
+          persona: profileData.voice.persona || []
+        };
+        if (voiceData.tone.length > 0 || voiceData.style || voiceData.persona.length > 0) {
+          updates.user_voice = JSON.stringify(voiceData);
+        }
+      }
+
+      // Only update if we have data
+      if (Object.keys(updates).length > 0) {
+        const { error } = await dbClient
+          .from('profiles')
+          .update(updates)
+          .eq('id', userId);
+
+        if (error) {
+          console.error('❌ Error updating profile data:', error);
+        } else {
+          console.log('✅ Profile data updated (goals, voice)');
+        }
+      }
+    } catch (error) {
+      console.error('Error updating profile data:', error);
+    }
+  }
+
+  /**
+   * Update role-level metrics for existing work_items
+   */
+  private async updateRoleLevelMetrics(
+    roleLevelMetrics: any[],
+    userId: string,
+    dbClient: any,
+    sourceId: string
+  ): Promise<void> {
+    try {
+      let updated = 0;
+      let skipped = 0;
+
+      for (const roleMetric of roleLevelMetrics) {
+        if (!roleMetric.company || !roleMetric.titleRole) {
+          console.warn('⚠️ Skipping role-level metric: missing company or titleRole');
+          skipped++;
+          continue;
+        }
+
+        // Find company
+        const { data: company } = await dbClient
+          .from('companies')
+          .select('id')
+          .eq('name', roleMetric.company)
+          .eq('user_id', userId)
+          .single();
+
+        if (!company) {
+          console.warn(`⚠️ Company not found for role-level metric: ${roleMetric.company}`);
+          skipped++;
+          continue;
+        }
+
+        // Find matching work_item
+        const { data: workItem } = await dbClient
+          .from('work_items')
+          .select('id, metrics')
+          .eq('company_id', company.id)
+          .eq('user_id', userId)
+          .ilike('title', `%${roleMetric.titleRole}%`)
+          .single();
+
+        if (!workItem) {
+          console.warn(`⚠️ Work item not found for role-level metric: ${roleMetric.company} - ${roleMetric.titleRole}`);
+          skipped++;
+          continue;
+        }
+
+        // Merge metrics (role-level metrics have parentType: "role")
+        const existingMetrics = Array.isArray(workItem.metrics) ? workItem.metrics : [];
+        const newMetrics = Array.isArray(roleMetric.metrics)
+          ? roleMetric.metrics.map((m: any) => ({
+              ...m,
+              parentType: m.parentType || 'role'
+            }))
+          : [];
+
+        // Merge without duplicates (simple comparison by name + value)
+        const mergedMetrics = [...existingMetrics];
+        for (const newMetric of newMetrics) {
+          const exists = mergedMetrics.some(
+            (existing: any) =>
+              existing.name === newMetric.name &&
+              existing.value === newMetric.value &&
+              existing.parentType === 'role'
+          );
+          if (!exists) {
+            mergedMetrics.push(newMetric);
+          }
+        }
+
+        // Update work_item with merged metrics and summary
+        const updateData: any = {
+          metrics: mergedMetrics,
+          source_id: sourceId // Track that metrics came from cover letter
+        };
+
+        // Update description if role-level summary provided
+        if (roleMetric.summary) {
+          const existingDescription = workItem.description || '';
+          if (existingDescription && !existingDescription.includes(roleMetric.summary)) {
+            updateData.description = `${existingDescription}\n\n${roleMetric.summary}`;
+          } else if (!existingDescription) {
+            updateData.description = roleMetric.summary;
+          }
+        }
+
+        const { error } = await dbClient
+          .from('work_items')
+          .update(updateData)
+          .eq('id', workItem.id);
+
+        if (error) {
+          console.error('❌ Error updating role-level metrics:', error);
+          skipped++;
+        } else {
+          console.log(`✅ Updated role-level metrics for: ${roleMetric.company} - ${roleMetric.titleRole}`);
+          updated++;
+        }
+      }
+
+      console.log(`📊 Role-level metrics: ${updated} updated, ${skipped} skipped`);
+    } catch (error) {
+      console.error('Error updating role-level metrics:', error);
     }
   }
 
@@ -1364,6 +1719,9 @@ export class FileUploadService {
         if (combinedResult.coverLetter.data?.workHistory && Array.isArray(combinedResult.coverLetter.data.workHistory) && combinedResult.coverLetter.data.workHistory.length > 0) {
           await this.processStructuredData(combinedResult.coverLetter.data, this.pendingCoverLetter.sourceId, accessToken);
         }
+        
+        // Match cover letter stories to existing work_items and extract profile data
+        await this.processCoverLetterData(combinedResult.coverLetter.data, this.pendingCoverLetter.sourceId, accessToken);
         
         // Normalize skills from cover letter
         const { data: coverLetterSourceData } = await supabase
