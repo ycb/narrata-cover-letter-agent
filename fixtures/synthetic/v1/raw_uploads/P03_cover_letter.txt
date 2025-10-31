@@ -1,8 +1,14 @@
-Dear Hiring Committee,
+Dear Hiring Team,
 
-I build fast paths to yes in checkout. At PayWave I grew conversion by 15% with a steady test cadence and simplified forms, and partnered with Risk to reduce false positives by 8%. Earlier at NeoBanker I improved KYC time‑to‑verify by 28% through API consolidation and clearer states.
+I’m a product manager with experience leading growth initiatives. I’ve learned that compounding growth comes from disciplined experimentation and clear measurement. Over the past several years, I’ve helped teams translate strategy into shipped impact across web and mobile platforms.
 
-Your PM, Checkout Growth role aligns with my strengths in experiment design, instrumentation, and cross‑team execution. I'd focus on shaving milliseconds, clarifying friction points, and sequencing bets to compound impact.
+In my current role as Product Manager, Checkout at PayWave, I’ve focused on delivering measurable outcomes through user-centered design and iterative development. I partner with engineering, design, and analytics to align around success metrics, prioritize experiments, and ensure learnings flow across the organization. Recent work included defining analytics taxonomies, optimizing onboarding flows, and introducing processes that improved retention and velocity.
+
+My approach balances qualitative insight and quantitative rigor. I run structured discovery to identify unmet needs, then design experiments that de-risk investment before full rollout. I believe great product management comes from curiosity, empathy, and clear communication—ensuring stakeholders stay aligned even when the path is uncertain.
+
+Beyond product outcomes, I invest in the health of the teams I support. I’ve led rituals that improve collaboration and transparency, from experiment reviews to release retros. I value psychological safety, candid feedback, and making impact visible through shared dashboards and goals.
+
+I’m excited by opportunities that combine strategy, execution, and learning. I’d welcome a conversation about how my experience could contribute to your roadmap.
 
 Regards,
-Riley
+Riley Gupta

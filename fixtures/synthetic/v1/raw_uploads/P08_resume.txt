@@ -1,13 +1,22 @@
+PRIYA DESAI
+Toronto, ON, CA | EdTech | Users: B2B (schools), B2C (learners) | Platforms: Web
+
 SUMMARY
-Early-career PM transitioning from QA/operations; strong in process and documentation.
+Priya Desai is a product manager with 2 years in EdTech. They work across B2B (schools), B2C (learners) on web platforms, combining clear problem framing, disciplined experimentation, and close collaboration with engineering, design, data, and go‑to‑market teams. Their focus is translating user friction into measurable outcomes while building durable product systems.
+
+CORE STRENGTHS
+Backlog management, ticket writing, QA, docs, speed of learning.
 
 EXPERIENCE
-TestCraft — QA Analyst (2022–2024), Toronto, ON
-• Built regression suite; cut release defects ~20%.
-• Organized bug triage and release notes cadence.
+TestCraft — QA Analyst (2022-01–2024-08) | Toronto, ON
+• Created regression suite; release defects ~−20%; coverage to 82%.
+• Set up triage and release notes cadence across Eng/PM.
 
-HelpLoop — Operations Coordinator (2020–2022), Toronto, ON
-• Owned vendor onboarding playbooks and SLAs.
+HelpLoop — Operations Coordinator (2020-06–2021-12) | Toronto, ON
+• Built onboarding guides and SLAs; time‑to‑first‑transaction −14%.
 
 EDUCATION
-B.S. Information Technology, University of Toronto
+B.S. Information Technology, University of Toronto (2020-05)
+
+TOOLS
+Amplitude/GA4, SQL, Experiment platforms, Flags, Jira/Linear, Figma, Writing

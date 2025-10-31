@@ -1,57 +1,58 @@
 {
   "basic_info": {
-    "full_name": "Jordan Alvarez",
-    "headline": "Senior PM — Energy Intelligence | Telemetry, Alerts, Fleet Health",
-    "location": "Los Angeles, CA, US",
-    "email": "jordan@example.com",
+    "full_name": "Diego Morales",
+    "headline": "Sr PM — Platform & Reliability | Migrations, SLAs, Tooling",
+    "location": "Austin, TX, US",
+    "email": "diego@example.com",
     "websites": [],
-    "current_role": "Senior Product Manager",
-    "current_company": "Sunlytic"
+    "current_role": "Senior PM, Platform",
+    "current_company": "StratusWorks"
   },
   "experience": [
     {
-      "company": "Sunlytic",
-      "title": "Senior Product Manager",
+      "company": "StratusWorks",
+      "title": "Senior PM, Platform",
       "employment_type": "Full-time",
-      "location": "Los Angeles, CA",
-      "start_date": "2022-03",
+      "location": "Austin, TX",
+      "start_date": "2019-08",
       "end_date": "Present",
       "platforms": [
         "Web",
-        "Mobile"
+        "CLI"
       ],
       "description": [
-        "Launched fleet health monitoring; critical outages −14% YoY; dispatch time −12%.",
-        "Introduced SLA reporting and alert tuning; MTTA −18% and false alarms −21%."
+        "Led monolith→services migration; incidents −27%; P95 latency −18%.",
+        "Added feature flags and kill‑switches; rollback time −70%."
       ]
     },
     {
-      "company": "AuricSoft",
+      "company": "DeviceCloud",
       "title": "Product Manager",
       "employment_type": "Full-time",
-      "location": "Irvine, CA",
-      "start_date": "2019-05",
-      "end_date": "2022-02",
+      "location": "Austin, TX",
+      "start_date": "2015-06",
+      "end_date": "2019-07",
       "platforms": [
+        "CLI",
         "Web"
       ],
       "description": [
-        "Improved quoting workflow; win rate +9% in SMB; manual entry −40% via integrations.",
-        "Shipped device onboarding tool; install time −12%; defect rate −8%."
+        "SDKs/CLI improved internal developer satisfaction +30%; build time −22%.",
+        "Instituted SLAs/SLOs and reliability dashboards for weekly ops."
       ]
     },
     {
-      "company": "GreenGrid",
+      "company": "CodeBridge",
       "title": "Associate PM",
       "employment_type": "Full-time",
-      "location": "San Diego, CA",
-      "start_date": "2016-12",
-      "end_date": "2019-04",
+      "location": "Austin, TX",
+      "start_date": "2013-06",
+      "end_date": "2015-05",
       "platforms": [
         "Web"
       ],
       "description": [
-        "Defined telemetry schema for inverter fleet; data completeness → 96%."
+        "Launched developer portal; onboarding −25%; support tickets −19%."
       ]
     }
   ],

@@ -1,0 +1,77 @@
+{
+  "basic_info": {
+    "full_name": "Priya Desai",
+    "headline": "Associate PM — EdTech | QA, Ops-to-PM Transition",
+    "location": "Toronto, ON, CA",
+    "email": "priya@example.com",
+    "websites": [],
+    "current_role": "QA Analyst",
+    "current_company": "TestCraft"
+  },
+  "experience": [
+    {
+      "company": "TestCraft",
+      "title": "QA Analyst",
+      "employment_type": "Full-time",
+      "location": "Toronto, ON",
+      "start_date": "2022-01",
+      "end_date": "2024-08",
+      "platforms": [
+        "Web"
+      ],
+      "description": [
+        "Created regression suite; release defects ~−20%; coverage to 82%.",
+        "Set up triage and release notes cadence across Eng/PM."
+      ]
+    },
+    {
+      "company": "HelpLoop",
+      "title": "Operations Coordinator",
+      "employment_type": "Full-time",
+      "location": "Toronto, ON",
+      "start_date": "2020-06",
+      "end_date": "2021-12",
+      "platforms": [
+        "Web"
+      ],
+      "description": [
+        "Built onboarding guides and SLAs; time‑to‑first‑transaction −14%."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "school": "University of Toronto",
+      "degree": "B.S.",
+      "field": "Information Technology",
+      "start_date": "2016-09",
+      "end_date": "2020-05",
+      "location": "Toronto, ON"
+    }
+  ],
+  "projects": [
+    {
+      "name": "Experimentation Hub",
+      "description": "Internal tooling for test design and readouts across squads."
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Product Analytics",
+      "authority": "Amplitude (synthetic)",
+      "date": "2021-06"
+    }
+  ],
+  "languages": [
+    "English"
+  ],
+  "skills": [
+    "Product Strategy",
+    "Experimentation",
+    "Onboarding",
+    "Analytics",
+    "SQL",
+    "Writing",
+    "Stakeholder Alignment"
+  ]
+}

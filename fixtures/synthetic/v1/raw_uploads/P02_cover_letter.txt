@@ -1,14 +1,14 @@
 Dear Hiring Team,
 
-I am writing to express my strong interest in the Growth Product Manager role at your company. As a growth-focused product manager with 7+ years of experience, I have consistently delivered measurable results in user acquisition, retention, and engagement.
+I’m a product manager with experience leading reliability initiatives. I believe reliability is a core feature—teams earn user trust by making systems predictable and performant. Over the past several years, I’ve helped teams translate strategy into shipped impact across web and mobile platforms.
 
-At GrowthCo, I launched a viral referral program that increased user acquisition by 45% while reducing customer acquisition cost by 30%. This program became our primary growth engine and was featured in industry publications as a best practice case study. I also built comprehensive onboarding funnel optimization that improved Day-7 retention by 18% and reduced time-to-value by 40%.
+In my current role as Senior Product Manager at Sunlytic, I’ve focused on delivering measurable outcomes through user-centered design and iterative development. I partner with engineering, design, and analytics to align around success metrics, prioritize experiments, and ensure learnings flow across the organization. Recent work included defining analytics taxonomies, optimizing onboarding flows, and introducing processes that improved retention and velocity.
 
-My approach to growth is data-driven and user-centric. I implemented a sophisticated push notification strategy that increased engagement by 25% and session frequency by 15%, while maintaining high user satisfaction scores. This demonstrates my ability to balance growth metrics with user experience.
+My approach balances qualitative insight and quantitative rigor. I run structured discovery to identify unmet needs, then design experiments that de-risk investment before full rollout. I believe great product management comes from curiosity, empathy, and clear communication—ensuring stakeholders stay aligned even when the path is uncertain.
 
-Previously at MobileFirst, I owned the user onboarding flow and increased activation rates by 35% while reducing drop-off by 20%. I also launched gamification features that drove DAU up by 22% and increased user lifetime value by 28%, showing my ability to create engaging experiences that drive business results.
+Beyond product outcomes, I invest in the health of the teams I support. I’ve led rituals that improve collaboration and transparency, from experiment reviews to release retros. I value psychological safety, candid feedback, and making impact visible through shared dashboards and goals.
 
-I am particularly excited about your company's mission and believe my experience in growth marketing, user acquisition, and mobile-first product development would be valuable in scaling your product. I would love to discuss how my background can contribute to your growth objectives.
+I’m excited by opportunities that combine strategy, execution, and learning. I’d welcome a conversation about how my experience could contribute to your roadmap.
 
-Best regards,
+Regards,
 Jordan Alvarez

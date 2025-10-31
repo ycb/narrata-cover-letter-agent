@@ -1,57 +1,55 @@
 {
   "basic_info": {
-    "full_name": "Jordan Alvarez",
-    "headline": "Senior PM — Energy Intelligence | Telemetry, Alerts, Fleet Health",
-    "location": "Los Angeles, CA, US",
-    "email": "jordan@example.com",
+    "full_name": "Noah Williams",
+    "headline": "Senior PM — Marketplaces | Search/Match, Pricing, Supply Health",
+    "location": "Seattle, WA, US",
+    "email": "noah@example.com",
     "websites": [],
     "current_role": "Senior Product Manager",
-    "current_company": "Sunlytic"
+    "current_company": "VendorLoop"
   },
   "experience": [
     {
-      "company": "Sunlytic",
+      "company": "VendorLoop",
       "title": "Senior Product Manager",
       "employment_type": "Full-time",
-      "location": "Los Angeles, CA",
-      "start_date": "2022-03",
+      "location": "Seattle, WA",
+      "start_date": "2020-01",
       "end_date": "Present",
       "platforms": [
-        "Web",
+        "Web"
+      ],
+      "description": [
+        "Match rate +13% via ranking/constraints; request→accept time −10%.",
+        "Pricing experiments increased ARPU +6% and take‑rate +3pp."
+      ]
+    },
+    {
+      "company": "Dockyard",
+      "title": "Product Manager",
+      "employment_type": "Full-time",
+      "location": "Seattle, WA",
+      "start_date": "2016-05",
+      "end_date": "2019-12",
+      "platforms": [
+        "Web"
+      ],
+      "description": [
+        "SLA benchmarks reduced late deliveries −9%; dispute rate −11% with scorecards."
+      ]
+    },
+    {
+      "company": "Shiply",
+      "title": "Associate PM",
+      "employment_type": "Full-time",
+      "location": "Seattle, WA",
+      "start_date": "2013-06",
+      "end_date": "2016-04",
+      "platforms": [
         "Mobile"
       ],
       "description": [
-        "Launched fleet health monitoring; critical outages −14% YoY; dispatch time −12%.",
-        "Introduced SLA reporting and alert tuning; MTTA −18% and false alarms −21%."
-      ]
-    },
-    {
-      "company": "AuricSoft",
-      "title": "Product Manager",
-      "employment_type": "Full-time",
-      "location": "Irvine, CA",
-      "start_date": "2019-05",
-      "end_date": "2022-02",
-      "platforms": [
-        "Web"
-      ],
-      "description": [
-        "Improved quoting workflow; win rate +9% in SMB; manual entry −40% via integrations.",
-        "Shipped device onboarding tool; install time −12%; defect rate −8%."
-      ]
-    },
-    {
-      "company": "GreenGrid",
-      "title": "Associate PM",
-      "employment_type": "Full-time",
-      "location": "San Diego, CA",
-      "start_date": "2016-12",
-      "end_date": "2019-04",
-      "platforms": [
-        "Web"
-      ],
-      "description": [
-        "Defined telemetry schema for inverter fleet; data completeness → 96%."
+        "Launched mobile shipment tracking MVP; active supply +7% in 90 days."
       ]
     }
   ],

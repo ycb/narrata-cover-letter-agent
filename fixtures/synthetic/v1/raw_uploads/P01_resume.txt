@@ -1,26 +1,28 @@
 AVERY CHEN
-Senior Product Manager — PLG & Onboarding | Experiments, Activation, Analytics
-San Francisco Bay Area, CA, US
-avery@example.com
+San Francisco Bay Area, CA, US | B2B SaaS (PLG) | Users: B2B | Platforms: Web, Mobile
+
+SUMMARY
+Avery Chen is a product manager with 8 years in B2B SaaS (PLG). They work across B2B on web, mobile platforms, combining clear problem framing, disciplined experimentation, and close collaboration with engineering, design, data, and go‑to‑market teams. Their focus is translating user friction into measurable outcomes while building durable product systems.
+
+CORE STRENGTHS
+Funnel analytics, experiment design, activation/retention, pricing & packaging, lifecycle messaging.
 
 EXPERIENCE
+FlowHub — Senior Product Manager (2021-05–Present) | San Francisco, CA
+• Overhauled self-serve onboarding; Week‑2 activation +22% and trial→paid +11% across SMB.
+• Built experimentation cadence (weekly triage, monthly reviews); 30+ tests/year.
+• Defined analytics taxonomy and dashboards adopted by PMM/CS for lifecycle targeting.
 
-Senior Product Manager | FlowHub | May 2021 - Present
-• Overhauled self-serve onboarding; Week-2 activation +22% and trial→paid +11% across SMB
-• Built experimentation cadence (weekly triage, monthly reviews); 30+ tests/year
-• Defined analytics taxonomy and dashboards adopted by PMM/CS for lifecycle targeting
+AcmeCRM — Product Manager (2019-02–2021-04) | Remote
+• Owned notifications platform; churn −3.5% via usage-triggered lifecycle messaging.
+• Launched persona playbooks; engagement +8% and feature adoption +6%.
 
-Product Manager | AcmeCRM | Feb 2019 - Apr 2021
-• Owned notifications platform; churn -3.5% via usage-triggered lifecycle messaging
-• Launched persona playbooks; engagement +8% and feature adoption +6%
-
-Associate Product Manager | DataDock | Jun 2017 - Jan 2019
-• Led data visualization suite; user adoption +15% and query performance +40%
-• Implemented user feedback loop; NPS +12 points and support tickets -25%
+DataDock — Associate Product Manager (2016-06–2019-01) | San Mateo, CA
+• Delivered admin console; NPS +10 in two quarters; support tickets −18%.
+• Instituted experiment backlog and readouts to align Eng/Design/CS.
 
 EDUCATION
-MS Computer Science | Stanford University | 2015-2017
-BS Mathematics | UC Berkeley | 2011-2015
+B.S. Computer Science, State University (2013-06)
 
-SKILLS
-Product Management, A/B Testing, Data Analysis, SQL, Python, User Research, Product Strategy, Growth, PLG, Onboarding, Experimentation, Analytics
+TOOLS
+Amplitude/GA4, SQL, Experiment platforms, Flags, Jira/Linear, Figma, Writing

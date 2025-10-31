@@ -1,6 +1,14 @@
-Hi Team,
+Dear Hiring Team,
 
-I pair UX rigor with measurable outcomes. At MobileCare I redesigned support flows that lifted our app rating by 1.1 points and prototyped a chatbot that reduced time‑to‑resolution by 17%. I'd focus on proactive diagnostics and clear content to lower effort while improving trust.
+I’m a product manager with experience leading customer initiatives. I care deeply about how people experience support—making help feel seamless, personal, and proactive. Over the past several years, I’ve helped teams translate strategy into shipped impact across web and mobile platforms.
 
-Thanks,
-Leo
+In my current role as Associate PM at MobileCare, I’ve focused on delivering measurable outcomes through user-centered design and iterative development. I partner with engineering, design, and analytics to align around success metrics, prioritize experiments, and ensure learnings flow across the organization. Recent work included defining analytics taxonomies, optimizing onboarding flows, and introducing processes that improved retention and velocity.
+
+My approach balances qualitative insight and quantitative rigor. I run structured discovery to identify unmet needs, then design experiments that de-risk investment before full rollout. I believe great product management comes from curiosity, empathy, and clear communication—ensuring stakeholders stay aligned even when the path is uncertain.
+
+Beyond product outcomes, I invest in the health of the teams I support. I’ve led rituals that improve collaboration and transparency, from experiment reviews to release retros. I value psychological safety, candid feedback, and making impact visible through shared dashboards and goals.
+
+I’m excited by opportunities that combine strategy, execution, and learning. I’d welcome a conversation about how my experience could contribute to your roadmap.
+
+Regards,
+Leo Martin

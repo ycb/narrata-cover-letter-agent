@@ -1,57 +1,55 @@
 {
   "basic_info": {
-    "full_name": "Jordan Alvarez",
-    "headline": "Senior PM — Energy Intelligence | Telemetry, Alerts, Fleet Health",
-    "location": "Los Angeles, CA, US",
-    "email": "jordan@example.com",
+    "full_name": "Morgan Patel",
+    "headline": "Senior PM — Applied AI | Explainability, HITL, Analytics",
+    "location": "Boston, MA, US",
+    "email": "morgan@example.com",
     "websites": [],
-    "current_role": "Senior Product Manager",
-    "current_company": "Sunlytic"
+    "current_role": "Senior PM, ML Experiences",
+    "current_company": "TalentGraph"
   },
   "experience": [
     {
-      "company": "Sunlytic",
-      "title": "Senior Product Manager",
+      "company": "TalentGraph",
+      "title": "Senior PM, ML Experiences",
       "employment_type": "Full-time",
-      "location": "Los Angeles, CA",
-      "start_date": "2022-03",
+      "location": "Boston, MA",
+      "start_date": "2020-02",
       "end_date": "Present",
       "platforms": [
-        "Web",
-        "Mobile"
+        "Web"
       ],
       "description": [
-        "Launched fleet health monitoring; critical outages −14% YoY; dispatch time −12%.",
-        "Introduced SLA reporting and alert tuning; MTTA −18% and false alarms −21%."
+        "Added explainable reasons and HITL overrides; ML usage 10× YoY; satisfaction +12pts.",
+        "Built feedback dashboard merging precision/recall with ratings; cut blind spots by half."
       ]
     },
     {
-      "company": "AuricSoft",
+      "company": "AdPilot",
       "title": "Product Manager",
       "employment_type": "Full-time",
-      "location": "Irvine, CA",
-      "start_date": "2019-05",
-      "end_date": "2022-02",
+      "location": "Boston, MA",
+      "start_date": "2017-03",
+      "end_date": "2020-01",
       "platforms": [
         "Web"
       ],
       "description": [
-        "Improved quoting workflow; win rate +9% in SMB; manual entry −40% via integrations.",
-        "Shipped device onboarding tool; install time −12%; defect rate −8%."
+        "Sequenced recommendations into workflows; adoption +9% in two quarters; bad recs −60%."
       ]
     },
     {
-      "company": "GreenGrid",
+      "company": "InsightIQ",
       "title": "Associate PM",
       "employment_type": "Full-time",
-      "location": "San Diego, CA",
-      "start_date": "2016-12",
-      "end_date": "2019-04",
+      "location": "Cambridge, MA",
+      "start_date": "2014-08",
+      "end_date": "2017-02",
       "platforms": [
         "Web"
       ],
       "description": [
-        "Defined telemetry schema for inverter fleet; data completeness → 96%."
+        "Launched labeling tools; training data quality +6pp."
       ]
     }
   ],

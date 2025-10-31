@@ -1,8 +1,14 @@
-Hello,
+Dear Hiring Team,
 
-I optimize marketplace systems for measurable outcomes. At VendorLoop I improved match rate by 13% with ranking and constraint tuning and increased ARPU by 6% through pricing/packaging experiments. Earlier I launched SLA benchmarking that reduced late deliveries by 9%.
+I’m a product manager with experience leading marketplace initiatives. I’m energized by the challenge of balancing liquidity, pricing, and quality across two-sided networks. Over the past several years, I’ve helped teams translate strategy into shipped impact across web and mobile platforms.
 
-I'd focus on search quality, supply health, and pricing levers to compound GMV.
+In my current role as Senior Product Manager at VendorLoop, I’ve focused on delivering measurable outcomes through user-centered design and iterative development. I partner with engineering, design, and analytics to align around success metrics, prioritize experiments, and ensure learnings flow across the organization. Recent work included defining analytics taxonomies, optimizing onboarding flows, and introducing processes that improved retention and velocity.
 
-Thanks,
-Noah
+My approach balances qualitative insight and quantitative rigor. I run structured discovery to identify unmet needs, then design experiments that de-risk investment before full rollout. I believe great product management comes from curiosity, empathy, and clear communication—ensuring stakeholders stay aligned even when the path is uncertain.
+
+Beyond product outcomes, I invest in the health of the teams I support. I’ve led rituals that improve collaboration and transparency, from experiment reviews to release retros. I value psychological safety, candid feedback, and making impact visible through shared dashboards and goals.
+
+I’m excited by opportunities that combine strategy, execution, and learning. I’d welcome a conversation about how my experience could contribute to your roadmap.
+
+Regards,
+Noah Williams

@@ -1,10 +1,22 @@
+LEO MARTIN
+Boston, MA, US | Consumer Support / Mobile | Users: B2C | Platforms: Mobile
+
 SUMMARY
-Design-led APM with 3 years in mobile support experiences.
+Leo Martin is a product manager with 3 years in Consumer Support / Mobile. They work across B2C on mobile platforms, combining clear problem framing, disciplined experimentation, and close collaboration with engineering, design, data, and go‑to‑market teams. Their focus is translating user friction into measurable outcomes while building durable product systems.
+
+CORE STRENGTHS
+Content design, diagnostics, CSAT/effort, contact reduction, mobile UX.
 
 EXPERIENCE
-MobileCare — Associate PM (2022–2025), Boston, MA
-• Redesigned support flows; +1.1 app store rating.
-• Prototyped chatbot; -17% time‑to‑resolution.
+MobileCare — Associate PM (2022-03–Present) | Boston, MA
+• Support flow redesign lifted app rating +1.1; time‑to‑resolution −17% with diagnostics.
+• Introduced feedback taxonomy; repeat contacts −9%.
+
+CampusApps — Product Intern (2021-06–2021-12) | Boston, MA
+• Prototyped diagnostics screens; task success +9% in tests.
 
 EDUCATION
-B.S. Human Factors, Tufts University
+B.S. Human Factors, Tufts University (2021-05)
+
+TOOLS
+Amplitude/GA4, SQL, Experiment platforms, Flags, Jira/Linear, Figma, Writing

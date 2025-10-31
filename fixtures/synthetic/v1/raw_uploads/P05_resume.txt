@@ -1,13 +1,25 @@
+SAMIRA KHAN
+Chicago, IL, US | HealthTech | Users: B2B (clinicians), B2C (patients) | Platforms: Mobile, Web
+
 SUMMARY
-PM with 7 years in digital health, clinician workflows, and patient adherence.
+Samira Khan is a product manager with 7 years in HealthTech. They work across B2B (clinicians), B2C (patients) on mobile, web platforms, combining clear problem framing, disciplined experimentation, and close collaboration with engineering, design, data, and go‑to‑market teams. Their focus is translating user friction into measurable outcomes while building durable product systems.
+
+CORE STRENGTHS
+Clinician/patient journeys, safety & privacy, alerting, adherence, outcomes tracking.
 
 EXPERIENCE
-Clinio — Product Manager (2021–2025), Chicago, IL
-• Remote‑monitoring flows improved patient adherence 12%.
-• Reduced alert fatigue 18% via thresholds and batching.
+Clinio — Product Manager (2021-01–Present) | Chicago, IL
+• Remote‑monitoring flows lifted adherence +12% in CHF cohort; readmissions −7%.
+• Alert fatigue −18% with threshold tuning, batching, and team routing.
 
-CarePad — APM (2019–2021), Chicago, IL
-• EHR intake forms decreased completion time 20%.
+CarePad — Associate PM (2019-05–2020-12) | Chicago, IL
+• EHR intake redesign cut completion time −20%; errors −15% with progressive disclosure.
+
+MedSync — Product Analyst (2017-06–2019-04) | Chicago, IL
+• Mapped clinician workflows; prioritized features reducing time‑to‑action by 11%.
 
 EDUCATION
-B.S. Biomedical Engineering, UIUC
+B.S. Biomedical Engineering, University of Illinois Urbana‑Champaign (2016-05)
+
+TOOLS
+Amplitude/GA4, SQL, Experiment platforms, Flags, Jira/Linear, Figma, Writing

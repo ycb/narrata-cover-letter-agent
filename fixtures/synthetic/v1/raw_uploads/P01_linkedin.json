@@ -1,115 +1,95 @@
 {
-  "id": "pdl_001",
-  "full_name": "Avery Chen",
-  "first_name": "Avery",
-  "last_name": "Chen",
-  "linkedin_url": "https://www.linkedin.com/in/avery-chen-pm",
-  "linkedin_username": "avery-chen-pm",
-  "location_name": "San Francisco Bay Area, CA, US",
-  "location_locality": "San Francisco",
-  "location_region": "CA",
-  "location_country": "US",
-  "summary": "Product Manager with 8 years in B2B SaaS focused on PLG growth. Led onboarding and activation programs; strong in experimentation and analytics.",
-  "headline": "Senior Product Manager | B2B SaaS Growth & PLG",
+  "basic_info": {
+    "full_name": "Avery Chen",
+    "headline": "Senior Product Manager — PLG & Onboarding | Experiments, Activation, Analytics",
+    "location": "San Francisco Bay Area, CA, US",
+    "email": "avery@example.com",
+    "websites": [],
+    "current_role": "Senior Product Manager",
+    "current_company": "FlowHub"
+  },
   "experience": [
     {
-      "company": {
-        "name": "FlowHub",
-        "website": "https://flowhub.com",
-        "linkedin_url": "https://www.linkedin.com/company/flowhub",
-        "size": "51-200",
-        "industry": "Software Development",
-        "location": {
-          "name": "San Francisco, CA",
-          "locality": "San Francisco",
-          "region": "CA",
-          "country": "US"
-        }
-      },
-      "title": {
-        "name": "Senior Product Manager",
-        "role": "Product Manager",
-        "levels": ["Senior"]
-      },
-      "start_date": "2021-01",
-      "end_date": "2025-01",
-      "location": {
-        "name": "San Francisco, CA",
-        "locality": "San Francisco",
-        "region": "CA",
-        "country": "US"
-      },
-      "is_primary": true,
-      "summary": "Revamped onboarding; +22% W2 activation, +11% trial→paid via 30+ A/B tests. Implemented in-app guides and event instrumentation (Segment, GA4). Partnered with CS/PMM on lifecycle messaging aligned to product milestones."
+      "company": "FlowHub",
+      "title": "Senior Product Manager",
+      "employment_type": "Full-time",
+      "location": "San Francisco, CA",
+      "start_date": "2021-05",
+      "end_date": "Present",
+      "platforms": [
+        "Web",
+        "Mobile"
+      ],
+      "description": [
+        "Overhauled self-serve onboarding; Week‑2 activation +22% and trial→paid +11% across SMB.",
+        "Built experimentation cadence (weekly triage, monthly reviews); 30+ tests/year.",
+        "Defined analytics taxonomy and dashboards adopted by PMM/CS for lifecycle targeting."
+      ]
     },
     {
-      "company": {
-        "name": "AcmeCRM",
-        "website": "https://acmecrm.com",
-        "size": "11-50",
-        "industry": "Software Development"
-      },
-      "title": {
-        "name": "Product Manager",
-        "role": "Product Manager"
-      },
-      "start_date": "2019-01",
-      "end_date": "2021-01",
-      "summary": "Owned notifications platform; reduced monthly churn by 3.5%. Shipped lifecycle playbooks adopted across 4 segments."
+      "company": "AcmeCRM",
+      "title": "Product Manager",
+      "employment_type": "Full-time",
+      "location": "Remote",
+      "start_date": "2019-02",
+      "end_date": "2021-04",
+      "platforms": [
+        "Web"
+      ],
+      "description": [
+        "Owned notifications platform; churn −3.5% via usage-triggered lifecycle messaging.",
+        "Launched persona playbooks; engagement +8% and feature adoption +6%."
+      ]
     },
     {
-      "company": {
-        "name": "DataDock",
-        "website": "https://datadock.com",
-        "size": "11-50",
-        "industry": "Software Development",
-        "location": {
-          "name": "San Mateo, CA",
-          "locality": "San Mateo",
-          "region": "CA",
-          "country": "US"
-        }
-      },
-      "title": {
-        "name": "Associate Product Manager",
-        "role": "Product Manager",
-        "levels": ["Associate"]
-      },
-      "start_date": "2017-01",
+      "company": "DataDock",
+      "title": "Associate Product Manager",
+      "employment_type": "Full-time",
+      "location": "San Mateo, CA",
+      "start_date": "2016-06",
       "end_date": "2019-01",
-      "summary": "Built admin console; NPS improved 31→41 within 2 quarters."
+      "platforms": [
+        "Web"
+      ],
+      "description": [
+        "Delivered admin console; NPS +10 in two quarters; support tickets −18%.",
+        "Instituted experiment backlog and readouts to align Eng/Design/CS."
+      ]
     }
   ],
   "education": [
     {
-      "school": {
-        "name": "UC Davis",
-        "website": "https://ucdavis.edu",
-        "location": {
-          "name": "Davis, CA",
-          "locality": "Davis",
-          "region": "CA",
-          "country": "US"
-        }
-      },
-      "degrees": ["Bachelor of Science"],
-      "majors": ["Computer Science"],
-      "start_date": "2013-09",
-      "end_date": "2017-06"
+      "school": "State University",
+      "degree": "B.S.",
+      "field": "Computer Science",
+      "start_date": "2009-09",
+      "end_date": "2013-06",
+      "location": "United States"
     }
   ],
+  "projects": [
+    {
+      "name": "Experimentation Hub",
+      "description": "Internal tooling for test design and readouts across squads."
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Product Analytics",
+      "authority": "Amplitude (synthetic)",
+      "date": "2021-06"
+    }
+  ],
+  "languages": [
+    "English"
+  ],
   "skills": [
-    "Product Management",
-    "Growth",
-    "PLG",
-    "Activation",
+    "Product Strategy",
     "Experimentation",
     "Onboarding",
-    "Amplitude",
+    "Analytics",
     "SQL",
     "Writing",
-    "A/B Testing",
-    "Analytics",
-    "User Experience"
+    "Stakeholder Alignment"
   ]
 }

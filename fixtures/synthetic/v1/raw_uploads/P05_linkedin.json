@@ -1,0 +1,92 @@
+{
+  "basic_info": {
+    "full_name": "Samira Khan",
+    "headline": "Product Manager — Patient Experience | Remote Monitoring, Adherence",
+    "location": "Chicago, IL, US",
+    "email": "samira@example.com",
+    "websites": [],
+    "current_role": "Product Manager",
+    "current_company": "Clinio"
+  },
+  "experience": [
+    {
+      "company": "Clinio",
+      "title": "Product Manager",
+      "employment_type": "Full-time",
+      "location": "Chicago, IL",
+      "start_date": "2021-01",
+      "end_date": "Present",
+      "platforms": [
+        "Mobile",
+        "Web"
+      ],
+      "description": [
+        "Remote‑monitoring flows lifted adherence +12% in CHF cohort; readmissions −7%.",
+        "Alert fatigue −18% with threshold tuning, batching, and team routing."
+      ]
+    },
+    {
+      "company": "CarePad",
+      "title": "Associate PM",
+      "employment_type": "Full-time",
+      "location": "Chicago, IL",
+      "start_date": "2019-05",
+      "end_date": "2020-12",
+      "platforms": [
+        "Web"
+      ],
+      "description": [
+        "EHR intake redesign cut completion time −20%; errors −15% with progressive disclosure."
+      ]
+    },
+    {
+      "company": "MedSync",
+      "title": "Product Analyst",
+      "employment_type": "Full-time",
+      "location": "Chicago, IL",
+      "start_date": "2017-06",
+      "end_date": "2019-04",
+      "platforms": [
+        "Web"
+      ],
+      "description": [
+        "Mapped clinician workflows; prioritized features reducing time‑to‑action by 11%."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "school": "University of Illinois Urbana‑Champaign",
+      "degree": "B.S.",
+      "field": "Biomedical Engineering",
+      "start_date": "2012-09",
+      "end_date": "2016-05",
+      "location": "Champaign, IL"
+    }
+  ],
+  "projects": [
+    {
+      "name": "Experimentation Hub",
+      "description": "Internal tooling for test design and readouts across squads."
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Product Analytics",
+      "authority": "Amplitude (synthetic)",
+      "date": "2021-06"
+    }
+  ],
+  "languages": [
+    "English"
+  ],
+  "skills": [
+    "Product Strategy",
+    "Experimentation",
+    "Onboarding",
+    "Analytics",
+    "SQL",
+    "Writing",
+    "Stakeholder Alignment"
+  ]
+}

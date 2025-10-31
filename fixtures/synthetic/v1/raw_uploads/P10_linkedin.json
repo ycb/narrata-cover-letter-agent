@@ -1,93 +1,92 @@
 {
-  "id": "pdl_010",
-  "full_name": "Sophia Rivera",
-  "first_name": "Sophia",
-  "last_name": "Rivera",
-  "linkedin_url": "https://www.linkedin.com/in/sophia-rivera-pm",
-  "linkedin_username": "sophia-rivera-pm",
-  "location_name": "Los Angeles, CA, US",
-  "location_locality": "Los Angeles",
-  "location_region": "CA",
-  "location_country": "US",
-  "summary": "Director of Product with 12 years across SaaS growth and platform; built a 7‑PM org and delivered multi‑product roadmap.",
-  "headline": "Director of Product | SaaS Growth & Platform Leadership",
+  "basic_info": {
+    "full_name": "Sophia Rivera",
+    "headline": "Director of Product — Growth & Platform | Org Building, Portfolio",
+    "location": "Los Angeles, CA, US",
+    "email": "sophia@example.com",
+    "websites": [],
+    "current_role": "Director of Product",
+    "current_company": "AtlasSuite"
+  },
   "experience": [
     {
-      "company": {
-        "name": "AtlasSuite",
-        "website": "https://atlassuite.com",
-        "size": "201-500",
-        "industry": "Software Development",
-        "location": {
-          "name": "Los Angeles, CA",
-          "locality": "Los Angeles",
-          "region": "CA",
-          "country": "US"
-        }
-      },
-      "title": {
-        "name": "Director of Product",
-        "role": "Product Manager",
-        "levels": ["Director"]
-      },
-      "start_date": "2020-01",
-      "end_date": "2025-01",
-      "is_primary": true,
-      "summary": "Scaled PM org 3→7; established operating cadence and KPIs. Expanded ARR 24% via pricing/packaging and two launches."
+      "company": "AtlasSuite",
+      "title": "Director of Product",
+      "employment_type": "Full-time",
+      "location": "Los Angeles, CA",
+      "start_date": "2020-04",
+      "end_date": "Present",
+      "platforms": [
+        "Web",
+        "Mobile"
+      ],
+      "description": [
+        "Scaled PM org 3→7; set cadence/KPIs; roadmap hit rate +18pp.",
+        "ARR +24% via pricing/packaging and two launches; portfolio governance."
+      ]
     },
     {
-      "company": {
-        "name": "Queryly",
-        "website": "https://queryly.com",
-        "size": "51-200",
-        "industry": "Software Development",
-        "location": {
-          "name": "Los Angeles, CA",
-          "locality": "Los Angeles",
-          "region": "CA",
-          "country": "US"
-        }
-      },
-      "title": {
-        "name": "Senior Product Manager",
-        "role": "Product Manager",
-        "levels": ["Senior"]
-      },
+      "company": "Queryly",
+      "title": "Senior Product Manager",
+      "employment_type": "Full-time",
+      "location": "Los Angeles, CA",
       "start_date": "2016-01",
-      "end_date": "2020-01",
-      "summary": "Activation +18% through onboarding and integrations."
+      "end_date": "2020-03",
+      "platforms": [
+        "Web"
+      ],
+      "description": [
+        "Activation +18% via onboarding/integrations; NRR +6pp with expansion motion."
+      ]
+    },
+    {
+      "company": "SiteSpark",
+      "title": "Product Manager",
+      "employment_type": "Full-time",
+      "location": "Los Angeles, CA",
+      "start_date": "2012-06",
+      "end_date": "2015-12",
+      "platforms": [
+        "Web"
+      ],
+      "description": [
+        "Modernized platform; time‑to‑ship −22% with CI/CD and flags."
+      ]
     }
   ],
   "education": [
     {
-      "school": {
-        "name": "UCLA",
-        "website": "https://ucla.edu",
-        "location": {
-          "name": "Los Angeles, CA",
-          "locality": "Los Angeles",
-          "region": "CA",
-          "country": "US"
-        }
-      },
-      "degrees": ["Bachelor of Science"],
-      "majors": ["Computer Science"],
-      "start_date": "2008-09",
-      "end_date": "2012-06"
+      "school": "State University",
+      "degree": "B.S.",
+      "field": "Computer Science",
+      "start_date": "2009-09",
+      "end_date": "2013-06",
+      "location": "United States"
     }
   ],
+  "projects": [
+    {
+      "name": "Experimentation Hub",
+      "description": "Internal tooling for test design and readouts across squads."
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Product Analytics",
+      "authority": "Amplitude (synthetic)",
+      "date": "2021-06"
+    }
+  ],
+  "languages": [
+    "English"
+  ],
   "skills": [
-    "Product Management",
-    "Leadership",
-    "Strategy",
-    "Coaching",
-    "Pricing",
-    "Packaging",
-    "Portfolio Management",
-    "SaaS Growth",
-    "Platform Development",
-    "Team Building",
-    "ARR Growth",
-    "Product Roadmap"
+    "Product Strategy",
+    "Experimentation",
+    "Onboarding",
+    "Analytics",
+    "SQL",
+    "Writing",
+    "Stakeholder Alignment"
   ]
 }

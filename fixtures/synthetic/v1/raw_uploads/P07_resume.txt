@@ -1,13 +1,25 @@
+NOAH WILLIAMS
+Seattle, WA, US | B2B Marketplace | Users: B2B supply & demand | Platforms: Web, Mobile
+
 SUMMARY
-PM with 10 years across B2B marketplaces and supply/demand dynamics.
+Noah Williams is a product manager with 10 years in B2B Marketplace. They work across B2B supply & demand on web, mobile platforms, combining clear problem framing, disciplined experimentation, and close collaboration with engineering, design, data, and go‑to‑market teams. Their focus is translating user friction into measurable outcomes while building durable product systems.
+
+CORE STRENGTHS
+Search/relevance, supply health, constraints & pricing, scorecards, fraud/quality.
 
 EXPERIENCE
-VendorLoop — Senior PM (2020–2025), Seattle, WA
-• Improved match rate 13% with ranking + constraint tuning.
-• Launched pricing/packaging experiment; +6% ARPU.
+VendorLoop — Senior Product Manager (2020-01–Present) | Seattle, WA
+• Match rate +13% via ranking/constraints; request→accept time −10%.
+• Pricing experiments increased ARPU +6% and take‑rate +3pp.
 
-Dockyard — PM (2016–2020), Seattle, WA
-• Introduced SLA benchmarking for vendors; -9% late deliveries.
+Dockyard — Product Manager (2016-05–2019-12) | Seattle, WA
+• SLA benchmarks reduced late deliveries −9%; dispute rate −11% with scorecards.
+
+Shiply — Associate PM (2013-06–2016-04) | Seattle, WA
+• Launched mobile shipment tracking MVP; active supply +7% in 90 days.
 
 EDUCATION
-B.A. Economics, UW
+B.S. Computer Science, State University (2013-06)
+
+TOOLS
+Amplitude/GA4, SQL, Experiment platforms, Flags, Jira/Linear, Figma, Writing

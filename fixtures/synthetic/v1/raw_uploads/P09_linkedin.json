@@ -1,0 +1,77 @@
+{
+  "basic_info": {
+    "full_name": "Leo Martin",
+    "headline": "APM — Mobile Support | Content Design, Diagnostics",
+    "location": "Boston, MA, US",
+    "email": "leo@example.com",
+    "websites": [],
+    "current_role": "Associate PM",
+    "current_company": "MobileCare"
+  },
+  "experience": [
+    {
+      "company": "MobileCare",
+      "title": "Associate PM",
+      "employment_type": "Full-time",
+      "location": "Boston, MA",
+      "start_date": "2022-03",
+      "end_date": "Present",
+      "platforms": [
+        "Mobile"
+      ],
+      "description": [
+        "Support flow redesign lifted app rating +1.1; time‑to‑resolution −17% with diagnostics.",
+        "Introduced feedback taxonomy; repeat contacts −9%."
+      ]
+    },
+    {
+      "company": "CampusApps",
+      "title": "Product Intern",
+      "employment_type": "Full-time",
+      "location": "Boston, MA",
+      "start_date": "2021-06",
+      "end_date": "2021-12",
+      "platforms": [
+        "Mobile"
+      ],
+      "description": [
+        "Prototyped diagnostics screens; task success +9% in tests."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "school": "Tufts University",
+      "degree": "B.S.",
+      "field": "Human Factors",
+      "start_date": "2017-09",
+      "end_date": "2021-05",
+      "location": "Medford, MA"
+    }
+  ],
+  "projects": [
+    {
+      "name": "Experimentation Hub",
+      "description": "Internal tooling for test design and readouts across squads."
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Product Analytics",
+      "authority": "Amplitude (synthetic)",
+      "date": "2021-06"
+    }
+  ],
+  "languages": [
+    "English"
+  ],
+  "skills": [
+    "Product Strategy",
+    "Experimentation",
+    "Onboarding",
+    "Analytics",
+    "SQL",
+    "Writing",
+    "Stakeholder Alignment"
+  ]
+}

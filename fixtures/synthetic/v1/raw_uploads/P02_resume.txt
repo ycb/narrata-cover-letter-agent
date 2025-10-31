@@ -1,26 +1,26 @@
 JORDAN ALVAREZ
-Growth Product Manager | User Acquisition & Retention | Mobile-First
-Austin, TX, US
-jordan@example.com
+Los Angeles, CA, US | ClimateTech / Energy Intelligence | Users: B2B (installers, operators) | Platforms: Web, Mobile
+
+SUMMARY
+Jordan Alvarez is a product manager with 7 years in ClimateTech / Energy Intelligence. They work across B2B (installers, operators) on web, mobile platforms, combining clear problem framing, disciplined experimentation, and close collaboration with engineering, design, data, and go‑to‑market teams. Their focus is translating user friction into measurable outcomes while building durable product systems.
+
+CORE STRENGTHS
+SLOs/SLAs, incident analysis, feature flags, migrations, cost/latency trade‑offs.
 
 EXPERIENCE
+Sunlytic — Senior Product Manager (2022-03–Present) | Los Angeles, CA
+• Launched fleet health monitoring; critical outages −14% YoY; dispatch time −12%.
+• Introduced SLA reporting and alert tuning; MTTA −18% and false alarms −21%.
 
-Growth Product Manager | GrowthCo | Mar 2020 - Present
-• Launched viral referral program; user acquisition +45% and CAC -30%
-• Built onboarding funnel optimization; Day-7 retention +18% and time-to-value -40%
-• Implemented push notification strategy; engagement +25% and session frequency +15%
+AuricSoft — Product Manager (2019-05–2022-02) | Irvine, CA
+• Improved quoting workflow; win rate +9% in SMB; manual entry −40% via integrations.
+• Shipped device onboarding tool; install time −12%; defect rate −8%.
 
-Product Manager | MobileFirst | Jan 2018 - Feb 2020
-• Owned user onboarding flow; activation rate +35% and drop-off -20%
-• Launched gamification features; DAU +22% and user lifetime value +28%
-
-Associate Product Manager | StartupXYZ | Jun 2016 - Dec 2017
-• Led user research initiatives; identified key friction points reducing churn by 15%
-• Implemented A/B testing framework; conversion rate +12% across key funnels
+GreenGrid — Associate PM (2016-12–2019-04) | San Diego, CA
+• Defined telemetry schema for inverter fleet; data completeness → 96%.
 
 EDUCATION
-MBA Marketing | University of Texas | 2014-2016
-BS Business Administration | Texas A&M | 2010-2014
+B.S. Computer Science, State University (2013-06)
 
-SKILLS
-Growth Marketing, User Acquisition, Retention, Mobile Product, A/B Testing, Data Analysis, User Research, Product Analytics, Viral Marketing, Onboarding, Gamification
+TOOLS
+Amplitude/GA4, SQL, Experiment platforms, Flags, Jira/Linear, Figma, Writing

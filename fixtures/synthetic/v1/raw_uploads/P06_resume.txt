@@ -1,13 +1,26 @@
+DIEGO MORALES
+Austin, TX, US | Platform / Developer Experience | Users: Internal Developers (B2E) | Platforms: Web, CLI
+
 SUMMARY
-Platform PM with 8 years in developer experience, reliability SLAs, and migrations.
+Diego Morales is a product manager with 8 years in Platform / Developer Experience. They work across Internal Developers (B2E) on web, cli platforms, combining clear problem framing, disciplined experimentation, and close collaboration with engineering, design, data, and go‑to‑market teams. Their focus is translating user friction into measurable outcomes while building durable product systems.
+
+CORE STRENGTHS
+SLOs/SLAs, incident analysis, feature flags, migrations, cost/latency trade‑offs.
 
 EXPERIENCE
-StratusWorks — Sr PM, Platform (2019–2025), Austin, TX
-• Led monolith→services migration; incidents -27%.
-• Introduced feature flags and kill‑switches to de‑risk launches.
+StratusWorks — Senior PM, Platform (2019-08–Present) | Austin, TX
+• Led monolith→services migration; incidents −27%; P95 latency −18%.
+• Added feature flags and kill‑switches; rollback time −70%.
 
-DeviceCloud — PM (2015–2019), Austin, TX
-• SDKs and CLI tooling improved internal DX satisfaction 30%.
+DeviceCloud — Product Manager (2015-06–2019-07) | Austin, TX
+• SDKs/CLI improved internal developer satisfaction +30%; build time −22%.
+• Instituted SLAs/SLOs and reliability dashboards for weekly ops.
+
+CodeBridge — Associate PM (2013-06–2015-05) | Austin, TX
+• Launched developer portal; onboarding −25%; support tickets −19%.
 
 EDUCATION
-B.S. Computer Engineering, UT Austin
+B.S. Computer Science, State University (2013-06)
+
+TOOLS
+Amplitude/GA4, SQL, Experiment platforms, Flags, Jira/Linear, Figma, Writing

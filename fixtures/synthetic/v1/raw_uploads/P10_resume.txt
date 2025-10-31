@@ -1,13 +1,25 @@
+SOPHIA RIVERA
+Los Angeles, CA, US | SaaS (Growth + Platform) | Users: B2B | Platforms: Web, Mobile
+
 SUMMARY
-Director of Product with 12 years across SaaS growth and platform; built a 7‑PM org and delivered multi‑product roadmap.
+Sophia Rivera is a product manager with 12 years in SaaS (Growth + Platform). They work across B2B on web, mobile platforms, combining clear problem framing, disciplined experimentation, and close collaboration with engineering, design, data, and go‑to‑market teams. Their focus is translating user friction into measurable outcomes while building durable product systems.
+
+CORE STRENGTHS
+Strategy, portfolio, operating cadence, coaching PMs, cross‑functional alignment.
 
 EXPERIENCE
-AtlasSuite — Director of Product (2020–2025), Los Angeles, CA
-• Scaled PM org 3→7; established operating cadence and KPIs.
-• Expanded ARR 24% via pricing/packaging and two launches.
+AtlasSuite — Director of Product (2020-04–Present) | Los Angeles, CA
+• Scaled PM org 3→7; set cadence/KPIs; roadmap hit rate +18pp.
+• ARR +24% via pricing/packaging and two launches; portfolio governance.
 
-Queryly — Senior PM (2016–2020), Los Angeles, CA
-• Activation +18% through onboarding and integrations.
+Queryly — Senior Product Manager (2016-01–2020-03) | Los Angeles, CA
+• Activation +18% via onboarding/integrations; NRR +6pp with expansion motion.
+
+SiteSpark — Product Manager (2012-06–2015-12) | Los Angeles, CA
+• Modernized platform; time‑to‑ship −22% with CI/CD and flags.
 
 EDUCATION
-B.S. Computer Science, UCLA
+B.S. Computer Science, State University (2013-06)
+
+TOOLS
+Amplitude/GA4, SQL, Experiment platforms, Flags, Jira/Linear, Figma, Writing

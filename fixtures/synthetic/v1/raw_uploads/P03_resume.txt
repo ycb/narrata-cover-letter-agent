@@ -1,26 +1,26 @@
 RILEY GUPTA
-Technical Product Manager | API & Platform | Developer Experience
-Seattle, WA, US
-riley@example.com
+New York, NY, US | Fintech (Payments & Checkout) | Users: B2C & B2B2C | Platforms: Web, Mobile
+
+SUMMARY
+Riley Gupta is a product manager with 6 years in Fintech (Payments & Checkout). They work across B2C & B2B2C on web, mobile platforms, combining clear problem framing, disciplined experimentation, and close collaboration with engineering, design, data, and go‑to‑market teams. Their focus is translating user friction into measurable outcomes while building durable product systems.
+
+CORE STRENGTHS
+Funnel analytics, experiment design, activation/retention, pricing & packaging, lifecycle messaging.
 
 EXPERIENCE
+PayWave — Product Manager, Checkout (2021-04–Present) | New York, NY
+• Raised checkout conversion +15% via simplified forms and async risk checks.
+• Partnered with Risk to cut false positives −8% using dynamic scoring.
 
-Technical Product Manager | DevTools Inc | Jan 2020 - Present
-• Led API platform redesign; developer satisfaction +40% and integration time -50%
-• Built developer portal; API adoption +60% and support tickets -35%
-• Implemented rate limiting and monitoring; API reliability +25% and response time -30%
+NeoBanker — Associate PM (2019-07–2021-03) | New York, NY
+• Consolidated KYC APIs; time‑to‑verify −28%; abandonment −6% with clearer states.
+• Piloted document retry; pass‑through +5pp in Gen‑Z cohort.
 
-Product Manager | CloudPlatform | Aug 2017 - Dec 2019
-• Owned SDK and documentation; developer onboarding time -45% and API usage +80%
-• Launched webhook infrastructure; real-time integrations +200% and latency -60%
-
-Associate Product Manager | TechStartup | Jun 2015 - Jul 2017
-• Managed API versioning strategy; backward compatibility +95% and migration success +70%
-• Implemented developer feedback loop; API design satisfaction +30%
+FinStride — Product Analyst (2017-06–2019-06) | Jersey City, NJ
+• Modeled onboarding & fraud events; prioritized fixes saving ~1.2s latency.
 
 EDUCATION
-MS Computer Science | University of Washington | 2013-2015
-BS Computer Science | University of Washington | 2009-2013
+B.S. Computer Science, State University (2013-06)
 
-SKILLS
-API Design, Platform Product, Developer Experience, Technical Product, SDK Development, Documentation, Webhooks, Rate Limiting, Monitoring, API Versioning, Developer Relations
+TOOLS
+Amplitude/GA4, SQL, Experiment platforms, Flags, Jira/Linear, Figma, Writing

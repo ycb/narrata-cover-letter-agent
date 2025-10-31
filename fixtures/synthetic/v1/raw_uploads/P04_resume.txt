@@ -1,13 +1,25 @@
+MORGAN PATEL
+Boston, MA, US | Applied AI / Talent | Users: B2B | Platforms: Web
+
 SUMMARY
-Senior PM leading ML-assisted workflows. Specializes in explainability and phased rollout.
+Morgan Patel is a product manager with 9 years in Applied AI / Talent. They work across B2B on web platforms, combining clear problem framing, disciplined experimentation, and close collaboration with engineering, design, data, and go‑to‑market teams. Their focus is translating user friction into measurable outcomes while building durable product systems.
+
+CORE STRENGTHS
+Human‑in‑the‑loop, explainability, evaluation sets, risk reviews, gradual rollout.
 
 EXPERIENCE
-TalentGraph — Sr PM, ML Experiences (2020–2025), Boston, MA
-• Introduced XAI reasons + human-in-the-loop; 10× ML usage YoY.
-• Built feedback dashboard that unified precision/recall and user ratings.
+TalentGraph — Senior PM, ML Experiences (2020-02–Present) | Boston, MA
+• Added explainable reasons and HITL overrides; ML usage 10× YoY; satisfaction +12pts.
+• Built feedback dashboard merging precision/recall with ratings; cut blind spots by half.
 
-AdPilot — Product Manager (2017–2020), Boston, MA
-• Sequenced recommendations into existing workflows; +9% adoption.
+AdPilot — Product Manager (2017-03–2020-01) | Boston, MA
+• Sequenced recommendations into workflows; adoption +9% in two quarters; bad recs −60%.
+
+InsightIQ — Associate PM (2014-08–2017-02) | Cambridge, MA
+• Launched labeling tools; training data quality +6pp.
 
 EDUCATION
-M.S. Human-Computer Interaction, Northeastern
+B.S. Computer Science, State University (2013-06)
+
+TOOLS
+Amplitude/GA4, SQL, Experiment platforms, Flags, Jira/Linear, Figma, Writing
