@@ -239,18 +239,19 @@ export default function WorkHistory() {
       setError(null);
       console.log('Fetching work history for user:', user.id);
 
-      // For tour mode, use sample data
-      if (isTourActive || prototypeState === 'existing-user') {
-        console.log('Using sample data for tour/prototype mode');
+      // Check if synthetic testing is enabled FIRST - if so, we want real data, not sample
+      const { SyntheticUserService } = await import('../services/syntheticUserService');
+      const syntheticUserService = new SyntheticUserService();
+      const syntheticContext = await syntheticUserService.getSyntheticUserContext();
+      
+      // For tour mode OR prototype mode WITHOUT synthetic data, use sample data
+      // When synthetic mode is active, we want to show real parsed data in the prototype UI
+      if ((isTourActive || prototypeState === 'existing-user') && !syntheticContext.isSyntheticTestingEnabled) {
+        console.log('Using sample data for tour/prototype mode (synthetic mode not active)');
         setWorkHistory(sampleWorkHistory);
         setIsLoading(false);
         return;
       }
-
-      // Check if synthetic testing is enabled and get active profile
-      const { SyntheticUserService } = await import('../services/syntheticUserService');
-      const syntheticUserService = new SyntheticUserService();
-      const syntheticContext = await syntheticUserService.getSyntheticUserContext();
       
       console.log('[WorkHistory] Synthetic context:', {
         enabled: syntheticContext.isSyntheticTestingEnabled,
