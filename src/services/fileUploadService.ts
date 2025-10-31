@@ -997,6 +997,13 @@ export class FileUploadService {
                 }))
               : [];
             
+            // Ensure tags is always an array
+            const storyTags = Array.isArray(story.tags) 
+              ? story.tags 
+              : (story.tags && typeof story.tags === 'object' && story.tags.items)
+                ? story.tags.items
+                : [];
+            
             const { data: insertedStory, error: storyError } = await dbClient
               .from('approved_content')
               .insert({
@@ -1005,7 +1012,7 @@ export class FileUploadService {
                 company_id: workItemMatch.companyId,
                 title: storyTitle,
                 content: story.content || '',
-                tags: story.tags || [],
+                tags: storyTags,
                 metrics: storyMetrics,
                 source_id: sourceId
               })
