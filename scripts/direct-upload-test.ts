@@ -214,12 +214,16 @@ async function uploadProfile(
   coverLetterSourceId?: string;
   linkedinSourceId?: string;
   evaluationRunIds: string[];
+  uploadDurationMs: number;
+  totalLatencyMs?: number;
 }> {
+  const startTime = Date.now();
   console.log(`\n📤 Uploading profile ${profileId}...`);
   
   const uploadService = new FileUploadService();
   const results: any = {
-    evaluationRunIds: []
+    evaluationRunIds: [],
+    uploadDurationMs: 0
   };
   
   // Load fixture files
@@ -314,10 +318,89 @@ async function uploadProfile(
   
   if (evalRuns) {
     results.evaluationRunIds = evalRuns.map(r => r.id);
+    // Get total latency from the most recent evaluation run
+    const { data: latestRun } = await supabase
+      .from('evaluation_runs')
+      .select('total_latency_ms')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+    
+    if (latestRun) {
+      results.totalLatencyMs = latestRun.total_latency_ms;
+    }
     console.log(`  ✅ Found ${evalRuns.length} evaluation runs`);
   }
   
+  results.uploadDurationMs = Date.now() - startTime;
   return results;
+}
+
+/**
+ * Upload all synthetic profiles (P01-P10)
+ */
+async function uploadAllProfiles(
+  userId: string,
+  accessToken: string
+): Promise<{
+  profiles: Array<{ profileId: string; results: Awaited<ReturnType<typeof uploadProfile>> }>;
+  totalDurationMs: number;
+  avgDurationMs: number;
+  avgLatencyMs: number;
+}> {
+  const allStartTime = Date.now();
+  const profiles = ['P01', 'P02', 'P03', 'P04', 'P05', 'P06', 'P07', 'P08', 'P09', 'P10'];
+  const results: Array<{ profileId: string; results: Awaited<ReturnType<typeof uploadProfile>> }> = [];
+  
+  console.log(`\n🚀 Starting batch upload of ${profiles.length} profiles...\n`);
+  
+  for (let i = 0; i < profiles.length; i++) {
+    const profileId = profiles[i];
+    try {
+      const profileResults = await uploadProfile(userId, accessToken, profileId);
+      results.push({ profileId, results: profileResults });
+      
+      const duration = (profileResults.uploadDurationMs / 1000).toFixed(2);
+      const latency = profileResults.totalLatencyMs 
+        ? (profileResults.totalLatencyMs / 1000).toFixed(2)
+        : 'N/A';
+      console.log(`  ⏱️  Profile ${profileId}: ${duration}s (Processing: ${latency}s)`);
+      
+      // Small delay between profiles to avoid rate limits
+      if (i < profiles.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    } catch (error: any) {
+      console.error(`  ❌ Profile ${profileId} failed:`, error.message);
+      results.push({ 
+        profileId, 
+        results: { 
+          evaluationRunIds: [], 
+          uploadDurationMs: 0 
+        } 
+      });
+    }
+  }
+  
+  const totalDurationMs = Date.now() - allStartTime;
+  const successful = results.filter(r => r.results.evaluationRunIds.length > 0);
+  const avgDurationMs = successful.length > 0
+    ? successful.reduce((sum, r) => sum + r.results.uploadDurationMs, 0) / successful.length
+    : 0;
+  const latencies = successful
+    .map(r => r.results.totalLatencyMs)
+    .filter((l): l is number => l !== undefined);
+  const avgLatencyMs = latencies.length > 0
+    ? latencies.reduce((sum, l) => sum + l, 0) / latencies.length
+    : 0;
+  
+  return {
+    profiles: results,
+    totalDurationMs,
+    avgDurationMs,
+    avgLatencyMs
+  };
 }
 
 /**
@@ -325,16 +408,17 @@ async function uploadProfile(
  */
 async function main() {
   const args = process.argv.slice(2);
-  const profileId = args.find(arg => /^P\d{2}$/.test(arg)) || 'P01';
+  const profileId = args.find(arg => /^P\d{2}$/.test(arg));
   const shouldClear = args.includes('--clear') || args.includes('clear');
   const clearOnly = args.includes('--clear-only');
+  const uploadAll = args.includes('--all') || args.includes('all');
   
   try {
     // Authenticate
     const { userId, accessToken } = await authenticate();
     
     // Clear data if requested
-    if (shouldClear || clearOnly) {
+    if (shouldClear || clearOnly || uploadAll) {
       await clearUserData(userId, accessToken);
       if (clearOnly) {
         console.log('✅ Clear complete. Exiting.');
@@ -342,8 +426,36 @@ async function main() {
       }
     }
     
-    // Upload profile
-    const results = await uploadProfile(userId, accessToken, profileId);
+    // Upload all profiles if requested
+    if (uploadAll) {
+      const batchResults = await uploadAllProfiles(userId, accessToken);
+      
+      console.log('\n' + '='.repeat(60));
+      console.log('✅ Batch Upload Complete!');
+      console.log('='.repeat(60));
+      console.log(`\n📊 Summary:`);
+      console.log(`  Total Profiles: ${batchResults.profiles.length}`);
+      console.log(`  Successful: ${batchResults.profiles.filter(p => p.results.evaluationRunIds.length > 0).length}`);
+      console.log(`  Failed: ${batchResults.profiles.filter(p => p.results.evaluationRunIds.length === 0).length}`);
+      console.log(`  Total Duration: ${(batchResults.totalDurationMs / 1000).toFixed(2)}s`);
+      console.log(`  Avg Upload Time: ${(batchResults.avgDurationMs / 1000).toFixed(2)}s per profile`);
+      console.log(`  Avg Processing Latency: ${(batchResults.avgLatencyMs / 1000).toFixed(2)}s per profile`);
+      console.log(`\n📋 Profile Details:`);
+      batchResults.profiles.forEach(({ profileId, results }) => {
+        const status = results.evaluationRunIds.length > 0 ? '✅' : '❌';
+        const duration = (results.uploadDurationMs / 1000).toFixed(2);
+        const latency = results.totalLatencyMs 
+          ? (results.totalLatencyMs / 1000).toFixed(2)
+          : 'N/A';
+        console.log(`  ${status} ${profileId}: ${duration}s (Processing: ${latency}s, Runs: ${results.evaluationRunIds.length})`);
+      });
+      console.log(`\n🔗 View results at: http://localhost:8080/evaluation`);
+      return;
+    }
+    
+    // Upload single profile
+    const targetProfile = profileId || 'P01';
+    const results = await uploadProfile(userId, accessToken, targetProfile);
     
     console.log('\n✅ Upload complete!');
     console.log('\n📊 Results:');
@@ -356,6 +468,10 @@ async function main() {
     results.evaluationRunIds.forEach((id, idx) => {
       console.log(`    ${idx + 1}. ${id}`);
     });
+    if (results.totalLatencyMs) {
+      console.log(`  Processing Latency: ${(results.totalLatencyMs / 1000).toFixed(2)}s`);
+    }
+    console.log(`  Total Upload Time: ${(results.uploadDurationMs / 1000).toFixed(2)}s`);
     
     console.log(`\n🔗 View results at: http://localhost:8080/evaluation`);
     
