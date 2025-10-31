@@ -247,11 +247,56 @@ export default function WorkHistory() {
         return;
       }
 
+      // Check if synthetic testing is enabled and get active profile
+      const { SyntheticUserService } = await import('../services/syntheticUserService');
+      const syntheticUserService = new SyntheticUserService();
+      const syntheticContext = await syntheticUserService.getSyntheticUserContext();
+      
+      let profileSourceIds: string[] = [];
+      if (syntheticContext.isSyntheticTestingEnabled && syntheticContext.currentUser) {
+        // Get all sources for this profile (file_name starts with profile_id like P01_)
+        const profileId = syntheticContext.currentUser.profileId;
+        const { data: profileSources } = await supabase
+          .from('sources')
+          .select('id')
+          .eq('user_id', user.id)
+          .like('file_name', `${profileId}_%`);
+        
+        if (profileSources && profileSources.length > 0) {
+          profileSourceIds = profileSources.map(s => s.id);
+          console.log(`Filtering by ${profileId}: ${profileSourceIds.length} sources`);
+        }
+      }
+
       // Fetch companies with their work items
-      const { data: companies, error: companiesError } = await supabase
+      // If in synthetic testing mode, only get companies from work_items linked to profile sources
+      let companiesQuery = supabase
         .from('companies')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', user.id);
+      
+      // If filtering by profile, we need to get companies via work_items with matching source_id
+      if (profileSourceIds.length > 0) {
+        // First get work_items for this profile
+        const { data: profileWorkItems } = await supabase
+          .from('work_items')
+          .select('company_id')
+          .eq('user_id', user.id)
+          .in('source_id', profileSourceIds);
+        
+        if (profileWorkItems && profileWorkItems.length > 0) {
+          const companyIds = [...new Set(profileWorkItems.map(wi => wi.company_id))];
+          companiesQuery = companiesQuery.in('id', companyIds);
+        } else {
+          // No work items for this profile - show preview
+          console.log(`No work items found for profile ${syntheticContext.currentUser?.profileId}, using sample data as preview`);
+          setWorkHistory(sampleWorkHistory);
+          setIsLoading(false);
+          return;
+        }
+      }
+      
+      const { data: companies, error: companiesError } = await companiesQuery
         .order('created_at', { ascending: false });
 
       if (companiesError) throw companiesError;
@@ -263,29 +308,50 @@ export default function WorkHistory() {
         return;
       }
 
-      // Fetch work items for all companies
-      const { data: workItems, error: workItemsError } = await supabase
+      // Fetch work items - filter by profile sources if in synthetic testing mode
+      let workItemsQuery = supabase
         .from('work_items')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', user.id);
+      
+      if (profileSourceIds.length > 0) {
+        workItemsQuery = workItemsQuery.in('source_id', profileSourceIds);
+      }
+      
+      const { data: workItems, error: workItemsError } = await workItemsQuery
         .order('start_date', { ascending: false });
 
       if (workItemsError) throw workItemsError;
 
-      // Fetch approved content (blurbs) for all work items
-      const { data: blurbs, error: blurbsError } = await supabase
+      // Get work item IDs for filtering blurbs and links (already filtered by profile if applicable)
+      const workItemIds = workItems?.map(wi => wi.id) || [];
+      
+      // Fetch approved content (blurbs) - filter by work items if available
+      let blurbsQuery = supabase
         .from('approved_content')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', user.id);
+      
+      if (workItemIds.length > 0) {
+        blurbsQuery = blurbsQuery.in('work_item_id', workItemIds);
+      }
+      
+      const { data: blurbs, error: blurbsError } = await blurbsQuery
         .order('created_at', { ascending: false });
 
       if (blurbsError) throw blurbsError;
 
-      // Fetch external links for all work items
-      const { data: links, error: linksError } = await supabase
+      // Fetch external links - filter by work items if available
+      let linksQuery = supabase
         .from('external_links')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', user.id);
+      
+      if (workItemIds.length > 0) {
+        linksQuery = linksQuery.in('work_item_id', workItemIds);
+      }
+      
+      const { data: links, error: linksError } = await linksQuery
         .order('created_at', { ascending: false });
 
       if (linksError) throw linksError;
