@@ -1061,21 +1061,32 @@ export class FileUploadService {
       return null;
     }
 
-    // Find matching work_item
+    // Find matching work_item(s)
     let workItemQuery = dbClient
       .from('work_items')
       .select('id, title')
       .eq('company_id', company.id)
       .eq('user_id', userId);
     
-    // If role is mentioned, try to match by title
+    // If role is mentioned, try to match by title (case-insensitive)
     if (roleTitle) {
       workItemQuery = workItemQuery.ilike('title', `%${roleTitle}%`);
     }
     
-    const { data: workItem } = await workItemQuery.single();
+    const { data: workItems, error } = await workItemQuery;
+    
+    if (error) {
+      console.error('Error querying work_items:', error);
+      return null;
+    }
+    
+    // If multiple work_items found, prefer the one matching role title, otherwise take first
+    const workItem = workItems && workItems.length > 0 
+      ? (roleTitle ? workItems.find((wi: any) => wi.title.toLowerCase().includes(roleTitle.toLowerCase())) : workItems[0]) || workItems[0]
+      : null;
     
     if (workItem) {
+      console.log(`✅ Matched story to work_item: ${company.name} - ${workItem.title}`);
       return {
         workItemId: workItem.id,
         companyId: company.id,
@@ -1084,6 +1095,7 @@ export class FileUploadService {
       };
     }
 
+    console.log(`⚠️ No work_item found for company: ${company.name}${roleTitle ? ` with role: ${roleTitle}` : ''}`);
     return null;
   }
 
