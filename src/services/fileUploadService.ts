@@ -973,6 +973,22 @@ export class FileUploadService {
           const workItemMatch = await this.matchStoryToWorkItem(story, userId, dbClient);
           
           if (workItemMatch) {
+            // Check if story already exists (to avoid duplicates on re-matching)
+            const storyTitle = story.title || story.content?.substring(0, 100);
+            const { data: existingStory } = await dbClient
+              .from('approved_content')
+              .select('id')
+              .eq('work_item_id', workItemMatch.workItemId)
+              .eq('title', storyTitle)
+              .eq('source_id', sourceId)
+              .maybeSingle();
+            
+            if (existingStory) {
+              console.log(`ℹ️ Story already exists, skipping duplicate: "${storyTitle}"`);
+              storiesMatched++; // Count as matched even if already exists
+              continue;
+            }
+
             // This is a story - save to approved_content linked to work_item
             const storyMetrics = Array.isArray(story.metrics)
               ? story.metrics.map((m: any) => ({
@@ -981,24 +997,32 @@ export class FileUploadService {
                 }))
               : [];
             
-            const { error: storyError } = await dbClient
+            const { data: insertedStory, error: storyError } = await dbClient
               .from('approved_content')
               .insert({
                 user_id: userId,
                 work_item_id: workItemMatch.workItemId,
                 company_id: workItemMatch.companyId,
-                title: story.title || story.content?.substring(0, 100),
+                title: storyTitle,
                 content: story.content || '',
                 tags: story.tags || [],
                 metrics: storyMetrics,
                 source_id: sourceId
-              });
+              })
+              .select('id')
+              .single();
 
             if (storyError) {
-              console.error('❌ Error creating cover letter story:', storyError);
+              console.error('❌ Error creating cover letter story:', {
+                error: storyError,
+                story_title: storyTitle,
+                work_item_id: workItemMatch.workItemId,
+                company: workItemMatch.companyName,
+                details: storyError.message
+              });
               storiesSkipped++;
             } else {
-              console.log(`✅ Story matched to work_item: ${workItemMatch.companyName} - ${workItemMatch.roleTitle}`);
+              console.log(`✅ Story created and matched to work_item: ${workItemMatch.companyName} - ${workItemMatch.roleTitle}`);
               storiesMatched++;
             }
           } else {
