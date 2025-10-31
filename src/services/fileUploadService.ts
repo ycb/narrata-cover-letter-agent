@@ -1038,23 +1038,26 @@ export class FileUploadService {
     dbClient: any
   ): Promise<{ workItemId: string; companyId: string; companyName: string; roleTitle: string } | null> {
     // Extract company and role from story content or explicit fields
-    const companyName = story.company || this.extractCompanyFromText(story.content || story.title || '');
-    const roleTitle = story.titleRole || story.role || this.extractRoleFromText(story.content || '');
+    const storyText = story.content || story.title || story.summary || '';
+    const companyName = story.company || this.extractCompanyFromText(storyText);
+    const roleTitle = story.titleRole || story.role || this.extractRoleFromText(storyText);
 
     if (!companyName) {
       // No company mentioned - can't match to work_item
+      console.log(`⚠️ No company found in story: "${story.title || story.content?.substring(0, 50)}"`);
       return null;
     }
 
-    // Find company
+    // Find company (case-insensitive)
     const { data: company } = await dbClient
       .from('companies')
       .select('id, name')
-      .eq('name', companyName)
+      .ilike('name', companyName)
       .eq('user_id', userId)
       .single();
     
     if (!company) {
+      console.log(`⚠️ Company not found: "${companyName}"`);
       return null;
     }
 
@@ -1085,12 +1088,31 @@ export class FileUploadService {
   }
 
   /**
-   * Extract company name from text (simple heuristic)
+   * Extract company name from text (improved heuristic)
    */
   private extractCompanyFromText(text: string): string | null {
-    // Look for patterns like "At CompanyName," or "While at CompanyName"
-    const match = text.match(/(?:at|from|while at|during my time at)\s+([A-Z][A-Za-z0-9\s&]+?)(?:[,;]|\.|$)/i);
-    return match ? match[1].trim() : null;
+    if (!text) return null;
+    
+    // Look for patterns like "At CompanyName," "while at CompanyName", "at CompanyName"
+    // Also handle cases like "Delivering X at CompanyName"
+    const patterns = [
+      /(?:at|from|while at|during my time at|working at)\s+([A-Z][A-Za-z0-9\s&]+?)(?:[,;]|\.|$)/i,
+      /(?:at|from)\s+([A-Z][A-Za-z0-9\s&]+?)(?:\s+[Ii]|$)/i, // "at FlowHub" or "at FlowHub I"
+      /([A-Z][A-Za-z0-9\s&]{2,})(?:\s+(?:[Ii]\s+)?(?:delivered|led|managed|built|created))/i // Company name before action verbs
+    ];
+    
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match && match[1]) {
+        const company = match[1].trim();
+        // Filter out common false positives
+        if (company.length > 2 && !['The', 'A', 'An', 'My', 'Our'].includes(company)) {
+          return company;
+        }
+      }
+    }
+    
+    return null;
   }
 
   /**
@@ -1721,6 +1743,8 @@ export class FileUploadService {
         }
         
         // Match cover letter stories to existing work_items and extract profile data
+        // Note: This runs after resume processing, so work_items from resume should exist
+        // LinkedIn work_items are created later, so stories matching to LinkedIn roles will be processed after
         await this.processCoverLetterData(combinedResult.coverLetter.data, this.pendingCoverLetter.sourceId, accessToken);
         
         // Normalize skills from cover letter
@@ -1757,6 +1781,13 @@ export class FileUploadService {
       
       // Fetch LinkedIn data via Appify API if available
       await this.fetchAndProcessLinkedInData(accessToken);
+      
+      // Re-run cover letter story matching now that LinkedIn work_items exist
+      // This allows stories that mention LinkedIn companies to be matched
+      if (this.pendingCoverLetter && combinedResult.coverLetter.success) {
+        console.log('🔄 Re-matching cover letter stories after LinkedIn processing...');
+        await this.processCoverLetterData(combinedResult.coverLetter.data, this.pendingCoverLetter.sourceId, accessToken);
+      }
       
       // Create unified profile from all three sources (resume + cover letter + LinkedIn)
       await this.createUnifiedProfile(accessToken);
