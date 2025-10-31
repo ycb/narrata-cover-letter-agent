@@ -1,84 +1,140 @@
 {
   "basic_info": {
-    "full_name": "Samira Khan",
+    "fullname": "Samira Khan",
+    "first_name": "Samira",
+    "last_name": "Khan",
     "headline": "Product Manager — Patient Experience | Remote Monitoring, Adherence",
-    "location": "Chicago, IL, US",
-    "email": "samira@example.com",
-    "websites": [],
-    "current_role": "Product Manager",
-    "current_company": "Clinio"
+    "profile_url": "https://linkedin.com/in/p05",
+    "profile_picture_url": null,
+    "about": "Product Manager — Patient Experience | Remote Monitoring, Adherence",
+    "location": {
+      "country": "US",
+      "city": "Chicago",
+      "full": "Chicago, IL, US",
+      "country_code": "US"
+    },
+    "creator_hashtags": [],
+    "is_creator": false,
+    "is_influencer": false,
+    "is_premium": false,
+    "created_timestamp": 1503573055852.989,
+    "show_follower_count": false,
+    "background_picture_url": null,
+    "urn": "ACoP05i54i7s3ortk",
+    "follower_count": 2615,
+    "connection_count": 977,
+    "current_company": "Clinio",
+    "current_company_urn": null,
+    "current_company_url": null,
+    "email": "samira@example.com"
   },
   "experience": [
     {
-      "company": "Clinio",
       "title": "Product Manager",
-      "employment_type": "Full-time",
+      "company": "Clinio",
+      "description": "Remote‑monitoring flows lifted adherence +12% in CHF cohort; readmissions −7%.\n\nAlert fatigue −18% with threshold tuning, batching, and team routing.",
       "location": "Chicago, IL",
-      "start_date": "2021-01",
-      "end_date": "Present",
-      "platforms": [
-        "Mobile",
-        "Web"
+      "duration": "2021-01 - Present",
+      "start_date": {
+        "year": 2021,
+        "month": "Jan"
+      },
+      "is_current": true,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
       ],
-      "description": [
-        "Remote‑monitoring flows lifted adherence +12% in CHF cohort; readmissions −7%.",
-        "Alert fatigue −18% with threshold tuning, batching, and team routing."
-      ]
+      "company_id": null
     },
     {
-      "company": "CarePad",
       "title": "Associate PM",
-      "employment_type": "Full-time",
+      "company": "CarePad",
+      "description": "EHR intake redesign cut completion time −20%; errors −15% with progressive disclosure.",
       "location": "Chicago, IL",
-      "start_date": "2019-05",
-      "end_date": "2020-12",
-      "platforms": [
-        "Web"
+      "duration": "2019-05 - 2020-12",
+      "start_date": {
+        "year": 2019,
+        "month": "May"
+      },
+      "end_date": {
+        "year": 2020,
+        "month": "Dec"
+      },
+      "is_current": false,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
       ],
-      "description": [
-        "EHR intake redesign cut completion time −20%; errors −15% with progressive disclosure."
-      ]
+      "company_id": null
     },
     {
-      "company": "MedSync",
       "title": "Product Analyst",
-      "employment_type": "Full-time",
+      "company": "MedSync",
+      "description": "Mapped clinician workflows; prioritized features reducing time‑to‑action by 11%.",
       "location": "Chicago, IL",
-      "start_date": "2017-06",
-      "end_date": "2019-04",
-      "platforms": [
-        "Web"
+      "duration": "2017-06 - 2019-04",
+      "start_date": {
+        "year": 2017,
+        "month": "Jun"
+      },
+      "end_date": {
+        "year": 2019,
+        "month": "Apr"
+      },
+      "is_current": false,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
       ],
-      "description": [
-        "Mapped clinician workflows; prioritized features reducing time‑to‑action by 11%."
-      ]
+      "company_id": null
     }
   ],
   "education": [
     {
       "school": "University of Illinois Urbana‑Champaign",
       "degree": "B.S.",
-      "field": "Biomedical Engineering",
-      "start_date": "2012-09",
-      "end_date": "2016-05",
-      "location": "Champaign, IL"
+      "degree_name": "B.S.",
+      "field_of_study": "Biomedical Engineering",
+      "duration": "2012-09 - 2016-05",
+      "start_date": {
+        "year": 2012,
+        "month": "Sep"
+      },
+      "end_date": {
+        "year": 2016,
+        "month": "May"
+      },
+      "school_linkedin_url": null,
+      "school_logo_url": null,
+      "school_id": null
     }
   ],
   "projects": [
     {
       "name": "Experimentation Hub",
-      "description": "Internal tooling for test design and readouts across squads."
+      "description": "Internal tooling for test design and readouts across squads.",
+      "associated_with": null,
+      "is_current": false
     }
   ],
   "certifications": [
     {
       "name": "Product Analytics",
-      "authority": "Amplitude (synthetic)",
-      "date": "2021-06"
+      "issuer": "Amplitude (synthetic)",
+      "issued_date": "2021-06"
     }
   ],
   "languages": [
-    "English"
+    {
+      "language": "English",
+      "proficiency": "Native or bilingual proficiency"
+    }
   ],
   "skills": [
     "Product Strategy",

@@ -1,69 +1,117 @@
 {
   "basic_info": {
-    "full_name": "Leo Martin",
+    "fullname": "Leo Martin",
+    "first_name": "Leo",
+    "last_name": "Martin",
     "headline": "APM — Mobile Support | Content Design, Diagnostics",
-    "location": "Boston, MA, US",
-    "email": "leo@example.com",
-    "websites": [],
-    "current_role": "Associate PM",
-    "current_company": "MobileCare"
+    "profile_url": "https://linkedin.com/in/p09",
+    "profile_picture_url": null,
+    "about": "APM — Mobile Support | Content Design, Diagnostics",
+    "location": {
+      "country": "US",
+      "city": "Boston",
+      "full": "Boston, MA, US",
+      "country_code": "US"
+    },
+    "creator_hashtags": [],
+    "is_creator": false,
+    "is_influencer": false,
+    "is_premium": false,
+    "created_timestamp": 1684359977819.6257,
+    "show_follower_count": false,
+    "background_picture_url": null,
+    "urn": "ACoP099huvu5hiuls",
+    "follower_count": 4077,
+    "connection_count": 3488,
+    "current_company": "MobileCare",
+    "current_company_urn": null,
+    "current_company_url": null,
+    "email": "leo@example.com"
   },
   "experience": [
     {
-      "company": "MobileCare",
       "title": "Associate PM",
-      "employment_type": "Full-time",
+      "company": "MobileCare",
+      "description": "Support flow redesign lifted app rating +1.1; time‑to‑resolution −17% with diagnostics.\n\nIntroduced feedback taxonomy; repeat contacts −9%.",
       "location": "Boston, MA",
-      "start_date": "2022-03",
-      "end_date": "Present",
-      "platforms": [
-        "Mobile"
+      "duration": "2022-03 - Present",
+      "start_date": {
+        "year": 2022,
+        "month": "Mar"
+      },
+      "is_current": true,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
       ],
-      "description": [
-        "Support flow redesign lifted app rating +1.1; time‑to‑resolution −17% with diagnostics.",
-        "Introduced feedback taxonomy; repeat contacts −9%."
-      ]
+      "company_id": null
     },
     {
-      "company": "CampusApps",
       "title": "Product Intern",
-      "employment_type": "Full-time",
+      "company": "CampusApps",
+      "description": "Prototyped diagnostics screens; task success +9% in tests.",
       "location": "Boston, MA",
-      "start_date": "2021-06",
-      "end_date": "2021-12",
-      "platforms": [
-        "Mobile"
+      "duration": "2021-06 - 2021-12",
+      "start_date": {
+        "year": 2021,
+        "month": "Jun"
+      },
+      "end_date": {
+        "year": 2021,
+        "month": "Dec"
+      },
+      "is_current": false,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
       ],
-      "description": [
-        "Prototyped diagnostics screens; task success +9% in tests."
-      ]
+      "company_id": null
     }
   ],
   "education": [
     {
       "school": "Tufts University",
       "degree": "B.S.",
-      "field": "Human Factors",
-      "start_date": "2017-09",
-      "end_date": "2021-05",
-      "location": "Medford, MA"
+      "degree_name": "B.S.",
+      "field_of_study": "Human Factors",
+      "duration": "2017-09 - 2021-05",
+      "start_date": {
+        "year": 2017,
+        "month": "Sep"
+      },
+      "end_date": {
+        "year": 2021,
+        "month": "May"
+      },
+      "school_linkedin_url": null,
+      "school_logo_url": null,
+      "school_id": null
     }
   ],
   "projects": [
     {
       "name": "Experimentation Hub",
-      "description": "Internal tooling for test design and readouts across squads."
+      "description": "Internal tooling for test design and readouts across squads.",
+      "associated_with": null,
+      "is_current": false
     }
   ],
   "certifications": [
     {
       "name": "Product Analytics",
-      "authority": "Amplitude (synthetic)",
-      "date": "2021-06"
+      "issuer": "Amplitude (synthetic)",
+      "issued_date": "2021-06"
     }
   ],
   "languages": [
-    "English"
+    {
+      "language": "English",
+      "proficiency": "Native or bilingual proficiency"
+    }
   ],
   "skills": [
     "Product Strategy",

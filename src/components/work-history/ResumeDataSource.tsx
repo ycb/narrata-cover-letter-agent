@@ -7,7 +7,7 @@ import {
   FileText, 
   Upload, 
   Download,
-  Eye,
+  Copy,
   RefreshCw,
   Calendar,
   FileType,
@@ -51,22 +51,23 @@ export function ResumeDataSource({ onUploadResume, onRefresh }: ResumeDataSource
       setIsLoading(true);
       setError(null);
 
+      // Find resume sources by file_name pattern (resume files, not cover letters)
       const { data, error: fetchError } = await supabase
         .from('sources')
         .select('*')
         .eq('user_id', user.id)
-        .eq('source_type', 'resume')
+        .or('file_name.ilike.%resume%,file_name.ilike.%cv%')
+        .not('file_name', 'ilike', '%cover%')
+        .not('file_name', 'ilike', '%linkedin%')
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (fetchError) {
-        if (fetchError.code === 'PGRST116') {
-          // No resume found
-          setResumeData(null);
-        } else {
-          throw fetchError;
-        }
+        throw fetchError;
+      } else if (!data) {
+        // No resume found
+        setResumeData(null);
       } else {
         setResumeData(data);
       }
@@ -130,7 +131,7 @@ export function ResumeDataSource({ onUploadResume, onRefresh }: ResumeDataSource
       <Card className="h-full">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-slate-600" />
+            <FileText className="h-5 w-5" />
             Resume
           </CardTitle>
         </CardHeader>
@@ -149,7 +150,7 @@ export function ResumeDataSource({ onUploadResume, onRefresh }: ResumeDataSource
       <Card className="h-full">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-slate-600" />
+            <FileText className="h-5 w-5" />
             Resume
           </CardTitle>
         </CardHeader>
@@ -173,7 +174,7 @@ export function ResumeDataSource({ onUploadResume, onRefresh }: ResumeDataSource
       <Card className="h-full">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-slate-600" />
+            <FileText className="h-5 w-5" />
             Resume
           </CardTitle>
         </CardHeader>
@@ -199,7 +200,7 @@ export function ResumeDataSource({ onUploadResume, onRefresh }: ResumeDataSource
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-slate-600" />
+            <FileText className="h-5 w-5" />
             Resume
           </CardTitle>
           <div className="flex items-center gap-2">
@@ -231,33 +232,11 @@ export function ResumeDataSource({ onUploadResume, onRefresh }: ResumeDataSource
               <h3 className="font-semibold">{resumeData.file_name}</h3>
               <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
                 <span>{formatFileSize(resumeData.file_size)}</span>
-                <span className="flex items-center gap-1">
-                  <Calendar className="h-3 w-3" />
-                  {new Date(resumeData.created_at).toLocaleDateString()}
-                </span>
+                <span>{new Date(resumeData.created_at).toLocaleDateString()}</span>
                 <span className="flex items-center gap-1">
                   <FileType className="h-3 w-3" />
                   {resumeData.file_type.toUpperCase()}
                 </span>
-              </div>
-              {/* Processing Status */}
-              <div className="mt-2">
-                {resumeData.processing_status === 'completed' && (
-                  <Badge variant="default" className="text-xs">
-                    ✅ Processed
-                  </Badge>
-                )}
-                {resumeData.processing_status === 'processing' && (
-                  <Badge variant="secondary" className="text-xs">
-                    <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                    Processing...
-                  </Badge>
-                )}
-                {resumeData.processing_status === 'failed' && (
-                  <Badge variant="destructive" className="text-xs">
-                    ❌ Failed
-                  </Badge>
-                )}
               </div>
             </div>
           </div>
@@ -265,12 +244,25 @@ export function ResumeDataSource({ onUploadResume, onRefresh }: ResumeDataSource
 
         <Separator />
 
-        {/* Extracted Text */}
+        {/* Extracted Text - Clean, copyable format */}
         {resumeData.raw_text && (
           <div>
-            <h4 className="font-medium mb-3">Extracted Text</h4>
-            <div className="border rounded-lg p-4 bg-muted/30 max-h-96 overflow-y-auto">
-              <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-medium">Resume Text</h4>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(resumeData.raw_text);
+                  // Could add toast notification here
+                }}
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                Copy Text
+              </Button>
+            </div>
+            <div className="border rounded-lg p-4 bg-background max-h-96 overflow-y-auto">
+              <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap font-mono">
                 {resumeData.raw_text}
               </div>
             </div>

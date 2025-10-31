@@ -61,7 +61,8 @@ const envValues = {
   VITE_SUPABASE_URL: SUPABASE_URL,
   VITE_SUPABASE_ANON_KEY: SUPABASE_ANON_KEY,
   VITE_OPENAI_KEY: envVars['VITE_OPENAI_KEY'] || process.env.VITE_OPENAI_KEY!,
-  VITE_OPENAI_MODEL: envVars['VITE_OPENAI_MODEL'] || process.env.VITE_OPENAI_MODEL || 'gpt-4o-mini'
+  VITE_OPENAI_MODEL: envVars['VITE_OPENAI_MODEL'] || process.env.VITE_OPENAI_MODEL || 'gpt-4o-mini',
+  VITE_APPIFY_API_KEY: envVars['VITE_APPIFY_API_KEY'] || process.env.VITE_APPIFY_API_KEY || '' // Optional, for synthetic mode not needed
 };
 
 // Use a Proxy to intercept import.meta.env access
@@ -276,29 +277,12 @@ async function uploadProfile(
   results.coverLetterSourceId = coverLetterResult.fileId;
   console.log(`  ✅ Cover letter uploaded: ${coverLetterResult.fileId}`);
   
-  // Optional: Upload LinkedIn data if available
-  if (fs.existsSync(linkedinPath)) {
-    console.log(`  🔗 Uploading LinkedIn data...`);
-    const linkedinData = JSON.parse(fs.readFileSync(linkedinPath, 'utf-8'));
-    const linkedinText = JSON.stringify(linkedinData, null, 2);
-    const linkedinFile = textToFile(linkedinText, `${profileId}_linkedin.json`, 'application/json');
-    
-    const linkedinResult = await uploadService.uploadContent(
-      linkedinFile,
-      userId,
-      'linkedin',
-      accessToken
-    );
-    
-    if (linkedinResult.success && linkedinResult.fileId) {
-      results.linkedinSourceId = linkedinResult.fileId;
-      console.log(`  ✅ LinkedIn data uploaded: ${linkedinResult.fileId}`);
-    }
-  }
+  // Note: LinkedIn data is automatically loaded in synthetic mode after combined analysis
+  // No need to manually upload it - fetchAndProcessLinkedInData() handles it
   
-  // Wait a moment for evaluation runs to be created
-  console.log(`  ⏳ Waiting for evaluation runs to complete...`);
-  await new Promise(resolve => setTimeout(resolve, 5000));
+  // Wait a moment for all processing to complete (LinkedIn loading, unified profile creation, etc.)
+  console.log(`  ⏳ Waiting for processing to complete (LinkedIn + unified profile)...`);
+  await new Promise(resolve => setTimeout(resolve, 8000));
   
   // Fetch evaluation runs
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {

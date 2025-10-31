@@ -1,84 +1,140 @@
 {
   "basic_info": {
-    "full_name": "Sophia Rivera",
+    "fullname": "Sophia Rivera",
+    "first_name": "Sophia",
+    "last_name": "Rivera",
     "headline": "Director of Product — Growth & Platform | Org Building, Portfolio",
-    "location": "Los Angeles, CA, US",
-    "email": "sophia@example.com",
-    "websites": [],
-    "current_role": "Director of Product",
-    "current_company": "AtlasSuite"
+    "profile_url": "https://linkedin.com/in/p10",
+    "profile_picture_url": null,
+    "about": "Director of Product — Growth & Platform | Org Building, Portfolio",
+    "location": {
+      "country": "US",
+      "city": "Los Angeles",
+      "full": "Los Angeles, CA, US",
+      "country_code": "US"
+    },
+    "creator_hashtags": [],
+    "is_creator": false,
+    "is_influencer": false,
+    "is_premium": false,
+    "created_timestamp": 1599629867907.5515,
+    "show_follower_count": false,
+    "background_picture_url": null,
+    "urn": "ACoP108khnk4g62lb",
+    "follower_count": 3116,
+    "connection_count": 1103,
+    "current_company": "AtlasSuite",
+    "current_company_urn": null,
+    "current_company_url": null,
+    "email": "sophia@example.com"
   },
   "experience": [
     {
-      "company": "AtlasSuite",
       "title": "Director of Product",
-      "employment_type": "Full-time",
+      "company": "AtlasSuite",
+      "description": "Scaled PM org 3→7; set cadence/KPIs; roadmap hit rate +18pp.\n\nARR +24% via pricing/packaging and two launches; portfolio governance.",
       "location": "Los Angeles, CA",
-      "start_date": "2020-04",
-      "end_date": "Present",
-      "platforms": [
-        "Web",
-        "Mobile"
+      "duration": "2020-04 - Present",
+      "start_date": {
+        "year": 2020,
+        "month": "Apr"
+      },
+      "is_current": true,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
       ],
-      "description": [
-        "Scaled PM org 3→7; set cadence/KPIs; roadmap hit rate +18pp.",
-        "ARR +24% via pricing/packaging and two launches; portfolio governance."
-      ]
+      "company_id": null
     },
     {
-      "company": "Queryly",
       "title": "Senior Product Manager",
-      "employment_type": "Full-time",
+      "company": "Queryly",
+      "description": "Activation +18% via onboarding/integrations; NRR +6pp with expansion motion.",
       "location": "Los Angeles, CA",
-      "start_date": "2016-01",
-      "end_date": "2020-03",
-      "platforms": [
-        "Web"
+      "duration": "2016-01 - 2020-03",
+      "start_date": {
+        "year": 2016,
+        "month": "Jan"
+      },
+      "end_date": {
+        "year": 2020,
+        "month": "Mar"
+      },
+      "is_current": false,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
       ],
-      "description": [
-        "Activation +18% via onboarding/integrations; NRR +6pp with expansion motion."
-      ]
+      "company_id": null
     },
     {
-      "company": "SiteSpark",
       "title": "Product Manager",
-      "employment_type": "Full-time",
+      "company": "SiteSpark",
+      "description": "Modernized platform; time‑to‑ship −22% with CI/CD and flags.",
       "location": "Los Angeles, CA",
-      "start_date": "2012-06",
-      "end_date": "2015-12",
-      "platforms": [
-        "Web"
+      "duration": "2012-06 - 2015-12",
+      "start_date": {
+        "year": 2012,
+        "month": "Jun"
+      },
+      "end_date": {
+        "year": 2015,
+        "month": "Dec"
+      },
+      "is_current": false,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
       ],
-      "description": [
-        "Modernized platform; time‑to‑ship −22% with CI/CD and flags."
-      ]
+      "company_id": null
     }
   ],
   "education": [
     {
       "school": "State University",
       "degree": "B.S.",
-      "field": "Computer Science",
-      "start_date": "2009-09",
-      "end_date": "2013-06",
-      "location": "United States"
+      "degree_name": "B.S.",
+      "field_of_study": "Computer Science",
+      "duration": "2009-09 - 2013-06",
+      "start_date": {
+        "year": 2009,
+        "month": "Sep"
+      },
+      "end_date": {
+        "year": 2013,
+        "month": "Jun"
+      },
+      "school_linkedin_url": null,
+      "school_logo_url": null,
+      "school_id": null
     }
   ],
   "projects": [
     {
       "name": "Experimentation Hub",
-      "description": "Internal tooling for test design and readouts across squads."
+      "description": "Internal tooling for test design and readouts across squads.",
+      "associated_with": null,
+      "is_current": false
     }
   ],
   "certifications": [
     {
       "name": "Product Analytics",
-      "authority": "Amplitude (synthetic)",
-      "date": "2021-06"
+      "issuer": "Amplitude (synthetic)",
+      "issued_date": "2021-06"
     }
   ],
   "languages": [
-    "English"
+    {
+      "language": "English",
+      "proficiency": "Native or bilingual proficiency"
+    }
   ],
   "skills": [
     "Product Strategy",

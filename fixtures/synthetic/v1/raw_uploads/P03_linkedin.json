@@ -1,85 +1,140 @@
 {
   "basic_info": {
-    "full_name": "Riley Gupta",
+    "fullname": "Riley Gupta",
+    "first_name": "Riley",
+    "last_name": "Gupta",
     "headline": "Product Manager — Checkout Growth | Conversion, Risk, UX",
-    "location": "New York, NY, US",
-    "email": "riley@example.com",
-    "websites": [],
-    "current_role": "Product Manager, Checkout",
-    "current_company": "PayWave"
+    "profile_url": "https://linkedin.com/in/p03",
+    "profile_picture_url": null,
+    "about": "Product Manager — Checkout Growth | Conversion, Risk, UX",
+    "location": {
+      "country": "US",
+      "city": "New York",
+      "full": "New York, NY, US",
+      "country_code": "US"
+    },
+    "creator_hashtags": [],
+    "is_creator": false,
+    "is_influencer": false,
+    "is_premium": false,
+    "created_timestamp": 1615968219603.641,
+    "show_follower_count": false,
+    "background_picture_url": null,
+    "urn": "ACoP03skn7apldesa",
+    "follower_count": 5122,
+    "connection_count": 5117,
+    "current_company": "PayWave",
+    "current_company_urn": null,
+    "current_company_url": null,
+    "email": "riley@example.com"
   },
   "experience": [
     {
-      "company": "PayWave",
       "title": "Product Manager, Checkout",
-      "employment_type": "Full-time",
+      "company": "PayWave",
+      "description": "Raised checkout conversion +15% via simplified forms and async risk checks.\n\nPartnered with Risk to cut false positives −8% using dynamic scoring.",
       "location": "New York, NY",
-      "start_date": "2021-04",
-      "end_date": "Present",
-      "platforms": [
-        "Web",
-        "Mobile"
+      "duration": "2021-04 - Present",
+      "start_date": {
+        "year": 2021,
+        "month": "Apr"
+      },
+      "is_current": true,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
       ],
-      "description": [
-        "Raised checkout conversion +15% via simplified forms and async risk checks.",
-        "Partnered with Risk to cut false positives −8% using dynamic scoring."
-      ]
+      "company_id": null
     },
     {
-      "company": "NeoBanker",
       "title": "Associate PM",
-      "employment_type": "Full-time",
+      "company": "NeoBanker",
+      "description": "Consolidated KYC APIs; time‑to‑verify −28%; abandonment −6% with clearer states.\n\nPiloted document retry; pass‑through +5pp in Gen‑Z cohort.",
       "location": "New York, NY",
-      "start_date": "2019-07",
-      "end_date": "2021-03",
-      "platforms": [
-        "Mobile"
+      "duration": "2019-07 - 2021-03",
+      "start_date": {
+        "year": 2019,
+        "month": "Jul"
+      },
+      "end_date": {
+        "year": 2021,
+        "month": "Mar"
+      },
+      "is_current": false,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
       ],
-      "description": [
-        "Consolidated KYC APIs; time‑to‑verify −28%; abandonment −6% with clearer states.",
-        "Piloted document retry; pass‑through +5pp in Gen‑Z cohort."
-      ]
+      "company_id": null
     },
     {
-      "company": "FinStride",
       "title": "Product Analyst",
-      "employment_type": "Full-time",
+      "company": "FinStride",
+      "description": "Modeled onboarding & fraud events; prioritized fixes saving ~1.2s latency.",
       "location": "Jersey City, NJ",
-      "start_date": "2017-06",
-      "end_date": "2019-06",
-      "platforms": [
-        "Web"
+      "duration": "2017-06 - 2019-06",
+      "start_date": {
+        "year": 2017,
+        "month": "Jun"
+      },
+      "end_date": {
+        "year": 2019,
+        "month": "Jun"
+      },
+      "is_current": false,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
       ],
-      "description": [
-        "Modeled onboarding & fraud events; prioritized fixes saving ~1.2s latency."
-      ]
+      "company_id": null
     }
   ],
   "education": [
     {
       "school": "State University",
       "degree": "B.S.",
-      "field": "Computer Science",
-      "start_date": "2009-09",
-      "end_date": "2013-06",
-      "location": "United States"
+      "degree_name": "B.S.",
+      "field_of_study": "Computer Science",
+      "duration": "2009-09 - 2013-06",
+      "start_date": {
+        "year": 2009,
+        "month": "Sep"
+      },
+      "end_date": {
+        "year": 2013,
+        "month": "Jun"
+      },
+      "school_linkedin_url": null,
+      "school_logo_url": null,
+      "school_id": null
     }
   ],
   "projects": [
     {
       "name": "Experimentation Hub",
-      "description": "Internal tooling for test design and readouts across squads."
+      "description": "Internal tooling for test design and readouts across squads.",
+      "associated_with": null,
+      "is_current": false
     }
   ],
   "certifications": [
     {
       "name": "Product Analytics",
-      "authority": "Amplitude (synthetic)",
-      "date": "2021-06"
+      "issuer": "Amplitude (synthetic)",
+      "issued_date": "2021-06"
     }
   ],
   "languages": [
-    "English"
+    {
+      "language": "English",
+      "proficiency": "Native or bilingual proficiency"
+    }
   ],
   "skills": [
     "Product Strategy",

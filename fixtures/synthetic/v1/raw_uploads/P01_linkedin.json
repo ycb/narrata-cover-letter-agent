@@ -1,87 +1,140 @@
 {
   "basic_info": {
-    "full_name": "Avery Chen",
+    "fullname": "Avery Chen",
+    "first_name": "Avery",
+    "last_name": "Chen",
     "headline": "Senior Product Manager — PLG & Onboarding | Experiments, Activation, Analytics",
-    "location": "San Francisco Bay Area, CA, US",
-    "email": "avery@example.com",
-    "websites": [],
-    "current_role": "Senior Product Manager",
-    "current_company": "FlowHub"
+    "profile_url": "https://linkedin.com/in/p01",
+    "profile_picture_url": null,
+    "about": "Senior Product Manager — PLG & Onboarding | Experiments, Activation, Analytics",
+    "location": {
+      "country": "US",
+      "city": "San Francisco Bay Area",
+      "full": "San Francisco Bay Area, CA, US",
+      "country_code": "US"
+    },
+    "creator_hashtags": [],
+    "is_creator": false,
+    "is_influencer": false,
+    "is_premium": false,
+    "created_timestamp": 1712025618964.8066,
+    "show_follower_count": false,
+    "background_picture_url": null,
+    "urn": "ACoP0105zxd5vle6g9",
+    "follower_count": 4031,
+    "connection_count": 1112,
+    "current_company": "FlowHub",
+    "current_company_urn": null,
+    "current_company_url": null,
+    "email": "avery@example.com"
   },
   "experience": [
     {
-      "company": "FlowHub",
       "title": "Senior Product Manager",
-      "employment_type": "Full-time",
+      "company": "FlowHub",
+      "description": "Overhauled self-serve onboarding; Week‑2 activation +22% and trial→paid +11% across SMB.\n\nBuilt experimentation cadence (weekly triage, monthly reviews); 30+ tests/year.\n\nDefined analytics taxonomy and dashboards adopted by PMM/CS for lifecycle targeting.",
       "location": "San Francisco, CA",
-      "start_date": "2021-05",
-      "end_date": "Present",
-      "platforms": [
-        "Web",
-        "Mobile"
+      "duration": "2021-05 - Present",
+      "start_date": {
+        "year": 2021,
+        "month": "May"
+      },
+      "is_current": true,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
       ],
-      "description": [
-        "Overhauled self-serve onboarding; Week‑2 activation +22% and trial→paid +11% across SMB.",
-        "Built experimentation cadence (weekly triage, monthly reviews); 30+ tests/year.",
-        "Defined analytics taxonomy and dashboards adopted by PMM/CS for lifecycle targeting."
-      ]
+      "company_id": null
     },
     {
-      "company": "AcmeCRM",
       "title": "Product Manager",
-      "employment_type": "Full-time",
+      "company": "AcmeCRM",
+      "description": "Owned notifications platform; churn −3.5% via usage-triggered lifecycle messaging.\n\nLaunched persona playbooks; engagement +8% and feature adoption +6%.",
       "location": "Remote",
-      "start_date": "2019-02",
-      "end_date": "2021-04",
-      "platforms": [
-        "Web"
+      "duration": "2019-02 - 2021-04",
+      "start_date": {
+        "year": 2019,
+        "month": "Feb"
+      },
+      "end_date": {
+        "year": 2021,
+        "month": "Apr"
+      },
+      "is_current": false,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
       ],
-      "description": [
-        "Owned notifications platform; churn −3.5% via usage-triggered lifecycle messaging.",
-        "Launched persona playbooks; engagement +8% and feature adoption +6%."
-      ]
+      "company_id": null
     },
     {
-      "company": "DataDock",
       "title": "Associate Product Manager",
-      "employment_type": "Full-time",
+      "company": "DataDock",
+      "description": "Delivered admin console; NPS +10 in two quarters; support tickets −18%.\n\nInstituted experiment backlog and readouts to align Eng/Design/CS.",
       "location": "San Mateo, CA",
-      "start_date": "2016-06",
-      "end_date": "2019-01",
-      "platforms": [
-        "Web"
+      "duration": "2016-06 - 2019-01",
+      "start_date": {
+        "year": 2016,
+        "month": "Jun"
+      },
+      "end_date": {
+        "year": 2019,
+        "month": "Jan"
+      },
+      "is_current": false,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
       ],
-      "description": [
-        "Delivered admin console; NPS +10 in two quarters; support tickets −18%.",
-        "Instituted experiment backlog and readouts to align Eng/Design/CS."
-      ]
+      "company_id": null
     }
   ],
   "education": [
     {
       "school": "State University",
       "degree": "B.S.",
-      "field": "Computer Science",
-      "start_date": "2009-09",
-      "end_date": "2013-06",
-      "location": "United States"
+      "degree_name": "B.S.",
+      "field_of_study": "Computer Science",
+      "duration": "2009-09 - 2013-06",
+      "start_date": {
+        "year": 2009,
+        "month": "Sep"
+      },
+      "end_date": {
+        "year": 2013,
+        "month": "Jun"
+      },
+      "school_linkedin_url": null,
+      "school_logo_url": null,
+      "school_id": null
     }
   ],
   "projects": [
     {
       "name": "Experimentation Hub",
-      "description": "Internal tooling for test design and readouts across squads."
+      "description": "Internal tooling for test design and readouts across squads.",
+      "associated_with": null,
+      "is_current": false
     }
   ],
   "certifications": [
     {
       "name": "Product Analytics",
-      "authority": "Amplitude (synthetic)",
-      "date": "2021-06"
+      "issuer": "Amplitude (synthetic)",
+      "issued_date": "2021-06"
     }
   ],
   "languages": [
-    "English"
+    {
+      "language": "English",
+      "proficiency": "Native or bilingual proficiency"
+    }
   ],
   "skills": [
     "Product Strategy",

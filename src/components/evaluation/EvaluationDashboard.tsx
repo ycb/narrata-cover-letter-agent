@@ -905,7 +905,7 @@ export const EvaluationDashboard: React.FC = () => {
               <hr className="border-gray-200" />
 
               {/* LLM Judge Evaluation */}
-              <div>
+                <div>
                 <div className="flex items-center gap-2 mb-3">
                   <h3 className="text-lg font-semibold">
                     LLM Judge Evaluation
@@ -986,8 +986,8 @@ export const EvaluationDashboard: React.FC = () => {
                           </div>
                           <Badge className={getEvaluationBadgeColor(hasEntries ? '✅' : '❌')}>
                             {hasEntries ? `${Object.keys(contactInfo).length} found` : 'None'}
-                          </Badge>
-                        </div>
+                    </Badge>
+                  </div>
                         {hasEntries && isExpanded && (
                           <div className="px-3 pb-3">
                             <div className="bg-white p-3 rounded border border-gray-200 space-y-2 relative">
@@ -1062,8 +1062,8 @@ export const EvaluationDashboard: React.FC = () => {
                           </div>
                           <Badge className={getEvaluationBadgeColor(hasEntries ? '✅' : '❌')}>
                             {hasEntries ? `${education.length} found` : 'None'}
-                          </Badge>
-                        </div>
+                    </Badge>
+                  </div>
                         {hasEntries && isExpanded && (
                           <div className="px-3 pb-3 space-y-3 max-h-96 overflow-y-auto">
                             {education.map((entry: any, idx: number) => renderEducationEntry(entry, idx))}
@@ -1094,7 +1094,7 @@ export const EvaluationDashboard: React.FC = () => {
                           </div>
                           <Badge className={getEvaluationBadgeColor(hasEntries ? '✅' : '❌')}>
                             {hasEntries ? `${workHistory.length} found` : 'None'}
-                          </Badge>
+                    </Badge>
                   </div>
                         {/* removed sub-count line to keep consistent labeling */}
                         {hasEntries && isExpanded && (
@@ -1126,7 +1126,7 @@ export const EvaluationDashboard: React.FC = () => {
                           </div>
                           <Badge className={getEvaluationBadgeColor(hasEntries ? '✅' : '❌')}>
                             {hasEntries ? `${education.length} found` : 'None'}
-                          </Badge>
+                    </Badge>
                   </div>
                         {/* removed sub-count line to keep consistent labeling */}
                         {hasEntries && isExpanded && (
@@ -1345,12 +1345,12 @@ export const EvaluationDashboard: React.FC = () => {
                                         onClick={() => handleFlagClick('story', storyPath, story)}
                                         size="sm"
                                       />
-                                    </div>
+                      </div>
                                     <div className="pr-8">
                                       {(story.company || story.titleRole) && (
                                         <div className="text-xs text-gray-600 mb-0.5">
                                           {story.company && story.titleRole ? `${story.company}: ${story.titleRole}` : (story.company || story.titleRole)}
-                                        </div>
+                    </div>
                                       )}
                                       <div className="font-medium text-sm text-gray-900">{story.title || story.id}</div>
                                       {story.summary && (
@@ -1448,7 +1448,7 @@ export const EvaluationDashboard: React.FC = () => {
                                         onClick={() => handleFlagClick('story', storyPath, story)}
                                         size="sm"
                                       />
-                                    </div>
+                      </div>
                                     <div className="pr-8">
                                       <div className="font-medium text-sm text-gray-900">{story.title || story.id}</div>
                                       {story.summary && (
@@ -1471,7 +1471,7 @@ export const EvaluationDashboard: React.FC = () => {
                                           {story.star.result && (
                                             <div><span className="font-medium">Result: </span>{story.star.result}</div>
                                           )}
-                                        </div>
+                    </div>
                                       )}
                                       {story.metrics && story.metrics.length > 0 && (
                                         <div className="mt-2">
@@ -1494,9 +1494,9 @@ export const EvaluationDashboard: React.FC = () => {
                                                 </span>
                                               )
                                             })}
-                                          </div>
-                                        </div>
-                                      )}
+                  </div>
+                </div>
+              )}
                                       {story.tags && (story.tags.skills || story.tags.functions || story.tags.domains) && (
                                         <div className="mt-2">
                                           <div className="text-[11px] font-medium text-gray-600 mb-1">Tags</div>
@@ -1601,7 +1601,7 @@ export const EvaluationDashboard: React.FC = () => {
                           <div className="flex items-center gap-2">
                             {hasEntries && (isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />)}
                             <span>Metrics</span>
-                          </div>
+                  </div>
                           <Badge className={getEvaluationBadgeColor(hasEntries ? '✅' : '❌')}>
                             {hasEntries ? `${allMetrics.length} found` : 'None'}
                           </Badge>
@@ -1662,7 +1662,7 @@ export const EvaluationDashboard: React.FC = () => {
                                       onClick={() => handleFlagClick('metric', path, metric)}
                                       size="sm"
                                     />
-                                  </div>
+                    </div>
                                   <div className="mb-2 pb-2 border-b border-gray-100 pr-8">
                                     <div className="flex items-center gap-2">
                                       <Badge variant="outline" className={`text-xs ${parent.type === 'role' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-purple-50 text-purple-700 border-purple-200'}`}>
@@ -1671,7 +1671,7 @@ export const EvaluationDashboard: React.FC = () => {
                                       <span className="text-xs font-medium text-gray-700">
                                         {parent.company} {parent.position && `• ${parent.position}`}
                                       </span>
-                    </div>
+                  </div>
                                     {parent.type === 'story' && parent.storyTitle && (
                                       <div className="text-xs text-gray-600 mt-1">
                                         Story: {parent.storyTitle}
@@ -1680,11 +1680,11 @@ export const EvaluationDashboard: React.FC = () => {
                   </div>
                                   <div className="text-sm text-gray-900 font-medium pr-8">
                                     {metricText}
-                  </div>
+                </div>
                                   {metric.type && (
                                     <div className="mt-1">
                                       <Badge variant="outline" className="text-xs text-gray-500">{metric.type}</Badge>
-                </div>
+              </div>
                                   )}
               </div>
                               );

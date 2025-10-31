@@ -28,6 +28,7 @@ import { EvaluationService } from './evaluationService';
 import { TemplateService } from './templateService';
 import { UnifiedProfileService } from './unifiedProfileService';
 import { HumanReviewService } from './humanReviewService';
+import { AppifyService } from './appifyService';
 
 export class FileUploadService {
   private textExtractionService: TextExtractionService;
@@ -36,6 +37,7 @@ export class FileUploadService {
   private templateService: TemplateService;
   private unifiedProfileService: UnifiedProfileService;
   private humanReviewService: HumanReviewService;
+  private appifyService: AppifyService;
   
   // Simple batching state
   private pendingResume: { sourceId: string; text: string } | null = null;
@@ -48,6 +50,7 @@ export class FileUploadService {
     this.templateService = new TemplateService();
     this.unifiedProfileService = new UnifiedProfileService();
     this.humanReviewService = new HumanReviewService();
+    this.appifyService = new AppifyService();
   }
 
   /**
@@ -610,8 +613,9 @@ export class FileUploadService {
       // Run code-driven heuristics
       const heuristics = this.runHeuristics(structuredData, type);
 
-      // Auto-save extracted data to database (resume only - has workHistory)
-      if (type === 'resume') {
+      // Auto-save extracted data to database (both resume AND cover letter can have workHistory)
+      // Cover letters may contain work history entries that should be processed
+      if (type === 'resume' || (type === 'coverLetter' && structuredData.workHistory && Array.isArray(structuredData.workHistory) && structuredData.workHistory.length > 0)) {
         await this.processStructuredData(structuredData, sourceId, accessToken);
       }
       
@@ -680,17 +684,38 @@ export class FileUploadService {
         return;
       }
 
-      const { supabase } = await import('../lib/supabase');
+      // Use authenticated client if accessToken provided (for Node.js scripts)
+      let dbClient: any;
+      if (accessToken) {
+        const { createClient } = await import('@supabase/supabase-js');
+        const url = (import.meta.env?.VITE_SUPABASE_URL) || (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_URL : '');
+        const key = (import.meta.env?.VITE_SUPABASE_ANON_KEY) || (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_ANON_KEY : '');
+        dbClient = createClient(url, key, {
+          global: {
+            headers: {
+              Authorization: `Bearer ${accessToken}`
+            }
+          }
+        });
+      } else {
+        const { supabase } = await import('../lib/supabase');
+        dbClient = supabase;
+      }
       
       // Get the user_id from the source record
-      const { data: sourceData } = await supabase
+      const { data: sourceData, error: sourceError } = await dbClient
         .from('sources')
         .select('user_id')
         .eq('id', sourceId)
         .single();
       
+      if (sourceError) {
+        console.error('❌ Error fetching source record:', sourceError);
+        return;
+      }
+      
       if (!sourceData) {
-        console.error('Source record not found');
+        console.error('❌ Source record not found for sourceId:', sourceId);
         return;
       }
       
@@ -716,7 +741,7 @@ export class FileUploadService {
         // First, create or find the company
         let companyId: string;
         
-        const { data: existingCompany } = await supabase
+        const { data: existingCompany } = await dbClient
           .from('companies')
           .select('id')
           .eq('name', workItem.company)
@@ -728,13 +753,13 @@ export class FileUploadService {
           
           // Update company tags if they exist
           if (workItem.companyTags && workItem.companyTags.length > 0) {
-            await supabase
+            await dbClient
               .from('companies')
               .update({ tags: workItem.companyTags })
               .eq('id', companyId);
           }
         } else {
-          const { data: newCompany, error: companyError } = await supabase
+          const { data: newCompany, error: companyError } = await dbClient
             .from('companies')
             .insert({
               name: workItem.company,
@@ -762,7 +787,7 @@ export class FileUploadService {
             }))
           : [];
         
-        const { data: newWorkItem, error: workItemError } = await supabase
+        const { data: newWorkItem, error: workItemError } = await dbClient
           .from('work_items')
           .insert({
             user_id: userId,
@@ -816,7 +841,7 @@ export class FileUploadService {
                 }))
               : [];
             
-            const { data: insertedStory, error: storyError } = await supabase
+            const { data: insertedStory, error: storyError } = await dbClient
               .from('approved_content')
               .insert({
                 user_id: userId,
@@ -1305,7 +1330,7 @@ export class FileUploadService {
           }
         }));
         
-        // Auto-save extracted data to database
+        // Auto-save extracted data to database (resume)
         await this.processStructuredData(combinedResult.resume.data, this.pendingResume.sourceId, accessToken);
         
         // Log for evaluation tracking
@@ -1333,6 +1358,12 @@ export class FileUploadService {
       if (combinedResult.coverLetter.success) {
         await this.updateProcessingStatus(this.pendingCoverLetter.sourceId, 'completed', combinedResult.coverLetter.data as any, undefined, accessToken);
         console.log('✅ Cover letter analysis completed');
+        
+        // Auto-save extracted data to database (cover letter - may contain workHistory)
+        // Cover letters can include work history entries that should be processed
+        if (combinedResult.coverLetter.data?.workHistory && Array.isArray(combinedResult.coverLetter.data.workHistory) && combinedResult.coverLetter.data.workHistory.length > 0) {
+          await this.processStructuredData(combinedResult.coverLetter.data, this.pendingCoverLetter.sourceId, accessToken);
+        }
         
         // Normalize skills from cover letter
         const { data: coverLetterSourceData } = await supabase
@@ -1365,6 +1396,12 @@ export class FileUploadService {
         await this.updateProcessingStatus(this.pendingCoverLetter.sourceId, 'failed', undefined, combinedResult.coverLetter.error, accessToken);
         console.error('❌ Cover letter analysis failed:', combinedResult.coverLetter.error);
       }
+      
+      // Fetch LinkedIn data via Appify API if available
+      await this.fetchAndProcessLinkedInData(accessToken);
+      
+      // Create unified profile from all three sources (resume + cover letter + LinkedIn)
+      await this.createUnifiedProfile(accessToken);
       
       // Clear batching data
       this.pendingResume = null;
@@ -1642,6 +1679,349 @@ export class FileUploadService {
     } catch (error) {
       console.warn('Failed to retrieve eval logs:', error);
       return [];
+    }
+  }
+
+  /**
+   * Fetch LinkedIn data via Appify API after resume/cover letter are processed
+   * Supports both live API calls and synthetic mode (loading JSON fixtures)
+   */
+  private async fetchAndProcessLinkedInData(accessToken?: string): Promise<void> {
+    try {
+      if (!this.pendingResume) {
+        console.log('⚠️ No resume data available for LinkedIn enrichment');
+        return;
+      }
+
+      // Get user info - use authenticated client if accessToken provided
+      let user: any = null;
+      let authSupabase: any = null;
+      
+      if (accessToken) {
+        // Create authenticated Supabase client (for Node.js scripts)
+        const { createClient } = await import('@supabase/supabase-js');
+        const url = (import.meta.env?.VITE_SUPABASE_URL) || (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_URL : '');
+        const key = (import.meta.env?.VITE_SUPABASE_ANON_KEY) || (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_ANON_KEY : '');
+        authSupabase = createClient(url, key, {
+          global: {
+            headers: {
+              Authorization: `Bearer ${accessToken}`
+            }
+          }
+        });
+        const { data: { user: authUser }, error: authError } = await authSupabase.auth.getUser();
+        if (!authError && authUser) {
+          user = authUser;
+        }
+      } else {
+        // Fallback to default supabase client (for browser)
+        const { supabase } = await import('../lib/supabase');
+        const { data: { user: defaultUser } } = await supabase.auth.getUser();
+        user = defaultUser;
+        authSupabase = supabase;
+      }
+      
+      if (!user) {
+        console.warn('⚠️ No authenticated user for LinkedIn enrichment');
+        return;
+      }
+
+      // Check if we're in synthetic mode by checking user email
+      const SYNTHETIC_TESTING_ALLOWLIST = ['narrata.ai@gmail.com'];
+      let isSyntheticEnabled = false;
+      
+      // Get user profile to check email
+      const { data: profile } = await authSupabase
+        .from('profiles')
+        .select('email')
+        .eq('id', user.id)
+        .single();
+      
+      if (profile?.email && SYNTHETIC_TESTING_ALLOWLIST.includes(profile.email)) {
+        isSyntheticEnabled = true;
+      }
+      
+      let appifyResult;
+      let appifyRawData: any = null;
+      let activeProfileId: string | null = null;
+
+      if (isSyntheticEnabled) {
+        // Synthetic mode: Load JSON fixture file
+        console.log('🧪 Synthetic mode detected - loading LinkedIn fixture data...');
+        
+        // Get active synthetic user profile
+        const { data: syntheticUsers } = await authSupabase
+          .from('synthetic_users')
+          .select('profile_id')
+          .eq('parent_user_id', user.id)
+          .eq('is_active', true)
+          .single();
+        
+        if (!syntheticUsers?.profile_id) {
+          console.warn('⚠️ No active synthetic user for LinkedIn enrichment');
+          return;
+        }
+
+        activeProfileId = syntheticUsers.profile_id; // e.g., "P01"
+        const fixturePath = `/fixtures/synthetic/v1/raw_uploads/${activeProfileId}_linkedin.json`;
+        
+        try {
+          // Try Node.js fs first (for scripts), fallback to fetch (for browser)
+          let loaded = false;
+          try {
+            const fs = await import('fs');
+            const path = await import('path');
+            // Try fixtures directory path first (where files actually are)
+            const filePath = path.join(process.cwd(), 'fixtures', 'synthetic', 'v1', 'raw_uploads', `${activeProfileId}_linkedin.json`);
+            
+            if (fs.existsSync(filePath)) {
+              appifyRawData = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+              console.log(`✅ Loaded LinkedIn fixture for ${activeProfileId} (Node.js)`);
+              loaded = true;
+            }
+          } catch (fsError) {
+            // fs not available, will try fetch
+          }
+          
+          if (!loaded) {
+            // Browser: Use fetch
+            const response = await fetch(fixturePath);
+            if (!response.ok) {
+              console.warn(`⚠️ LinkedIn fixture not found: ${fixturePath}`);
+              return;
+            }
+            appifyRawData = await response.json();
+            console.log(`✅ Loaded LinkedIn fixture for ${activeProfileId} (browser)`);
+          }
+          
+          // Convert Appify format to structured data
+          const linkedinStructuredData = this.appifyService.convertToStructuredData(appifyRawData);
+          appifyResult = {
+            success: true,
+            data: linkedinStructuredData
+          };
+        } catch (fetchError) {
+          console.error('❌ Error loading LinkedIn fixture:', fetchError);
+          return;
+        }
+      } else {
+        // Production mode: Use Appify API
+        if (!this.appifyService.isConfigured()) {
+          console.log('⚠️ Appify API not configured - skipping LinkedIn enrichment');
+          return;
+        }
+
+        console.log('🔍 Fetching LinkedIn data via Appify API...');
+
+        // Get resume structured data (use authenticated client)
+        const { data: resumeSource } = await authSupabase
+          .from('sources')
+          .select('structured_data')
+          .eq('id', this.pendingResume.sourceId)
+          .single();
+
+        if (!resumeSource?.structured_data) {
+          console.warn('⚠️ Resume structured data not found for LinkedIn enrichment');
+          return;
+        }
+
+        // Get user profile for name (use authenticated client)
+        const { data: profile } = await authSupabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+
+        const fullName = profile?.full_name || user.user_metadata?.full_name || null;
+        const resumeData = resumeSource.structured_data as any;
+
+        // Get LinkedIn URL from resume contact info or user input
+        const linkedinUrl = resumeData?.contactInfo?.linkedin || null;
+
+        // Enrich via Appify API
+        appifyResult = await this.appifyService.enrichFromResumeData(
+          fullName,
+          resumeData,
+          linkedinUrl || undefined
+        );
+      }
+
+      if (appifyResult.success && appifyResult.data) {
+        console.log('✅ LinkedIn data processed successfully');
+        
+        // Convert Appify data to structured format (already done in service)
+        const linkedinStructuredData = appifyResult.data;
+        
+        // Determine file name based on mode
+        const fileName = isSyntheticEnabled && activeProfileId
+          ? `${activeProfileId}_linkedin.json`
+          : `${user.id}_linkedin_enriched.json`;
+        
+        // Save LinkedIn data as a source (use authenticated client)
+        const rawText = appifyRawData ? JSON.stringify(appifyRawData, null, 2) : JSON.stringify(linkedinStructuredData, null, 2);
+        const fileSize = typeof Buffer !== 'undefined' 
+          ? Buffer.byteLength(rawText, 'utf8')
+          : new Blob([rawText]).size;
+        
+        // Generate checksum for LinkedIn data
+        let checksum: string | undefined;
+        try {
+          checksum = await this.generateChecksum(new File([rawText], fileName, { type: 'application/json' }));
+        } catch (checksumError) {
+          console.warn('Failed to generate checksum for LinkedIn data:', checksumError);
+          // Generate a simple hash as fallback
+          if (typeof crypto !== 'undefined' && crypto.subtle) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(rawText);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            checksum = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 64);
+          } else {
+            // Fallback: simple hash from string
+            checksum = `linkedin_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+          }
+        }
+        
+        // Insert LinkedIn source - source_type may not exist in sources table (only in user_skills)
+        const { data: linkedinSource, error: linkedinError } = await authSupabase
+          .from('sources')
+          .insert({
+            user_id: user.id,
+            file_name: fileName,
+            file_type: 'application/json', // MIME type for JSON data
+            file_size: fileSize,
+            file_checksum: checksum,
+            storage_path: `uploads/${user.id}/${fileName}`, // Virtual path for LinkedIn data
+            raw_text: rawText,
+            structured_data: linkedinStructuredData,
+            processing_status: 'completed'
+          })
+          .select('id')
+          .single();
+
+        if (linkedinError) {
+          console.error('❌ Error saving LinkedIn source:', linkedinError);
+        } else if (linkedinSource) {
+          console.log(`✅ LinkedIn source saved: ${linkedinSource.id}`);
+          
+          // Process LinkedIn structured data into work_items
+          if (linkedinStructuredData.workHistory && Array.isArray(linkedinStructuredData.workHistory)) {
+            await this.processStructuredData(linkedinStructuredData, linkedinSource.id, accessToken);
+          }
+        }
+      } else {
+        console.warn('⚠️ LinkedIn enrichment failed:', appifyResult.error);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching LinkedIn data:', error);
+      // Don't throw - this is optional enrichment
+    }
+  }
+
+  /**
+   * Create unified profile from resume + cover letter + LinkedIn
+   */
+  private async createUnifiedProfile(accessToken?: string): Promise<void> {
+    try {
+      if (!this.pendingResume || !this.pendingCoverLetter) {
+        console.log('⚠️ Resume and cover letter required for unified profile');
+        return;
+      }
+
+      console.log('🔗 Creating unified profile from all sources...');
+
+      // Get user info - use authenticated client if accessToken provided
+      let user: any = null;
+      let authSupabase: any = null;
+      
+      if (accessToken) {
+        const { createClient } = await import('@supabase/supabase-js');
+        const url = (import.meta.env?.VITE_SUPABASE_URL) || (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_URL : '');
+        const key = (import.meta.env?.VITE_SUPABASE_ANON_KEY) || (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_ANON_KEY : '');
+        authSupabase = createClient(url, key, {
+          global: {
+            headers: {
+              Authorization: `Bearer ${accessToken}`
+            }
+          }
+        });
+        const { data: { user: authUser }, error: authError } = await authSupabase.auth.getUser();
+        if (!authError && authUser) {
+          user = authUser;
+        }
+      } else {
+        const { supabase } = await import('../lib/supabase');
+        authSupabase = supabase;
+        const { data: { user: defaultUser } } = await authSupabase.auth.getUser();
+        user = defaultUser;
+      }
+      
+      if (!user) {
+        console.warn('⚠️ No authenticated user for unified profile');
+        return;
+      }
+      
+      if (!user) {
+        console.warn('⚠️ No authenticated user for unified profile');
+        return;
+      }
+
+      // Get all three structured data sources (filter by file_name patterns since file_type is MIME type)
+      const { data: allSources } = await authSupabase
+        .from('sources')
+        .select('id, file_name, file_type, structured_data')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(10); // Get more to find all three types
+
+      // Filter by file_name patterns (since file_type stores MIME types)
+      const resumeData = allSources?.find(s => 
+        s.file_name.includes('resume') || 
+        s.file_name.includes('_resume') ||
+        (s.file_type && s.file_type.includes('text/plain') && s.file_name.toLowerCase().includes('resume'))
+      )?.structured_data as any;
+      
+      const coverLetterData = allSources?.find(s => 
+        s.file_name.includes('cover') || 
+        s.file_name.includes('cover_letter') ||
+        (s.file_type && s.file_type.includes('text/plain') && s.file_name.toLowerCase().includes('cover'))
+      )?.structured_data as any;
+      
+      const linkedinData = allSources?.find(s => 
+        s.file_name.includes('linkedin') || 
+        s.file_name.includes('_linkedin') ||
+        (s.file_type && s.file_type.includes('application/json') && s.file_name.toLowerCase().includes('linkedin'))
+      )?.structured_data as any;
+
+      if (!resumeData) {
+        console.warn('⚠️ Resume data required for unified profile');
+        return;
+      }
+
+      // Create unified profile
+      const unifiedResult = await this.unifiedProfileService.createUnifiedProfile(
+        resumeData,
+        linkedinData || {},
+        coverLetterData || {}
+      );
+
+      if (unifiedResult.success && unifiedResult.data) {
+        console.log('✅ Unified profile created successfully');
+        
+        // TODO: Store unified profile in database (create table if needed)
+        // For now, just log success
+        console.log('📊 Unified profile summary:', {
+          workHistoryCount: unifiedResult.data.workHistory?.length || 0,
+          educationCount: unifiedResult.data.education?.length || 0,
+          skillsCount: unifiedResult.data.skills?.length || 0,
+          totalExperience: unifiedResult.data.overallMetrics?.totalExperience || 0
+        });
+      } else {
+        console.warn('⚠️ Unified profile creation failed:', unifiedResult.error);
+      }
+    } catch (error) {
+      console.error('❌ Error creating unified profile:', error);
+      // Don't throw - this is enhancement, not required
     }
   }
 }

@@ -1,85 +1,140 @@
 {
   "basic_info": {
-    "full_name": "Jordan Alvarez",
+    "fullname": "Jordan Alvarez",
+    "first_name": "Jordan",
+    "last_name": "Alvarez",
     "headline": "Senior PM — Energy Intelligence | Telemetry, Alerts, Fleet Health",
-    "location": "Los Angeles, CA, US",
-    "email": "jordan@example.com",
-    "websites": [],
-    "current_role": "Senior Product Manager",
-    "current_company": "Sunlytic"
+    "profile_url": "https://linkedin.com/in/p02",
+    "profile_picture_url": null,
+    "about": "Senior PM — Energy Intelligence | Telemetry, Alerts, Fleet Health",
+    "location": {
+      "country": "US",
+      "city": "Los Angeles",
+      "full": "Los Angeles, CA, US",
+      "country_code": "US"
+    },
+    "creator_hashtags": [],
+    "is_creator": false,
+    "is_influencer": false,
+    "is_premium": false,
+    "created_timestamp": 1463283257514.1587,
+    "show_follower_count": false,
+    "background_picture_url": null,
+    "urn": "ACoP02w284djaioyf",
+    "follower_count": 2546,
+    "connection_count": 4317,
+    "current_company": "Sunlytic",
+    "current_company_urn": null,
+    "current_company_url": null,
+    "email": "jordan@example.com"
   },
   "experience": [
     {
-      "company": "Sunlytic",
       "title": "Senior Product Manager",
-      "employment_type": "Full-time",
+      "company": "Sunlytic",
+      "description": "Launched fleet health monitoring; critical outages −14% YoY; dispatch time −12%.\n\nIntroduced SLA reporting and alert tuning; MTTA −18% and false alarms −21%.",
       "location": "Los Angeles, CA",
-      "start_date": "2022-03",
-      "end_date": "Present",
-      "platforms": [
-        "Web",
-        "Mobile"
+      "duration": "2022-03 - Present",
+      "start_date": {
+        "year": 2022,
+        "month": "Mar"
+      },
+      "is_current": true,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
       ],
-      "description": [
-        "Launched fleet health monitoring; critical outages −14% YoY; dispatch time −12%.",
-        "Introduced SLA reporting and alert tuning; MTTA −18% and false alarms −21%."
-      ]
+      "company_id": null
     },
     {
-      "company": "AuricSoft",
       "title": "Product Manager",
-      "employment_type": "Full-time",
+      "company": "AuricSoft",
+      "description": "Improved quoting workflow; win rate +9% in SMB; manual entry −40% via integrations.\n\nShipped device onboarding tool; install time −12%; defect rate −8%.",
       "location": "Irvine, CA",
-      "start_date": "2019-05",
-      "end_date": "2022-02",
-      "platforms": [
-        "Web"
+      "duration": "2019-05 - 2022-02",
+      "start_date": {
+        "year": 2019,
+        "month": "May"
+      },
+      "end_date": {
+        "year": 2022,
+        "month": "Feb"
+      },
+      "is_current": false,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
       ],
-      "description": [
-        "Improved quoting workflow; win rate +9% in SMB; manual entry −40% via integrations.",
-        "Shipped device onboarding tool; install time −12%; defect rate −8%."
-      ]
+      "company_id": null
     },
     {
-      "company": "GreenGrid",
       "title": "Associate PM",
-      "employment_type": "Full-time",
+      "company": "GreenGrid",
+      "description": "Defined telemetry schema for inverter fleet; data completeness → 96%.",
       "location": "San Diego, CA",
-      "start_date": "2016-12",
-      "end_date": "2019-04",
-      "platforms": [
-        "Web"
+      "duration": "2016-12 - 2019-04",
+      "start_date": {
+        "year": 2016,
+        "month": "Dec"
+      },
+      "end_date": {
+        "year": 2019,
+        "month": "Apr"
+      },
+      "is_current": false,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
       ],
-      "description": [
-        "Defined telemetry schema for inverter fleet; data completeness → 96%."
-      ]
+      "company_id": null
     }
   ],
   "education": [
     {
       "school": "State University",
       "degree": "B.S.",
-      "field": "Computer Science",
-      "start_date": "2009-09",
-      "end_date": "2013-06",
-      "location": "United States"
+      "degree_name": "B.S.",
+      "field_of_study": "Computer Science",
+      "duration": "2009-09 - 2013-06",
+      "start_date": {
+        "year": 2009,
+        "month": "Sep"
+      },
+      "end_date": {
+        "year": 2013,
+        "month": "Jun"
+      },
+      "school_linkedin_url": null,
+      "school_logo_url": null,
+      "school_id": null
     }
   ],
   "projects": [
     {
       "name": "Experimentation Hub",
-      "description": "Internal tooling for test design and readouts across squads."
+      "description": "Internal tooling for test design and readouts across squads.",
+      "associated_with": null,
+      "is_current": false
     }
   ],
   "certifications": [
     {
       "name": "Product Analytics",
-      "authority": "Amplitude (synthetic)",
-      "date": "2021-06"
+      "issuer": "Amplitude (synthetic)",
+      "issued_date": "2021-06"
     }
   ],
   "languages": [
-    "English"
+    {
+      "language": "English",
+      "proficiency": "Native or bilingual proficiency"
+    }
   ],
   "skills": [
     "Product Strategy",

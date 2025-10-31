@@ -13,23 +13,20 @@ import {
   Briefcase,
   GraduationCap,
   Award,
-  RefreshCw
+  RefreshCw,
+  Copy,
+  Eye
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 
-interface LinkedInProfile {
+interface LinkedInSource {
   id: string;
   user_id: string;
-  linkedin_id: string;
-  profile_url: string;
-  about: string;
-  experience: any[];
-  education: any[];
-  skills: string[];
-  certifications: any[];
-  projects: any[];
-  raw_data: any;
+  file_name: string;
+  file_type: string;
+  structured_data: any;
+  raw_text?: string;
   created_at: string;
   updated_at: string;
 }
@@ -41,7 +38,7 @@ interface LinkedInDataSourceProps {
 
 export function LinkedInDataSource({ onConnectLinkedIn, onRefresh }: LinkedInDataSourceProps) {
   const { user } = useAuth();
-  const [profile, setProfile] = useState<LinkedInProfile | null>(null);
+  const [source, setSource] = useState<LinkedInSource | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,23 +49,23 @@ export function LinkedInDataSource({ onConnectLinkedIn, onRefresh }: LinkedInDat
       setIsLoading(true);
       setError(null);
 
+      // Find LinkedIn sources by file_name pattern
       const { data, error: fetchError } = await supabase
-        .from('linkedin_profiles')
+        .from('sources')
         .select('*')
         .eq('user_id', user.id)
+        .ilike('file_name', '%linkedin%')
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (fetchError) {
-        if (fetchError.code === 'PGRST116') {
-          // No profile found
-          setProfile(null);
-        } else {
-          throw fetchError;
-        }
+        throw fetchError;
+      } else if (!data) {
+        // No LinkedIn source found
+        setSource(null);
       } else {
-        setProfile(data);
+        setSource(data);
       }
     } catch (err) {
       console.error('Error fetching LinkedIn profile:', err);
@@ -95,10 +92,7 @@ export function LinkedInDataSource({ onConnectLinkedIn, onRefresh }: LinkedInDat
     return (
       <Card className="h-full">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Linkedin className="h-5 w-5 text-blue-600" />
-            LinkedIn Profile
-          </CardTitle>
+          <CardTitle>LinkedIn Profile</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center py-8">
@@ -114,10 +108,7 @@ export function LinkedInDataSource({ onConnectLinkedIn, onRefresh }: LinkedInDat
     return (
       <Card className="h-full">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Linkedin className="h-5 w-5 text-blue-600" />
-            LinkedIn Profile
-          </CardTitle>
+          <CardTitle>LinkedIn Profile</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8">
@@ -133,176 +124,179 @@ export function LinkedInDataSource({ onConnectLinkedIn, onRefresh }: LinkedInDat
     );
   }
 
-  if (!profile) {
+  // Format LinkedIn structured data for display
+  const formatLinkedInData = (sd: any) => {
+    if (!sd) return null;
+    
+    const workHistory = sd.workHistory || [];
+    const education = sd.education || [];
+    const skills = sd.skills || [];
+    const about = sd.about || sd.summary || '';
+    const fullName = sd.fullName || sd.name || 'LinkedIn Profile';
+    
+    return { workHistory, education, skills, about, fullName };
+  };
+
+  if (!source) {
     return (
       <Card className="h-full">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Linkedin className="h-5 w-5 text-blue-600" />
-            LinkedIn Profile
-          </CardTitle>
+          <CardTitle>LinkedIn Profile</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8">
-            <Linkedin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Connect Your LinkedIn</h3>
+            <h3 className="text-lg font-semibold mb-2">Import LinkedIn Data</h3>
             <p className="text-sm text-muted-foreground mb-6">
-              Import your professional experience and network data to build a comprehensive work history.
+              LinkedIn profile data will appear here once imported.
             </p>
-            <Button onClick={handleConnect} className="w-full">
-              <Linkedin className="h-4 w-4 mr-2" />
-              Connect LinkedIn Profile
-            </Button>
           </div>
         </CardContent>
       </Card>
     );
   }
 
+  const linkedInData = formatLinkedInData(source.structured_data);
+
   return (
     <Card className="h-full">
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Linkedin className="h-5 w-5 text-blue-600" />
-            LinkedIn Profile
-          </CardTitle>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => window.open(profile.profile_url, '_blank')}
-          >
-            <ExternalLink className="h-4 w-4 mr-2" />
-            View Profile
-          </Button>
+          <CardTitle>LinkedIn Profile</CardTitle>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Profile Header */}
-        <div className="space-y-4">
-          <div>
-            <h3 className="text-xl font-semibold">{profile.linkedin_id}</h3>
-            <p className="text-muted-foreground">LinkedIn Profile</p>
-          </div>
-          
-          {profile.about && (
-            <div>
-              <h4 className="font-medium mb-2">About</h4>
-              <p className="text-sm text-muted-foreground leading-relaxed">{profile.about}</p>
-            </div>
-          )}
-
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <Calendar className="h-4 w-4" />
-              <span>Updated {new Date(profile.updated_at).toLocaleDateString()}</span>
-            </div>
-          </div>
+        {/* File Info */}
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <span>{new Date(source.created_at).toLocaleDateString()}</span>
         </div>
 
-        <Separator />
+        {/* Profile Summary */}
+        {linkedInData?.about && (
+          <>
+            <div>
+              <h4 className="font-medium mb-2">About</h4>
+              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                {linkedInData.about}
+              </p>
+            </div>
+            <Separator />
+          </>
+        )}
 
-        {/* Experience */}
-        {profile.experience && profile.experience.length > 0 && (
-          <div>
-            <h4 className="font-medium mb-3 flex items-center gap-2">
-              <Briefcase className="h-4 w-4" />
-              Experience ({profile.experience.length})
-            </h4>
-            <div className="space-y-3">
-              {profile.experience.slice(0, 3).map((exp, index) => {
-                // Flatten nested objects from PDL API
-                const title = typeof exp.title === 'object' ? exp.title?.name : (exp.title || 'Unknown Role');
-                const company = typeof exp.company === 'object' ? exp.company?.name : (exp.company || 'Unknown Company');
-                const location = typeof exp.location === 'object' ? exp.location?.name : (exp.location || '');
-                const description = typeof exp.description === 'object' ? String(exp.description) : exp.description;
-                
-                return (
-                  <div key={index} className="border rounded-lg p-3">
-                    <div className="flex items-start justify-between">
+        {/* Work History */}
+        {linkedInData?.workHistory && linkedInData.workHistory.length > 0 && (
+          <>
+            <div>
+              <h4 className="font-medium mb-3 flex items-center gap-2">
+                <Briefcase className="h-4 w-4" />
+                Experience ({linkedInData.workHistory.length})
+              </h4>
+              <div className="space-y-3">
+                {linkedInData.workHistory.map((exp: any, index: number) => {
+                  const title = exp.position || exp.title || 'Position';
+                  const company = exp.company || 'Company';
+                  const location = exp.location || '';
+                  const startDate = exp.startDate || '';
+                  const endDate = exp.endDate || exp.current ? 'Present' : '';
+                  const description = exp.description || exp.roleSummary || '';
+                  
+                  return (
+                    <div key={index} className="border rounded-lg p-3">
                       <div className="flex-1">
                         <h5 className="font-medium">{title}</h5>
                         <p className="text-sm text-muted-foreground">{company}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {exp.startDate} - {exp.endDate || 'Present'}
-                        </p>
+                        {(startDate || endDate) && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {startDate} {endDate ? `- ${endDate}` : ''}
+                          </p>
+                        )}
                         {location && (
                           <p className="text-xs text-muted-foreground">{location}</p>
                         )}
                       </div>
+                      {description && (
+                        <p className="text-sm text-foreground mt-2 whitespace-pre-wrap">
+                          {description}
+                        </p>
+                      )}
                     </div>
-                    {description && (
-                      <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
-                        {description}
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
-              {profile.experience.length > 3 && (
-                <p className="text-sm text-muted-foreground text-center">
-                  +{profile.experience.length - 3} more positions
-                </p>
-              )}
+                  );
+                })}
+              </div>
             </div>
-          </div>
+            <Separator />
+          </>
         )}
-
-        <Separator />
 
         {/* Education */}
-        {profile.education && profile.education.length > 0 && (
-          <div>
-            <h4 className="font-medium mb-3 flex items-center gap-2">
-              <GraduationCap className="h-4 w-4" />
-              Education ({profile.education.length})
-            </h4>
-            <div className="space-y-2">
-              {profile.education.slice(0, 2).map((edu, index) => {
-                // Flatten nested objects from PDL API
-                const degree = typeof edu.degree === 'object' ? edu.degree?.name : (edu.degree || 'Unknown Degree');
-                const school = typeof edu.school === 'object' ? edu.school?.name : (edu.school || 'Unknown School');
-                
-                return (
-                  <div key={index} className="border rounded-lg p-3">
-                    <h5 className="font-medium">{degree}</h5>
-                    <p className="text-sm text-muted-foreground">{school}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {edu.startDate} - {edu.endDate || 'Present'}
-                    </p>
-                  </div>
-                );
-              })}
-              {profile.education.length > 2 && (
-                <p className="text-sm text-muted-foreground text-center">
-                  +{profile.education.length - 2} more schools
-                </p>
-              )}
+        {linkedInData?.education && linkedInData.education.length > 0 && (
+          <>
+            <div>
+              <h4 className="font-medium mb-3 flex items-center gap-2">
+                <GraduationCap className="h-4 w-4" />
+                Education ({linkedInData.education.length})
+              </h4>
+              <div className="space-y-2">
+                {linkedInData.education.map((edu: any, index: number) => {
+                  const degree = edu.degree || edu.fieldOfStudy || 'Degree';
+                  const school = edu.school || edu.institution || 'School';
+                  const startDate = edu.startDate || '';
+                  const endDate = edu.endDate || edu.current ? 'Present' : '';
+                  
+                  return (
+                    <div key={index} className="border rounded-lg p-3">
+                      <h5 className="font-medium">{degree}</h5>
+                      <p className="text-sm text-muted-foreground">{school}</p>
+                      {(startDate || endDate) && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {startDate} {endDate ? `- ${endDate}` : ''}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+            <Separator />
+          </>
         )}
 
-        <Separator />
-
         {/* Skills */}
-        {profile.skills && profile.skills.length > 0 && (
+        {linkedInData?.skills && linkedInData.skills.length > 0 && (
           <div>
             <h4 className="font-medium mb-3 flex items-center gap-2">
               <Award className="h-4 w-4" />
-              Skills ({profile.skills.length})
+              Skills ({linkedInData.skills.length})
             </h4>
             <div className="flex flex-wrap gap-2">
-              {profile.skills.slice(0, 10).map((skill, index) => (
+              {linkedInData.skills.slice(0, 20).map((skill: string, index: number) => (
                 <Badge key={index} variant="secondary" className="text-xs">
                   {skill}
                 </Badge>
               ))}
-              {profile.skills.length > 10 && (
+              {linkedInData.skills.length > 20 && (
                 <Badge variant="outline" className="text-xs">
-                  +{profile.skills.length - 10} more
+                  +{linkedInData.skills.length - 20} more
                 </Badge>
               )}
             </div>
+          </div>
+        )}
+
+        {/* No Data Message */}
+        {!linkedInData?.workHistory?.length && !linkedInData?.education?.length && !linkedInData?.skills?.length && !linkedInData?.about && (
+          <div className="text-center py-8 text-sm text-muted-foreground">
+            No structured data available from LinkedIn import.
           </div>
         )}
       </CardContent>

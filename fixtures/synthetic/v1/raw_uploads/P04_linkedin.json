@@ -1,83 +1,140 @@
 {
   "basic_info": {
-    "full_name": "Morgan Patel",
+    "fullname": "Morgan Patel",
+    "first_name": "Morgan",
+    "last_name": "Patel",
     "headline": "Senior PM — Applied AI | Explainability, HITL, Analytics",
-    "location": "Boston, MA, US",
-    "email": "morgan@example.com",
-    "websites": [],
-    "current_role": "Senior PM, ML Experiences",
-    "current_company": "TalentGraph"
+    "profile_url": "https://linkedin.com/in/p04",
+    "profile_picture_url": null,
+    "about": "Senior PM — Applied AI | Explainability, HITL, Analytics",
+    "location": {
+      "country": "US",
+      "city": "Boston",
+      "full": "Boston, MA, US",
+      "country_code": "US"
+    },
+    "creator_hashtags": [],
+    "is_creator": false,
+    "is_influencer": false,
+    "is_premium": false,
+    "created_timestamp": 1659377886334.9678,
+    "show_follower_count": false,
+    "background_picture_url": null,
+    "urn": "ACoP0463gtx1ka6y2",
+    "follower_count": 4228,
+    "connection_count": 4559,
+    "current_company": "TalentGraph",
+    "current_company_urn": null,
+    "current_company_url": null,
+    "email": "morgan@example.com"
   },
   "experience": [
     {
-      "company": "TalentGraph",
       "title": "Senior PM, ML Experiences",
-      "employment_type": "Full-time",
+      "company": "TalentGraph",
+      "description": "Added explainable reasons and HITL overrides; ML usage 10× YoY; satisfaction +12pts.\n\nBuilt feedback dashboard merging precision/recall with ratings; cut blind spots by half.",
       "location": "Boston, MA",
-      "start_date": "2020-02",
-      "end_date": "Present",
-      "platforms": [
-        "Web"
+      "duration": "2020-02 - Present",
+      "start_date": {
+        "year": 2020,
+        "month": "Feb"
+      },
+      "is_current": true,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
       ],
-      "description": [
-        "Added explainable reasons and HITL overrides; ML usage 10× YoY; satisfaction +12pts.",
-        "Built feedback dashboard merging precision/recall with ratings; cut blind spots by half."
-      ]
+      "company_id": null
     },
     {
-      "company": "AdPilot",
       "title": "Product Manager",
-      "employment_type": "Full-time",
+      "company": "AdPilot",
+      "description": "Sequenced recommendations into workflows; adoption +9% in two quarters; bad recs −60%.",
       "location": "Boston, MA",
-      "start_date": "2017-03",
-      "end_date": "2020-01",
-      "platforms": [
-        "Web"
+      "duration": "2017-03 - 2020-01",
+      "start_date": {
+        "year": 2017,
+        "month": "Mar"
+      },
+      "end_date": {
+        "year": 2020,
+        "month": "Jan"
+      },
+      "is_current": false,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
       ],
-      "description": [
-        "Sequenced recommendations into workflows; adoption +9% in two quarters; bad recs −60%."
-      ]
+      "company_id": null
     },
     {
-      "company": "InsightIQ",
       "title": "Associate PM",
-      "employment_type": "Full-time",
+      "company": "InsightIQ",
+      "description": "Launched labeling tools; training data quality +6pp.",
       "location": "Cambridge, MA",
-      "start_date": "2014-08",
-      "end_date": "2017-02",
-      "platforms": [
-        "Web"
+      "duration": "2014-08 - 2017-02",
+      "start_date": {
+        "year": 2014,
+        "month": "Aug"
+      },
+      "end_date": {
+        "year": 2017,
+        "month": "Feb"
+      },
+      "is_current": false,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
       ],
-      "description": [
-        "Launched labeling tools; training data quality +6pp."
-      ]
+      "company_id": null
     }
   ],
   "education": [
     {
       "school": "State University",
       "degree": "B.S.",
-      "field": "Computer Science",
-      "start_date": "2009-09",
-      "end_date": "2013-06",
-      "location": "United States"
+      "degree_name": "B.S.",
+      "field_of_study": "Computer Science",
+      "duration": "2009-09 - 2013-06",
+      "start_date": {
+        "year": 2009,
+        "month": "Sep"
+      },
+      "end_date": {
+        "year": 2013,
+        "month": "Jun"
+      },
+      "school_linkedin_url": null,
+      "school_logo_url": null,
+      "school_id": null
     }
   ],
   "projects": [
     {
       "name": "Experimentation Hub",
-      "description": "Internal tooling for test design and readouts across squads."
+      "description": "Internal tooling for test design and readouts across squads.",
+      "associated_with": null,
+      "is_current": false
     }
   ],
   "certifications": [
     {
       "name": "Product Analytics",
-      "authority": "Amplitude (synthetic)",
-      "date": "2021-06"
+      "issuer": "Amplitude (synthetic)",
+      "issued_date": "2021-06"
     }
   ],
   "languages": [
-    "English"
+    {
+      "language": "English",
+      "proficiency": "Native or bilingual proficiency"
+    }
   ],
   "skills": [
     "Product Strategy",

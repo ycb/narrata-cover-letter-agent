@@ -1,83 +1,140 @@
 {
   "basic_info": {
-    "full_name": "Noah Williams",
+    "fullname": "Noah Williams",
+    "first_name": "Noah",
+    "last_name": "Williams",
     "headline": "Senior PM — Marketplaces | Search/Match, Pricing, Supply Health",
-    "location": "Seattle, WA, US",
-    "email": "noah@example.com",
-    "websites": [],
-    "current_role": "Senior Product Manager",
-    "current_company": "VendorLoop"
+    "profile_url": "https://linkedin.com/in/p07",
+    "profile_picture_url": null,
+    "about": "Senior PM — Marketplaces | Search/Match, Pricing, Supply Health",
+    "location": {
+      "country": "US",
+      "city": "Seattle",
+      "full": "Seattle, WA, US",
+      "country_code": "US"
+    },
+    "creator_hashtags": [],
+    "is_creator": false,
+    "is_influencer": false,
+    "is_premium": false,
+    "created_timestamp": 1542563433195.881,
+    "show_follower_count": false,
+    "background_picture_url": null,
+    "urn": "ACoP0786862p1djhb",
+    "follower_count": 2094,
+    "connection_count": 1476,
+    "current_company": "VendorLoop",
+    "current_company_urn": null,
+    "current_company_url": null,
+    "email": "noah@example.com"
   },
   "experience": [
     {
-      "company": "VendorLoop",
       "title": "Senior Product Manager",
-      "employment_type": "Full-time",
+      "company": "VendorLoop",
+      "description": "Match rate +13% via ranking/constraints; request→accept time −10%.\n\nPricing experiments increased ARPU +6% and take‑rate +3pp.",
       "location": "Seattle, WA",
-      "start_date": "2020-01",
-      "end_date": "Present",
-      "platforms": [
-        "Web"
+      "duration": "2020-01 - Present",
+      "start_date": {
+        "year": 2020,
+        "month": "Jan"
+      },
+      "is_current": true,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
       ],
-      "description": [
-        "Match rate +13% via ranking/constraints; request→accept time −10%.",
-        "Pricing experiments increased ARPU +6% and take‑rate +3pp."
-      ]
+      "company_id": null
     },
     {
-      "company": "Dockyard",
       "title": "Product Manager",
-      "employment_type": "Full-time",
+      "company": "Dockyard",
+      "description": "SLA benchmarks reduced late deliveries −9%; dispute rate −11% with scorecards.",
       "location": "Seattle, WA",
-      "start_date": "2016-05",
-      "end_date": "2019-12",
-      "platforms": [
-        "Web"
+      "duration": "2016-05 - 2019-12",
+      "start_date": {
+        "year": 2016,
+        "month": "May"
+      },
+      "end_date": {
+        "year": 2019,
+        "month": "Dec"
+      },
+      "is_current": false,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
       ],
-      "description": [
-        "SLA benchmarks reduced late deliveries −9%; dispute rate −11% with scorecards."
-      ]
+      "company_id": null
     },
     {
-      "company": "Shiply",
       "title": "Associate PM",
-      "employment_type": "Full-time",
+      "company": "Shiply",
+      "description": "Launched mobile shipment tracking MVP; active supply +7% in 90 days.",
       "location": "Seattle, WA",
-      "start_date": "2013-06",
-      "end_date": "2016-04",
-      "platforms": [
-        "Mobile"
+      "duration": "2013-06 - 2016-04",
+      "start_date": {
+        "year": 2013,
+        "month": "Jun"
+      },
+      "end_date": {
+        "year": 2016,
+        "month": "Apr"
+      },
+      "is_current": false,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
       ],
-      "description": [
-        "Launched mobile shipment tracking MVP; active supply +7% in 90 days."
-      ]
+      "company_id": null
     }
   ],
   "education": [
     {
       "school": "State University",
       "degree": "B.S.",
-      "field": "Computer Science",
-      "start_date": "2009-09",
-      "end_date": "2013-06",
-      "location": "United States"
+      "degree_name": "B.S.",
+      "field_of_study": "Computer Science",
+      "duration": "2009-09 - 2013-06",
+      "start_date": {
+        "year": 2009,
+        "month": "Sep"
+      },
+      "end_date": {
+        "year": 2013,
+        "month": "Jun"
+      },
+      "school_linkedin_url": null,
+      "school_logo_url": null,
+      "school_id": null
     }
   ],
   "projects": [
     {
       "name": "Experimentation Hub",
-      "description": "Internal tooling for test design and readouts across squads."
+      "description": "Internal tooling for test design and readouts across squads.",
+      "associated_with": null,
+      "is_current": false
     }
   ],
   "certifications": [
     {
       "name": "Product Analytics",
-      "authority": "Amplitude (synthetic)",
-      "date": "2021-06"
+      "issuer": "Amplitude (synthetic)",
+      "issued_date": "2021-06"
     }
   ],
   "languages": [
-    "English"
+    {
+      "language": "English",
+      "proficiency": "Native or bilingual proficiency"
+    }
   ],
   "skills": [
     "Product Strategy",

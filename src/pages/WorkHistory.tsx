@@ -267,21 +267,31 @@ export default function WorkHistory() {
         
         const { data: profileSources, error: sourcesError } = await supabase
           .from('sources')
-          .select('id, file_name')
+          .select('id, file_name, file_type, created_at')
           .eq('user_id', user.id)
-          .like('file_name', `${profileId}_%`);
+          .like('file_name', `${profileId}_%`)
+          .order('created_at', { ascending: false });
         
         if (sourcesError) {
           console.error('[WorkHistory] Error fetching profile sources:', sourcesError);
         } else {
           console.log(`[WorkHistory] Found ${profileSources?.length || 0} sources for ${profileId}:`, 
-            profileSources?.map(s => s.file_name));
+            profileSources?.map(s => ({ file: s.file_name, type: s.file_type, id: s.id.substring(0, 8) + '...' })));
           
           if (profileSources && profileSources.length > 0) {
             profileSourceIds = profileSources.map(s => s.id);
-            console.log(`[WorkHistory] Filtering by ${profileId}: ${profileSourceIds.length} source IDs`);
+            console.log(`[WorkHistory] Filtering by ${profileId}: ${profileSourceIds.length} source IDs:`, profileSourceIds.map(id => id.substring(0, 8) + '...'));
           } else {
-            console.warn(`[WorkHistory] No sources found for profile ${profileId} - will show preview mode`);
+            // Check what sources exist for this user
+            const { data: allUserSources } = await supabase
+              .from('sources')
+              .select('id, file_name')
+              .eq('user_id', user.id)
+              .order('created_at', { ascending: false })
+              .limit(5);
+            
+            console.warn(`[WorkHistory] No sources found matching ${profileId}_% pattern`);
+            console.warn(`[WorkHistory] Recent sources for user:`, allUserSources?.map(s => s.file_name));
           }
         }
       } else {
@@ -313,26 +323,35 @@ export default function WorkHistory() {
         
         if (profileWorkItems && profileWorkItems.length > 0) {
           const companyIds = [...new Set(profileWorkItems.map(wi => wi.company_id))];
-          console.log(`[WorkHistory] Filtering companies to ${companyIds.length} companies`);
+          console.log(`[WorkHistory] Filtering companies to ${companyIds.length} companies:`, companyIds.map(id => id.substring(0, 8) + '...'));
+          console.log(`[WorkHistory] Sample work_items:`, profileWorkItems.slice(0, 3).map(wi => ({ title: wi.title, company_id: wi.company_id?.substring(0, 8) + '...', source_id: wi.source_id?.substring(0, 8) + '...' })));
           companiesQuery = companiesQuery.in('id', companyIds);
         } else {
           // Check if there are ANY work_items for this user (to see if filtering is too strict)
           const { data: allWorkItems } = await supabase
             .from('work_items')
-            .select('id, source_id')
+            .select('id, source_id, title')
             .eq('user_id', user.id)
-            .limit(5);
+            .limit(10);
           
           const withSourceId = allWorkItems?.filter(wi => wi.source_id).length || 0;
           const withoutSourceId = (allWorkItems?.length || 0) - withSourceId;
           
           console.warn(`[WorkHistory] No work_items found for profile ${syntheticContext.currentUser?.profileId}`);
           console.warn(`[WorkHistory] Debug: ${withSourceId} work_items have source_id, ${withoutSourceId} don't`);
-          console.warn(`[WorkHistory] Using sample data as preview`);
+          console.warn(`[WorkHistory] Looking for source IDs:`, profileSourceIds);
+          console.warn(`[WorkHistory] All work_items sample:`, allWorkItems?.map(wi => ({ id: wi.id, title: wi.title, source_id: wi.source_id })));
           
-          setWorkHistory(sampleWorkHistory);
-          setIsLoading(false);
-          return;
+          // Try showing ALL work_items if none match the profile sources (fallback)
+          if (allWorkItems && allWorkItems.length > 0 && withoutSourceId === 0) {
+            console.log(`[WorkHistory] All work_items have source_id but none match profile - showing all as fallback`);
+            // Continue with unfiltered query
+          } else {
+            console.warn(`[WorkHistory] Using sample data as preview`);
+            setWorkHistory(sampleWorkHistory);
+            setIsLoading(false);
+            return;
+          }
         }
       }
       
@@ -758,6 +777,7 @@ export default function WorkHistory() {
                 onUploadResume={handleUploadResume}
                 onLinkedInClick={handleLinkedInClick}
                 onResumeClick={handleResumeClick}
+                selectedDataSource={selectedDataSource}
               />
             </div>
             

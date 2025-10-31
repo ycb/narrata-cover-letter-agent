@@ -1,69 +1,121 @@
 {
   "basic_info": {
-    "full_name": "Priya Desai",
+    "fullname": "Priya Desai",
+    "first_name": "Priya",
+    "last_name": "Desai",
     "headline": "Associate PM — EdTech | QA, Ops-to-PM Transition",
-    "location": "Toronto, ON, CA",
-    "email": "priya@example.com",
-    "websites": [],
-    "current_role": "QA Analyst",
-    "current_company": "TestCraft"
+    "profile_url": "https://linkedin.com/in/p08",
+    "profile_picture_url": null,
+    "about": "Associate PM — EdTech | QA, Ops-to-PM Transition",
+    "location": {
+      "country": "CA",
+      "city": "Toronto",
+      "full": "Toronto, ON, CA",
+      "country_code": "CA"
+    },
+    "creator_hashtags": [],
+    "is_creator": false,
+    "is_influencer": false,
+    "is_premium": false,
+    "created_timestamp": 1706731127351.3228,
+    "show_follower_count": false,
+    "background_picture_url": null,
+    "urn": "ACoP089agys13os7m",
+    "follower_count": 4256,
+    "connection_count": 4694,
+    "current_company": "TestCraft",
+    "current_company_urn": null,
+    "current_company_url": null,
+    "email": "priya@example.com"
   },
   "experience": [
     {
-      "company": "TestCraft",
       "title": "QA Analyst",
-      "employment_type": "Full-time",
+      "company": "TestCraft",
+      "description": "Created regression suite; release defects ~−20%; coverage to 82%.\n\nSet up triage and release notes cadence across Eng/PM.",
       "location": "Toronto, ON",
-      "start_date": "2022-01",
-      "end_date": "2024-08",
-      "platforms": [
-        "Web"
+      "duration": "2022-01 - 2024-08",
+      "start_date": {
+        "year": 2022,
+        "month": "Jan"
+      },
+      "end_date": {
+        "year": 2024,
+        "month": "Aug"
+      },
+      "is_current": false,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
       ],
-      "description": [
-        "Created regression suite; release defects ~−20%; coverage to 82%.",
-        "Set up triage and release notes cadence across Eng/PM."
-      ]
+      "company_id": null
     },
     {
-      "company": "HelpLoop",
       "title": "Operations Coordinator",
-      "employment_type": "Full-time",
+      "company": "HelpLoop",
+      "description": "Built onboarding guides and SLAs; time‑to‑first‑transaction −14%.",
       "location": "Toronto, ON",
-      "start_date": "2020-06",
-      "end_date": "2021-12",
-      "platforms": [
-        "Web"
+      "duration": "2020-06 - 2021-12",
+      "start_date": {
+        "year": 2020,
+        "month": "Jun"
+      },
+      "end_date": {
+        "year": 2021,
+        "month": "Dec"
+      },
+      "is_current": false,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
       ],
-      "description": [
-        "Built onboarding guides and SLAs; time‑to‑first‑transaction −14%."
-      ]
+      "company_id": null
     }
   ],
   "education": [
     {
       "school": "University of Toronto",
       "degree": "B.S.",
-      "field": "Information Technology",
-      "start_date": "2016-09",
-      "end_date": "2020-05",
-      "location": "Toronto, ON"
+      "degree_name": "B.S.",
+      "field_of_study": "Information Technology",
+      "duration": "2016-09 - 2020-05",
+      "start_date": {
+        "year": 2016,
+        "month": "Sep"
+      },
+      "end_date": {
+        "year": 2020,
+        "month": "May"
+      },
+      "school_linkedin_url": null,
+      "school_logo_url": null,
+      "school_id": null
     }
   ],
   "projects": [
     {
       "name": "Experimentation Hub",
-      "description": "Internal tooling for test design and readouts across squads."
+      "description": "Internal tooling for test design and readouts across squads.",
+      "associated_with": null,
+      "is_current": false
     }
   ],
   "certifications": [
     {
       "name": "Product Analytics",
-      "authority": "Amplitude (synthetic)",
-      "date": "2021-06"
+      "issuer": "Amplitude (synthetic)",
+      "issued_date": "2021-06"
     }
   ],
   "languages": [
-    "English"
+    {
+      "language": "English",
+      "proficiency": "Native or bilingual proficiency"
+    }
   ],
   "skills": [
     "Product Strategy",
