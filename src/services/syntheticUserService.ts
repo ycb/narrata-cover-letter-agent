@@ -20,23 +20,46 @@ export interface SyntheticUserContext {
 }
 
 export class SyntheticUserService {
+  // Allowlist of users who can use synthetic testing mode
+  private readonly SYNTHETIC_TESTING_ALLOWLIST = [
+    'narrata.ai@gmail.com'
+    // Add more emails here as needed
+  ];
+
   /**
    * Check if synthetic testing is enabled for current user
+   * Simple allowlist-based approach - only specified users can access
    */
   async isSyntheticTestingEnabled(): Promise<boolean> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return false;
+      if (!user) {
+        console.log('[Synthetic] No authenticated user');
+        return false;
+      }
 
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('role, email')
+        .select('email')
         .eq('id', user.id)
         .single();
 
-      return profile?.role === 'admin' || profile?.email === 'narrata.ai@gmail.com';
+      if (profileError || !profile || !('email' in profile)) {
+        console.log('[Synthetic] No profile email found:', profileError?.message);
+        return false;
+      }
+
+      const profileEmail = (profile as any).email as string;
+      if (!profileEmail) {
+        console.log('[Synthetic] Profile email is empty');
+        return false;
+      }
+
+      const isAllowed = this.SYNTHETIC_TESTING_ALLOWLIST.includes(profileEmail);
+      console.log(`[Synthetic] User ${profileEmail} - Synthetic testing: ${isAllowed ? 'ENABLED' : 'DISABLED'}`);
+      return isAllowed;
     } catch (error) {
-      console.error('Error checking synthetic testing access:', error);
+      console.error('[Synthetic] Error checking synthetic testing access:', error);
       return false;
     }
   }
@@ -64,9 +87,12 @@ export class SyntheticUserService {
         };
       }
 
+      // Ensure synthetic users exist (create if missing)
+      await this.ensureSyntheticUsersExist();
+
       // Get all synthetic users for this parent user
-      const { data: syntheticUsers, error } = await supabase
-        .from('synthetic_users')
+      const { data: syntheticUsers, error } = await (supabase
+        .from('synthetic_users') as any)
         .select('*')
         .eq('parent_user_id', user.id)
         .order('profile_id');
@@ -81,7 +107,7 @@ export class SyntheticUserService {
       }
 
       // Map database fields to component interface
-      const mappedUsers = syntheticUsers?.map(user => ({
+      const mappedUsers = (syntheticUsers || []).map((user: any) => ({
         id: user.id,
         parentUserId: user.parent_user_id,
         profileId: user.profile_id,
@@ -91,7 +117,7 @@ export class SyntheticUserService {
         profileData: user.profile_data,
         createdAt: user.created_at,
         updatedAt: user.updated_at
-      })) || [];
+      }));
 
       const currentUser = mappedUsers.find(u => u.isActive) || null;
       const availableUsers = mappedUsers;
@@ -127,7 +153,7 @@ export class SyntheticUserService {
       }
 
       // Call the database function to switch users
-      const { error } = await supabase.rpc('switch_synthetic_user', {
+      const { error } = await (supabase.rpc as any)('switch_synthetic_user', {
         p_parent_user_id: user.id,
         p_profile_id: profileId
       });
@@ -151,6 +177,77 @@ export class SyntheticUserService {
   }
 
   /**
+   * Ensure synthetic users exist in database (create if missing)
+   */
+  async ensureSyntheticUsersExist(): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return { success: false, error: 'No authenticated user' };
+      }
+
+      const isEnabled = await this.isSyntheticTestingEnabled();
+      if (!isEnabled) {
+        return { success: false, error: 'Synthetic testing not enabled for this user' };
+      }
+
+      // Check if synthetic users already exist
+      const { data: existingUsers } = await (supabase
+        .from('synthetic_users') as any)
+        .select('profile_id')
+        .eq('parent_user_id', user.id)
+        .limit(1);
+
+      if (existingUsers && existingUsers.length > 0) {
+        console.log('[Synthetic] Synthetic users already exist');
+        return { success: true };
+      }
+
+      // Create P01-P10 synthetic users
+      const profiles = ['P01', 'P02', 'P03', 'P04', 'P05', 'P06', 'P07', 'P08', 'P09', 'P10'];
+      const profileNames: Record<string, string> = {
+        'P01': 'Avery Chen',
+        'P02': 'Jordan Alvarez',
+        'P03': 'Riley Gupta',
+        'P04': 'Morgan Patel',
+        'P05': 'Samira Khan',
+        'P06': 'Alex Thompson',
+        'P07': 'Taylor Rodriguez',
+        'P08': 'Casey Kim',
+        'P09': 'Leo Martin',
+        'P10': 'Sophia Rivera'
+      };
+
+      const syntheticUsers = profiles.map(profileId => ({
+        parent_user_id: user.id,
+        profile_id: profileId,
+        profile_name: profileNames[profileId] || profileId,
+        email: `${profileId.toLowerCase()}@test.narrata.ai`,
+        is_active: profileId === 'P01', // Set P01 as active by default
+        profile_data: {}
+      }));
+
+      const { error } = await (supabase
+        .from('synthetic_users') as any)
+        .insert(syntheticUsers);
+
+      if (error) {
+        console.error('[Synthetic] Error creating synthetic users:', error);
+        return { success: false, error: error.message };
+      }
+
+      console.log('[Synthetic] Created synthetic users P01-P10');
+      return { success: true };
+    } catch (error) {
+      console.error('[Synthetic] Error ensuring synthetic users exist:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  }
+
+  /**
    * Create synthetic users from persona data
    */
   async createSyntheticUsersFromPersonas(personaData: any[]): Promise<{ success: boolean; error?: string }> {
@@ -166,8 +263,8 @@ export class SyntheticUserService {
       }
 
       // Clear existing synthetic users
-      await supabase
-        .from('synthetic_users')
+      await (supabase
+        .from('synthetic_users') as any)
         .delete()
         .eq('parent_user_id', user.id);
 
@@ -181,8 +278,8 @@ export class SyntheticUserService {
         is_active: persona.persona_id === 'P01' // Set P01 as active by default
       }));
 
-      const { error } = await supabase
-        .from('synthetic_users')
+      const { error } = await (supabase
+        .from('synthetic_users') as any)
         .insert(syntheticUsers);
 
       if (error) {
@@ -237,8 +334,8 @@ export class SyntheticUserService {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
 
-      const { data, error } = await supabase
-        .from('synthetic_users')
+      const { data, error } = await (supabase
+        .from('synthetic_users') as any)
         .select('*')
         .eq('parent_user_id', user.id)
         .eq('profile_id', profileId)

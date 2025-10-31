@@ -252,20 +252,39 @@ export default function WorkHistory() {
       const syntheticUserService = new SyntheticUserService();
       const syntheticContext = await syntheticUserService.getSyntheticUserContext();
       
+      console.log('[WorkHistory] Synthetic context:', {
+        enabled: syntheticContext.isSyntheticTestingEnabled,
+        currentProfile: syntheticContext.currentUser?.profileId,
+        profileName: syntheticContext.currentUser?.profileName
+      });
+      
       let profileSourceIds: string[] = [];
       if (syntheticContext.isSyntheticTestingEnabled && syntheticContext.currentUser) {
         // Get all sources for this profile (file_name starts with profile_id like P01_)
         const profileId = syntheticContext.currentUser.profileId;
-        const { data: profileSources } = await supabase
+        console.log(`[WorkHistory] Looking for sources matching profile ${profileId}...`);
+        
+        const { data: profileSources, error: sourcesError } = await supabase
           .from('sources')
-          .select('id')
+          .select('id, file_name')
           .eq('user_id', user.id)
           .like('file_name', `${profileId}_%`);
         
-        if (profileSources && profileSources.length > 0) {
-          profileSourceIds = profileSources.map(s => s.id);
-          console.log(`Filtering by ${profileId}: ${profileSourceIds.length} sources`);
+        if (sourcesError) {
+          console.error('[WorkHistory] Error fetching profile sources:', sourcesError);
+        } else {
+          console.log(`[WorkHistory] Found ${profileSources?.length || 0} sources for ${profileId}:`, 
+            profileSources?.map(s => s.file_name));
+          
+          if (profileSources && profileSources.length > 0) {
+            profileSourceIds = profileSources.map(s => s.id);
+            console.log(`[WorkHistory] Filtering by ${profileId}: ${profileSourceIds.length} source IDs`);
+          } else {
+            console.warn(`[WorkHistory] No sources found for profile ${profileId} - will show preview mode`);
+          }
         }
+      } else {
+        console.log('[WorkHistory] Synthetic testing not enabled or no active profile - showing all data');
       }
 
       // Fetch companies with their work items
@@ -277,19 +296,39 @@ export default function WorkHistory() {
       
       // If filtering by profile, we need to get companies via work_items with matching source_id
       if (profileSourceIds.length > 0) {
+        console.log(`[WorkHistory] Filtering work_items by ${profileSourceIds.length} source IDs...`);
         // First get work_items for this profile
-        const { data: profileWorkItems } = await supabase
+        const { data: profileWorkItems, error: workItemsFilterError } = await supabase
           .from('work_items')
-          .select('company_id')
+          .select('company_id, source_id, title')
           .eq('user_id', user.id)
           .in('source_id', profileSourceIds);
         
+        if (workItemsFilterError) {
+          console.error('[WorkHistory] Error filtering work_items by source_id:', workItemsFilterError);
+        }
+        
+        console.log(`[WorkHistory] Found ${profileWorkItems?.length || 0} work_items with matching source_id`);
+        
         if (profileWorkItems && profileWorkItems.length > 0) {
           const companyIds = [...new Set(profileWorkItems.map(wi => wi.company_id))];
+          console.log(`[WorkHistory] Filtering companies to ${companyIds.length} companies`);
           companiesQuery = companiesQuery.in('id', companyIds);
         } else {
-          // No work items for this profile - show preview
-          console.log(`No work items found for profile ${syntheticContext.currentUser?.profileId}, using sample data as preview`);
+          // Check if there are ANY work_items for this user (to see if filtering is too strict)
+          const { data: allWorkItems } = await supabase
+            .from('work_items')
+            .select('id, source_id')
+            .eq('user_id', user.id)
+            .limit(5);
+          
+          const withSourceId = allWorkItems?.filter(wi => wi.source_id).length || 0;
+          const withoutSourceId = (allWorkItems?.length || 0) - withSourceId;
+          
+          console.warn(`[WorkHistory] No work_items found for profile ${syntheticContext.currentUser?.profileId}`);
+          console.warn(`[WorkHistory] Debug: ${withSourceId} work_items have source_id, ${withoutSourceId} don't`);
+          console.warn(`[WorkHistory] Using sample data as preview`);
+          
           setWorkHistory(sampleWorkHistory);
           setIsLoading(false);
           return;
