@@ -211,6 +211,7 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
     ]
   }
 ];
+*/
 
 export default function WorkHistory() {
   // Auth context
