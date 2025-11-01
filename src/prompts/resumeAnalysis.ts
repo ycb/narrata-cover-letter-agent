@@ -133,11 +133,8 @@ CRITICAL EXTRACTION RULES:
 5. DATES AND CURRENT STATUS:
    - Format: "YYYY-MM-DD" (use -01-01 for year-only, -12-31 for end years)
    - CRITICAL: If endDate shows "Present", "Current", or no end date, set endDate = null AND current = true
-   - CRITICAL: ALWAYS extract the job title/position, regardless of resume format
-   - Job titles can appear in various formats: on same line as company, separate line, after dates, etc.
-   - Examples: "Senior Product Manager", "Product Manager", "Associate Product Manager", "Lead PM"
-   - If no explicit title is found, infer from responsibilities/context, but NEVER leave it empty
-   - The "position" field is REQUIRED and must never be empty
+   - CRITICAL: Extract the job title/position from the resume text
+   - The "position" field is REQUIRED - every resume clearly states job titles
 
 6. ROLE SUMMARY:
    - 1-2 sentences summarizing: area of ownership, why it matters, top result
