@@ -765,11 +765,18 @@ export class FileUploadService {
         if (existingCompany) {
           companyId = existingCompany.id;
           
-          // Update company tags if they exist
+          // Update company description and tags if they exist
+          const updates: any = {};
+          if (workItem.companyDescription) {
+            updates.description = workItem.companyDescription;
+          }
           if (workItem.companyTags && workItem.companyTags.length > 0) {
+            updates.tags = workItem.companyTags;
+          }
+          if (Object.keys(updates).length > 0) {
             await dbClient
               .from('companies')
-              .update({ tags: workItem.companyTags })
+              .update(updates)
               .eq('id', companyId);
           }
         } else {
@@ -777,7 +784,7 @@ export class FileUploadService {
             .from('companies')
             .insert({
               name: workItem.company,
-              description: workItem.description || '',
+              description: workItem.companyDescription || '',  // Use companyDescription, not role description
               tags: workItem.companyTags || [],
               user_id: userId
             })
@@ -794,31 +801,53 @@ export class FileUploadService {
 
         // Check for existing work_item (deduplication: same company + title + overlapping dates)
         const workItemEndDate = (workItem.endDate === 'Present' || workItem.endDate === 'Current' || workItem.current === true) ? null : workItem.endDate;
+        const workItemStartDate = new Date(workItem.startDate);
+        const workItemEndDateObj = workItemEndDate ? new Date(workItemEndDate) : null;
         
-        // Query for existing work items - match on company, title, and dates (handle null end_date)
-        let existingQuery = dbClient
+        // Query for existing work items - match on company and title, then check date overlap
+        // Use a broader query first, then filter for date overlap in code
+        const { data: candidateWorkItems } = await dbClient
           .from('work_items')
-          .select('id, source_id, description, metrics')
+          .select('id, source_id, description, metrics, start_date, end_date')
           .eq('user_id', userId)
           .eq('company_id', companyId)
-          .eq('title', workItemTitle.trim())
-          .eq('start_date', workItem.startDate);
+          .eq('title', workItemTitle.trim());
         
-        // Handle null end_date properly (both must be null for current positions)
-        if (workItemEndDate === null) {
-          existingQuery = existingQuery.is('end_date', null);
-        } else {
-          existingQuery = existingQuery.eq('end_date', workItemEndDate);
-        }
-        
-        const { data: existingWorkItems } = await existingQuery.limit(1);
+        // Filter for date overlap (more flexible than exact match)
+        const existingWorkItems = (candidateWorkItems || []).filter((existing: any) => {
+          const existingStartDate = new Date(existing.start_date);
+          const existingEndDate = existing.end_date ? new Date(existing.end_date) : null;
+          
+          // Check for date overlap: start dates within 90 days OR end dates within 90 days
+          // OR both are current positions (null end_date)
+          const startDateDiff = Math.abs(existingStartDate.getTime() - workItemStartDate.getTime());
+          const startDateDiffDays = startDateDiff / (1000 * 60 * 60 * 24);
+          
+          // If both are current positions (null end_date), they're the same role
+          if (!existingEndDate && !workItemEndDateObj) {
+            return startDateDiffDays < 90; // Start dates within 90 days
+          }
+          
+          // If one is current and one isn't, check if start dates are close
+          if (!existingEndDate || !workItemEndDateObj) {
+            return startDateDiffDays < 90;
+          }
+          
+          // Both have end dates - check if they overlap or are close
+          const endDateDiff = Math.abs(existingEndDate.getTime() - workItemEndDateObj.getTime());
+          const endDateDiffDays = endDateDiff / (1000 * 60 * 60 * 24);
+          
+          // Consider them duplicates if start dates are within 90 days AND end dates are within 90 days
+          return startDateDiffDays < 90 && endDateDiffDays < 90;
+        });
         
         let workItemId: string;
         let isExisting = false;
         
         if (existingWorkItems && existingWorkItems.length > 0) {
           // Work item already exists - check if it has stories
-          const existingWorkItem = existingWorkItems[0];
+          // Take the first one (they should all be duplicates)
+          const existingWorkItem = existingWorkItems[0] as any;
           workItemId = existingWorkItem.id;
           isExisting = true;
           

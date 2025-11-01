@@ -24,6 +24,7 @@ Return ONLY valid JSON with this exact structure. ALL FIELDS ARE REQUIRED:
     {
       "id": "1",
       "company": "Company Name",
+      "companyDescription": "Brief description of what the company does (1-2 sentences). Extract from company context, LinkedIn profile, or resume header. If not explicitly stated, infer from industry/company name. Examples: 'SaaS platform for customer engagement' or 'Enterprise software provider'",  // REQUIRED: Company-level description explaining what the company does
       "title": "Job Title",  // MANDATORY: Extract the actual job title - this field is REQUIRED and MUST NEVER be empty. Example: "Senior Product Manager"
       "startDate": "YYYY-MM-DD",
       "endDate": "YYYY-MM-DD or null if current",  // CRITICAL: Use null for "Present" or current positions
@@ -133,7 +134,21 @@ CRITICAL EXTRACTION RULES:
    - If metric has story context → story.metrics only
    - If metric is standalone/narrative-free → roleMetrics only
 
-3. TAGS (Three Levels):
+3. COMPANY DESCRIPTION (REQUIRED):
+   - Extract a brief 1-2 sentence description of what the company does
+   - Look for company information in: resume header, LinkedIn profile, company website context, or job descriptions
+   - If not explicitly stated, infer from:
+     * Company name (e.g., "Salesforce" → "CRM and cloud software provider")
+     * Industry context (e.g., mentions of "SaaS", "B2B", "PLG" in tags)
+     * Product/service mentions in role descriptions
+   - Examples:
+     * "SaaS platform for customer engagement and marketing automation"
+     * "Enterprise software provider specializing in workflow automation"
+     * "E-commerce platform serving small and medium businesses"
+   - This is COMPANY-LEVEL information, NOT role-specific. It describes the company's business/industry.
+   - The same companyDescription should be used for all roles at the same company
+
+4. TAGS (Three Levels):
    Company Tags (2-3 tags):
    - Industry/domain: "SaaS", "B2B", "CRM", "PLG", "enterprise"
    - Company stage: "startup", "growth-stage", "established"
@@ -179,6 +194,7 @@ Resume text shows:
 Expected JSON:
 {
   "company": "FlowHub",
+  "companyDescription": "SaaS platform for workflow automation and team collaboration",  // REQUIRED: Company-level description
   "title": "Senior Product Manager",  // REQUIRED: Must extract actual title regardless of format
   "startDate": "2021-05-01",
   "endDate": null,  // null because current = true

@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { SyntheticUserService } from "@/services/syntheticUserService";
 
 interface LinkedInSource {
   id: string;
@@ -41,6 +42,22 @@ export function LinkedInDataSource({ onConnectLinkedIn, onRefresh }: LinkedInDat
   const [source, setSource] = useState<LinkedInSource | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
+
+  // Check for synthetic profile context
+  useEffect(() => {
+    const checkSyntheticProfile = async () => {
+      if (!user) return;
+      const syntheticUserService = new SyntheticUserService();
+      const syntheticContext = await syntheticUserService.getSyntheticUserContext();
+      if (syntheticContext.isSyntheticTestingEnabled && syntheticContext.currentUser) {
+        setActiveProfileId(syntheticContext.currentUser.profileId);
+      } else {
+        setActiveProfileId(null);
+      }
+    };
+    checkSyntheticProfile();
+  }, [user]);
 
   const fetchLinkedInProfile = async () => {
     if (!user) return;
@@ -49,12 +66,19 @@ export function LinkedInDataSource({ onConnectLinkedIn, onRefresh }: LinkedInDat
       setIsLoading(true);
       setError(null);
 
-      // Find LinkedIn sources by file_name pattern
-      const { data, error: fetchError } = await supabase
+      // Build query - filter by synthetic profile if enabled
+      let linkedInQuery = supabase
         .from('sources')
         .select('*')
         .eq('user_id', user.id)
-        .ilike('file_name', '%linkedin%')
+        .ilike('file_name', '%linkedin%');
+      
+      // If synthetic mode enabled, filter by active profile
+      if (activeProfileId) {
+        linkedInQuery = linkedInQuery.like('file_name', `${activeProfileId}_%`);
+      }
+      
+      const { data, error: fetchError } = await linkedInQuery
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -77,7 +101,7 @@ export function LinkedInDataSource({ onConnectLinkedIn, onRefresh }: LinkedInDat
 
   useEffect(() => {
     fetchLinkedInProfile();
-  }, [user]);
+  }, [user, activeProfileId]);
 
   const handleRefresh = async () => {
     await fetchLinkedInProfile();
@@ -203,7 +227,8 @@ export function LinkedInDataSource({ onConnectLinkedIn, onRefresh }: LinkedInDat
               </h4>
               <div className="space-y-3">
                 {linkedInData.workHistory.map((exp: any, index: number) => {
-                  const title = exp.position || exp.title || 'Position';
+                  // Use title first, fallback to position for backward compatibility
+                  const title = exp.title || exp.position || 'Position';
                   const company = exp.company || 'Company';
                   const location = exp.location || '';
                   const startDate = exp.startDate || '';

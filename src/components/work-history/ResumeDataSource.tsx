@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { SyntheticUserService } from "@/services/syntheticUserService";
 
 interface ResumeData {
   id: string;
@@ -43,6 +44,22 @@ export function ResumeDataSource({ onUploadResume, onRefresh }: ResumeDataSource
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showFullText, setShowFullText] = useState(false);
+  const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
+
+  // Check for synthetic profile context
+  useEffect(() => {
+    const checkSyntheticProfile = async () => {
+      if (!user) return;
+      const syntheticUserService = new SyntheticUserService();
+      const syntheticContext = await syntheticUserService.getSyntheticUserContext();
+      if (syntheticContext.isSyntheticTestingEnabled && syntheticContext.currentUser) {
+        setActiveProfileId(syntheticContext.currentUser.profileId);
+      } else {
+        setActiveProfileId(null);
+      }
+    };
+    checkSyntheticProfile();
+  }, [user]);
 
   const fetchResumeData = async () => {
     if (!user) return;
@@ -51,14 +68,21 @@ export function ResumeDataSource({ onUploadResume, onRefresh }: ResumeDataSource
       setIsLoading(true);
       setError(null);
 
-      // Find resume sources by file_name pattern (resume files, not cover letters)
-      const { data, error: fetchError } = await supabase
+      // Build query - filter by synthetic profile if enabled
+      let resumeQuery = supabase
         .from('sources')
         .select('*')
         .eq('user_id', user.id)
         .or('file_name.ilike.%resume%,file_name.ilike.%cv%')
         .not('file_name', 'ilike', '%cover%')
-        .not('file_name', 'ilike', '%linkedin%')
+        .not('file_name', 'ilike', '%linkedin%');
+      
+      // If synthetic mode enabled, filter by active profile
+      if (activeProfileId) {
+        resumeQuery = resumeQuery.like('file_name', `${activeProfileId}_%`);
+      }
+      
+      const { data, error: fetchError } = await resumeQuery
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -81,7 +105,7 @@ export function ResumeDataSource({ onUploadResume, onRefresh }: ResumeDataSource
 
   useEffect(() => {
     fetchResumeData();
-  }, [user]);
+  }, [user, activeProfileId]);
 
   const handleRefresh = async () => {
     await fetchResumeData();
@@ -130,8 +154,7 @@ export function ResumeDataSource({ onUploadResume, onRefresh }: ResumeDataSource
     return (
       <Card className="h-full">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
+          <CardTitle>
             Resume
           </CardTitle>
         </CardHeader>
@@ -149,8 +172,7 @@ export function ResumeDataSource({ onUploadResume, onRefresh }: ResumeDataSource
     return (
       <Card className="h-full">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
+          <CardTitle>
             Resume
           </CardTitle>
         </CardHeader>
@@ -173,8 +195,7 @@ export function ResumeDataSource({ onUploadResume, onRefresh }: ResumeDataSource
     return (
       <Card className="h-full">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
+          <CardTitle>
             Resume
           </CardTitle>
         </CardHeader>
@@ -199,8 +220,7 @@ export function ResumeDataSource({ onUploadResume, onRefresh }: ResumeDataSource
     <Card className="h-full">
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
+          <CardTitle>
             Resume
           </CardTitle>
           <div className="flex items-center gap-2">

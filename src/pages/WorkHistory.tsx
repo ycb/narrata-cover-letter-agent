@@ -259,6 +259,9 @@ export default function WorkHistory() {
         profileName: syntheticContext.currentUser?.profileName
       });
       
+      // Store current profile ID to detect changes
+      const currentProfileId = syntheticContext.currentUser?.profileId;
+      
       let profileSourceIds: string[] = [];
       if (syntheticContext.isSyntheticTestingEnabled && syntheticContext.currentUser) {
         // Get all sources for this profile (file_name starts with profile_id like P01_)
@@ -342,21 +345,18 @@ export default function WorkHistory() {
           console.warn(`[WorkHistory] Looking for source IDs:`, profileSourceIds);
           console.warn(`[WorkHistory] All work_items sample:`, allWorkItems?.map(wi => ({ id: wi.id, title: wi.title, source_id: wi.source_id })));
           
-          // Try showing ALL work_items if none match the profile sources (fallback)
-          if (allWorkItems && allWorkItems.length > 0 && withoutSourceId === 0) {
-            console.log(`[WorkHistory] All work_items have source_id but none match profile - showing all as fallback`);
-            // Continue with unfiltered query
-          } else {
-            console.warn(`[WorkHistory] Using sample data as preview`);
-            setWorkHistory(sampleWorkHistory);
-            setIsLoading(false);
-            return;
-          }
+          // CRITICAL: Don't fallback to showing other profiles' data
+          // If this profile has no data, show empty state
+          console.warn(`[WorkHistory] Profile ${syntheticContext.currentUser?.profileId} has no data - showing empty state`);
+          setWorkHistory([]);
+          setIsLoading(false);
+          return;
         }
       }
       
-      const { data: companies, error: companiesError } = await companiesQuery
-        .order('created_at', { ascending: false });
+      // Sort companies by most recent work_item start_date (current to past)
+      // We'll sort after fetching work_items
+      const { data: companies, error: companiesError } = await companiesQuery;
 
       if (companiesError) throw companiesError;
 
@@ -377,8 +377,9 @@ export default function WorkHistory() {
         workItemsQuery = workItemsQuery.in('source_id', profileSourceIds);
       }
       
-      const { data: workItems, error: workItemsError } = await workItemsQuery
-        .order('start_date', { ascending: false });
+      // Sort work items: current first (end_date null), then by start_date descending
+      // This ensures current positions appear first, then most recent to oldest
+      const { data: workItems, error: workItemsError } = await workItemsQuery;
 
       if (workItemsError) throw workItemsError;
 
@@ -419,13 +420,50 @@ export default function WorkHistory() {
 
       if (linksError) throw linksError;
 
+      // Sort work items: current first (end_date null), then by start_date descending (current to past)
+      const sortedWorkItems = (workItems || []).sort((a: any, b: any) => {
+        // Current positions (end_date null) come first
+        if (!a.end_date && b.end_date) return -1;
+        if (a.end_date && !b.end_date) return 1;
+        // Then sort by start_date descending (most recent first)
+        return new Date(b.start_date).getTime() - new Date(a.start_date).getTime();
+      });
+
+      // Sort companies by most recent work_item start_date (current to past)
+      const sortedCompanies = (companies || []).sort((a: any, b: any) => {
+        const aWorkItems = sortedWorkItems.filter((wi: any) => wi.company_id === a.id);
+        const bWorkItems = sortedWorkItems.filter((wi: any) => wi.company_id === b.id);
+        
+        if (aWorkItems.length === 0 && bWorkItems.length === 0) return 0;
+        if (aWorkItems.length === 0) return 1;
+        if (bWorkItems.length === 0) return -1;
+        
+        // Compare by most recent work item's start_date
+        const aMostRecent = aWorkItems[0]; // Already sorted
+        const bMostRecent = bWorkItems[0];
+        
+        // Current positions first
+        if (!aMostRecent.end_date && bMostRecent.end_date) return -1;
+        if (aMostRecent.end_date && !bMostRecent.end_date) return 1;
+        
+        // Then by start_date descending
+        return new Date(bMostRecent.start_date).getTime() - new Date(aMostRecent.start_date).getTime();
+      });
+
       // Transform database data to WorkHistoryCompany format
-      const transformedData: WorkHistoryCompany[] = companies.map((company: any) => {
-        // Get work items for this company
-        const companyWorkItems = workItems?.filter((item: any) => item.company_id === company.id) || [];
+      const transformedData: WorkHistoryCompany[] = sortedCompanies.map((company: any) => {
+        // Get work items for this company (already sorted)
+        const companyWorkItems = sortedWorkItems.filter((item: any) => item.company_id === company.id);
+
+        // Sort roles within company: current first, then by start_date descending
+        const sortedCompanyRoles = [...companyWorkItems].sort((a: any, b: any) => {
+          if (!a.end_date && b.end_date) return -1;
+          if (a.end_date && !b.end_date) return 1;
+          return new Date(b.start_date).getTime() - new Date(a.start_date).getTime();
+        });
 
         // Transform work items to roles
-        const roles: WorkHistoryRole[] = companyWorkItems.map((item: any) => {
+        const roles: WorkHistoryRole[] = sortedCompanyRoles.map((item: any) => {
           // Get blurbs for this work item
           const itemBlurbs = blurbs?.filter((blurb: any) => blurb.work_item_id === item.id) || [];
           
@@ -514,16 +552,33 @@ export default function WorkHistory() {
     fetchWorkHistory();
   }, [fetchWorkHistory]);
   
-  // Auto-select first company on page load (no role selected initially)
-  const firstCompany = workHistory.length > 0 ? workHistory[0] : null;
-  const firstRole = firstCompany?.roles[0] || null;
+  // Auto-select most recent role on page load (no unselected state)
+  // Find the most recent role across all companies (current roles first, then by start_date descending)
+  const findMostRecentRole = (companies: WorkHistoryCompany[]): { company: WorkHistoryCompany; role: WorkHistoryRole } | null => {
+    let mostRecent: { company: WorkHistoryCompany; role: WorkHistoryRole; date: Date } | null = null;
+    
+    companies.forEach(company => {
+      company.roles.forEach(role => {
+        const roleDate = role.endDate ? new Date(role.endDate) : new Date('9999-12-31'); // Current roles get future date
+        if (!mostRecent || roleDate > mostRecent.date || (!role.endDate && mostRecent.role.endDate)) {
+          mostRecent = { company, role, date: roleDate };
+        }
+      });
+    });
+    
+    return mostRecent ? { company: mostRecent.company, role: mostRecent.role } : null;
+  };
   
-  const [selectedCompany, setSelectedCompany] = useState<WorkHistoryCompany | null>(firstCompany);
-  const [selectedRole, setSelectedRole] = useState<WorkHistoryRole | null>(firstRole);
+  const mostRecent = workHistory.length > 0 ? findMostRecentRole(workHistory) : null;
+  const initialCompany = mostRecent?.company || (workHistory.length > 0 ? workHistory[0] : null);
+  const initialRole = mostRecent?.role || initialCompany?.roles[0] || null;
+  
+  const [selectedCompany, setSelectedCompany] = useState<WorkHistoryCompany | null>(initialCompany);
+  const [selectedRole, setSelectedRole] = useState<WorkHistoryRole | null>(initialRole);
   const [selectedDataSource, setSelectedDataSource] = useState<'work-history' | 'linkedin' | 'resume'>('work-history');
   
   // Track which company should be expanded in the accordion
-  const [expandedCompanyId, setExpandedCompanyId] = useState<string | null>(firstCompany?.id || null);
+  const [expandedCompanyId, setExpandedCompanyId] = useState<string | null>(initialCompany?.id || null);
 
   // Modal state
   const [isAddCompanyModalOpen, setIsAddCompanyModalOpen] = useState(false);
@@ -535,13 +590,16 @@ export default function WorkHistory() {
   const [editingLink, setEditingLink] = useState<any>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  // Update selected items when work history data changes
+  // Update selected items when work history data changes - always select most recent role
   useEffect(() => {
-    const newFirstCompany = workHistory.length > 0 ? workHistory[0] : null;
-    
-    setSelectedCompany(newFirstCompany);
-    setSelectedRole(null); // Only company selected initially
-    setExpandedCompanyId(newFirstCompany?.id || null);
+    if (workHistory.length > 0) {
+      const mostRecent = findMostRecentRole(workHistory);
+      if (mostRecent) {
+        setSelectedCompany(mostRecent.company);
+        setSelectedRole(mostRecent.role);
+        setExpandedCompanyId(mostRecent.company.id);
+      }
+    }
   }, [workHistory]);
 
   // Handle URL parameters for initial navigation

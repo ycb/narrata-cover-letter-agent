@@ -2,12 +2,6 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { 
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { Calendar, Plus } from "lucide-react";
 import { IntelligentAlertBadge } from "@/components/ui/IntelligentAlertBadge";
 import { cn } from "@/lib/utils";
@@ -87,63 +81,63 @@ export const WorkHistoryMaster = ({
       <CardContent className="flex-1 overflow-auto px-0">
         {/* Main Content Container with Consistent Spacing */}
         <div className="space-y-4 px-6">
-          {/* Companies & Roles Section */}
-          <div>
-            <Accordion type="single" value={expandedCompanyId || undefined} className="w-full">
-            {companies.map((company) => (
-              <AccordionItem key={company.id} value={company.id} className="mb-6"> {/* 1.5rem (24px) between company cards */}
-                <AccordionTrigger 
+          {/* Companies & Roles Section - No Expand/Collapse */}
+          <div className="space-y-4">
+            {companies.map((company) => {
+              const isSelected = selectedCompany?.id === company.id;
+              const hasSelectedRole = selectedRole && company.roles.some(r => r.id === selectedRole.id);
+              const isCompanyBlockSelected = isSelected || hasSelectedRole;
+              
+              return (
+                <div
+                  key={company.id}
                   className={cn(
-                    "w-full px-4 py-3 transition-colors relative no-underline cursor-pointer group hover:no-underline [&>svg]:hidden",
-                    selectedCompany?.id === company.id 
-                      ? "bg-muted/30 text-foreground font-semibold hover:bg-muted/30" 
-                      : "hover:bg-primary hover:text-primary-foreground"
+                    "relative transition-colors",
+                    isCompanyBlockSelected && "bg-muted/30"
+                  )}
+                >
+                  {/* Selection Indicator - Left Side */}
+                  {isCompanyBlockSelected && (
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-foreground" />
+                  )}
+                  
+                  <div className={cn(
+                    "w-full px-4 py-3 cursor-pointer transition-colors relative",
+                    isCompanyBlockSelected && "bg-muted/30"
                   )}
                   onClick={() => onCompanySelect(company)}
-                >
-                  <div className="flex items-center gap-3 text-left w-full">
-                    <div className="flex-1 min-w-0">
-                      <h3 className={cn(
-                        "truncate",
-                        selectedCompany?.id === company.id 
-                          ? "text-foreground font-semibold" 
-                          : "font-medium group-hover:text-primary-foreground"
-                      )}>{company.name}</h3>
-                      <p className={cn(
-                        "text-sm truncate",
-                        selectedCompany?.id === company.id 
-                          ? "text-muted-foreground font-semibold" 
-                          : "text-muted-foreground group-hover:text-primary-foreground"
-                      )}>
-                        {company.roles.length} role{company.roles.length !== 1 ? 's' : ''}
-                      </p>
-                    </div>
-                  </div>
-                </AccordionTrigger>
-                
-                <AccordionContent className="px-0 pb-0">
-                  <div className="space-y-6"> {/* 1.5rem (24px) between role cards */}
-                    {company.roles.map((role) => (
-                      <Button
-                        key={role.id}
-                        variant="ghost"
-                        className={cn(
-                          "w-full px-4 py-3 h-auto justify-start text-left transition-colors relative !rounded-none",
-                          selectedRole?.id === role.id 
-                            ? "text-foreground font-semibold hover:bg-muted/30 hover:text-foreground" 
-                            : "hover:bg-primary hover:text-primary-foreground group"
-                        )}
-                        onClick={() => onRoleSelect(role)}
-                      >
-                        <div className="flex items-center gap-3 w-full">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-4">
-                              <h4 className={cn(
-                                "text-sm truncate",
-                                selectedRole?.id === role.id 
-                                  ? "text-foreground font-semibold" 
-                                  : "font-medium group-hover:text-primary-foreground"
-                              )}>{role.title}</h4>
+                  >
+                    {/* Company Name */}
+                    <h3 className={cn(
+                      "text-base font-semibold mb-1",
+                      isCompanyBlockSelected 
+                        ? "text-foreground" 
+                        : "text-foreground"
+                    )}>
+                      {company.name}
+                    </h3>
+                    
+                    {/* All Roles Listed */}
+                    <div className="space-y-1">
+                      {company.roles.map((role) => {
+                        const isRoleSelected = selectedRole?.id === role.id;
+                        
+                        return (
+                          <div
+                            key={role.id}
+                            className="w-full"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRoleSelect(role);
+                            }}
+                          >
+                            {/* Title on its own line */}
+                            <div className="flex items-center justify-between w-full mb-1">
+                              <span className={cn(
+                                isRoleSelected ? "font-semibold text-foreground" : "font-medium text-muted-foreground"
+                              )}>
+                                {role.title}
+                              </span>
                               <div className="flex items-center gap-2 shrink-0">
                                 {/* Mock gap detection - replace with real data later */}
                                 {(role as any).hasGaps && getUpdatedGapCount(role) > 0 && (
@@ -157,40 +151,31 @@ export const WorkHistoryMaster = ({
                                 )}
                               </div>
                             </div>
-                            <div className="flex items-center gap-2 mt-1">
+                            {/* Dates on their own line */}
+                            <div className="flex items-center gap-1">
                               <Calendar className={cn(
-                                "h-3 w-3",
-                                selectedRole?.id === role.id 
-                                  ? "text-foreground" 
-                                  : "text-muted-foreground group-hover:text-primary-foreground"
+                                "h-3 w-3 shrink-0",
+                                isRoleSelected ? "text-foreground" : "text-muted-foreground"
                               )} />
                               <span className={cn(
                                 "text-xs",
-                                selectedRole?.id === role.id 
-                                  ? "text-foreground font-semibold" 
-                                  : "text-muted-foreground group-hover:text-primary-foreground"
+                                isRoleSelected ? "text-foreground font-semibold" : "text-muted-foreground"
                               )}>
                                 {formatDateRange(role.startDate, role.endDate)}
                               </span>
                             </div>
                           </div>
-                        </div>
-                        
-                        {/* Selection Indicator - Left Side */}
-                        {selectedRole?.id === role.id && (
-                          <div className="absolute left-0 top-0 bottom-0 w-1 bg-foreground" />
-                        )}
-                      </Button>
-                    ))}
+                        );
+                      })}
+                    </div>
                   </div>
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        </div>
+                </div>
+              );
+            })}
+          </div>
         
         {/* Data Sources Section - Bottom */}
-        <div className="border-t border-muted mt-auto">
+        <div className="border-t border-muted mt-auto pt-4">
           <h2 className="text-lg font-semibold text-foreground mb-3">Data Sources</h2>
           <div className="space-y-2">
             <Button
