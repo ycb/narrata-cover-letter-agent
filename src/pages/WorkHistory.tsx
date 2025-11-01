@@ -10,7 +10,6 @@ import { DataSourcesStatus } from "@/components/work-history/DataSourcesStatus";
 import { WorkHistoryOnboarding } from "@/components/work-history/WorkHistoryOnboarding";
 import { AddCompanyModal } from "@/components/work-history/AddCompanyModal";
 import { AddRoleModal } from "@/components/work-history/AddRoleModal";
-import { usePrototype } from "@/contexts/PrototypeContext";
 import { useTour } from "@/contexts/TourContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { TourBannerFull } from "@/components/onboarding/TourBannerFull";
@@ -213,14 +212,11 @@ export default function WorkHistory() {
   // Auth context
   const { user } = useAuth();
   
-  // Use global prototype state
-  const { prototypeState } = usePrototype();
-  
   // Tour functionality
   const { isActive: isTourActive, currentStep: tourStep, tourSteps, currentTourStep, nextStep, previousStep, cancelTour } = useTour();
   
   // Debug tour state
-  console.log('WorkHistory - Tour state:', { isTourActive, tourStep, prototypeState });
+  console.log('WorkHistory - Tour state:', { isTourActive, tourStep });
   
   // State for fetched data
   const [workHistory, setWorkHistory] = useState<WorkHistoryCompany[]>([]);
@@ -244,10 +240,10 @@ export default function WorkHistory() {
       const syntheticUserService = new SyntheticUserService();
       const syntheticContext = await syntheticUserService.getSyntheticUserContext();
       
-      // For tour mode OR prototype mode WITHOUT synthetic data, use sample data
-      // When synthetic mode is active, we want to show real parsed data in the prototype UI
-      if ((isTourActive || prototypeState === 'existing-user') && !syntheticContext.isSyntheticTestingEnabled) {
-        console.log('Using sample data for tour/prototype mode (synthetic mode not active)');
+      // For tour mode WITHOUT synthetic data, use sample data
+      // When synthetic mode is active, we want to show real parsed data
+      if (isTourActive && !syntheticContext.isSyntheticTestingEnabled) {
+        console.log('Using sample data for tour mode (synthetic mode not active)');
         setWorkHistory(sampleWorkHistory);
         setIsLoading(false);
         return;
@@ -545,7 +541,7 @@ export default function WorkHistory() {
     } finally {
       setIsLoading(false);
     }
-  }, [user, isTourActive, prototypeState]);
+  }, [user, isTourActive]);
 
   // Fetch data on mount and when user changes
   useEffect(() => {
