@@ -99,6 +99,10 @@ export const WorkHistoryDetail = ({
   
   // Success state management - tracks which success cards have been dismissed
   const [dismissedSuccessCards, setDismissedSuccessCards] = useState<Set<string>>(new Set());
+  
+  // Inline editing state for company description
+  const [isEditingCompanyDescription, setIsEditingCompanyDescription] = useState(false);
+  const [companyDescriptionDraft, setCompanyDescriptionDraft] = useState('');
 
   // Mock gap data for content generation
   const mockGapData = {
@@ -141,6 +145,54 @@ export const WorkHistoryDetail = ({
     setSelectedGap(mockGapData[gapType as keyof typeof mockGapData]);
     setIsContentModalOpen(true);
   };
+
+  const handleGenerateCompanyContent = () => {
+    // Create a company-level gap for content generation
+    const companyGap = {
+      id: 'company-description-gap',
+      type: 'content-enhancement' as const,
+      severity: 'medium' as const,
+      description: 'Generate company description and information',
+      suggestion: 'Research company and generate description, tags, and relevant information',
+      paragraphId: 'company-description',
+      origin: 'user' as const
+    };
+    setSelectedGap(companyGap);
+    setIsContentModalOpen(true);
+  };
+
+  // Inline editing handlers for company description
+  const handleSaveCompanyDescription = async () => {
+    if (selectedRole) {
+      const currentCompany = companies.find(c => c.id === selectedRole.companyId);
+      if (currentCompany && companyDescriptionDraft !== currentCompany.description) {
+        // Update company description
+        if (onEditCompany) {
+          onEditCompany({ ...currentCompany, description: companyDescriptionDraft });
+        }
+      }
+    }
+    setIsEditingCompanyDescription(false);
+  };
+
+  const handleCancelEditCompanyDescription = () => {
+    if (selectedRole) {
+      const currentCompany = companies.find(c => c.id === selectedRole.companyId);
+      setCompanyDescriptionDraft(currentCompany?.description || '');
+    }
+    setIsEditingCompanyDescription(false);
+  };
+
+  // Reset editing state when company/role changes
+  useEffect(() => {
+    if (selectedRole) {
+      const currentCompany = companies.find(c => c.id === selectedRole.companyId);
+      if (currentCompany) {
+        setCompanyDescriptionDraft(currentCompany.description || '');
+        setIsEditingCompanyDescription(false);
+      }
+    }
+  }, [selectedRole?.companyId, companies]);
 
   const handleApplyContent = (content: string) => {
     console.log('Applied generated content:', content);
@@ -674,7 +726,7 @@ export const WorkHistoryDetail = ({
     );
   }
 
-  // Show role details if a role is selected
+  // Show role details if a role is selected (this takes priority)
   if (selectedRole) {
     // Find the company for this role
     const roleCompany = companies.find(c => c.id === selectedRole.companyId);
@@ -682,95 +734,300 @@ export const WorkHistoryDetail = ({
     
     return (
       <div className="space-y-6 h-full flex flex-col">
-        {/* Persistent Role Header */}
-        <div className="border-b pb-6">
-          <div className="flex items-start justify-between">
-            <div className="space-y-2">
-              <div>
-                <h1 className="text-3xl font-bold text-foreground">{selectedRole.title}</h1>
-                <p className="text-xl text-muted-foreground mt-1">
-                  at {roleCompany?.name || 'Unknown Company'}
-                </p>
-              </div>
-              
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <Calendar className="h-4 w-4" />
-                  {formatDateRange(selectedRole.startDate, selectedRole.endDate)}
+        {/* Company Section - Persistent at Top */}
+        {roleCompany && (() => {
+          // Detect if description is role-level (contains action verbs typical of role descriptions)
+          const isRoleLevelDescription = (desc: string | null | undefined): boolean => {
+            if (!desc) return false;
+            const descLower = desc.trim().toLowerCase();
+            // Role-level descriptions typically start with action verbs or contain role-specific language
+            const roleLevelIndicators = [
+              /^(led|owned|delivered|managed|built|designed|developed|created|improved|increased|reduced|launched|defined|scaled|drove|achieved|implemented|optimized|established|overhauled|enhanced)/i,
+              /\b(scaling|improving|driving|reducing|enhancing|optimizing|building|delivering|managing|owning)\b/i,
+              // Phrases that indicate role-level (first-person actions)
+              /\b(owned|led|delivered|managed)\b.*\b(platform|product|system|feature|process|initiative|project|organization|team)\b/i
+            ];
+            return roleLevelIndicators.some(pattern => pattern.test(desc));
+          };
+          
+          const hasCompanyDescription = roleCompany.description && 
+            roleCompany.description.trim() !== '' && 
+            !isRoleLevelDescription(roleCompany.description);
+          const hasCompanyTags = roleCompany.tags && roleCompany.tags.length > 0;
+          const hasCompanyInfo = hasCompanyDescription || hasCompanyTags;
+          
+          // Empty state if no company info
+          if (!hasCompanyInfo) {
+            return (
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <h1 className="text-3xl font-bold text-foreground mb-4">{roleCompany.name}</h1>
+                      {isEditingCompanyDescription ? (
+                        <div>
+                          <Textarea
+                            value={companyDescriptionDraft}
+                            onChange={(e) => setCompanyDescriptionDraft(e.target.value)}
+                            className="min-h-[60px] text-muted-foreground resize-none"
+                            placeholder="Enter company description..."
+                            autoFocus
+                          />
+                          <div className="flex justify-end gap-2 mt-3">
+                            <Button size="sm" onClick={handleSaveCompanyDescription}>
+                              Save
+                            </Button>
+                            <Button variant="secondary" size="sm" onClick={handleCancelEditCompanyDescription}>
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div 
+                          className="flex items-center gap-2 text-muted-foreground cursor-pointer"
+                          onClick={() => setIsEditingCompanyDescription(true)}
+                        >
+                          <span className="text-sm italic">Company description not available</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setIsEditingCompanyDescription(true);
+                            }}
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Company Overflow Menu */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Open menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={onAddRole}>
+                          <Plus className="mr-2 h-4 w-4" />
+                          Add Role
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={handleGenerateCompanyContent}>
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          Generate Content
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onEditCompany?.(roleCompany)}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          Edit Company
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <Trash2 className="mr-2 h-4 w-4 text-red-500" />
+                          Delete Company
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+                
+                {/* Company Tags - Empty State */}
+                <div>
+                  <div className="flex items-center gap-2 mb-4">
+                    <Tags className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium">Company Tags</span>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    <span className="mr-2">No company tags available</span>
+                    <TagSuggestionButton
+                      content={`${roleCompany.name}: Company information`}
+                      onTagsSuggested={handleCompanyTagSuggestions}
+                      onClick={() => handleCompanyTagSuggestions([])}
+                      variant="tertiary"
+                      size="sm"
+                    />
+                  </div>
                 </div>
               </div>
+            );
+          }
+          
+          // Normal state with company info
+          return (
+            <div className="space-y-4">
+              <div>
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <h1 className="text-3xl font-bold text-foreground mb-4">{roleCompany.name}</h1>
+                      {isEditingCompanyDescription ? (
+                        <div>
+                          <Textarea
+                            value={companyDescriptionDraft}
+                            onChange={(e) => setCompanyDescriptionDraft(e.target.value)}
+                            className="min-h-[60px] text-muted-foreground resize-none"
+                            placeholder="Enter company description..."
+                            autoFocus
+                          />
+                          <div className="flex justify-end gap-2 mt-3">
+                            <Button size="sm" onClick={handleSaveCompanyDescription}>
+                              Save
+                            </Button>
+                            <Button variant="secondary" size="sm" onClick={handleCancelEditCompanyDescription}>
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                    ) : hasCompanyDescription ? (
+                      <div 
+                        className="flex items-center gap-2 group cursor-pointer"
+                        onClick={() => setIsEditingCompanyDescription(true)}
+                      >
+                        <p className="text-muted-foreground flex-1">{roleCompany.description}</p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsEditingCompanyDescription(true);
+                          }}
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div 
+                        className="flex items-center gap-2 text-muted-foreground cursor-pointer"
+                        onClick={() => setIsEditingCompanyDescription(true)}
+                      >
+                        <span className="text-sm italic">Company description not available</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsEditingCompanyDescription(true);
+                          }}
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Company Overflow Menu */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="h-8 w-8 p-0">
+                        <span className="sr-only">Open menu</span>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={onAddRole}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Role
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={handleGenerateCompanyContent}>
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        Generate Content
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onEditCompany?.(roleCompany)}>
+                        <Edit className="mr-2 h-4 w-4" />
+                        Edit Company
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <Trash2 className="mr-2 h-4 w-4 text-red-500" />
+                        Delete Company
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+              
+              {/* Company Tags */}
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <Tags className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Company Tags</span>
+                </div>
+                {hasCompanyTags ? (
+                  <div className="flex flex-wrap gap-1">
+                    {roleCompany.tags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-xs">
+                        {tag}
+                      </Badge>
+                    ))}
+                    <TagSuggestionButton
+                      content={`${roleCompany.name}: ${hasCompanyDescription ? roleCompany.description : 'Company information'}`}
+                      onTagsSuggested={handleCompanyTagSuggestions}
+                      onClick={() => handleCompanyTagSuggestions([])}
+                      variant="tertiary"
+                      size="sm"
+                    />
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground">
+                    <span className="mr-2">No company tags available</span>
+                    <TagSuggestionButton
+                      content={`${roleCompany.name}: ${hasCompanyDescription ? roleCompany.description : 'Company information'}`}
+                      onTagsSuggested={handleCompanyTagSuggestions}
+                      onClick={() => handleCompanyTagSuggestions([])}
+                      variant="tertiary"
+                      size="sm"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
-            
-            {/* Role Actions Menu - Inline with role name */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                  <span className="sr-only">Open menu</span>
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handleEditRole}>
-                  <Edit className="mr-2 h-4 w-4" />
-                  Edit Role
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => {
-                  // Trigger HIL workflow for role content generation
-                  handleGenerateContent('role-description');
-                }}>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Generate Content
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <Trash2 className="mr-2 h-4 w-4 text-red-500" />
-                  Delete Role
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
+          );
+        })()}
 
-                {/* Navigation Tabs */}
+        {/* Navigation Tabs - Below Company Section */}
         <div className="border-b">
           <div className="flex items-center justify-between">
             <div className="flex space-x-8">
               <button
-                                            className={cn(
-                              "flex items-center gap-2 py-4 px-1 border-b-4 font-medium text-sm transition-colors",
-                              detailView === 'role' 
-                                ? "border-primary text-primary" 
-                                : "border-transparent text-muted-foreground hover:text-[#E32D9A]"
-                            )}
+                className={cn(
+                  "flex items-center gap-2 py-4 px-1 border-b-4 font-medium text-sm transition-colors",
+                  detailView === 'role' 
+                    ? "border-primary text-primary" 
+                    : "border-transparent text-muted-foreground hover:text-[#E32D9A]"
+                )}
                 onClick={() => setDetailView('role')}
               >
                 <User className="h-4 w-4" />
                 Role
               </button>
-                                                                  <button
-                            className={cn(
-                              "flex items-center gap-2 py-4 px-1 border-b-4 font-medium text-sm transition-colors",
-                              detailView === 'stories' 
-                                ? "border-primary text-primary" 
-                                : "border-transparent text-muted-foreground hover:text-[#E32D9A]"
-                            )}
-                            onClick={() => setDetailView('stories')}
-                          >
-                            <FileText className="h-4 w-4" />
-                            Stories ({selectedRole.blurbs.length})
-                          </button>
-                                                                  <button
-                            className={cn(
-                              "flex items-center gap-2 py-4 px-1 border-b-4 font-medium text-sm transition-colors",
-                              detailView === 'links' 
-                                ? "border-primary text-primary" 
-                                : "border-transparent text-muted-foreground hover:text-[#E32D9A]"
-                            )}
-                            onClick={() => setDetailView('links')}
-                          >
-                            <LinkIcon className="h-4 w-4" />
-                            Links ({selectedRole.externalLinks.length})
-                          </button>
+              <button
+                className={cn(
+                  "flex items-center gap-2 py-4 px-1 border-b-4 font-medium text-sm transition-colors",
+                  detailView === 'stories' 
+                    ? "border-primary text-primary" 
+                    : "border-transparent text-muted-foreground hover:text-[#E32D9A]"
+                )}
+                onClick={() => setDetailView('stories')}
+              >
+                <FileText className="h-4 w-4" />
+                Stories ({selectedRole.blurbs.length})
+              </button>
+              <button
+                className={cn(
+                  "flex items-center gap-2 py-4 px-1 border-b-4 font-medium text-sm transition-colors",
+                  detailView === 'links' 
+                    ? "border-primary text-primary" 
+                    : "border-transparent text-muted-foreground hover:text-[#E32D9A]"
+                )}
+                onClick={() => setDetailView('links')}
+              >
+                <LinkIcon className="h-4 w-4" />
+                Links ({selectedRole.externalLinks.length})
+              </button>
             </div>
             
             {/* Dynamic CTA */}
@@ -797,151 +1054,97 @@ export const WorkHistoryDetail = ({
           </div>
         </div>
 
-                {/* Content Area */}
-        <div className="pt-6">
-          {/* Role Details View */}
-          {detailView === 'role' && (
+        {/* Role Details View */}
+        {detailView === 'role' && (
+          <div className="space-y-4">
             <div>
-                            {/* Role Description */}
-                            {selectedRole.description && (
-                              <div className={cn(
-                                "mb-6 p-4 rounded-lg",
-                                (selectedRole as any).hasGaps && !resolvedGaps.has('role-description-gap') && "border-warning bg-warning/5 border"
-                              )}>
-                                <p className="text-foreground">{selectedRole.description}</p>
-                              </div>
-                            )}
-                            
-                            {/* Gap Detection - Role Description Gap */}
-                            {(selectedRole as any).hasGaps && !resolvedGaps.has('role-description-gap') && (
-                              <div className="mb-6 border-warning bg-warning/5 p-4 rounded-lg">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <AlertTriangle className="h-4 w-4 text-warning" />
-                                  <span className="font-medium text-warning">Role Description Gap</span>
-                                </div>
-                                <p className="text-sm text-muted-foreground mb-3">
-                                  Role description is too generic. Add specific achievements and quantifiable results.
-                                </p>
-                                <Button 
-                                  variant="secondary" 
-                                  size="sm"
-                                  className="w-full"
-                                  onClick={() => handleGenerateContent('role-description')}
-                                >
-                                  <Sparkles className="h-4 w-4 mr-2" />
-                                  Generate Content
-                                </Button>
-                              </div>
-                            )}
-                            
-                            {/* Success State - Role Description */}
-                            {resolvedGaps.has('role-description-gap') && !dismissedSuccessCards.has('role-description-gap') && (
-                              <div className="mb-6 border-success bg-success/5 p-4 rounded-lg">
-                                <div className="flex items-center justify-between mb-2">
-                                  <div className="flex items-center gap-2">
-                                    <CheckCircle className="h-4 w-4 text-success" />
-                                    <span className="font-medium text-success">Role Description Enhanced</span>
-                                  </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0 hover:bg-success/10"
-                                    onClick={() => handleDismissSuccessCard('role-description-gap')}
-                                  >
-                                    <X className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                                <p className="text-sm text-muted-foreground">
-                                  Content has been successfully generated and applied.
-                                </p>
-                              </div>
-                            )}
-                            
-                            {/* Outcome Metrics */}
-                            <div className={cn(
-                              "mb-6",
-                              (selectedRole as any).hasGaps && !resolvedGaps.has('outcome-metrics-gap') && "border-warning bg-warning/5 border p-4 rounded-lg"
-                            )}>
-                              <OutcomeMetrics
-                                metrics={selectedRole.outcomeMetrics}
-                              />
-                            </div>
-
-                            {/* Gap Detection - Outcome Metrics Gap */}
-                            {(selectedRole as any).hasGaps && !resolvedGaps.has('outcome-metrics-gap') && (
-                              <div className="mb-6 border-warning bg-warning/5 p-4 rounded-lg">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <AlertTriangle className="h-4 w-4 text-warning" />
-                                  <span className="font-medium text-warning">Outcome Metrics Gap</span>
-                                </div>
-                                <p className="text-sm text-muted-foreground mb-3">
-                                  Metrics need more specificity. Include percentages, dollar amounts, and timeframes.
-                                </p>
-                                <Button 
-                                  variant="secondary" 
-                                  size="sm"
-                                  className="w-full"
-                                  onClick={() => handleGenerateContent('outcome-metrics')}
-                                >
-                                  <Sparkles className="h-4 w-4 mr-2" />
-                                  Generate Content
-                                </Button>
-                              </div>
-                            )}
-                            
-                            {/* Success State - Outcome Metrics */}
-                            {resolvedGaps.has('outcome-metrics-gap') && !dismissedSuccessCards.has('outcome-metrics-gap') && (
-                              <div className="mb-6 border-success bg-success/5 p-4 rounded-lg">
-                                <div className="flex items-center justify-between mb-2">
-                                  <div className="flex items-center gap-2">
-                                    <CheckCircle className="h-4 w-4 text-success" />
-                                    <span className="font-medium text-success">Outcome Metrics Enhanced</span>
-                                  </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0 hover:bg-success/10"
-                                    onClick={() => handleDismissSuccessCard('outcome-metrics-gap')}
-                                  >
-                                    <X className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                                <p className="text-sm text-muted-foreground">
-                                  Content has been successfully generated and applied.
-                                </p>
-                              </div>
-                            )}
-                            
-                            {/* Role Tags */}
-                            <div>
-                              <div className="flex items-center gap-2 mb-2">
-                                <Tags className="h-4 w-4 text-muted-foreground" />
-                                <span className="text-sm font-medium">Role Tags</span>
-                              </div>
-                              <div className="flex flex-wrap gap-2">
-                                {selectedRole.tags.length > 0 && selectedRole.tags.map((tag) => (
-                                  <Badge key={tag} variant="secondary">
-                                    {tag}
-                                  </Badge>
-                                ))}
-                                <TagSuggestionButton
-                                  content={`${selectedRole.title} at ${selectedCompany.name}: ${selectedRole.description}`}
-                                  onTagsSuggested={handleTagSuggestions}
-                                  onClick={() => {
-                                    setTagContent(`${selectedRole.title} at ${selectedCompany.name}: ${selectedRole.description}`);
-                                    handleTagSuggestions([]);
-                                  }}
-                                  variant="tertiary"
-                                  size="sm"
-                                />
-                              </div>
-                            </div>
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  {/* Title */}
+                  <h2 className="text-2xl font-bold text-foreground mb-4">{selectedRole.title}</h2>
+                  
+                  {/* Date */}
+                  <div className="text-sm text-muted-foreground mb-4">
+                    {formatDateRange(selectedRole.startDate, selectedRole.endDate)}
+                  </div>
+                  
+                  {/* Description */}
+                  {selectedRole.description && (
+                    <p className={cn(
+                      "text-muted-foreground",
+                      (selectedRole as any).hasGaps && !resolvedGaps.has('role-description-gap') && "border-warning bg-warning/5 border rounded-lg px-4 py-3"
+                    )}>
+                      {selectedRole.description}
+                    </p>
+                  )}
+                </div>
                 
+                {/* Role Actions Menu */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      <span className="sr-only">Open menu</span>
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleEditRole}>
+                      <Edit className="mr-2 h-4 w-4" />
+                      Edit Role
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => {
+                      // Trigger HIL workflow for role content generation
+                      handleGenerateContent('role-description');
+                    }}>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Generate Content
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem>
+                      <Trash2 className="mr-2 h-4 w-4 text-red-500" />
+                      Delete Role
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
-            )}
+            </div>
+            
+            {/* Outcome Metrics */}
+            <div>
+              <OutcomeMetrics
+                metrics={selectedRole.outcomeMetrics}
+              />
+            </div>
+            
+            {/* Role Tags */}
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <Tags className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Role Tags</span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {selectedRole.tags.length > 0 && selectedRole.tags.map((tag) => (
+                  <Badge key={tag} variant="secondary" className="text-xs">
+                    {tag}
+                  </Badge>
+                ))}
+                <TagSuggestionButton
+                  content={`${selectedRole.title} at ${selectedCompany.name}: ${selectedRole.description}`}
+                  onTagsSuggested={handleTagSuggestions}
+                  onClick={() => {
+                    setTagContent(`${selectedRole.title} at ${selectedCompany.name}: ${selectedRole.description}`);
+                    handleTagSuggestions([]);
+                  }}
+                  variant="tertiary"
+                  size="sm"
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
-            {/* Stories View */}
-            {detailView === 'stories' && (
+        {/* Stories View */}
+        {detailView === 'stories' && selectedRole && (
               <div>
                 {selectedRole.blurbs.length === 0 ? (
                   <div className="text-center py-8">
@@ -1022,10 +1225,10 @@ export const WorkHistoryDetail = ({
                   </div>
                 )}
               </div>
-            )}
+        )}
 
-            {/* Links View */}
-            {detailView === 'links' && (
+        {/* Links View */}
+        {detailView === 'links' && selectedRole && (
               <div>
                 {selectedRole.externalLinks.length === 0 ? (
                   <div className="text-center py-8">
@@ -1059,7 +1262,6 @@ export const WorkHistoryDetail = ({
                 )}
               </div>
             )}
-        </div>
         
         {/* Content Generation Modal */}
         <ContentGenerationModal
@@ -1073,7 +1275,6 @@ export const WorkHistoryDetail = ({
         />
 
         {/* Tag Suggestion Modal */}
-        {console.log('Rendering Tag Suggestion Modal:', { isTagModalOpen, tagContent, suggestedTags })}
         <ContentGenerationModal
           isOpen={isTagModalOpen}
           onClose={() => {
@@ -1090,8 +1291,9 @@ export const WorkHistoryDetail = ({
     );
   }
 
-  // Show company details if only company is selected
-  if (selectedCompany) {
+  // Show company details if only company is selected (and no role is selected)
+  // Note: With auto-selection, this should rarely appear, but handle it for edge cases
+  if (selectedCompany && !selectedRole) {
     return (
       <div className="space-y-8 h-full flex flex-col">
         {/* Company Header - Clean, No Card Styling */}
@@ -1199,7 +1401,6 @@ export const WorkHistoryDetail = ({
         </div>
 
         {/* Tag Suggestion Modal */}
-        {console.log('Rendering Tag Suggestion Modal:', { isTagModalOpen, tagContent, suggestedTags })}
         <ContentGenerationModal
           isOpen={isTagModalOpen}
           onClose={() => {
