@@ -997,12 +997,15 @@ export class FileUploadService {
                 }))
               : [];
             
-            // Ensure tags is always an array
-            const storyTags = Array.isArray(story.tags) 
-              ? story.tags 
-              : (story.tags && typeof story.tags === 'object' && story.tags.items)
-                ? story.tags.items
-                : [];
+            // Extract skills (simplified from complex tags structure)
+            // Cover letter stories now use simple "skills" array instead of nested tags object
+            const storySkills = Array.isArray(story.skills)
+              ? story.skills
+              : (story.tags && Array.isArray(story.tags))
+                ? story.tags  // Fallback for old format
+                : (story.tags && typeof story.tags === 'object' && story.tags.skills)
+                  ? story.tags.skills  // Fallback for nested tags.skills
+                  : [];
             
             const { data: insertedStory, error: storyError } = await dbClient
               .from('approved_content')
@@ -1012,7 +1015,7 @@ export class FileUploadService {
                 company_id: workItemMatch.companyId,
                 title: storyTitle,
                 content: story.content || '',
-                tags: storyTags,
+                tags: storySkills,  // Store skills in tags column
                 metrics: storyMetrics,
                 source_id: sourceId
               })
