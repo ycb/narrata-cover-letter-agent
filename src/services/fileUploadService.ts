@@ -743,8 +743,18 @@ export class FileUploadService {
       
       // Process each work history entry
       for (const workItem of structuredData.workHistory) {
-        // Skip work items without a valid title - every role needs a title
-        const workItemTitle = workItem.position || workItem.title;
+        // Extract title - try position first, then title, then extract from description/company line
+        let workItemTitle = workItem.position || workItem.title;
+        
+        // If still empty, try to extract from company line format: "Company — Title"
+        if (!workItemTitle || workItemTitle.trim() === '') {
+          const companyLine = workItem.company || '';
+          const match = companyLine.match(/—\s*(.+?)(?:\s*\||\s*$)/);
+          if (match) {
+            workItemTitle = match[1].trim();
+          }
+        }
+        
         if (!workItemTitle || workItemTitle.trim() === '') {
           console.warn(`⚠️ Skipping work item for ${workItem.company || 'Unknown'}: missing position/title`);
           continue;
