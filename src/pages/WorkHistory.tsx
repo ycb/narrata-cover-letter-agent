@@ -421,6 +421,30 @@ export default function WorkHistory() {
 
       if (linksError) throw linksError;
 
+      // Phase 3: Fetch gaps for work items and stories
+      const { GapDetectionService } = await import('../services/gapDetectionService');
+      const userGaps = user.id ? await GapDetectionService.getUserGaps(user.id) : [];
+      
+      // Create maps for efficient lookup
+      const workItemGapMap = new Map<string, number>(); // work_item_id -> gap count
+      const storyGapMap = new Map<string, number>(); // approved_content_id -> gap count
+      
+      userGaps.forEach(gap => {
+        if (gap.entity_type === 'work_item') {
+          const current = workItemGapMap.get(gap.entity_id) || 0;
+          workItemGapMap.set(gap.entity_id, current + 1);
+        } else if (gap.entity_type === 'approved_content') {
+          const current = storyGapMap.get(gap.entity_id) || 0;
+          storyGapMap.set(gap.entity_id, current + 1);
+        }
+      });
+      
+      console.log('[WorkHistory] Loaded gaps:', {
+        total: userGaps.length,
+        workItemGaps: Array.from(workItemGapMap.entries()).length,
+        storyGaps: Array.from(storyGapMap.entries()).length
+      });
+
       // Sort work items: current first (end_date null), then by start_date descending (current to past)
       const sortedWorkItems = (workItems || []).sort((a: any, b: any) => {
         // Current positions (end_date null) come first
@@ -469,25 +493,28 @@ export default function WorkHistory() {
           const itemBlurbs = blurbs?.filter((blurb: any) => blurb.work_item_id === item.id) || [];
           
           // Transform blurbs
-          const transformedBlurbs: WorkHistoryBlurb[] = itemBlurbs.map((blurb: any) => ({
-            id: blurb.id,
-            roleId: blurb.work_item_id,
-            title: blurb.title,
-            content: blurb.content,
-            outcomeMetrics: [], // Can be extracted from content if needed
-            tags: blurb.tags || [],
-            source: 'manual' as const, // Changed from 'database' to valid type
-            status: blurb.status as 'draft' | 'approved' | 'needs-review',
-            confidence: blurb.confidence as 'low' | 'medium' | 'high',
-            timesUsed: blurb.times_used || 0,
-            lastUsed: blurb.last_used || undefined,
-            linkedExternalLinks: [], // Can be populated if needed
-            hasGaps: false, // Can be calculated if needed
-            gapCount: 0,
-            variations: [],
-            createdAt: blurb.created_at,
-            updatedAt: blurb.updated_at
-          }));
+          const transformedBlurbs: WorkHistoryBlurb[] = itemBlurbs.map((blurb: any) => {
+            const storyGapCount = storyGapMap.get(blurb.id) || 0;
+            return {
+              id: blurb.id,
+              roleId: blurb.work_item_id,
+              title: blurb.title,
+              content: blurb.content,
+              outcomeMetrics: [], // Can be extracted from content if needed
+              tags: blurb.tags || [],
+              source: 'manual' as const, // Changed from 'database' to valid type
+              status: blurb.status as 'draft' | 'approved' | 'needs-review',
+              confidence: blurb.confidence as 'low' | 'medium' | 'high',
+              timesUsed: blurb.times_used || 0,
+              lastUsed: blurb.last_used || undefined,
+              linkedExternalLinks: [], // Can be populated if needed
+              hasGaps: storyGapCount > 0,
+              gapCount: storyGapCount,
+              variations: [],
+              createdAt: blurb.created_at,
+              updatedAt: blurb.updated_at
+            };
+          });
 
           // Get external links for this work item
           const itemLinks = links?.filter((link: any) => link.work_item_id === item.id) || [];
@@ -505,6 +532,11 @@ export default function WorkHistory() {
             createdAt: link.created_at
           }));
 
+          // Calculate gap count for role (work_item gaps + sum of story gaps)
+          const workItemGapCount = workItemGapMap.get(item.id) || 0;
+          const storyGapCount = transformedBlurbs.reduce((sum, blurb) => sum + (blurb.gapCount || 0), 0);
+          const totalGapCount = workItemGapCount + storyGapCount;
+
           return {
             id: item.id,
             companyId: company.id,
@@ -518,8 +550,8 @@ export default function WorkHistory() {
             outcomeMetrics: item.achievements || [],
             blurbs: transformedBlurbs,
             externalLinks: transformedLinks,
-            hasGaps: false, // Can be calculated if needed
-            gapCount: 0,
+            hasGaps: totalGapCount > 0,
+            gapCount: totalGapCount,
             createdAt: item.created_at,
             updatedAt: item.updated_at
           };

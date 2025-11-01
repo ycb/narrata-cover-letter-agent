@@ -5,7 +5,7 @@ import { useAuth } from './AuthContext';
 
 interface UserGoalsContextType {
   goals: UserGoals | null;
-  setGoals: (goals: UserGoals) => void;
+  setGoals: (goals: UserGoals) => Promise<void>;
   hasGoals: boolean;
   isLoading: boolean;
 }
