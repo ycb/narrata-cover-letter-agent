@@ -339,6 +339,15 @@ export default function ShowAllLinks() {
     </tr>
   );
 
+  // Show empty state if no links at all (not just filtered)
+  if (!isLoading && !error && links.length === 0) {
+    return (
+      <div className="min-h-screen bg-background">
+        <LinksEmptyState onAddLink={() => setIsAddLinkModalOpen(true)} />
+      </div>
+    );
+  }
+
   return (
     <>
       <ShowAllTemplate
