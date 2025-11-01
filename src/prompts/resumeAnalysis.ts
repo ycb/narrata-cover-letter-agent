@@ -126,15 +126,14 @@ CRITICAL EXTRACTION RULES:
    - Use same vocabulary as role tags
 
 4. FIELD NAMES:
-   - Use "position" not "title" for job title
-   - Use "field" not "fieldOfStudy" for education major
-   - Current jobs: endDate = null (NOT "Present" string), current = true
+   - Use "position" for job title
+   - Use "field" for education major
+   - Current jobs: endDate = null, current = true
 
 5. DATES AND CURRENT STATUS:
    - Format: "YYYY-MM-DD" (use -01-01 for year-only, -12-31 for end years)
-   - CRITICAL: If endDate shows "Present", "Current", or no end date, set endDate = null AND current = true
-   - CRITICAL: Extract the job title/position from the resume text
-   - The "position" field is REQUIRED - every resume clearly states job titles
+   - If endDate shows "Present", "Current", or no end date, set endDate = null AND current = true
+   - Extract the job title from the resume - it is always present and must be extracted
 
 6. ROLE SUMMARY:
    - 1-2 sentences summarizing: area of ownership, why it matters, top result

@@ -616,7 +616,7 @@ export class FileUploadService {
       // Auto-save extracted data to database (both resume AND cover letter can have workHistory)
       // Cover letters may contain work history entries that should be processed
       if (type === 'resume' || (type === 'coverLetter' && structuredData.workHistory && Array.isArray(structuredData.workHistory) && structuredData.workHistory.length > 0)) {
-        await this.processStructuredData(structuredData, sourceId, accessToken);
+      await this.processStructuredData(structuredData, sourceId, accessToken);
       }
       
       // Match cover letter stories to existing work_items and extract profile data
@@ -703,7 +703,7 @@ export class FileUploadService {
           }
         });
       } else {
-        const { supabase } = await import('../lib/supabase');
+      const { supabase } = await import('../lib/supabase');
         dbClient = supabase;
       }
       
@@ -1623,9 +1623,9 @@ export class FileUploadService {
         }
       });
       const { error } = await authSupabase
-        .from('sources')
-        .update({ raw_text: extractedText })
-        .eq('id', sourceId);
+      .from('sources')
+      .update({ raw_text: extractedText })
+      .eq('id', sourceId);
       if (error) {
         console.error('Failed to save raw_text:', error);
       }
