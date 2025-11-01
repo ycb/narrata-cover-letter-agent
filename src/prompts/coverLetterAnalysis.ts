@@ -66,13 +66,13 @@ OUTPUT JSON SCHEMA:
           "parentType": "story"
         }
       ],
-      "tags": {
-        "skills": ["normalized_skill_slug"],
-        "domains": ["cleantech","fintech","devtools","ai-ml","healthtech"],
-        "functions": ["growth","platform","support","sales-enablement"],
-        "competencies": ["experimentation","explainability","plg","design-systems"],
-        "pmLevelSignals": ["0-1","growth","scale","team-lead","org-design"]
-      },
+      "skills": ["product-management", "user-centered-design", "web-platforms", "mobile-apps", "experimentation"],
+      // CRITICAL: Use a single "skills" array. Include:
+      // - Technical skills (e.g., "web-platforms", "mobile-apps", "api-design")
+      // - Domain knowledge (e.g., "b2b2c", "fintech", "healthtech") - be specific, not generic "tech"
+      // - Competencies (e.g., "experimentation", "design-systems", "user-research")
+      // - Methodologies (e.g., "agile", "plg", "data-driven")
+      // Skills are matched to story or role level based on context
       "evidence": {
         "quotes": ["Brief verbatim fragments from the letter"],
         "spans": [{"start": number, "end": number, "label": "S|T|A|R|METRIC"}],
@@ -97,7 +97,12 @@ OUTPUT JSON SCHEMA:
       "lengthChars": number
     }
   },
-  "skillsMentioned": ["deduped lowercase slugs"],
+  "skillsMentioned": ["deduped lowercase skill slugs"],
+  // CRITICAL: Single array of skills. Be specific about domains:
+  // - Use "web-platforms" not "tech"
+  // - Use "mobile-apps" not "tech"  
+  // - Use "b2b2c" not generic terms
+  // - Extract actual domains mentioned: "cleantech", "fintech", "devtools", "ai-ml", "healthtech"
   "profileData": {
     "goals": ["Career goal 1", "Relocation preference", "Industry focus", "etc."],
     "voice": {

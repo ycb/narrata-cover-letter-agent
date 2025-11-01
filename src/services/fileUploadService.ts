@@ -806,7 +806,7 @@ export class FileUploadService {
             company_id: companyId,
             title: workItemTitle.trim(),
             start_date: workItem.startDate,
-            end_date: workItem.endDate === 'Present' ? null : workItem.endDate,
+            end_date: (workItem.endDate === 'Present' || workItem.endDate === 'Current' || workItem.current === true) ? null : workItem.endDate,
             description: workItem.roleSummary || workItem.description || '',
             achievements: workItem.roleMetrics?.map((m: any) => `${m.value || ''} ${m.context || ''}`).filter(Boolean) || workItem.achievements || [], // Keep TEXT[] for backward compatibility
             tags: workItem.roleTags || workItem.tags || [],
@@ -1785,10 +1785,8 @@ export class FileUploadService {
           await this.processStructuredData(combinedResult.coverLetter.data, this.pendingCoverLetter.sourceId, accessToken);
         }
         
-        // Match cover letter stories to existing work_items and extract profile data
-        // Note: This runs after resume processing, so work_items from resume should exist
-        // LinkedIn work_items are created later, so stories matching to LinkedIn roles will be processed after
-        await this.processCoverLetterData(combinedResult.coverLetter.data, this.pendingCoverLetter.sourceId, accessToken);
+        // Cover letter stories will be processed after LinkedIn (in processCombinedAnalysis)
+        // This ensures all work_items exist before matching
         
         // Normalize skills from cover letter
         const { data: coverLetterSourceData } = await supabase
@@ -1822,13 +1820,13 @@ export class FileUploadService {
         console.error('❌ Cover letter analysis failed:', combinedResult.coverLetter.error);
       }
       
-      // Fetch LinkedIn data via Appify API if available
+      // Process LinkedIn FIRST (for synthetic profiles, LinkedIn URL exists and API call is fast)
+      // This ensures work_items exist before matching cover letter stories
       await this.fetchAndProcessLinkedInData(accessToken);
       
-      // Re-run cover letter story matching now that LinkedIn work_items exist
-      // This allows stories that mention LinkedIn companies to be matched
+      // Now process cover letter stories - LinkedIn work_items should exist
       if (this.pendingCoverLetter && combinedResult.coverLetter.success) {
-        console.log('🔄 Re-matching cover letter stories after LinkedIn processing...');
+        // Match cover letter stories to work_items (now including LinkedIn)
         await this.processCoverLetterData(combinedResult.coverLetter.data, this.pendingCoverLetter.sourceId, accessToken);
       }
       

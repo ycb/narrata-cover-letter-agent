@@ -22,9 +22,10 @@ Return ONLY valid JSON with this exact structure:
     {
       "id": "1",
       "company": "Company Name",
-      "position": "Job Title",
+      "position": "Job Title",  // CRITICAL: Extract the actual job title (e.g., "Senior Product Manager", "Product Manager")
       "startDate": "YYYY-MM-DD",
-      "endDate": "YYYY-MM-DD or null if current",
+      "endDate": "YYYY-MM-DD or null if current",  // CRITICAL: Use null for "Present" or current positions
+      "current": true,  // CRITICAL: Set true if endDate is null or position shows "Present" or "Current"
       "location": "City, State or null",
       "companyTags": ["SaaS", "B2B", "PLG"],
       "roleTags": ["growth", "activation", "experimentation"],
@@ -127,11 +128,13 @@ CRITICAL EXTRACTION RULES:
 4. FIELD NAMES:
    - Use "position" not "title" for job title
    - Use "field" not "fieldOfStudy" for education major
-   - Current jobs: endDate = null (NOT "Present" string)
+   - Current jobs: endDate = null (NOT "Present" string), current = true
 
-5. DATES:
+5. DATES AND CURRENT STATUS:
    - Format: "YYYY-MM-DD" (use -01-01 for year-only, -12-31 for end years)
-   - Current position: endDate = null
+   - CRITICAL: If endDate shows "Present", "Current", or no end date, set endDate = null AND current = true
+   - CRITICAL: Extract the ACTUAL job title from the resume text (e.g., "Senior Product Manager" from "FlowHub — Senior Product Manager")
+   - If title is missing or unclear, look for patterns like "Company — Title" or "Title | Location"
 
 6. ROLE SUMMARY:
    - 1-2 sentences summarizing: area of ownership, why it matters, top result
