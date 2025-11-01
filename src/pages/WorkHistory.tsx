@@ -22,6 +22,8 @@ import type { WorkHistoryCompany, WorkHistoryRole, WorkHistoryBlurb, ExternalLin
 
 // REMOVED: Sample data - now using empty states instead
 // Sample data has been moved to usability-test branch for future reference
+// Sample data declaration removed - using EmptyStates component instead
+/*
 const sampleWorkHistory: WorkHistoryCompany[] = [
   {
     id: "1",
