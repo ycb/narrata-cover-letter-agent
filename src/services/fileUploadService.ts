@@ -1028,6 +1028,31 @@ export class FileUploadService {
             } else {
               console.log(`✅ Story created successfully: ${insertedStory?.id}`);
               storiesCreated++;
+
+              // Phase 3: Detect gaps for this story
+              if (insertedStory?.id) {
+                try {
+                  const { GapDetectionService } = await import('./gapDetectionService');
+                  const storyGaps = await GapDetectionService.detectStoryGaps(
+                    userId,
+                    {
+                      id: insertedStory.id,
+                      title: story.title || story.content?.substring(0, 100) || '',
+                      content: story.content || '',
+                      metrics: storyMetrics
+                    },
+                    workItemId
+                  );
+
+                  if (storyGaps.length > 0) {
+                    await GapDetectionService.saveGaps(storyGaps);
+                    console.log(`🔍 Detected ${storyGaps.length} gap(s) for story: ${insertedStory.id}`);
+                  }
+                } catch (gapError) {
+                  // Don't fail the upload if gap detection fails
+                  console.error('⚠️ Error detecting gaps for story:', gapError);
+                }
+              }
             }
           }
         }
@@ -1182,6 +1207,31 @@ export class FileUploadService {
             } else {
               console.log(`✅ Story created and matched to work_item: ${workItemMatch.companyName} - ${workItemMatch.roleTitle}`);
               storiesMatched++;
+
+              // Phase 3: Detect gaps for this cover letter story
+              if (insertedStory?.id) {
+                try {
+                  const { GapDetectionService } = await import('./gapDetectionService');
+                  const storyGaps = await GapDetectionService.detectStoryGaps(
+                    userId,
+                    {
+                      id: insertedStory.id,
+                      title: storyTitle,
+                      content: story.content || '',
+                      metrics: storyMetrics
+                    },
+                    workItemMatch.workItemId
+                  );
+
+                  if (storyGaps.length > 0) {
+                    await GapDetectionService.saveGaps(storyGaps);
+                    console.log(`🔍 Detected ${storyGaps.length} gap(s) for cover letter story: ${insertedStory.id}`);
+                  }
+                } catch (gapError) {
+                  // Don't fail the upload if gap detection fails
+                  console.error('⚠️ Error detecting gaps for cover letter story:', gapError);
+                }
+              }
             }
           } else {
             // No work_item match - this is likely profile data (goals, values, skills), not a story

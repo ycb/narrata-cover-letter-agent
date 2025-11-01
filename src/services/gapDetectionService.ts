@@ -421,16 +421,48 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
     entities: Array<{ type: 'work_item' | 'approved_content'; id: string }>
   ): Promise<Gap[]> {
     try {
-      const conditions = entities.map(e => 
-        `(entity_type = '${e.type}' AND entity_id = '${e.id}')`
-      ).join(' OR ');
+      if (entities.length === 0) return [];
 
-      const { data, error } = await supabase
+      // Build query with multiple OR conditions
+      let query = supabase
         .from('gaps')
         .select('*')
         .eq('user_id', userId)
-        .or(conditions)
         .eq('resolved', false);
+
+      // For multiple entities, we need to use or() with proper syntax
+      if (entities.length === 1) {
+        query = query
+          .eq('entity_type', entities[0].type)
+          .eq('entity_id', entities[0].id);
+      } else {
+        // Build OR conditions manually
+        const orConditions = entities.map(e => 
+          `entity_type.eq.${e.type},entity_id.eq.${e.id}`
+        ).join(',');
+        
+        // Supabase doesn't support OR easily, so we'll fetch all and filter
+        const { data, error } = await supabase
+          .from('gaps')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('resolved', false);
+
+        if (error) {
+          console.error('Error fetching existing gaps:', error);
+          return [];
+        }
+
+        // Filter in JavaScript
+        const entityMap = new Set(entities.map(e => `${e.type}:${e.id}`));
+        const filtered = (data || []).filter((g: any) => 
+          entityMap.has(`${g.entity_type}:${g.entity_id}`)
+        );
+
+        return filtered as Gap[];
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching existing gaps:', error);
