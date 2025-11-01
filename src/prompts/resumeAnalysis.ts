@@ -133,8 +133,11 @@ CRITICAL EXTRACTION RULES:
 5. DATES AND CURRENT STATUS:
    - Format: "YYYY-MM-DD" (use -01-01 for year-only, -12-31 for end years)
    - CRITICAL: If endDate shows "Present", "Current", or no end date, set endDate = null AND current = true
-   - CRITICAL: Extract the ACTUAL job title from the resume text (e.g., "Senior Product Manager" from "FlowHub — Senior Product Manager")
-   - If title is missing or unclear, look for patterns like "Company — Title" or "Title | Location"
+   - CRITICAL: ALWAYS extract the job title/position, regardless of resume format
+   - Job titles can appear in various formats: on same line as company, separate line, after dates, etc.
+   - Examples: "Senior Product Manager", "Product Manager", "Associate Product Manager", "Lead PM"
+   - If no explicit title is found, infer from responsibilities/context, but NEVER leave it empty
+   - The "position" field is REQUIRED and must never be empty
 
 6. ROLE SUMMARY:
    - 1-2 sentences summarizing: area of ownership, why it matters, top result
@@ -144,9 +147,10 @@ CRITICAL EXTRACTION RULES:
 EXAMPLE OUTPUT (FlowHub role from resume):
 {
   "company": "FlowHub",
-  "position": "Senior Product Manager",
+  "position": "Senior Product Manager",  // REQUIRED: Must extract actual title regardless of format
   "startDate": "2021-05-01",
-  "endDate": null,
+  "endDate": null,  // null because current = true
+  "current": true,  // REQUIRED: Set true for "Present" or current positions
   "location": "San Francisco, CA",
   "companyTags": ["SaaS", "B2B", "PLG"],
   "roleTags": ["growth", "activation", "experimentation", "analytics", "process"],

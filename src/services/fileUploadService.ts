@@ -743,17 +743,8 @@ export class FileUploadService {
       
       // Process each work history entry
       for (const workItem of structuredData.workHistory) {
-        // Extract title - try position first, then title, then extract from description/company line
-        let workItemTitle = workItem.position || workItem.title;
-        
-        // If still empty, try to extract from company line format: "Company — Title"
-        if (!workItemTitle || workItemTitle.trim() === '') {
-          const companyLine = workItem.company || '';
-          const match = companyLine.match(/—\s*(.+?)(?:\s*\||\s*$)/);
-          if (match) {
-            workItemTitle = match[1].trim();
-          }
-        }
+        // Extract title - LLM should always provide this in "position" field
+        const workItemTitle = workItem.position || workItem.title;
         
         if (!workItemTitle || workItemTitle.trim() === '') {
           console.warn(`⚠️ Skipping work item for ${workItem.company || 'Unknown'}: missing position/title`);
