@@ -850,10 +850,16 @@ export default function WorkHistory() {
             </div>
           </div>
         ) : (
-          <WorkHistoryOnboarding
-            onConnectLinkedIn={handleConnectLinkedIn}
-            onUploadResume={handleUploadResume}
-          />
+          <div>
+            {!isTourActive ? (
+              <WorkHistoryEmptyState />
+            ) : (
+              <WorkHistoryOnboarding
+                onConnectLinkedIn={handleConnectLinkedIn}
+                onUploadResume={handleUploadResume}
+              />
+            )}
+          </div>
         )}
 
         {/* Mobile FAB */}
