@@ -28,60 +28,10 @@ import { LinkCard } from "@/components/work-history/LinkCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
+import { LinksEmptyState } from "@/components/work-history/EmptyStates";
 
-// Mock data for all external links
-const mockAllLinks = [
-  {
-    id: "link-1",
-    title: "Product Launch Case Study",
-    url: "https://example.com/case-study",
-    company: "TechCorp Inc.",
-    role: "Senior Product Manager",
-    type: "case-study",
-    date: "2024-01-15",
-    description: "Detailed analysis of successful product launch"
-  },
-  {
-    id: "link-2",
-    title: "User Research Report",
-    url: "https://example.com/research",
-    company: "StartupXYZ",
-    role: "Product Manager",
-    type: "research",
-    date: "2024-01-10",
-    description: "Comprehensive user research findings"
-  },
-  {
-    id: "link-3",
-    title: "Portfolio Website",
-    url: "https://example.com/portfolio",
-    company: "Enterprise Corp",
-    role: "Senior Product Manager",
-    type: "portfolio",
-    date: "2024-01-05",
-    description: "Personal portfolio showcasing work"
-  },
-  {
-    id: "link-4",
-    title: "Technical Documentation",
-    url: "https://example.com/docs",
-    company: "ScaleUp Inc.",
-    role: "Product Manager",
-    type: "documentation",
-    date: "2023-12-20",
-    description: "Technical specifications and API docs"
-  },
-  {
-    id: "link-5",
-    title: "Conference Presentation",
-    url: "https://example.com/presentation",
-    company: "Innovation Labs",
-    role: "Product Manager",
-    type: "presentation",
-    date: "2023-12-15",
-    description: "Slides from industry conference talk"
-  }
-];
+// REMOVED: Mock data - now using empty states instead
+// Mock data has been moved to usability-test branch for future reference
 
 export default function ShowAllLinks() {
   const { user } = useAuth();

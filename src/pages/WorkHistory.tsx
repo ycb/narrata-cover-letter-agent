@@ -8,6 +8,7 @@ import { AddStoryModal } from "@/components/work-history/AddStoryModal";
 import { AddLinkModal } from "@/components/work-history/AddLinkModal";
 import { DataSourcesStatus } from "@/components/work-history/DataSourcesStatus";
 import { WorkHistoryOnboarding } from "@/components/work-history/WorkHistoryOnboarding";
+import { WorkHistoryEmptyState } from "@/components/work-history/EmptyStates";
 import { AddCompanyModal } from "@/components/work-history/AddCompanyModal";
 import { AddRoleModal } from "@/components/work-history/AddRoleModal";
 import { useTour } from "@/contexts/TourContext";
@@ -19,7 +20,8 @@ import { Plus, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { WorkHistoryCompany, WorkHistoryRole, WorkHistoryBlurb, ExternalLink } from "@/types/workHistory";
 
-// Sample data - this would come from your backend
+// REMOVED: Sample data - now using empty states instead
+// Sample data has been moved to usability-test branch for future reference
 const sampleWorkHistory: WorkHistoryCompany[] = [
   {
     id: "1",
@@ -240,11 +242,11 @@ export default function WorkHistory() {
       const syntheticUserService = new SyntheticUserService();
       const syntheticContext = await syntheticUserService.getSyntheticUserContext();
       
-      // For tour mode WITHOUT synthetic data, use sample data
-      // When synthetic mode is active, we want to show real parsed data
+      // Tour mode: Handle separately - for now show empty state
+      // In production, tour should use real data or empty states
       if (isTourActive && !syntheticContext.isSyntheticTestingEnabled) {
-        console.log('Using sample data for tour mode (synthetic mode not active)');
-        setWorkHistory(sampleWorkHistory);
+        console.log('Tour mode active - showing empty state');
+        setWorkHistory([]);
         setIsLoading(false);
         return;
       }
@@ -357,8 +359,8 @@ export default function WorkHistory() {
       if (companiesError) throw companiesError;
 
       if (!companies || companies.length === 0) {
-        console.log('No companies found in database, using sample data as preview');
-        setWorkHistory(sampleWorkHistory);
+        console.log('No companies found in database - showing empty state');
+        setWorkHistory([]);
         setIsLoading(false);
         return;
       }
@@ -784,24 +786,12 @@ export default function WorkHistory() {
     );
   }
 
-  // Check if we're showing sample data (no real data in DB)
-  const isShowingSampleData = workHistory === sampleWorkHistory && !isTourActive;
-
   return (
     <div className="min-h-screen bg-background">
       <main className={`container mx-auto px-4 pb-8 ${isTourActive ? 'pt-24' : ''}`}>
         <div>
           <p className="text-muted-foreground description-spacing">Summarize impact with metrics, stories and links</p>
         </div>
-
-        {/* Preview Mode Banner */}
-        {isShowingSampleData && (
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800">
-              <strong>Preview Mode:</strong> You're seeing sample data. Complete the onboarding and approve content to see your own work history here.
-            </p>
-          </div>
-        )}
 
         {hasWorkHistory ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-280px)]">

@@ -28,60 +28,10 @@ import { StoryCard } from "@/components/work-history/StoryCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
+import { StoriesEmptyState } from "@/components/work-history/EmptyStates";
 
-// Mock data for all stories
-const mockAllStories: Story[] = [
-  {
-    id: "story-1",
-    title: "Led cross-functional team to deliver MVP in 6 weeks",
-    company: "TechCorp Inc.",
-    role: "Senior Product Manager",
-    impact: "high",
-    metrics: "Increased user engagement by 45%",
-    date: "2024-01-15",
-    tags: ["leadership", "mvp", "user engagement"]
-  },
-  {
-    id: "story-2",
-    title: "Optimized customer onboarding flow reducing drop-off by 30%",
-    company: "StartupXYZ",
-    role: "Product Manager",
-    impact: "medium",
-    metrics: "Reduced onboarding time from 15 to 10 minutes",
-    date: "2024-01-10",
-    tags: ["optimization", "customer experience", "onboarding"]
-  },
-  {
-    id: "story-3",
-    title: "Launched new feature driving $2M in additional revenue",
-    company: "Enterprise Corp",
-    role: "Senior Product Manager",
-    impact: "high",
-    metrics: "Generated $2M in first quarter",
-    date: "2024-01-05",
-    tags: ["revenue", "launch", "feature development"]
-  },
-  {
-    id: "story-4",
-    title: "Managed product roadmap for 3 engineering teams",
-    company: "ScaleUp Inc.",
-    role: "Product Manager",
-    impact: "medium",
-    metrics: "Delivered 12 features on schedule",
-    date: "2023-12-20",
-    tags: ["roadmap", "team management", "delivery"]
-  },
-  {
-    id: "story-5",
-    title: "Conducted user research leading to pivot decision",
-    company: "Innovation Labs",
-    role: "Product Manager",
-    impact: "high",
-    metrics: "Avoided $500K in development costs",
-    date: "2023-12-15",
-    tags: ["user research", "pivot", "cost savings"]
-  }
-];
+// REMOVED: Mock data - now using empty states instead
+// Mock data has been moved to usability-test branch for future reference
 
 export default function ShowAllStories() {
   const { user } = useAuth();
@@ -382,6 +332,15 @@ export default function ShowAllStories() {
       </td>
     </tr>
   );
+
+  // Show empty state if no stories at all (not just filtered)
+  if (!isLoading && !error && stories.length === 0) {
+    return (
+      <div className="min-h-screen bg-background">
+        <StoriesEmptyState onAddStory={() => setIsAddStoryModalOpen(true)} />
+      </div>
+    );
+  }
 
   return (
     <>
