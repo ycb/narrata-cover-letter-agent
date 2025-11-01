@@ -972,7 +972,9 @@ export const EvaluationDashboard: React.FC = () => {
                   {/* Contact Info - Cover letter placement (5th for CL order) */}
                   {selectedRun?.file_type === 'coverLetter' && (() => {
                     const contactInfo = selectedSource?.structured_data?.contactInfo || selectedSource?.structured_data?.contact_info || {};
-                    const hasEntries = Object.keys(contactInfo).length > 0;
+                    // Exclude location and name from contactInfo count (they're separate fields)
+                    const contactFields = Object.keys(contactInfo).filter(k => k !== 'location' && k !== 'name');
+                    const hasEntries = contactFields.length > 0;
                     const isExpanded = expandedCategories.has('contactInfo');
                     return (
                       <div className={`bg-gray-50 rounded-lg ${hasEntries ? 'cursor-pointer hover:bg-gray-100' : ''}`}>
@@ -985,7 +987,7 @@ export const EvaluationDashboard: React.FC = () => {
                             <span>Contact Info</span>
                           </div>
                           <Badge className={getEvaluationBadgeColor(hasEntries ? '✅' : '❌')}>
-                            {hasEntries ? `${Object.keys(contactInfo).length} found` : 'None'}
+                            {hasEntries ? `${contactFields.length} found` : 'None'}
                     </Badge>
                   </div>
                         {hasEntries && isExpanded && (
@@ -1002,12 +1004,6 @@ export const EvaluationDashboard: React.FC = () => {
                                 />
                               </div>
                               <div className="pr-8">
-                              {contactInfo.name && (
-                                <div className="text-sm">
-                                  <span className="font-medium text-gray-600">Name: </span>
-                                  <span className="text-gray-900">{contactInfo.name}</span>
-                                </div>
-                              )}
                               {contactInfo.email && (
                                 <div className="text-sm">
                                   <span className="font-medium text-gray-600">Email: </span>
@@ -1020,17 +1016,35 @@ export const EvaluationDashboard: React.FC = () => {
                                   <span className="text-gray-900">{contactInfo.phone}</span>
                                 </div>
                               )}
-                              {contactInfo.location && (
-                                <div className="text-sm">
-                                  <span className="font-medium text-gray-600">Location: </span>
-                                  <span className="text-gray-900">{contactInfo.location}</span>
-                                </div>
-                              )}
                               {contactInfo.linkedin && (
                                 <div className="text-sm">
                                   <span className="font-medium text-gray-600">LinkedIn: </span>
                                   <a href={contactInfo.linkedin} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
                                     {contactInfo.linkedin}
+                                  </a>
+                                </div>
+                              )}
+                              {contactInfo.website && (
+                                <div className="text-sm">
+                                  <span className="font-medium text-gray-600">Website: </span>
+                                  <a href={contactInfo.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                    {contactInfo.website}
+                                  </a>
+                                </div>
+                              )}
+                              {contactInfo.github && (
+                                <div className="text-sm">
+                                  <span className="font-medium text-gray-600">GitHub: </span>
+                                  <a href={contactInfo.github} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                    {contactInfo.github}
+                                  </a>
+                                </div>
+                              )}
+                              {contactInfo.substack && (
+                                <div className="text-sm">
+                                  <span className="font-medium text-gray-600">Substack: </span>
+                                  <a href={contactInfo.substack} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                    {contactInfo.substack}
                                   </a>
                                 </div>
                               )}
@@ -1170,7 +1184,19 @@ export const EvaluationDashboard: React.FC = () => {
                       });
                     }
                     
-                    const hasEntries = allSkills.length > 0;
+                    // Count individual skills, not category objects
+                    let individualSkillCount = 0;
+                    allSkills.forEach((skill: any) => {
+                      if (typeof skill === 'string') {
+                        individualSkillCount++;
+                      } else if (skill.category && Array.isArray(skill.items)) {
+                        individualSkillCount += skill.items.length;
+                      } else if (skill.skill) {
+                        individualSkillCount++;
+                      }
+                    });
+                    
+                    const hasEntries = individualSkillCount > 0;
                     const isExpanded = expandedCategories.has('skills');
                     
                     // Debug: log if heuristics say skills exist but we can't find them
@@ -1194,7 +1220,7 @@ export const EvaluationDashboard: React.FC = () => {
                             <span>Skills</span>
                           </div>
                           <Badge className={getEvaluationBadgeColor(hasEntries ? '✅' : '❌')}>
-                            {hasEntries ? `${allSkills.length} found` : 'None'}
+                            {hasEntries ? `${individualSkillCount} found` : 'None'}
                     </Badge>
                   </div>
                         {hasEntries && isExpanded && (
@@ -1700,10 +1726,10 @@ export const EvaluationDashboard: React.FC = () => {
 
                   {/* Location - Show for all file types (4th for CL order) */}
                   {(() => {
-                    const contactInfo = selectedSource?.structured_data?.contactInfo || selectedSource?.structured_data?.contact_info || {};
-                    const location = contactInfo.location;
+                    const sd = selectedSource?.structured_data || {};
+                    const location = sd.location || (sd.contactInfo?.location || sd.contact_info?.location); // Support both top-level and legacy location
                     const hasLocation = !!location;
-                    const locationPath = 'contactInfo.location';
+                    const locationPath = sd.location ? 'location' : 'contactInfo.location'; // Use correct path
                     const locationFlags = getFlagsForPath(locationPath);
                     return (
                       <div className="bg-gray-50 rounded-lg">

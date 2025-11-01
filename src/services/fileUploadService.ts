@@ -603,7 +603,8 @@ export class FileUploadService {
       console.log(structuredData.summary);
       console.log('═══════════════════════════════════════════════════════════');
 
-      // Update with structured data
+      // Update with structured data - now includes all fields (roleMetrics, stories, etc.)
+      // Types are now aligned with LLM prompt schema, so parsed data contains everything
       const dbStartTime = performance.now();
       await this.updateProcessingStatus(sourceId, 'completed', structuredData as any, undefined, accessToken);
       const dbEndTime = performance.now();
@@ -743,11 +744,11 @@ export class FileUploadService {
       
       // Process each work history entry
       for (const workItem of structuredData.workHistory) {
-        // Extract title - LLM should always provide this in "position" field
-        const workItemTitle = workItem.position || workItem.title;
+        // Extract title - LLM should always provide this
+        const workItemTitle = workItem.title;
         
         if (!workItemTitle || workItemTitle.trim() === '') {
-          console.warn(`⚠️ Skipping work item for ${workItem.company || 'Unknown'}: missing position/title`);
+          console.warn(`⚠️ Skipping work item for ${workItem.company || 'Unknown'}: missing title`);
           continue;
         }
 
@@ -791,41 +792,131 @@ export class FileUploadService {
           companiesCreated++;
         }
 
-        // Create work item with role-level data
-        // Store role-level metrics as structured JSONB
-        const roleMetrics = Array.isArray(workItem.roleMetrics) 
-          ? workItem.roleMetrics.map((m: any) => ({
-              ...m,
-              parentType: m.parentType || 'role' // Ensure parentType is set
-            }))
-          : [];
+        // Check for existing work_item (deduplication: same company + title + overlapping dates)
+        const workItemEndDate = (workItem.endDate === 'Present' || workItem.endDate === 'Current' || workItem.current === true) ? null : workItem.endDate;
         
-        const { data: newWorkItem, error: workItemError } = await dbClient
+        // Query for existing work items - match on company, title, and dates (handle null end_date)
+        let existingQuery = dbClient
           .from('work_items')
-          .insert({
-            user_id: userId,
-            company_id: companyId,
-            title: workItemTitle.trim(),
-            start_date: workItem.startDate,
-            end_date: (workItem.endDate === 'Present' || workItem.endDate === 'Current' || workItem.current === true) ? null : workItem.endDate,
-            description: workItem.roleSummary || workItem.description || '',
-            achievements: workItem.roleMetrics?.map((m: any) => `${m.value || ''} ${m.context || ''}`).filter(Boolean) || workItem.achievements || [], // Keep TEXT[] for backward compatibility
-            tags: workItem.roleTags || workItem.tags || [],
-            metrics: roleMetrics, // NEW: Structured JSONB metrics
-            source_id: sourceId // NEW: Track data lineage
-          })
-          .select('id')
-          .single();
+          .select('id, source_id, description, metrics')
+          .eq('user_id', userId)
+          .eq('company_id', companyId)
+          .eq('title', workItemTitle.trim())
+          .eq('start_date', workItem.startDate);
+        
+        // Handle null end_date properly (both must be null for current positions)
+        if (workItemEndDate === null) {
+          existingQuery = existingQuery.is('end_date', null);
+        } else {
+          existingQuery = existingQuery.eq('end_date', workItemEndDate);
+        }
+        
+        const { data: existingWorkItems } = await existingQuery.limit(1);
+        
+        let workItemId: string;
+        let isExisting = false;
+        
+        if (existingWorkItems && existingWorkItems.length > 0) {
+          // Work item already exists - check if it has stories
+          const existingWorkItem = existingWorkItems[0];
+          workItemId = existingWorkItem.id;
+          isExisting = true;
+          
+          // Check if existing work_item has stories (CRITICAL: must check before deciding)
+          const { count: storyCount } = await dbClient
+            .from('approved_content')
+            .select('id', { count: 'exact', head: true })
+            .eq('work_item_id', workItemId);
+          
+          const newStoryCount = workItem.stories?.length || 0;
+          const existingStoryCount = storyCount || 0;
+          const existingHasStories = existingStoryCount > 0;
+          
+          // DECISION LOGIC: Always prefer work_item with stories
+          // If existing has stories and new doesn't, skip (keep existing with stories)
+          if (existingHasStories && newStoryCount === 0) {
+            console.log(`✅ Skipping duplicate work_item - existing has ${existingStoryCount} stories, new has 0 (keeping existing)`);
+            continue; // Skip creating/updating - keep the one with stories
+          }
+          
+          // If new has stories and existing doesn't, update existing to include new stories
+          // If both have stories, prefer existing (already has linked stories in approved_content)
+          if (newStoryCount > 0 && !existingHasStories) {
+            // Update existing work_item to include new stories (will be inserted below)
+            console.log(`🔄 Updating existing work_item ${workItemId} - new has ${newStoryCount} stories, existing has 0`);
+            
+            // Store role-level metrics as structured JSONB
+            const roleMetrics = Array.isArray(workItem.roleMetrics) 
+              ? workItem.roleMetrics.map((m: any) => ({
+                  ...m,
+                  parentType: m.parentType || 'role'
+                }))
+              : [];
+            
+            // Merge metrics (combine existing and new)
+            const existingMetrics = existingWorkItem.metrics || [];
+            const mergedMetrics = Array.isArray(existingMetrics) && existingMetrics.length > 0
+              ? [...existingMetrics, ...roleMetrics].filter((m, i, arr) => 
+                  arr.findIndex(m2 => m2.value === m.value && m2.context === m.context) === i
+                ) // Deduplicate
+              : roleMetrics;
+            
+            await dbClient
+              .from('work_items')
+              .update({
+                description: workItem.roleSummary || workItem.description || existingWorkItem.description || '',
+                achievements: workItem.roleMetrics?.map((m: any) => `${m.value || ''} ${m.context || ''}`).filter(Boolean) || workItem.achievements || [],
+                tags: workItem.roleTags || workItem.tags || [],
+                metrics: mergedMetrics,
+                source_id: sourceId // Update to new source since it has stories
+              })
+              .eq('id', workItemId);
+          } else {
+            // Both have stories or neither has stories - keep existing as-is
+            console.log(`ℹ️ Keeping existing work_item ${workItemId} - existing has ${existingStoryCount} stories, new has ${newStoryCount} (preserving existing)`);
+            // Don't insert stories below if existing already has them
+            if (existingHasStories) {
+              continue;
+            }
+          }
+        } else {
+          // Create new work item with role-level data
+          // Store role-level metrics as structured JSONB
+          const roleMetrics = Array.isArray(workItem.roleMetrics) 
+            ? workItem.roleMetrics.map((m: any) => ({
+                ...m,
+                parentType: m.parentType || 'role' // Ensure parentType is set
+              }))
+            : [];
+          
+          const { data: newWorkItem, error: workItemError } = await dbClient
+            .from('work_items')
+            .insert({
+              user_id: userId,
+              company_id: companyId,
+              title: workItemTitle.trim(),
+              start_date: workItem.startDate,
+              end_date: workItemEndDate,
+              description: workItem.roleSummary || workItem.description || '',
+              achievements: workItem.roleMetrics?.map((m: any) => `${m.value || ''} ${m.context || ''}`).filter(Boolean) || workItem.achievements || [], // Keep TEXT[] for backward compatibility
+              tags: workItem.roleTags || workItem.tags || [],
+              metrics: roleMetrics, // NEW: Structured JSONB metrics
+              source_id: sourceId // NEW: Track data lineage
+            })
+            .select('id')
+            .single();
 
-        if (workItemError) {
-          console.error('Error creating work item:', workItemError);
-          continue;
+          if (workItemError) {
+            console.error('Error creating work item:', workItemError);
+            continue;
+          }
+          
+          workItemId = newWorkItem.id;
+          workItemsCreated++;
         }
 
-        workItemsCreated++;
-
         // Validate that we have valid FK references before inserting stories
-        if (!newWorkItem?.id) {
+        if (!workItemId) {
           console.error('❌ Cannot insert stories: work_item_id is missing');
           continue;
         }
@@ -836,13 +927,40 @@ export class FileUploadService {
         }
 
         // Save stories to approved_content
-        if (workItem.stories && Array.isArray(workItem.stories)) {
-          console.log(`📝 Inserting ${workItem.stories.length} stories for work item ${newWorkItem.id}`);
+        // Skip if this is an existing work_item that already has stories (to avoid duplicates)
+        if (isExisting) {
+          const { count: existingStoryCount } = await dbClient
+            .from('approved_content')
+            .select('id', { count: 'exact', head: true })
+            .eq('work_item_id', workItemId);
+          
+          if ((existingStoryCount || 0) > 0) {
+            console.log(`ℹ️ Skipping story insertion - work_item ${workItemId} already has ${existingStoryCount} stories`);
+            continue;
+          }
+        }
+        
+        if (workItem.stories && Array.isArray(workItem.stories) && workItem.stories.length > 0) {
+          console.log(`📝 Inserting ${workItem.stories.length} stories for work item ${workItemId}`);
           
           for (const story of workItem.stories) {
             // Validate story has required content
             if (!story.content && !story.title) {
               console.warn('⚠️ Skipping story with no content or title');
+              continue;
+            }
+            
+            // Check if story already exists (by title and work_item_id) to avoid duplicates
+            const storyTitle = story.title || story.content?.substring(0, 100);
+            const { data: existingStory } = await dbClient
+              .from('approved_content')
+              .select('id')
+              .eq('work_item_id', workItemId)
+              .eq('title', storyTitle)
+              .maybeSingle();
+            
+            if (existingStory) {
+              console.log(`ℹ️ Story already exists, skipping duplicate: "${storyTitle}"`);
               continue;
             }
 
@@ -858,7 +976,7 @@ export class FileUploadService {
               .from('approved_content')
               .insert({
                 user_id: userId,
-                work_item_id: newWorkItem.id,
+                work_item_id: workItemId,
                 company_id: companyId, // NEW: Denormalized for query performance
                 title: story.title || story.content?.substring(0, 100),
                 content: story.content || '',
@@ -873,7 +991,7 @@ export class FileUploadService {
               console.error('❌ Error creating story:', {
                 error: storyError,
                 story_title: story.title,
-                work_item_id: newWorkItem.id,
+                work_item_id: workItemId,
                 company_id: companyId,
                 user_id: userId
               });
@@ -989,7 +1107,7 @@ export class FileUploadService {
               storiesMatched++; // Count as matched even if already exists
               continue;
             }
-
+            
             // This is a story - save to approved_content linked to work_item
             const storyMetrics = Array.isArray(story.metrics)
               ? story.metrics.map((m: any) => ({
@@ -999,7 +1117,7 @@ export class FileUploadService {
               : [];
             
             // Extract skills (simplified from complex tags structure)
-            // Cover letter stories now use simple "skills" array instead of nested tags object
+            // Resume stories use tags array, cover letter stories use skills array
             const storySkills = Array.isArray(story.skills)
               ? story.skills
               : (story.tags && Array.isArray(story.tags))

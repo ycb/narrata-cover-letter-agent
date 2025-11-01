@@ -45,6 +45,7 @@ export class LLMAnalysisService {
       }
 
       // Parse and validate the response
+      // Types now match LLM schema, so parsed data includes all fields
       const structuredData = this.parseStructuredData(response.data);
       
       return {
@@ -625,9 +626,10 @@ IMPORTANT: Return ONLY the JSON object, no other text, no markdown, no explanati
     return {
       workHistory: this.parseWorkHistory(Array.isArray(data.workHistory) ? data.workHistory : []),
       education: this.parseEducation(Array.isArray(data.education) ? data.education : []),
-      skills: Array.isArray(data.skills) ? data.skills as string[] : [],
+      skills: Array.isArray(data.skills) ? data.skills as (string[] | any[]) : [],
       achievements: Array.isArray(data.achievements) ? data.achievements as string[] : [],
       contactInfo: this.parseContactInfo(data.contactInfo as Record<string, unknown> || {}),
+      location: (data.location as string) || undefined, // Top-level location
       summary: (data.summary as string) || undefined,
       certifications: this.parseCertifications(Array.isArray(data.certifications) ? data.certifications : []),
       projects: this.parseProjects(Array.isArray(data.projects) ? data.projects : [])
@@ -635,21 +637,62 @@ IMPORTANT: Return ONLY the JSON object, no other text, no markdown, no explanati
   }
 
   /**
-   * Parse work history array
+   * Parse work history array - now extracts all rich schema fields
    */
   private parseWorkHistory(workHistory: unknown[]): WorkExperience[] {
     return workHistory.map((item, index) => {
       const workItem = item as Record<string, unknown>;
+      
+      // Parse roleMetrics array
+      const roleMetrics = Array.isArray(workItem.roleMetrics)
+        ? workItem.roleMetrics.map((m: any) => ({
+            value: (m.value as string) || '',
+            context: (m.context as string) || '',
+            type: (m.type as 'increase' | 'decrease' | 'absolute') || 'absolute',
+            parentType: (m.parentType as 'role' | 'story') || 'role'
+          }))
+        : undefined;
+      
+      // Parse stories array
+      const stories = Array.isArray(workItem.stories)
+        ? workItem.stories.map((s: any) => ({
+            id: (s.id as string) || `story_${index}`,
+            title: (s.title as string) || '',
+            content: (s.content as string) || '',
+            problem: (s.problem as string) || undefined,
+            action: (s.action as string) || undefined,
+            outcome: (s.outcome as string) || undefined,
+            tags: Array.isArray(s.tags) ? s.tags as string[] : [],
+            linkedToRole: Boolean(s.linkedToRole),
+            company: (s.company as string) || undefined,
+            titleRole: (s.titleRole as string) || undefined,
+            metrics: Array.isArray(s.metrics)
+              ? s.metrics.map((m: any) => ({
+                  value: (m.value as string) || '',
+                  context: (m.context as string) || '',
+                  type: (m.type as 'increase' | 'decrease' | 'absolute') || 'absolute',
+                  parentType: (m.parentType as 'role' | 'story') || 'story'
+                }))
+              : undefined
+          }))
+        : undefined;
+      
       return {
         id: (workItem.id as string) || `work_${index}`,
         company: (workItem.company as string) || '',
         title: (workItem.title as string) || '',
         startDate: (workItem.startDate as string) || '',
         endDate: (workItem.endDate as string) || undefined,
-        description: (workItem.description as string) || '',
+        description: (workItem.description as string) || (workItem.roleSummary as string) || undefined,
         achievements: Array.isArray(workItem.achievements) ? workItem.achievements as string[] : [],
         location: (workItem.location as string) || undefined,
-        current: Boolean(workItem.current)
+        current: Boolean(workItem.current),
+        // NEW: Extract rich schema fields
+        roleMetrics,
+        stories,
+        roleTags: Array.isArray(workItem.roleTags) ? workItem.roleTags as string[] : undefined,
+        roleSummary: (workItem.roleSummary as string) || undefined,
+        companyTags: Array.isArray(workItem.companyTags) ? workItem.companyTags as string[] : undefined
       };
     });
   }
@@ -674,15 +717,17 @@ IMPORTANT: Return ONLY the JSON object, no other text, no markdown, no explanati
   }
 
   /**
-   * Parse contact info object
+   * Parse contact info object - location removed (now top-level)
    */
   private parseContactInfo(contactInfo: Record<string, unknown>): ContactInfo {
     return {
       email: (contactInfo.email as string) || undefined,
       phone: (contactInfo.phone as string) || undefined,
-      location: (contactInfo.location as string) || undefined,
+      linkedin: (contactInfo.linkedin as string) || undefined,
       website: (contactInfo.website as string) || undefined,
-      linkedin: (contactInfo.linkedin as string) || undefined
+      github: (contactInfo.github as string) || undefined,
+      substack: (contactInfo.substack as string) || undefined
+      // location removed - now top-level in StructuredResumeData
     };
   }
 

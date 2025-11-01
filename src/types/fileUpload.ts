@@ -22,9 +22,10 @@ export type FileType = 'resume' | 'coverLetter' | 'caseStudies' | 'linkedin';
 export interface StructuredResumeData {
   workHistory: WorkExperience[];
   education: Education[];
-  skills: string[];
+  skills: string[] | SkillCategory[]; // Can be flat array or categorized
   achievements: string[];
   contactInfo: ContactInfo;
+  location?: string; // Top-level geographic location (NOT contact info)
   summary?: string;
   certifications?: Certification[];
   projects?: Project[];
@@ -36,10 +37,42 @@ export interface WorkExperience {
   title: string;
   startDate: string;
   endDate?: string;
-  description: string;
-  achievements: string[];
-  location?: string;
+  description?: string; // Made optional since roleSummary is preferred
+  achievements?: string[]; // Deprecated in favor of stories, kept for backward compatibility
+  location?: string; // Role-specific location
   current: boolean;
+  // NEW: Rich schema fields from LLM prompt
+  roleMetrics?: RoleMetric[];
+  stories?: Story[];
+  roleTags?: string[];
+  roleSummary?: string; // Preferred over description
+  companyTags?: string[];
+}
+
+export interface RoleMetric {
+  value: string; // e.g., "+22%", "-3.5%", "30+", "+10"
+  context: string; // What this metric measures
+  type: 'increase' | 'decrease' | 'absolute';
+  parentType: 'role' | 'story';
+}
+
+export interface Story {
+  id: string;
+  title: string; // Brief story title (5-8 words)
+  content: string; // Full text exactly as written
+  problem?: string; // What challenge or opportunity
+  action?: string; // What was done
+  outcome?: string; // What resulted
+  tags: string[]; // Skills/competencies mentioned
+  linkedToRole: boolean; // true if story clearly belongs to this workHistory entry
+  company?: string; // Reference to parent company
+  titleRole?: string; // Reference to parent title
+  metrics?: RoleMetric[]; // Metrics associated with this story
+}
+
+export interface SkillCategory {
+  category: string;
+  items: string[];
 }
 
 export interface Education {
@@ -56,9 +89,11 @@ export interface Education {
 export interface ContactInfo {
   email?: string;
   phone?: string;
-  location?: string;
-  website?: string;
   linkedin?: string;
+  website?: string;
+  github?: string;
+  substack?: string;
+  // location removed - now top-level in StructuredResumeData
 }
 
 export interface Certification {
@@ -140,6 +175,7 @@ export interface TextExtractionResult {
 export interface LLMAnalysisResult {
   success: boolean;
   data?: StructuredResumeData;
+  rawData?: Record<string, unknown>; // Full raw LLM response with all fields (roleMetrics, stories, etc.)
   error?: string;
   retryable?: boolean;
 }

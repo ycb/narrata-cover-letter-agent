@@ -269,7 +269,7 @@ export class AppifyService {
 
       return {
         company: exp.company || '',
-        position: exp.title || '',
+        title: exp.title || '',
         startDate: startDate,
         endDate: endDate,
         current: exp.is_current || false,
