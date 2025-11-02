@@ -63,10 +63,24 @@ export function UserGoalsProvider({ children }: UserGoalsProviderProps) {
         try {
           const savedGoals = localStorage.getItem('userGoals');
           if (savedGoals) {
-            setGoalsState(JSON.parse(savedGoals));
+            try {
+              const parsedGoals = JSON.parse(savedGoals);
+              if (validateGoalsStructure(parsedGoals)) {
+                setGoalsState(parsedGoals);
+              } else {
+                console.warn('Invalid goals structure in localStorage, using defaults');
+                setGoalsState(defaultGoals);
+              }
+            } catch (parseError) {
+              console.error('Error parsing goals from localStorage:', parseError);
+              setGoalsState(defaultGoals);
+            }
+          } else {
+            setGoalsState(defaultGoals);
           }
         } catch (error) {
           console.error('Error loading user goals from localStorage:', error);
+          setGoalsState(defaultGoals);
         } finally {
           setIsLoading(false);
         }
