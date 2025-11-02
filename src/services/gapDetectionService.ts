@@ -373,15 +373,23 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
 
   /**
    * Save gaps to database
+   * @param gaps - Array of gaps to save
+   * @param accessToken - Optional access token for authenticated Supabase client (needed for Node.js scripts)
    */
-  static async saveGaps(gaps: Gap[]): Promise<void> {
+  static async saveGaps(gaps: Gap[], accessToken?: string): Promise<void> {
     if (gaps.length === 0) return;
 
     try {
+      // Use authenticated client if accessToken provided (Node.js scripts)
+      const dbClient = accessToken 
+        ? await this.getAuthenticatedClient(accessToken)
+        : supabase;
+
       // Filter out gaps that already exist (to avoid duplicates)
       const existingGaps = await this.getExistingGaps(
         gaps[0].user_id,
-        gaps.map(g => ({ type: g.entity_type, id: g.entity_id }))
+        gaps.map(g => ({ type: g.entity_type, id: g.entity_id })),
+        accessToken
       );
 
       const existingMap = new Map(
@@ -397,7 +405,7 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
         return;
       }
 
-      const { error } = await supabase
+      const { error } = await dbClient
         .from('gaps')
         .insert(newGaps);
 
@@ -414,17 +422,40 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
   }
 
   /**
+   * Get authenticated Supabase client for Node.js environments
+   */
+  private static async getAuthenticatedClient(accessToken: string) {
+    const { createClient } = await import('@supabase/supabase-js');
+    const { getSupabaseConfig } = await import('@/lib/supabase');
+    const config = getSupabaseConfig();
+    
+    return createClient(config.url, config.anonKey, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    });
+  }
+
+  /**
    * Get existing gaps for entities
    */
   private static async getExistingGaps(
     userId: string,
-    entities: Array<{ type: 'work_item' | 'approved_content'; id: string }>
+    entities: Array<{ type: 'work_item' | 'approved_content'; id: string }>,
+    accessToken?: string
   ): Promise<Gap[]> {
     try {
       if (entities.length === 0) return [];
 
+      // Use authenticated client if accessToken provided
+      const dbClient = accessToken 
+        ? await this.getAuthenticatedClient(accessToken)
+        : supabase;
+
       // Build query with multiple OR conditions
-      let query = supabase
+      let query = dbClient
         .from('gaps')
         .select('*')
         .eq('user_id', userId)
@@ -442,7 +473,7 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
         ).join(',');
         
         // Supabase doesn't support OR easily, so we'll fetch all and filter
-        const { data, error } = await supabase
+        const { data, error } = await dbClient
           .from('gaps')
           .select('*')
           .eq('user_id', userId)

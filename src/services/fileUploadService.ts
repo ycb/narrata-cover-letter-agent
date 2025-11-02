@@ -1045,7 +1045,7 @@ export class FileUploadService {
                   );
 
                   if (storyGaps.length > 0) {
-                    await GapDetectionService.saveGaps(storyGaps);
+                    await GapDetectionService.saveGaps(storyGaps, accessToken);
                     console.log(`🔍 Detected ${storyGaps.length} gap(s) for story: ${insertedStory.id}`);
                   }
                 } catch (gapError) {
@@ -1224,7 +1224,7 @@ export class FileUploadService {
                   );
 
                   if (storyGaps.length > 0) {
-                    await GapDetectionService.saveGaps(storyGaps);
+                    await GapDetectionService.saveGaps(storyGaps, accessToken);
                     console.log(`🔍 Detected ${storyGaps.length} gap(s) for cover letter story: ${insertedStory.id}`);
                   }
                 } catch (gapError) {
