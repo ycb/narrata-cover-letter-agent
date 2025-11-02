@@ -426,10 +426,14 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
    */
   private static async getAuthenticatedClient(accessToken: string) {
     const { createClient } = await import('@supabase/supabase-js');
-    const { getSupabaseConfig } = await import('@/lib/supabase');
-    const config = getSupabaseConfig();
     
-    return createClient(config.url, config.anonKey, {
+    // Get config from environment (same as supabase.ts)
+    const supabaseUrl = (import.meta.env?.VITE_SUPABASE_URL) || 
+                       (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_URL : undefined) || '';
+    const supabaseAnonKey = (import.meta.env?.VITE_SUPABASE_ANON_KEY) || 
+                           (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_ANON_KEY : undefined) || '';
+    
+    return createClient(supabaseUrl, supabaseAnonKey, {
       global: {
         headers: {
           Authorization: `Bearer ${accessToken}`
