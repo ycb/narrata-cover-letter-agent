@@ -50,9 +50,37 @@ export class UserPreferencesService {
 
       if (data?.goals) {
         try {
-          return typeof data.goals === 'string' 
+          const parsed = typeof data.goals === 'string' 
             ? JSON.parse(data.goals) 
             : data.goals;
+          
+          // Handle legacy format: if it's an array, convert to UserGoals format
+          if (Array.isArray(parsed)) {
+            console.warn('[UserPreferencesService] Legacy goals format detected (array), converting to object format');
+            return {
+              targetTitles: parsed.filter((item: any) => typeof item === 'string'),
+              minimumSalary: 180000,
+              companyMaturity: [],
+              workType: [],
+              industries: [],
+              businessModels: [],
+              dealBreakers: {
+                workType: [],
+                companyMaturity: [],
+                salaryMinimum: null
+              },
+              preferredCities: [],
+              openToRelocation: true
+            };
+          }
+          
+          // Validate it's a proper UserGoals object
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            return parsed;
+          }
+          
+          console.warn('[UserPreferencesService] Invalid goals format, returning null');
+          return null;
         } catch (parseError) {
           console.error('Error parsing goals JSON:', parseError);
           return null;
