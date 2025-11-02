@@ -174,7 +174,8 @@ export function UserGoalsProvider({ children }: UserGoalsProviderProps) {
     }
   };
 
-  const hasGoals = goals !== null && (
+  // Ensure goals is valid before checking hasGoals
+  const hasGoals = goals !== null && validateGoalsStructure(goals) && (
     (goals.targetTitles?.length ?? 0) > 0 ||
     (goals.minimumSalary ?? 0) > 0 ||
     (goals.industries?.length ?? 0) > 0 ||
