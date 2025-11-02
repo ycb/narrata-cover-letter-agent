@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
 import { UserGoals } from '@/types/userGoals';
 import { UserPreferencesService } from '@/services/userPreferencesService';
 import { useAuth } from './AuthContext';
@@ -175,13 +175,18 @@ export function UserGoalsProvider({ children }: UserGoalsProviderProps) {
   };
 
   // Ensure goals is valid before checking hasGoals
-  const hasGoals = goals !== null && validateGoalsStructure(goals) && (
-    (goals.targetTitles?.length ?? 0) > 0 ||
-    (goals.minimumSalary ?? 0) > 0 ||
-    (goals.industries?.length ?? 0) > 0 ||
-    (goals.businessModels?.length ?? 0) > 0 ||
-    (goals.preferredCities?.length ?? 0) > 0
-  );
+  // Use useMemo to prevent re-computation and ensure validation runs first
+  const hasGoals = useMemo(() => {
+    if (goals === null) return false;
+    if (!validateGoalsStructure(goals)) return false;
+    return (
+      (goals.targetTitles?.length ?? 0) > 0 ||
+      (goals.minimumSalary ?? 0) > 0 ||
+      (goals.industries?.length ?? 0) > 0 ||
+      (goals.businessModels?.length ?? 0) > 0 ||
+      (goals.preferredCities?.length ?? 0) > 0
+    );
+  }, [goals]);
 
   return (
     <UserGoalsContext.Provider value={{
