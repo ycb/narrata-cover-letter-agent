@@ -119,7 +119,7 @@ export function UserVoiceProvider({ children }: UserVoiceProviderProps) {
     }
   };
 
-  const hasVoice = voice !== null && voice.prompt.trim().length > 0;
+  const hasVoice = voice !== null && voice.prompt && voice.prompt.trim().length > 0;
 
   return (
     <UserVoiceContext.Provider value={{

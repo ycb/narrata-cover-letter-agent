@@ -32,6 +32,24 @@ interface UserGoalsProviderProps {
   children: ReactNode;
 }
 
+// Helper function to validate goals structure
+function validateGoalsStructure(goals: any): goals is UserGoals {
+  return (
+    goals !== null &&
+    typeof goals === 'object' &&
+    Array.isArray(goals.targetTitles) &&
+    Array.isArray(goals.industries) &&
+    Array.isArray(goals.businessModels) &&
+    Array.isArray(goals.preferredCities) &&
+    typeof goals.minimumSalary === 'number' &&
+    typeof goals.openToRelocation === 'boolean' &&
+    goals.dealBreakers &&
+    typeof goals.dealBreakers === 'object' &&
+    Array.isArray(goals.dealBreakers.workType) &&
+    Array.isArray(goals.dealBreakers.companyMaturity)
+  );
+}
+
 export function UserGoalsProvider({ children }: UserGoalsProviderProps) {
   const { user } = useAuth();
   const [goals, setGoalsState] = useState<UserGoals | null>(null);
@@ -58,7 +76,7 @@ export function UserGoalsProvider({ children }: UserGoalsProviderProps) {
       try {
         // Load from database first
         const dbGoals = await UserPreferencesService.loadGoals(user.id);
-        if (dbGoals) {
+        if (dbGoals && validateGoalsStructure(dbGoals)) {
           setGoalsState(dbGoals);
           // Sync to localStorage for offline support
           try {
@@ -70,10 +88,23 @@ export function UserGoalsProvider({ children }: UserGoalsProviderProps) {
           // Fallback to localStorage if nothing in database
           const savedGoals = localStorage.getItem('userGoals');
           if (savedGoals) {
-            const parsedGoals = JSON.parse(savedGoals);
-            setGoalsState(parsedGoals);
-            // Save to database for future use
-            await UserPreferencesService.saveGoals(user.id, parsedGoals);
+            try {
+              const parsedGoals = JSON.parse(savedGoals);
+              if (validateGoalsStructure(parsedGoals)) {
+                setGoalsState(parsedGoals);
+                // Save to database for future use
+                await UserPreferencesService.saveGoals(user.id, parsedGoals);
+              } else {
+                // Invalid structure, use defaults
+                setGoalsState(defaultGoals);
+              }
+            } catch (parseError) {
+              console.error('Error parsing goals from localStorage:', parseError);
+              setGoalsState(defaultGoals);
+            }
+          } else {
+            // No data anywhere, use defaults
+            setGoalsState(defaultGoals);
           }
         }
       } catch (error) {
@@ -82,10 +113,23 @@ export function UserGoalsProvider({ children }: UserGoalsProviderProps) {
         try {
           const savedGoals = localStorage.getItem('userGoals');
           if (savedGoals) {
-            setGoalsState(JSON.parse(savedGoals));
+            try {
+              const parsedGoals = JSON.parse(savedGoals);
+              if (validateGoalsStructure(parsedGoals)) {
+                setGoalsState(parsedGoals);
+              } else {
+                setGoalsState(defaultGoals);
+              }
+            } catch (parseError) {
+              console.error('Error parsing goals from localStorage fallback:', parseError);
+              setGoalsState(defaultGoals);
+            }
+          } else {
+            setGoalsState(defaultGoals);
           }
         } catch (e) {
           console.error('Error loading from localStorage fallback:', e);
+          setGoalsState(defaultGoals);
         }
       } finally {
         setIsLoading(false);
@@ -117,11 +161,11 @@ export function UserGoalsProvider({ children }: UserGoalsProviderProps) {
   };
 
   const hasGoals = goals !== null && (
-    goals.targetTitles.length > 0 ||
-    goals.minimumSalary > 0 ||
-    goals.industries.length > 0 ||
-    goals.businessModels.length > 0 ||
-    goals.preferredCities.length > 0
+    (goals.targetTitles?.length ?? 0) > 0 ||
+    (goals.minimumSalary ?? 0) > 0 ||
+    (goals.industries?.length ?? 0) > 0 ||
+    (goals.businessModels?.length ?? 0) > 0 ||
+    (goals.preferredCities?.length ?? 0) > 0
   );
 
   return (
