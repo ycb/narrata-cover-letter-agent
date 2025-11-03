@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, Edit, Trash2, FileText, Clock, CheckCircle, AlertCircle, MoreHorizontal, Copy, Tags, AlertTriangle, Sparkles, X } from "lucide-react";
+import { Search, Plus, Edit, Trash2, FileText, Clock, CheckCircle, AlertCircle, MoreHorizontal, Copy, Tags, Sparkles, X } from "lucide-react";
 import { IntelligentAlertBadge } from "@/components/ui/IntelligentAlertBadge";
 import { TagSuggestionButton } from "@/components/ui/TagSuggestionButton";
+import { ContentGapBanner } from "@/components/shared/ContentGapBanner";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -311,7 +312,7 @@ export const TemplateBlurbHierarchical = ({
                       <React.Fragment key={blurb.id}>
                         <Card className={cn(
                           "hover:shadow-md transition-shadow",
-                          (blurb as any).hasGaps && !resolvedGaps.has(`blurb-gap-${blurb.id}`) && "border-warning bg-warning/5"
+                          (blurb as any).hasGaps && !resolvedGaps.has(`blurb-gap-${blurb.id}`) && "border-warning"
                         )}>
                           <CardContent className="p-6">
                             <div className="flex items-start justify-between">
@@ -388,40 +389,18 @@ export const TemplateBlurbHierarchical = ({
                                 </DropdownMenu>
                               </div>
                             </div>
+                            
+                            {/* Gap Banner - Inside card at bottom */}
+                            {(blurb as any).hasGaps && !resolvedGaps.has(`blurb-gap-${blurb.id}`) && onGenerateContent && (
+                              <ContentGapBanner
+                                title="Content Gap"
+                                description="Content needs improvement based on cover letter best practices."
+                                onGenerateContent={() => onGenerateContent(blurb)}
+                                isResolved={resolvedGaps.has(`blurb-gap-${blurb.id}`)}
+                              />
+                            )}
                           </CardContent>
                         </Card>
-                        
-                        {/* Gap Detection Cards */}
-                        {(() => {
-                          console.log('Blurb gap check:', blurb.title, (blurb as any).hasGaps, (blurb as any).gapCount);
-                          return null;
-                        })()}
-                        {(blurb as any).hasGaps && !resolvedGaps.has(`blurb-gap-${blurb.id}`) && (
-                          <div className="mt-4 border-warning bg-warning/5 p-4 rounded-lg">
-                            <div className="flex items-center gap-2 mb-2">
-                              <AlertTriangle className="h-4 w-4 text-warning" />
-                              <span className="font-medium text-warning">Content Gap</span>
-                            </div>
-                            <p className="text-sm text-muted-foreground mb-3">
-                              Content needs improvement based on cover letter best practices.
-                            </p>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              className="w-full"
-                              onClick={() => {
-                                if (onGenerateContent) {
-                                  onGenerateContent(blurb);
-                                } else {
-                                  console.log('Generate content for blurb gap:', blurb.title);
-                                }
-                              }}
-                            >
-                              <Sparkles className="h-4 w-4 mr-2" />
-                              Generate Content
-                            </Button>
-                          </div>
-                        )}
                         
                         {/* Success State Cards */}
                         {resolvedGaps.has(`blurb-gap-${blurb.id}`) && !dismissedSuccessCards.has(`blurb-gap-${blurb.id}`) && (

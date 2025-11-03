@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
 import { TagSuggestionButton } from "@/components/ui/TagSuggestionButton";
+import { ContentGapBanner } from "@/components/shared/ContentGapBanner";
 import { useState } from "react";
 import { 
   FileText, 
@@ -79,6 +80,8 @@ interface StoryCardProps {
   onTagSuggestions?: (tags: string[]) => void;
   className?: string;
   isGapResolved?: boolean;
+  hasGaps?: boolean;
+  onGenerateContent?: () => void;
 }
 
 export const StoryCard = ({ 
@@ -89,7 +92,9 @@ export const StoryCard = ({
   onDelete,
   onTagSuggestions,
   className,
-  isGapResolved = false
+  isGapResolved = false,
+  hasGaps = false,
+  onGenerateContent
 }: StoryCardProps) => {
   const [expandedVariations, setExpandedVariations] = useState<Record<string, boolean>>({});
   const getStatusIcon = () => {
@@ -134,7 +139,7 @@ export const StoryCard = ({
   return (
     <Card className={cn(
       "hover:shadow-md transition-shadow", 
-      (story as any).hasGaps && !isGapResolved && "border-warning bg-warning/5",
+      hasGaps && !isGapResolved && "border-warning",
       className
     )}>
       <CardHeader className="pb-3">
@@ -335,6 +340,15 @@ export const StoryCard = ({
           </div>
         )}
 
+        {/* Gap Banner - Inside card at bottom */}
+        {hasGaps && !isGapResolved && onGenerateContent && (
+          <ContentGapBanner
+            title="Story Content Gap"
+            description="Story needs more specific examples and quantifiable results."
+            onGenerateContent={onGenerateContent}
+            isResolved={isGapResolved}
+          />
+        )}
 
       </CardContent>
     </Card>

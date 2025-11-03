@@ -1174,28 +1174,9 @@ export const WorkHistoryDetail = ({
                             onDelete={() => onDeleteStory?.(story)}
                             onTagSuggestions={handleStoryTagSuggestions}
                             isGapResolved={resolvedGaps.has('story-content-gap')}
+                            hasGaps={(story as any).hasGaps}
+                            onGenerateContent={(story as any).hasGaps && !resolvedGaps.has('story-content-gap') ? () => handleGenerateContent('story-content') : undefined}
                           />
-                      {/* Story Gap Detection */}
-                      {(story as any).hasGaps && !resolvedGaps.has('story-content-gap') && (
-                        <div className="mt-4 border-warning bg-warning/5 p-4 rounded-lg">
-                          <div className="flex items-center gap-2 mb-2">
-                            <AlertTriangle className="h-4 w-4 text-warning" />
-                            <span className="font-medium text-warning">Story Content Gap</span>
-                          </div>
-                          <p className="text-sm text-muted-foreground mb-3">
-                            Story needs more specific examples and quantifiable results.
-                          </p>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            className="w-full"
-                            onClick={() => handleGenerateContent('story-content')}
-                          >
-                            <Sparkles className="h-4 w-4 mr-2" />
-                            Generate Content
-                          </Button>
-                        </div>
-                      )}
                       
                       {/* Success State - Story Content */}
                       {resolvedGaps.has('story-content-gap') && !dismissedSuccessCards.has('story-content-gap') && (
