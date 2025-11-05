@@ -39,7 +39,7 @@ export interface ShowAllTemplateProps<T> {
   data: T[];
   searchPlaceholder: string;
   renderRow: (item: T, index: number) => React.ReactNode;
-  renderHeader: (handleSort: (field: keyof T) => void, getSortIcon: (field: keyof T) => React.ReactNode) => React.ReactNode;
+  renderHeader: (handleSort: (field: keyof T | string) => void, getSortIcon: (field: keyof T | string) => React.ReactNode) => React.ReactNode;
   onAddNew?: () => void;
   addNewLabel?: string;
   searchKeys?: (keyof T)[];
@@ -94,8 +94,22 @@ export function ShowAllTemplate<T>({
                 case 'section-type':
                   fieldToCheck = 'type' as keyof T;
                   break;
+                case 'gap':
+                  // Gap filtering - check hasGaps property
+                  const hasGaps = (item as any).hasGaps || false;
+                  if (option.value === 'gap-detected') {
+                    return hasGaps === true;
+                  } else if (option.value === 'no-gaps') {
+                    return hasGaps === false;
+                  }
+                  return false;
                 default:
                   fieldToCheck = option.value as keyof T;
+              }
+              
+              // Skip fieldToCheck if we already handled gap category
+              if (option.category === 'gap') {
+                return false; // Already handled above
               }
               
               const itemValue = item[fieldToCheck];
@@ -133,6 +147,16 @@ export function ShowAllTemplate<T>({
     // Apply sorting
     if (sortField) {
       result = [...result].sort((a, b) => {
+        // Handle hasGaps as a special case (boolean field)
+        if (sortField === 'hasGaps') {
+          const aHasGaps = (a as any).hasGaps || false;
+          const bHasGaps = (b as any).hasGaps || false;
+          if (aHasGaps === bHasGaps) return 0;
+          return sortDirection === 'asc' 
+            ? (aHasGaps ? 1 : -1) - (bHasGaps ? 1 : -1)
+            : (bHasGaps ? 1 : -1) - (aHasGaps ? 1 : -1);
+        }
+        
         const aVal = a[sortField];
         const bVal = b[sortField];
         
@@ -158,17 +182,19 @@ export function ShowAllTemplate<T>({
     setActiveFilter(filter);
   };
 
-  const handleSort = (field: keyof T) => {
-    if (sortField === field) {
+  const handleSort = (field: keyof T | string) => {
+    const sortKey = field as keyof T;
+    if (sortField === sortKey) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
-      setSortField(field);
+      setSortField(sortKey);
       setSortDirection('asc');
     }
   };
 
-  const getSortIcon = (field: keyof T) => {
-    if (sortField !== field) return <ChevronDown className="h-4 w-4 text-muted-foreground" />;
+  const getSortIcon = (field: keyof T | string) => {
+    const sortKey = field as keyof T;
+    if (sortField !== sortKey) return <ChevronDown className="h-4 w-4 text-muted-foreground" />;
     return sortDirection === 'asc' 
       ? <ChevronUp className="h-4 w-4 text-primary" />
       : <ChevronDown className="h-4 w-4 text-primary" />;
@@ -308,6 +334,37 @@ export function ShowAllTemplate<T>({
                               </DropdownMenuItem>
                               {sortOptions
                                 .filter(s => s.category === 'section-type')
+                                .map((option) => (
+                                  <DropdownMenuItem 
+                                    key={option.value}
+                                    onClick={() => handleFilterChange(option.value)}
+                                    className="px-3 py-2 hover:bg-blue-600 hover:text-white"
+                                  >
+                                    <span className="flex-1">{option.label}</span>
+                                  </DropdownMenuItem>
+                                ))}
+                            </DropdownMenuSubContent>
+                          </DropdownMenuSub>
+                        )}
+
+                        {/* Gap Fly-out */}
+                        {sortOptions.some(s => s.category === 'gap') && (
+                          <DropdownMenuSub onOpenChange={(open) => setOpenSubmenu(open ? 'gap' : null)}>
+                            <DropdownMenuSubTrigger 
+                              className={`px-3 py-2 transition-colors ${
+                                openSubmenu === 'gap' 
+                                  ? 'bg-blue-600 text-white' 
+                                  : 'hover:bg-blue-600 hover:text-white'
+                              }`}
+                            >
+                              <span className="flex-1 text-left">Gap</span>
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent className="w-48">
+                              <DropdownMenuItem onClick={() => handleFilterChange("all")}>
+                                All Stories
+                              </DropdownMenuItem>
+                              {sortOptions
+                                .filter(s => s.category === 'gap')
                                 .map((option) => (
                                   <DropdownMenuItem 
                                     key={option.value}

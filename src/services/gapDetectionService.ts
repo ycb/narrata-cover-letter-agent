@@ -6,6 +6,11 @@
  * 1. Story Completeness - Missing STAR format or metrics
  * 2. Missing Metrics - Stories without quantified metrics
  * 3. Generic Content - LLM-as-judge for "too generic" descriptions
+ * 
+ * Future Enhancement: Context-Aware Gap Tracking
+ * - See docs/implementation/GAP_DETECTION_CONTEXT_TRACKING.md
+ * - Will add context_hash to track detection context (target role, goals, etc.)
+ * - Allows same content to be flagged again when context changes
  */
 
 import { supabase } from '@/lib/supabase';
@@ -63,6 +68,8 @@ export class GapDetectionService {
       title: string;
       description?: string;
       metrics?: any[];
+      startDate?: string;
+      endDate?: string | null;
     },
     stories?: Array<{
       id: string;
@@ -73,12 +80,158 @@ export class GapDetectionService {
   ): Promise<Gap[]> {
     const gaps: Gap[] = [];
 
-    // Detect gaps in stories (if any)
+    // 1. Detect role-level description gaps
+    const roleDescriptionGaps = await this.detectRoleDescriptionGaps(
+      userId,
+      workItemId,
+      workItemData.description || '',
+      workItemData.title
+    );
+    gaps.push(...roleDescriptionGaps);
+
+    // 2. Detect role-level metrics gaps
+    const roleMetricsGaps = this.detectRoleMetricsGaps(
+      userId,
+      workItemId,
+      workItemData.metrics || [],
+      workItemData.startDate,
+      workItemData.endDate,
+      stories?.length || 0
+    );
+    gaps.push(...roleMetricsGaps);
+
+    // 3. Detect gaps in stories (if any)
     if (stories && stories.length > 0) {
       for (const story of stories) {
         const storyGaps = await this.detectStoryGaps(userId, story, workItemId);
         gaps.push(...storyGaps);
       }
+    }
+
+    return gaps;
+  }
+
+  /**
+   * Detect gaps in role-level metrics
+   * Flags missing or insufficient metrics at the role level
+   */
+  private static detectRoleMetricsGaps(
+    userId: string,
+    workItemId: string,
+    roleMetrics: any[],
+    startDate?: string,
+    endDate?: string | null,
+    storyCount: number = 0
+  ): Gap[] {
+    const gaps: Gap[] = [];
+
+    // Count valid metrics (with value)
+    const validMetrics = roleMetrics?.filter(m => m?.value && m.value.trim()) || [];
+    const metricCount = validMetrics.length;
+
+    // Check for missing metrics
+    if (metricCount === 0) {
+      gaps.push({
+        user_id: userId,
+        entity_type: 'work_item',
+        entity_id: workItemId,
+        gap_type: 'best_practice',
+        gap_category: 'missing_role_metrics',
+        severity: 'medium',
+        description: 'No role-level metrics',
+        suggestions: [
+          {
+            type: 'add_role_metrics',
+            description: 'Add quantified metrics at the role level to demonstrate overall impact'
+          }
+        ]
+      });
+    } else if (metricCount < 3 && (storyCount > 0 || this.hasSignificantTenure(startDate, endDate))) {
+      // Check for insufficient metrics
+      // Flag if role has stories or significant tenure but only 1-2 metrics
+      gaps.push({
+        user_id: userId,
+        entity_type: 'work_item',
+        entity_id: workItemId,
+        gap_type: 'best_practice',
+        gap_category: 'insufficient_role_metrics',
+        severity: 'low',
+        description: 'Less than 3 role-level metrics',
+        suggestions: [
+          {
+            type: 'add_more_role_metrics',
+            description: `Consider adding more metrics to capture full impact (currently ${metricCount})`
+          }
+        ]
+      });
+    }
+
+    return gaps;
+  }
+
+  /**
+   * Determine if a role has significant tenure (>= 1 year or current role)
+   */
+  private static hasSignificantTenure(startDate?: string, endDate?: string | null): boolean {
+    if (!startDate) return false;
+    
+    const start = new Date(startDate);
+    const end = endDate ? new Date(endDate) : new Date(); // Use current date if role is current
+    const tenureMonths = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30);
+    
+    return tenureMonths >= 12; // 1 year or more
+  }
+
+  /**
+   * Detect gaps in role-level description
+   * Flags missing or generic descriptions
+   */
+  private static async detectRoleDescriptionGaps(
+    userId: string,
+    workItemId: string,
+    description: string,
+    roleTitle: string
+  ): Promise<Gap[]> {
+    const gaps: Gap[] = [];
+
+    // 1. Check for missing description
+    if (!description || description.trim().length === 0) {
+      gaps.push({
+        user_id: userId,
+        entity_type: 'work_item',
+        entity_id: workItemId,
+        gap_type: 'data_quality',
+        gap_category: 'missing_role_description',
+        severity: 'high',
+        description: 'Missing role description',
+        suggestions: [
+          {
+            type: 'add_description',
+            description: 'Add a description of your role and key responsibilities'
+          }
+        ]
+      });
+      return gaps; // No need to check generic if description is missing
+    }
+
+    // 2. Check for generic description (LLM-as-judge)
+    const genericGap = await this.checkGenericContent(description);
+    if (genericGap.isGeneric) {
+      gaps.push({
+        user_id: userId,
+        entity_type: 'work_item',
+        entity_id: workItemId,
+        gap_type: 'best_practice',
+        gap_category: 'generic_role_description',
+        severity: genericGap.confidence && genericGap.confidence > 0.8 ? 'high' : 'medium',
+        description: 'May be too generic',
+        suggestions: [
+          {
+            type: 'add_specifics',
+            description: 'Add specific projects, technologies, or measurable outcomes'
+          }
+        ]
+      });
     }
 
     return gaps;
@@ -99,39 +252,63 @@ export class GapDetectionService {
   ): Promise<Gap[]> {
     const gaps: Gap[] = [];
 
-    // 1. Story Completeness Gap
+    // 1. Story Completeness Gap - create separate gaps for each missing component
     const completenessGap = this.checkStoryCompleteness(story);
     if (completenessGap) {
-      gaps.push({
-        user_id: userId,
-        entity_type: 'approved_content',
-        entity_id: story.id,
-        gap_type: 'data_quality',
-        gap_category: 'incomplete_story',
-        severity: completenessGap.missingComponents.length > 1 ? 'high' : 'medium',
-        description: `Story "${story.title}" is missing: ${completenessGap.missingComponents.join(', ')}`,
-        suggestions: this.generateCompletenessSuggestions(completenessGap)
-      });
+      // Create separate gap for missing narrative structure
+      if (completenessGap.missingComponents.includes('narrative structure (STAR format or Accomplished format)')) {
+        gaps.push({
+          user_id: userId,
+          entity_type: 'approved_content',
+          entity_id: story.id,
+          gap_type: 'data_quality',
+          gap_category: 'incomplete_story',
+          severity: 'high',
+          description: 'Missing narrative structure (STAR)',
+          suggestions: this.generateCompletenessSuggestions(completenessGap)
+        });
+      }
+      
+      // Create separate gap for missing metrics (only if not already covered by completeness)
+      if (completenessGap.missingComponents.includes('metric')) {
+        gaps.push({
+          user_id: userId,
+          entity_type: 'approved_content',
+          entity_id: story.id,
+          gap_type: 'best_practice',
+          gap_category: 'missing_metrics',
+          severity: 'medium',
+          description: 'No quantified metrics',
+          suggestions: [
+            {
+              type: 'add_metric',
+              description: 'Add quantified metrics (percentages, dollar amounts, timeframes, etc.)'
+            }
+          ]
+        });
+      }
     }
 
-    // 2. Missing Metrics Gap
-    const metricGap = this.checkMissingMetrics(story);
-    if (metricGap) {
-      gaps.push({
-        user_id: userId,
-        entity_type: 'approved_content',
-        entity_id: story.id,
-        gap_type: 'best_practice',
-        gap_category: 'missing_metrics',
-        severity: 'medium',
-        description: `Story "${story.title}" has no quantified metrics. Add metrics to demonstrate impact.`,
-        suggestions: [
-          {
-            type: 'add_metric',
-            description: 'Add quantified metrics (percentages, dollar amounts, timeframes, etc.)'
-          }
-        ]
-      });
+    // 2. Missing Metrics Gap - only create if not already detected by completeness check
+    if (!completenessGap || !completenessGap.missingComponents.includes('metric')) {
+      const metricGap = this.checkMissingMetrics(story);
+      if (metricGap) {
+        gaps.push({
+          user_id: userId,
+          entity_type: 'approved_content',
+          entity_id: story.id,
+          gap_type: 'best_practice',
+          gap_category: 'missing_metrics',
+          severity: 'medium',
+          description: 'No quantified metrics',
+          suggestions: [
+            {
+              type: 'add_metric',
+              description: 'Add quantified metrics (percentages, dollar amounts, timeframes, etc.)'
+            }
+          ]
+        });
+      }
     }
 
     // 3. Generic Content Gap (LLM-as-judge)
@@ -144,7 +321,7 @@ export class GapDetectionService {
         gap_type: 'best_practice',
         gap_category: 'too_generic',
         severity: genericGap.confidence && genericGap.confidence > 0.8 ? 'high' : 'medium',
-        description: `Story "${story.title}" may be too generic: ${genericGap.reasoning || 'Lacks specific details and measurable outcomes'}`,
+        description: 'May be too generic',
         suggestions: [
           {
             type: 'add_specifics',
@@ -386,12 +563,19 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
         : supabase;
 
       // Filter out gaps that already exist (to avoid duplicates)
+      // Include resolved gaps to prevent re-creating dismissed gaps (unless context changed)
+      // Note: Context-aware re-detection (e.g., when target role changes) will be handled
+      //       by checking gap_category or adding context metadata in future iteration
       const existingGaps = await this.getExistingGaps(
         gaps[0].user_id,
         gaps.map(g => ({ type: g.entity_type, id: g.entity_id })),
-        accessToken
+        accessToken,
+        true // includeResolved = true: check both resolved and unresolved gaps
       );
 
+      // Create map of existing gaps by entity + category
+      // This prevents re-creating the same gap category for the same entity
+      // even if it was previously dismissed (unless context changed and category differs)
       const existingMap = new Map(
         existingGaps.map(g => [`${g.entity_type}:${g.entity_id}:${g.gap_category}`, true])
       );
@@ -444,11 +628,14 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
 
   /**
    * Get existing gaps for entities
+   * @param includeResolved - If true, includes resolved gaps (for deduplication)
+   *                          If false, only returns unresolved gaps (for display)
    */
   private static async getExistingGaps(
     userId: string,
     entities: Array<{ type: 'work_item' | 'approved_content'; id: string }>,
-    accessToken?: string
+    accessToken?: string,
+    includeResolved: boolean = false
   ): Promise<Gap[]> {
     try {
       if (entities.length === 0) return [];
@@ -458,12 +645,15 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
         ? await this.getAuthenticatedClient(accessToken)
         : supabase;
 
-      // Build query with multiple OR conditions
+      // Build query - include resolved gaps if requested (for deduplication)
       let query = dbClient
         .from('gaps')
         .select('*')
-        .eq('user_id', userId)
-        .eq('resolved', false);
+        .eq('user_id', userId);
+
+      if (!includeResolved) {
+        query = query.eq('resolved', false);
+      }
 
       // For multiple entities, we need to use or() with proper syntax
       if (entities.length === 1) {
@@ -471,17 +661,17 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
           .eq('entity_type', entities[0].type)
           .eq('entity_id', entities[0].id);
       } else {
-        // Build OR conditions manually
-        const orConditions = entities.map(e => 
-          `entity_type.eq.${e.type},entity_id.eq.${e.id}`
-        ).join(',');
-        
         // Supabase doesn't support OR easily, so we'll fetch all and filter
-        const { data, error } = await dbClient
+        let fetchQuery = dbClient
           .from('gaps')
           .select('*')
-          .eq('user_id', userId)
-          .eq('resolved', false);
+          .eq('user_id', userId);
+        
+        if (!includeResolved) {
+          fetchQuery = fetchQuery.eq('resolved', false);
+        }
+
+        const { data, error } = await fetchQuery;
 
         if (error) {
           console.error('Error fetching existing gaps:', error);
@@ -538,21 +728,55 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
 
   /**
    * Resolve a gap
+   * @param gapId - The gap ID to resolve
+   * @param userId - The user ID (for security)
+   * @param reason - Why the gap is being resolved
+   *   - 'content_added': Content was generated/applied that addresses the gap
+   *   - 'user_override': User manually dismissed the gap (not a real gap / don't want to fix)
+   *   - 'manual_resolve': Manually resolved (admin/system)
+   *   - 'no_longer_applicable': Gap no longer applies
+   * @param addressingContentId - Optional: ID of content that addresses this gap (for 'content_added' reason)
    */
   static async resolveGap(
     gapId: string,
     userId: string,
-    reason: 'user_override' | 'content_added' | 'manual_resolve' | 'no_longer_applicable'
+    reason: 'user_override' | 'content_added' | 'manual_resolve' | 'no_longer_applicable',
+    addressingContentId?: string
   ): Promise<void> {
     try {
+      const updateData: any = {
+        resolved: true,
+        resolved_at: new Date().toISOString(),
+        resolved_reason: reason,
+        updated_at: new Date().toISOString()
+      };
+
+      // If content was added to address the gap, link it
+      if (reason === 'content_added' && addressingContentId) {
+        // Get current addressing_content_ids array
+        const { data: currentGap } = await supabase
+          .from('gaps')
+          .select('addressing_content_ids')
+          .eq('id', gapId)
+          .eq('user_id', userId)
+          .single();
+
+        const currentIds = currentGap?.addressing_content_ids || [];
+        const updatedIds = [...new Set([...currentIds, addressingContentId])]; // Avoid duplicates
+        
+        updateData.addressing_content_ids = updatedIds;
+
+        // Also update the content to reference this gap (bidirectional link)
+        await supabase
+          .from('approved_content')
+          .update({ addressed_gap_id: gapId })
+          .eq('id', addressingContentId)
+          .eq('user_id', userId);
+      }
+
       const { error } = await supabase
         .from('gaps')
-        .update({
-          resolved: true,
-          resolved_at: new Date().toISOString(),
-          resolved_reason: reason,
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', gapId)
         .eq('user_id', userId);
 

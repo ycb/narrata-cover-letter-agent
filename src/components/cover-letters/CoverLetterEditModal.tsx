@@ -7,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CheckCircle, Copy, Download, Share2, Star, X, Wand2, Upload, Send, Save } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { UnifiedGapCard } from '@/components/hil/UnifiedGapCard';
+import { ContentCard } from '@/components/shared/ContentCard';
+import { cn } from '@/lib/utils';
 
 interface CoverLetterEditModalProps {
   isOpen: boolean;
@@ -185,44 +187,63 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter }: CoverLett
               </Card>
             </TabsContent>
 
-            {/* Cover Letter Tab - Shows draft with gap/requirement cards */}
-            <TabsContent value="cover-letter" className="space-y-8">
-              {/* Section Headers */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="text-lg font-semibold text-muted-foreground">Cover Letter Draft</div>
-                <div className="text-lg font-semibold text-muted-foreground">Analysis & Requirements</div>
-              </div>
-              
-              {/* Content Grid - Each section gets its own row */}
-              {editedContent.content?.sections?.map((section: any, index: number) => (
-                <div key={section.id} className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-                  {/* Left: Section Label + Paragraph Content */}
-                  <div className="space-y-4">
-                    <div className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                      {getSectionTitle(section.type)}
+            {/* Cover Letter Tab - Shows draft with content cards */}
+            <TabsContent value="cover-letter" className="space-y-6">
+              {/* Single Column Layout - Content Cards */}
+              {editedContent.content?.sections?.map((section: any, index: number) => {
+                const sectionTitle = getSectionTitle(section.type);
+                const mockJDTags = getRequirementsForParagraph(section.type);
+                
+                return (
+                  <ContentCard
+                    key={section.id}
+                    title={sectionTitle}
+                    content={section.content}
+                    tags={mockJDTags}
+                    hasGaps={false}
+                    gaps={[]}
+                    isGapResolved={true}
+                    onEdit={() => {
+                      // Handle inline editing - will be handled by Textarea in children
+                    }}
+                    onDuplicate={() => {
+                      // TODO: Implement duplicate section
+                      console.log('Duplicate section:', section.id);
+                    }}
+                    onDelete={() => {
+                      // TODO: Implement delete section
+                      console.log('Delete section:', section.id);
+                    }}
+                    tagsLabel="Job Requirements"
+                    showUsage={false}
+                    renderChildrenBeforeTags={true}
+                    className={cn(section.isEnhanced && 'border-success/30')}
+                  >
+                    {/* Inline editable Textarea - renders before tags */}
+                    <div className="mb-6">
+                      <Textarea
+                        value={section.content}
+                        ref={(textarea) => {
+                          if (textarea) {
+                            // Set initial height based on content
+                            textarea.style.height = 'auto';
+                            textarea.style.height = `${textarea.scrollHeight}px`;
+                          }
+                        }}
+                        onChange={(e) => {
+                          handleSectionChange(section.id, e.target.value);
+                          // Auto-resize textarea
+                          e.target.style.height = 'auto';
+                          e.target.style.height = `${e.target.scrollHeight}px`;
+                        }}
+                        className="resize-none overflow-hidden"
+                        placeholder="Enter cover letter content..."
+                        rows={1}
+                      />
                     </div>
-                    <Textarea
-                      value={section.content}
-                      onChange={(e) => handleSectionChange(section.id, e.target.value)}
-                      className="resize-none h-[200px] flex items-center"
-                    />
-                  </div>
-
-                  {/* Right: Gap/Requirement Card */}
-                  <div className="space-y-4">
-                    <div className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                      {getSectionTitle(section.type)} Analysis
-                    </div>
-                    <UnifiedGapCard
-                      status="met"
-                      title="Matches Job Req"
-                      addresses={getRequirementsForParagraph(section.type)}
-                      origin={section.isEnhanced ? "ai" : "library"}
-                      paragraphId={section.type}
-                    />
-                  </div>
-                </div>
-              ))}
+                  </ContentCard>
+                );
+              })}
 
               {/* Action Buttons */}
               <div className="flex gap-3 pt-4">

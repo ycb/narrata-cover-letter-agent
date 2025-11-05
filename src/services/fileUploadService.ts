@@ -900,11 +900,59 @@ export class FileUploadService {
                 source_id: sourceId // Update to new source since it has stories
               })
               .eq('id', workItemId);
+
+            // Phase 3: Detect role-level gaps after update
+            try {
+              const { GapDetectionService } = await import('./gapDetectionService');
+              const roleGaps = await GapDetectionService.detectWorkItemGaps(
+                userId,
+                workItemId,
+                {
+                  title: workItemTitle,
+                  description: workItem.roleSummary || workItem.description || '',
+                  metrics: mergedMetrics,
+                  startDate: workItem.startDate,
+                  endDate: workItemEndDate
+                },
+                [] // Stories not yet inserted, will detect separately
+              );
+
+              if (roleGaps.length > 0) {
+                await GapDetectionService.saveGaps(roleGaps, accessToken);
+                console.log(`🔍 Detected ${roleGaps.length} role-level gap(s) for updated work_item: ${workItemId}`);
+              }
+            } catch (gapError) {
+              console.error('⚠️ Error detecting role-level gaps for updated work_item:', gapError);
+            }
           } else {
             // Both have stories or neither has stories - keep existing as-is
             console.log(`ℹ️ Keeping existing work_item ${workItemId} - existing has ${existingStoryCount} stories, new has ${newStoryCount} (preserving existing)`);
             // Don't insert stories below if existing already has them
             if (existingHasStories) {
+              // Still check for role-level metrics gaps even if we're keeping existing
+              try {
+                const { GapDetectionService } = await import('./gapDetectionService');
+                const existingMetrics = existingWorkItem.metrics || [];
+                const roleGaps = await GapDetectionService.detectWorkItemGaps(
+                  userId,
+                  workItemId,
+                  {
+                    title: workItemTitle,
+                    description: existingWorkItem.description || '',
+                    metrics: Array.isArray(existingMetrics) ? existingMetrics : [],
+                    startDate: existingWorkItem.start_date,
+                    endDate: existingWorkItem.end_date
+                  },
+                  [] // Stories already exist, will check separately
+                );
+
+                if (roleGaps.length > 0) {
+                  await GapDetectionService.saveGaps(roleGaps, accessToken);
+                  console.log(`🔍 Detected ${roleGaps.length} role-level gap(s) for existing work_item: ${workItemId}`);
+                }
+              } catch (gapError) {
+                console.error('⚠️ Error detecting role-level gaps for existing work_item:', gapError);
+              }
               continue;
             }
           }
@@ -942,6 +990,32 @@ export class FileUploadService {
           
           workItemId = newWorkItem.id;
           workItemsCreated++;
+
+          // Phase 3: Detect role-level gaps (metrics, description, etc.)
+          try {
+            const { GapDetectionService } = await import('./gapDetectionService');
+            const roleMetrics = Array.isArray(workItem.roleMetrics) ? workItem.roleMetrics : [];
+            const roleGaps = await GapDetectionService.detectWorkItemGaps(
+              userId,
+              workItemId,
+              {
+                title: workItemTitle,
+                description: workItem.roleSummary || workItem.description || '',
+                metrics: roleMetrics,
+                startDate: workItem.startDate,
+                endDate: workItemEndDate
+              },
+              [] // Stories not yet inserted, will detect separately
+            );
+
+            if (roleGaps.length > 0) {
+              await GapDetectionService.saveGaps(roleGaps, accessToken);
+              console.log(`🔍 Detected ${roleGaps.length} role-level gap(s) for work_item: ${workItemId}`);
+            }
+          } catch (gapError) {
+            // Don't fail the upload if gap detection fails
+            console.error('⚠️ Error detecting role-level gaps:', gapError);
+          }
         }
 
         // Validate that we have valid FK references before inserting stories

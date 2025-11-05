@@ -9,7 +9,7 @@ interface ContentGapBannerProps {
   description?: string; // Single description (backward compat)
   gaps?: Array<{ id: string; description: string }>; // Multiple gaps (list)
   onGenerateContent: () => void;
-  onDismiss?: () => void; // Callback for manual dismissal
+  onDismiss?: (gapId?: string) => void; // Callback for manual dismissal (optionally pass gapId)
   isResolved?: boolean;
 }
 
@@ -91,7 +91,7 @@ export const ContentGapBanner = ({
           </ul>
         ) : null}
         <Button
-          variant="secondary"
+          variant="cta-secondary"
           size="sm"
           className="w-full"
           onClick={onGenerateContent}

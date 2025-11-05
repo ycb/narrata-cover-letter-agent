@@ -427,15 +427,38 @@ export default function WorkHistory() {
       
       // Create maps for efficient lookup
       const workItemGapMap = new Map<string, number>(); // work_item_id -> gap count
+      const workItemGapsMap = new Map<string, Array<{ id: string; description: string }>>(); // work_item_id -> gap objects
       const storyGapMap = new Map<string, number>(); // approved_content_id -> gap count
+      const storyGapsMap = new Map<string, Array<{ id: string; description: string }>>(); // approved_content_id -> gap objects
       
       userGaps.forEach(gap => {
         if (gap.entity_type === 'work_item') {
           const current = workItemGapMap.get(gap.entity_id) || 0;
           workItemGapMap.set(gap.entity_id, current + 1);
+          
+          // Store actual gap objects with gap_category for filtering
+          const existingGaps = workItemGapsMap.get(gap.entity_id) || [];
+          workItemGapsMap.set(gap.entity_id, [
+            ...existingGaps,
+            {
+              id: gap.id || '',
+              description: gap.description || gap.gap_category || 'Content needs improvement',
+              gap_category: gap.gap_category || '' // Include category for filtering
+            }
+          ]);
         } else if (gap.entity_type === 'approved_content') {
           const current = storyGapMap.get(gap.entity_id) || 0;
           storyGapMap.set(gap.entity_id, current + 1);
+          
+          // Store actual gap objects
+          const existingGaps = storyGapsMap.get(gap.entity_id) || [];
+          storyGapsMap.set(gap.entity_id, [
+            ...existingGaps,
+            {
+              id: gap.id || '',
+              description: gap.description || gap.gap_category || 'Content needs improvement'
+            }
+          ]);
         }
       });
       
@@ -495,6 +518,7 @@ export default function WorkHistory() {
           // Transform blurbs
           const transformedBlurbs: WorkHistoryBlurb[] = itemBlurbs.map((blurb: any) => {
             const storyGapCount = storyGapMap.get(blurb.id) || 0;
+            const storyGaps = storyGapsMap.get(blurb.id) || [];
             return {
               id: blurb.id,
               roleId: blurb.work_item_id,
@@ -510,6 +534,7 @@ export default function WorkHistory() {
               linkedExternalLinks: [], // Can be populated if needed
               hasGaps: storyGapCount > 0,
               gapCount: storyGapCount,
+              gaps: storyGaps, // Store actual gap objects
               variations: [],
               createdAt: blurb.created_at,
               updatedAt: blurb.updated_at
@@ -532,10 +557,16 @@ export default function WorkHistory() {
             createdAt: link.created_at
           }));
 
-          // Calculate gap count for role (work_item gaps + sum of story gaps)
-          const workItemGapCount = workItemGapMap.get(item.id) || 0;
-          const storyGapCount = transformedBlurbs.reduce((sum, blurb) => sum + (blurb.gapCount || 0), 0);
-          const totalGapCount = workItemGapCount + storyGapCount;
+          // Calculate gap count for role: count content items with gaps, not total gaps
+          // 1 if role has any gaps, plus 1 for each story with gaps
+          const workItemGaps = workItemGapsMap.get(item.id) || [];
+          const hasRoleGaps = workItemGaps.length > 0;
+          
+          // Count stories with gaps (not total gap count per story)
+          const storiesWithGaps = transformedBlurbs.filter(blurb => (blurb.gapCount || 0) > 0).length;
+          
+          // Total = 1 if role has gaps, plus count of stories with gaps
+          const contentItemsWithGaps = (hasRoleGaps ? 1 : 0) + storiesWithGaps;
 
           return {
             id: item.id,
@@ -549,9 +580,10 @@ export default function WorkHistory() {
             tags: item.tags || [],
             outcomeMetrics: item.achievements || [],
             blurbs: transformedBlurbs,
+            gaps: workItemGaps, // Store actual gap objects for role
             externalLinks: transformedLinks,
-            hasGaps: totalGapCount > 0,
-            gapCount: totalGapCount,
+            hasGaps: contentItemsWithGaps > 0,
+            gapCount: contentItemsWithGaps,
             createdAt: item.created_at,
             updatedAt: item.updated_at
           };
@@ -881,6 +913,7 @@ export default function WorkHistory() {
                 onEditLink={handleEditLink}
                 onEditCompany={handleEditCompany}
                 selectedDataSource={selectedDataSource}
+                onRefresh={fetchWorkHistory}
               />
             </div>
           </div>
