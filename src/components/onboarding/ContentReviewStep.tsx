@@ -208,13 +208,15 @@ export function ContentReviewStep({ onReviewComplete, onBack }: ContentReviewSte
           
           // Map each story with role/company context
           for (const story of stories) {
+            // Use title first, fallback to position for backward compatibility
+            const roleTitle = workItem.title || workItem.position || 'Unknown Position';
             allStories.push({
               id: story.id || `resume-story-${workItem.id}-${story.id}`,
-              title: story.title || `${workItem.position} at ${workItem.company}`,
+              title: story.title || `${roleTitle} at ${workItem.company}`,
               content: story.content || '',
               company: workItem.company,
               companyTags: workItem.companyTags || [],
-              role: workItem.position,
+              role: roleTitle,
               roleTags: workItem.roleTags || [],
               roleSummary: workItem.roleSummary || '',
               roleMetrics: workItem.roleMetrics || [],

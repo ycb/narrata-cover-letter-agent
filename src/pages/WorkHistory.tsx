@@ -8,9 +8,9 @@ import { AddStoryModal } from "@/components/work-history/AddStoryModal";
 import { AddLinkModal } from "@/components/work-history/AddLinkModal";
 import { DataSourcesStatus } from "@/components/work-history/DataSourcesStatus";
 import { WorkHistoryOnboarding } from "@/components/work-history/WorkHistoryOnboarding";
+import { WorkHistoryEmptyState } from "@/components/work-history/EmptyStates";
 import { AddCompanyModal } from "@/components/work-history/AddCompanyModal";
 import { AddRoleModal } from "@/components/work-history/AddRoleModal";
-import { usePrototype } from "@/contexts/PrototypeContext";
 import { useTour } from "@/contexts/TourContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { TourBannerFull } from "@/components/onboarding/TourBannerFull";
@@ -20,7 +20,10 @@ import { Plus, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { WorkHistoryCompany, WorkHistoryRole, WorkHistoryBlurb, ExternalLink } from "@/types/workHistory";
 
-// Sample data - this would come from your backend
+// REMOVED: Sample data - now using empty states instead
+// Sample data has been moved to usability-test branch for future reference
+// Sample data declaration removed - using EmptyStates component instead
+/*
 const sampleWorkHistory: WorkHistoryCompany[] = [
   {
     id: "1",
@@ -208,19 +211,17 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
     ]
   }
 ];
+*/
 
 export default function WorkHistory() {
   // Auth context
   const { user } = useAuth();
   
-  // Use global prototype state
-  const { prototypeState } = usePrototype();
-  
   // Tour functionality
   const { isActive: isTourActive, currentStep: tourStep, tourSteps, currentTourStep, nextStep, previousStep, cancelTour } = useTour();
   
   // Debug tour state
-  console.log('WorkHistory - Tour state:', { isTourActive, tourStep, prototypeState });
+  console.log('WorkHistory - Tour state:', { isTourActive, tourStep });
   
   // State for fetched data
   const [workHistory, setWorkHistory] = useState<WorkHistoryCompany[]>([]);
@@ -244,11 +245,11 @@ export default function WorkHistory() {
       const syntheticUserService = new SyntheticUserService();
       const syntheticContext = await syntheticUserService.getSyntheticUserContext();
       
-      // For tour mode OR prototype mode WITHOUT synthetic data, use sample data
-      // When synthetic mode is active, we want to show real parsed data in the prototype UI
-      if ((isTourActive || prototypeState === 'existing-user') && !syntheticContext.isSyntheticTestingEnabled) {
-        console.log('Using sample data for tour/prototype mode (synthetic mode not active)');
-        setWorkHistory(sampleWorkHistory);
+      // Tour mode: Handle separately - for now show empty state
+      // In production, tour should use real data or empty states
+      if (isTourActive && !syntheticContext.isSyntheticTestingEnabled) {
+        console.log('Tour mode active - showing empty state');
+        setWorkHistory([]);
         setIsLoading(false);
         return;
       }
@@ -258,6 +259,9 @@ export default function WorkHistory() {
         currentProfile: syntheticContext.currentUser?.profileId,
         profileName: syntheticContext.currentUser?.profileName
       });
+      
+      // Store current profile ID to detect changes
+      const currentProfileId = syntheticContext.currentUser?.profileId;
       
       let profileSourceIds: string[] = [];
       if (syntheticContext.isSyntheticTestingEnabled && syntheticContext.currentUser) {
@@ -342,27 +346,24 @@ export default function WorkHistory() {
           console.warn(`[WorkHistory] Looking for source IDs:`, profileSourceIds);
           console.warn(`[WorkHistory] All work_items sample:`, allWorkItems?.map(wi => ({ id: wi.id, title: wi.title, source_id: wi.source_id })));
           
-          // Try showing ALL work_items if none match the profile sources (fallback)
-          if (allWorkItems && allWorkItems.length > 0 && withoutSourceId === 0) {
-            console.log(`[WorkHistory] All work_items have source_id but none match profile - showing all as fallback`);
-            // Continue with unfiltered query
-          } else {
-            console.warn(`[WorkHistory] Using sample data as preview`);
-            setWorkHistory(sampleWorkHistory);
-            setIsLoading(false);
-            return;
-          }
+          // CRITICAL: Don't fallback to showing other profiles' data
+          // If this profile has no data, show empty state
+          console.warn(`[WorkHistory] Profile ${syntheticContext.currentUser?.profileId} has no data - showing empty state`);
+          setWorkHistory([]);
+          setIsLoading(false);
+          return;
         }
       }
       
-      const { data: companies, error: companiesError } = await companiesQuery
-        .order('created_at', { ascending: false });
+      // Sort companies by most recent work_item start_date (current to past)
+      // We'll sort after fetching work_items
+      const { data: companies, error: companiesError } = await companiesQuery;
 
       if (companiesError) throw companiesError;
 
       if (!companies || companies.length === 0) {
-        console.log('No companies found in database, using sample data as preview');
-        setWorkHistory(sampleWorkHistory);
+        console.log('No companies found in database - showing empty state');
+        setWorkHistory([]);
         setIsLoading(false);
         return;
       }
@@ -377,8 +378,9 @@ export default function WorkHistory() {
         workItemsQuery = workItemsQuery.in('source_id', profileSourceIds);
       }
       
-      const { data: workItems, error: workItemsError } = await workItemsQuery
-        .order('start_date', { ascending: false });
+      // Sort work items: current first (end_date null), then by start_date descending
+      // This ensures current positions appear first, then most recent to oldest
+      const { data: workItems, error: workItemsError } = await workItemsQuery;
 
       if (workItemsError) throw workItemsError;
 
@@ -419,36 +421,125 @@ export default function WorkHistory() {
 
       if (linksError) throw linksError;
 
+      // Phase 3: Fetch gaps for work items and stories
+      const { GapDetectionService } = await import('../services/gapDetectionService');
+      const userGaps = user.id ? await GapDetectionService.getUserGaps(user.id) : [];
+      
+      // Create maps for efficient lookup
+      const workItemGapMap = new Map<string, number>(); // work_item_id -> gap count
+      const workItemGapsMap = new Map<string, Array<{ id: string; description: string }>>(); // work_item_id -> gap objects
+      const storyGapMap = new Map<string, number>(); // approved_content_id -> gap count
+      const storyGapsMap = new Map<string, Array<{ id: string; description: string }>>(); // approved_content_id -> gap objects
+      
+      userGaps.forEach(gap => {
+        if (gap.entity_type === 'work_item') {
+          const current = workItemGapMap.get(gap.entity_id) || 0;
+          workItemGapMap.set(gap.entity_id, current + 1);
+          
+          // Store actual gap objects with gap_category for filtering
+          const existingGaps = workItemGapsMap.get(gap.entity_id) || [];
+          workItemGapsMap.set(gap.entity_id, [
+            ...existingGaps,
+            {
+              id: gap.id || '',
+              description: gap.description || gap.gap_category || 'Content needs improvement',
+              gap_category: gap.gap_category || '' // Include category for filtering
+            }
+          ]);
+        } else if (gap.entity_type === 'approved_content') {
+          const current = storyGapMap.get(gap.entity_id) || 0;
+          storyGapMap.set(gap.entity_id, current + 1);
+          
+          // Store actual gap objects
+          const existingGaps = storyGapsMap.get(gap.entity_id) || [];
+          storyGapsMap.set(gap.entity_id, [
+            ...existingGaps,
+            {
+              id: gap.id || '',
+              description: gap.description || gap.gap_category || 'Content needs improvement'
+            }
+          ]);
+        }
+      });
+      
+      console.log('[WorkHistory] Loaded gaps:', {
+        total: userGaps.length,
+        workItemGaps: Array.from(workItemGapMap.entries()).length,
+        storyGaps: Array.from(storyGapMap.entries()).length
+      });
+
+      // Sort work items: current first (end_date null), then by start_date descending (current to past)
+      const sortedWorkItems = (workItems || []).sort((a: any, b: any) => {
+        // Current positions (end_date null) come first
+        if (!a.end_date && b.end_date) return -1;
+        if (a.end_date && !b.end_date) return 1;
+        // Then sort by start_date descending (most recent first)
+        return new Date(b.start_date).getTime() - new Date(a.start_date).getTime();
+      });
+
+      // Sort companies by most recent work_item start_date (current to past)
+      const sortedCompanies = (companies || []).sort((a: any, b: any) => {
+        const aWorkItems = sortedWorkItems.filter((wi: any) => wi.company_id === a.id);
+        const bWorkItems = sortedWorkItems.filter((wi: any) => wi.company_id === b.id);
+        
+        if (aWorkItems.length === 0 && bWorkItems.length === 0) return 0;
+        if (aWorkItems.length === 0) return 1;
+        if (bWorkItems.length === 0) return -1;
+        
+        // Compare by most recent work item's start_date
+        const aMostRecent = aWorkItems[0]; // Already sorted
+        const bMostRecent = bWorkItems[0];
+        
+        // Current positions first
+        if (!aMostRecent.end_date && bMostRecent.end_date) return -1;
+        if (aMostRecent.end_date && !bMostRecent.end_date) return 1;
+        
+        // Then by start_date descending
+        return new Date(bMostRecent.start_date).getTime() - new Date(aMostRecent.start_date).getTime();
+      });
+
       // Transform database data to WorkHistoryCompany format
-      const transformedData: WorkHistoryCompany[] = companies.map((company: any) => {
-        // Get work items for this company
-        const companyWorkItems = workItems?.filter((item: any) => item.company_id === company.id) || [];
+      const transformedData: WorkHistoryCompany[] = sortedCompanies.map((company: any) => {
+        // Get work items for this company (already sorted)
+        const companyWorkItems = sortedWorkItems.filter((item: any) => item.company_id === company.id);
+
+        // Sort roles within company: current first, then by start_date descending
+        const sortedCompanyRoles = [...companyWorkItems].sort((a: any, b: any) => {
+          if (!a.end_date && b.end_date) return -1;
+          if (a.end_date && !b.end_date) return 1;
+          return new Date(b.start_date).getTime() - new Date(a.start_date).getTime();
+        });
 
         // Transform work items to roles
-        const roles: WorkHistoryRole[] = companyWorkItems.map((item: any) => {
+        const roles: WorkHistoryRole[] = sortedCompanyRoles.map((item: any) => {
           // Get blurbs for this work item
           const itemBlurbs = blurbs?.filter((blurb: any) => blurb.work_item_id === item.id) || [];
           
           // Transform blurbs
-          const transformedBlurbs: WorkHistoryBlurb[] = itemBlurbs.map((blurb: any) => ({
-            id: blurb.id,
-            roleId: blurb.work_item_id,
-            title: blurb.title,
-            content: blurb.content,
-            outcomeMetrics: [], // Can be extracted from content if needed
-            tags: blurb.tags || [],
-            source: 'manual' as const, // Changed from 'database' to valid type
-            status: blurb.status as 'draft' | 'approved' | 'needs-review',
-            confidence: blurb.confidence as 'low' | 'medium' | 'high',
-            timesUsed: blurb.times_used || 0,
-            lastUsed: blurb.last_used || undefined,
-            linkedExternalLinks: [], // Can be populated if needed
-            hasGaps: false, // Can be calculated if needed
-            gapCount: 0,
-            variations: [],
-            createdAt: blurb.created_at,
-            updatedAt: blurb.updated_at
-          }));
+          const transformedBlurbs: WorkHistoryBlurb[] = itemBlurbs.map((blurb: any) => {
+            const storyGapCount = storyGapMap.get(blurb.id) || 0;
+            const storyGaps = storyGapsMap.get(blurb.id) || [];
+            return {
+              id: blurb.id,
+              roleId: blurb.work_item_id,
+              title: blurb.title,
+              content: blurb.content,
+              outcomeMetrics: [], // Can be extracted from content if needed
+              tags: blurb.tags || [],
+              source: 'manual' as const, // Changed from 'database' to valid type
+              status: blurb.status as 'draft' | 'approved' | 'needs-review',
+              confidence: blurb.confidence as 'low' | 'medium' | 'high',
+              timesUsed: blurb.times_used || 0,
+              lastUsed: blurb.last_used || undefined,
+              linkedExternalLinks: [], // Can be populated if needed
+              hasGaps: storyGapCount > 0,
+              gapCount: storyGapCount,
+              gaps: storyGaps, // Store actual gap objects
+              variations: [],
+              createdAt: blurb.created_at,
+              updatedAt: blurb.updated_at
+            };
+          });
 
           // Get external links for this work item
           const itemLinks = links?.filter((link: any) => link.work_item_id === item.id) || [];
@@ -466,6 +557,17 @@ export default function WorkHistory() {
             createdAt: link.created_at
           }));
 
+          // Calculate gap count for role: count content items with gaps, not total gaps
+          // 1 if role has any gaps, plus 1 for each story with gaps
+          const workItemGaps = workItemGapsMap.get(item.id) || [];
+          const hasRoleGaps = workItemGaps.length > 0;
+          
+          // Count stories with gaps (not total gap count per story)
+          const storiesWithGaps = transformedBlurbs.filter(blurb => (blurb.gapCount || 0) > 0).length;
+          
+          // Total = 1 if role has gaps, plus count of stories with gaps
+          const contentItemsWithGaps = (hasRoleGaps ? 1 : 0) + storiesWithGaps;
+
           return {
             id: item.id,
             companyId: company.id,
@@ -478,9 +580,10 @@ export default function WorkHistory() {
             tags: item.tags || [],
             outcomeMetrics: item.achievements || [],
             blurbs: transformedBlurbs,
+            gaps: workItemGaps, // Store actual gap objects for role
             externalLinks: transformedLinks,
-            hasGaps: false, // Can be calculated if needed
-            gapCount: 0,
+            hasGaps: contentItemsWithGaps > 0,
+            gapCount: contentItemsWithGaps,
             createdAt: item.created_at,
             updatedAt: item.updated_at
           };
@@ -507,23 +610,40 @@ export default function WorkHistory() {
     } finally {
       setIsLoading(false);
     }
-  }, [user, isTourActive, prototypeState]);
+  }, [user, isTourActive]);
 
   // Fetch data on mount and when user changes
   useEffect(() => {
     fetchWorkHistory();
   }, [fetchWorkHistory]);
   
-  // Auto-select first company on page load (no role selected initially)
-  const firstCompany = workHistory.length > 0 ? workHistory[0] : null;
-  const firstRole = firstCompany?.roles[0] || null;
+  // Auto-select most recent role on page load (no unselected state)
+  // Find the most recent role across all companies (current roles first, then by start_date descending)
+  const findMostRecentRole = (companies: WorkHistoryCompany[]): { company: WorkHistoryCompany; role: WorkHistoryRole } | null => {
+    let mostRecent: { company: WorkHistoryCompany; role: WorkHistoryRole; date: Date } | null = null;
+    
+    companies.forEach(company => {
+      company.roles.forEach(role => {
+        const roleDate = role.endDate ? new Date(role.endDate) : new Date('9999-12-31'); // Current roles get future date
+        if (!mostRecent || roleDate > mostRecent.date || (!role.endDate && mostRecent.role.endDate)) {
+          mostRecent = { company, role, date: roleDate };
+        }
+      });
+    });
+    
+    return mostRecent ? { company: mostRecent.company, role: mostRecent.role } : null;
+  };
   
-  const [selectedCompany, setSelectedCompany] = useState<WorkHistoryCompany | null>(firstCompany);
-  const [selectedRole, setSelectedRole] = useState<WorkHistoryRole | null>(firstRole);
+  const mostRecent = workHistory.length > 0 ? findMostRecentRole(workHistory) : null;
+  const initialCompany = mostRecent?.company || (workHistory.length > 0 ? workHistory[0] : null);
+  const initialRole = mostRecent?.role || initialCompany?.roles[0] || null;
+  
+  const [selectedCompany, setSelectedCompany] = useState<WorkHistoryCompany | null>(initialCompany);
+  const [selectedRole, setSelectedRole] = useState<WorkHistoryRole | null>(initialRole);
   const [selectedDataSource, setSelectedDataSource] = useState<'work-history' | 'linkedin' | 'resume'>('work-history');
   
   // Track which company should be expanded in the accordion
-  const [expandedCompanyId, setExpandedCompanyId] = useState<string | null>(firstCompany?.id || null);
+  const [expandedCompanyId, setExpandedCompanyId] = useState<string | null>(initialCompany?.id || null);
 
   // Modal state
   const [isAddCompanyModalOpen, setIsAddCompanyModalOpen] = useState(false);
@@ -535,13 +655,16 @@ export default function WorkHistory() {
   const [editingLink, setEditingLink] = useState<any>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  // Update selected items when work history data changes
+  // Update selected items when work history data changes - always select most recent role
   useEffect(() => {
-    const newFirstCompany = workHistory.length > 0 ? workHistory[0] : null;
-    
-    setSelectedCompany(newFirstCompany);
-    setSelectedRole(null); // Only company selected initially
-    setExpandedCompanyId(newFirstCompany?.id || null);
+    if (workHistory.length > 0) {
+      const mostRecent = findMostRecentRole(workHistory);
+      if (mostRecent) {
+        setSelectedCompany(mostRecent.company);
+        setSelectedRole(mostRecent.role);
+        setExpandedCompanyId(mostRecent.company.id);
+      }
+    }
   }, [workHistory]);
 
   // Handle URL parameters for initial navigation
@@ -730,24 +853,12 @@ export default function WorkHistory() {
     );
   }
 
-  // Check if we're showing sample data (no real data in DB)
-  const isShowingSampleData = workHistory === sampleWorkHistory && !isTourActive;
-
   return (
     <div className="min-h-screen bg-background">
       <main className={`container mx-auto px-4 pb-8 ${isTourActive ? 'pt-24' : ''}`}>
         <div>
           <p className="text-muted-foreground description-spacing">Summarize impact with metrics, stories and links</p>
         </div>
-
-        {/* Preview Mode Banner */}
-        {isShowingSampleData && (
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800">
-              <strong>Preview Mode:</strong> You're seeing sample data. Complete the onboarding and approve content to see your own work history here.
-            </p>
-          </div>
-        )}
 
         {hasWorkHistory ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-280px)]">
@@ -802,14 +913,21 @@ export default function WorkHistory() {
                 onEditLink={handleEditLink}
                 onEditCompany={handleEditCompany}
                 selectedDataSource={selectedDataSource}
+                onRefresh={fetchWorkHistory}
               />
             </div>
           </div>
         ) : (
-          <WorkHistoryOnboarding
-            onConnectLinkedIn={handleConnectLinkedIn}
-            onUploadResume={handleUploadResume}
-          />
+          <div>
+            {!isTourActive ? (
+              <WorkHistoryEmptyState />
+            ) : (
+              <WorkHistoryOnboarding
+                onConnectLinkedIn={handleConnectLinkedIn}
+                onUploadResume={handleUploadResume}
+              />
+            )}
+          </div>
         )}
 
         {/* Mobile FAB */}

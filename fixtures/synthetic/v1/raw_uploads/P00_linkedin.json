@@ -1,0 +1,122 @@
+{
+  "basic_info": {
+    "fullname": "P0 QA Profile",
+    "first_name": "P0",
+    "last_name": "QA Profile",
+    "headline": "Product Manager — Gap Detection QA | Testing All Gap Types",
+    "profile_url": "https://linkedin.com/in/p00",
+    "profile_picture_url": null,
+    "about": "Product Manager designed for gap detection QA. This profile intentionally includes all gap types for comprehensive testing.",
+    "location": {
+      "country": "US",
+      "city": "San Francisco Bay Area",
+      "full": "San Francisco Bay Area, CA, US",
+      "country_code": "US"
+    },
+    "creator_hashtags": [],
+    "is_creator": false,
+    "is_influencer": false,
+    "is_premium": false,
+    "created_timestamp": 1712025618964.8066,
+    "show_follower_count": false,
+    "background_picture_url": null,
+    "urn": "ACoP00gapdetectiontest",
+    "follower_count": 100,
+    "connection_count": 50,
+    "current_company": "GapTest Corp",
+    "current_company_urn": null,
+    "current_company_url": null,
+    "email": "p0@example.com"
+  },
+  "experience": [
+    {
+      "title": "Product Manager",
+      "company": "GapTest Corp",
+      "description": "No description provided - this role intentionally has missing description\n\nManaged backlog items\n\nWorked on product features",
+      "location": "San Francisco, CA",
+      "duration": "2023-01 - Present",
+      "start_date": {
+        "year": 2023,
+        "month": "Jan"
+      },
+      "is_current": true,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Backlog Management"
+      ],
+      "company_id": null
+    },
+    {
+      "title": "Senior Product Manager",
+      "company": "NoMetrics Inc",
+      "description": "Responsible for working on things and contributing to various projects\n\nHelped with development of features\n\nAssisted in launching products",
+      "location": "Remote",
+      "duration": "2020-03 - 2022-12",
+      "start_date": {
+        "year": 2020,
+        "month": "Mar"
+      },
+      "end_date": {
+        "year": 2022,
+        "month": "Dec"
+      },
+      "is_current": false,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy"
+      ],
+      "company_id": null
+    },
+    {
+      "title": "Associate Product Manager",
+      "company": "GoodCo",
+      "description": "Launched new cloud storage product that attracted 50,000 sign-ups in first 6 months, by addressing user onboarding friction and implementing streamlined signup flows\n\nImproved demo-to-close rates by 18% with better product messaging, which resulted in increased sales velocity and revenue growth\n\nManaged a project that reduced operational costs by $200,000 annually by optimizing infrastructure and automating manual processes",
+      "location": "San Mateo, CA",
+      "duration": "2018-01 - 2020-02",
+      "start_date": {
+        "year": 2018,
+        "month": "Jan"
+      },
+      "end_date": {
+        "year": 2020,
+        "month": "Feb"
+      },
+      "is_current": false,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Analytics"
+      ],
+      "company_id": null
+    }
+  ],
+  "education": [
+    {
+      "school": "State University",
+      "degree": "B.S.",
+      "field_of_study": "Computer Science",
+      "start_date": {
+        "year": 2013,
+        "month": "Sep"
+      },
+      "end_date": {
+        "year": 2017,
+        "month": "Jun"
+      },
+      "location": "United States"
+    }
+  ],
+  "skills": [
+    "Product Strategy",
+    "Analytics",
+    "Backlog Management"
+  ],
+  "languages": [
+    "English"
+  ]
+}
+

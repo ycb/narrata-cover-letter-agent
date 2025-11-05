@@ -2,86 +2,20 @@ import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
-  Edit, 
-  Trash2, 
-  Copy,
-  ExternalLink,
-  Calendar,
-  Building2,
-  User,
-  MoreHorizontal,
-  LinkIcon,
-  Eye,
+  Edit,
   X,
   Loader2
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { ShowAllTemplate, FilterOption, SortOption } from "@/components/shared/ShowAllTemplate";
 import { AddLinkModal } from "@/components/work-history/AddLinkModal";
 import { LinkCard } from "@/components/work-history/LinkCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
+import { LinksEmptyState } from "@/components/work-history/EmptyStates";
 
-// Mock data for all external links
-const mockAllLinks = [
-  {
-    id: "link-1",
-    title: "Product Launch Case Study",
-    url: "https://example.com/case-study",
-    company: "TechCorp Inc.",
-    role: "Senior Product Manager",
-    type: "case-study",
-    date: "2024-01-15",
-    description: "Detailed analysis of successful product launch"
-  },
-  {
-    id: "link-2",
-    title: "User Research Report",
-    url: "https://example.com/research",
-    company: "StartupXYZ",
-    role: "Product Manager",
-    type: "research",
-    date: "2024-01-10",
-    description: "Comprehensive user research findings"
-  },
-  {
-    id: "link-3",
-    title: "Portfolio Website",
-    url: "https://example.com/portfolio",
-    company: "Enterprise Corp",
-    role: "Senior Product Manager",
-    type: "portfolio",
-    date: "2024-01-05",
-    description: "Personal portfolio showcasing work"
-  },
-  {
-    id: "link-4",
-    title: "Technical Documentation",
-    url: "https://example.com/docs",
-    company: "ScaleUp Inc.",
-    role: "Product Manager",
-    type: "documentation",
-    date: "2023-12-20",
-    description: "Technical specifications and API docs"
-  },
-  {
-    id: "link-5",
-    title: "Conference Presentation",
-    url: "https://example.com/presentation",
-    company: "Innovation Labs",
-    role: "Product Manager",
-    type: "presentation",
-    date: "2023-12-15",
-    description: "Slides from industry conference talk"
-  }
-];
+// REMOVED: Mock data - now using empty states instead
+// Mock data has been moved to usability-test branch for future reference
 
 export default function ShowAllLinks() {
   const { user } = useAuth();
@@ -296,22 +230,25 @@ export default function ShowAllLinks() {
           {getSortIcon('date')}
         </div>
       </th>
-      <th className="text-left p-4 font-medium text-muted-foreground">Actions</th>
     </tr>
   );
 
   const renderRow = (link: any, index: number) => (
-    <tr key={link.id} className="border-b hover:bg-muted/50 transition-colors">
+    <tr 
+      key={link.id} 
+      className="border-b hover:bg-primary/10 transition-colors cursor-pointer"
+      onClick={() => handleView(link)}
+    >
       <td className="p-4">
         <div className="max-w-xs">
           <h4 className="font-medium text-foreground line-clamp-2">{link.title}</h4>
-          <div className="flex items-center gap-2 mt-1">
-            <LinkIcon className="h-3 w-3 text-muted-foreground" />
+          <div className="mt-1">
             <a 
               href={link.url} 
               target="_blank" 
               rel="noopener noreferrer"
               className="text-sm text-primary hover:underline truncate"
+              onClick={(e) => e.stopPropagation()}
             >
               {link.url}
             </a>
@@ -319,14 +256,12 @@ export default function ShowAllLinks() {
         </div>
       </td>
       <td className="p-4">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Building2 className="h-3 w-3" />
+        <div className="text-sm text-muted-foreground">
           {link.company}
         </div>
       </td>
       <td className="p-4">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <User className="h-3 w-3" />
+        <div className="text-sm text-muted-foreground">
           {link.role}
         </div>
       </td>
@@ -341,53 +276,21 @@ export default function ShowAllLinks() {
         </div>
       </td>
       <td className="p-4">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Calendar className="h-3 w-3" />
+        <div className="text-sm text-muted-foreground">
           {new Date(link.date).toLocaleDateString()}
-        </div>
-      </td>
-      <td className="p-4">
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => handleView(link)}
-            className="hover:text-[#E32D9A] hover:border-[#E32D9A]"
-          >
-            <Eye className="h-4 w-4 mr-1" />
-            View
-          </Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleEdit(link)}>
-                <Edit className="mr-2 h-4 w-4" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleCopy(link)}>
-                <Copy className="mr-2 h-4 w-4" />
-                Copy
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                onClick={() => handleDelete(link)}
-                className="text-destructive"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
       </td>
     </tr>
   );
+
+  // Show empty state if no links at all (not just filtered)
+  if (!isLoading && !error && links.length === 0) {
+    return (
+      <div className="min-h-screen bg-background">
+        <LinksEmptyState onAddLink={() => setIsAddLinkModalOpen(true)} />
+      </div>
+    );
+  }
 
   return (
     <>

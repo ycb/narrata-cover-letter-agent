@@ -765,11 +765,18 @@ export class FileUploadService {
         if (existingCompany) {
           companyId = existingCompany.id;
           
-          // Update company tags if they exist
+          // Update company description and tags if they exist
+          const updates: any = {};
+          if (workItem.companyDescription) {
+            updates.description = workItem.companyDescription;
+          }
           if (workItem.companyTags && workItem.companyTags.length > 0) {
+            updates.tags = workItem.companyTags;
+          }
+          if (Object.keys(updates).length > 0) {
             await dbClient
               .from('companies')
-              .update({ tags: workItem.companyTags })
+              .update(updates)
               .eq('id', companyId);
           }
         } else {
@@ -777,7 +784,7 @@ export class FileUploadService {
             .from('companies')
             .insert({
               name: workItem.company,
-              description: workItem.description || '',
+              description: workItem.companyDescription || '',  // Use companyDescription, not role description
               tags: workItem.companyTags || [],
               user_id: userId
             })
@@ -794,31 +801,53 @@ export class FileUploadService {
 
         // Check for existing work_item (deduplication: same company + title + overlapping dates)
         const workItemEndDate = (workItem.endDate === 'Present' || workItem.endDate === 'Current' || workItem.current === true) ? null : workItem.endDate;
+        const workItemStartDate = new Date(workItem.startDate);
+        const workItemEndDateObj = workItemEndDate ? new Date(workItemEndDate) : null;
         
-        // Query for existing work items - match on company, title, and dates (handle null end_date)
-        let existingQuery = dbClient
+        // Query for existing work items - match on company and title, then check date overlap
+        // Use a broader query first, then filter for date overlap in code
+        const { data: candidateWorkItems } = await dbClient
           .from('work_items')
-          .select('id, source_id, description, metrics')
+          .select('id, source_id, description, metrics, start_date, end_date')
           .eq('user_id', userId)
           .eq('company_id', companyId)
-          .eq('title', workItemTitle.trim())
-          .eq('start_date', workItem.startDate);
+          .eq('title', workItemTitle.trim());
         
-        // Handle null end_date properly (both must be null for current positions)
-        if (workItemEndDate === null) {
-          existingQuery = existingQuery.is('end_date', null);
-        } else {
-          existingQuery = existingQuery.eq('end_date', workItemEndDate);
-        }
-        
-        const { data: existingWorkItems } = await existingQuery.limit(1);
+        // Filter for date overlap (more flexible than exact match)
+        const existingWorkItems = (candidateWorkItems || []).filter((existing: any) => {
+          const existingStartDate = new Date(existing.start_date);
+          const existingEndDate = existing.end_date ? new Date(existing.end_date) : null;
+          
+          // Check for date overlap: start dates within 90 days OR end dates within 90 days
+          // OR both are current positions (null end_date)
+          const startDateDiff = Math.abs(existingStartDate.getTime() - workItemStartDate.getTime());
+          const startDateDiffDays = startDateDiff / (1000 * 60 * 60 * 24);
+          
+          // If both are current positions (null end_date), they're the same role
+          if (!existingEndDate && !workItemEndDateObj) {
+            return startDateDiffDays < 90; // Start dates within 90 days
+          }
+          
+          // If one is current and one isn't, check if start dates are close
+          if (!existingEndDate || !workItemEndDateObj) {
+            return startDateDiffDays < 90;
+          }
+          
+          // Both have end dates - check if they overlap or are close
+          const endDateDiff = Math.abs(existingEndDate.getTime() - workItemEndDateObj.getTime());
+          const endDateDiffDays = endDateDiff / (1000 * 60 * 60 * 24);
+          
+          // Consider them duplicates if start dates are within 90 days AND end dates are within 90 days
+          return startDateDiffDays < 90 && endDateDiffDays < 90;
+        });
         
         let workItemId: string;
         let isExisting = false;
         
         if (existingWorkItems && existingWorkItems.length > 0) {
           // Work item already exists - check if it has stories
-          const existingWorkItem = existingWorkItems[0];
+          // Take the first one (they should all be duplicates)
+          const existingWorkItem = existingWorkItems[0] as any;
           workItemId = existingWorkItem.id;
           isExisting = true;
           
@@ -871,11 +900,59 @@ export class FileUploadService {
                 source_id: sourceId // Update to new source since it has stories
               })
               .eq('id', workItemId);
+
+            // Phase 3: Detect role-level gaps after update
+            try {
+              const { GapDetectionService } = await import('./gapDetectionService');
+              const roleGaps = await GapDetectionService.detectWorkItemGaps(
+                userId,
+                workItemId,
+                {
+                  title: workItemTitle,
+                  description: workItem.roleSummary || workItem.description || '',
+                  metrics: mergedMetrics,
+                  startDate: workItem.startDate,
+                  endDate: workItemEndDate
+                },
+                [] // Stories not yet inserted, will detect separately
+              );
+
+              if (roleGaps.length > 0) {
+                await GapDetectionService.saveGaps(roleGaps, accessToken);
+                console.log(`🔍 Detected ${roleGaps.length} role-level gap(s) for updated work_item: ${workItemId}`);
+              }
+            } catch (gapError) {
+              console.error('⚠️ Error detecting role-level gaps for updated work_item:', gapError);
+            }
           } else {
             // Both have stories or neither has stories - keep existing as-is
             console.log(`ℹ️ Keeping existing work_item ${workItemId} - existing has ${existingStoryCount} stories, new has ${newStoryCount} (preserving existing)`);
             // Don't insert stories below if existing already has them
             if (existingHasStories) {
+              // Still check for role-level metrics gaps even if we're keeping existing
+              try {
+                const { GapDetectionService } = await import('./gapDetectionService');
+                const existingMetrics = existingWorkItem.metrics || [];
+                const roleGaps = await GapDetectionService.detectWorkItemGaps(
+                  userId,
+                  workItemId,
+                  {
+                    title: workItemTitle,
+                    description: existingWorkItem.description || '',
+                    metrics: Array.isArray(existingMetrics) ? existingMetrics : [],
+                    startDate: existingWorkItem.start_date,
+                    endDate: existingWorkItem.end_date
+                  },
+                  [] // Stories already exist, will check separately
+                );
+
+                if (roleGaps.length > 0) {
+                  await GapDetectionService.saveGaps(roleGaps, accessToken);
+                  console.log(`🔍 Detected ${roleGaps.length} role-level gap(s) for existing work_item: ${workItemId}`);
+                }
+              } catch (gapError) {
+                console.error('⚠️ Error detecting role-level gaps for existing work_item:', gapError);
+              }
               continue;
             }
           }
@@ -913,6 +990,32 @@ export class FileUploadService {
           
           workItemId = newWorkItem.id;
           workItemsCreated++;
+
+          // Phase 3: Detect role-level gaps (metrics, description, etc.)
+          try {
+            const { GapDetectionService } = await import('./gapDetectionService');
+            const roleMetrics = Array.isArray(workItem.roleMetrics) ? workItem.roleMetrics : [];
+            const roleGaps = await GapDetectionService.detectWorkItemGaps(
+              userId,
+              workItemId,
+              {
+                title: workItemTitle,
+                description: workItem.roleSummary || workItem.description || '',
+                metrics: roleMetrics,
+                startDate: workItem.startDate,
+                endDate: workItemEndDate
+              },
+              [] // Stories not yet inserted, will detect separately
+            );
+
+            if (roleGaps.length > 0) {
+              await GapDetectionService.saveGaps(roleGaps, accessToken);
+              console.log(`🔍 Detected ${roleGaps.length} role-level gap(s) for work_item: ${workItemId}`);
+            }
+          } catch (gapError) {
+            // Don't fail the upload if gap detection fails
+            console.error('⚠️ Error detecting role-level gaps:', gapError);
+          }
         }
 
         // Validate that we have valid FK references before inserting stories
@@ -999,6 +1102,31 @@ export class FileUploadService {
             } else {
               console.log(`✅ Story created successfully: ${insertedStory?.id}`);
               storiesCreated++;
+
+              // Phase 3: Detect gaps for this story
+              if (insertedStory?.id) {
+                try {
+                  const { GapDetectionService } = await import('./gapDetectionService');
+                  const storyGaps = await GapDetectionService.detectStoryGaps(
+                    userId,
+                    {
+                      id: insertedStory.id,
+                      title: story.title || story.content?.substring(0, 100) || '',
+                      content: story.content || '',
+                      metrics: storyMetrics
+                    },
+                    workItemId
+                  );
+
+                  if (storyGaps.length > 0) {
+                    await GapDetectionService.saveGaps(storyGaps, accessToken);
+                    console.log(`🔍 Detected ${storyGaps.length} gap(s) for story: ${insertedStory.id}`);
+                  }
+                } catch (gapError) {
+                  // Don't fail the upload if gap detection fails
+                  console.error('⚠️ Error detecting gaps for story:', gapError);
+                }
+              }
             }
           }
         }
@@ -1153,6 +1281,31 @@ export class FileUploadService {
             } else {
               console.log(`✅ Story created and matched to work_item: ${workItemMatch.companyName} - ${workItemMatch.roleTitle}`);
               storiesMatched++;
+
+              // Phase 3: Detect gaps for this cover letter story
+              if (insertedStory?.id) {
+                try {
+                  const { GapDetectionService } = await import('./gapDetectionService');
+                  const storyGaps = await GapDetectionService.detectStoryGaps(
+                    userId,
+                    {
+                      id: insertedStory.id,
+                      title: storyTitle,
+                      content: story.content || '',
+                      metrics: storyMetrics
+                    },
+                    workItemMatch.workItemId
+                  );
+
+                  if (storyGaps.length > 0) {
+                    await GapDetectionService.saveGaps(storyGaps, accessToken);
+                    console.log(`🔍 Detected ${storyGaps.length} gap(s) for cover letter story: ${insertedStory.id}`);
+                  }
+                } catch (gapError) {
+                  // Don't fail the upload if gap detection fails
+                  console.error('⚠️ Error detecting gaps for cover letter story:', gapError);
+                }
+              }
             }
           } else {
             // No work_item match - this is likely profile data (goals, values, skills), not a story

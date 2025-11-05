@@ -24,11 +24,11 @@ All colors MUST be HSL.
     --cta-primary-foreground: 210 40% 98%;
     --cta-primary-hover: 242 95% 70%;
     
-    --cta-secondary: transparent;
-    --cta-secondary-foreground: 215 85% 25%;
-    --cta-secondary-border: 215 85% 25%;
-    --cta-secondary-hover: 215 85% 25%;
-    --cta-secondary-hover-foreground: 210 40% 98%;
+    --cta-secondary: 0 0% 100%;
+    --cta-secondary-foreground: 242 95% 65%;
+    --cta-secondary-border: 242 95% 65%;
+    --cta-secondary-hover: 247 89% 65%;
+    --cta-secondary-hover-foreground: 0 0% 100%;
     
     --cta-tertiary: transparent;
     --cta-tertiary-foreground: 215 85% 25%;
@@ -121,8 +121,8 @@ All colors MUST be HSL.
     --cta-secondary: transparent;
     --cta-secondary-foreground: 217.2 91.2% 59.8%;
     --cta-secondary-border: 217.2 91.2% 59.8%;
-    --cta-secondary-hover: 217.2 91.2% 59.8%;
-    --cta-secondary-hover-foreground: 222.2 84% 4.9%;
+    --cta-secondary-hover: 247 89% 65%;
+    --cta-secondary-hover-foreground: 0 0% 100%;
     
     --cta-tertiary: transparent;
     --cta-tertiary-foreground: 217.2 91.2% 59.8%;

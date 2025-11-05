@@ -243,6 +243,30 @@ async function uploadProfile(
   const resumeText = fs.readFileSync(resumePath, 'utf-8');
   const coverLetterText = fs.readFileSync(coverLetterPath, 'utf-8');
   
+  // CRITICAL: Set active synthetic user to this profile BEFORE uploading
+  // This ensures LinkedIn data processing uses the correct profile
+  const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    }
+  });
+  
+  // Switch to the profile we're uploading
+  // The RPC function expects: p_parent_user_id and p_profile_id
+  const { error: switchError } = await supabaseAuth.rpc('switch_synthetic_user', {
+    p_parent_user_id: userId,
+    p_profile_id: profileId
+  });
+  
+  if (switchError) {
+    console.warn(`  ⚠️ Could not switch to synthetic user ${profileId}:`, switchError.message);
+    // Continue anyway - might work if user doesn't exist yet
+  } else {
+    console.log(`  ✅ Switched active synthetic user to ${profileId}`);
+  }
+  
   // Convert to File objects
   const resumeFile = textToFile(resumeText, `${profileId}_resume.txt`);
   const coverLetterFile = textToFile(coverLetterText, `${profileId}_cover_letter.txt`);

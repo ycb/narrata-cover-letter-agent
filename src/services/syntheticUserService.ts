@@ -191,21 +191,10 @@ export class SyntheticUserService {
         return { success: false, error: 'Synthetic testing not enabled for this user' };
       }
 
-      // Check if synthetic users already exist
-      const { data: existingUsers } = await (supabase
-        .from('synthetic_users') as any)
-        .select('profile_id')
-        .eq('parent_user_id', user.id)
-        .limit(1);
-
-      if (existingUsers && existingUsers.length > 0) {
-        console.log('[Synthetic] Synthetic users already exist');
-        return { success: true };
-      }
-
-      // Create P01-P10 synthetic users
-      const profiles = ['P01', 'P02', 'P03', 'P04', 'P05', 'P06', 'P07', 'P08', 'P09', 'P10'];
+      // Define all available synthetic profiles (including P00 for QA)
+      const profiles = ['P00', 'P01', 'P02', 'P03', 'P04', 'P05', 'P06', 'P07', 'P08', 'P09', 'P10'];
       const profileNames: Record<string, string> = {
+        'P00': 'P0 QA Profile',
         'P01': 'Avery Chen',
         'P02': 'Jordan Alvarez',
         'P03': 'Riley Gupta',
@@ -218,12 +207,29 @@ export class SyntheticUserService {
         'P10': 'Sophia Rivera'
       };
 
-      const syntheticUsers = profiles.map(profileId => ({
+      // Get existing synthetic users to avoid duplicates
+      const { data: existingUsers } = await (supabase
+        .from('synthetic_users') as any)
+        .select('profile_id')
+        .eq('parent_user_id', user.id);
+
+      const existingProfileIds = new Set((existingUsers || []).map((u: any) => u.profile_id));
+      
+      // Filter out profiles that already exist
+      const profilesToCreate = profiles.filter(profileId => !existingProfileIds.has(profileId));
+
+      if (profilesToCreate.length === 0) {
+        console.log('[Synthetic] All synthetic users already exist');
+        return { success: true };
+      }
+
+      // Create missing synthetic users (including P00 if needed)
+      const syntheticUsers = profilesToCreate.map(profileId => ({
         parent_user_id: user.id,
         profile_id: profileId,
         profile_name: profileNames[profileId] || profileId,
         email: `${profileId.toLowerCase()}@test.narrata.ai`,
-        is_active: profileId === 'P01', // Set P01 as active by default
+        is_active: profileId === 'P01', // Set P01 as active by default (not P00)
         profile_data: {}
       }));
 
@@ -236,7 +242,7 @@ export class SyntheticUserService {
         return { success: false, error: error.message };
       }
 
-      console.log('[Synthetic] Created synthetic users P01-P10');
+      console.log(`[Synthetic] Created ${profilesToCreate.length} synthetic user(s): ${profilesToCreate.join(', ')}`);
       return { success: true };
     } catch (error) {
       console.error('[Synthetic] Error ensuring synthetic users exist:', error);

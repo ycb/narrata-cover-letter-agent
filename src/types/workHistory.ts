@@ -7,6 +7,7 @@ export interface Story {
   metrics: string;
   date: string;
   tags: string[];
+  hasGaps?: boolean;
 }
 
 export interface WorkHistoryCompany {
@@ -32,6 +33,7 @@ export interface WorkHistoryRole {
   hasGaps?: boolean;
   gapCount?: number;
   gapSeverity?: 'high' | 'medium' | 'low';
+  gaps?: Array<{ id: string; description: string; gap_category?: string }>; // Actual gap objects for role (with category for filtering)
   description?: string;
   inferredLevel?: string;
   tags: string[];
@@ -70,6 +72,7 @@ export interface WorkHistoryBlurb {
   // Gap detection properties
   hasGaps?: boolean;
   gapCount?: number;
+  gaps?: Array<{ id: string; description: string }>; // Actual gap objects (supports single or list)
   variations?: BlurbVariation[]; // Optional variations for this blurb
   createdAt: string;
   updatedAt: string;

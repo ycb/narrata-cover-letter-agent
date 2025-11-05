@@ -5,12 +5,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AuthErrorBoundary } from "@/components/auth/AuthErrorBoundary";
-import { PrototypeProvider } from "@/contexts/PrototypeContext";
 import { TourProvider } from "@/contexts/TourContext";
 import { UserGoalsProvider } from "@/contexts/UserGoalsContext";
 import { UserVoiceProvider } from "@/contexts/UserVoiceContext";
 import { UploadProgressProvider } from "@/contexts/UploadProgressContext";
-// import { PrototypeStateBanner } from "@/components/work-history/PrototypeStateBanner"; // DISABLED FOR USABILITY TESTING
 import { Header } from "@/components/layout/Header";
 import { FeedbackSystem } from "@/components/feedback/FeedbackSystem";
 import { FeedbackAdmin } from "@/components/feedback/FeedbackAdmin";
@@ -240,19 +238,17 @@ const App = () => (
       <Sonner />
       <AuthErrorBoundary>
         <AuthProvider>
-          <PrototypeProvider>
-            <UploadProgressProvider>
-              <BrowserRouter>
-                <TourProvider>
-                  <UserGoalsProvider>
-                    <UserVoiceProvider>
-                      <AppLayout />
-                    </UserVoiceProvider>
-                  </UserGoalsProvider>
-                </TourProvider>
-              </BrowserRouter>
-            </UploadProgressProvider>
-          </PrototypeProvider>
+          <UploadProgressProvider>
+            <BrowserRouter>
+              <TourProvider>
+                <UserGoalsProvider>
+                  <UserVoiceProvider>
+                    <AppLayout />
+                  </UserVoiceProvider>
+                </UserGoalsProvider>
+              </TourProvider>
+            </BrowserRouter>
+          </UploadProgressProvider>
         </AuthProvider>
       </AuthErrorBoundary>
     </TooltipProvider>

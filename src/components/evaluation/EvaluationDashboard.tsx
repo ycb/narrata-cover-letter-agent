@@ -252,7 +252,7 @@ export const EvaluationDashboard: React.FC = () => {
     if ([...(skillsArray || []), ...(skillsMentioned || [])].length > 0) categories.push('skills');
     if (Object.keys(contactInfo || {}).length > 0) categories.push('contactInfo');
     if (selectedRun?.file_type === 'coverLetter' && Array.isArray(stories) && stories.length > 0) categories.push('stories');
-    if (hasMetrics) categories.push('quantMetrics');
+    // Removed quantMetrics category (Option B - hide role-level metrics from dedicated section)
     categories.push('companyNames', 'jobTitles');
     return categories;
   };
@@ -267,7 +267,7 @@ export const EvaluationDashboard: React.FC = () => {
     }
   };
 
-  // Helper to render work history entry in friendly format
+  // Helper to render work history entry in friendly format (full-width with 3x2 metadata grid)
   const renderWorkHistoryEntry = (entry: any, idx: number) => {
     const company = entry.company || entry.companyDisplay || 'Unknown Company';
     const position = entry.title || entry.titleDisplay || entry.titleCanonical || entry.role || entry.position || 'Unknown Position';
@@ -281,10 +281,26 @@ export const EvaluationDashboard: React.FC = () => {
     const roleMetrics = entry.roleMetrics || [];
     const roleSummary = entry.roleSummary || entry.description || entry.descriptionCombined;
 
+    // Format date range
+    const formatDateRange = () => {
+      if (!startDate) return 'Dates not specified';
+      const formatDate = (dateStr: string) => {
+        if (!dateStr) return '';
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      };
+      const start = formatDate(startDate);
+      const end = isCurrent ? 'Present' : (endDate ? formatDate(endDate) : '');
+      return `${start}${end ? ` - ${end}` : ''}`;
+    };
+
+    // Combine all skills/tags for display
+    const allSkills = [...companyTags, ...roleTags];
+
     const workPath = `workHistory[${idx}]`;
     const itemFlags = getFlagsForPath(workPath);
     return (
-      <div key={idx} className="bg-white p-4 rounded-lg border border-gray-200 space-y-3 relative">
+      <div key={idx} className="bg-white p-4 rounded-lg border border-gray-200 space-y-4 relative">
         <div className="absolute top-2 right-2">
           <FlagButton
             dataPath={workPath}
@@ -294,43 +310,64 @@ export const EvaluationDashboard: React.FC = () => {
             onClick={() => handleFlagClick('work_history', workPath, entry)}
           />
         </div>
-        <div className="pr-8">
-          <div className="flex items-start justify-between mb-1">
-            <div>
-              <div className="font-semibold text-base text-gray-900">{position}</div>
-              <div className="text-sm text-gray-700">{company}</div>
+        
+        {/* 3x2 Metadata Grid */}
+        <div className="grid grid-cols-3 gap-4 pr-8">
+          {/* Row 1 */}
+          <div>
+            <div className="text-xs font-medium text-gray-500 mb-1">Company Name</div>
+            <div className="text-sm font-medium text-gray-900">{company}</div>
+          </div>
+          <div>
+            <div className="text-xs font-medium text-gray-500 mb-1">Job Title</div>
+            <div className="text-sm font-medium text-gray-900">{position}</div>
+          </div>
+          <div>
+            <div className="text-xs font-medium text-gray-500 mb-1">Skills</div>
+            <div className="flex flex-wrap gap-1">
+              {allSkills.length > 0 ? (
+                allSkills.slice(0, 3).map((tag: string, tagIdx: number) => (
+                  <Badge key={tagIdx} variant="outline" className="text-xs">
+                    {tag}
+                  </Badge>
+                ))
+              ) : (
+                <span className="text-xs text-gray-400">None</span>
+              )}
+              {allSkills.length > 3 && (
+                <Badge variant="outline" className="text-xs">+{allSkills.length - 3}</Badge>
+              )}
             </div>
           </div>
-          {location && (
-            <div className="text-xs text-gray-500 mt-1">{location}</div>
-          )}
+          {/* Row 2 */}
+          <div>
+            <div className="text-xs font-medium text-gray-500 mb-1">Date Range</div>
+            <div className="text-sm text-gray-900">{formatDateRange()}</div>
+          </div>
+          <div>
+            <div className="text-xs font-medium text-gray-500 mb-1">Location</div>
+            <div className="text-sm text-gray-900">{location || 'Not specified'}</div>
+          </div>
+          <div>
+            <div className="text-xs font-medium text-gray-500 mb-1">Metrics</div>
+            <div className="text-sm text-gray-900">
+              {roleMetrics.length > 0 ? `${roleMetrics.length} metric${roleMetrics.length !== 1 ? 's' : ''}` : 'None'}
+            </div>
+          </div>
         </div>
 
+        {/* Role Summary */}
         {roleSummary && (
-          <div className="text-sm text-gray-700">
+          <div className="text-sm text-gray-700 border-t pt-3">
             <span className="font-medium">Summary: </span>
             {roleSummary}
           </div>
         )}
 
-        {(companyTags.length > 0 || roleTags.length > 0) && (
-          <div className="flex flex-wrap gap-2">
-            {companyTags.map((tag: string, tagIdx: number) => (
-              <Badge key={`company-${tagIdx}`} variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                {tag}
-              </Badge>
-            ))}
-            {roleTags.map((tag: string, tagIdx: number) => (
-              <Badge key={`role-${tagIdx}`} variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
-                {tag}
-              </Badge>
-            ))}
-          </div>
-        )}
-
+        {/* Role Metrics (inline display) */}
         {roleMetrics.length > 0 && (
-          <div className="space-y-1">
-            <div className="text-xs font-medium text-gray-600">Role Metrics:</div>
+          <div className="space-y-1 border-t pt-3">
+            <div className="text-xs font-medium text-gray-600 mb-2">Role Metrics:</div>
             <div className="flex flex-wrap gap-2">
               {roleMetrics.map((metric: any, metricIdx: number) => (
                 <div key={metricIdx} className="text-xs bg-green-50 text-green-800 px-2 py-1 rounded">
@@ -571,7 +608,8 @@ export const EvaluationDashboard: React.FC = () => {
     if (storyCompany || storyTitle) {
       const matchingRole = workHistory.find((role: any) => {
         const roleCompany = role.company || role.companyDisplay || role.companyCanonical;
-        const roleTitle = role.position || role.titleDisplay || role.titleCanonical || role.role;
+        // Match the logic from renderWorkHistoryEntry - check title first (not position)
+        const roleTitle = role.title || role.titleDisplay || role.titleCanonical || role.role || role.position;
         
         const companyMatch = storyCompany && roleCompany && 
           roleCompany.toLowerCase().includes(storyCompany.toLowerCase()) ||
@@ -1090,38 +1128,39 @@ export const EvaluationDashboard: React.FC = () => {
                     );
                   })()}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Work Experience - Only show for resume/LinkedIn, not cover letters */}
-                  {selectedRun?.file_type !== 'coverLetter' && (() => {
-                    const workHistory = selectedSource?.structured_data?.workHistory || selectedSource?.structured_data?.work_history || [];
-                    const hasEntries = Array.isArray(workHistory) && workHistory.length > 0;
-                    const isExpanded = expandedCategories.has('workHistory');
-                    return (
-                      <div className={`bg-gray-50 rounded-lg ${hasEntries ? 'cursor-pointer hover:bg-gray-100' : ''}`}>
-                        <div 
-                          className={`flex items-center justify-between p-3 ${hasEntries ? '' : 'pointer-events-none'}`}
-                          onClick={() => hasEntries && toggleCategory('workHistory')}
-                        >
-                          <div className="flex items-center gap-2">
-                            {hasEntries && (isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />)}
-                            <span>Work Experience</span>
-                          </div>
-                          <Badge className={getEvaluationBadgeColor(hasEntries ? '✅' : '❌')}>
-                            {hasEntries ? `${workHistory.length} found` : 'None'}
-                    </Badge>
-                  </div>
-                        {/* removed sub-count line to keep consistent labeling */}
-                        {hasEntries && isExpanded && (
-                          <div className="px-3 pb-3 space-y-3 max-h-96 overflow-y-auto">
-                            {workHistory.map((entry: any, idx: number) => renderWorkHistoryEntry(entry, idx))}
-                          </div>
-                        )}
-                        {!hasEntries && (
-                          <div className="px-3 pb-3 text-xs text-gray-500">No work experience extracted</div>
-                        )}
+                
+                {/* Work Experience - Full-width (like cover letter stories) */}
+                {selectedRun?.file_type !== 'coverLetter' && (() => {
+                  const workHistory = selectedSource?.structured_data?.workHistory || selectedSource?.structured_data?.work_history || [];
+                  const hasEntries = Array.isArray(workHistory) && workHistory.length > 0;
+                  const isExpanded = expandedCategories.has('workHistory');
+                  return (
+                    <div className={`bg-gray-50 rounded-lg ${hasEntries ? 'cursor-pointer hover:bg-gray-100' : ''} md:col-span-3`}>
+                      <div 
+                        className={`flex items-center justify-between p-3 ${hasEntries ? '' : 'pointer-events-none'}`}
+                        onClick={() => hasEntries && toggleCategory('workHistory')}
+                      >
+                        <div className="flex items-center gap-2">
+                          {hasEntries && (isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />)}
+                          <span>Work Experience</span>
+                        </div>
+                        <Badge className={getEvaluationBadgeColor(hasEntries ? '✅' : '❌')}>
+                          {hasEntries ? `${workHistory.length} found` : 'None'}
+                        </Badge>
                       </div>
-                    );
-                  })()}
+                      {hasEntries && isExpanded && (
+                        <div className="px-3 pb-3 space-y-4 max-h-96 overflow-y-auto">
+                          {workHistory.map((entry: any, idx: number) => renderWorkHistoryEntry(entry, idx))}
+                        </div>
+                      )}
+                      {!hasEntries && (
+                        <div className="px-3 pb-3 text-xs text-gray-500">No work experience extracted</div>
+                      )}
+                    </div>
+                  );
+                })()}
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
                   {/* Education - Collapsible if has entries (hide for cover letters here; rendered at end for CL order) */}
                   {selectedRun?.file_type !== 'coverLetter' && (() => {
@@ -1549,181 +1588,6 @@ export const EvaluationDashboard: React.FC = () => {
                     );
                   })()}
 
-                  {/* Metrics - Collapsible if has entries (2nd for CL order) */}
-                  {(() => {
-                    const workHistory = selectedSource?.structured_data?.workHistory || selectedSource?.structured_data?.work_history || [];
-                    const allMetrics: Array<{ metric: any; parent: { type: 'role' | 'story'; company?: string; position?: string; storyTitle?: string }; path: string }> = [];
-                    
-                    // Collect role/story metrics from work history (exclude for cover letters)
-                    if (selectedRun?.file_type !== 'coverLetter') {
-                      workHistory.forEach((entry: any, entryIdx: number) => {
-                        const company = entry.company || entry.companyDisplay || entry.companyCanonical || 'Unknown Company';
-                        const position = entry.position || entry.titleDisplay || entry.titleCanonical || entry.role || 'Unknown Position';
-                        
-                        if (entry.roleMetrics && Array.isArray(entry.roleMetrics)) {
-                          entry.roleMetrics.forEach((metric: any, metricIdx: number) => {
-                            const parentType = metric.parentType || 'role';
-                            allMetrics.push({
-                              metric,
-                              parent: { type: parentType, company, position },
-                              path: `workHistory[${entryIdx}].roleMetrics[${metricIdx}]`
-                            });
-                          });
-                        }
-                        
-                        if (entry.stories && Array.isArray(entry.stories)) {
-                          entry.stories.forEach((story: any, storyIdx: number) => {
-                            if (story.metrics && Array.isArray(story.metrics)) {
-                              story.metrics.forEach((metric: any, metricIdx: number) => {
-                                const parentType = metric.parentType || 'story';
-                                allMetrics.push({
-                                  metric,
-                                  parent: { 
-                                    type: parentType, 
-                                    company, 
-                                    position,
-                                    storyTitle: story.title || story.id || 'Untitled Story'
-                                  },
-                                  path: `workHistory[${entryIdx}].stories[${storyIdx}].metrics[${metricIdx}]`
-                                });
-                              });
-                            }
-                          });
-                        }
-                      });
-                    }
-                    
-                    // Collect story-level metrics from cover letter stories
-                    const stories = selectedSource?.structured_data?.stories || [];
-                    stories.forEach((story: any, storyIdx: number) => {
-                      if (story.metrics && Array.isArray(story.metrics)) {
-                        const company = story.company || 'Unknown Company';
-                        const titleRole = story.titleRole || 'Unknown Role';
-                        story.metrics.forEach((metric: any, metricIdx: number) => {
-                          // Use parentType from metric if available, otherwise infer from location
-                          const parentType = metric.parentType || 'story';
-                          allMetrics.push({
-                            metric,
-                            parent: { 
-                              type: parentType, 
-                              company,
-                              position: titleRole,
-                              storyTitle: story.title || story.id || 'Untitled Story'
-                            },
-                            path: `stories[${storyIdx}].metrics[${metricIdx}]`
-                          });
-                        });
-                      }
-                    });
-                    
-                    const hasEntries = allMetrics.length > 0;
-                    const isExpanded = expandedCategories.has('quantMetrics');
-                    return (
-                      <div className={`bg-gray-50 rounded-lg ${hasEntries ? 'cursor-pointer hover:bg-gray-100' : ''}`}>
-                        <div 
-                          className={`flex items-center justify-between p-3 ${hasEntries ? '' : 'pointer-events-none'}`}
-                          onClick={() => hasEntries && toggleCategory('quantMetrics')}
-                        >
-                          <div className="flex items-center gap-2">
-                            {hasEntries && (isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />)}
-                            <span>Metrics</span>
-                  </div>
-                          <Badge className={getEvaluationBadgeColor(hasEntries ? '✅' : '❌')}>
-                            {hasEntries ? `${allMetrics.length} found` : 'None'}
-                          </Badge>
-                  </div>
-                        {hasEntries && isExpanded && (
-                          <div className="px-3 pb-3 space-y-3 max-h-96 overflow-y-auto">
-                            {allMetrics.map((item: any, idx: number) => {
-                              const { metric, parent, path } = item;
-                              
-                              // Format metric as readable string: "number unit label/scope"
-                              // Examples: "11% trial-to-paid conversion rates", "30 tests run per year"
-                              const formatMetric = (m: any): string => {
-                                let value = String(m.value || '').trim();
-                                const unit = String(m.unit || '').trim();
-                                const context = String(m.context || '').trim();
-                                const name = String(m.name || '').trim();
-                                const period = String(m.period || '').trim();
-                                
-                                // Determine label/scope - prefer context, then name, fallback to period
-                                const label = context || name || period || '';
-                                
-                                // Handle value formatting
-                                // If value already contains unit (like "+22%" or "30+"), use as-is
-                                // Otherwise, append unit if provided
-                                let formatted = value;
-                                
-                                // Check if value already has unit embedded (contains %, $, +, etc.)
-                                const hasEmbeddedUnit = /[%$+\-]/.test(value);
-                                
-                                if (!hasEmbeddedUnit && unit) {
-                                  // Add unit if not already present
-                                  // Handle spacing (e.g., "30" + "tests" = "30 tests")
-                                  if (unit.match(/^[a-zA-Z]/)) {
-                                    formatted += ` ${unit}`;
-                                  } else {
-                                    formatted += unit;
-                                  }
-                                }
-                                
-                                // Add label/scope if available
-                                if (label) {
-                                  formatted += ` ${label}`;
-                                }
-                                
-                                return formatted.trim();
-                              };
-                              
-                              const metricText = formatMetric(metric);
-                              
-                              return (
-                                <div key={idx} className="bg-white p-3 rounded border border-gray-200 relative">
-                                  <div className="absolute top-2 right-2">
-                                    <FlagButton
-                                      dataPath={path}
-                                      dataType="metric"
-                                      hasFlags={getFlagsForPath(path).length > 0}
-                                      flagCount={getFlagsForPath(path).length}
-                                      onClick={() => handleFlagClick('metric', path, metric)}
-                                      size="sm"
-                                    />
-                    </div>
-                                  <div className="mb-2 pb-2 border-b border-gray-100 pr-8">
-                                    <div className="flex items-center gap-2">
-                                      <Badge variant="outline" className={`text-xs ${parent.type === 'role' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-purple-50 text-purple-700 border-purple-200'}`}>
-                                        {parent.type === 'role' ? 'Role-Level' : 'Story-Level'}
-                                      </Badge>
-                                      <span className="text-xs font-medium text-gray-700">
-                                        {parent.company} {parent.position && `• ${parent.position}`}
-                                      </span>
-                  </div>
-                                    {parent.type === 'story' && parent.storyTitle && (
-                                      <div className="text-xs text-gray-600 mt-1">
-                                        Story: {parent.storyTitle}
-                  </div>
-                                    )}
-                  </div>
-                                  <div className="text-sm text-gray-900 font-medium pr-8">
-                                    {metricText}
-                </div>
-                                  {metric.type && (
-                                    <div className="mt-1">
-                                      <Badge variant="outline" className="text-xs text-gray-500">{metric.type}</Badge>
-              </div>
-                                  )}
-              </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                        {!hasEntries && (
-                          <div className="px-3 pb-3 text-xs text-gray-500">No quantifiable metrics extracted</div>
-                        )}
-                      </div>
-                    );
-                  })()}
-
                   {/* Location - Show for all file types (4th for CL order) */}
                   {(() => {
                     const sd = selectedSource?.structured_data || {};
@@ -1858,7 +1722,7 @@ export const EvaluationDashboard: React.FC = () => {
                     
                     // Extract job titles from work history entries (resume/LinkedIn format)
                     const titlesFromWorkHistory = workHistory
-                      .map((entry: any) => entry.position || entry.titleDisplay || entry.titleCanonical || entry.role || entry.title)
+                      .map((entry: any) => entry.title || entry.titleDisplay || entry.titleCanonical || entry.role || entry.position)
                       .filter(Boolean);
                     
                     // Extract job titles from cover letter stories
