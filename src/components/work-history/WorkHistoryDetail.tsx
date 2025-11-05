@@ -241,22 +241,22 @@ export const WorkHistoryDetail = ({
     }
     
     // Mark this gap as resolved AND track that content was generated (not just dismissed)
-    const gapKey = selectedGap.storyId 
-      ? `story-content-gap-${selectedGap.storyId}`
-      : selectedGap.id;
-    const generatedKey = selectedGap.storyId
-      ? `story-content-generated-${selectedGap.storyId}`
-      : `${selectedGap.id}-generated`;
-    
+      const gapKey = selectedGap.storyId 
+        ? `story-content-gap-${selectedGap.storyId}`
+        : selectedGap.id;
+      const generatedKey = selectedGap.storyId
+        ? `story-content-generated-${selectedGap.storyId}`
+        : `${selectedGap.id}-generated`;
+      
     // Update local state (for immediate UI feedback)
-    onResolvedGapsChange(new Set([...resolvedGaps, gapKey, generatedKey]));
+      onResolvedGapsChange(new Set([...resolvedGaps, gapKey, generatedKey]));
     
     // TODO: Implement content application logic (save content to database)
-    
-    // Auto-dismiss success card after 3 seconds
-    setTimeout(() => {
-      setDismissedSuccessCards(prev => new Set([...prev, generatedKey]));
-    }, 3000);
+      
+      // Auto-dismiss success card after 3 seconds
+      setTimeout(() => {
+        setDismissedSuccessCards(prev => new Set([...prev, generatedKey]));
+      }, 3000);
     
     // Show temporary success state
     setTimeout(() => {

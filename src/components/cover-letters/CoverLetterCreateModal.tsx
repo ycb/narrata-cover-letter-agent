@@ -593,8 +593,8 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
                     const sectionGaps = gaps.filter(gap => gap.paragraphId === section.type);
                     const hasGaps = sectionGaps.length > 0;
                     const sectionTitle = section.type === 'intro' ? 'Introduction' : 
-                                        section.type === 'experience' ? 'Experience' : 
-                                        section.type === 'closing' ? 'Closing' : 
+                           section.type === 'experience' ? 'Experience' : 
+                           section.type === 'closing' ? 'Closing' : 
                                         section.type === 'signature' ? 'Signature' : section.type;
                     const mockJDTags = getRequirementsForParagraph(section.type);
                     
@@ -630,8 +630,8 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
                       >
                         {/* Inline editable Textarea - renders before tags */}
                         <div className="mb-6">
-                          <Textarea
-                            value={section.content}
+                        <Textarea
+                          value={section.content}
                             ref={(textarea) => {
                               if (textarea) {
                                 // Set initial height based on content

@@ -221,8 +221,8 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter }: CoverLett
                   >
                     {/* Inline editable Textarea - renders before tags */}
                     <div className="mb-6">
-                      <Textarea
-                        value={section.content}
+                    <Textarea
+                      value={section.content}
                         ref={(textarea) => {
                           if (textarea) {
                             // Set initial height based on content

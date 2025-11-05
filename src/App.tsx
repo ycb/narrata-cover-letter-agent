@@ -45,6 +45,7 @@ import ShowAllLinks from "./pages/ShowAllLinks";
 import SavedSections from "./pages/SavedSections";
 import NewUserOnboarding from "./pages/NewUserOnboarding";
 import { EvaluationDashboard } from "./components/evaluation/EvaluationDashboard";
+import TabsDemo from "./pages/TabsDemo";
 
 import SignUp from "./pages/SignUp";
 import SignIn from "./pages/SignIn";
@@ -163,6 +164,12 @@ function AppLayout() {
           <ProtectedRoute>
             <Header />
             <TooltipDemo />
+          </ProtectedRoute>
+        } />
+        <Route path="/tabs-demo" element={
+          <ProtectedRoute>
+            <Header />
+            <TabsDemo />
           </ProtectedRoute>
         } />
         <Route path="/show-all-stories" element={

@@ -346,7 +346,7 @@ export default function NewUserOnboarding() {
             <Sparkles className="w-10 h-10 text-white" />
           </div>
           <h1 className="text-4xl font-bold text-foreground">
-            Welcome to TruthLetter!
+            Welcome to Narrata!
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Let's unlock your job search superpowers.

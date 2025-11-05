@@ -35,6 +35,7 @@ import { SyntheticUserSelector } from "@/components/synthetic/SyntheticUserSelec
 import { useUserGoals } from "@/contexts/UserGoalsContext";
 import { useUserVoice } from "@/contexts/UserVoiceContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useGapSummary } from "@/hooks/useGapSummary";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,6 +54,7 @@ interface HeaderProps {
 export const Header = ({ currentPage }: HeaderProps) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const gapSummary = useGapSummary();
   const { user, profile, signOut, getOAuthData } = useAuth();
   const [showDataModal, setShowDataModal] = useState(false);
   const [showGoalsModal, setShowGoalsModal] = useState(false);
@@ -390,7 +392,8 @@ export const Header = ({ currentPage }: HeaderProps) => {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="text-white opacity-90 hover:opacity-100 transition-opacity p-2 h-auto">
                 <div className="flex items-center gap-2">
-                  {/* User Avatar */}
+                  {/* User Avatar with Gap Badge */}
+                  <div className="relative">
                   {(() => {
                     const oauthData = getOAuthData();
                     const avatarUrl = oauthData.picture || profile?.avatar_url;
@@ -425,6 +428,14 @@ export const Header = ({ currentPage }: HeaderProps) => {
                       );
                     }
                   })()}
+                    
+                    {/* Gap Count Badge */}
+                    {gapSummary.data && gapSummary.data.total > 0 && (
+                      <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-warning text-warning-foreground text-xs font-semibold flex items-center justify-center px-1 border-2 border-[#121212]">
+                        {gapSummary.data.total > 9 ? '9+' : gapSummary.data.total}
+                      </div>
+                    )}
+                  </div>
                   
                   {/* User Name */}
                   <div className="flex flex-col items-start">
@@ -461,6 +472,17 @@ export const Header = ({ currentPage }: HeaderProps) => {
               <DropdownMenuItem onClick={() => setShowVoiceModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end">
                 <span>My Voice</span>
               </DropdownMenuItem>
+              {gapSummary.data && gapSummary.data.total > 0 && (
+                <DropdownMenuItem 
+                  onClick={() => navigate('/dashboard')} 
+                  className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end items-center gap-2"
+                >
+                  <span>Review Gaps</span>
+                  <Badge variant="destructive" className="bg-warning text-warning-foreground">
+                    {gapSummary.data.total > 9 ? '9+' : gapSummary.data.total}
+                  </Badge>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <div className="px-3 py-2">
                 <SyntheticUserSelector className="w-full" />

@@ -228,10 +228,103 @@ severity = genericGap.confidence > 0.8 ? 'high' : 'medium'
 **Response Format:** `JSON object`  
 **API Endpoint:** `https://api.openai.com/v1/chat/completions`
 
+---
+
+### 6. **Cover Letter Section Gaps** (`saved_section` entity)
+**Gap Categories:**
+- `generic_cover_letter_section` - Medium/High severity (LLM-as-judge)
+- `incomplete_intro` - Medium severity
+- `incomplete_cover_letter_section` - High severity
+- `missing_metrics_cover_letter` - Medium severity
+- `incomplete_signature` - Low severity
+
+**Detection Logic:**
+
+#### Generic Content Check (LLM-as-judge)
+**Same Prompt as Stories/Role Descriptions:**
+```
+Analyze this professional story/description and determine if it's too generic or lacks specific details.
+
+Story:
+"{content}"
+
+Evaluate if this content:
+1. Contains specific details (technologies, processes, methodologies, numbers)
+2. Uses measurable outcomes (metrics, percentages, dollar amounts, timeframes)
+3. Avoids vague language like "worked on", "contributed to", "helped with" without specifics
+4. Demonstrates clear impact and outcomes
+
+Respond in JSON format:
+{
+  "isGeneric": boolean,
+  "reasoning": "brief explanation",
+  "confidence": number (0-1)
+}
+```
+
+#### Intro Section Check (Rule-Based)
+```typescript
+// Intro should mention company and role
+hasCompanyMention = /\[Company\]|company|organization|your team/i.test(content)
+hasRoleMention = /\[Position\]|role|position|opportunity/i.test(content)
+
+if (!hasCompanyMention || !hasRoleMention) {
+  gap_category: 'incomplete_intro'
+  severity: 'medium'
+  description: 'Introduction should mention the company and role specifically'
+}
+```
+
+#### Body/Closing Section Check (Rule-Based)
+```typescript
+// Check for STAR format (reuse story completeness check)
+completenessGap = checkStoryCompleteness(section)
+
+if (missing narrative structure) {
+  gap_category: 'incomplete_cover_letter_section'
+  severity: 'high'
+  description: 'Section should use STAR format to demonstrate impact'
+}
+
+// Check for metrics
+hasMetrics = /\d+%|\d+\$|\d+\s*(users|customers|revenue|growth)/i.test(content)
+
+if (!hasMetrics) {
+  gap_category: 'missing_metrics_cover_letter'
+  severity: 'medium'
+  description: 'Section would benefit from quantifiable achievements'
+}
+```
+
+#### Signature Section Check (Rule-Based)
+```typescript
+hasContactInfo = /\[Your Name\]|\[Your Email\]|email|phone|contact/i.test(content)
+
+if (!hasContactInfo) {
+  gap_category: 'incomplete_signature'
+  severity: 'low'
+  description: 'Signature should include contact information'
+}
+```
+
+---
+
+## Summary
+
+| Gap Type | Entity | Categories | Detection Method | LLM Prompt? |
+|----------|--------|------------|------------------|-------------|
+| Role Description | `work_item` | `missing_role_description`, `generic_role_description` | Boolean + LLM-as-judge | ✅ Yes (generic check) |
+| Role Metrics | `work_item` | `missing_role_metrics`, `insufficient_role_metrics` | Rule-based counting | ❌ No |
+| Story Completeness | `approved_content` | `incomplete_story` | Regex pattern matching | ❌ No |
+| Story Missing Metrics | `approved_content` | `missing_metrics` | Boolean check | ❌ No |
+| Story Generic | `approved_content` | `too_generic` | LLM-as-judge | ✅ Yes |
+| Cover Letter Section | `saved_section` | `generic_cover_letter_section`, `incomplete_intro`, `incomplete_cover_letter_section`, `missing_metrics_cover_letter`, `incomplete_signature` | LLM-as-judge + Rule-based | ✅ Yes (generic check) |
+
 ## Notes
 
-- **Generic Content Check** is the only LLM-based prompt and is reused for both role descriptions and stories
+- **Generic Content Check** is the only LLM-based prompt and is reused for role descriptions, stories, and cover letter sections
 - All other gap detection uses rule-based logic (regex, boolean checks, counting)
 - Fallback heuristics are used when OpenAI API is unavailable
 - Gaps are deduplicated by `entity_type:entity_id:gap_category` before saving to database
+- **Cover Letter Best Practices**: Current prompt guidance is sufficient - covers generic content, STAR format, and metrics. Section-specific checks (intro, signature) are rule-based.
 

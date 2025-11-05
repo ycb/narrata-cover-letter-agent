@@ -235,35 +235,35 @@ export default function ShowAllStories() {
     if (!firstGap.id) return;
     
     // Fetch full gap data from database
-    const { data: gapData, error: gapError } = await supabase
-      .from('gaps')
-      .select('*')
-      .eq('id', firstGap.id)
-      .single();
-    
+      const { data: gapData, error: gapError } = await supabase
+        .from('gaps')
+        .select('*')
+        .eq('id', firstGap.id)
+        .single();
+      
     // Only open modal if we successfully fetched gap data
     if (gapError || !gapData) {
       console.error('Error fetching gap data:', gapError);
       return;
     }
     
-    // Format gap as GapAnalysis object for ContentGenerationModal
-    const gapAnalysis = {
-      id: gapData.id,
-      type: mapGapTypeToModalType(gapData.gap_type),
-      severity: gapData.severity as 'high' | 'medium' | 'low',
-      description: gapData.description || gapData.gap_category || 'Content needs improvement',
-      suggestion: gapData.suggestions && gapData.suggestions.length > 0 
-        ? gapData.suggestions[0]?.suggestion || gapData.suggestions[0] || 'Improve content quality'
-        : 'Enhance content to address identified issues',
-      paragraphId: 'story-content',
-      origin: 'ai' as const,
-      addresses: gapData.suggestions?.map((s: any) => s?.addressing || s) || [],
-      existingContent: fullStoryContent || ''
-    };
-    
-    setSelectedGap(gapAnalysis);
-    setIsContentModalOpen(true);
+        // Format gap as GapAnalysis object for ContentGenerationModal
+        const gapAnalysis = {
+          id: gapData.id,
+          type: mapGapTypeToModalType(gapData.gap_type),
+          severity: gapData.severity as 'high' | 'medium' | 'low',
+          description: gapData.description || gapData.gap_category || 'Content needs improvement',
+          suggestion: gapData.suggestions && gapData.suggestions.length > 0 
+            ? gapData.suggestions[0]?.suggestion || gapData.suggestions[0] || 'Improve content quality'
+            : 'Enhance content to address identified issues',
+          paragraphId: 'story-content',
+          origin: 'ai' as const,
+          addresses: gapData.suggestions?.map((s: any) => s?.addressing || s) || [],
+          existingContent: fullStoryContent || ''
+        };
+        
+        setSelectedGap(gapAnalysis);
+        setIsContentModalOpen(true);
   };
 
   const mapGapTypeToModalType = (gapType: string): 'core-requirement' | 'preferred-requirement' | 'best-practice' | 'content-enhancement' => {
@@ -310,15 +310,15 @@ export default function ShowAllStories() {
       }
     }
     
-    // Update local state
-    setFullStoryContent(content);
-    
+      // Update local state
+      setFullStoryContent(content);
+      
     // Refresh stories list (this will also refresh gap counts)
-    await fetchStories();
-    
-    // Close the modal
-    setIsContentModalOpen(false);
-    setSelectedGap(null);
+      await fetchStories();
+      
+      // Close the modal
+      setIsContentModalOpen(false);
+      setSelectedGap(null);
   };
   
   const handleResolveGap = async (gapId: string) => {

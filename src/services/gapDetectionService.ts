@@ -57,6 +57,81 @@ export interface GenericContentGap {
   confidence?: number;
 }
 
+/**
+ * Gap Summary Interface
+ * Aggregated view of gaps by content type and severity
+ */
+export interface GapSummary {
+  total: number;
+  byContentType: {
+    stories: number;
+    savedSections: number;
+    roleDescriptions: number;
+    roleMetrics: number;
+    coverLetterSections: number;
+  };
+  bySeverity: {
+    high: number;
+    medium: number;
+    low: number;
+  };
+  // Detailed breakdown for ranked list
+  bySeverityAndType: {
+    high: {
+      stories: number;
+      savedSections: number;
+      roleDescriptions: number;
+      roleMetrics: number;
+      coverLetterSections: number;
+    };
+    medium: {
+      stories: number;
+      savedSections: number;
+      roleDescriptions: number;
+      roleMetrics: number;
+      coverLetterSections: number;
+    };
+    low: {
+      stories: number;
+      savedSections: number;
+      roleDescriptions: number;
+      roleMetrics: number;
+      coverLetterSections: number;
+    };
+  };
+}
+
+export interface ContentItemWithGaps {
+  // Content identification
+  entity_id: string;
+  entity_type: 'approved_content' | 'work_item' | 'saved_section';
+  
+  // Content metadata
+  display_title: string; // Formatted title: "PM @ Acme: Role Summary" or "Cover Letter - Introduction"
+  role_title?: string; // For work items: "PM"
+  company_name?: string; // For work items: "Acme"
+  item_type?: 'role_summary' | 'role_metrics' | 'story' | 'cover_letter_section';
+  story_title?: string; // For story items: "Improved Sales Messaging"
+  section_title?: string; // For saved sections: "Introduction"
+  
+  // Gap information
+  max_severity: 'high' | 'medium' | 'low'; // Highest severity gap (used for tab filtering)
+  gap_categories: string[]; // List of gap categories for this item
+  
+  // Navigation
+  content_type_label: 'Work History' | 'Cover Letter Saved Sections';
+  navigation_path: string; // Route to this item's detail view
+  navigation_params: Record<string, string>; // Query params (storyId, roleId, sectionId, etc.)
+}
+
+export interface GapSummaryByItem {
+  total: number;
+  byContentType: {
+    workHistory: ContentItemWithGaps[];
+    coverLetterSavedSections: ContentItemWithGaps[];
+  };
+}
+
 export class GapDetectionService {
   /**
    * Detect all gaps for a work item
@@ -232,6 +307,132 @@ export class GapDetectionService {
           }
         ]
       });
+    }
+
+    return gaps;
+  }
+
+  /**
+   * Detect gaps for a cover letter section
+   * Evaluates best practices for intro, body, closing, and signature sections
+   */
+  static async detectCoverLetterSectionGaps(
+    userId: string,
+    section: {
+      id: string;
+      type: 'intro' | 'paragraph' | 'closer' | 'signature';
+      content: string;
+      title?: string;
+    },
+    jobRequirements?: string[]
+  ): Promise<Gap[]> {
+    const gaps: Gap[] = [];
+
+    // Check for generic content (reuse existing prompt)
+    const genericGap = await this.checkGenericContent(section.content);
+    if (genericGap.isGeneric) {
+      gaps.push({
+        user_id: userId,
+        entity_type: 'saved_section', // Cover letter sections are saved sections
+        entity_id: section.id,
+        gap_type: 'best_practice',
+        gap_category: 'generic_cover_letter_section',
+        severity: genericGap.confidence && genericGap.confidence > 0.8 ? 'high' : 'medium',
+        description: 'Section may be too generic',
+        suggestions: [
+          {
+            type: 'add_specifics',
+            description: 'Add specific details about the company, role, or your qualifications'
+          }
+        ]
+      });
+    }
+
+    // Section-specific checks
+    if (section.type === 'intro') {
+      // Intro should have compelling hook and company research
+      const hasCompanyMention = /\[Company\]|company|organization|your team/i.test(section.content);
+      const hasRoleMention = /\[Position\]|role|position|opportunity/i.test(section.content);
+      
+      if (!hasCompanyMention || !hasRoleMention) {
+        gaps.push({
+          user_id: userId,
+          entity_type: 'saved_section',
+          entity_id: section.id,
+          gap_type: 'best_practice',
+          gap_category: 'incomplete_intro',
+          severity: 'medium',
+          description: 'Introduction should mention the company and role specifically',
+          suggestions: [
+            {
+              type: 'add_specifics',
+              description: 'Add specific company name and role title to personalize the introduction'
+            }
+          ]
+        });
+      }
+    } else if (section.type === 'paragraph' || section.type === 'closer') {
+      // Body/closing should use STAR format and address job requirements
+      const completenessGap = this.checkStoryCompleteness({
+        id: section.id,
+        title: section.title || section.type,
+        content: section.content,
+        metrics: [] // Cover letter sections don't have separate metrics
+      });
+
+      if (completenessGap && completenessGap.missingComponents.includes('narrative structure (STAR format or Accomplished format)')) {
+        gaps.push({
+          user_id: userId,
+          entity_type: 'saved_section',
+          entity_id: section.id,
+          gap_type: 'best_practice',
+          gap_category: 'incomplete_cover_letter_section',
+          severity: 'high',
+          description: 'Section should use STAR format to demonstrate impact',
+          suggestions: this.generateCompletenessSuggestions(completenessGap)
+        });
+      }
+
+      // Check if metrics are present
+      const hasMetrics = /\d+%|\d+\$|\d+\s*(users|customers|revenue|growth|increase|decrease|improved|reduced)/i.test(section.content);
+      if (!hasMetrics) {
+        gaps.push({
+          user_id: userId,
+          entity_type: 'saved_section',
+          entity_id: section.id,
+          gap_type: 'best_practice',
+          gap_category: 'missing_metrics_cover_letter',
+          severity: 'medium',
+          description: 'Section would benefit from quantifiable achievements',
+          suggestions: [
+            {
+              type: 'add_metric',
+              description: 'Add specific metrics, percentages, or quantifiable results'
+            }
+          ]
+        });
+      }
+    } else if (section.type === 'signature') {
+      // Signature should have contact info
+      const hasContactInfo = /\[Your Name\]|\[Your Email\]|\[Your Phone\]|email|phone|contact/i.test(section.content);
+      
+      if (!hasContactInfo) {
+        gaps.push({
+          user_id: userId,
+          entity_type: 'saved_section',
+          entity_id: section.id,
+          gap_type: 'best_practice',
+          gap_category: 'incomplete_signature',
+          severity: 'low',
+          description: 'Signature should include contact information',
+          suggestions: [
+            {
+              type: 'add_contact',
+              description: 'Add contact information (name, email, phone, LinkedIn)'
+            }
+          ]
+        });
+      }
     }
 
     return gaps;
@@ -727,6 +928,156 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
   }
 
   /**
+   * Get gap summary for a user
+   * Aggregates gaps by content type and severity for dashboard display
+   * 
+   * Content Type Mapping:
+   * - approved_content + gap_category (incomplete_story, missing_metrics, too_generic) → Stories
+   * - approved_content + gap_category (saved_section gaps) → Saved Sections (future)
+   * - work_item + gap_category (missing_role_description, generic_role_description) → Role Descriptions
+   * - work_item + gap_category (missing_role_metrics, insufficient_role_metrics) → Role Metrics
+   * - cover_letter_section (future) → Cover Letter Sections
+   */
+  static async getGapSummary(userId: string): Promise<GapSummary> {
+    try {
+      // Fetch all unresolved gaps
+      const gaps = await this.getUserGaps(userId);
+
+      // Initialize summary
+      const summary: GapSummary = {
+        total: gaps.length,
+        byContentType: {
+          stories: 0,
+          savedSections: 0,
+          roleDescriptions: 0,
+          roleMetrics: 0,
+          coverLetterSections: 0, // Mock for now
+        },
+        bySeverity: {
+          high: 0,
+          medium: 0,
+          low: 0,
+        },
+        bySeverityAndType: {
+          high: {
+            stories: 0,
+            savedSections: 0,
+            roleDescriptions: 0,
+            roleMetrics: 0,
+            coverLetterSections: 0,
+          },
+          medium: {
+            stories: 0,
+            savedSections: 0,
+            roleDescriptions: 0,
+            roleMetrics: 0,
+            coverLetterSections: 0,
+          },
+          low: {
+            stories: 0,
+            savedSections: 0,
+            roleDescriptions: 0,
+            roleMetrics: 0,
+            coverLetterSections: 0,
+          },
+        },
+      };
+
+      // Process each gap
+      gaps.forEach((gap) => {
+        const severity = gap.severity || 'medium';
+        
+        // Count by severity
+        summary.bySeverity[severity]++;
+
+        // Determine content type based on entity_type and gap_category
+        let contentType: 'stories' | 'savedSections' | 'roleDescriptions' | 'roleMetrics' | 'coverLetterSections';
+
+        if (gap.entity_type === 'approved_content') {
+          // Stories (saved sections have their own entity_type)
+          contentType = 'stories';
+        } else if (gap.entity_type === 'saved_section') {
+          // Saved sections (cover letter template sections)
+          contentType = 'savedSections';
+        } else if (gap.entity_type === 'work_item') {
+          // Role descriptions or metrics
+          if (
+            gap.gap_category === 'missing_role_description' ||
+            gap.gap_category === 'generic_role_description'
+          ) {
+            contentType = 'roleDescriptions';
+          } else if (
+            gap.gap_category === 'missing_role_metrics' ||
+            gap.gap_category === 'insufficient_role_metrics'
+          ) {
+            contentType = 'roleMetrics';
+          } else {
+            // Default to role descriptions for unknown work_item gaps
+            contentType = 'roleDescriptions';
+          }
+        } else {
+          // Unknown entity type, default to stories
+          contentType = 'stories';
+        }
+
+        // Count by content type
+        summary.byContentType[contentType]++;
+        summary.bySeverityAndType[severity][contentType]++;
+      });
+
+      // Mock cover letter sections for now (can be removed when real detection is implemented)
+      // For demo purposes, we'll add a small mock count
+      if (summary.total === 0) {
+        // If no real gaps, don't show mock gaps
+        // Otherwise, you could add: summary.byContentType.coverLetterSections = 1;
+      }
+
+      return summary;
+    } catch (error) {
+      console.error('Error in getGapSummary:', error);
+      // Return empty summary on error
+      return {
+        total: 0,
+        byContentType: {
+          stories: 0,
+          savedSections: 0,
+          roleDescriptions: 0,
+          roleMetrics: 0,
+          coverLetterSections: 0,
+        },
+        bySeverity: {
+          high: 0,
+          medium: 0,
+          low: 0,
+        },
+        bySeverityAndType: {
+          high: {
+            stories: 0,
+            savedSections: 0,
+            roleDescriptions: 0,
+            roleMetrics: 0,
+            coverLetterSections: 0,
+          },
+          medium: {
+            stories: 0,
+            savedSections: 0,
+            roleDescriptions: 0,
+            roleMetrics: 0,
+            coverLetterSections: 0,
+          },
+          low: {
+            stories: 0,
+            savedSections: 0,
+            roleDescriptions: 0,
+            roleMetrics: 0,
+            coverLetterSections: 0,
+          },
+        },
+      };
+    }
+  }
+
+  /**
    * Resolve a gap
    * @param gapId - The gap ID to resolve
    * @param userId - The user ID (for security)
@@ -745,10 +1096,10 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
   ): Promise<void> {
     try {
       const updateData: any = {
-        resolved: true,
-        resolved_at: new Date().toISOString(),
-        resolved_reason: reason,
-        updated_at: new Date().toISOString()
+          resolved: true,
+          resolved_at: new Date().toISOString(),
+          resolved_reason: reason,
+          updated_at: new Date().toISOString()
       };
 
       // If content was added to address the gap, link it
@@ -757,7 +1108,7 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
         const { data: currentGap } = await supabase
           .from('gaps')
           .select('addressing_content_ids')
-          .eq('id', gapId)
+        .eq('id', gapId)
           .eq('user_id', userId)
           .single();
 
@@ -787,6 +1138,192 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
     } catch (error) {
       console.error('Error in resolveGap:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Get content items with gaps, formatted for dashboard widgets
+   * Returns ranked list of individual items grouped by content type
+   */
+  static async getContentItemsWithGaps(userId: string): Promise<GapSummaryByItem> {
+    try {
+      const { data: gaps, error } = await supabase
+        .from('gaps')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('resolved', false);
+
+      if (error) throw error;
+
+      const items: ContentItemWithGaps[] = [];
+
+      // Process gaps and group by entity
+      const entityMap = new Map<string, {
+        gaps: typeof gaps;
+        entity_type: string;
+        entity_id: string;
+      }>();
+
+      gaps?.forEach((gap: any) => {
+        const key = `${gap.entity_type}:${gap.entity_id}`;
+        if (!entityMap.has(key)) {
+          entityMap.set(key, {
+            gaps: [],
+            entity_type: gap.entity_type,
+            entity_id: gap.entity_id,
+          });
+        }
+        entityMap.get(key)!.gaps.push(gap);
+      });
+
+      // Fetch content metadata for each entity
+      for (const [key, entityData] of entityMap.entries()) {
+        const [entityType, entityId] = key.split(':');
+        const entityGaps = entityData.gaps;
+        const maxSeverity = entityGaps.reduce((max, gap) => {
+          const severityOrder = { high: 3, medium: 2, low: 1 };
+          return severityOrder[gap.severity as keyof typeof severityOrder] > 
+                 severityOrder[max as keyof typeof severityOrder] ? gap.severity : max;
+        }, entityGaps[0].severity) as 'high' | 'medium' | 'low';
+
+        const gapCategories = [...new Set(entityGaps.map((g: any) => g.gap_category))];
+
+        if (entityType === 'work_item') {
+          // Fetch work item with company
+          const { data: workItem, error: wiError } = await supabase
+            .from('work_items')
+            .select('title, company:companies(name)')
+            .eq('id', entityId)
+            .single();
+
+          if (wiError || !workItem) continue;
+
+          const companyName = (workItem.company as any)?.name || 'Unknown Company';
+          const roleTitle = workItem.title;
+
+          // Check if this is role description or metrics gap
+          const isRoleDescription = gapCategories.some(cat => 
+            cat === 'missing_role_description' || cat === 'generic_role_description'
+          );
+          const isRoleMetrics = gapCategories.some(cat => 
+            cat === 'missing_role_metrics' || cat === 'insufficient_role_metrics'
+          );
+
+          if (isRoleDescription) {
+            items.push({
+              entity_id: entityId,
+              entity_type: 'work_item',
+              display_title: `${roleTitle} @ ${companyName}: Role Summary`,
+              role_title: roleTitle,
+              company_name: companyName,
+              item_type: 'role_summary',
+              max_severity: maxSeverity,
+              gap_categories: gapCategories,
+              content_type_label: 'Work History',
+              navigation_path: '/work-history',
+              navigation_params: { roleId: entityId },
+            });
+          }
+
+          if (isRoleMetrics) {
+            items.push({
+              entity_id: entityId,
+              entity_type: 'work_item',
+              display_title: `${roleTitle} @ ${companyName}: Summary Metrics`,
+              role_title: roleTitle,
+              company_name: companyName,
+              item_type: 'role_metrics',
+              max_severity: maxSeverity,
+              gap_categories: gapCategories,
+              content_type_label: 'Work History',
+              navigation_path: '/work-history',
+              navigation_params: { roleId: entityId },
+            });
+          }
+        } else if (entityType === 'approved_content') {
+          // Fetch story with work item and company
+          const { data: story, error: storyError } = await supabase
+            .from('approved_content')
+            .select('title, work_item:work_items!work_item_id(title, company:companies(name))')
+            .eq('id', entityId)
+            .single();
+
+          if (storyError || !story) continue;
+
+          const workItem = story.work_item as any;
+          const roleTitle = workItem?.title || 'Unknown Role';
+          const companyName = workItem?.company?.name || 'Unknown Company';
+          const storyTitle = story.title;
+
+          items.push({
+            entity_id: entityId,
+            entity_type: 'approved_content',
+            display_title: `${roleTitle} @ ${companyName}: ${storyTitle}`,
+            role_title: roleTitle,
+            company_name: companyName,
+            story_title: storyTitle,
+            item_type: 'story',
+            max_severity: maxSeverity,
+            gap_categories: gapCategories,
+            content_type_label: 'Work History',
+            navigation_path: '/show-all-stories',
+            navigation_params: { storyId: entityId },
+          });
+        } else if (entityType === 'saved_section') {
+          // Fetch saved section
+          const { data: section, error: sectionError } = await supabase
+            .from('saved_sections')
+            .select('title, type')
+            .eq('id', entityId)
+            .single();
+
+          if (sectionError || !section) continue;
+
+          const sectionTitle = section.title || section.type || 'Section';
+
+          items.push({
+            entity_id: entityId,
+            entity_type: 'saved_section',
+            display_title: `Cover Letter - ${sectionTitle}`,
+            section_title: sectionTitle,
+            item_type: 'cover_letter_section',
+            max_severity: maxSeverity,
+            gap_categories: gapCategories,
+            content_type_label: 'Cover Letter Saved Sections',
+            navigation_path: '/cover-letter-template',
+            navigation_params: { sectionId: entityId },
+          });
+        }
+      }
+
+      // Sort by severity (high → medium → low), then by title
+      const severityOrder = { high: 3, medium: 2, low: 1 };
+      items.sort((a, b) => {
+        const severityDiff = severityOrder[b.max_severity] - severityOrder[a.max_severity];
+        if (severityDiff !== 0) return severityDiff;
+        return a.display_title.localeCompare(b.display_title);
+      });
+
+      // Group by content type
+      const workHistory = items.filter(item => item.content_type_label === 'Work History');
+      const coverLetterSavedSections = items.filter(item => item.content_type_label === 'Cover Letter Saved Sections');
+
+      return {
+        total: items.length,
+        byContentType: {
+          workHistory,
+          coverLetterSavedSections,
+        },
+      };
+    } catch (error) {
+      console.error('Error in getContentItemsWithGaps:', error);
+      return {
+        total: 0,
+        byContentType: {
+          workHistory: [],
+          coverLetterSavedSections: [],
+        },
+      };
     }
   }
 }

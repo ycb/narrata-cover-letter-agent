@@ -146,11 +146,11 @@ export const ContentCard = ({
       <CardContent className="pt-0">
         {/* Content - Show read-only preview if children provided (for inline editing), otherwise show content */}
         {!children && (
-          <div className="mb-6">
-            <p className="text-sm text-muted-foreground">
-              {content}
-            </p>
-          </div>
+        <div className="mb-6">
+          <p className="text-sm text-muted-foreground">
+            {content}
+          </p>
+        </div>
         )}
 
         {/* Render children before tags if requested (for cover letter inline editing) */}
