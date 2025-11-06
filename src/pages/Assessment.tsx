@@ -24,6 +24,8 @@ import { SpecializationCard } from "@/components/assessment/SpecializationCard";
 import { CompetencyCard } from "@/components/assessment/CompetencyCard";
 import { usePrototype } from "@/contexts/PrototypeContext";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { usePMLevel } from "@/hooks/usePMLevel";
+import { Loader2 } from "lucide-react";
 
 // Simplified mock data for testing
 const mockAssessment = {
@@ -587,6 +589,7 @@ const Assessment = ({ initialSection }: AssessmentProps) => {
   const { setPrototypeState } = usePrototype();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { levelData, isLoading: isLevelLoading, recalculate } = usePMLevel();
   
   const [selectedCompetency, setSelectedCompetency] = useState<string | null>(null);
   const [evidenceModalOpen, setEvidenceModalOpen] = useState(false);
@@ -595,6 +598,19 @@ const Assessment = ({ initialSection }: AssessmentProps) => {
   const [roleEvidenceModalOpen, setRoleEvidenceModalOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [showLeadershipTrack, setShowLeadershipTrack] = useState(false);
+
+  // Use real level data if available, fallback to mock
+  const currentLevel = levelData?.displayLevel || mockAssessment.currentLevel;
+  const confidence = levelData 
+    ? (levelData.confidence >= 0.8 ? 'high' : levelData.confidence >= 0.6 ? 'medium' : 'low')
+    : mockAssessment.confidence;
+  const nextLevel = levelData?.inferredLevel === 'L4' ? 'L5' : 
+                    levelData?.inferredLevel === 'L5' ? 'L6' : 
+                    mockAssessment.nextLevel;
+  const levelDescription = levelData?.deltaSummary || mockAssessment.levelDescription;
+  const inferenceSource = levelData 
+    ? `Based on ${levelData.topArtifacts.length} artifacts analyzed`
+    : mockAssessment.inferenceSource;
 
   // Handle initialSection prop for direct navigation
   useEffect(() => {
@@ -832,15 +848,35 @@ const Assessment = ({ initialSection }: AssessmentProps) => {
           {/* Combined Level Assessment & Career Progression */}
           <Card className="shadow-soft section-spacing">
             <CardHeader className="text-center pb-4">
-              <CardTitle className="text-4xl font-bold text-foreground mb-2">
-                You are a <span className="text-foreground">{mockAssessment.currentLevel}</span>
-              </CardTitle>
-              <CardDescription className="text-lg">
-                {mockAssessment.levelDescription}
-              </CardDescription>
-              <p className="text-sm text-muted-foreground mt-2">
-                {mockAssessment.inferenceSource}
-              </p>
+              {isLevelLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
+                  <span className="text-muted-foreground">Analyzing your experience...</span>
+                </div>
+              ) : (
+                <>
+                  <CardTitle className="text-4xl font-bold text-foreground mb-2">
+                    You are a <span className="text-foreground">{currentLevel}</span>
+                  </CardTitle>
+                  <CardDescription className="text-lg">
+                    {levelDescription}
+                  </CardDescription>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    {inferenceSource}
+                  </p>
+                  {levelData && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => recalculate()}
+                      className="mt-4"
+                    >
+                      <Target className="h-4 w-4 mr-2" />
+                      Recalculate Level
+                    </Button>
+                  )}
+                </>
+              )}
             </CardHeader>
             
             <CardContent>
@@ -1229,7 +1265,12 @@ const Assessment = ({ initialSection }: AssessmentProps) => {
       <LevelEvidenceModal
         isOpen={levelEvidenceModalOpen}
         onClose={() => setLevelEvidenceModalOpen(false)}
-        evidence={mockAssessment.levelEvidence}
+        evidence={{
+          ...mockAssessment.levelEvidence,
+          currentLevel,
+          nextLevel,
+          confidence: confidence as 'high' | 'medium' | 'low'
+        }}
       />
 
       {/* Role Evidence Modal */}

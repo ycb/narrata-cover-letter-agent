@@ -451,6 +451,19 @@ export class FileUploadService {
       // Update with structured data
       await this.updateProcessingStatus(sourceId, 'completed', structuredData, undefined, accessToken);
 
+      // Trigger PM levels analysis asynchronously (non-blocking)
+      const { data: pmSourceData } = await supabase
+        .from('sources')
+        .select('user_id')
+        .eq('id', sourceId)
+        .single();
+      
+      if (pmSourceData?.user_id) {
+        this.triggerPMLevelsAnalysis(pmSourceData.user_id).catch(error => {
+          console.warn('[FileUploadService] PM levels analysis failed (non-blocking):', error);
+        });
+      }
+
     } catch (error) {
       console.error('Content processing error:', error);
       await this.updateProcessingStatus(
@@ -461,6 +474,28 @@ export class FileUploadService {
         accessToken
       );
       throw error;
+    }
+  }
+
+  /**
+   * Trigger PM levels analysis after file processing
+   */
+  private async triggerPMLevelsAnalysis(
+    userId: string,
+    sourceId: string,
+    sessionId: string
+  ): Promise<void> {
+    try {
+      const { PMLevelsService } = await import('./pmLevelsService');
+      const pmLevelsService = new PMLevelsService();
+      await pmLevelsService.analyzeUserLevel(userId, undefined, undefined, {
+        sourceId,
+        sessionId
+      });
+      console.log('[FileUploadService] PM levels analysis completed');
+    } catch (error) {
+      console.error('[FileUploadService] PM levels analysis error:', error);
+      // Don't throw - this is non-blocking
     }
   }
 
@@ -514,6 +549,20 @@ export class FileUploadService {
 
       // Update with structured data
       await this.updateProcessingStatus(sourceId, 'completed', structuredData, undefined, accessToken);
+
+      // Trigger PM levels analysis asynchronously (non-blocking)
+      const { data: sourceData } = await supabase
+        .from('sources')
+        .select('user_id')
+        .eq('id', sourceId)
+        .single();
+      
+      if (sourceData?.user_id) {
+        const sessionId = `sess_${Date.now()}`;
+        this.triggerPMLevelsAnalysis(sourceData.user_id, sourceId, sessionId).catch(error => {
+          console.warn('[FileUploadService] PM levels analysis failed (non-blocking):', error);
+        });
+      }
 
     } catch (error) {
       console.error('File processing error:', error);

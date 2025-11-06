@@ -318,6 +318,56 @@ export type Database = {
           updated_at?: string
         }
       }
+      user_levels: {
+        Row: {
+          id: string
+          user_id: string
+          inferred_level: string
+          confidence: number
+          scope_score: number
+          maturity_modifier: number
+          role_type: string[]
+          delta_summary: string | null
+          recommendations: Json
+          competency_scores: Json
+          signals: Json
+          last_run_timestamp: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          inferred_level: string
+          confidence: number
+          scope_score: number
+          maturity_modifier: number
+          role_type?: string[]
+          delta_summary?: string | null
+          recommendations?: Json
+          competency_scores?: Json
+          signals?: Json
+          last_run_timestamp?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          inferred_level?: string
+          confidence?: number
+          scope_score?: number
+          maturity_modifier?: number
+          role_type?: string[]
+          delta_summary?: string | null
+          recommendations?: Json
+          competency_scores?: Json
+          signals?: Json
+          last_run_timestamp?: string
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
