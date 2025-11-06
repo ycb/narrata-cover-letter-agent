@@ -26,10 +26,13 @@ export function useContentItemsWithGaps() {
       setIsLoading(false);
       return;
     }
+    let profileId: string | null = null;
+    try { profileId = localStorage.getItem('synthetic_active_profile_id'); } catch {}
+    const cacheKey = profileId ? `${user.id}:${profileId}` : `${user.id}`;
 
     // Check cache first (unless forcing refresh)
     if (!forceRefresh) {
-      const cached = cache.get(user.id);
+      const cached = cache.get(cacheKey);
       if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
         setData(cached.data);
         if (!background) setIsLoading(false);
@@ -48,15 +51,18 @@ export function useContentItemsWithGaps() {
       if (!background) setIsLoading(true);
       setError(null);
 
-      const items = await GapDetectionService.getContentItemsWithGaps(user.id);
+      // Read current synthetic profile id (if any)
+      let profileIdLocal: string | null = null;
+      try { profileIdLocal = localStorage.getItem('synthetic_active_profile_id'); } catch {}
+      const items = await GapDetectionService.getContentItemsWithGaps(user.id, profileIdLocal || undefined);
 
       // Update caches
-      cache.set(user.id, {
+      cache.set(cacheKey, {
         data: items,
         timestamp: Date.now(),
       });
       try {
-        const persistKey = `contentItemsWithGaps:${user.id}`;
+        const persistKey = `contentItemsWithGaps:${cacheKey}`;
         localStorage.setItem(persistKey, JSON.stringify({ data: items, timestamp: Date.now() }));
       } catch {}
 
@@ -76,9 +82,12 @@ export function useContentItemsWithGaps() {
 
   useEffect(() => {
     if (!user) return;
+    let profileId: string | null = null;
+    try { profileId = localStorage.getItem('synthetic_active_profile_id'); } catch {}
+    const cacheKey = profileId ? `${user.id}:${profileId}` : `${user.id}`;
     // Try persisted cache first for instant paint
     try {
-      const persistKey = `contentItemsWithGaps:${user.id}`;
+      const persistKey = `contentItemsWithGaps:${cacheKey}`;
       const raw = localStorage.getItem(persistKey);
       if (raw) {
         const parsed = JSON.parse(raw) as { data: GapSummaryByItem; timestamp: number };
@@ -105,12 +114,15 @@ export function useContentItemsWithGaps() {
   // Listen to gap job status and background refetch on success
   useEffect(() => {
     if (!user) return;
+    let profileId: string | null = null;
+    try { profileId = localStorage.getItem('synthetic_active_profile_id'); } catch {}
+    const cacheKey = profileId ? `${user.id}:${profileId}` : `${user.id}`;
     const channel = supabase
       .channel(`gaps_jobs:user:${user.id}`)
       .on('broadcast', { event: 'job_status' }, (payload: any) => {
         const status = payload?.payload?.status;
         if (status === 'succeeded') {
-          cache.delete(user.id);
+          cache.delete(cacheKey);
           fetchItems(true, true);
         }
       })

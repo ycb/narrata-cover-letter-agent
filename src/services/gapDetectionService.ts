@@ -939,10 +939,10 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
    * - work_item + gap_category (missing_role_metrics, insufficient_role_metrics) → Role Metrics
    * - cover_letter_section (future) → Cover Letter Sections
    */
-  static async getGapSummary(userId: string): Promise<GapSummary> {
+  static async getGapSummary(userId: string, profileId?: string): Promise<GapSummary> {
     try {
       // Build the same item list used by the Content Quality widget
-      const itemsByType = await this.getContentItemsWithGaps(userId);
+      const itemsByType = await this.getContentItemsWithGaps(userId, profileId);
       const workHistoryItems = itemsByType.byContentType.workHistory || [];
       const coverLetterItems = itemsByType.byContentType.coverLetterSavedSections || [];
       const allItems = [...workHistoryItems, ...coverLetterItems];
@@ -1094,7 +1094,7 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
    * Get content items with gaps, formatted for dashboard widgets
    * Returns ranked list of individual items grouped by content type
    */
-  static async getContentItemsWithGaps(userId: string): Promise<GapSummaryByItem> {
+  static async getContentItemsWithGaps(userId: string, profileId?: string): Promise<GapSummaryByItem> {
     try {
       const { data: gaps, error } = await supabase
         .from('gaps')
@@ -1141,11 +1141,16 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
           // Fetch work item with company
           const { data: workItem, error: wiError } = await supabase
             .from('work_items')
-            .select('title, description, metrics, company:companies(name)')
+            .select('title, description, metrics, profile_id, company:companies(name)')
             .eq('id', entityId)
             .single();
 
           if (wiError || !workItem) continue;
+
+          // Profile filter: skip if profileId provided and does not match
+          if (profileId && (workItem as any)?.profile_id && (workItem as any).profile_id !== profileId) {
+            continue;
+          }
 
           const companyName = (workItem.company as any)?.name || 'Unknown Company';
           const roleTitle = workItem.title;
@@ -1272,13 +1277,18 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
           // Fetch story with work item and company
           const { data: story, error: storyError } = await supabase
             .from('approved_content')
-            .select('title, work_item:work_items!work_item_id(id, title, company:companies(name))')
+            .select('title, work_item:work_items!work_item_id(id, title, profile_id, company:companies(name))')
             .eq('id', entityId)
             .single();
 
           if (storyError || !story) continue;
 
           const workItem = story.work_item as any;
+
+          // Profile filter: skip if profileId provided and does not match
+          if (profileId && workItem?.profile_id && workItem.profile_id !== profileId) {
+            continue;
+          }
           const roleTitle = workItem?.title || 'Unknown Role';
           const companyName = workItem?.company?.name || 'Unknown Company';
           const storyTitle = story.title;
@@ -1301,11 +1311,16 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
           // Fetch saved section
           const { data: section, error: sectionError } = await supabase
             .from('saved_sections')
-            .select('title, type')
+            .select('title, type, profile_id')
             .eq('id', entityId)
             .single();
 
           if (sectionError || !section) continue;
+
+          // Profile filter: skip if profileId provided and does not match
+          if (profileId && (section as any)?.profile_id && (section as any).profile_id !== profileId) {
+            continue;
+          }
 
           const sectionTitle = section.title || section.type || 'Section';
 

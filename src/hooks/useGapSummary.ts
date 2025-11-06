@@ -26,10 +26,13 @@ export function useGapSummary() {
       setIsLoading(false);
       return;
     }
+    let profileId: string | null = null;
+    try { profileId = localStorage.getItem('synthetic_active_profile_id'); } catch {}
+    const cacheKey = profileId ? `${user.id}:${profileId}` : `${user.id}`;
 
     // Check cache first (unless forcing refresh)
     if (!forceRefresh) {
-      const cached = cache.get(user.id);
+      const cached = cache.get(cacheKey);
       if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
         setData(cached.data);
         return;
@@ -47,15 +50,18 @@ export function useGapSummary() {
       if (!background) setIsLoading(true);
       setError(null);
 
-      const summary = await GapDetectionService.getGapSummary(user.id);
+      // Read current synthetic profile id (if any)
+      let profileId: string | null = null;
+      try { profileId = localStorage.getItem('synthetic_active_profile_id'); } catch {}
+      const summary = await GapDetectionService.getGapSummary(user.id, profileId || undefined);
 
       // Update caches
-      cache.set(user.id, {
+      cache.set(cacheKey, {
         data: summary,
         timestamp: Date.now(),
       });
       try {
-        const persistKey = `gapSummary:${user.id}`;
+        const persistKey = `gapSummary:${cacheKey}`;
         localStorage.setItem(persistKey, JSON.stringify({ data: summary, timestamp: Date.now() }));
       } catch {}
 
@@ -76,9 +82,12 @@ export function useGapSummary() {
 
   useEffect(() => {
     if (!user) return;
+    let profileId: string | null = null;
+    try { profileId = localStorage.getItem('synthetic_active_profile_id'); } catch {}
+    const cacheKey = profileId ? `${user.id}:${profileId}` : `${user.id}`;
     // Try persisted cache first for instant paint
     try {
-      const persistKey = `gapSummary:${user.id}`;
+      const persistKey = `gapSummary:${cacheKey}`;
       const raw = localStorage.getItem(persistKey);
       if (raw) {
         const parsed = JSON.parse(raw) as { data: GapSummary; timestamp: number };
@@ -97,7 +106,7 @@ export function useGapSummary() {
         const status = payload?.payload?.status;
         if (status === 'succeeded') {
           // Invalidate cache and force refresh
-          cache.delete(user.id);
+          cache.delete(cacheKey);
           fetchGapSummary(true, true);
         }
       })
