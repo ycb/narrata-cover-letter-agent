@@ -9,6 +9,7 @@ import { TourProvider } from "@/contexts/TourContext";
 import { UserGoalsProvider } from "@/contexts/UserGoalsContext";
 import { UserVoiceProvider } from "@/contexts/UserVoiceContext";
 import { UploadProgressProvider } from "@/contexts/UploadProgressContext";
+import { GapsJobProvider } from "@/contexts/GapsJobContext";
 import { Header } from "@/components/layout/Header";
 import { FeedbackSystem } from "@/components/feedback/FeedbackSystem";
 import { FeedbackAdmin } from "@/components/feedback/FeedbackAdmin";
@@ -239,15 +240,17 @@ const App = () => (
       <AuthErrorBoundary>
         <AuthProvider>
           <UploadProgressProvider>
-            <BrowserRouter>
-              <TourProvider>
-                <UserGoalsProvider>
-                  <UserVoiceProvider>
-                    <AppLayout />
-                  </UserVoiceProvider>
-                </UserGoalsProvider>
-              </TourProvider>
-            </BrowserRouter>
+            <GapsJobProvider>
+              <BrowserRouter>
+                <TourProvider>
+                  <UserGoalsProvider>
+                    <UserVoiceProvider>
+                      <AppLayout />
+                    </UserVoiceProvider>
+                  </UserGoalsProvider>
+                </TourProvider>
+              </BrowserRouter>
+            </GapsJobProvider>
           </UploadProgressProvider>
         </AuthProvider>
       </AuthErrorBoundary>

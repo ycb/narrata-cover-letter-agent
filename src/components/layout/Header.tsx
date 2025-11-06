@@ -36,6 +36,7 @@ import { useUserGoals } from "@/contexts/UserGoalsContext";
 import { useUserVoice } from "@/contexts/UserVoiceContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGapSummary } from "@/hooks/useGapSummary";
+import { useGapsJob } from "@/contexts/GapsJobContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,6 +57,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
   const navigate = useNavigate();
   const gapSummary = useGapSummary();
   const { user, profile, signOut, getOAuthData } = useAuth();
+  const { isRunning } = useGapsJob();
   const [showDataModal, setShowDataModal] = useState(false);
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
@@ -116,6 +118,16 @@ export const Header = ({ currentPage }: HeaderProps) => {
 
   return (
     <header className="border-b sticky top-0 z-50" style={{ backgroundColor: '#121212' }}>
+      {/* Global subtle progress bar for gap detection jobs */}
+      {isRunning && (
+        <div className="w-full h-0.5 bg-transparent">
+          <div className="h-0.5 w-full overflow-hidden">
+            <div className="h-0.5 w-1/3 animate-[progress_1.2s_ease-in-out_infinite] bg-gradient-to-r from-fuchsia-500 via-pink-500 to-rose-500 rounded-full" style={{
+              // keyframes defined inline via tailwind arbitrary, fallback to simple CSS animation below
+            }} />
+          </div>
+        </div>
+      )}
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-6">
           <Link 
