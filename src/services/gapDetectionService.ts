@@ -941,96 +941,44 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
    */
   static async getGapSummary(userId: string): Promise<GapSummary> {
     try {
-      // Fetch all unresolved gaps
-      const gaps = await this.getUserGaps(userId);
+      // Build the same item list used by the Content Quality widget
+      const itemsByType = await this.getContentItemsWithGaps(userId);
+      const workHistoryItems = itemsByType.byContentType.workHistory || [];
+      const coverLetterItems = itemsByType.byContentType.coverLetterSavedSections || [];
+      const allItems = [...workHistoryItems, ...coverLetterItems];
 
-      // Initialize summary
       const summary: GapSummary = {
-        total: gaps.length,
+        total: allItems.length,
         byContentType: {
           stories: 0,
           savedSections: 0,
           roleDescriptions: 0,
           roleMetrics: 0,
-          coverLetterSections: 0, // Mock for now
+          coverLetterSections: 0,
         },
-        bySeverity: {
-          high: 0,
-          medium: 0,
-          low: 0,
-        },
+        bySeverity: { high: 0, medium: 0, low: 0 },
         bySeverityAndType: {
-          high: {
-            stories: 0,
-            savedSections: 0,
-            roleDescriptions: 0,
-            roleMetrics: 0,
-            coverLetterSections: 0,
-          },
-          medium: {
-            stories: 0,
-            savedSections: 0,
-            roleDescriptions: 0,
-            roleMetrics: 0,
-            coverLetterSections: 0,
-          },
-          low: {
-            stories: 0,
-            savedSections: 0,
-            roleDescriptions: 0,
-            roleMetrics: 0,
-            coverLetterSections: 0,
-          },
+          high: { stories: 0, savedSections: 0, roleDescriptions: 0, roleMetrics: 0, coverLetterSections: 0 },
+          medium: { stories: 0, savedSections: 0, roleDescriptions: 0, roleMetrics: 0, coverLetterSections: 0 },
+          low: { stories: 0, savedSections: 0, roleDescriptions: 0, roleMetrics: 0, coverLetterSections: 0 },
         },
       };
 
-      // Process each gap
-      gaps.forEach((gap) => {
-        const severity = gap.severity || 'medium';
-        
-        // Count by severity
-        summary.bySeverity[severity]++;
+      const mapItemToType = (item: any): 'stories' | 'savedSections' | 'roleDescriptions' | 'roleMetrics' | 'coverLetterSections' => {
+        if (item.item_type === 'story') return 'stories';
+        if (item.item_type === 'role_summary') return 'roleDescriptions';
+        if (item.item_type === 'role_metrics') return 'roleMetrics';
+        if (item.item_type === 'cover_letter_section') return 'coverLetterSections';
+        // default bucket by source list
+        return workHistoryItems.includes(item) ? 'roleDescriptions' : 'coverLetterSections';
+      };
 
-        // Determine content type based on entity_type and gap_category
-        let contentType: 'stories' | 'savedSections' | 'roleDescriptions' | 'roleMetrics' | 'coverLetterSections';
-
-        if (gap.entity_type === 'approved_content') {
-          // Stories (saved sections have their own entity_type)
-          contentType = 'stories';
-        } else if (gap.entity_type === 'saved_section') {
-          // Saved sections (cover letter template sections)
-          contentType = 'savedSections';
-        } else if (gap.entity_type === 'work_item') {
-          // Role descriptions or metrics
-          if (
-            gap.gap_category === 'missing_role_description' ||
-            gap.gap_category === 'generic_role_description'
-          ) {
-            contentType = 'roleDescriptions';
-          } else if (
-            gap.gap_category === 'missing_role_metrics' ||
-            gap.gap_category === 'insufficient_role_metrics'
-          ) {
-            contentType = 'roleMetrics';
-          } else {
-            // Default to role descriptions for unknown work_item gaps
-            contentType = 'roleDescriptions';
-          }
-        } else {
-          // Unknown entity type, default to stories
-          contentType = 'stories';
-        }
-
-        // Count by content type
-        summary.byContentType[contentType]++;
-        summary.bySeverityAndType[severity][contentType]++;
-      });
-
-      // Mock cover letter sections for now (can be removed when real detection is implemented)
-      // For demo purposes, we'll add a small mock count
-      if (summary.total === 0) {
-        // If no real gaps, don't show mock gaps
-        // Otherwise, you could add: summary.byContentType.coverLetterSections = 1;
+      for (const item of allItems) {
+        const t = mapItemToType(item);
+        const sev = item.max_severity as 'high' | 'medium' | 'low';
+        summary.byContentType[t]++;
+        summary.bySeverity[sev]++;
+        summary.bySeverityAndType[sev][t]++;
       }
 
       return summary;
@@ -1324,7 +1272,7 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
           // Fetch story with work item and company
           const { data: story, error: storyError } = await supabase
             .from('approved_content')
-            .select('title, work_item:work_items!work_item_id(title, company:companies(name))')
+            .select('title, work_item:work_items!work_item_id(id, title, company:companies(name))')
             .eq('id', entityId)
             .single();
 
@@ -1346,8 +1294,8 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
             max_severity: maxSeverity,
             gap_categories: gapCategories,
             content_type_label: 'Work History',
-            navigation_path: '/show-all-stories',
-            navigation_params: { storyId: entityId },
+            navigation_path: '/work-history',
+            navigation_params: { roleId: workItem?.id || '', storyId: entityId },
           });
         } else if (entityType === 'saved_section') {
           // Fetch saved section

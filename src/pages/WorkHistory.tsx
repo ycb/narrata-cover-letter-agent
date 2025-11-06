@@ -702,16 +702,30 @@ export default function WorkHistory() {
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const tabParam = searchParams.get('tab');
+    const storyIdParam = searchParams.get('storyId');
     
     if (tabParam === 'stories' && workHistory.length > 0) {
+      // If roleId is present, the role deep-link effect will select the right role.
+      // Otherwise default to first role for stories view.
       const firstCompany = workHistory[0];
       const firstRole = firstCompany.roles[0];
-      
-      if (firstRole) {
+      if (firstRole && !searchParams.get('roleId')) {
         setSelectedCompany(firstCompany);
         setSelectedRole(firstRole);
         setExpandedCompanyId(firstCompany.id);
-        setInitialTab('stories');
+      }
+      setInitialTab('stories');
+
+      // Scroll to specific story if provided
+      if (storyIdParam) {
+        const scrollWithOffset = (el: HTMLElement, offset = 160) => {
+          const y = el.getBoundingClientRect().top + window.scrollY - offset;
+          window.scrollTo({ top: y, behavior: 'smooth' });
+        };
+        setTimeout(() => {
+          const el = document.getElementById(`story-${storyIdParam}`);
+          if (el) scrollWithOffset(el);
+        }, 350);
       }
     }
   }, [workHistory]);
@@ -720,6 +734,8 @@ export default function WorkHistory() {
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const roleIdParam = searchParams.get('roleId');
+    const tabParam = searchParams.get('tab');
+    const sectionParam = searchParams.get('section');
     if (!roleIdParam || workHistory.length === 0) return;
 
     // Find company and role by id
@@ -734,12 +750,24 @@ export default function WorkHistory() {
       }
     }
 
-    if (foundCompany && foundRole) {
+    if (foundRole && foundCompany) {
       setSelectedCompany(foundCompany);
       setSelectedRole(foundRole);
       setExpandedCompanyId(foundCompany.id);
       setSelectedDataSource('work-history');
-      setInitialTab('role');
+      // Only force role tab if no explicit tab requested (prevents overriding Stories deep-link)
+      if (!tabParam) setInitialTab('role');
+
+      // After selecting role, optionally scroll to a section (e.g., metrics)
+      if (sectionParam === 'metrics') {
+        setTimeout(() => {
+          const el = document.getElementById('role-metrics');
+          if (el) {
+            const y = el.getBoundingClientRect().top + window.scrollY - 160;
+            window.scrollTo({ top: y, behavior: 'smooth' });
+          }
+        }, 350);
+      }
     }
   }, [workHistory]);
 

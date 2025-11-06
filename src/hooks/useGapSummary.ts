@@ -10,7 +10,7 @@ interface CacheEntry {
 
 // Module-level cache (shared across all hook instances)
 const cache = new Map<string, CacheEntry>();
-const CACHE_TTL = 60 * 1000; // 60 seconds
+const CACHE_TTL = 5 * 1000; // 5 seconds to reduce staleness between widgets
 
 export function useGapSummary() {
   const [data, setData] = useState<GapSummary | null>(null);

@@ -67,6 +67,14 @@ export default function NewUserDashboard() {
         setTimeout(tryScroll, delayMs);
       }
     };
+
+  // Keep gap summary in sync with the item list source of truth
+  useEffect(() => {
+    if (!contentItemsWithGaps.isLoading && contentItemsWithGaps.data) {
+      // Force a refresh so gap summary recomputes from the latest items
+      gapSummary.refetch(true);
+    }
+  }, [contentItemsWithGaps.isLoading, contentItemsWithGaps.data]);
     // start on next frame for smoother UX
     requestAnimationFrame(tryScroll);
   }, []);

@@ -200,8 +200,17 @@ export const ContentQualityWidget = React.forwardRef<ContentQualityWidgetRef, Co
     if (item.entity_type === 'work_item') {
       path = '/work-history';
       params.set('roleId', item.entity_id);
+      // If the row is metrics-specific, pass section for scroll
+      if ((item as any).item_type === 'role_metrics') {
+        params.set('section', 'metrics');
+      }
     } else if (item.entity_type === 'approved_content') {
-      path = '/show-all-stories';
+      // Stories should link to the correct role in Work History, Stories tab, and target story
+      path = '/work-history';
+      // When building ContentItemWithGaps for stories, we set navigation_params with roleId and storyId
+      const roleId = (item as any).navigation_params?.roleId || (item as any).role_id;
+      if (roleId) params.set('roleId', roleId);
+      params.set('tab', 'stories');
       params.set('storyId', item.entity_id);
     } else {
       // saved_section
@@ -378,6 +387,11 @@ export const ContentQualityWidget = React.forwardRef<ContentQualityWidgetRef, Co
                 )}
               >
                 All
+                {filteredByType.length > 0 && (
+                  <Badge variant="secondary" className="ml-1">
+                    {filteredByType.length}
+                  </Badge>
+                )}
               </Button>
               <Button
                 variant="secondary"

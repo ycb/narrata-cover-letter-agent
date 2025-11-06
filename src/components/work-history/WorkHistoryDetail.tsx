@@ -1224,7 +1224,7 @@ export const WorkHistoryDetail = ({
             
             {/* Outcome Metrics */}
             <div>
-              <Card className={cn(
+              <Card id="role-metrics" className={cn(
                 "border",
                 // Show orange border only when metrics-specific gaps exist
                 (() => {
@@ -1319,7 +1319,7 @@ export const WorkHistoryDetail = ({
                         .filter(Boolean) as any[];
                       
                       return (
-                        <div key={story.id} className={index > 0 ? "mt-6" : ""}>
+                        <div key={story.id} id={`story-${story.id}`} className={index > 0 ? "mt-6" : ""}>
                           <StoryCard
                             story={story}
                             linkedLinks={linkedLinks}
