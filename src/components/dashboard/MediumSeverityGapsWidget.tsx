@@ -26,7 +26,7 @@ export function MediumSeverityGapsWidget({ gapSummary, isLoading, onClick }: Med
   const count = gapSummary?.bySeverity.medium || 0;
 
   return (
-    <Card className="shadow-soft border-warning/30 cursor-pointer hover:shadow-medium transition-shadow" onClick={onClick}>
+    <Card className="shadow-soft border-muted cursor-pointer hover:shadow-medium transition-shadow" onClick={onClick}>
       <CardHeader className="pb-3">
         <CardTitle className="text-sm flex items-center justify-center gap-2">
           <AlertTriangle className="w-4 h-4 text-warning" />

@@ -174,3 +174,4 @@ export function WorkHistoryGapsWidget({ items, isLoading }: WorkHistoryGapsWidge
   );
 }
 
+

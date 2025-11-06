@@ -716,6 +716,33 @@ export default function WorkHistory() {
     }
   }, [workHistory]);
 
+  // Deep link: select role and company based on roleId param
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const roleIdParam = searchParams.get('roleId');
+    if (!roleIdParam || workHistory.length === 0) return;
+
+    // Find company and role by id
+    let foundCompany: WorkHistoryCompany | null = null;
+    let foundRole: WorkHistoryRole | null = null;
+    for (const company of workHistory) {
+      const role = company.roles.find(r => r.id === roleIdParam);
+      if (role) {
+        foundCompany = company;
+        foundRole = role;
+        break;
+      }
+    }
+
+    if (foundCompany && foundRole) {
+      setSelectedCompany(foundCompany);
+      setSelectedRole(foundRole);
+      setExpandedCompanyId(foundCompany.id);
+      setSelectedDataSource('work-history');
+      setInitialTab('role');
+    }
+  }, [workHistory]);
+
   const handleCompanySelect = (company: WorkHistoryCompany) => {
     setSelectedCompany(company);
     setExpandedCompanyId(company.id);

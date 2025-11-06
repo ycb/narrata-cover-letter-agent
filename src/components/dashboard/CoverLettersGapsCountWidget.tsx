@@ -23,7 +23,7 @@ export function CoverLettersGapsCountWidget({ count = 0, isLoading, onClick }: C
   }
 
   return (
-    <Card className="shadow-soft cursor-pointer hover:shadow-medium transition-shadow" onClick={onClick}>
+    <Card className="shadow-soft border-muted cursor-pointer hover:shadow-medium transition-shadow" onClick={onClick}>
       <CardHeader className="pb-3">
         <CardTitle className="text-sm flex items-center justify-center gap-2">
           <Mail className="w-4 h-4" />

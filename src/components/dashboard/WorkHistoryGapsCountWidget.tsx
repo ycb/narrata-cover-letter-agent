@@ -26,7 +26,7 @@ export function WorkHistoryGapsCountWidget({ items, isLoading, onClick }: WorkHi
   const count = items.length;
 
   return (
-    <Card className="shadow-soft cursor-pointer hover:shadow-medium transition-shadow" onClick={onClick}>
+    <Card className="shadow-soft border-muted cursor-pointer hover:shadow-medium transition-shadow" onClick={onClick}>
       <CardHeader className="pb-3">
         <CardTitle className="text-sm flex items-center justify-center gap-2">
           <Users className="w-4 h-4" />

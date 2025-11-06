@@ -113,6 +113,7 @@ export interface ContentItemWithGaps {
   item_type?: 'role_summary' | 'role_metrics' | 'story' | 'cover_letter_section';
   story_title?: string; // For story items: "Improved Sales Messaging"
   section_title?: string; // For saved sections: "Introduction"
+  preview_text?: string; // Short content preview for role summary/metrics
   
   // Gap information
   max_severity: 'high' | 'medium' | 'low'; // Highest severity gap (used for tab filtering)
@@ -1192,7 +1193,7 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
           // Fetch work item with company
           const { data: workItem, error: wiError } = await supabase
             .from('work_items')
-            .select('title, company:companies(name)')
+            .select('title, description, metrics, company:companies(name)')
             .eq('id', entityId)
             .single();
 
@@ -1210,6 +1211,12 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
           );
 
           if (isRoleDescription) {
+            const desc: string = (workItem as any)?.description || '';
+            const normalized = desc.replace(/\s+/g, ' ').trim();
+            const limit = 50;
+            const preview = normalized.length > limit 
+              ? normalized.slice(0, limit).trimEnd() + '…' 
+              : normalized;
             items.push({
               entity_id: entityId,
               entity_type: 'work_item',
@@ -1217,6 +1224,7 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
               role_title: roleTitle,
               company_name: companyName,
               item_type: 'role_summary',
+              preview_text: preview,
               max_severity: maxSeverity,
               gap_categories: gapCategories,
               content_type_label: 'Work History',
@@ -1226,6 +1234,77 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
           }
 
           if (isRoleMetrics) {
+            const metricsArr: any[] = Array.isArray((workItem as any)?.metrics) ? (workItem as any).metrics : [];
+            const normalizeValue = (val: string) => {
+              let s = (val || '').trim();
+              // collapse multiple leading '+'
+              s = s.replace(/^\++/, '+');
+              if (/^\+/.test(s)) return s;
+              if (/^-/.test(s)) return s;
+              if (/^\d/.test(s)) return `+${s}`;
+              return s;
+            };
+            const formatMetricEntry = (m: any) => {
+              // String metric: try to normalize the first numeric token, otherwise keep as-is
+              if (typeof m === 'string') {
+                const str = m.trim();
+                const match = str.match(/([+\-]?\d[\d.,]*%?)/); // first numeric token
+                if (match) {
+                  const normalized = normalizeValue(match[1]);
+                  // replace only first occurrence
+                  return str.replace(match[1], normalized);
+                }
+                return str;
+              }
+              // Object metric: combine value + best available label
+              const rawVal = (
+                m?.value ?? m?.amount ?? m?.delta ?? m?.change ?? m?.score ?? m?.pct ?? m?.percent ?? ''
+              ).toString();
+              const unit = (m?.unit ?? m?.suffix ?? '').toString().trim();
+              const labelFields = [
+                m?.label,
+                m?.labelText,
+                m?.name,
+                m?.metric,
+                m?.title,
+                m?.key,
+                m?.measure,
+                m?.text,
+                m?.desc,
+                m?.description,
+                m?.what,
+                m?.kpi,
+                m?.category,
+                m?.dimension,
+                m?.subject,
+                m?.context
+              ]
+                .map((x: any) => (x ?? '').toString().trim())
+                .filter((s: string) => s.length > 0);
+              // Prefer combining metric/name with label if both exist (e.g. 'NPS' + 'score')
+              const primaryMetric = (m?.metric ?? m?.name ?? '').toString().trim();
+              let label = labelFields.length > 0 ? labelFields[0] : '';
+              if (primaryMetric && label && label.toLowerCase() !== primaryMetric.toLowerCase()) {
+                label = `${primaryMetric} ${label}`;
+              } else if (!label && primaryMetric) {
+                label = primaryMetric;
+              }
+              // attach unit if not already present in rawVal
+              const valWithUnit = unit && !rawVal.endsWith(unit) ? `${rawVal}${unit}` : rawVal;
+              const val = normalizeValue(valWithUnit);
+              const combined = [val, label].filter(Boolean).join(' ');
+              return combined.trim();
+            };
+            const metricStrings = metricsArr
+              .map(formatMetricEntry)
+              .filter((s: string) => s && s.trim().length > 0);
+            // Build preview from first two entries, but keep words intact
+            const limit = 50;
+            let joined = metricStrings.slice(0, 2).join(' ');
+            if (joined.length > limit) {
+              joined = joined.slice(0, limit).trimEnd() + '…';
+            }
+            const preview = joined;
             items.push({
               entity_id: entityId,
               entity_type: 'work_item',
@@ -1233,6 +1312,7 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
               role_title: roleTitle,
               company_name: companyName,
               item_type: 'role_metrics',
+              preview_text: preview,
               max_severity: maxSeverity,
               gap_categories: gapCategories,
               content_type_label: 'Work History',

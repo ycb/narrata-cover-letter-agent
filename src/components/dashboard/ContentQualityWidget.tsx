@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { 
   AlertTriangle, 
   ChevronRight, 
+  ChevronDown,
+  ChevronUp,
   Users, 
   LayoutTemplate, 
   Mail,
@@ -89,6 +91,8 @@ export const ContentQualityWidget = React.forwardRef<ContentQualityWidgetRef, Co
   const widgetRef = useRef<HTMLDivElement>(null);
   const [contentTypeFilter, setContentTypeFilter] = useState<ContentTypeFilter>(initialContentTypeFilter);
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>(initialSeverityFilter);
+  const [sortField, setSortField] = useState<'company' | 'role' | 'title' | 'type' | 'severity'>('company');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   
   // Update internal state when external props change
   React.useEffect(() => {
@@ -190,12 +194,50 @@ export const ContentQualityWidget = React.forwardRef<ContentQualityWidgetRef, Co
   };
 
   const handleReview = (item: ContentItemWithGaps) => {
-    const params = new URLSearchParams(item.navigation_params);
-    navigate(`${item.navigation_path}?${params.toString()}`);
+    // Derive route deterministically to avoid stale/mismatched params
+    let path = '/';
+    const params = new URLSearchParams();
+    if (item.entity_type === 'work_item') {
+      path = '/work-history';
+      params.set('roleId', item.entity_id);
+    } else if (item.entity_type === 'approved_content') {
+      path = '/show-all-stories';
+      params.set('storyId', item.entity_id);
+    } else {
+      // saved_section
+      path = '/cover-letter-template';
+      params.set('sectionId', item.entity_id);
+    }
+    navigate(`${path}?${params.toString()}`);
   };
 
   const getContentTypeConfig = (item: ContentItemWithGaps) => {
     return CONTENT_TYPE_CONFIG[item.item_type || 'story'];
+  };
+
+  // Sorting
+  const sortedItems = [...filteredItems].sort((a, b) => {
+    const aCompany = (a.company_name || '').toLowerCase();
+    const bCompany = (b.company_name || '').toLowerCase();
+    const aRole = (a.role_title || '').toLowerCase();
+    const bRole = (b.role_title || '').toLowerCase();
+    const aTitle = (a.story_title || a.section_title || a.display_title || '').toLowerCase();
+    const bTitle = (b.story_title || b.section_title || b.display_title || '').toLowerCase();
+    const aType = (CONTENT_TYPE_CONFIG[a.item_type || 'story']?.label || '').toLowerCase();
+    const bType = (CONTENT_TYPE_CONFIG[b.item_type || 'story']?.label || '').toLowerCase();
+    const rank = (s: 'high'|'medium'|'low') => (s==='high'?3:s==='medium'?2:1);
+    let cmp = 0;
+    if (sortField === 'company') cmp = aCompany.localeCompare(bCompany);
+    else if (sortField === 'role') cmp = aRole.localeCompare(bRole);
+    else if (sortField === 'title') cmp = aTitle.localeCompare(bTitle);
+    else if (sortField === 'type') cmp = aType.localeCompare(bType);
+    else cmp = rank(a.max_severity) - rank(b.max_severity);
+    return sortDirection === 'asc' ? cmp : -cmp;
+  });
+
+  const toggleSort = (field: 'company' | 'role' | 'title' | 'type' | 'severity') => {
+    if (sortField === field) setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    else { setSortField(field); setSortDirection('asc'); }
   };
 
   return (
@@ -278,6 +320,10 @@ export const ContentQualityWidget = React.forwardRef<ContentQualityWidgetRef, Co
           text-decoration: none !important;
           font-size: 1rem;
           display: inline-block;
+          /* Force white badge backgrounds in tabs for contrast */
+          background: white !important;
+          color: hsl(var(--foreground)) !important;
+          border-color: hsl(var(--border)) !important;
         }
         
         /* Content area - white/card background matching active tab */
@@ -299,7 +345,7 @@ export const ContentQualityWidget = React.forwardRef<ContentQualityWidgetRef, Co
         <Tabs value={contentTypeFilter} onValueChange={(v) => handleContentTypeChange(v as ContentTypeFilter)}>
           <TabsList className="w-full p-0 h-auto -mt-4 border-0 bg-transparent">
             <TabsTrigger value="all" className="rounded-t-lg rounded-b-none border-0">
-              <span className="tab-text">All</span>
+              <span className="tab-text">All Gaps</span> {contentItems.length > 0 && <Badge variant="outline" className="ml-1.5 no-underline">{contentItems.length}</Badge>}
             </TabsTrigger>
             <TabsTrigger value="workHistory" className="rounded-t-lg rounded-b-none border-0">
               <span className="tab-text">Work History</span> {workHistoryCount > 0 && <Badge variant="outline" className="ml-1.5 no-underline">{workHistoryCount}</Badge>}
@@ -394,57 +440,87 @@ export const ContentQualityWidget = React.forwardRef<ContentQualityWidgetRef, Co
         </div>
 
         {/* Items Table */}
-        {filteredItems.length === 0 ? (
+        {sortedItems.length === 0 ? (
           <div className="text-sm text-muted-foreground text-center py-8">
             No items found with the selected filters.
           </div>
         ) : (
-          <div className="space-y-2">
-            {filteredItems.map((item, index) => {
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="text-left p-3 w-6">#</th>
+                  <th className="text-left p-3 w-6 cursor-pointer select-none" onClick={() => toggleSort('severity')}>
+                    <span className="inline-flex items-center gap-1">
+                      <AlertTriangle className="w-4 h-4 text-muted-foreground" />
+                      {sortField==='severity' ? (sortDirection==='asc'?<ChevronUp className="w-4 h-4"/>:<ChevronDown className="w-4 h-4"/>) : <ChevronDown className="w-4 h-4 text-muted-foreground"/>}
+                    </span>
+                  </th>
+                  <th className="text-left p-3 cursor-pointer select-none" onClick={() => toggleSort('company')}>
+                    <span className="inline-flex items-center gap-2">Company {sortField==='company' ? (sortDirection==='asc'?<ChevronUp className="w-4 h-4"/>:<ChevronDown className="w-4 h-4"/>) : <ChevronDown className="w-4 h-4 text-muted-foreground"/>}</span>
+                  </th>
+                  <th className="text-left p-3 cursor-pointer select-none" onClick={() => toggleSort('role')}>
+                    <span className="inline-flex items-center gap-2">Role {sortField==='role' ? (sortDirection==='asc'?<ChevronUp className="w-4 h-4"/>:<ChevronDown className="w-4 h-4"/>) : <ChevronDown className="w-4 h-4 text-muted-foreground"/>}</span>
+                  </th>
+                  <th className="text-left p-3 cursor-pointer select-none" onClick={() => toggleSort('title')}>
+                    <span className="inline-flex items-center gap-2">Title {sortField==='title' ? (sortDirection==='asc'?<ChevronUp className="w-4 h-4"/>:<ChevronDown className="w-4 h-4"/>) : <ChevronDown className="w-4 h-4 text-muted-foreground"/>}</span>
+                  </th>
+                  <th className="text-left p-3 w-48 cursor-pointer select-none" onClick={() => toggleSort('type')}>
+                    <span className="inline-flex items-center gap-2">Type {sortField==='type' ? (sortDirection==='asc'?<ChevronUp className="w-4 h-4"/>:<ChevronDown className="w-4 h-4"/>) : <ChevronDown className="w-4 h-4 text-muted-foreground"/>}</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+            {sortedItems.map((item, index) => {
               const severityConfig = SEVERITY_CONFIG[item.max_severity];
+              // Company / Role / Title fields
+              const company = (item.company_name || '').trim();
+              const role = (item.role_title || '').trim();
+              const baseTitle = (item.story_title || item.section_title || item.display_title || '').trim();
               const contentTypeConfig = getContentTypeConfig(item);
               const ContentTypeIcon = contentTypeConfig.icon;
+              const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              let compactTitle = baseTitle.replace(/\s*@\s*/g, ' at ');
+              if (company) {
+                const atEndAt = new RegExp(`\\s+at\\s+${escapeRegExp(company)}\\s*$`, 'i');
+                const atEndAtSymbol = new RegExp(`\\s*@\\s*${escapeRegExp(company)}\\s*$`, 'i');
+                compactTitle = compactTitle.replace(atEndAt, '').replace(atEndAtSymbol, '').trim();
+                // do not append company; show in its own column
+              }
+
+              // Final title text per item type
+              let titleCellText = compactTitle;
+              if (item.item_type === 'role_summary' || item.item_type === 'role_metrics') {
+                const preview = (item.preview_text || '').trim();
+                titleCellText = preview || compactTitle;
+              }
 
               return (
-                <div
+                <tr 
                   key={`${item.entity_id}-${item.item_type}`}
-                  className="grid grid-cols-[auto_auto_1fr_150px_auto] gap-4 items-center p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                  className="border-b hover:bg-primary/10 transition-colors cursor-pointer"
+                  onClick={() => handleReview(item)}
                 >
-                  {/* # Column */}
-                  <div className="text-sm font-semibold text-muted-foreground w-6">
-                    {index + 1}
-                  </div>
-
-                  {/* Severity Triangle Column */}
-                  <div className="w-4 h-4 flex items-center justify-center">
-                    <AlertTriangle className={cn("w-4 h-4", severityConfig.color)} />
-                  </div>
-
-                  {/* Title Column */}
-                  <div className="text-sm font-medium min-w-0">
-                    {item.display_title}
-                  </div>
-
-                  {/* Content Type Badge Column */}
-                  <div className="flex items-center justify-center w-full min-w-0">
-                    <Badge variant="outline" className={cn("text-xs inline-flex items-center gap-1 shrink-0", contentTypeConfig.color)}>
+                  <td className="p-3 text-sm text-muted-foreground w-6">{index + 1}</td>
+                  <td className="p-3 w-6"><AlertTriangle className={cn("w-4 h-4", severityConfig.color)} /></td>
+                  <td className="p-3 text-sm text-muted-foreground">{company || '-'}</td>
+                  <td className="p-3 text-sm text-muted-foreground">{role || '-'}</td>
+                  <td className="p-3 text-sm font-medium">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="truncate">{titleCellText}</span>
+                    </div>
+                  </td>
+                  <td className="p-3">
+                    <Badge variant="outline" className={cn("text-xs inline-flex items-center gap-1", contentTypeConfig.color)}>
                       <ContentTypeIcon className="w-3 h-3" />
                       {contentTypeConfig.label}
                     </Badge>
-                  </div>
-
-                  {/* CTA Column */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleReview(item)}
-                  >
-                    Review
-                    <ChevronRight className="w-4 h-4 ml-1" />
-                  </Button>
-                </div>
+                  </td>
+                </tr>
               );
             })}
+              </tbody>
+            </table>
           </div>
         )}
       </CardContent>
