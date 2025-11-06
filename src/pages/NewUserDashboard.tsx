@@ -17,7 +17,7 @@ import {
   ArrowRight,
   ExternalLink
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { ContentQualityWidget, ContentQualityWidgetRef, ContentTypeFilter, SeverityFilter } from "@/components/dashboard/ContentQualityWidget";
 import { TotalGapsWidget } from "@/components/dashboard/TotalGapsWidget";
 import { WorkHistoryGapsCountWidget } from "@/components/dashboard/WorkHistoryGapsCountWidget";
@@ -40,20 +40,60 @@ interface OnboardingTask {
 
 export default function NewUserDashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const gapSummary = useGapSummary();
   const contentItemsWithGaps = useContentItemsWithGaps();
   const contentQualityWidgetRef = React.useRef<ContentQualityWidgetRef>(null);
   const [contentTypeFilter, setContentTypeFilter] = React.useState<ContentTypeFilter>('all');
   const [severityFilter, setSeverityFilter] = React.useState<SeverityFilter>('all');
   
+  // Retry scroll until widget ref is ready (handles navigation from other pages)
+  const scrollTabsWhenReady = React.useCallback((maxAttempts: number = 20, delayMs: number = 75) => {
+    let attempts = 0;
+    const tryScroll = () => {
+      const ref = contentQualityWidgetRef.current;
+      if (ref && typeof ref.scrollIntoView === 'function') {
+        ref.scrollIntoView();
+        return;
+      }
+      if (attempts < maxAttempts) {
+        attempts += 1;
+        setTimeout(tryScroll, delayMs);
+      }
+    };
+    // start on next frame for smoother UX
+    requestAnimationFrame(tryScroll);
+  }, []);
+  
   const handleWidgetClick = (contentType: ContentTypeFilter, severity: SeverityFilter) => {
     setContentTypeFilter(contentType);
     setSeverityFilter(severity);
     // Small delay to ensure state updates before scrolling
     setTimeout(() => {
-      contentQualityWidgetRef.current?.scrollIntoView();
+      scrollTabsWhenReady();
     }, 100);
   };
+
+  // Handle deep links: /new-user-dashboard?contentType=all&severity=all&scrollTo=tabs
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const ct = (params.get('contentType') as ContentTypeFilter) || undefined;
+    const sev = (params.get('severity') as SeverityFilter) || undefined;
+    const scrollTo = params.get('scrollTo');
+    let changed = false;
+    if (ct && ct !== contentTypeFilter) {
+      setContentTypeFilter(ct);
+      changed = true;
+    }
+    if (sev && sev !== severityFilter) {
+      setSeverityFilter(sev);
+      changed = true;
+    }
+    if (scrollTo === 'tabs') {
+      // ensure filters applied first, then robust scroll
+      setTimeout(() => scrollTabsWhenReady(), changed ? 150 : 90);
+    }
+  }, [location.search]);
   const [tasks, setTasks] = useState<OnboardingTask[]>([
     // Work History Tasks
     {

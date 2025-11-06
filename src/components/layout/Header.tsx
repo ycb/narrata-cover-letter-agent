@@ -91,7 +91,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
   
   // Determine current page based on pathname
   const getCurrentPage = (pathname: string): string => {
-    if (pathname === "/dashboard" || pathname === "/") return "dashboard";
+    if (pathname === "/dashboard" || pathname === "/new-user-dashboard" || pathname === "/") return "dashboard";
     if (pathname === "/work-history" || pathname.startsWith("/show-all-stories") || pathname.startsWith("/show-all-links")) return "work-history";
     if (pathname === "/cover-letters" || pathname === "/cover-letter-template" || pathname === "/cover-letter-create" || pathname === "/saved-sections" || pathname.startsWith("/show-all-saved-sections")) return "cover-letters";
     if (pathname === "/assessment" || pathname.startsWith("/assessment/")) return "assessment";
@@ -133,19 +133,40 @@ export const Header = ({ currentPage }: HeaderProps) => {
           {/* Dropdown Navigation */}
           <nav className="hidden md:flex">
             <div className="flex items-center gap-1">
-              {/* Dashboard - Simple Link */}
-                            <Link
-                to="/dashboard"
-                className={cn(
-                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-all rounded-md",
-                  activePage === "dashboard" 
-                    ? "bg-white text-[#121212] hover:bg-white" 
-                    : "text-white opacity-90 hover:opacity-100"
-                )}
-              >
-                <Target className="h-4 w-4" />
-                Dashboard
-              </Link>
+              {/* Dashboard - Main Link + Dropdown */}
+              <div className="relative group">
+                <Link
+                  to="/new-user-dashboard"
+                  className={cn(
+                    "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium cursor-default transition-all rounded-md",
+                    activePage === "dashboard" 
+                      ? "bg-white text-[#121212] hover:bg-white" 
+                      : "text-white opacity-90 hover:opacity-100"
+                  )}
+                >
+                  <Target className="h-4 w-4" />
+                  Dashboard
+                  <ChevronDown className="h-3 w-3" />
+                </Link>
+                <div className="absolute top-full left-0 pt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
+                  <div className="border-0 shadow-lg p-3 min-w-64" style={{ backgroundColor: 'rgba(18, 18, 18, 0.9)', borderRadius: '0 0 8px 8px' }}>
+                    <Link 
+                      to="/dashboard" 
+                      className={cn(
+                        "flex items-center justify-between px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity hover:bg-[#E32D9A]",
+                        location.pathname === "/dashboard"
+                          ? "text-white bg-white/10"
+                          : "text-white"
+                      )}
+                    >
+                      <span className="flex items-center gap-2">
+                        <BarChart3 className="h-4 w-4" />
+                        Existing User Dashboard
+                      </span>
+                    </Link>
+                  </div>
+                </div>
+              </div>
 
               {/* Work History - Main Link + Dropdown */}
               <div className="relative group">
@@ -474,7 +495,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
               </DropdownMenuItem>
               {gapSummary.data && gapSummary.data.total > 0 && (
                 <DropdownMenuItem 
-                  onClick={() => navigate('/dashboard')} 
+                  onClick={() => navigate('/new-user-dashboard?contentType=all&severity=all&scrollTo=tabs')}
                   className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end items-center gap-2"
                 >
                   <span>Review Gaps</span>
@@ -506,7 +527,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
           <div className="container py-4 space-y-4">
             {/* Dashboard */}
             <Link
-              to="/dashboard"
+              to="/new-user-dashboard"
               className={cn(
                 "flex items-center gap-3 px-4 py-3 text-sm font-medium transition-all rounded-md",
                 activePage === "dashboard" 

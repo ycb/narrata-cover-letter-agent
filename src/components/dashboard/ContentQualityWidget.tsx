@@ -99,10 +99,19 @@ export const ContentQualityWidget = React.forwardRef<ContentQualityWidgetRef, Co
     setSeverityFilter(initialSeverityFilter);
   }, [initialSeverityFilter]);
   
-  // Expose scroll function via ref
+  // Helper to scroll element into view accounting for sticky header
+  const scrollToWithOffset = (el: HTMLElement, offset: number = 96) => {
+    const rect = el.getBoundingClientRect();
+    const y = rect.top + window.scrollY - offset;
+    window.scrollTo({ top: y, behavior: 'smooth' });
+  };
+
+  // Expose scroll function via ref (uses offset so tabs stay visible)
   React.useImperativeHandle(ref, () => ({
     scrollIntoView: () => {
-      widgetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (widgetRef.current) {
+        scrollToWithOffset(widgetRef.current, 96);
+      }
     }
   }), []);
   
@@ -190,7 +199,7 @@ export const ContentQualityWidget = React.forwardRef<ContentQualityWidgetRef, Co
   };
 
   return (
-    <Card ref={widgetRef} className="shadow-soft overflow-visible border-0 bg-gradient-to-br from-slate-50 to-blue-50">
+    <Card ref={widgetRef} className="shadow-soft overflow-visible border-0 bg-gradient-to-br from-slate-50 to-blue-50" style={{ scrollMarginTop: 96 }}>
       <style>{`
         .solid-color-tabs {
           position: relative;
