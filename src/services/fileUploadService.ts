@@ -250,7 +250,7 @@ type SourceEntry = { id: string; processing_status: string; structured_data?: un
     sourceType: 'resume' | 'cover_letter',
     accessToken?: string,
     checksum?: string,
-    sourceType?: FileType
+    fileType?: FileType
   ): Promise<string> {
     try {
       const computedChecksum = checksum ?? await this.generateChecksum(file);
@@ -410,10 +410,6 @@ source_type: dbSourceType,
         console.warn('Failed to compute checksum for file:', error);
       }
 
-<<<<<<< HEAD
-      // Check for duplicates AFTER batching logic
-      // (We'll move this check later in the flow)
-=======
       // If resume or cover letter matches previously processed content, reuse existing data
       if ((type === 'resume' || type === 'coverLetter') && checksum) {
         const sourceType: 'resume' | 'cover_letter' = type === 'coverLetter' ? 'cover_letter' : 'resume';
@@ -434,7 +430,6 @@ source_type: dbSourceType,
           };
         }
       }
->>>>>>> origin/main
 
       // For manual text, skip storage upload and create virtual storage path
       let storagePath: string;
@@ -454,15 +449,9 @@ source_type: dbSourceType,
         storagePath = uploadResult.storagePath!;
       }
 
-<<<<<<< HEAD
-      // Create source record with correct source_type
-      const sourceId = await this.createSourceRecord(file, userId, storagePath, accessToken, checksum, type);
-=======
       // Create source record with appropriate type
       const sourceType: 'resume' | 'cover_letter' = type === 'coverLetter' ? 'cover_letter' : 'resume';
-      const sourceId = await this.createSourceRecord(file, userId, storagePath, sourceType, accessToken, checksum);
->>>>>>> origin/main
-
+      const sourceId = await this.createSourceRecord(file, userId, storagePath, sourceType, accessToken, checksum, type);
       
       // Process content (immediate for small content, background for large)
       const contentSize = isManualText ? (content as string).length : file.size;
