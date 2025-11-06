@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { exportLogsToCsv } from '@/utils/evaluationExport';
 import { supabase } from '@/lib/supabase';
+import { GapDetectionService } from '@/services/gapDetectionService';
 import { useAuth } from '@/contexts/AuthContext';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -79,6 +80,10 @@ export const EvaluationDashboard: React.FC = () => {
     dataSnapshot?: any;
   } | null>(null);
 
+  // Gaps fetched for the selected run (scoped by profile)
+  const [gapsBySeverity, setGapsBySeverity] = useState<{ high: any[]; medium: any[]; low: any[] }>({ high: [], medium: [], low: [] });
+  const [gapsLoading, setGapsLoading] = useState(false);
+
   useEffect(() => {
     if (!user?.id) return;
     
@@ -140,9 +145,52 @@ export const EvaluationDashboard: React.FC = () => {
     try {
       const fetched = await DataQualityService.getFlagsForEvaluationRun(run.id);
       setFlags(fetched);
+      // Load gaps for the active synthetic profile inferred from the source file name prefix (e.g., P00_)
+      await loadGapsForSelectedProfile(source || null);
     } catch (e) {
       console.error('Failed to load flags', e);
       setFlags([]);
+    }
+  };
+
+  const loadGapsForSelectedProfile = async (src: SourceData | null) => {
+    if (!user?.id) return;
+    setGapsLoading(true);
+    try {
+      // Infer profile prefix from the source file name if available
+      const file = src?.file_name || '';
+      const profileMatch = file.match(/^(P\d{2})_/i);
+      const profileId = profileMatch ? profileMatch[1].toUpperCase() : undefined;
+
+      // Use the same service as the dashboard to derive item-level gaps
+      const itemsByType = await GapDetectionService.getContentItemsWithGaps(user.id, profileId);
+      const allItems = [
+        ...(itemsByType.byContentType.workHistory || []),
+        ...(itemsByType.byContentType.coverLetterSavedSections || []),
+      ];
+      const high: any[] = [], medium: any[] = [], low: any[] = [];
+      for (const it of allItems) {
+        const entry: any = { 
+          id: it.entity_id,
+          entity_type: it.entity_type,
+          gap_category: (it.gap_categories && it.gap_categories[0]) || 'gap',
+          severity: it.max_severity || it.severity || 'medium',
+          context: {
+            story: it.story_title || it.display_title,
+            role: it.role_title,
+            company: (it as any).company_name
+          }
+        };
+        if (entry.severity === 'high') high.push(entry);
+        else if (entry.severity === 'medium') medium.push(entry);
+        else low.push(entry);
+      }
+      setGapsBySeverity({ high, medium, low });
+    } catch (e) {
+      console.error('Failed to load gaps for selected profile', e);
+      setGapsBySeverity({ high: [], medium: [], low: [] });
+    } finally {
+      setGapsLoading(false);
     }
   };
 
@@ -254,6 +302,8 @@ export const EvaluationDashboard: React.FC = () => {
     if (selectedRun?.file_type === 'coverLetter' && Array.isArray(stories) && stories.length > 0) categories.push('stories');
     // Removed quantMetrics category (Option B - hide role-level metrics from dedicated section)
     categories.push('companyNames', 'jobTitles');
+    // Always show Gaps section (even when zero) for visibility
+    categories.push('gaps');
     return categories;
   };
 
@@ -361,6 +411,33 @@ export const EvaluationDashboard: React.FC = () => {
           <div className="text-sm text-gray-700 border-t pt-3">
             <span className="font-medium">Summary: </span>
             {roleSummary}
+          </div>
+        )}
+
+        {/* Gaps section */}
+        {(expandedCategories.has('gaps') || (!expandedCategories.size && (gapsBySeverity.high.length + gapsBySeverity.medium.length + gapsBySeverity.low.length) > 0)) && (
+          <div className="bg-white p-4 rounded-lg border border-gray-200 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-medium text-gray-700">Gaps</div>
+              <div className="text-xs text-gray-500">{gapsLoading ? 'Loading…' : ''}</div>
+            </div>
+            {(['high','medium','low'] as const).map(sev => (
+              <div key={sev}>
+                <div className="text-xs font-semibold capitalize mb-1">{sev} ({(gapsBySeverity as any)[sev].length})</div>
+                <div className="space-y-1">
+                  {(gapsBySeverity as any)[sev].map((g: any, i: number) => (
+                    <div key={g.id || i} className="text-xs bg-gray-50 p-2 rounded border">
+                      <div className="font-medium">{g.gap_category}</div>
+                      <div className="text-gray-600">
+                        {(g.context?.story ? `Story: ${g.context.story} — ` : '')}
+                        {(g.context?.role ? `Role: ${g.context.role}` : '')}
+                        {(g.context?.company ? ` @ ${g.context.company}` : '')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -631,28 +708,42 @@ export const EvaluationDashboard: React.FC = () => {
   };
 
   const calculateMetrics = () => {
-    if (evaluationRuns.length === 0) {
+    // Exclude legacy "final" rows from old snapshots
+    const runs = evaluationRuns.filter(r => !r.session_id?.includes('_final'));
+    if (runs.length === 0) {
       return {
         totalEvaluations: 0,
-        avgLatency: 0,
-        goRate: 0,
-        accuracyRate: 0
-      };
+        avgLLM: '0.00',
+        avgPipeline: '0.00',
+        goRate: '0.0',
+        accuracyRate: '0.0'
+      } as const;
     }
 
-    const totalEvaluations = evaluationRuns.length;
-    const avgLatency = evaluationRuns.reduce((sum, run) => sum + (run.total_latency_ms || 0), 0) / totalEvaluations / 1000; // Convert to seconds
-    const goCount = evaluationRuns.filter(run => run.go_nogo_decision?.includes('✅')).length;
+    const totalEvaluations = runs.length;
+
+    // LLM latency: average of llm_analysis_latency_ms across all runs
+    const llmMs = runs.map(r => r.llm_analysis_latency_ms || 0);
+    const avgLLM = (llmMs.reduce((s, v) => s + v, 0) / totalEvaluations) / 1000;
+
+    // Pipeline time: average of total_latency_ms on coverLetter runs (end-to-end)
+    const pipelineRuns = runs.filter(r => r.file_type === 'coverLetter' && (r.total_latency_ms || 0) > 0);
+    const avgPipeline = pipelineRuns.length > 0
+      ? (pipelineRuns.reduce((s, r) => s + (r.total_latency_ms || 0), 0) / pipelineRuns.length) / 1000
+      : 0;
+
+    const goCount = runs.filter(run => run.go_nogo_decision?.includes('✅')).length;
     const goRate = (goCount / totalEvaluations) * 100;
-    const accurateCount = evaluationRuns.filter(run => run.accuracy_score?.includes('✅')).length;
+    const accurateCount = runs.filter(run => run.accuracy_score?.includes('✅')).length;
     const accuracyRate = (accurateCount / totalEvaluations) * 100;
 
     return {
       totalEvaluations,
-      avgLatency: avgLatency.toFixed(2),
+      avgLLM: avgLLM.toFixed(2),
+      avgPipeline: avgPipeline.toFixed(2),
       goRate: goRate.toFixed(1),
       accuracyRate: accuracyRate.toFixed(1)
-    };
+    } as const;
   };
 
   const handleExport = () => {
@@ -772,7 +863,7 @@ export const EvaluationDashboard: React.FC = () => {
       </div>
 
       {/* Summary Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-gray-600">Total Evaluations</CardTitle>
@@ -783,10 +874,18 @@ export const EvaluationDashboard: React.FC = () => {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Avg. Latency</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">LLM Latency</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics.avgLatency}s</div>
+            <div className="text-2xl font-bold">{metrics.avgLLM}s</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">Pipeline Time</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{metrics.avgPipeline}s</div>
           </CardContent>
         </Card>
         <Card>
@@ -828,7 +927,7 @@ export const EvaluationDashboard: React.FC = () => {
                   <TableHead>User Type</TableHead>
                   <TableHead>Timestamp</TableHead>
                   <TableHead>Model</TableHead>
-                  <TableHead>Latency</TableHead>
+                  <TableHead>Latency (LLM / Pipeline)</TableHead>
                   <TableHead>Go/No-Go</TableHead>
                   <TableHead>Accuracy</TableHead>
                   <TableHead>Relevance</TableHead>
@@ -862,7 +961,10 @@ export const EvaluationDashboard: React.FC = () => {
                       </TableCell>
                       <TableCell className="text-sm">{run.model}</TableCell>
                       <TableCell className="text-sm">
-                        {(run.total_latency_ms / 1000).toFixed(2)}s
+                        <div className="text-xs leading-tight">
+                          <div>LLM: {((run.llm_analysis_latency_ms || 0) / 1000).toFixed(2)}s</div>
+                          <div>Pipeline: {run.file_type === 'coverLetter' && (run.total_latency_ms || 0) > 0 ? ((run.total_latency_ms || 0) / 1000).toFixed(2) + 's' : '—'}</div>
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge className={getEvaluationBadgeColor(run.go_nogo_decision)}>

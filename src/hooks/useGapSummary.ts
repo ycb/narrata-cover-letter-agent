@@ -120,7 +120,18 @@ export function useGapSummary() {
         abortControllerRef.current.abort();
       }
     };
-  }, [user]);
+  }, [user?.id, ((): string | null => { try { return localStorage.getItem('synthetic_active_profile_id'); } catch { return null; } })()]);
+
+  // When profile changes at runtime, invalidate caches and refetch
+  useEffect(() => {
+    if (!user) return;
+    let profileId: string | null = null;
+    try { profileId = localStorage.getItem('synthetic_active_profile_id'); } catch {}
+    const cacheKey = profileId ? `${user.id}:${profileId}` : `${user.id}`;
+    cache.delete(cacheKey);
+    fetchGapSummary(true, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, ((): string | null => { try { return localStorage.getItem('synthetic_active_profile_id'); } catch { return null; } })()]);
 
   // Clear cache entry for this user (useful when gaps are resolved)
   const invalidateCache = () => {

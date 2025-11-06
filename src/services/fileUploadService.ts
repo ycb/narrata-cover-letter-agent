@@ -726,6 +726,20 @@ export class FileUploadService {
       }
       
       const userId = sourceData.user_id;
+
+      // Determine active synthetic profile for this user (if any)
+      let activeProfileId: string | null = null;
+      try {
+        const { data: syntheticUsers } = await dbClient
+          .from('synthetic_users')
+          .select('profile_id')
+          .eq('parent_user_id', userId)
+          .eq('is_active', true)
+          .maybeSingle();
+        activeProfileId = syntheticUsers?.profile_id ?? null;
+      } catch (e) {
+        console.warn('[processStructuredData] Unable to read active synthetic profile:', e);
+      }
       
       // Track insertion stats
       let companiesCreated = 0;
@@ -2107,7 +2121,60 @@ export class FileUploadService {
       
       // Create unified profile from all three sources (resume + cover letter + LinkedIn)
       await this.createUnifiedProfile(accessToken);
-      
+      // Finalize the original coverLetter evaluation run with pipeline-complete gap totals (no extra LLM call)
+      try {
+        if (this.pendingCoverLetter?.sourceId) {
+          const { createClient } = await import('@supabase/supabase-js');
+          const { url, key } = getSupabaseConfig();
+          const db = createClient(url, key, {
+            global: { headers: { Authorization: `Bearer ${accessToken}` } }
+          });
+          // Authenticated user
+          const { data: { user } } = await db.auth.getUser();
+          const userId = user?.id;
+          // Derive synthetic profile from source file name
+          const { data: src } = await db
+            .from('sources')
+            .select('file_name')
+            .eq('id', this.pendingCoverLetter.sourceId)
+            .single();
+          const fileName = src?.file_name || '';
+          const match = fileName.match(/^(P\d{2})[\-_.\s]?/i);
+          const profileId = match ? match[1].toUpperCase() : undefined;
+          // Compute final gap summary
+          let finalSummary: any = null;
+          let finalTotal = 0;
+          if (userId) {
+            const { GapDetectionService } = await import('./gapDetectionService');
+            const summary = await GapDetectionService.getGapSummary(userId, profileId, accessToken);
+            finalSummary = summary;
+            finalTotal = summary?.total || 0;
+          }
+          // Update latest coverLetter evaluation run for this source
+          const { data: run } = await db
+            .from('evaluation_runs')
+            .select('id')
+            .eq('source_id', this.pendingCoverLetter.sourceId)
+            .eq('file_type', 'coverLetter')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+          if (run?.id) {
+            const totalLatency = performance.now() - llmStartTime;
+            await db
+              .from('evaluation_runs')
+              .update({
+                gap_total: finalTotal,
+                gap_summary: finalSummary,
+                total_latency_ms: Math.round(totalLatency)
+              })
+              .eq('id', run.id);
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to finalize evaluation run with final gaps:', e);
+      }
+
       // Clear batching data
       this.pendingResume = null;
       this.pendingCoverLetter = null;
@@ -2276,14 +2343,31 @@ export class FileUploadService {
       // Parse evaluation results
       const evaluation = data.evaluation || {};
       
-      // Determine user_type by checking the source file_name in the database
+      // Determine user_type and synthetic profile from the source file name
       const { data: sourceData } = await dbClient
         .from('sources')
         .select('file_name')
         .eq('id', data.sourceId)
         .single();
       
-      const userType = sourceData?.file_name?.startsWith('P') ? 'synthetic' : 'real';
+      const fileName = sourceData?.file_name || '';
+      const profileMatch = fileName.match(/^(P\d{2})[\-_\.\s]?/i);
+      const syntheticProfileId = profileMatch ? profileMatch[1].toUpperCase() : null;
+      const userType = syntheticProfileId ? 'synthetic' : 'real';
+
+      // Compute current gap summary for this user (scoped by detected synthetic profile when present)
+      let gapSummary: any = null;
+      let gapTotal: number = 0;
+      try {
+        const { GapDetectionService } = await import('./gapDetectionService');
+        if (userId) {
+          const summary = await GapDetectionService.getGapSummary(userId, syntheticProfileId || undefined, accessToken);
+          gapSummary = summary;
+          gapTotal = summary?.total || 0;
+        }
+      } catch (e) {
+        console.warn('Failed to compute gap summary for evaluation run:', e);
+      }
       
       // Store in Supabase evaluation_runs table
       const { error } = await dbClient
@@ -2294,6 +2378,7 @@ export class FileUploadService {
           source_id: data.sourceId, // This should be the UUID from sources table
           file_type: data.type,
           user_type: userType,
+          synthetic_profile_id: syntheticProfileId,
           
           // Performance Metrics
           text_extraction_latency_ms: 0, // TODO: Add granular timing
@@ -2318,9 +2403,9 @@ export class FileUploadService {
           // Heuristics Data
           heuristics: data.heuristics,
           
-          // Raw Input/Output for comparison
-          raw_text: data.inputText, // Store raw text
-          structured_data: JSON.parse(data.outputText) // Store structured data
+          // Gap Summary Snapshot (source of truth for counts at analysis time)
+          gap_total: gapTotal,
+          gap_summary: gapSummary
         } as any);
 
       if (error) {

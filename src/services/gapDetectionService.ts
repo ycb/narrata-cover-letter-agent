@@ -19,7 +19,7 @@ import { UserPreferencesService } from './userPreferencesService';
 export interface Gap {
   id?: string;
   user_id: string;
-  entity_type: 'work_item' | 'approved_content';
+  entity_type: 'work_item' | 'approved_content' | 'saved_section';
   entity_id: string;
   gap_type: 'data_quality' | 'best_practice' | 'role_expectation';
   gap_category: string;
@@ -183,8 +183,92 @@ export class GapDetectionService {
         gaps.push(...storyGaps);
       }
     }
-
     return gaps;
+  }
+
+  /**
+   * Return unresolved gaps for a user, optionally filtered by synthetic profile ID (e.g., P00).
+   * When profileId is provided, filters gaps to entities originating from sources whose file_name
+   * starts with the profile prefix (supports separators: _, -, space, .).
+   */
+  static async getUserGaps(userId: string, profileId?: string, accessToken?: string): Promise<Gap[]> {
+    try {
+      const db = accessToken ? await this.getAuthenticatedClient(accessToken) : supabase;
+      const { data: gaps, error } = await db
+        .from('gaps')
+        .select('*')
+        .eq('user_id', userId)
+        .or('resolved.is.null,resolved.eq.false');
+
+      if (error || !gaps) return [];
+      if (!profileId) return gaps as Gap[];
+
+      const pid = profileId.toUpperCase();
+      // Find this profile's sources first (prefix matches: Pxx_ | Pxx- | Pxx. | Pxx<space>)
+      const { data: profileSources } = await db
+        .from('sources')
+        .select('id, file_name')
+        .eq('user_id', userId)
+        .or(
+          `file_name.ilike.${pid}_%,` +
+          `file_name.ilike.${pid}-% ,` +
+          `file_name.ilike.${pid}.% ,` +
+          `file_name.ilike.${pid} %`
+        );
+
+      const profileSourceIds = new Set<string>((profileSources || []).map((s: any) => s.id));
+
+      // Preload work_items and approved_content ids associated with this profile's sources
+      let workItemIdsBySource = new Set<string>();
+      let storyIdsBySource = new Set<string>();
+
+      if (profileSourceIds.size > 0) {
+        const sourceIdList = Array.from(profileSourceIds);
+        const { data: wi } = await db
+          .from('work_items')
+          .select('id')
+          .eq('user_id', userId)
+          .in('source_id', sourceIdList);
+        workItemIdsBySource = new Set((wi || []).map((r: any) => r.id));
+
+        const { data: acBySource } = await db
+          .from('approved_content')
+          .select('id')
+          .eq('user_id', userId)
+          .in('source_id', sourceIdList);
+        storyIdsBySource = new Set((acBySource || []).map((r: any) => r.id));
+
+        // Also include stories whose work_item_id belongs to a profile work item
+        if (workItemIdsBySource.size > 0) {
+          const workItemIdList = Array.from(workItemIdsBySource);
+          const { data: acByWi } = await db
+            .from('approved_content')
+            .select('id')
+            .eq('user_id', userId)
+            .in('work_item_id', workItemIdList);
+          (acByWi || []).forEach((r: any) => storyIdsBySource.add(r.id));
+        }
+      }
+
+      // Filter gaps by whether their entity belongs to this profile
+      const filtered: Gap[] = [];
+      for (const g of gaps as Gap[]) {
+        if (g.entity_type === 'work_item') {
+          if (workItemIdsBySource.has(g.entity_id)) filtered.push(g);
+        } else if (g.entity_type === 'approved_content') {
+          if (storyIdsBySource.has(g.entity_id)) filtered.push(g);
+        } else if (g.entity_type === 'saved_section') {
+          // Saved sections are cover letter items which are inherently profile-scoped by source filename
+          // There is no direct FK; keep them for now only when we cannot disambiguate by source
+          filtered.push(g);
+        }
+      }
+
+      return filtered;
+    } catch (e) {
+      console.error('[GapDetectionService.getUserGaps] Error:', e);
+      return [];
+    }
   }
 
   /**
@@ -540,6 +624,7 @@ export class GapDetectionService {
    * Check story completeness (STAR format or "Accomplished [X] as measured by [Y], by doing [Z]")
    */
   private static checkStoryCompleteness(story: {
+    id?: string;
     title: string;
     content: string;
     metrics?: any[];
@@ -833,99 +918,22 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
    * @param includeResolved - If true, includes resolved gaps (for deduplication)
    *                          If false, only returns unresolved gaps (for display)
    */
+  
+
   private static async getExistingGaps(
     userId: string,
-    entities: Array<{ type: 'work_item' | 'approved_content'; id: string }>,
+    entities: Array<{ type: 'work_item' | 'approved_content' | 'saved_section'; id: string }>,
     accessToken?: string,
     includeResolved: boolean = false
   ): Promise<Gap[]> {
-    try {
-      if (entities.length === 0) return [];
-
-      // Use authenticated client if accessToken provided
-      const dbClient = accessToken 
-        ? await this.getAuthenticatedClient(accessToken)
-        : supabase;
-
-      // Build query - include resolved gaps if requested (for deduplication)
-      let query = dbClient
-        .from('gaps')
-        .select('*')
-        .eq('user_id', userId);
-
-      if (!includeResolved) {
-        query = query.eq('resolved', false);
-      }
-
-      // For multiple entities, we need to use or() with proper syntax
-      if (entities.length === 1) {
-        query = query
-          .eq('entity_type', entities[0].type)
-          .eq('entity_id', entities[0].id);
-      } else {
-        // Supabase doesn't support OR easily, so we'll fetch all and filter
-        let fetchQuery = dbClient
-          .from('gaps')
-          .select('*')
-          .eq('user_id', userId);
-        
-        if (!includeResolved) {
-          fetchQuery = fetchQuery.eq('resolved', false);
-        }
-
-        const { data, error } = await fetchQuery;
-
-        if (error) {
-          console.error('Error fetching existing gaps:', error);
-          return [];
-        }
-
-        // Filter in JavaScript
-        const entityMap = new Set(entities.map(e => `${e.type}:${e.id}`));
-        const filtered = (data || []).filter((g: any) => 
-          entityMap.has(`${g.entity_type}:${g.entity_id}`)
-        );
-
-        return filtered as Gap[];
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('Error fetching existing gaps:', error);
-        return [];
-      }
-
-      return (data || []) as Gap[];
-    } catch (error) {
-      console.error('Error in getExistingGaps:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Get all unresolved gaps for a user
-   */
-  static async getUserGaps(userId: string): Promise<Gap[]> {
-    try {
-      const { data, error } = await supabase
-        .from('gaps')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('resolved', false)
-        .order('severity', { ascending: false })
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching user gaps:', error);
-        return [];
-      }
-
-      return (data || []) as Gap[];
-    } catch (error) {
-      console.error('Error in getUserGaps:', error);
-      return [];
-    }
+    if (entities.length === 0) return [];
+    const dbClient = accessToken ? await this.getAuthenticatedClient(accessToken) : supabase;
+    let q = dbClient.from('gaps').select('*').eq('user_id', userId);
+    if (!includeResolved) q = q.or('resolved.is.null,resolved.eq.false');
+    const { data, error } = await q;
+    if (error) { console.error('Error fetching existing gaps:', error); return []; }
+    const wanted = new Set(entities.map(e => `${e.type}:${e.id}`));
+    return (data || []).filter((g: any) => wanted.has(`${g.entity_type}:${g.entity_id}`)) as Gap[];
   }
 
   /**
@@ -939,10 +947,10 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
    * - work_item + gap_category (missing_role_metrics, insufficient_role_metrics) → Role Metrics
    * - cover_letter_section (future) → Cover Letter Sections
    */
-  static async getGapSummary(userId: string, profileId?: string): Promise<GapSummary> {
+  static async getGapSummary(userId: string, profileId?: string, accessToken?: string): Promise<GapSummary> {
     try {
       // Build the same item list used by the Content Quality widget
-      const itemsByType = await this.getContentItemsWithGaps(userId, profileId);
+      const itemsByType = await this.getContentItemsWithGaps(userId, profileId, accessToken);
       const workHistoryItems = itemsByType.byContentType.workHistory || [];
       const coverLetterItems = itemsByType.byContentType.coverLetterSavedSections || [];
       const allItems = [...workHistoryItems, ...coverLetterItems];
@@ -1094,13 +1102,14 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
    * Get content items with gaps, formatted for dashboard widgets
    * Returns ranked list of individual items grouped by content type
    */
-  static async getContentItemsWithGaps(userId: string, profileId?: string): Promise<GapSummaryByItem> {
+  static async getContentItemsWithGaps(userId: string, profileId?: string, accessToken?: string): Promise<GapSummaryByItem> {
     try {
-      const { data: gaps, error } = await supabase
+      const db = accessToken ? await this.getAuthenticatedClient(accessToken) : supabase;
+      const { data: gaps, error } = await db
         .from('gaps')
         .select('*')
         .eq('user_id', userId)
-        .eq('resolved', false);
+        .or('resolved.is.null,resolved.eq.false');
 
       if (error) throw error;
 
@@ -1113,7 +1122,7 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
         entity_id: string;
       }>();
 
-      gaps?.forEach((gap: any) => {
+      (gaps as any[])?.forEach((gap: any) => {
         const key = `${gap.entity_type}:${gap.entity_id}`;
         if (!entityMap.has(key)) {
           entityMap.set(key, {
@@ -1128,28 +1137,44 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
       // Fetch content metadata for each entity
       for (const [key, entityData] of entityMap.entries()) {
         const [entityType, entityId] = key.split(':');
-        const entityGaps = entityData.gaps;
-        const maxSeverity = entityGaps.reduce((max, gap) => {
+        const entityGaps: any[] = entityData.gaps as any[];
+        const maxSeverity = entityGaps.reduce((max: 'high'|'medium'|'low', gap: any) => {
           const severityOrder = { high: 3, medium: 2, low: 1 };
           return severityOrder[gap.severity as keyof typeof severityOrder] > 
                  severityOrder[max as keyof typeof severityOrder] ? gap.severity : max;
-        }, entityGaps[0].severity) as 'high' | 'medium' | 'low';
+        }, entityGaps[0].severity as 'high'|'medium'|'low');
 
         const gapCategories = [...new Set(entityGaps.map((g: any) => g.gap_category))];
 
         if (entityType === 'work_item') {
           // Fetch work item with company
-          const { data: workItem, error: wiError } = await supabase
+          const { data: workItem, error: wiError } = await db
             .from('work_items')
-            .select('title, description, metrics, profile_id, company:companies(name)')
+            .select('title, description, metrics, source_id, company:companies(name)')
             .eq('id', entityId)
             .single();
 
           if (wiError || !workItem) continue;
 
-          // Profile filter: skip if profileId provided and does not match
-          if (profileId && (workItem as any)?.profile_id && (workItem as any).profile_id !== profileId) {
-            continue;
+          // Profile filter: when profile_id available, use it; otherwise fallback to source file prefix
+          if (profileId) {
+            const wi: any = workItem as any;
+            if (wi?.profile_id) {
+              if (wi.profile_id !== profileId) continue;
+            } else if (wi?.source_id) {
+              const { data: src, error: srcError }: any = await db
+                .from('sources')
+                .select('file_name')
+                .eq('id', wi.source_id)
+                .maybeSingle();
+
+              if (srcError) throw srcError;
+
+              const fileName = (src?.file_name || '').toUpperCase();
+              const pid = profileId.toUpperCase();
+              const matches = fileName.startsWith(`${pid}_`) || fileName.startsWith(`${pid}-`) || fileName.startsWith(`${pid} `) || fileName.startsWith(`${pid}.`);
+              if (!fileName || !matches) continue;
+            }
           }
 
           const companyName = (workItem.company as any)?.name || 'Unknown Company';
@@ -1275,9 +1300,9 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
           }
         } else if (entityType === 'approved_content') {
           // Fetch story with work item and company
-          const { data: story, error: storyError } = await supabase
+          const { data: story, error: storyError }: any = await db
             .from('approved_content')
-            .select('title, work_item:work_items!work_item_id(id, title, profile_id, company:companies(name))')
+            .select('title, source_id, work_item:work_items!work_item_id(id, title, company:companies(name))')
             .eq('id', entityId)
             .single();
 
@@ -1285,9 +1310,21 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
 
           const workItem = story.work_item as any;
 
-          // Profile filter: skip if profileId provided and does not match
-          if (profileId && workItem?.profile_id && workItem.profile_id !== profileId) {
-            continue;
+          // Profile filter: use work_item.profile_id when present; else fallback to story.source filename prefix
+          if (profileId) {
+            if (workItem?.profile_id) {
+              if (workItem.profile_id !== profileId) continue;
+            } else if ((story as any)?.source_id) {
+              const { data: src }: any = await db
+                .from('sources')
+                .select('file_name')
+                .eq('id', (story as any).source_id)
+                .maybeSingle();
+              const fileName = (src?.file_name || '').toUpperCase();
+              const pid = profileId.toUpperCase();
+              const matches = fileName.startsWith(`${pid}_`) || fileName.startsWith(`${pid}-`) || fileName.startsWith(`${pid} `) || fileName.startsWith(`${pid}.`);
+              if (!fileName || !matches) continue;
+            }
           }
           const roleTitle = workItem?.title || 'Unknown Role';
           const companyName = workItem?.company?.name || 'Unknown Company';
@@ -1308,8 +1345,8 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
             navigation_params: { roleId: workItem?.id || '', storyId: entityId },
           });
         } else if (entityType === 'saved_section') {
-          // Fetch saved section
-          const { data: section, error: sectionError } = await supabase
+          // Fetch saved section (use the same db client to respect auth in Node contexts)
+          const { data: section, error: sectionError } = await db
             .from('saved_sections')
             .select('title, type, profile_id')
             .eq('id', entityId)
@@ -1318,8 +1355,9 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
           if (sectionError || !section) continue;
 
           // Profile filter: skip if profileId provided and does not match
-          if (profileId && (section as any)?.profile_id && (section as any).profile_id !== profileId) {
-            continue;
+          if (profileId) {
+            const sec: any = section as any;
+            if (sec?.profile_id && sec.profile_id !== profileId) continue;
           }
 
           const sectionTitle = section.title || section.type || 'Section';
