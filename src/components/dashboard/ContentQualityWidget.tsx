@@ -30,7 +30,7 @@ export type ContentTypeFilter = 'all' | 'workHistory' | 'savedSections' | 'cover
 export type SeverityFilter = 'all' | 'high' | 'medium' | 'low';
 
 export interface ContentQualityWidgetRef {
-  scrollIntoView: () => void;
+  scrollIntoView: (offsetPx?: number) => void;
 }
 
 const SEVERITY_CONFIG = {
@@ -108,9 +108,9 @@ export const ContentQualityWidget = React.forwardRef<ContentQualityWidgetRef, Co
 
   // Expose scroll function via ref (uses offset so tabs stay visible)
   React.useImperativeHandle(ref, () => ({
-    scrollIntoView: () => {
+    scrollIntoView: (offsetPx?: number) => {
       if (widgetRef.current) {
-        scrollToWithOffset(widgetRef.current, 96);
+        scrollToWithOffset(widgetRef.current, offsetPx ?? 96);
       }
     }
   }), []);
@@ -199,7 +199,7 @@ export const ContentQualityWidget = React.forwardRef<ContentQualityWidgetRef, Co
   };
 
   return (
-    <Card ref={widgetRef} className="shadow-soft overflow-visible border-0 bg-gradient-to-br from-slate-50 to-blue-50" style={{ scrollMarginTop: 96 }}>
+    <Card ref={widgetRef} className="shadow-soft overflow-visible border-0 bg-gradient-to-br from-slate-50 to-blue-50" style={{ scrollMarginTop: 140 }}>
       <style>{`
         .solid-color-tabs {
           position: relative;

@@ -47,13 +47,19 @@ export default function NewUserDashboard() {
   const [contentTypeFilter, setContentTypeFilter] = React.useState<ContentTypeFilter>('all');
   const [severityFilter, setSeverityFilter] = React.useState<SeverityFilter>('all');
   
+  // Single source of truth for scroll offset so widgets remain visible above tabs
+  const getTabsScrollOffset = React.useCallback(() => {
+    const isMobile = window.innerWidth < 1024;
+    return isMobile ? 160 : 240; // +20px over previous values
+  }, []);
+  
   // Retry scroll until widget ref is ready (handles navigation from other pages)
-  const scrollTabsWhenReady = React.useCallback((maxAttempts: number = 20, delayMs: number = 75) => {
+  const scrollTabsWhenReady = React.useCallback((maxAttempts: number = 20, delayMs: number = 75, offsetPx?: number) => {
     let attempts = 0;
     const tryScroll = () => {
       const ref = contentQualityWidgetRef.current;
       if (ref && typeof ref.scrollIntoView === 'function') {
-        ref.scrollIntoView();
+        ref.scrollIntoView(offsetPx);
         return;
       }
       if (attempts < maxAttempts) {
@@ -70,7 +76,7 @@ export default function NewUserDashboard() {
     setSeverityFilter(severity);
     // Small delay to ensure state updates before scrolling
     setTimeout(() => {
-      scrollTabsWhenReady();
+      scrollTabsWhenReady(20, 75, getTabsScrollOffset());
     }, 100);
   };
 
@@ -91,7 +97,7 @@ export default function NewUserDashboard() {
     }
     if (scrollTo === 'tabs') {
       // ensure filters applied first, then robust scroll
-      setTimeout(() => scrollTabsWhenReady(), changed ? 150 : 90);
+      setTimeout(() => scrollTabsWhenReady(20, 75, getTabsScrollOffset()), changed ? 150 : 90);
     }
   }, [location.search]);
   const [tasks, setTasks] = useState<OnboardingTask[]>([
@@ -271,38 +277,42 @@ export default function NewUserDashboard() {
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto space-y-8">
 
-          {/* Progress Overview */}
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5" />
-                Onboarding Progress
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">
-                  {completedTasks} of {totalTasks} tasks completed
-                </span>
-                <Badge variant="secondary" className="text-sm">
-                  {Math.round(progress)}%
-                </Badge>
-              </div>
-              <Progress value={progress} className="h-2" />
-            </CardContent>
-          </Card>
+          {/* Top Row: Progress (80%) | Total Gaps (20%) */}
+          <div className="grid grid-cols-5 gap-4">
+            <div className="col-span-5 lg:col-span-4">
+              <Card className="shadow-soft h-full">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5" />
+                    Onboarding Progress
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">
+                      {completedTasks} of {totalTasks} tasks completed
+                    </span>
+                    <Badge variant="secondary" className="text-sm">
+                      {Math.round(progress)}%
+                    </Badge>
+                  </div>
+                  <Progress value={progress} className="h-2" />
+                </CardContent>
+              </Card>
+            </div>
+            <div className="col-span-5 lg:col-span-1">
+              <TotalGapsWidget 
+                gapSummary={gapSummary.data}
+                isLoading={gapSummary.isLoading}
+                onClick={() => handleWidgetClick('all', 'all')}
+              />
+            </div>
+          </div>
 
-          {/* 7 Gap Summary Widgets - 3 Column Layout */}
-          <div className="grid grid-cols-3 gap-4 mb-4"> {/* 1rem margin below widgets */}
-            {/* Left Column: Total Gaps */}
-            <TotalGapsWidget 
-              gapSummary={gapSummary.data}
-              isLoading={gapSummary.isLoading}
-              onClick={() => handleWidgetClick('all', 'all')}
-            />
-
-            {/* Middle Column: Content Type Counts */}
-            <div className="space-y-4">
+          {/* Gap Summary Widgets - two columns, each a 3-column subgrid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+            {/* Content Type Group: [WH | SS | CL] */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <WorkHistoryGapsCountWidget 
                 items={contentItemsWithGaps.data?.byContentType.workHistory || []}
                 isLoading={contentItemsWithGaps.isLoading}
@@ -320,8 +330,8 @@ export default function NewUserDashboard() {
               />
             </div>
 
-            {/* Right Column: Severity Counts */}
-            <div className="space-y-4">
+            {/* Severity Group: [H | M | L] */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <HighSeverityGapsWidget 
                 gapSummary={gapSummary.data}
                 isLoading={gapSummary.isLoading}
