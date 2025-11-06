@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { GapDetectionService, type GapSummaryByItem } from '@/services/gapDetectionService';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 // Simple cache with TTL (Time To Live)
 interface CacheEntry {
@@ -10,7 +11,8 @@ interface CacheEntry {
 
 // Module-level cache (shared across all hook instances)
 const cache = new Map<string, CacheEntry>();
-const CACHE_TTL = 60 * 1000; // 60 seconds
+const CACHE_TTL = 60 * 1000; // in-memory
+const PERSIST_TTL = 15 * 60 * 1000; // 15 minutes persisted cache
 
 export function useContentItemsWithGaps() {
   const [data, setData] = useState<GapSummaryByItem | null>(null);
@@ -19,7 +21,7 @@ export function useContentItemsWithGaps() {
   const { user } = useAuth();
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const fetchItems = async (forceRefresh = false) => {
+  const fetchItems = async (forceRefresh = false, background = false) => {
     if (!user) {
       setIsLoading(false);
       return;
@@ -30,7 +32,7 @@ export function useContentItemsWithGaps() {
       const cached = cache.get(user.id);
       if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
         setData(cached.data);
-        setIsLoading(false);
+        if (!background) setIsLoading(false);
         return;
       }
     }
@@ -43,16 +45,20 @@ export function useContentItemsWithGaps() {
     abortControllerRef.current = new AbortController();
 
     try {
-      setIsLoading(true);
+      if (!background) setIsLoading(true);
       setError(null);
 
       const items = await GapDetectionService.getContentItemsWithGaps(user.id);
 
-      // Update cache
+      // Update caches
       cache.set(user.id, {
         data: items,
         timestamp: Date.now(),
       });
+      try {
+        const persistKey = `contentItemsWithGaps:${user.id}`;
+        localStorage.setItem(persistKey, JSON.stringify({ data: items, timestamp: Date.now() }));
+      } catch {}
 
       setData(items);
     } catch (err) {
@@ -63,13 +69,30 @@ export function useContentItemsWithGaps() {
       console.error('Error fetching content items with gaps:', err);
       setError(err instanceof Error ? err.message : 'Failed to load content items');
     } finally {
-      setIsLoading(false);
+      if (!background) setIsLoading(false);
       abortControllerRef.current = null;
     }
   };
 
   useEffect(() => {
-    fetchItems();
+    if (!user) return;
+    // Try persisted cache first for instant paint
+    try {
+      const persistKey = `contentItemsWithGaps:${user.id}`;
+      const raw = localStorage.getItem(persistKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { data: GapSummaryByItem; timestamp: number };
+        if (parsed && parsed.data && Date.now() - parsed.timestamp < PERSIST_TTL) {
+          setData(parsed.data);
+          setIsLoading(false);
+          // background refresh
+          fetchItems(false, true);
+          return;
+        }
+      }
+    } catch {}
+    // Fallback to normal fetch
+    fetchItems(false, false);
 
     // Cleanup: abort request on unmount
     return () => {
@@ -78,6 +101,24 @@ export function useContentItemsWithGaps() {
       }
     };
   }, [user]);
+
+  // Listen to gap job status and background refetch on success
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel(`gaps_jobs:user:${user.id}`)
+      .on('broadcast', { event: 'job_status' }, (payload: any) => {
+        const status = payload?.payload?.status;
+        if (status === 'succeeded') {
+          cache.delete(user.id);
+          fetchItems(true, true);
+        }
+      })
+      .subscribe();
+    return () => {
+      try { supabase.removeChannel(channel); } catch {}
+    };
+  }, [user?.id]);
 
   // Clear cache entry for this user (useful when gaps are resolved)
   const invalidateCache = () => {
