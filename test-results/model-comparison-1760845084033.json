@@ -1,0 +1,782 @@
+[
+  {
+    "profile": "P01",
+    "model": "gpt-3.5-turbo",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P02",
+    "model": "gpt-3.5-turbo",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P03",
+    "model": "gpt-3.5-turbo",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P04",
+    "model": "gpt-3.5-turbo",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P05",
+    "model": "gpt-3.5-turbo",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P06",
+    "model": "gpt-3.5-turbo",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P07",
+    "model": "gpt-3.5-turbo",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P08",
+    "model": "gpt-3.5-turbo",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P09",
+    "model": "gpt-3.5-turbo",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P10",
+    "model": "gpt-3.5-turbo",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P01",
+    "model": "gpt-4o-mini",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P02",
+    "model": "gpt-4o-mini",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P03",
+    "model": "gpt-4o-mini",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P04",
+    "model": "gpt-4o-mini",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P05",
+    "model": "gpt-4o-mini",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P06",
+    "model": "gpt-4o-mini",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P07",
+    "model": "gpt-4o-mini",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P08",
+    "model": "gpt-4o-mini",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P09",
+    "model": "gpt-4o-mini",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P10",
+    "model": "gpt-4o-mini",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P01",
+    "model": "gpt-4o",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P02",
+    "model": "gpt-4o",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P03",
+    "model": "gpt-4o",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P04",
+    "model": "gpt-4o",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P05",
+    "model": "gpt-4o",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P06",
+    "model": "gpt-4o",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P07",
+    "model": "gpt-4o",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P08",
+    "model": "gpt-4o",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P09",
+    "model": "gpt-4o",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  },
+  {
+    "profile": "P10",
+    "model": "gpt-4o",
+    "latency": {
+      "resume": 0,
+      "coverLetter": 0,
+      "combined": 0,
+      "total": 0
+    },
+    "tokenUsage": {
+      "input": 0,
+      "output": 0,
+      "total": 0
+    },
+    "extractedData": {
+      "companies": 0,
+      "roles": 0,
+      "stories": 0,
+      "metrics": 0,
+      "tags": 0
+    },
+    "cost": 0,
+    "errors": [
+      "Test failed: OpenAI API error: Incorrect API key provided: undefined. You can find your API key at https://platform.openai.com/account/api-keys."
+    ]
+  }
+]

@@ -8,7 +8,9 @@ export const FILE_UPLOAD_CONFIG = {
   ALLOWED_TYPES: {
     RESUME: [
       'application/pdf',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain',
+      'text/markdown'
     ],
     COVER_LETTER: [
       'text/plain',
@@ -25,7 +27,7 @@ export const FILE_UPLOAD_CONFIG = {
   
   // File extensions for validation
   ALLOWED_EXTENSIONS: {
-    RESUME: ['.pdf', '.docx'],
+    RESUME: ['.pdf', '.docx', '.txt', '.md'],
     COVER_LETTER: ['.txt', '.pdf', '.md', '.docx'],
     CASE_STUDIES: ['.txt', '.pdf', '.md']
   },
@@ -53,8 +55,8 @@ export const FILE_UPLOAD_CONFIG = {
 
 // OpenAI configuration
 export const OPENAI_CONFIG = {
-  MODEL: import.meta.env.VITE_OPENAI_MODEL || 'gpt-4',
-  MAX_TOKENS: 4000,
+  MODEL: (import.meta.env?.VITE_OPENAI_MODEL) || (typeof process !== 'undefined' ? process.env.VITE_OPENAI_MODEL : undefined) || 'gpt-3.5-turbo',
+  MAX_TOKENS: 2000,
   TEMPERATURE: 0.1,
   TIMEOUT: 30000, // 30 seconds
   MAX_RETRIES: 3

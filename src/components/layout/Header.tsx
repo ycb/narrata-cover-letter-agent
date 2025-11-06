@@ -31,9 +31,12 @@ import { useState } from "react";
 import { UserGoalsModal } from "@/components/user-goals/UserGoalsModal";
 import { MyVoiceModal } from "@/components/user-voice/MyVoiceModal";
 import { MyDataModal } from "@/components/user-data/MyDataModal";
+import { SyntheticUserSelector } from "@/components/synthetic/SyntheticUserSelector";
 import { useUserGoals } from "@/contexts/UserGoalsContext";
 import { useUserVoice } from "@/contexts/UserVoiceContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useGapSummary } from "@/hooks/useGapSummary";
+import { useGapsJob } from "@/contexts/GapsJobContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,7 +55,9 @@ interface HeaderProps {
 export const Header = ({ currentPage }: HeaderProps) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const gapSummary = useGapSummary();
   const { user, profile, signOut, getOAuthData } = useAuth();
+  const { isRunning } = useGapsJob();
   const [showDataModal, setShowDataModal] = useState(false);
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
@@ -88,7 +93,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
   
   // Determine current page based on pathname
   const getCurrentPage = (pathname: string): string => {
-    if (pathname === "/dashboard" || pathname === "/") return "dashboard";
+    if (pathname === "/dashboard" || pathname === "/new-user-dashboard" || pathname === "/") return "dashboard";
     if (pathname === "/work-history" || pathname.startsWith("/show-all-stories") || pathname.startsWith("/show-all-links")) return "work-history";
     if (pathname === "/cover-letters" || pathname === "/cover-letter-template" || pathname === "/cover-letter-create" || pathname === "/saved-sections" || pathname.startsWith("/show-all-saved-sections")) return "cover-letters";
     if (pathname === "/assessment" || pathname.startsWith("/assessment/")) return "assessment";
@@ -113,6 +118,16 @@ export const Header = ({ currentPage }: HeaderProps) => {
 
   return (
     <header className="border-b sticky top-0 z-50" style={{ backgroundColor: '#121212' }}>
+      {/* Global subtle progress bar for gap detection jobs */}
+      {isRunning && (
+        <div className="w-full h-0.5 bg-transparent">
+          <div className="h-0.5 w-full overflow-hidden">
+            <div className="h-0.5 w-1/3 animate-[progress_1.2s_ease-in-out_infinite] bg-gradient-to-r from-fuchsia-500 via-pink-500 to-rose-500 rounded-full" style={{
+              // keyframes defined inline via tailwind arbitrary, fallback to simple CSS animation below
+            }} />
+          </div>
+        </div>
+      )}
       <div className="container flex h-16 items-center justify-between">
         <div className="flex items-center gap-6">
           <Link 
@@ -130,19 +145,40 @@ export const Header = ({ currentPage }: HeaderProps) => {
           {/* Dropdown Navigation */}
           <nav className="hidden md:flex">
             <div className="flex items-center gap-1">
-              {/* Dashboard - Simple Link */}
-                            <Link
-                to="/dashboard"
-                className={cn(
-                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-all rounded-md",
-                  activePage === "dashboard" 
-                    ? "bg-white text-[#121212] hover:bg-white" 
-                    : "text-white opacity-90 hover:opacity-100"
-                )}
-              >
-                <Target className="h-4 w-4" />
-                Dashboard
-              </Link>
+              {/* Dashboard - Main Link + Dropdown */}
+              <div className="relative group">
+                <Link
+                  to="/new-user-dashboard"
+                  className={cn(
+                    "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium cursor-default transition-all rounded-md",
+                    activePage === "dashboard" 
+                      ? "bg-white text-[#121212] hover:bg-white" 
+                      : "text-white opacity-90 hover:opacity-100"
+                  )}
+                >
+                  <Target className="h-4 w-4" />
+                  Dashboard
+                  <ChevronDown className="h-3 w-3" />
+                </Link>
+                <div className="absolute top-full left-0 pt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
+                  <div className="border-0 shadow-lg p-3 min-w-64" style={{ backgroundColor: 'rgba(18, 18, 18, 0.9)', borderRadius: '0 0 8px 8px' }}>
+                    <Link 
+                      to="/dashboard" 
+                      className={cn(
+                        "flex items-center justify-between px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity hover:bg-[#E32D9A]",
+                        location.pathname === "/dashboard"
+                          ? "text-white bg-white/10"
+                          : "text-white"
+                      )}
+                    >
+                      <span className="flex items-center gap-2">
+                        <BarChart3 className="h-4 w-4" />
+                        Existing User Dashboard
+                      </span>
+                    </Link>
+                  </div>
+                </div>
+              </div>
 
               {/* Work History - Main Link + Dropdown */}
               <div className="relative group">
@@ -389,7 +425,8 @@ export const Header = ({ currentPage }: HeaderProps) => {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="text-white opacity-90 hover:opacity-100 transition-opacity p-2 h-auto">
                 <div className="flex items-center gap-2">
-                  {/* User Avatar */}
+                  {/* User Avatar with Gap Badge */}
+                  <div className="relative">
                   {(() => {
                     const oauthData = getOAuthData();
                     const avatarUrl = oauthData.picture || profile?.avatar_url;
@@ -424,6 +461,14 @@ export const Header = ({ currentPage }: HeaderProps) => {
                       );
                     }
                   })()}
+                    
+                    {/* Gap Count Badge */}
+                    {gapSummary.data && gapSummary.data.total > 0 && (
+                      <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-warning text-warning-foreground text-xs font-semibold flex items-center justify-center px-1 border-2 border-[#121212]">
+                        {gapSummary.data.total > 9 ? '9+' : gapSummary.data.total}
+                      </div>
+                    )}
+                  </div>
                   
                   {/* User Name */}
                   <div className="flex flex-col items-start">
@@ -460,6 +505,21 @@ export const Header = ({ currentPage }: HeaderProps) => {
               <DropdownMenuItem onClick={() => setShowVoiceModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end">
                 <span>My Voice</span>
               </DropdownMenuItem>
+              {gapSummary.data && gapSummary.data.total > 0 && (
+                <DropdownMenuItem 
+                  onClick={() => navigate('/new-user-dashboard?contentType=all&severity=all&scrollTo=tabs')}
+                  className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end items-center gap-2"
+                >
+                  <span>Review Gaps</span>
+                  <Badge variant="destructive" className="bg-warning text-warning-foreground">
+                    {gapSummary.data.total > 9 ? '9+' : gapSummary.data.total}
+                  </Badge>
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <div className="px-3 py-2">
+                <SyntheticUserSelector className="w-full" />
+              </div>
               <DropdownMenuSeparator />
               <DropdownMenuItem 
                 onClick={handleSignOut}
@@ -479,7 +539,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
           <div className="container py-4 space-y-4">
             {/* Dashboard */}
             <Link
-              to="/dashboard"
+              to="/new-user-dashboard"
               className={cn(
                 "flex items-center gap-3 px-4 py-3 text-sm font-medium transition-all rounded-md",
                 activePage === "dashboard" 

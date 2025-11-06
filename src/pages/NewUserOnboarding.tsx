@@ -17,11 +17,10 @@ import {
   Lightbulb,
   BookOpen,
   RefreshCw,
-  ChevronDown,
-  ChevronUp
 } from "lucide-react";
-import { ContentReviewStep } from "@/components/onboarding/ContentReviewStep";
+import { ImportSummaryStep } from "@/components/onboarding/ImportSummaryStep";
 import { FileUploadCard } from "@/components/onboarding/FileUploadCard";
+import { ProgressIndicator } from "@/components/onboarding/ProgressIndicator";
 import { useTour } from "@/contexts/TourContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -70,53 +69,9 @@ export default function NewUserOnboarding() {
   const [resumeCompleted, setResumeCompleted] = useState(false);
   const [linkedinCompleted, setLinkedinCompleted] = useState(false);
   const [coverLetterCompleted, setCoverLetterCompleted] = useState(false);
-  const [resumeCollapsed, setResumeCollapsed] = useState(false);
-  const [linkedinCollapsed, setLinkedinCollapsed] = useState(false);
-  const [coverLetterCollapsed, setCoverLetterCollapsed] = useState(false);
   const linkedinRef = useRef<HTMLDivElement>(null);
   const coverLetterRef = useRef<HTMLDivElement>(null);
-  const resumeAutoCollapseRef = useRef(false);
-  const linkedinAutoCollapseRef = useRef(false);
-  const coverLetterAutoCollapseRef = useRef(false);
 
-  // Auto-collapse and scroll when steps complete
-  useEffect(() => {
-    if (resumeCompleted) {
-      if (!resumeAutoCollapseRef.current) {
-        setResumeCollapsed(true);
-        resumeAutoCollapseRef.current = true;
-        setTimeout(() => linkedinRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
-      }
-    } else {
-      resumeAutoCollapseRef.current = false;
-      setResumeCollapsed(false);
-    }
-  }, [resumeCompleted]);
-
-  useEffect(() => {
-    if (linkedinCompleted) {
-      if (!linkedinAutoCollapseRef.current) {
-        setLinkedinCollapsed(true);
-        linkedinAutoCollapseRef.current = true;
-        setTimeout(() => coverLetterRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
-      }
-    } else {
-      linkedinAutoCollapseRef.current = false;
-      setLinkedinCollapsed(false);
-    }
-  }, [linkedinCompleted]);
-
-  useEffect(() => {
-    if (coverLetterCompleted) {
-      if (!coverLetterAutoCollapseRef.current) {
-        setCoverLetterCollapsed(true);
-        coverLetterAutoCollapseRef.current = true;
-      }
-    } else {
-      coverLetterAutoCollapseRef.current = false;
-      setCoverLetterCollapsed(false);
-    }
-  }, [coverLetterCompleted]);
 
   const [autoPopulatingLinkedIn, setAutoPopulatingLinkedIn] = useState(false);
   const [linkedinAutoCompleted, setLinkedinAutoCompleted] = useState(false);
@@ -237,6 +192,7 @@ export default function NewUserOnboarding() {
   const checkAndAutoPopulateLinkedIn = async (resumeFileId: string) => {
     if (!user) return;
 
+    const startTime = performance.now();
     try {
       console.log('🔍 Checking resume for LinkedIn URL...');
       console.log('Resume file ID:', resumeFileId);
@@ -283,8 +239,11 @@ export default function NewUserOnboarding() {
         setAutoPopulatingLinkedIn(true);
         
         // Auto-trigger LinkedIn enrichment
+        const linkedInStartTime = performance.now();
         console.log('🚀 Auto-triggering LinkedIn enrichment...');
         const result = await linkedInUpload.connectLinkedIn(normalizedUrl);
+        const linkedInEndTime = performance.now();
+        console.warn(`⏱️ LinkedIn PDL API call took: ${(linkedInEndTime - linkedInStartTime).toFixed(2)}ms`);
         
         if (result.success) {
           console.log('✅ LinkedIn auto-populated and enriched successfully!');
@@ -301,9 +260,14 @@ export default function NewUserOnboarding() {
       } else {
         console.log('❌ Invalid LinkedIn URL after normalization:', linkedinUrl);
       }
+      
+      const totalTime = performance.now() - startTime;
+      console.warn(`⏱️ Total LinkedIn auto-population took: ${totalTime.toFixed(2)}ms`);
     } catch (error) {
       console.error('💥 Error during LinkedIn auto-population:', error);
       setAutoPopulatingLinkedIn(false);
+      const totalTime = performance.now() - startTime;
+      console.log(`⏱️ LinkedIn auto-population failed after: ${totalTime.toFixed(2)}ms`);
     }
   };
 
@@ -382,7 +346,7 @@ export default function NewUserOnboarding() {
             <Sparkles className="w-10 h-10 text-white" />
           </div>
           <h1 className="text-4xl font-bold text-foreground">
-            Welcome to TruthLetter!
+            Welcome to Narrata!
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Let's unlock your job search superpowers.
@@ -488,196 +452,74 @@ export default function NewUserOnboarding() {
         <h2 className="text-3xl font-bold text-foreground">
           Add Your Content
         </h2>
-        <p className="text-muted-foreground">
-          Complete each step to unlock the next
-        </p>
       </div>
 
-      <div className="flex flex-col gap-6 relative pl-12">
-        {/* Vertical line connecting steps */}
-        <div className="absolute left-0 top-12 bottom-12 w-0.5 bg-gray-200" style={{ left: '-8px' }} />
+      <div className="flex flex-col gap-6">
         
-        {/* Step 1: Resume */}
-        <div className="relative">
-          <div className="absolute -left-12 top-6 flex items-center justify-center w-8 h-8 rounded-full border-2 border-blue-500 bg-white text-sm font-semibold text-blue-600 z-10">
-            {resumeCompleted ? <CheckCircle className="w-5 h-5 text-green-500" /> : '1'}
-          </div>
-          {resumeCompleted && resumeCollapsed ? (
-            <Card
-              className="cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => setResumeCollapsed(false)}
-            >
-              <CardContent className="py-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                    <div>
-                      <p className="font-medium">Resume</p>
-                      <p className="text-sm text-muted-foreground">Completed</p>
-                    </div>
-                  </div>
-                  <ChevronDown className="w-5 h-5 text-gray-400" />
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <div>
-              {resumeCompleted && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="mb-2 text-xs"
-                  onClick={() => setResumeCollapsed(true)}
-                >
-                  <ChevronUp className="w-3 h-3 mr-1" />
-                  Collapse
-                </Button>
-              )}
-              <FileUploadCard
-                type="resume"
-                title="Resume"
-                description="Upload your resume to get started"
-                icon={FileText}
-                onFileUpload={handleFileUpload}
-                onUploadComplete={handleUploadComplete}
-                onUploadError={handleUploadError}
-                currentValue={onboardingData.resume}
-                required={true}
-              />
-            </div>
-          )}
+        {/* Resume */}
+        <div>
+          <FileUploadCard
+            type="resume"
+            title="Resume"
+            description="Upload your resume to get started"
+            icon={FileText}
+            onFileUpload={handleFileUpload}
+            onUploadComplete={handleUploadComplete}
+            onUploadError={handleUploadError}
+            currentValue={onboardingData.resume}
+            required={true}
+          />
         </div>
         
-        {/* Step 2: LinkedIn */}
-        <div className="relative" ref={linkedinRef}>
-          <div className={`absolute -left-12 top-6 flex items-center justify-center w-8 h-8 rounded-full border-2 ${
-            resumeCompleted ? 'border-blue-500 bg-white' : 'border-gray-300 bg-gray-100'
-          } text-sm font-semibold ${resumeCompleted ? 'text-blue-600' : 'text-gray-400'} z-10`}>
-            {linkedinCompleted ? <CheckCircle className="w-5 h-5 text-green-500" /> : autoPopulatingLinkedIn ? (
-              <RefreshCw className="w-4 h-4 text-blue-600 animate-spin" />
-            ) : '2'}
+        {/* LinkedIn */}
+        <div ref={linkedinRef}>
+          <div className={!resumeCompleted ? 'opacity-50 pointer-events-none' : ''}>
+            <FileUploadCard
+              type="linkedin"
+              title="LinkedIn Profile"
+              description={autoPopulatingLinkedIn 
+                ? "✨ Auto-populating from resume..." 
+                : linkedinAutoCompleted && linkedinCompleted
+                  ? "LinkedIn profile imported from your resume"
+                  : resumeCompleted 
+                    ? (linkedinUrl 
+                      ? "LinkedIn URL found in resume - click Connect to enrich" 
+                      : "Enter your LinkedIn URL to enrich your work history")
+                    : "Complete resume upload first"}
+              icon={LinkedinIcon}
+              onLinkedInUrl={handleLinkedInUrl}
+              onUploadComplete={handleUploadComplete}
+              onUploadError={handleUploadError}
+              currentValue={linkedinUrl}
+              disabled={!resumeCompleted || autoPopulatingLinkedIn}
+              required={true}
+            />
           </div>
-          {linkedinCompleted && linkedinCollapsed ? (
-            <Card
-              className="cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => setLinkedinCollapsed(false)}
-            >
-              <CardContent className="py-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                    <div>
-                      <p className="font-medium">LinkedIn Profile</p>
-                      <p className="text-sm text-muted-foreground">
-                        {linkedinAutoCompleted ? 'Auto-completed from resume' : 'Completed'}
-                      </p>
-                    </div>
-                  </div>
-                  <ChevronDown className="w-5 h-5 text-gray-400" />
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className={!resumeCompleted ? 'opacity-50 pointer-events-none' : ''}>
-              {linkedinCompleted && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="mb-2 text-xs"
-                  onClick={() => setLinkedinCollapsed(true)}
-                >
-                  <ChevronUp className="w-3 h-3 mr-1" />
-                  Collapse
-                </Button>
-              )}
-              {linkedinAutoCompleted && linkedinCompleted && (
-                <div className="mb-2">
-                  <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-200">
-                    <Sparkles className="w-3 h-3 mr-1" />
-                    Auto-completed from resume
-                  </Badge>
-                </div>
-              )}
-              <FileUploadCard
-                type="linkedin"
-                title="LinkedIn Profile"
-                description={autoPopulatingLinkedIn 
-                  ? "✨ Auto-populating from resume..." 
-                  : linkedinAutoCompleted && linkedinCompleted
-                    ? "✅ Successfully enriched with LinkedIn data from your resume"
-                    : resumeCompleted 
-                      ? (linkedinUrl 
-                        ? "LinkedIn URL found in resume - click Connect to enrich" 
-                        : "Enter your LinkedIn URL to enrich your work history")
-                      : "Complete resume upload first"}
-                icon={LinkedinIcon}
-                onLinkedInUrl={handleLinkedInUrl}
-                onUploadComplete={handleUploadComplete}
-                onUploadError={handleUploadError}
-                currentValue={linkedinUrl}
-                disabled={!resumeCompleted || autoPopulatingLinkedIn}
-                required={true}
-              />
-            </div>
-          )}
         </div>
         
-        {/* Step 3: Cover Letter */}
-        <div className="relative" ref={coverLetterRef}>
-          <div className={`absolute -left-12 top-6 flex items-center justify-center w-8 h-8 rounded-full border-2 ${
-            linkedinCompleted ? 'border-blue-500 bg-white' : 'border-gray-300 bg-gray-100'
-          } text-sm font-semibold ${linkedinCompleted ? 'text-blue-600' : 'text-gray-400'} z-10`}>
-            {coverLetterCompleted ? <CheckCircle className="w-5 h-5 text-green-500" /> : '3'}
+        {/* Cover Letter */}
+        <div ref={coverLetterRef}>
+          <div className={!linkedinCompleted ? 'opacity-50 pointer-events-none' : ''}>
+            <FileUploadCard
+              type="coverLetter"
+              title="Best Cover Letter"
+              description={linkedinCompleted 
+                ? "Upload or paste your best cover letter example" 
+                : "Complete LinkedIn step first"}
+              icon={Mail}
+              onTextInput={handleCoverLetterText}
+              onFileUpload={handleFileUpload}
+              onUploadComplete={handleUploadComplete}
+              onUploadError={handleUploadError}
+              currentValue={onboardingData.coverLetter}
+              disabled={!linkedinCompleted}
+              required={true}
+            />
           </div>
-          {coverLetterCompleted && coverLetterCollapsed ? (
-            <Card
-              className="cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => setCoverLetterCollapsed(false)}
-            >
-              <CardContent className="py-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                    <div>
-                      <p className="font-medium">Best Cover Letter</p>
-                      <p className="text-sm text-muted-foreground">Completed</p>
-                    </div>
-                  </div>
-                  <ChevronDown className="w-5 h-5 text-gray-400" />
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className={!linkedinCompleted ? 'opacity-50 pointer-events-none' : ''}>
-              {coverLetterCompleted && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="mb-2 text-xs"
-                  onClick={() => setCoverLetterCollapsed(true)}
-                >
-                  <ChevronUp className="w-3 h-3 mr-1" />
-                  Collapse
-                </Button>
-              )}
-              <FileUploadCard
-                type="coverLetter"
-                title="Best Cover Letter"
-                description={linkedinCompleted 
-                  ? "Upload or paste your best cover letter example" 
-                  : "Complete LinkedIn step first"}
-                icon={Mail}
-                onTextInput={handleCoverLetterText}
-                onFileUpload={handleFileUpload}
-                onUploadComplete={handleUploadComplete}
-                onUploadError={handleUploadError}
-                currentValue={onboardingData.coverLetter}
-                disabled={!linkedinCompleted}
-                required={true}
-              />
-            </div>
-          )}
         </div>
+        
+        {/* Progressive Loading Indicator */}
+        <ProgressIndicator />
         
       </div>
 
@@ -713,10 +555,6 @@ export default function NewUserOnboarding() {
           )}
         </Button>
         
-        {/* Progress indicator */}
-        <div className="mt-4 text-sm text-muted-foreground">
-          Step {(resumeCompleted ? 1 : 0) + (linkedinCompleted ? 1 : 0) + (coverLetterCompleted ? 1 : 0)} of 3 completed
-        </div>
       </div>
     </div>
   );
@@ -783,24 +621,18 @@ export default function NewUserOnboarding() {
                   )}
                 </div>
                 <span className={`text-sm font-medium ${currentStep === 'review' ? 'text-blue-600' : 'text-gray-900'}`}>
-                  Review
+                  Summary
                 </span>
               </div>
             </div>
           </div>
         </Card>
 
-        <ContentReviewStep 
-          onReviewComplete={(approvedContent) => {
-            console.log('Review completed, approved content:', approvedContent);
-            // Update onboarding data with approved content
-            setOnboardingData(prev => ({
-              ...prev,
-              approvedContent
-            }));
+        <ImportSummaryStep 
+          onNext={() => {
+            console.log('Starting product tour');
             handleNextStep();
           }}
-          onBack={() => setCurrentStep('upload')}
         />
       </div>
     );
@@ -926,14 +758,6 @@ export default function NewUserOnboarding() {
         <div className="max-w-4xl mx-auto">
           {renderCurrentStep()}
         </div>
-        
-        {/* Debug Panel at bottom - Development Only */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="fixed bottom-4 left-4 right-4 p-3 bg-gray-100 border border-gray-300 rounded text-xs">
-            <p className="text-gray-600 font-bold">🔍 Debug: LinkedIn OAuth</p>
-            <p className="text-gray-500">LinkedIn User: {isLinkedInUser ? 'Yes' : 'No'} | ID: {linkedinId || 'None'}</p>
-          </div>
-        )}
       </div>
     </div>
   );

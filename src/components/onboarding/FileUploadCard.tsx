@@ -134,16 +134,13 @@ export function FileUploadCard({
     </div>
   );
 
-  // Smart combination logic
-  const hasUploadedFile = uploadedFileId !== null;
-  const hasTextInput = typeof coverLetterText === 'string' && coverLetterText.trim().length >= 10;
-  const hasBoth = hasUploadedFile && hasTextInput;
 
   const isCompleted = (currentValue && (
     (typeof currentValue === 'string' && currentValue.trim().length > 0) || 
     currentValue instanceof File
   )) || 
-    (type === 'linkedin' && linkedInUrl.trim().length > 0);
+    (type === 'linkedin' && uploadedFileId !== null) ||
+    (type !== 'linkedin' && uploadedFileId !== null);
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -178,9 +175,23 @@ export function FileUploadCard({
   }, [error]);
 
   const handleCoverLetterTextChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setCoverLetterText(e.target.value);
+    const newText = e.target.value;
+    setCoverLetterText(newText);
     if (error) setError(null);
   }, [error]);
+
+  // Auto-process text when it's pasted (debounced)
+  useEffect(() => {
+    if (coverLetterText && coverLetterText.length > 100 && onTextInput) {
+      setProcessingStatus('Processing pasted text...');
+      const timer = setTimeout(() => {
+        onTextInput(coverLetterText.trim());
+        setProcessingStatus('');
+      }, 1000); // Increased delay to 1 second
+      
+      return () => clearTimeout(timer);
+    }
+  }, [coverLetterText, onTextInput]);
 
   /**
    * Handle file upload - ACTUALLY uploads and processes the file
@@ -245,7 +256,7 @@ export function FileUploadCard({
     }
   }, [fileUpload, onFileUpload, type, onUploadError]);
 
-  const handleLinkedInSubmit = useCallback(() => {
+  const handleLinkedInSubmit = useCallback(async () => {
     if (!onLinkedInUrl) return;
 
     // Clear any previous errors
@@ -266,70 +277,38 @@ export function FileUploadCard({
       return;
     }
 
-    // Call the parent handler
+    // Call the parent handler to update state
     onLinkedInUrl(trimmedUrl);
     
-    // Update local state to show success immediately
-    setUploadedFileId(`linkedin_${Date.now()}`);
-    
-    // Call upload complete callback to update parent
-    onUploadComplete?.(`linkedin_${Date.now()}`, 'linkedin');
-  }, [linkedInUrl, onLinkedInUrl, onUploadComplete]);
-
-  // Smart submission handler
-  const handleSmartSubmit = useCallback(async () => {
-    if (!hasUploadedFile && !hasTextInput) {
-      onUploadError?.('Please upload a file or enter text');
-      return;
-    }
-
+    // Actually call the LinkedIn API for enrichment
+    const manualLinkedInStartTime = performance.now();
+    console.log('🚀 Manual LinkedIn enrichment starting...');
     try {
-      let contentToProcess: string;
-      let submissionType: string;
-
-      if (hasBoth) {
-        // Combine file content with additional text
-        contentToProcess = `${uploadedFileContent}\n\n--- Additional Context ---\n${coverLetterText}`;
-        submissionType = 'Combined file and text';
-      } else if (hasUploadedFile) {
-        // Use file content only
-        contentToProcess = uploadedFileContent!;
-        submissionType = 'Uploaded file';
+      const result = await linkedInUpload.connectLinkedIn(trimmedUrl);
+      const manualLinkedInEndTime = performance.now();
+      console.warn(`⏱️ Manual LinkedIn PDL API call took: ${(manualLinkedInEndTime - manualLinkedInStartTime).toFixed(2)}ms`);
+      
+      if (result.success && result.fileId) {
+        console.log('✅ Manual LinkedIn enrichment successful, ID:', result.fileId);
+        setUploadedFileId(result.fileId);
+        onUploadComplete?.(result.fileId, 'linkedin');
       } else {
-        // Use text only
-        contentToProcess = typeof coverLetterText === 'string' ? coverLetterText : '';
-        submissionType = 'Manual text';
-      }
-
-      console.log(`Processing ${submissionType}:`, { length: contentToProcess.length });
-      
-      const result = await fileUpload.saveManualText(contentToProcess, 'coverLetter');
-      
-      if (result.success) {
-        console.log(`${submissionType} saved successfully`);
-        if (onTextInput) {
-          onTextInput(contentToProcess);
+        console.error('❌ Manual LinkedIn enrichment failed:', result.error);
+        setError(result.error || 'LinkedIn connection failed');
+        if (onUploadError) {
+          onUploadError(result.error || 'LinkedIn connection failed');
         }
-        onUploadComplete?.(result.fileId!, 'coverLetter');
-      } else {
-        onUploadError?.(result.error || 'Failed to save content');
       }
-    } catch (error) {
-      onUploadError?.(error instanceof Error ? error.message : 'Failed to save content');
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'LinkedIn connection failed';
+      console.error('❌ Manual LinkedIn enrichment exception:', errorMsg);
+      setError(errorMsg);
+      if (onUploadError) {
+        onUploadError(errorMsg);
+      }
     }
-  }, [hasUploadedFile, hasTextInput, hasBoth, uploadedFileContent, coverLetterText, fileUpload, onTextInput, onUploadComplete, onUploadError]);
+  }, [linkedInUrl, onLinkedInUrl, onUploadComplete, onUploadError, linkedInUpload]);
 
-  // Helper functions for UI
-  const getButtonText = () => {
-    if (hasBoth) return 'Combine File & Text';
-    if (hasUploadedFile) return 'Process Uploaded File';
-    if (hasTextInput) return 'Add Cover Letter Text';
-    return 'Add Cover Letter Text';
-  };
-
-  const getButtonDisabled = () => {
-    return !hasUploadedFile && !hasTextInput;
-  };
 
   const renderFileUpload = () => (
     <div className="space-y-4">
@@ -384,7 +363,7 @@ export function FileUploadCard({
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">
-              Paste resume content directly for fast and reliable processing
+              Paste resume text directly for fast and reliable processing
             </label>
             <Textarea
               placeholder="Paste your resume content here..."
@@ -430,11 +409,20 @@ export function FileUploadCard({
           />
           <Button 
             onClick={handleLinkedInSubmit}
-            disabled={!linkedInUrl.trim()}
+            disabled={!linkedInUrl.trim() || linkedInUpload.isConnecting}
             size="sm"
             variant="secondary"
           >
-            Connect
+            {linkedInUpload.isConnecting ? (
+              <>
+                <LoadingSpinner size="sm" className="mr-2" />
+                Connecting...
+              </>
+            ) : uploadedFileId ? (
+              'Connected'
+            ) : (
+              'Connect'
+            )}
           </Button>
         </div>
         {isCompleted && (
@@ -442,6 +430,16 @@ export function FileUploadCard({
         )}
         {error && <ErrorMessage message={error} />}
       </div>
+
+      {/* Show progress bar for LinkedIn connections */}
+      {(linkedInUpload.isConnecting || uploadedFileId) && (
+        <UploadProgressBar
+          isConnecting={linkedInUpload.isConnecting}
+          isUploading={false}
+          progress={[]}
+          connectingText="Connecting to LinkedIn and enriching data..."
+        />
+      )}
 
       {linkedInUpload.error && (
         <div className="flex items-center gap-2 text-red-600 text-sm">
@@ -493,7 +491,7 @@ export function FileUploadCard({
       </div>
 
       {/* Show progress bar for file uploads (when uploading or when file is uploaded) */}
-      {(fileUpload.isUploading || hasUploadedFile) && (
+      {(fileUpload.isUploading || uploadedFileId) && (
         <UploadProgressBar
           isUploading={fileUpload.isUploading}
           progress={fileUpload.progress}
@@ -515,44 +513,19 @@ export function FileUploadCard({
       {/* Text Input Section */}
       <div className="space-y-2">
         <label className="text-sm font-medium text-gray-700">
-          Paste your cover letter text directly
+          Paste cover letter text directly for fast and reliable processing
         </label>
         <Textarea
           placeholder="Paste your cover letter content here..."
           value={typeof coverLetterText === 'string' ? coverLetterText : ''}
           onChange={handleCoverLetterTextChange}
-          rows={10}
-          className="font-mono text-sm"
+          rows={3}
         />
         <p className="text-xs text-gray-500">
           {typeof coverLetterText === 'string' ? coverLetterText.length : 0} characters
         </p>
       </div>
 
-      {/* Smart Submit Button - Only show if there's content to process */}
-      {(hasUploadedFile || hasTextInput) && (
-        <div className="pt-4">
-          <Button
-            onClick={handleSmartSubmit}
-            disabled={getButtonDisabled() || fileUpload.isUploading}
-            className="w-full"
-          >
-            {fileUpload.isUploading ? (
-              <>
-                <LoadingSpinner size="sm" className="mr-2" />
-                {processingStatus || 'Processing...'}
-              </>
-            ) : (
-              getButtonText()
-            )}
-          </Button>
-          {hasBoth && (
-            <p className="text-xs text-gray-500 mt-2 text-center">
-              This will combine your uploaded file with the additional text you provided
-            </p>
-          )}
-        </div>
-      )}
 
       {fileUpload.error && (
         <div className="flex items-center gap-2 text-red-600 text-sm">
@@ -564,37 +537,66 @@ export function FileUploadCard({
   );
 
   return (
-    <Card className={`${disabled ? 'opacity-60' : ''}`}>
+    <Card className={`transition-all duration-200 ${
+      isCompleted ? 'ring-2 ring-green-200 bg-green-50' : ''
+    } ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
       <CardHeader>
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-blue-50">
-            <Icon className="w-5 h-5 text-blue-600" />
-          </div>
+          {isCompleted && (
+            <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-green-100">
+              <CheckCircle className="w-6 h-6 text-green-600" />
+            </div>
+          )}
           <div className="flex-1">
             <CardTitle className="text-lg">{title}</CardTitle>
             {description && (
               <p className="text-sm text-muted-foreground mt-1">{description}</p>
             )}
           </div>
-          {required && (
-            <Badge variant="secondary" className="text-xs">
-              Required
-            </Badge>
-          )}
           {optional && (
             <Badge variant="outline" className="text-xs">
               Optional
             </Badge>
           )}
-          {isCompleted && (
-            <CheckCircle className="w-5 h-5 text-green-500" />
-          )}
         </div>
       </CardHeader>
       <CardContent>
-        {type === 'linkedin' ? renderLinkedInInput() : 
-         type === 'coverLetter' ? renderCoverLetterInput() : 
-         renderFileUpload()}
+        {isCompleted && (type === 'resume' || type === 'coverLetter') && uploadedFileId ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center">
+                  <FileText className="w-4 h-4 text-blue-600" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">{uploadedFileName}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // Clear all file-related state
+                    setUploadedFileId(null);
+                    setUploadedFileName(null);
+                    setUploadedFileContent(null);
+                    setError(null);
+                    // Clear parent state
+                    onFileUpload?.(type as 'resume' | 'coverLetter' | 'caseStudies', null as any);
+                  }}
+                  className="text-gray-600 border-gray-300 hover:bg-gray-50 hover:border-gray-400 hover:underline"
+                >
+                  Remove
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          type === 'linkedin' ? renderLinkedInInput() : 
+          type === 'coverLetter' ? renderCoverLetterInput() : 
+          renderFileUpload()
+        )}
       </CardContent>
     </Card>
   );

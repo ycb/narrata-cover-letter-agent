@@ -201,24 +201,47 @@ export function ContentReviewStep({ onReviewComplete, onBack }: ContentReviewSte
         else if (workHistory.length < 2) resumeConfidence = 'medium';
         else if (!resumeData.skills || resumeData.skills.length < 5) resumeConfidence = 'medium';
         
+        // Flatten stories from all work history items
+        const allStories: any[] = [];
+        for (const workItem of workHistory) {
+          const stories = workItem.stories || [];
+          
+          // Map each story with role/company context
+          for (const story of stories) {
+            // Use title first, fallback to position for backward compatibility
+            const roleTitle = workItem.title || workItem.position || 'Unknown Position';
+            allStories.push({
+              id: story.id || `resume-story-${workItem.id}-${story.id}`,
+              title: story.title || `${roleTitle} at ${workItem.company}`,
+              content: story.content || '',
+              company: workItem.company,
+              companyTags: workItem.companyTags || [],
+              role: roleTitle,
+              roleTags: workItem.roleTags || [],
+              roleSummary: workItem.roleSummary || '',
+              roleMetrics: workItem.roleMetrics || [],
+              dates: `${workItem.startDate || ''} - ${workItem.endDate || 'Present'}`,
+              location: workItem.location || '',
+              startDate: workItem.startDate,
+              endDate: workItem.endDate,
+              tags: story.tags || [],
+              metrics: story.metrics || [],
+              problem: story.problem,
+              action: story.action,
+              outcome: story.outcome
+            });
+          }
+        }
+        
+        console.log(`✅ Extracted ${allStories.length} stories from ${workHistory.length} roles`);
+        
         content.push({
           id: `resume-${resumeSource.id}`,
           type: 'resume',
           title: 'Resume Analysis',
           source: resumeSource.file_name,
           content: resumeSource.raw_text || '',
-          stories: workHistory.map((exp: any, index: number) => ({
-            id: exp.id || `resume-story-${index}`,
-            title: `${exp.title} at ${exp.company}`,
-            content: exp.description || '',
-            company: exp.company,
-            role: exp.title,
-            dates: `${exp.startDate} - ${exp.endDate || 'Present'}`,
-            location: exp.location,
-            achievements: exp.achievements || [],
-            startDate: exp.startDate,
-            endDate: exp.endDate
-          })),
+          stories: allStories,
           approved: false,
           confidence: resumeConfidence
         });
@@ -260,10 +283,11 @@ export function ContentReviewStep({ onReviewComplete, onBack }: ContentReviewSte
 
           💼 WORK EXPERIENCE
           ${experiences.map((exp: any, idx: number) => {
-            const company = exp.company || 'Unknown Company';
-            const title = exp.title || 'Unknown Role';
+            // Handle both flat and nested PDL structures
+            const company = typeof exp.company === 'object' ? exp.company.name : (exp.company || 'Unknown Company');
+            const title = typeof exp.title === 'object' ? exp.title.name : (exp.title || 'Unknown Role');
             const dates = `${exp.startDate || exp.start_date || 'N/A'} - ${exp.endDate || exp.end_date || 'Present'}`;
-            const location = exp.location || '';
+            const location = typeof exp.location === 'object' ? exp.location.name : (exp.location || '');
             return `${idx + 1}. ${title} at ${company}
             ${dates}${location ? ` | ${location}` : ''}`;
           }).join('\n') || 'No work experience data'}
@@ -284,18 +308,25 @@ export function ContentReviewStep({ onReviewComplete, onBack }: ContentReviewSte
           title: 'LinkedIn Profile',
           source: linkedinProfile.profile_url,
           content: formattedContent,
-          stories: experiences.map((exp: any, index: number) => ({
-            id: exp.id || `linkedin-story-${index}`,
-            title: `${exp.title || 'Unknown Role'} at ${exp.company || 'Unknown Company'}`,
-            content: exp.description || '',
-            company: exp.company || '',
-            role: exp.title || '',
-            dates: `${exp.startDate || exp.start_date || ''} - ${exp.endDate || exp.end_date || 'Present'}`,
-            location: exp.location || '',
-            achievements: Array.isArray(exp.achievements) ? exp.achievements : [],
-            startDate: exp.startDate || exp.start_date,
-            endDate: exp.endDate || exp.end_date
-          })),
+          stories: experiences.map((exp: any, index: number) => {
+            // Handle both flat and nested PDL structures
+            const company = typeof exp.company === 'object' ? exp.company.name : (exp.company || 'Unknown Company');
+            const title = typeof exp.title === 'object' ? exp.title.name : (exp.title || 'Unknown Role');
+            const location = typeof exp.location === 'object' ? exp.location.name : (exp.location || '');
+            
+            return {
+              id: exp.id || `linkedin-story-${index}`,
+              title: `${title} at ${company}`,
+              content: exp.summary || exp.description || '',
+              company,
+              role: title,
+              dates: `${exp.start_date || exp.startDate || ''} - ${exp.end_date || exp.endDate || 'Present'}`,
+              location,
+              achievements: Array.isArray(exp.achievements) ? exp.achievements : [],
+              startDate: exp.start_date || exp.startDate,
+              endDate: exp.end_date || exp.endDate
+            };
+          }),
           approved: false,
           confidence: linkedinConfidence
         });
@@ -497,15 +528,15 @@ export function ContentReviewStep({ onReviewComplete, onBack }: ContentReviewSte
           let company = existingCompany;
 
           if (!company) {
-            // Create new company
+            // Create new company with tags from LLM
             console.log('  ➕ Creating new company:', story.company);
             const { data: newCompany, error: companyError } = await supabase
               .from('companies')
               .insert({
                 user_id: user.id,
                 name: story.company,
-                description: '',
-                tags: []
+                description: story.roleSummary || '',
+                tags: story.companyTags || []
               })
               .select()
               .single();
@@ -527,43 +558,68 @@ export function ContentReviewStep({ onReviewComplete, onBack }: ContentReviewSte
             continue;
           }
 
-          // Create work item with actual dates from story
-          console.log('  ➕ Creating work item...');
-          const { data: workItem, error: workItemError } = await supabase
+          // Check if work item already exists for this role at this company
+          const { data: existingWorkItem } = await supabase
             .from('work_items')
-            .insert({
-              user_id: user.id,
-              company_id: company.id,
-              title: story.role,
-              start_date: story.startDate || new Date().toISOString().split('T')[0],
-              end_date: story.endDate || null,
-              description: story.content,
-              tags: [],
-              achievements: story.achievements || []
-            })
-            .select()
-            .single();
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('company_id', company.id)
+            .eq('title', story.role)
+            .maybeSingle();
 
-          if (workItemError || !workItem) {
-            console.error('  ❌ Error creating work item:', workItemError);
+          let workItem = existingWorkItem;
+
+          if (!workItem) {
+            // Create work item with role-level tags and metrics
+            console.log('  ➕ Creating work item...');
+            const { data: newWorkItem, error: workItemError } = await supabase
+              .from('work_items')
+              .insert({
+                user_id: user.id,
+                company_id: company.id,
+                title: story.role,
+                start_date: story.startDate || new Date().toISOString().split('T')[0],
+                end_date: story.endDate || null,
+                description: story.roleSummary || story.content,
+                tags: story.roleTags || [],
+                achievements: story.roleMetrics?.map((m: any) => `${m.value} ${m.context}`) || []
+              })
+              .select()
+              .single();
+
+            if (newWorkItem) {
+              workItem = newWorkItem;
+              workItemsCreated++;
+              console.log('  ✅ Work item created:', workItem.id);
+            } else if (workItemError) {
+              console.error('  ❌ Error creating work item:', workItemError);
+              continue;
+            }
+          } else {
+            console.log('  ✓ Using existing work item:', workItem.id);
+          }
+
+          if (!workItem) {
+            console.error('  ❌ Work item is null, cannot create story');
             continue;
           }
 
-          workItemsCreated++;
-          console.log('  ✅ Work item created:', workItem.id);
-
-          // Create approved content (story/blurb)
-          console.log('  ➕ Creating approved content...');
-          const { data: approvedContent, error: contentError } = await supabase
+          // Create approved content (story/blurb) with story-level tags and metrics
+          console.log('  ➕ Creating approved content (story)...');
+          
+          // Format metrics as readable text for storage
+          const metricsText = story.metrics?.map((m: any) => `${m.value} ${m.context}`).join('; ') || '';
+          
+          const { data: approvedContent, error: contentError} = await supabase
             .from('approved_content')
             .insert({
               user_id: user.id,
               work_item_id: workItem.id,
               title: story.title,
-              content: story.content,
+              content: story.content + (metricsText ? `\n\nMetrics: ${metricsText}` : ''),
               status: 'approved',
-              confidence: item.confidence, // Use confidence from the approved item
-              tags: story.achievements?.slice(0, 3) || [], // Use first 3 achievements as tags
+              confidence: item.confidence,
+              tags: story.tags || [], // Use thematic tags from LLM
               times_used: 0
             })
             .select()

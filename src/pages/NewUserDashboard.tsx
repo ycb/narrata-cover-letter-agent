@@ -17,7 +17,17 @@ import {
   ArrowRight,
   ExternalLink
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { ContentQualityWidget, ContentQualityWidgetRef, ContentTypeFilter, SeverityFilter } from "@/components/dashboard/ContentQualityWidget";
+import { TotalGapsWidget } from "@/components/dashboard/TotalGapsWidget";
+import { WorkHistoryGapsCountWidget } from "@/components/dashboard/WorkHistoryGapsCountWidget";
+import { SavedSectionsGapsCountWidget } from "@/components/dashboard/SavedSectionsGapsCountWidget";
+import { CoverLettersGapsCountWidget } from "@/components/dashboard/CoverLettersGapsCountWidget";
+import { HighSeverityGapsWidget } from "@/components/dashboard/HighSeverityGapsWidget";
+import { MediumSeverityGapsWidget } from "@/components/dashboard/MediumSeverityGapsWidget";
+import { LowSeverityGapsWidget } from "@/components/dashboard/LowSeverityGapsWidget";
+import { useGapSummary } from "@/hooks/useGapSummary";
+import { useContentItemsWithGaps } from "@/hooks/useContentItemsWithGaps";
 
 interface OnboardingTask {
   id: string;
@@ -30,6 +40,144 @@ interface OnboardingTask {
 
 export default function NewUserDashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const gapSummary = useGapSummary();
+  const contentItemsWithGaps = useContentItemsWithGaps();
+  const contentQualityWidgetRef = React.useRef<ContentQualityWidgetRef>(null);
+  const [contentTypeFilter, setContentTypeFilter] = React.useState<ContentTypeFilter>('all');
+  const [severityFilter, setSeverityFilter] = React.useState<SeverityFilter>('all');
+  
+  // Single source of truth for scroll offset so widgets remain visible above tabs
+  const getTabsScrollOffset = React.useCallback(() => {
+    const isMobile = window.innerWidth < 1024;
+    return isMobile ? 160 : 240; // +20px over previous values
+  }, []);
+  
+  // Retry scroll until widget ref is ready (handles navigation from other pages)
+  const scrollTabsWhenReady = React.useCallback((maxAttempts: number = 20, delayMs: number = 75, offsetPx?: number) => {
+    let attempts = 0;
+    const tryScroll = () => {
+      const ref = contentQualityWidgetRef.current;
+      if (ref && typeof ref.scrollIntoView === 'function') {
+        ref.scrollIntoView(offsetPx);
+        return;
+      }
+      if (attempts < maxAttempts) {
+        attempts += 1;
+        setTimeout(tryScroll, delayMs);
+      }
+    };
+
+    // start on next frame for smoother UX
+    requestAnimationFrame(tryScroll);
+  }, []);
+
+  // Derive a minimal GapSummary from items when the authoritative summary isn't ready
+  const derivedSummary = React.useMemo(() => {
+    const items = contentItemsWithGaps.data?.byContentType.workHistory || [];
+    if (!items || items.length === 0) return null;
+    const counts: Record<'high'|'medium'|'low', number> = { high: 0, medium: 0, low: 0 };
+    items.forEach(it => { counts[it.max_severity] = (counts[it.max_severity] || 0) + 1; });
+    return {
+      total: items.length,
+      byContentType: {
+        stories: 0,
+        savedSections: 0,
+        roleDescriptions: 0,
+        roleMetrics: 0,
+        coverLetterSections: 0,
+      },
+      bySeverity: { high: counts.high, medium: counts.medium, low: counts.low },
+      bySeverityAndType: {
+        high: { stories: 0, savedSections: 0, roleDescriptions: 0, roleMetrics: 0, coverLetterSections: 0 },
+        medium: { stories: 0, savedSections: 0, roleDescriptions: 0, roleMetrics: 0, coverLetterSections: 0 },
+        low: { stories: 0, savedSections: 0, roleDescriptions: 0, roleMetrics: 0, coverLetterSections: 0 },
+      },
+    } as const;
+  }, [contentItemsWithGaps.data]);
+
+  const summaryForUI = gapSummary.data ?? derivedSummary;
+
+  // Build immediate fallback counts from summary when detailed items are not yet loaded
+  const whFallbackCount = React.useMemo(() => {
+    if (!summaryForUI) return null;
+    const bc = summaryForUI.byContentType || ({} as any);
+    return (bc.roleDescriptions || 0) + (bc.roleMetrics || 0) + (bc.stories || 0);
+  }, [summaryForUI]);
+
+  const ssFallbackCount = React.useMemo(() => {
+    if (!summaryForUI) return null;
+    const bc = summaryForUI.byContentType || ({} as any);
+    // Support both savedSections and coverLetterSections buckets
+    return (bc.coverLetterSections || 0) + (bc.savedSections || 0);
+  }, [summaryForUI]);
+
+  // Placeholder items so widgets can render counts instantly from cached summary
+  const whItems = React.useMemo(() => {
+    const items = contentItemsWithGaps.data?.byContentType.workHistory;
+    if (items && items.length >= 0) return items;
+    if (typeof whFallbackCount === 'number') {
+      return Array.from({ length: whFallbackCount }, (_, i) => ({
+        entity_id: `wh-ph-${i}`,
+        entity_type: 'work_item',
+        display_title: '',
+        max_severity: 'low',
+        gap_categories: [],
+        content_type_label: 'Work History',
+        navigation_path: '',
+        navigation_params: {}
+      } as any));
+    }
+    return [] as any[];
+  }, [contentItemsWithGaps.data, whFallbackCount]);
+
+  const ssItems = React.useMemo(() => {
+    const items = contentItemsWithGaps.data?.byContentType.coverLetterSavedSections;
+    if (items && items.length >= 0) return items;
+    if (typeof ssFallbackCount === 'number') {
+      return Array.from({ length: ssFallbackCount }, (_, i) => ({
+        entity_id: `ss-ph-${i}`,
+        entity_type: 'saved_section',
+        display_title: '',
+        max_severity: 'low',
+        gap_categories: [],
+        content_type_label: 'Cover Letter Saved Sections',
+        navigation_path: '',
+        navigation_params: {}
+      } as any));
+    }
+    return [] as any[];
+  }, [contentItemsWithGaps.data, ssFallbackCount]);
+  
+  const handleWidgetClick = (contentType: ContentTypeFilter, severity: SeverityFilter) => {
+    setContentTypeFilter(contentType);
+    setSeverityFilter(severity);
+    // Small delay to ensure state updates before scrolling
+    setTimeout(() => {
+      scrollTabsWhenReady(20, 75, getTabsScrollOffset());
+    }, 100);
+  };
+
+  // Handle deep links: /new-user-dashboard?contentType=all&severity=all&scrollTo=tabs
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const ct = (params.get('contentType') as ContentTypeFilter) || undefined;
+    const sev = (params.get('severity') as SeverityFilter) || undefined;
+    const scrollTo = params.get('scrollTo');
+    let changed = false;
+    if (ct && ct !== contentTypeFilter) {
+      setContentTypeFilter(ct);
+      changed = true;
+    }
+    if (sev && sev !== severityFilter) {
+      setSeverityFilter(sev);
+      changed = true;
+    }
+    if (scrollTo === 'tabs') {
+      // ensure filters applied first, then robust scroll
+      setTimeout(() => scrollTabsWhenReady(20, 75, getTabsScrollOffset()), changed ? 150 : 90);
+    }
+  }, [location.search]);
   const [tasks, setTasks] = useState<OnboardingTask[]>([
     // Work History Tasks
     {
@@ -166,7 +314,7 @@ export default function NewUserDashboard() {
 
             <div className="space-y-4">
               <p className="text-lg text-foreground">
-                You now have access to the full TruthLetter experience with:
+                You now have access to the full Narrata experience with:
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
                 <div className="flex items-center gap-2">
@@ -206,45 +354,124 @@ export default function NewUserDashboard() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto space-y-8">
-          {/* Header */}
-          <div className="text-center space-y-4">
-            <div className="mx-auto w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-              <Sparkles className="w-10 h-10 text-white" />
+
+          {/* Top Row: Progress (80%) | Total Gaps (20%) */}
+          <div className="grid grid-cols-5 gap-4">
+            <div className="col-span-5 lg:col-span-4">
+              <Card className="shadow-soft h-full">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5" />
+                    Onboarding Progress
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">
+                      {completedTasks} of {totalTasks} tasks completed
+                    </span>
+                    <Badge variant="secondary" className="text-sm">
+                      {Math.round(progress)}%
+                    </Badge>
+                  </div>
+                  <Progress value={progress} className="h-2" />
+                </CardContent>
+              </Card>
             </div>
-            <h1 className="text-4xl font-bold text-foreground">
-              Welcome to TruthLetter!
-            </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Let's get you set up with everything you need to create powerful cover letters and land your dream job.
-            </p>
+            <div className="col-span-5 lg:col-span-1">
+              <TotalGapsWidget 
+                gapSummary={summaryForUI}
+                isLoading={summaryForUI ? false : gapSummary.isLoading}
+                onClick={() => handleWidgetClick('all', 'all')}
+              />
+            </div>
           </div>
 
-          {/* Progress Overview */}
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5" />
-                Onboarding Progress
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">
-                  {completedTasks} of {totalTasks} tasks completed
-                </span>
-                <Badge variant="secondary" className="text-sm">
-                  {Math.round(progress)}%
-                </Badge>
-              </div>
-              <Progress value={progress} className="h-2" />
-            </CardContent>
-          </Card>
+          {/* Gap Summary Widgets - two columns, each a 3-column subgrid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+            {/* Content Type Group: [WH | SS | CL] */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <WorkHistoryGapsCountWidget 
+                items={whItems}
+                isLoading={!summaryForUI && contentItemsWithGaps.isLoading}
+                onClick={() => handleWidgetClick('workHistory', 'all')}
+              />
+              <SavedSectionsGapsCountWidget 
+                items={ssItems}
+                isLoading={!summaryForUI && contentItemsWithGaps.isLoading}
+                onClick={() => handleWidgetClick('savedSections', 'all')}
+              />
+              <CoverLettersGapsCountWidget 
+                count={0}
+                isLoading={false}
+                onClick={() => handleWidgetClick('coverLetters', 'all')}
+              />
+            </div>
+
+            {/* Severity Group: [H | M | L] */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <HighSeverityGapsWidget 
+                gapSummary={summaryForUI}
+                isLoading={summaryForUI ? false : gapSummary.isLoading}
+                onClick={() => handleWidgetClick('all', 'high')}
+              />
+              <MediumSeverityGapsWidget 
+                gapSummary={summaryForUI}
+                isLoading={summaryForUI ? false : gapSummary.isLoading}
+                onClick={() => handleWidgetClick('all', 'medium')}
+              />
+              <LowSeverityGapsWidget 
+                gapSummary={summaryForUI}
+                isLoading={summaryForUI ? false : gapSummary.isLoading}
+                onClick={() => handleWidgetClick('all', 'low')}
+              />
+            </div>
+          </div>
+
+          {/* Content Quality Widget - Mega Gaps Tabber */}
+          <ContentQualityWidget 
+            ref={contentQualityWidgetRef}
+            gapSummary={summaryForUI}
+            contentItems={[
+              ...(contentItemsWithGaps.data?.byContentType.workHistory || []),
+              ...(contentItemsWithGaps.data?.byContentType.coverLetterSavedSections || [])
+            ]}
+            isLoading={
+              (contentItemsWithGaps.data ? false : contentItemsWithGaps.isLoading)
+            }
+            initialContentTypeFilter={contentTypeFilter}
+            initialSeverityFilter={severityFilter}
+            onFilterChange={(contentType, severity) => {
+              setContentTypeFilter(contentType);
+              setSeverityFilter(severity);
+            }}
+          />
 
           {/* Task Categories */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {Object.entries(groupedTasks).map(([category, categoryTasks]) => (
+            {Object.entries(groupedTasks).map(([category, categoryTasks]) => {
+              // Calculate gap counts for badges
+              let gapCount = 0;
+              let severityCounts = { high: 0, medium: 0, low: 0 };
+              
+              if (category === 'Review Work History') {
+                gapCount = contentItemsWithGaps.data?.byContentType.workHistory.length || 0;
+                severityCounts = contentItemsWithGaps.data?.byContentType.workHistory.reduce((acc, item) => {
+                  acc[item.max_severity]++;
+                  return acc;
+                }, { high: 0, medium: 0, low: 0 });
+              } else if (category === 'Review Cover Letter Template') {
+                gapCount = contentItemsWithGaps.data?.byContentType.coverLetterSavedSections.length || 0;
+                severityCounts = contentItemsWithGaps.data?.byContentType.coverLetterSavedSections.reduce((acc, item) => {
+                  acc[item.max_severity]++;
+                  return acc;
+                }, { high: 0, medium: 0, low: 0 });
+              }
+
+              return (
               <Card key={category} className="shadow-soft">
                 <CardHeader>
+                    <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     {category === 'Review Work History' && <Users className="w-5 h-5" />}
                     {category === 'Review Cover Letter Template' && <LayoutTemplate className="w-5 h-5" />}
@@ -252,6 +479,37 @@ export default function NewUserDashboard() {
                     {category === 'Review your PM Level' && <Trophy className="w-5 h-5" />}
                     {category}
                   </CardTitle>
+                      {gapCount > 0 && (
+                        <div className="flex items-center gap-2">
+                          {category === 'Review Work History' && (
+                            <>
+                              <Badge variant="outline" className="bg-blue-500/20 text-blue-500 border-blue-500/30">
+                                <Users className="w-3 h-3 mr-1" />
+                                {gapCount}
+                              </Badge>
+                              {severityCounts.high > 0 && (
+                                <Badge variant="destructive" className="text-xs">
+                                  {severityCounts.high}H
+                                </Badge>
+                              )}
+                            </>
+                          )}
+                          {category === 'Review Cover Letter Template' && (
+                            <>
+                              <Badge variant="outline" className="bg-purple-500/20 text-purple-500 border-purple-500/30">
+                                <LayoutTemplate className="w-3 h-3 mr-1" />
+                                {gapCount}
+                              </Badge>
+                              {severityCounts.high > 0 && (
+                                <Badge variant="destructive" className="text-xs">
+                                  {severityCounts.high}H
+                                </Badge>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {categoryTasks.map((task) => (
@@ -281,7 +539,8 @@ export default function NewUserDashboard() {
                   ))}
                 </CardContent>
               </Card>
-            ))}
+              );
+            })}
           </div>
 
           {/* Quick Actions */}

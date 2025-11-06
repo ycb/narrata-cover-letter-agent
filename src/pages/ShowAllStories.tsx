@@ -2,86 +2,24 @@ import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
-  Edit, 
-  Trash2, 
-  Copy,
-  Calendar,
-  Building2,
-  User,
-  Star,
-  MoreHorizontal,
-  Eye,
+  Edit,
   X,
-  Loader2
+  Loader2,
+  AlertTriangle
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { ShowAllTemplate, FilterOption, SortOption } from "@/components/shared/ShowAllTemplate";
 import { Story } from "@/types/workHistory";
 import { AddStoryModal } from "@/components/work-history/AddStoryModal";
-import { StoryCard } from "@/components/work-history/StoryCard";
+import { ContentCard } from "@/components/shared/ContentCard";
+import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
+import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
+import { StoriesEmptyState } from "@/components/work-history/EmptyStates";
 
-// Mock data for all stories
-const mockAllStories: Story[] = [
-  {
-    id: "story-1",
-    title: "Led cross-functional team to deliver MVP in 6 weeks",
-    company: "TechCorp Inc.",
-    role: "Senior Product Manager",
-    impact: "high",
-    metrics: "Increased user engagement by 45%",
-    date: "2024-01-15",
-    tags: ["leadership", "mvp", "user engagement"]
-  },
-  {
-    id: "story-2",
-    title: "Optimized customer onboarding flow reducing drop-off by 30%",
-    company: "StartupXYZ",
-    role: "Product Manager",
-    impact: "medium",
-    metrics: "Reduced onboarding time from 15 to 10 minutes",
-    date: "2024-01-10",
-    tags: ["optimization", "customer experience", "onboarding"]
-  },
-  {
-    id: "story-3",
-    title: "Launched new feature driving $2M in additional revenue",
-    company: "Enterprise Corp",
-    role: "Senior Product Manager",
-    impact: "high",
-    metrics: "Generated $2M in first quarter",
-    date: "2024-01-05",
-    tags: ["revenue", "launch", "feature development"]
-  },
-  {
-    id: "story-4",
-    title: "Managed product roadmap for 3 engineering teams",
-    company: "ScaleUp Inc.",
-    role: "Product Manager",
-    impact: "medium",
-    metrics: "Delivered 12 features on schedule",
-    date: "2023-12-20",
-    tags: ["roadmap", "team management", "delivery"]
-  },
-  {
-    id: "story-5",
-    title: "Conducted user research leading to pivot decision",
-    company: "Innovation Labs",
-    role: "Product Manager",
-    impact: "high",
-    metrics: "Avoided $500K in development costs",
-    date: "2023-12-15",
-    tags: ["user research", "pivot", "cost savings"]
-  }
-];
+// REMOVED: Mock data - now using empty states instead
+// Mock data has been moved to usability-test branch for future reference
 
 export default function ShowAllStories() {
   const { user } = useAuth();
@@ -92,6 +30,13 @@ export default function ShowAllStories() {
   const [viewingStory, setViewingStory] = useState<Story | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [editingStory, setEditingStory] = useState<Story | null>(null);
+  const [storyGapsMap, setStoryGapsMap] = useState<Map<string, boolean>>(new Map());
+  const [viewingStoryGaps, setViewingStoryGaps] = useState<Array<{ id: string; description: string }>>([]);
+  const [resolvedGaps, setResolvedGaps] = useState<Set<string>>(new Set());
+  const [fullStoryContent, setFullStoryContent] = useState<string>('');
+  const [fullStoryMetrics, setFullStoryMetrics] = useState<any[]>([]);
+  const [isContentModalOpen, setIsContentModalOpen] = useState(false);
+  const [selectedGap, setSelectedGap] = useState<any>(null);
 
   // Fetch stories from database
   const fetchStories = useCallback(async () => {
@@ -121,6 +66,28 @@ export default function ShowAllStories() {
 
       if (blurbsError) throw blurbsError;
 
+      // Fetch gaps for stories first (before transforming, so we can add hasGaps property)
+      const blurbIds = (blurbs || []).map((b: any) => b.id);
+      let gapsMap = new Map<string, boolean>();
+      
+      if (blurbIds.length > 0) {
+        const { data: gaps, error: gapsError } = await supabase
+          .from('gaps')
+          .select('entity_id')
+          .eq('user_id', user.id)
+          .eq('entity_type', 'approved_content')
+          .eq('resolved', false)
+          .in('entity_id', blurbIds);
+
+        if (!gapsError && gaps) {
+          gaps.forEach(gap => {
+            gapsMap.set(gap.entity_id, true);
+          });
+        }
+      }
+      
+      setStoryGapsMap(gapsMap);
+
       // Transform to Story format
       const transformedStories: Story[] = (blurbs || []).map((blurb: any) => {
         const workItem = blurb.work_item || {};
@@ -134,7 +101,8 @@ export default function ShowAllStories() {
           impact: blurb.confidence as 'high' | 'medium' | 'low' || 'medium',
           metrics: blurb.content.substring(0, 100), // First 100 chars as preview
           date: blurb.created_at,
-          tags: blurb.tags || []
+          tags: blurb.tags || [],
+          hasGaps: gapsMap.get(blurb.id) || false
         };
       });
 
@@ -177,9 +145,11 @@ export default function ShowAllStories() {
       value: tag, 
       category: 'tag' as const 
     })),
+    // Gap filter options
+    { label: 'Gap detected', value: 'gap-detected', category: 'gap' as const },
+    { label: 'No gaps', value: 'no-gaps', category: 'gap' as const },
     // Other options
     { label: 'Story', value: 'title', category: 'other' as const },
-    { label: 'Impact', value: 'impact', category: 'other' as const },
     { label: 'Metrics', value: 'metrics', category: 'other' as const },
     { label: 'Date', value: 'date', category: 'other' as const }
   ];
@@ -205,9 +175,169 @@ export default function ShowAllStories() {
     console.log("Copy story:", story.id);
   };
 
-  const handleView = (story: Story) => {
+  const handleView = async (story: Story) => {
     setViewingStory(story);
     setIsViewModalOpen(true);
+    // Reset gap-related state when viewing a new story
+    setViewingStoryGaps([]);
+    setSelectedGap(null);
+    setIsContentModalOpen(false);
+    
+      // Fetch full story content and gaps
+      if (user && story.id) {
+        // Fetch full story from approved_content
+        const { data: fullStory, error: storyError } = await supabase
+          .from('approved_content')
+          .select('id, title, content, tags, metrics, created_at')
+          .eq('id', story.id)
+          .single();
+        
+        if (!storyError && fullStory) {
+          setFullStoryContent(fullStory.content || '');
+          setFullStoryMetrics(Array.isArray(fullStory.metrics) ? fullStory.metrics : []);
+        }
+        
+        // Fetch gaps for this story (include all fields needed for content generation)
+        const { data: gaps, error: gapsError } = await supabase
+          .from('gaps')
+          .select('id, description, gap_category, gap_type, severity, suggestions')
+          .eq('user_id', user.id)
+          .eq('entity_type', 'approved_content')
+          .eq('entity_id', story.id)
+          .eq('resolved', false);
+        
+        if (!gapsError && gaps) {
+          setViewingStoryGaps(gaps.map(g => ({
+            id: g.id,
+            description: g.description || g.gap_category || 'Content needs improvement',
+            gap_category: g.gap_category,
+            gap_type: g.gap_type,
+            severity: g.severity,
+            suggestions: g.suggestions
+          })));
+        } else {
+          setViewingStoryGaps([]);
+        }
+      }
+    };
+  
+  const handleDismissGap = (gapId: string) => {
+    setResolvedGaps(new Set([...resolvedGaps, gapId]));
+  };
+  
+  const handleGenerateContent = async () => {
+    if (!viewingStory || viewingStoryGaps.length === 0 || !user) return;
+    
+    // Use the first gap for content generation
+    const firstGap = viewingStoryGaps[0];
+    
+    // Ensure gap has valid ID
+    if (!firstGap.id) return;
+    
+    // Fetch full gap data from database
+      const { data: gapData, error: gapError } = await supabase
+        .from('gaps')
+        .select('*')
+        .eq('id', firstGap.id)
+        .single();
+      
+    // Only open modal if we successfully fetched gap data
+    if (gapError || !gapData) {
+      console.error('Error fetching gap data:', gapError);
+      return;
+    }
+    
+        // Format gap as GapAnalysis object for ContentGenerationModal
+        const gapAnalysis = {
+          id: gapData.id,
+          type: mapGapTypeToModalType(gapData.gap_type),
+          severity: gapData.severity as 'high' | 'medium' | 'low',
+          description: gapData.description || gapData.gap_category || 'Content needs improvement',
+          suggestion: gapData.suggestions && gapData.suggestions.length > 0 
+            ? gapData.suggestions[0]?.suggestion || gapData.suggestions[0] || 'Improve content quality'
+            : 'Enhance content to address identified issues',
+          paragraphId: 'story-content',
+          origin: 'ai' as const,
+          addresses: gapData.suggestions?.map((s: any) => s?.addressing || s) || [],
+          existingContent: fullStoryContent || ''
+        };
+        
+        setSelectedGap(gapAnalysis);
+        setIsContentModalOpen(true);
+  };
+
+  const mapGapTypeToModalType = (gapType: string): 'core-requirement' | 'preferred-requirement' | 'best-practice' | 'content-enhancement' => {
+    switch (gapType) {
+      case 'data_quality':
+        return 'core-requirement';
+      case 'role_expectation':
+        return 'preferred-requirement';
+      case 'best_practice':
+      default:
+        return 'best-practice';
+    }
+  };
+
+  const handleApplyContent = async (content: string) => {
+    if (!viewingStory || !user || !selectedGap) return;
+    
+    // Update the story content in the database
+    const { error: updateError } = await supabase
+      .from('approved_content')
+      .update({ content })
+      .eq('id', viewingStory.id)
+      .eq('user_id', user.id);
+    
+    if (updateError) {
+      console.error('Error updating story content:', updateError);
+      return;
+    }
+    
+    // Resolve gap in database with 'content_added' reason (not 'user_override')
+    // This distinguishes content-generated resolution from manual dismissal
+    const gapId = selectedGap.id;
+    const isDatabaseId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(gapId);
+    
+    if (isDatabaseId) {
+      try {
+        const { GapDetectionService } = await import('../services/gapDetectionService');
+        // Persist gap resolution with 'content_added' reason
+        // Link the updated content to the gap it addresses
+        await GapDetectionService.resolveGap(gapId, user.id, 'content_added', viewingStory.id);
+      } catch (error) {
+        console.error('Error resolving gap after content generation:', error);
+        // Continue even if gap resolution fails
+      }
+    }
+    
+      // Update local state
+      setFullStoryContent(content);
+      
+    // Refresh stories list (this will also refresh gap counts)
+      await fetchStories();
+      
+      // Close the modal
+      setIsContentModalOpen(false);
+      setSelectedGap(null);
+  };
+  
+  const handleResolveGap = async (gapId: string) => {
+    if (!user) return;
+    
+    // Mark gap as resolved in database
+    const { error } = await supabase
+      .from('gaps')
+      .update({ resolved: true })
+      .eq('id', gapId)
+      .eq('user_id', user.id);
+    
+    if (!error) {
+      handleDismissGap(gapId);
+      // Refresh gaps for viewing story
+      if (viewingStory) {
+        await handleView(viewingStory);
+      }
+    }
   };
 
   const getImpactColor = (impact: string) => {
@@ -247,10 +377,19 @@ export default function ShowAllStories() {
   }
 
   const renderHeader = (
-    handleSort: (field: keyof Story) => void, 
-    getSortIcon: (field: keyof Story) => React.ReactNode
+    handleSort: (field: keyof Story | 'hasGaps') => void, 
+    getSortIcon: (field: keyof Story | 'hasGaps') => React.ReactNode
   ) => (
     <tr>
+      <th 
+        className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors w-12"
+        onClick={() => handleSort('hasGaps')}
+      >
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+          {getSortIcon('hasGaps')}
+        </div>
+      </th>
       <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('title')}>
         <div className="flex items-center gap-2">
           Story
@@ -269,12 +408,6 @@ export default function ShowAllStories() {
           {getSortIcon('role')}
         </div>
       </th>
-      <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('impact')}>
-        <div className="flex items-center gap-2">
-          Impact
-          {getSortIcon('impact')}
-        </div>
-      </th>
       <th className="text-left p-4 font-medium text-muted-foreground cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => handleSort('metrics')}>
         <div className="flex items-center gap-2">
           Metrics
@@ -288,33 +421,36 @@ export default function ShowAllStories() {
         </div>
       </th>
       <th className="text-left p-4 font-medium text-muted-foreground">Tags</th>
-      <th className="text-left p-4 font-medium text-muted-foreground">Actions</th>
     </tr>
   );
 
-  const renderRow = (story: Story, index: number) => (
-    <tr key={story.id} className="border-b hover:bg-muted/50 transition-colors">
-      <td className="p-4">
+  const renderRow = (story: Story, index: number) => {
+    const hasGaps = storyGapsMap.get(story.id) || false;
+    return (
+      <tr 
+        key={story.id} 
+        className="border-b hover:bg-primary/10 transition-colors cursor-pointer"
+        onClick={() => handleView(story)}
+      >
+        <td className="p-4">
+          {hasGaps && (
+            <AlertTriangle className="h-4 w-4 text-warning" />
+          )}
+        </td>
+        <td className="p-4">
         <div className="max-w-xs">
           <h4 className="font-medium text-foreground line-clamp-2">{story.title}</h4>
         </div>
       </td>
       <td className="p-4">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Building2 className="h-3 w-3" />
+        <div className="text-sm text-muted-foreground">
           {story.company}
         </div>
       </td>
       <td className="p-4">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <User className="h-3 w-3" />
+        <div className="text-sm text-muted-foreground">
           {story.role}
         </div>
-      </td>
-      <td className="p-4">
-        <Badge className={getImpactColor(story.impact)}>
-          {story.impact.charAt(0).toUpperCase() + story.impact.slice(1)}
-        </Badge>
       </td>
       <td className="p-4">
         <div className="max-w-xs">
@@ -322,8 +458,7 @@ export default function ShowAllStories() {
         </div>
       </td>
       <td className="p-4">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Calendar className="h-3 w-3" />
+        <div className="text-sm text-muted-foreground">
           {new Date(story.date).toLocaleDateString()}
         </div>
       </td>
@@ -341,47 +476,18 @@ export default function ShowAllStories() {
           )}
         </div>
       </td>
-      <td className="p-4">
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => handleView(story)}
-            className="hover:text-[#E32D9A] hover:border-[#E32D9A]"
-          >
-            <Eye className="h-4 w-4 mr-1" />
-            View
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleEdit(story)}>
-                <Edit className="mr-2 h-4 w-4" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleCopy(story)}>
-                <Copy className="mr-2 h-4 w-4" />
-                Copy
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                onClick={() => handleDelete(story)}
-                className="text-destructive"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </td>
     </tr>
-  );
+    );
+  };
+
+  // Show empty state if no stories at all (not just filtered)
+  if (!isLoading && !error && stories.length === 0) {
+    return (
+      <div className="min-h-screen bg-background">
+        <StoriesEmptyState onAddStory={() => setIsAddStoryModalOpen(true)} />
+      </div>
+    );
+  }
 
   return (
     <>
@@ -436,26 +542,62 @@ export default function ShowAllStories() {
                     </Button>
                   </div>
                 </div>
-                <StoryCard
-                  story={{
-                    id: viewingStory.id,
-                    title: viewingStory.title,
-                    content: viewingStory.metrics,
-                    tags: viewingStory.tags || [],
-                    status: 'approved',
-                    timesUsed: 0,
-                    lastUsed: viewingStory.date,
-                    linkedLinks: []
-                  }}
-                  onEdit={() => handleEdit(viewingStory)}
-                  onDuplicate={() => handleCopy(viewingStory)}
-                  onDelete={() => handleDelete(viewingStory)}
-                />
+                {/* Fetch full story content */}
+                {(() => {
+                  // For now, use viewingStory data - we can enhance to fetch full content later
+                  const hasGaps = viewingStoryGaps.length > 0;
+                  const isGapResolved = viewingStoryGaps.every(g => resolvedGaps.has(g.id));
+                  
+                  return (
+                    <ContentCard
+                      title={viewingStory.title}
+                      content={fullStoryContent || viewingStory.metrics || 'No content available'}
+                      tags={viewingStory.tags || []}
+                      timesUsed={0}
+                      lastUsed={viewingStory.date}
+                      hasGaps={hasGaps && !isGapResolved}
+                      gaps={viewingStoryGaps}
+                      isGapResolved={isGapResolved}
+                      onGenerateContent={handleGenerateContent}
+                      onDismissGap={() => {
+                        // Dismiss all gaps for this story
+                        viewingStoryGaps.forEach(gap => {
+                          handleResolveGap(gap.id);
+                        });
+                      }}
+                      onEdit={() => handleEdit(viewingStory)}
+                      onDuplicate={() => handleCopy(viewingStory)}
+                      onDelete={() => handleDelete(viewingStory)}
+                      tagsLabel="Story Tags"
+                    >
+                      {/* Outcome Metrics - extract from story.metrics */}
+                      {fullStoryMetrics.length > 0 && (
+                        <OutcomeMetrics
+                          metrics={fullStoryMetrics.map((m: any) => 
+                            typeof m === 'string' ? m : `${m.value || ''} ${m.context || ''}`.trim()
+                          )}
+                          className="mb-6"
+                        />
+                      )}
+                    </ContentCard>
+                  );
+                })()}
               </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* Content Generation Modal */}
+      <ContentGenerationModal
+        isOpen={isContentModalOpen}
+        onClose={() => {
+          setIsContentModalOpen(false);
+          setSelectedGap(null);
+        }}
+        gap={selectedGap}
+        onApplyContent={handleApplyContent}
+      />
     </>
   );
 }

@@ -28,7 +28,7 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
     onComplete,
     onError,
     maxFiles = 5,
-    allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+    allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain', 'text/markdown'],
     maxFileSize = 5 * 1024 * 1024 // 5MB
   } = options;
   // Listen for file upload progress events from the service
@@ -127,7 +127,12 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
       }, 500); // Update every 500ms
 
       // Upload file
+      const uploadStartTime = performance.now();
+      console.warn(`🚀 useFileUpload: Starting ${type} upload and processing for: ${file.name}`);
       const result = await fileUploadService.current.uploadFile(file, user.id, type, session?.access_token);
+      const uploadEndTime = performance.now();
+      const uploadDuration = (uploadEndTime - uploadStartTime).toFixed(2);
+      console.warn(`⏱️ ${type} upload and processing took: ${uploadDuration}ms`);
       
       // Clear interval
       clearInterval(progressInterval);
@@ -268,7 +273,12 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
       );
       onProgress?.(progressEntry);
 
+      const textStartTime = performance.now();
+      console.log(`🚀 Starting ${type} text processing for manual input`);
       const result = await fileUploadService.current.uploadContent(text, user.id, type, session?.access_token);
+      const textEndTime = performance.now();
+      const textDuration = (textEndTime - textStartTime).toFixed(2);
+      console.warn(`⏱️ ${type} text processing took: ${textDuration}ms`);
       
       if (result.success) {
         setProgress(prev => 
@@ -456,141 +466,136 @@ export function useLinkedInUpload() {
           projects: profileResult.data.projects
         };
       } else {
-        // Strategy 2: Try People Data Labs enrichment
-        console.log('OAuth failed, attempting People Data Labs enrichment...');
-        
-        const pdlService = new PeopleDataLabsService();
-        
-        // Get user's name and resume data for PDL enrichment
-        const oauthData = getOAuthData();
-        const fullName = oauthData.fullName || profile?.full_name;
-        
-        // Try to get resume data to extract company info
-        let resumeData = null;
-        try {
-          const { data: uploadedFiles, error: resumeError } = await supabase
-            .from('sources')
-            .select('structured_data')
-            .eq('user_id', user.id)
-            .eq('file_type', 'resume')
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single();
+        // Strategy 2: Check for synthetic test data (development only)
+        if (import.meta.env.DEV && linkedinUsername) {
+          console.log('🧪 Checking for synthetic LinkedIn data...');
           
-          if (uploadedFiles && !resumeError) {
-            resumeData = (uploadedFiles as any).structured_data;
+          // Try to load synthetic fixture data based on LinkedIn username
+          try {
+            // Map common synthetic usernames to profile IDs
+            const syntheticProfiles: Record<string, string> = {
+              'avery-chen': 'P01',
+              'avery-chen-pm': 'P01',
+              'jordan-alvarez': 'P02',
+              'riley-gupta': 'P03',
+              // Add more as needed
+            };
+            
+            const profileId = syntheticProfiles[linkedinUsername];
+            if (profileId) {
+              console.log(`🎯 Detected synthetic profile: ${profileId}`);
+              
+              // Fetch the fixture JSON from the public fixtures folder
+              const fixturePath = `/fixtures/synthetic/v1/raw_uploads/${profileId}_linkedin.json`;
+              const response = await fetch(fixturePath);
+              
+              if (response.ok) {
+                const fixtureData = await response.json();
+                console.log('✅ Loaded synthetic LinkedIn data from fixture');
+                dataSource = 'synthetic_fixture';
+                
+                // Transform PDL format to our format
+                profileData = {
+                  id: profileId,
+                  linkedinId: linkedinUsername,
+                  profileUrl: trimmedUrl,
+                  firstName: fixtureData.first_name || 'Unknown',
+                  lastName: fixtureData.last_name || 'User',
+                  headline: fixtureData.headline || 'Professional',
+                  summary: fixtureData.summary || 'No summary available',
+                  experience: fixtureData.experience || [],
+                  education: fixtureData.education || [],
+                  skills: fixtureData.skills || [],
+                  certifications: [],
+                  projects: []
+                };
+              } else {
+                console.log(`⚠️ Synthetic fixture not found at ${fixturePath}`);
+              }
+            }
+          } catch (err) {
+            console.log('⚠️ Error loading synthetic fixture:', err);
           }
-        } catch (err) {
-          console.log('No resume data found for PDL enrichment');
         }
         
-        const pdlResult = await pdlService.enrichFromResumeData(
-          fullName,
-          resumeData,
-          trimmedUrl
-        );
+        // Strategy 3: Try People Data Labs enrichment
+        if (!profileData) {
+          console.log('Attempting People Data Labs enrichment...');
+          
+          const pdlService = new PeopleDataLabsService();
+          
+          // Get user's name and resume data for PDL enrichment
+          const oauthData = getOAuthData();
+          const fullName = oauthData.fullName || profile?.full_name;
+          
+          // Try to get resume data to extract company info
+          let resumeData = null;
+          try {
+            const { data: uploadedFiles, error: resumeError } = await supabase
+              .from('sources')
+              .select('structured_data')
+              .eq('user_id', user.id)
+              .eq('file_type', 'resume')
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .single();
+            
+            if (uploadedFiles && !resumeError) {
+              resumeData = (uploadedFiles as any).structured_data;
+            }
+          } catch (err) {
+            console.log('No resume data found for PDL enrichment');
+          }
+          
+          const pdlResult = await pdlService.enrichFromResumeData(
+            fullName,
+            resumeData,
+            trimmedUrl
+          );
+          
+          if (pdlResult.success && pdlResult.data) {
+            console.log('✅ Successfully enriched LinkedIn data via People Data Labs');
+            console.log('PDL likelihood score:', pdlResult.likelihood);
+            dataSource = 'people_data_labs';
+            
+            // Convert PDL data to our format
+            const structuredData = pdlService.convertToStructuredData(pdlResult.data);
+            
+            profileData = {
+              id: profileId,
+              linkedinId: linkedinUsername,
+              profileUrl: trimmedUrl,
+              firstName: pdlResult.data.first_name || 'Unknown',
+              lastName: pdlResult.data.last_name || 'User',
+              headline: pdlResult.data.headline || pdlResult.data.job_title_name || 'Professional',
+              summary: pdlResult.data.summary || 'No summary available',
+              experience: structuredData.workHistory,
+              education: structuredData.education,
+              skills: structuredData.skills,
+              certifications: structuredData.certifications || [],
+              projects: structuredData.projects || []
+            };
+          }
+        }
         
-        if (pdlResult.success && pdlResult.data) {
-          console.log('✅ Successfully enriched LinkedIn data via People Data Labs');
-          console.log('PDL likelihood score:', pdlResult.likelihood);
-          dataSource = 'people_data_labs';
-          
-          // Convert PDL data to our format
-          const structuredData = pdlService.convertToStructuredData(pdlResult.data);
-          
+        // Strategy 4: Fallback to minimal data if all strategies fail
+        if (!profileData) {
+          console.warn('All enrichment strategies failed, using minimal data');
+          dataSource = 'minimal';
           profileData = {
             id: profileId,
             linkedinId: linkedinUsername,
             profileUrl: trimmedUrl,
-            firstName: pdlResult.data.first_name || 'Unknown',
-            lastName: pdlResult.data.last_name || 'User',
-            headline: pdlResult.data.headline || pdlResult.data.job_title_name || 'Professional',
-            summary: pdlResult.data.summary || 'No summary available',
-            experience: structuredData.workHistory,
-            education: structuredData.education,
-            skills: structuredData.skills,
-            certifications: structuredData.certifications || [],
-            projects: structuredData.projects || []
+            firstName: 'User',
+            lastName: 'Profile',
+            headline: 'Professional Profile',
+            summary: 'Professional with experience in the industry.',
+            experience: [],
+            education: [],
+            skills: [],
+            certifications: [],
+            projects: []
           };
-        } else {
-          // Strategy 3: Fallback to mock data if both OAuth and PDL fail
-          console.warn('Both OAuth and PDL failed, using mock data');
-          console.warn('OAuth error:', profileResult.error);
-          console.warn('PDL error:', pdlResult.error);
-          dataSource = 'mock';
-        profileData = {
-          id: profileId,
-          linkedinId: linkedinUsername,
-          profileUrl: trimmedUrl,
-          firstName: 'John',
-          lastName: 'Doe',
-          headline: 'Senior Product Manager at TechCorp',
-          summary: 'Experienced product manager with 5+ years in tech startups and enterprise software. Passionate about building user-centric products that drive business growth.',
-          experience: [
-            {
-              id: '1',
-              company: 'TechCorp Inc.',
-              title: 'Senior Product Manager',
-              startDate: '2022-01-01',
-              endDate: undefined,
-              description: 'Led cross-functional team of 8 engineers to deliver major product features. Increased user engagement by 25% through data-driven product decisions.',
-              achievements: [],
-              location: 'San Francisco, CA',
-              current: true
-            },
-            {
-              id: '2',
-              company: 'StartupXYZ',
-              title: 'Product Manager',
-              startDate: '2020-01-01',
-              endDate: '2022-01-01',
-              description: 'Launched MVP in 3 months and grew user base from 0 to 10K. Managed product roadmap and collaborated with engineering and design teams.',
-              achievements: [],
-              location: 'New York, NY',
-              current: false
-            }
-          ],
-          education: [
-            {
-              id: '1',
-              institution: 'Stanford University',
-              degree: 'MBA',
-              fieldOfStudy: 'Business Administration',
-              startDate: '2018-09-01',
-              endDate: '2020-06-01',
-              location: undefined
-            },
-            {
-              id: '2',
-              institution: 'MIT',
-              degree: 'Bachelor of Science',
-              fieldOfStudy: 'Computer Science',
-              startDate: '2014-09-01',
-              endDate: '2018-06-01',
-              location: undefined
-            }
-          ],
-          skills: ['Product Management', 'Agile', 'User Research', 'Data Analysis', 'SQL', 'Python', 'Figma', 'Jira'],
-          certifications: [
-            {
-              id: '1',
-              name: 'Certified Scrum Product Owner',
-              issuer: 'Scrum Alliance',
-              issueDate: '2021-03-01',
-              expiryDate: '2023-03-01'
-            }
-          ],
-          projects: [
-            {
-              id: '1',
-              name: 'Mobile App Redesign',
-              description: 'Led complete redesign of mobile app resulting in 40% increase in user retention',
-              technologies: [],
-              startDate: '2022-06-01',
-              endDate: '2022-12-01'
-            }
-          ]
-        };
         }
       }
       

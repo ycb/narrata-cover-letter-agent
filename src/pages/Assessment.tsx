@@ -22,7 +22,6 @@ import LevelEvidenceModal from "@/components/assessment/LevelEvidenceModal";
 import RoleEvidenceModal from "@/components/assessment/RoleEvidenceModal";
 import { SpecializationCard } from "@/components/assessment/SpecializationCard";
 import { CompetencyCard } from "@/components/assessment/CompetencyCard";
-import { usePrototype } from "@/contexts/PrototypeContext";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 // Simplified mock data for testing
@@ -584,7 +583,6 @@ interface AssessmentProps {
 }
 
 const Assessment = ({ initialSection }: AssessmentProps) => {
-  const { setPrototypeState } = usePrototype();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   

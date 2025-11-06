@@ -9,13 +9,14 @@ import type {
   Certification,
   Project
 } from '@/types/fileUpload';
+import { buildResumeAnalysisPrompt, buildCoverLetterAnalysisPrompt } from '../prompts';
 
 export class LLMAnalysisService {
   private apiKey: string;
   private baseUrl: string;
 
   constructor() {
-    this.apiKey = import.meta.env.VITE_OPENAI_KEY;
+    this.apiKey = (import.meta.env?.VITE_OPENAI_KEY) || (typeof process !== 'undefined' ? process.env.VITE_OPENAI_KEY : undefined) || '';
     this.baseUrl = 'https://api.openai.com/v1';
     
     if (!this.apiKey) {
@@ -28,8 +29,12 @@ export class LLMAnalysisService {
    */
   async analyzeResume(text: string): Promise<LLMAnalysisResult> {
     try {
+      // Calculate optimal token limit based on content analysis
+      const optimalTokens = this.calculateOptimalTokens(text, 'resume');
+      console.warn(`🚀 Starting resume analysis with ${optimalTokens} tokens (smart calculation)`);
+      
       const prompt = this.buildResumeAnalysisPrompt(text);
-      const response = await this.callOpenAI(prompt);
+      const response = await this.callOpenAI(prompt, optimalTokens);
       
       if (!response.success) {
         return {
@@ -40,6 +45,7 @@ export class LLMAnalysisService {
       }
 
       // Parse and validate the response
+      // Types now match LLM schema, so parsed data includes all fields
       const structuredData = this.parseStructuredData(response.data);
       
       return {
@@ -61,8 +67,13 @@ export class LLMAnalysisService {
    */
   async analyzeCoverLetter(text: string): Promise<LLMAnalysisResult> {
     try {
-      const prompt = this.buildCoverLetterAnalysisPrompt(text);
-      const response = await this.callOpenAI(prompt);
+      // Calculate optimal token limit based on content analysis
+      const optimalTokens = this.calculateOptimalTokens(text, 'coverLetter');
+      console.warn(`🚀 Starting cover letter analysis with ${optimalTokens} tokens (smart calculation)`);
+      
+      // Use the dedicated cover letter prompt that extracts STORIES and TEMPLATE signals
+      const prompt = buildCoverLetterAnalysisPrompt(text);
+      const response = await this.callOpenAI(prompt, optimalTokens);
       
       if (!response.success) {
         return {
@@ -72,12 +83,13 @@ export class LLMAnalysisService {
         };
       }
 
-      // Parse and validate the response
-      const structuredData = this.parseStructuredData(response.data);
+      // For cover letters we want the richer story-centric schema as-is
+      const structuredData = response.data as Record<string, unknown>;
       
       return {
         success: true,
-        data: structuredData
+        // Keep type compatibility while storing the richer schema in the database
+        data: structuredData as unknown as StructuredResumeData
       };
     } catch (error) {
       console.error('Cover letter LLM analysis error:', error);
@@ -90,12 +102,50 @@ export class LLMAnalysisService {
   }
 
   /**
+   * Analyze resume and cover letter together in a single LLM call
+   */
+  async analyzeResumeAndCoverLetter(resumeText: string, coverLetterText: string): Promise<{
+    resume: LLMAnalysisResult;
+    coverLetter: LLMAnalysisResult;
+  }> {
+    // PERFORMANCE OPTIMIZATION: Use parallel separate calls by default
+    // Combined analysis (108s) is 4x slower than parallel separate calls (~27s based on model comparison data)
+    // Parallel calls: max(13.8s, 13.8s) ≈ 14s vs Combined: 108s
+    // Trade-off: Lose cross-referencing but gain 4x speed improvement
+    console.warn('🚀 Starting PARALLEL resume + cover letter analysis (optimized for speed)');
+    
+    try {
+      // Run both analyses in parallel for maximum performance
+      const [resumeResult, coverLetterResult] = await Promise.all([
+        this.analyzeResume(resumeText),
+        this.analyzeCoverLetter(coverLetterText)
+      ]);
+      
+      return {
+        resume: resumeResult,
+        coverLetter: coverLetterResult
+      };
+    } catch (error) {
+      console.error('Parallel analysis error:', error);
+      // If parallel fails, try sequential as last resort
+      console.warn('🔄 Parallel analysis failed, falling back to sequential calls');
+      return {
+        resume: await this.analyzeResume(resumeText),
+        coverLetter: await this.analyzeCoverLetter(coverLetterText)
+      };
+    }
+  }
+
+  /**
    * Analyze case study text and extract structured data
    */
   async analyzeCaseStudy(text: string): Promise<LLMAnalysisResult> {
     try {
+      // Calculate optimal token limit based on content analysis
+      const optimalTokens = this.calculateOptimalTokens(text, 'caseStudies');
+      
       const prompt = this.buildCaseStudyAnalysisPrompt(text);
-      const response = await this.callOpenAI(prompt);
+      const response = await this.callOpenAI(prompt, optimalTokens);
       
       if (!response.success) {
         return {
@@ -126,147 +176,40 @@ export class LLMAnalysisService {
    * Build prompt for resume analysis
    */
   private buildResumeAnalysisPrompt(text: string): string {
-    return `
-Analyze this resume text and extract structured data. Return ONLY valid JSON with no additional text.
-
-Resume Text:
-${text}
-
-Extract the following information and return as JSON. IMPORTANT: Extract ALL work history entries, education entries, certifications, and projects mentioned in the resume - do not filter or select only the most recent or relevant ones.
-
-{
-  "workHistory": [
-    {
-      "id": "unique_id",
-      "company": "Company Name",
-      "title": "Job Title",
-      "startDate": "YYYY-MM-DD",
-      "endDate": "YYYY-MM-DD or null if current",
-      "description": "Job description",
-      "achievements": ["achievement1", "achievement2"],
-      "location": "City, State",
-      "current": true/false
-    }
-  ],
-  "education": [
-    {
-      "id": "unique_id",
-      "institution": "University Name",
-      "degree": "Degree Type",
-      "fieldOfStudy": "Field of Study",
-      "startDate": "YYYY-MM-DD",
-      "endDate": "YYYY-MM-DD",
-      "gpa": "GPA if mentioned",
-      "location": "City, State"
-    }
-  ],
-  "skills": ["skill1", "skill2", "skill3"],
-  "achievements": ["achievement1", "achievement2"],
-  "contactInfo": {
-    "email": "email@example.com",
-    "phone": "phone number",
-    "location": "City, State",
-    "website": "website URL",
-    "linkedin": "LinkedIn URL"
-  },
-  "summary": "Professional summary if present",
-  "certifications": [
-    {
-      "id": "unique_id",
-      "name": "Certification Name",
-      "issuer": "Issuing Organization",
-      "issueDate": "YYYY-MM-DD",
-      "expiryDate": "YYYY-MM-DD or null if no expiry",
-      "credentialId": "Credential ID if mentioned"
-    }
-  ],
-  "projects": [
-    {
-      "id": "unique_id",
-      "name": "Project Name",
-      "description": "Project description",
-      "technologies": ["tech1", "tech2"],
-      "startDate": "YYYY-MM-DD",
-      "endDate": "YYYY-MM-DD or null if ongoing",
-      "url": "Project URL if mentioned"
-    }
-  ]
-}
-
-Rules:
-- Use realistic dates (convert relative dates like "2020-2022" to "2020-01-01" and "2022-12-31")
-- Extract ALL information explicitly mentioned in the text - completeness is critical
-- Include every work history entry, education entry, certification, and project found in the resume
-- If information is not available, use null or empty array
-- Ensure all dates are in YYYY-MM-DD format
-- Generate unique IDs for each item
-- Be conservative with achievements - only include clear accomplishments
-- Skills should be specific and technical when possible
-- Return valid JSON only, no markdown formatting
-- Do not skip or filter any entries based on relevance or recency
-`;
+    return buildResumeAnalysisPrompt(text);
   }
 
+  // Removed legacy cover letter prompt; we rely on prompts/coverLetterAnalysis.ts
+
   /**
-   * Build prompt for cover letter analysis
+   * Build prompt for combined resume and cover letter analysis
    */
-  private buildCoverLetterAnalysisPrompt(text: string): string {
-    return `
-Analyze this cover letter text and extract structured data. Return ONLY valid JSON with no additional text.
+  private buildCombinedAnalysisPrompt(resumeText: string, coverLetterText: string): string {
+    // Use the comprehensive prompts from the prompts directory
+    const resumePrompt = buildResumeAnalysisPrompt(resumeText);
+    const coverLetterPrompt = buildCoverLetterAnalysisPrompt(coverLetterText);
+    
+    return `Analyze the following resume and cover letter together. Extract structured data for each document and return a JSON object with separate "resume" and "coverLetter" sections.
 
-Cover Letter Text:
-${text}
+IMPORTANT: Cross-reference information between documents. If the cover letter mentions work experiences, metrics, or stories not fully detailed in the resume, include them in the resume section's workHistory with appropriate annotations.
 
-Extract the following information and return as JSON:
+RESUME ANALYSIS:
+${resumePrompt}
 
+---
+
+COVER LETTER ANALYSIS:
+${coverLetterPrompt}
+
+---
+
+Return as JSON with this top-level structure:
 {
-  "workHistory": [
-    {
-      "id": "unique_id",
-      "company": "Company Name",
-      "title": "Job Title",
-      "startDate": "YYYY-MM-DD",
-      "endDate": "YYYY-MM-DD or null if current",
-      "description": "Job description",
-      "achievements": ["achievement1", "achievement2"],
-      "location": "City, State",
-      "current": true/false
-    }
-  ],
-  "education": [
-    {
-      "id": "unique_id",
-      "institution": "University Name",
-      "degree": "Degree Type",
-      "fieldOfStudy": "Field of Study",
-      "startDate": "YYYY-MM-DD",
-      "endDate": "YYYY-MM-DD",
-      "gpa": "GPA if mentioned",
-      "location": "City, State"
-    }
-  ],
-  "skills": ["skill1", "skill2", "skill3"],
-  "achievements": ["achievement1", "achievement2"],
-  "contactInfo": {
-    "email": "email@example.com",
-    "phone": "phone number if mentioned",
-    "location": "City, State",
-    "website": "website if mentioned",
-    "linkedin": "linkedin if mentioned"
-  },
-  "summary": "Brief professional summary"
+  "resume": { /* comprehensive resume structured data using the schema above */ },
+  "coverLetter": { /* cover letter structured data using the schema above */ }
 }
 
-Instructions:
-- Extract work experience, education, skills, and achievements mentioned in the cover letter
-- Focus on accomplishments and achievements that demonstrate value
-- Include any specific metrics or results mentioned
-- Extract contact information if present
-- Create a professional summary based on the content
-- Ensure all dates are in YYYY-MM-DD format
-- Generate unique IDs for each item
-- Return valid JSON only, no markdown formatting
-`;
+Return ONLY valid JSON with no additional text or markdown formatting. Ensure all dates are in YYYY-MM-DD format and generate unique IDs for each item.`;
   }
 
   /**
@@ -321,9 +264,89 @@ Instructions:
   }
 
   /**
-   * Call OpenAI API
+   * Calculate optimal token limit based on extracted text analysis
    */
-  private async callOpenAI(prompt: string): Promise<{
+  private calculateOptimalTokens(extractedText: string, type: FileType): number {
+    // Improved token estimate (more accurate char-to-token ratio)
+    const contentTokens = Math.ceil(extractedText.length / 3.5); // Better ratio: ~3.5 chars per token
+    
+    // Structured output overhead (JSON structure, arrays, nested objects)
+    const structureOverhead = type === 'resume' ? 1200 : 800; // More overhead for complex resume structure
+    
+    // Analyze content complexity
+    const complexityMultiplier = this.analyzeContentComplexity(extractedText);
+    
+    // Get type-specific multiplier
+    const typeMultiplier = this.getTypeMultiplier(type);
+    
+    // Calculate base output tokens needed
+    const baseOutputTokens = Math.ceil(contentTokens * complexityMultiplier * typeMultiplier);
+    
+    // Add structure overhead and safety buffer
+    const safetyBuffer = 1.8; // 80% safety buffer to avoid retries (increased from 1.35x based on production testing)
+    const fixedOverhead = 500; // Additional fixed overhead for story extraction
+    const optimalTokens = Math.ceil((baseOutputTokens + structureOverhead) * safetyBuffer + fixedOverhead);
+    
+    // Apply bounds: minimum 800, maximum 5000 (increased to handle complex story extraction)
+    const finalTokens = Math.max(800, Math.min(optimalTokens, 5000));
+    
+    console.warn(`📊 Token calculation: ${extractedText.length} chars → ${contentTokens} content tokens + ${structureOverhead} overhead → ${finalTokens} max tokens (${type}, complexity: ${complexityMultiplier.toFixed(2)}, buffer: ${safetyBuffer}x)`);
+    
+    // Ensure we return an integer
+    return Math.floor(finalTokens);
+  }
+
+  /**
+   * Analyze content complexity to determine token multiplier
+   */
+  private analyzeContentComplexity(text: string): number {
+    const lines = text.split('\n').length;
+    const words = text.split(/\s+/).length;
+    const sentences = text.split(/[.!?]+/).length;
+    
+    // Count structured sections
+    const workExperienceCount = (text.match(/experience|employment|work history/gi) || []).length;
+    const educationCount = (text.match(/education|degree|university|college/gi) || []).length;
+    const skillsCount = (text.match(/skills|technologies|proficiencies/gi) || []).length;
+    const projectCount = (text.match(/project|portfolio|achievement/gi) || []).length;
+    
+    // Calculate complexity score
+    let complexityScore = 1.0; // Base multiplier
+    
+    // Length-based complexity
+    if (words > 1000) complexityScore += 0.3;
+    if (words > 2000) complexityScore += 0.2;
+    
+    // Structure-based complexity
+    if (workExperienceCount > 3) complexityScore += 0.2;
+    if (educationCount > 2) complexityScore += 0.1;
+    if (skillsCount > 1) complexityScore += 0.1;
+    if (projectCount > 2) complexityScore += 0.2;
+    
+    // Density-based complexity
+    const avgWordsPerLine = words / lines;
+    if (avgWordsPerLine > 15) complexityScore += 0.1; // Dense content
+    
+    return Math.min(complexityScore, 2.0); // Cap at 2.0x
+  }
+
+  /**
+   * Get type-specific token multiplier
+   */
+  private getTypeMultiplier(type: FileType): number {
+    switch (type) {
+      case 'resume': return 1.0; // Standard multiplier
+      case 'coverLetter': return 0.7; // Cover letters are typically shorter
+      case 'caseStudies': return 1.2; // Case studies can be complex
+      case 'linkedin': return 0.5; // LinkedIn data is structured
+      default: return 1.0;
+    }
+  }
+
+  /**
+   * Call OpenAI API with intelligent token limit adjustment
+   */
+  private async callOpenAI(prompt: string, dynamicTokenLimit?: number): Promise<{
     success: boolean;
     data?: Record<string, unknown>;
     error?: string;
@@ -348,7 +371,7 @@ Instructions:
               content: prompt
             }
           ],
-          max_tokens: OPENAI_CONFIG.MAX_TOKENS,
+          max_tokens: dynamicTokenLimit || OPENAI_CONFIG.MAX_TOKENS,
           temperature: OPENAI_CONFIG.TEMPERATURE,
         }),
       });
@@ -356,6 +379,31 @@ Instructions:
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const errorMessage = errorData.error?.message || `HTTP ${response.status}`;
+        
+        // Intelligent error handling with auto-healing
+        if (errorMessage.includes('maximum context length') || errorMessage.includes('token limit')) {
+          console.log('🔄 Auto-healing: Token limit exceeded, retrying with higher limit...');
+          
+          // Calculate new token limit based on prompt length
+          const promptTokens = Math.ceil(prompt.length / 4); // Rough estimate: 1 token ≈ 4 characters
+          const newTokenLimit = Math.min(promptTokens * 2, 4000); // 2x input tokens, max 4000
+          
+          console.log(`📊 Token analysis: Prompt ~${promptTokens} tokens, using ${newTokenLimit} max tokens`);
+          
+          // Retry with higher token limit
+          return this.callOpenAI(prompt, newTokenLimit);
+        } else if (errorMessage.includes('rate limit')) {
+          console.error('🚨 RATE LIMIT EXCEEDED:', {
+            error: errorMessage,
+            timestamp: new Date().toISOString()
+          });
+        } else {
+          console.error('🚨 OPENAI API ERROR:', {
+            error: errorMessage,
+            status: response.status,
+            timestamp: new Date().toISOString()
+          });
+        }
         
         return {
           success: false,
@@ -369,6 +417,21 @@ Instructions:
       const firstChoice = choices?.[0];
       const message = firstChoice?.message as Record<string, unknown> | undefined;
       const content = message?.content as string | undefined;
+      const finishReason = firstChoice?.finish_reason as string | undefined;
+
+      // Intelligent handling for truncated responses
+      if (finishReason === 'length') {
+        console.log('🔄 Auto-healing: Response truncated, retrying with higher token limit...');
+        
+        // Calculate new token limit based on content length
+        const contentTokens = Math.ceil((content?.length || 0) / 4); // Rough estimate
+        const newTokenLimit = Math.floor(Math.min(contentTokens * 1.5, 4000)); // 1.5x current, max 4000, ensure integer
+        
+        console.log(`📊 Truncation analysis: Content ~${contentTokens} tokens, retrying with ${newTokenLimit} max tokens`);
+        
+        // Retry with higher token limit
+        return this.callOpenAI(prompt, newTokenLimit);
+      }
 
       if (!content) {
         return {
@@ -381,6 +444,16 @@ Instructions:
       // Parse JSON response with improved error handling
       try {
         const parsedData = this.parseJSONResponse(content);
+        
+        // Monitor successful responses for quality metrics
+        console.log('✅ LLM RESPONSE SUCCESS:', {
+          contentLength: content.length,
+          finishReason,
+          maxTokens: OPENAI_CONFIG.MAX_TOKENS,
+          model: OPENAI_CONFIG.MODEL,
+          timestamp: new Date().toISOString()
+        });
+        
         return {
           success: true,
           data: parsedData
@@ -553,9 +626,10 @@ IMPORTANT: Return ONLY the JSON object, no other text, no markdown, no explanati
     return {
       workHistory: this.parseWorkHistory(Array.isArray(data.workHistory) ? data.workHistory : []),
       education: this.parseEducation(Array.isArray(data.education) ? data.education : []),
-      skills: Array.isArray(data.skills) ? data.skills as string[] : [],
+      skills: Array.isArray(data.skills) ? data.skills as (string[] | any[]) : [],
       achievements: Array.isArray(data.achievements) ? data.achievements as string[] : [],
       contactInfo: this.parseContactInfo(data.contactInfo as Record<string, unknown> || {}),
+      location: (data.location as string) || undefined, // Top-level location
       summary: (data.summary as string) || undefined,
       certifications: this.parseCertifications(Array.isArray(data.certifications) ? data.certifications : []),
       projects: this.parseProjects(Array.isArray(data.projects) ? data.projects : [])
@@ -563,21 +637,62 @@ IMPORTANT: Return ONLY the JSON object, no other text, no markdown, no explanati
   }
 
   /**
-   * Parse work history array
+   * Parse work history array - now extracts all rich schema fields
    */
   private parseWorkHistory(workHistory: unknown[]): WorkExperience[] {
     return workHistory.map((item, index) => {
       const workItem = item as Record<string, unknown>;
+      
+      // Parse roleMetrics array
+      const roleMetrics = Array.isArray(workItem.roleMetrics)
+        ? workItem.roleMetrics.map((m: any) => ({
+            value: (m.value as string) || '',
+            context: (m.context as string) || '',
+            type: (m.type as 'increase' | 'decrease' | 'absolute') || 'absolute',
+            parentType: (m.parentType as 'role' | 'story') || 'role'
+          }))
+        : undefined;
+      
+      // Parse stories array
+      const stories = Array.isArray(workItem.stories)
+        ? workItem.stories.map((s: any) => ({
+            id: (s.id as string) || `story_${index}`,
+            title: (s.title as string) || '',
+            content: (s.content as string) || '',
+            problem: (s.problem as string) || undefined,
+            action: (s.action as string) || undefined,
+            outcome: (s.outcome as string) || undefined,
+            tags: Array.isArray(s.tags) ? s.tags as string[] : [],
+            linkedToRole: Boolean(s.linkedToRole),
+            company: (s.company as string) || undefined,
+            titleRole: (s.titleRole as string) || undefined,
+            metrics: Array.isArray(s.metrics)
+              ? s.metrics.map((m: any) => ({
+                  value: (m.value as string) || '',
+                  context: (m.context as string) || '',
+                  type: (m.type as 'increase' | 'decrease' | 'absolute') || 'absolute',
+                  parentType: (m.parentType as 'role' | 'story') || 'story'
+                }))
+              : undefined
+          }))
+        : undefined;
+      
       return {
         id: (workItem.id as string) || `work_${index}`,
         company: (workItem.company as string) || '',
         title: (workItem.title as string) || '',
         startDate: (workItem.startDate as string) || '',
         endDate: (workItem.endDate as string) || undefined,
-        description: (workItem.description as string) || '',
+        description: (workItem.description as string) || (workItem.roleSummary as string) || undefined,
         achievements: Array.isArray(workItem.achievements) ? workItem.achievements as string[] : [],
         location: (workItem.location as string) || undefined,
-        current: Boolean(workItem.current)
+        current: Boolean(workItem.current),
+        // NEW: Extract rich schema fields
+        roleMetrics,
+        stories,
+        roleTags: Array.isArray(workItem.roleTags) ? workItem.roleTags as string[] : undefined,
+        roleSummary: (workItem.roleSummary as string) || undefined,
+        companyTags: Array.isArray(workItem.companyTags) ? workItem.companyTags as string[] : undefined
       };
     });
   }
@@ -602,15 +717,17 @@ IMPORTANT: Return ONLY the JSON object, no other text, no markdown, no explanati
   }
 
   /**
-   * Parse contact info object
+   * Parse contact info object - location removed (now top-level)
    */
   private parseContactInfo(contactInfo: Record<string, unknown>): ContactInfo {
     return {
       email: (contactInfo.email as string) || undefined,
       phone: (contactInfo.phone as string) || undefined,
-      location: (contactInfo.location as string) || undefined,
+      linkedin: (contactInfo.linkedin as string) || undefined,
       website: (contactInfo.website as string) || undefined,
-      linkedin: (contactInfo.linkedin as string) || undefined
+      github: (contactInfo.github as string) || undefined,
+      substack: (contactInfo.substack as string) || undefined
+      // location removed - now top-level in StructuredResumeData
     };
   }
 

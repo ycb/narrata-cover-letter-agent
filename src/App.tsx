@@ -5,11 +5,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AuthErrorBoundary } from "@/components/auth/AuthErrorBoundary";
-import { PrototypeProvider } from "@/contexts/PrototypeContext";
 import { TourProvider } from "@/contexts/TourContext";
 import { UserGoalsProvider } from "@/contexts/UserGoalsContext";
 import { UserVoiceProvider } from "@/contexts/UserVoiceContext";
-// import { PrototypeStateBanner } from "@/components/work-history/PrototypeStateBanner"; // DISABLED FOR USABILITY TESTING
+import { UploadProgressProvider } from "@/contexts/UploadProgressContext";
+import { GapsJobProvider } from "@/contexts/GapsJobContext";
 import { Header } from "@/components/layout/Header";
 import { FeedbackSystem } from "@/components/feedback/FeedbackSystem";
 import { FeedbackAdmin } from "@/components/feedback/FeedbackAdmin";
@@ -45,6 +45,7 @@ import ShowAllStories from "./pages/ShowAllStories";
 import ShowAllLinks from "./pages/ShowAllLinks";
 import SavedSections from "./pages/SavedSections";
 import NewUserOnboarding from "./pages/NewUserOnboarding";
+import { EvaluationDashboard } from "./components/evaluation/EvaluationDashboard";
 
 import SignUp from "./pages/SignUp";
 import SignIn from "./pages/SignIn";
@@ -207,6 +208,12 @@ function AppLayout() {
             <FeedbackAdmin />
           </ProtectedRoute>
         } />
+        <Route path="/evaluation-dashboard" element={
+          <ProtectedRoute>
+            <Header />
+            <EvaluationDashboard />
+          </ProtectedRoute>
+        } />
         <Route path="/signup" element={<ProtectedRoute requireAuth={false}><SignUp /></ProtectedRoute>} />
         <Route path="/signin" element={<ProtectedRoute requireAuth={false}><SignIn /></ProtectedRoute>} />
         <Route path="/forgot-password" element={<ProtectedRoute requireAuth={false}><ForgotPassword /></ProtectedRoute>} />
@@ -232,17 +239,19 @@ const App = () => (
       <Sonner />
       <AuthErrorBoundary>
         <AuthProvider>
-          <PrototypeProvider>
-            <BrowserRouter>
-              <TourProvider>
-                <UserGoalsProvider>
-                  <UserVoiceProvider>
-                    <AppLayout />
-                  </UserVoiceProvider>
-                </UserGoalsProvider>
-              </TourProvider>
-            </BrowserRouter>
-          </PrototypeProvider>
+          <UploadProgressProvider>
+            <GapsJobProvider>
+              <BrowserRouter>
+                <TourProvider>
+                  <UserGoalsProvider>
+                    <UserVoiceProvider>
+                      <AppLayout />
+                    </UserVoiceProvider>
+                  </UserGoalsProvider>
+                </TourProvider>
+              </BrowserRouter>
+            </GapsJobProvider>
+          </UploadProgressProvider>
         </AuthProvider>
       </AuthErrorBoundary>
     </TooltipProvider>

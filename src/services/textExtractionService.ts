@@ -13,7 +13,7 @@ export class TextExtractionService {
     if (!pdfjsLib) {
       try {
         pdfjsLib = await import('pdfjs-dist');
-        // Use local worker file
+        // Use local worker file that matches the installed pdfjs-dist version (5.4.149)
         pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
       } catch (error) {
         console.warn('pdfjs-dist not available, using fallback');

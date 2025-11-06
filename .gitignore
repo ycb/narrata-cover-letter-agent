@@ -18,6 +18,8 @@ dist-ssr
 .env.production
 .env.staging
 .env.development
+# MCP configuration (contains environment-resolved secrets)
+.mcp.json
 
 # Google Apps Script with sensitive data
 google-apps-script.js

@@ -1,0 +1,152 @@
+{
+  "P01": {
+    "persona": "Avery Chen",
+    "domain": "B2B SaaS (PLG / Growth)",
+    "expected_companies": 3,
+    "expected_roles": 3,
+    "expected_stories": [
+      7,
+      9
+    ],
+    "expected_metrics": [
+      18,
+      22
+    ],
+    "quality_tier": "Gold"
+  },
+  "P02": {
+    "persona": "Jordan Alvarez",
+    "domain": "ClimateTech / Energy Intelligence",
+    "expected_companies": 3,
+    "expected_roles": 3,
+    "expected_stories": [
+      6,
+      8
+    ],
+    "expected_metrics": [
+      16,
+      20
+    ],
+    "quality_tier": "Gold"
+  },
+  "P03": {
+    "persona": "Riley Gupta",
+    "domain": "Fintech (Payments & Checkout)",
+    "expected_companies": 3,
+    "expected_roles": 3,
+    "expected_stories": [
+      6,
+      8
+    ],
+    "expected_metrics": [
+      15,
+      18
+    ],
+    "quality_tier": "Gold"
+  },
+  "P04": {
+    "persona": "Morgan Patel",
+    "domain": "Applied AI / Talent ML",
+    "expected_companies": 3,
+    "expected_roles": 3,
+    "expected_stories": [
+      5,
+      6
+    ],
+    "expected_metrics": [
+      10,
+      14
+    ],
+    "quality_tier": "Medium"
+  },
+  "P05": {
+    "persona": "Samira Khan",
+    "domain": "HealthTech / Patient Experience",
+    "expected_companies": 3,
+    "expected_roles": 3,
+    "expected_stories": [
+      4,
+      5
+    ],
+    "expected_metrics": [
+      8,
+      12
+    ],
+    "quality_tier": "Medium-Low"
+  },
+  "P06": {
+    "persona": "Diego Morales",
+    "domain": "Platform / Developer Experience",
+    "expected_companies": 3,
+    "expected_roles": 3,
+    "expected_stories": [
+      4,
+      5
+    ],
+    "expected_metrics": [
+      8,
+      10
+    ],
+    "quality_tier": "Medium-Low"
+  },
+  "P07": {
+    "persona": "Noah Williams",
+    "domain": "B2B Marketplace",
+    "expected_companies": 3,
+    "expected_roles": 3,
+    "expected_stories": [
+      5,
+      7
+    ],
+    "expected_metrics": [
+      10,
+      14
+    ],
+    "quality_tier": "High"
+  },
+  "P08": {
+    "persona": "Priya Desai",
+    "domain": "EdTech / Early Career",
+    "expected_companies": 2,
+    "expected_roles": 2,
+    "expected_stories": [
+      3,
+      4
+    ],
+    "expected_metrics": [
+      6,
+      8
+    ],
+    "quality_tier": "Medium"
+  },
+  "P09": {
+    "persona": "Leo Martin",
+    "domain": "Consumer Support / Mobile",
+    "expected_companies": 2,
+    "expected_roles": 2,
+    "expected_stories": [
+      3,
+      4
+    ],
+    "expected_metrics": [
+      6,
+      8
+    ],
+    "quality_tier": "Medium"
+  },
+  "P10": {
+    "persona": "Sophia Rivera",
+    "domain": "SaaS (Growth + Leadership)",
+    "expected_companies": 3,
+    "expected_roles": 3,
+    "expected_stories": [
+      6,
+      8
+    ],
+    "expected_metrics": [
+      15,
+      18
+    ],
+    "quality_tier": "High"
+  }
+}

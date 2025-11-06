@@ -1,0 +1,26 @@
+RILEY GUPTA
+New York, NY, US | Fintech (Payments & Checkout) | Users: B2C & B2B2C | Platforms: Web, Mobile
+
+SUMMARY
+Riley Gupta is a product manager with 6 years in Fintech (Payments & Checkout). They work across B2C & B2B2C on web, mobile platforms, combining clear problem framing, disciplined experimentation, and close collaboration with engineering, design, data, and go‑to‑market teams. Their focus is translating user friction into measurable outcomes while building durable product systems.
+
+CORE STRENGTHS
+Funnel analytics, experiment design, activation/retention, pricing & packaging, lifecycle messaging.
+
+EXPERIENCE
+PayWave — Product Manager, Checkout (2021-04–Present) | New York, NY
+• Raised checkout conversion +15% via simplified forms and async risk checks.
+• Partnered with Risk to cut false positives −8% using dynamic scoring.
+
+NeoBanker — Associate PM (2019-07–2021-03) | New York, NY
+• Consolidated KYC APIs; time‑to‑verify −28%; abandonment −6% with clearer states.
+• Piloted document retry; pass‑through +5pp in Gen‑Z cohort.
+
+FinStride — Product Analyst (2017-06–2019-06) | Jersey City, NJ
+• Modeled onboarding & fraud events; prioritized fixes saving ~1.2s latency.
+
+EDUCATION
+B.S. Computer Science, State University (2013-06)
+
+TOOLS
+Amplitude/GA4, SQL, Experiment platforms, Flags, Jira/Linear, Figma, Writing

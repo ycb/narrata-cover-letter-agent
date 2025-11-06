@@ -100,7 +100,7 @@ const SignUp = () => {
       <div className="w-full max-w-md">
         {/* Logo/Brand */}
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-foreground mb-2">TruthLetter</h1>
+          <h1 className="text-2xl font-bold text-foreground mb-2">Narrata</h1>
           <p className="text-muted-foreground">Create your truth-based narrative engine</p>
         </div>
 
@@ -291,7 +291,7 @@ const SignUp = () => {
 
         {/* Footer */}
         <div className="text-center mt-8 text-xs text-muted-foreground">
-          <p>© 2024 TruthLetter. All rights reserved.</p>
+          <p>© 2024 Narrata. All rights reserved.</p>
         </div>
       </div>
     </div>

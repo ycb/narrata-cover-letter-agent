@@ -15,6 +15,8 @@ import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal"
 import { UnifiedGapCard } from "@/components/hil/UnifiedGapCard";
 import { CoverLetterFinalization } from "./CoverLetterFinalization";
 import { ProgressIndicatorWithTooltips } from "./ProgressIndicatorWithTooltips";
+import { ContentCard } from "@/components/shared/ContentCard";
+import { cn } from "@/lib/utils";
 
 interface CoverLetterCreateModalProps {
   isOpen: boolean;
@@ -584,74 +586,76 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
                   </Card>
                 </TabsContent>
 
-                {/* Cover Letter Tab - Shows draft with gap/requirement cards */}
-                <TabsContent value="cover-letter" className="space-y-8">
-                  {/* Section Headers */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="text-lg font-semibold text-muted-foreground">Cover Letter Draft</div>
-                    <div className="text-lg font-semibold text-muted-foreground">Analysis & Requirements</div>
-                  </div>
-                  
-                  {/* Content Grid - Each section gets its own row */}
-                  {generatedLetter.sections.map((section, index) => (
-                    <div key={section.id} className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-                      {/* Left: Section Label + Paragraph Content */}
-                      <div className="space-y-4">
-                        <div className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                          {section.type === 'intro' ? 'Introduction' : 
+                {/* Cover Letter Tab - Shows draft with content cards */}
+                <TabsContent value="cover-letter" className="space-y-6">
+                  {/* Single Column Layout - Content Cards */}
+                  {generatedLetter.sections.map((section, index) => {
+                    const sectionGaps = gaps.filter(gap => gap.paragraphId === section.type);
+                    const hasGaps = sectionGaps.length > 0;
+                    const sectionTitle = section.type === 'intro' ? 'Introduction' : 
                            section.type === 'experience' ? 'Experience' : 
                            section.type === 'closing' ? 'Closing' : 
-                           section.type === 'signature' ? 'Signature' : section.type}
-                        </div>
+                                        section.type === 'signature' ? 'Signature' : section.type;
+                    const mockJDTags = getRequirementsForParagraph(section.type);
+                    
+                    return (
+                      <ContentCard
+                        key={section.id}
+                        title={sectionTitle}
+                        content={section.content}
+                        tags={mockJDTags}
+                        hasGaps={hasGaps}
+                        gaps={sectionGaps.map(g => ({ id: g.id, description: g.description }))}
+                        isGapResolved={!hasGaps}
+                        onGenerateContent={hasGaps ? () => handleAddressGap(sectionGaps[0]) : undefined}
+                        onDismissGap={hasGaps ? () => {
+                          // Mock gap dismissal for now
+                          setGaps(gaps.filter(g => g.id !== sectionGaps[0].id));
+                        } : undefined}
+                        onEdit={() => {
+                          // Handle inline editing - will be handled by Textarea in children
+                        }}
+                        onDuplicate={() => {
+                          // TODO: Implement duplicate section
+                          console.log('Duplicate section:', section.id);
+                        }}
+                        onDelete={() => {
+                          // TODO: Implement delete section
+                          console.log('Delete section:', section.id);
+                        }}
+                        tagsLabel="Job Requirements"
+                        showUsage={false}
+                        renderChildrenBeforeTags={true}
+                        className={cn((section as any).isEnhanced && 'border-success/30')}
+                      >
+                        {/* Inline editable Textarea - renders before tags */}
+                        <div className="mb-6">
                         <Textarea
                           value={section.content}
-                          onChange={() => {}}
-                          className={`resize-none h-[200px] flex items-center ${(section as any).isEnhanced ? 'border-success/30 bg-success/5' : ''}`}
-                        />
-                      </div>
-
-                      {/* Right: Gap/Requirement Card */}
-                      <div className="space-y-4">
-                        <div className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                          {section.type === 'intro' ? 'Intro Analysis' : 
-                           section.type === 'experience' ? 'Experience Analysis' : 
-                           section.type === 'closing' ? 'Closing Analysis' : 
-                           section.type === 'signature' ? 'Signature Analysis' : 'Analysis'}
+                            ref={(textarea) => {
+                              if (textarea) {
+                                // Set initial height based on content
+                                textarea.style.height = 'auto';
+                                textarea.style.height = `${textarea.scrollHeight}px`;
+                              }
+                            }}
+                            onChange={(e) => {
+                              const updatedSections = generatedLetter.sections.map(s => 
+                                s.id === section.id ? { ...s, content: e.target.value } : s
+                              );
+                              setGeneratedLetter({ ...generatedLetter, sections: updatedSections });
+                              // Auto-resize textarea
+                              e.target.style.height = 'auto';
+                              e.target.style.height = `${e.target.scrollHeight}px`;
+                            }}
+                            className="resize-none overflow-hidden"
+                            placeholder="Enter cover letter content..."
+                            rows={1}
+                          />
                         </div>
-                        {(() => {
-                          const sectionGaps = gaps.filter(gap => gap.paragraphId === section.type);
-                          const isResolved = sectionGaps.length === 0;
-                          
-                          if (isResolved) {
-                            return (
-                              <UnifiedGapCard
-                                status="met"
-                                title="Matches Job Req"
-                                addresses={getRequirementsForParagraph(section.type)}
-                                origin={section.isEnhanced ? "ai" : "library"}
-                                paragraphId={section.type}
-                              />
-                            );
-                          }
-
-                          return sectionGaps.map((gap) => (
-                            <UnifiedGapCard
-                              key={gap.id}
-                              status="gap"
-                              title="Issue"
-                              issue={gap.description}
-                              suggestion={gap.suggestion}
-                              origin={gap.origin || 'ai'}
-                              paragraphId={gap.paragraphId || section.type}
-                              severity={gap.severity}
-                              onEdit={() => handleAddressGap(gap)}
-                              onGenerate={() => handleAddressGap(gap)}
-                            />
-                          ));
-                        })()}
-                      </div>
-                    </div>
-                  ))}
+                      </ContentCard>
+                    );
+                  })}
 
                   {/* Action Buttons */}
                   <div className="flex gap-3 pt-4">

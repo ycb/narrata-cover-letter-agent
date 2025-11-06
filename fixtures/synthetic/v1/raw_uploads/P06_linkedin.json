@@ -1,0 +1,148 @@
+{
+  "basic_info": {
+    "fullname": "Diego Morales",
+    "first_name": "Diego",
+    "last_name": "Morales",
+    "headline": "Sr PM — Platform & Reliability | Migrations, SLAs, Tooling",
+    "profile_url": "https://linkedin.com/in/p06",
+    "profile_picture_url": null,
+    "about": "Sr PM — Platform & Reliability | Migrations, SLAs, Tooling",
+    "location": {
+      "country": "US",
+      "city": "Austin",
+      "full": "Austin, TX, US",
+      "country_code": "US"
+    },
+    "creator_hashtags": [],
+    "is_creator": false,
+    "is_influencer": false,
+    "is_premium": false,
+    "created_timestamp": 1710846072019.7002,
+    "show_follower_count": false,
+    "background_picture_url": null,
+    "urn": "ACoP06pli9ar448r",
+    "follower_count": 2407,
+    "connection_count": 2719,
+    "current_company": "StratusWorks",
+    "current_company_urn": null,
+    "current_company_url": null,
+    "email": "diego@example.com"
+  },
+  "experience": [
+    {
+      "title": "Senior PM, Platform",
+      "company": "StratusWorks",
+      "description": "Led monolith→services migration; incidents −27%; P95 latency −18%.\n\nAdded feature flags and kill‑switches; rollback time −70%.",
+      "location": "Austin, TX",
+      "duration": "2019-08 - Present",
+      "start_date": {
+        "year": 2019,
+        "month": "Aug"
+      },
+      "is_current": true,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
+      ],
+      "company_id": null
+    },
+    {
+      "title": "Product Manager",
+      "company": "DeviceCloud",
+      "description": "SDKs/CLI improved internal developer satisfaction +30%; build time −22%.\n\nInstituted SLAs/SLOs and reliability dashboards for weekly ops.",
+      "location": "Austin, TX",
+      "duration": "2015-06 - 2019-07",
+      "start_date": {
+        "year": 2015,
+        "month": "Jun"
+      },
+      "end_date": {
+        "year": 2019,
+        "month": "Jul"
+      },
+      "is_current": false,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
+      ],
+      "company_id": null
+    },
+    {
+      "title": "Associate PM",
+      "company": "CodeBridge",
+      "description": "Launched developer portal; onboarding −25%; support tickets −19%.",
+      "location": "Austin, TX",
+      "duration": "2013-06 - 2015-05",
+      "start_date": {
+        "year": 2013,
+        "month": "Jun"
+      },
+      "end_date": {
+        "year": 2015,
+        "month": "May"
+      },
+      "is_current": false,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
+      ],
+      "company_id": null
+    }
+  ],
+  "education": [
+    {
+      "school": "State University",
+      "degree": "B.S.",
+      "degree_name": "B.S.",
+      "field_of_study": "Computer Science",
+      "duration": "2009-09 - 2013-06",
+      "start_date": {
+        "year": 2009,
+        "month": "Sep"
+      },
+      "end_date": {
+        "year": 2013,
+        "month": "Jun"
+      },
+      "school_linkedin_url": null,
+      "school_logo_url": null,
+      "school_id": null
+    }
+  ],
+  "projects": [
+    {
+      "name": "Experimentation Hub",
+      "description": "Internal tooling for test design and readouts across squads.",
+      "associated_with": null,
+      "is_current": false
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Product Analytics",
+      "issuer": "Amplitude (synthetic)",
+      "issued_date": "2021-06"
+    }
+  ],
+  "languages": [
+    {
+      "language": "English",
+      "proficiency": "Native or bilingual proficiency"
+    }
+  ],
+  "skills": [
+    "Product Strategy",
+    "Experimentation",
+    "Onboarding",
+    "Analytics",
+    "SQL",
+    "Writing",
+    "Stakeholder Alignment"
+  ]
+}

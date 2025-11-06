@@ -1,0 +1,148 @@
+{
+  "basic_info": {
+    "fullname": "Riley Gupta",
+    "first_name": "Riley",
+    "last_name": "Gupta",
+    "headline": "Product Manager — Checkout Growth | Conversion, Risk, UX",
+    "profile_url": "https://linkedin.com/in/p03",
+    "profile_picture_url": null,
+    "about": "Product Manager — Checkout Growth | Conversion, Risk, UX",
+    "location": {
+      "country": "US",
+      "city": "New York",
+      "full": "New York, NY, US",
+      "country_code": "US"
+    },
+    "creator_hashtags": [],
+    "is_creator": false,
+    "is_influencer": false,
+    "is_premium": false,
+    "created_timestamp": 1615968219603.641,
+    "show_follower_count": false,
+    "background_picture_url": null,
+    "urn": "ACoP03skn7apldesa",
+    "follower_count": 5122,
+    "connection_count": 5117,
+    "current_company": "PayWave",
+    "current_company_urn": null,
+    "current_company_url": null,
+    "email": "riley@example.com"
+  },
+  "experience": [
+    {
+      "title": "Product Manager, Checkout",
+      "company": "PayWave",
+      "description": "Raised checkout conversion +15% via simplified forms and async risk checks.\n\nPartnered with Risk to cut false positives −8% using dynamic scoring.",
+      "location": "New York, NY",
+      "duration": "2021-04 - Present",
+      "start_date": {
+        "year": 2021,
+        "month": "Apr"
+      },
+      "is_current": true,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
+      ],
+      "company_id": null
+    },
+    {
+      "title": "Associate PM",
+      "company": "NeoBanker",
+      "description": "Consolidated KYC APIs; time‑to‑verify −28%; abandonment −6% with clearer states.\n\nPiloted document retry; pass‑through +5pp in Gen‑Z cohort.",
+      "location": "New York, NY",
+      "duration": "2019-07 - 2021-03",
+      "start_date": {
+        "year": 2019,
+        "month": "Jul"
+      },
+      "end_date": {
+        "year": 2021,
+        "month": "Mar"
+      },
+      "is_current": false,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
+      ],
+      "company_id": null
+    },
+    {
+      "title": "Product Analyst",
+      "company": "FinStride",
+      "description": "Modeled onboarding & fraud events; prioritized fixes saving ~1.2s latency.",
+      "location": "Jersey City, NJ",
+      "duration": "2017-06 - 2019-06",
+      "start_date": {
+        "year": 2017,
+        "month": "Jun"
+      },
+      "end_date": {
+        "year": 2019,
+        "month": "Jun"
+      },
+      "is_current": false,
+      "company_linkedin_url": null,
+      "company_logo_url": null,
+      "skills": [
+        "Product Strategy",
+        "Experimentation"
+      ],
+      "company_id": null
+    }
+  ],
+  "education": [
+    {
+      "school": "State University",
+      "degree": "B.S.",
+      "degree_name": "B.S.",
+      "field_of_study": "Computer Science",
+      "duration": "2009-09 - 2013-06",
+      "start_date": {
+        "year": 2009,
+        "month": "Sep"
+      },
+      "end_date": {
+        "year": 2013,
+        "month": "Jun"
+      },
+      "school_linkedin_url": null,
+      "school_logo_url": null,
+      "school_id": null
+    }
+  ],
+  "projects": [
+    {
+      "name": "Experimentation Hub",
+      "description": "Internal tooling for test design and readouts across squads.",
+      "associated_with": null,
+      "is_current": false
+    }
+  ],
+  "certifications": [
+    {
+      "name": "Product Analytics",
+      "issuer": "Amplitude (synthetic)",
+      "issued_date": "2021-06"
+    }
+  ],
+  "languages": [
+    {
+      "language": "English",
+      "proficiency": "Native or bilingual proficiency"
+    }
+  ],
+  "skills": [
+    "Product Strategy",
+    "Experimentation",
+    "Onboarding",
+    "Analytics",
+    "SQL",
+    "Writing",
+    "Stakeholder Alignment"
+  ]
+}
