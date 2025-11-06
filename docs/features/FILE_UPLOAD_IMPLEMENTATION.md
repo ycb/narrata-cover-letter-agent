@@ -34,6 +34,7 @@ CREATE TABLE public.sources (
   file_size INTEGER NOT NULL,
   file_checksum TEXT NOT NULL,
   storage_path TEXT NOT NULL,
+  source_type TEXT NOT NULL DEFAULT 'resume' CHECK (source_type IN ('resume', 'cover_letter')),
   processing_status TEXT DEFAULT 'pending',
   raw_text TEXT,
   structured_data JSONB,

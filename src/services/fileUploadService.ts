@@ -95,11 +95,12 @@ export class FileUploadService {
   }
 
   /**
-   * Look for an existing fully processed source with the same checksum
+   * Look for an existing fully processed source with the same checksum and type
    */
   private async findExistingSourceByChecksum(
     userId: string,
-    checksum: string
+    checksum: string,
+    sourceType: 'resume' | 'cover_letter'
   ): Promise<{ id: string; structured_data?: unknown } | null> {
     try {
       const { data, error } = await supabase
@@ -107,6 +108,7 @@ export class FileUploadService {
         .select('id, processing_status, structured_data')
         .eq('user_id', userId)
         .eq('file_checksum', checksum)
+        .eq('source_type', sourceType)
         .order('created_at', { ascending: false })
         .limit(1);
 
@@ -119,7 +121,8 @@ export class FileUploadService {
         return null;
       }
 
-      const existing = data.find((entry: any) => entry.processing_status === 'completed');
+type SourceEntry = { id: string; processing_status: string; structured_data?: unknown };
+      const existing = (data as SourceEntry[]).find(entry => entry.processing_status === 'completed');
       return existing || null;
     } catch (error) {
       console.error('Error checking for existing source by checksum:', error);
@@ -244,6 +247,7 @@ export class FileUploadService {
     file: File, 
     userId: string, 
     storagePath: string,
+    sourceType: 'resume' | 'cover_letter',
     accessToken?: string,
     checksum?: string,
     sourceType?: FileType
@@ -264,8 +268,8 @@ export class FileUploadService {
         file_size: file.size,
         file_checksum: computedChecksum,
         storage_path: storagePath,
-        processing_status: 'pending',
-        source_type: dbSourceType // Convert FileType to database format
+source_type: dbSourceType,
+        processing_status: 'pending'
       };
       
       const response = await fetch(`${supabaseUrl}/rest/v1/sources`, {
@@ -406,8 +410,31 @@ export class FileUploadService {
         console.warn('Failed to compute checksum for file:', error);
       }
 
+<<<<<<< HEAD
       // Check for duplicates AFTER batching logic
       // (We'll move this check later in the flow)
+=======
+      // If resume or cover letter matches previously processed content, reuse existing data
+      if ((type === 'resume' || type === 'coverLetter') && checksum) {
+        const sourceType: 'resume' | 'cover_letter' = type === 'coverLetter' ? 'cover_letter' : 'resume';
+        const existingSource = await this.findExistingSourceByChecksum(userId, checksum, sourceType);
+        if (existingSource) {
+          console.log(`♻️ Detected duplicate ${type} upload, reusing existing structured data.`);
+          window.dispatchEvent(new CustomEvent('file-upload-progress', { 
+            detail: { 
+              sourceId: existingSource.id, 
+              stage: 'duplicate', 
+              progress: 100, 
+              message: `${type === 'resume' ? 'Resume' : 'Cover letter'} already processed — using saved data.` 
+            } 
+          }));
+          return {
+            success: true,
+            fileId: existingSource.id
+          };
+        }
+      }
+>>>>>>> origin/main
 
       // For manual text, skip storage upload and create virtual storage path
       let storagePath: string;
@@ -427,8 +454,14 @@ export class FileUploadService {
         storagePath = uploadResult.storagePath!;
       }
 
+<<<<<<< HEAD
       // Create source record with correct source_type
       const sourceId = await this.createSourceRecord(file, userId, storagePath, accessToken, checksum, type);
+=======
+      // Create source record with appropriate type
+      const sourceType: 'resume' | 'cover_letter' = type === 'coverLetter' ? 'cover_letter' : 'resume';
+      const sourceId = await this.createSourceRecord(file, userId, storagePath, sourceType, accessToken, checksum);
+>>>>>>> origin/main
 
       
       // Process content (immediate for small content, background for large)
