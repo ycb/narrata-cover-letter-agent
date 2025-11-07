@@ -571,6 +571,125 @@ export class GapDetectionService {
   }
 
   /**
+   * Re-analyze tag misalignment gaps when user goals change
+   * Checks all work items, companies, and saved sections for tag misalignment
+   */
+  static async reanalyzeTagMisalignmentGaps(
+    userId: string,
+    userGoals: {
+      industries?: string[];
+      businessModels?: string[];
+    }
+  ): Promise<void> {
+    try {
+      console.log('[GapDetectionService] Re-analyzing tag misalignment gaps...');
+
+      // 1. Get all work items with tags
+      const { data: workItems, error: workItemsError } = await supabase
+        .from('work_items')
+        .select('id, tags')
+        .eq('user_id', userId);
+
+      if (workItemsError) {
+        console.error('Error fetching work items:', workItemsError);
+        return;
+      }
+
+      // 2. Get all companies with tags
+      const { data: companies, error: companiesError } = await supabase
+        .from('companies')
+        .select('id, tags')
+        .eq('user_id', userId);
+
+      if (companiesError) {
+        console.error('Error fetching companies:', companiesError);
+        return;
+      }
+
+      // 3. Get all saved sections with tags
+      const { data: savedSections, error: savedSectionsError } = await supabase
+        .from('saved_sections')
+        .select('id, tags')
+        .eq('user_id', userId);
+
+      if (savedSectionsError) {
+        console.error('Error fetching saved sections:', savedSectionsError);
+        return;
+      }
+
+      // 4. Detect gaps for each entity
+      const allGaps: Gap[] = [];
+
+      // Work items
+      for (const workItem of workItems || []) {
+        const gaps = this.detectTagMisalignmentGaps(
+          userId,
+          workItem.id,
+          'work_item',
+          workItem.tags || [],
+          userGoals
+        );
+        allGaps.push(...gaps);
+      }
+
+      // Companies (map to work_item entity type for gaps table)
+      for (const company of companies || []) {
+        const gaps = this.detectTagMisalignmentGaps(
+          userId,
+          company.id,
+          'company',
+          company.tags || [],
+          userGoals
+        );
+        allGaps.push(...gaps);
+      }
+
+      // Saved sections
+      for (const section of savedSections || []) {
+        const gaps = this.detectTagMisalignmentGaps(
+          userId,
+          section.id,
+          'saved_section',
+          section.tags || [],
+          userGoals
+        );
+        allGaps.push(...gaps);
+      }
+
+      // 5. Resolve existing tag misalignment gaps before saving new ones
+      // This prevents duplicate gaps when goals change
+      const { data: existingGaps } = await supabase
+        .from('gaps')
+        .select('id')
+        .eq('user_id', userId)
+        .in('gap_category', ['missing_tags', 'tag_industry_misalignment', 'tag_business_model_misalignment'])
+        .eq('resolved', false);
+
+      if (existingGaps && existingGaps.length > 0) {
+        await supabase
+          .from('gaps')
+          .update({
+            resolved: true,
+            resolved_at: new Date().toISOString(),
+            resolved_reason: 'no_longer_applicable'
+          })
+          .in('id', existingGaps.map(g => g.id));
+      }
+
+      // 6. Save new gaps
+      if (allGaps.length > 0) {
+        await this.saveGaps(allGaps);
+        console.log(`[GapDetectionService] Created ${allGaps.length} tag misalignment gap(s)`);
+      } else {
+        console.log('[GapDetectionService] No tag misalignment gaps found');
+      }
+    } catch (error) {
+      console.error('[GapDetectionService] Error re-analyzing tag misalignment gaps:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Detect gaps in role-level description
    * Flags missing or generic descriptions
    */
