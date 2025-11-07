@@ -1128,7 +1128,329 @@ export const EvaluationDashboard: React.FC = () => {
                     );
                   })()}
                 </div>
-                
+
+                {/* Cover Letter Paragraphs - Full-width (cover letter only) */}
+                {selectedRun?.file_type === 'coverLetter' && (() => {
+                  const paragraphs = selectedSource?.structured_data?.paragraphs || [];
+                  const hasEntries = Array.isArray(paragraphs) && paragraphs.length > 0;
+                  const isExpanded = expandedCategories.has('paragraphs');
+
+                  return (
+                    <div className={`bg-gray-50 rounded-lg ${hasEntries ? 'cursor-pointer hover:bg-gray-100' : ''} md:col-span-3`}>
+                      <div
+                        className={`flex items-center justify-between p-3 ${hasEntries ? '' : 'pointer-events-none'}`}
+                        onClick={() => hasEntries && toggleCategory('paragraphs')}
+                      >
+                        <div className="flex items-center gap-2">
+                          {hasEntries && (isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />)}
+                          <span>Paragraphs</span>
+                        </div>
+                        <Badge className={getEvaluationBadgeColor(hasEntries ? '✅' : '❌')}>
+                          {hasEntries ? `${paragraphs.length} found` : 'None'}
+                        </Badge>
+                      </div>
+                      {hasEntries && isExpanded && (
+                        <div className="px-3 pb-3 space-y-3 max-h-96 overflow-y-auto">
+                          {paragraphs.map((para: any, idx: number) => {
+                            const paraPath = `paragraphs[${idx}]`;
+                            const paraFlags = getFlagsForPath(paraPath);
+
+                            // Function type color coding
+                            const getFunctionColor = (func: string) => {
+                              switch (func) {
+                                case 'intro': return 'bg-blue-50 border-blue-300';
+                                case 'closer': return 'bg-green-50 border-green-300';
+                                case 'story': return 'bg-purple-50 border-purple-300';
+                                case 'other': return 'bg-gray-50 border-gray-300';
+                                default: return 'bg-gray-50 border-gray-300';
+                              }
+                            };
+
+                            return (
+                              <div key={idx} className={`p-3 rounded border-l-4 ${getFunctionColor(para.function)} relative`}>
+                                <div className="absolute top-2 right-2">
+                                  <FlagButton
+                                    dataPath={paraPath}
+                                    dataType="paragraph"
+                                    hasFlags={paraFlags.length > 0}
+                                    flagCount={paraFlags.length}
+                                    onClick={() => handleFlagClick('paragraph' as any, paraPath, para)}
+                                    size="sm"
+                                  />
+                                </div>
+                                <div className="pr-8">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Badge variant="outline" className="text-xs">
+                                      {para.function || 'unknown'}
+                                    </Badge>
+                                    <Badge variant="outline" className="text-xs">
+                                      Index: {para.index}
+                                    </Badge>
+                                    <Badge variant="outline" className="text-xs">
+                                      Confidence: {(para.confidence * 100).toFixed(0)}%
+                                    </Badge>
+                                  </div>
+
+                                  <div className="text-sm text-gray-900 mb-2 leading-relaxed">
+                                    {para.rawText}
+                                  </div>
+
+                                  {para.purposeSummary && (
+                                    <div className="text-xs text-gray-600 mb-2">
+                                      <span className="font-medium">Purpose: </span>
+                                      {para.purposeSummary}
+                                    </div>
+                                  )}
+
+                                  {para.purposeTags && para.purposeTags.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mb-2">
+                                      {para.purposeTags.map((tag: string, tagIdx: number) => (
+                                        <Badge key={tagIdx} variant="secondary" className="text-xs">
+                                          {tag}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {para.linkedStoryId && (
+                                    <div className="text-xs text-blue-600 mt-2">
+                                      ↗ Linked to story: {para.linkedStoryId}
+                                    </div>
+                                  )}
+
+                                  {para.notes && (
+                                    <div className="text-xs text-gray-500 italic mt-2">
+                                      Note: {para.notes}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {!hasEntries && (
+                        <div className="px-3 pb-3 text-xs text-gray-500">No paragraphs extracted</div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Profile Data - Grid layout (cover letter only) */}
+                {selectedRun?.file_type === 'coverLetter' && (() => {
+                  const profileData = selectedSource?.structured_data?.profileData || {};
+                  const hasGoals = profileData.goals && profileData.goals.length > 0;
+                  const hasVoice = profileData.voice && Object.keys(profileData.voice).length > 0;
+                  const hasPreferences = profileData.preferences && profileData.preferences.length > 0;
+                  const hasAnyData = hasGoals || hasVoice || hasPreferences;
+                  const isExpanded = expandedCategories.has('profileData');
+
+                  return (
+                    <div className={`bg-gray-50 rounded-lg ${hasAnyData ? 'cursor-pointer hover:bg-gray-100' : ''} md:col-span-3`}>
+                      <div
+                        className={`flex items-center justify-between p-3 ${hasAnyData ? '' : 'pointer-events-none'}`}
+                        onClick={() => hasAnyData && toggleCategory('profileData')}
+                      >
+                        <div className="flex items-center gap-2">
+                          {hasAnyData && (isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />)}
+                          <span>Profile Data</span>
+                        </div>
+                        <Badge className={getEvaluationBadgeColor(hasAnyData ? '✅' : '❌')}>
+                          {hasAnyData ? 'Extracted' : 'None'}
+                        </Badge>
+                      </div>
+                      {hasAnyData && isExpanded && (
+                        <div className="px-3 pb-3">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            {/* Goals */}
+                            {hasGoals && (
+                              <div className="bg-white p-3 rounded border border-gray-200">
+                                <div className="font-medium text-sm text-gray-900 mb-2">Goals</div>
+                                <ul className="text-xs text-gray-700 space-y-1 list-disc list-inside">
+                                  {profileData.goals.map((goal: string, idx: number) => (
+                                    <li key={idx}>{goal}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {/* Voice/Tone */}
+                            {hasVoice && (
+                              <div className="bg-white p-3 rounded border border-gray-200">
+                                <div className="font-medium text-sm text-gray-900 mb-2">Voice & Tone</div>
+                                {profileData.voice.tone && profileData.voice.tone.length > 0 && (
+                                  <div className="mb-2">
+                                    <div className="text-xs font-medium text-gray-600 mb-1">Tone:</div>
+                                    <div className="flex flex-wrap gap-1">
+                                      {profileData.voice.tone.map((t: string, idx: number) => (
+                                        <Badge key={idx} variant="secondary" className="text-xs">{t}</Badge>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                {profileData.voice.style && (
+                                  <div className="mb-2">
+                                    <div className="text-xs font-medium text-gray-600 mb-1">Style:</div>
+                                    <div className="text-xs text-gray-700">{profileData.voice.style}</div>
+                                  </div>
+                                )}
+                                {profileData.voice.persona && profileData.voice.persona.length > 0 && (
+                                  <div>
+                                    <div className="text-xs font-medium text-gray-600 mb-1">Persona:</div>
+                                    <div className="flex flex-wrap gap-1">
+                                      {profileData.voice.persona.map((p: string, idx: number) => (
+                                        <Badge key={idx} variant="secondary" className="text-xs">{p}</Badge>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Preferences */}
+                            {hasPreferences && (
+                              <div className="bg-white p-3 rounded border border-gray-200">
+                                <div className="font-medium text-sm text-gray-900 mb-2">Preferences</div>
+                                <ul className="text-xs text-gray-700 space-y-1 list-disc list-inside">
+                                  {profileData.preferences.map((pref: string, idx: number) => (
+                                    <li key={idx}>{pref}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {!hasAnyData && (
+                        <div className="px-3 pb-3 text-xs text-gray-500">No profile data extracted</div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Template Signals - Grid layout (cover letter only) */}
+                {selectedRun?.file_type === 'coverLetter' && (() => {
+                  const templateSignals = selectedSource?.structured_data?.templateSignals || {};
+                  const hasData = Object.keys(templateSignals).length > 0;
+                  const isExpanded = expandedCategories.has('templateSignals');
+
+                  return (
+                    <div className={`bg-gray-50 rounded-lg ${hasData ? 'cursor-pointer hover:bg-gray-100' : ''} md:col-span-3`}>
+                      <div
+                        className={`flex items-center justify-between p-3 ${hasData ? '' : 'pointer-events-none'}`}
+                        onClick={() => hasData && toggleCategory('templateSignals')}
+                      >
+                        <div className="flex items-center gap-2">
+                          {hasData && (isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />)}
+                          <span>Template Signals</span>
+                        </div>
+                        <Badge className={getEvaluationBadgeColor(hasData ? '✅' : '❌')}>
+                          {hasData ? 'Extracted' : 'None'}
+                        </Badge>
+                      </div>
+                      {hasData && isExpanded && (
+                        <div className="px-3 pb-3">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {/* Tone & Persona */}
+                            <div className="bg-white p-3 rounded border border-gray-200">
+                              <div className="font-medium text-sm text-gray-900 mb-2">Tone & Persona</div>
+                              {templateSignals.tone && templateSignals.tone.length > 0 && (
+                                <div className="mb-2">
+                                  <div className="text-xs font-medium text-gray-600 mb-1">Tone:</div>
+                                  <div className="flex flex-wrap gap-1">
+                                    {templateSignals.tone.map((t: string, idx: number) => (
+                                      <Badge key={idx} variant="secondary" className="text-xs">{t}</Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {templateSignals.persona && templateSignals.persona.length > 0 && (
+                                <div>
+                                  <div className="text-xs font-medium text-gray-600 mb-1">Persona:</div>
+                                  <div className="flex flex-wrap gap-1">
+                                    {templateSignals.persona.map((p: string, idx: number) => (
+                                      <Badge key={idx} variant="secondary" className="text-xs">{p}</Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Structure */}
+                            {templateSignals.structure && (
+                              <div className="bg-white p-3 rounded border border-gray-200">
+                                <div className="font-medium text-sm text-gray-900 mb-2">Structure</div>
+                                <div className="space-y-1.5 text-xs">
+                                  {templateSignals.structure.paraCount !== undefined && (
+                                    <div>
+                                      <span className="font-medium text-gray-600">Paragraphs: </span>
+                                      <span className="text-gray-900">{templateSignals.structure.paraCount}</span>
+                                    </div>
+                                  )}
+                                  {templateSignals.structure.usesBullets !== undefined && (
+                                    <div>
+                                      <span className="font-medium text-gray-600">Uses Bullets: </span>
+                                      <span className="text-gray-900">{templateSignals.structure.usesBullets ? 'Yes' : 'No'}</span>
+                                    </div>
+                                  )}
+                                  {templateSignals.structure.storyDensity && (
+                                    <div>
+                                      <span className="font-medium text-gray-600">Story Density: </span>
+                                      <span className="text-gray-900">{templateSignals.structure.storyDensity}</span>
+                                    </div>
+                                  )}
+                                  {templateSignals.structure.metricDensity && (
+                                    <div>
+                                      <span className="font-medium text-gray-600">Metric Density: </span>
+                                      <span className="text-gray-900">{templateSignals.structure.metricDensity}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Style Hints */}
+                            {templateSignals.styleHints && (
+                              <div className="bg-white p-3 rounded border border-gray-200 md:col-span-2">
+                                <div className="font-medium text-sm text-gray-900 mb-2">Style Hints</div>
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                                  {templateSignals.styleHints.voice && (
+                                    <div>
+                                      <span className="font-medium text-gray-600">Voice: </span>
+                                      <span className="text-gray-900">{templateSignals.styleHints.voice}</span>
+                                    </div>
+                                  )}
+                                  {templateSignals.styleHints.lengthChars !== undefined && (
+                                    <div>
+                                      <span className="font-medium text-gray-600">Length: </span>
+                                      <span className="text-gray-900">{templateSignals.styleHints.lengthChars} chars</span>
+                                    </div>
+                                  )}
+                                  {templateSignals.styleHints.readingLevel !== undefined && (
+                                    <div>
+                                      <span className="font-medium text-gray-600">Reading Level: </span>
+                                      <span className="text-gray-900">Grade {templateSignals.styleHints.readingLevel}</span>
+                                    </div>
+                                  )}
+                                  {templateSignals.styleHints.sentenceLength && (
+                                    <div>
+                                      <span className="font-medium text-gray-600">Sentence Length: </span>
+                                      <span className="text-gray-900">{templateSignals.styleHints.sentenceLength}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {!hasData && (
+                        <div className="px-3 pb-3 text-xs text-gray-500">No template signals extracted</div>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {/* Work Experience - Full-width (like cover letter stories) */}
                 {selectedRun?.file_type !== 'coverLetter' && (() => {
                   const workHistory = selectedSource?.structured_data?.workHistory || selectedSource?.structured_data?.work_history || [];
