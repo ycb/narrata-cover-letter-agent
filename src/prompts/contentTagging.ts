@@ -46,13 +46,14 @@ For METRICS, focus on:
 - Timeframe
 - Impact level
 
-For COMPANY tags, focus on:
-- Industry/Vertical (see examples below)
+For COMPANY tags, focus ONLY on:
 - Business Model/Buyers (see examples below)
-- Company Stage (startup, growth-stage, established, enterprise)
-- Company Size (small, medium, large, enterprise)
-- Key products/services
-- Market vertical
+- Industry/Vertical (see examples below)
+
+DO NOT include:
+- Skills or competencies (those are for roles/stories)
+- Role levels (entry, mid, senior, executive)
+- Company stage or size (not needed for matching)
 
 BUSINESS MODEL / BUYERS EXAMPLES:
 B2B, B2C, D2C, B2B2C, Enterprise, SMB, Marketplace, Platform, Developer Tools, SaaS
@@ -135,12 +136,13 @@ TAGGING EXAMPLES:
 
 Example 1 - Company Tags (Stripe):
 {
-  "primaryTags": ["Fintech", "B2B", "Payments"],
-  "industryTags": ["Fintech / Payments / Crypto", "Platform"],
+  "primaryTags": ["B2B", "Platform"],
+  "industryTags": ["Fintech / Payments / Crypto"],
+  "businessModelTags": ["B2B", "Platform"],
   "skillTags": [],
   "roleLevelTags": [],
   "scopeTags": [],
-  "contextTags": ["enterprise", "established"],
+  "contextTags": [],
   "matchingKeywords": ["payment processing", "economic infrastructure", "API"],
   "confidence": "high"
 }

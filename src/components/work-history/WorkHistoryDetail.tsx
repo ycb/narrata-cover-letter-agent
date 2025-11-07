@@ -91,6 +91,7 @@ export const WorkHistoryDetail = ({
   onRefresh,
 }: WorkHistoryDetailProps) => {
   const { user } = useAuth();
+  const { goals } = useUserGoals();
   const [detailView, setDetailView] = useState<DetailView>(initialTab);
   const [isEditingRole, setIsEditingRole] = useState(false);
   const [editingRole, setEditingRole] = useState<WorkHistoryRole | null>(null);

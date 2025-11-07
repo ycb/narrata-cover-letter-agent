@@ -316,14 +316,6 @@ export function ContentGenerationModal({
                         }}
                       >
                         {tag.value}
-                        {tag.confidence === 'high' && <span className="ml-1 text-green-500">✓</span>}
-                        {tag.confidence === 'medium' && <span className="ml-1 text-yellow-500">~</span>}
-                        {tag.confidence === 'low' && <span className="ml-1 text-gray-500">?</span>}
-                        {tag.category && (
-                          <span className="ml-1 text-xs text-muted-foreground">
-                            ({tag.category})
-                          </span>
-                        )}
                       </Badge>
                     ))}
                   </div>

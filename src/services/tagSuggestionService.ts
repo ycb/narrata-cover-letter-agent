@@ -122,15 +122,38 @@ export class TagSuggestionService {
     // 5. Transform to TagSuggestion format
     const suggestions: TagSuggestion[] = [];
     
-    // Combine all tag categories
-    const allTags = [
-      ...(parsed.primaryTags || []),
-      ...(parsed.industryTags || []),
-      ...(parsed.skillTags || []),
-      ...(parsed.roleLevelTags || []),
-      ...(parsed.scopeTags || []),
-      ...(parsed.contextTags || [])
-    ];
+    // For company tags, only include business model and vertical/industry tags
+    // For role/story/saved_section, include all relevant tags (skills, competencies, etc.)
+    let allTags: string[] = [];
+    
+    if (request.contentType === 'company') {
+      // Company tags: only business models and verticals
+      allTags = [
+        ...(parsed.primaryTags || []).filter((tag: string) => {
+          // Filter to only include business models and verticals
+          const tagLower = tag.toLowerCase();
+          return tagLower.includes('b2b') || tagLower.includes('b2c') || 
+                 tagLower.includes('d2c') || tagLower.includes('enterprise') ||
+                 tagLower.includes('smb') || tagLower.includes('marketplace') ||
+                 tagLower.includes('platform') || tagLower.includes('saas') ||
+                 tagLower.includes('/') || // Vertical tags have "/" (e.g., "Software / SaaS")
+                 parsed.industryTags?.includes(tag) ||
+                 parsed.businessModelTags?.includes(tag);
+        }),
+        ...(parsed.industryTags || []),
+        ...(parsed.businessModelTags || [])
+      ];
+    } else {
+      // Role/story/saved_section: include all relevant tags
+      allTags = [
+        ...(parsed.primaryTags || []),
+        ...(parsed.industryTags || []),
+        ...(parsed.skillTags || []),
+        ...(parsed.roleLevelTags || []),
+        ...(parsed.scopeTags || []),
+        ...(parsed.contextTags || [])
+      ];
+    }
 
     // Map to TagSuggestion with confidence
     allTags.forEach((tag: string, index: number) => {
