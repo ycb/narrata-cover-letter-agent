@@ -1,67 +1,62 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { PMLevelsService } from '@/services/pmLevelsService';
-import type { PMLevelInference } from '@/types/content';
+import type { PMLevelInference, PMLevelCode, RoleType } from '@/types/content';
 
 export function usePMLevel() {
   const { user } = useAuth();
-  const [levelData, setLevelData] = useState<PMLevelInference | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isRecalculating, setIsRecalculating] = useState(false);
-
+  const queryClient = useQueryClient();
   const pmLevelsService = new PMLevelsService();
 
-  const fetchLevel = useCallback(async () => {
-    if (!user) {
-      setIsLoading(false);
-      return;
-    }
+  // Fetch user level
+  const {
+    data: levelData,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery<PMLevelInference | null, Error>({
+    queryKey: ['pmLevel', user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      try {
+        const data = await pmLevelsService.getUserLevel(user.id);
+        return data;
+      } catch (error) {
+        console.error('Error fetching PM level:', error);
+        throw error;
+      }
+    },
+    enabled: !!user,
+    refetchOnWindowFocus: false,
+  });
 
-    try {
-      setIsLoading(true);
-      setError(null);
-      const level = await pmLevelsService.getUserLevel(user.id);
-      setLevelData(level);
-    } catch (err) {
-      console.error('[usePMLevel] Error fetching level:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch PM level');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user]);
-
-  const recalculateLevel = useCallback(async (targetLevel?: string, roleType?: string[]) => {
-    if (!user) return;
-
-    try {
-      setIsRecalculating(true);
-      setError(null);
-      const level = await pmLevelsService.analyzeUserLevel(
+  // Recalculate level mutation
+  const { mutate: recalculate, isPending: isRecalculating } = useMutation({
+    mutationFn: async (params?: { targetLevel?: PMLevelCode; roleType?: RoleType[] }) => {
+      if (!user) throw new Error('User not authenticated');
+      return await pmLevelsService.analyzeUserLevel(
         user.id,
-        targetLevel as any,
-        roleType as any
+        params?.targetLevel,
+        params?.roleType
       );
-      setLevelData(level);
-    } catch (err) {
-      console.error('[usePMLevel] Error recalculating level:', err);
-      setError(err instanceof Error ? err.message : 'Failed to recalculate PM level');
-    } finally {
-      setIsRecalculating(false);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    fetchLevel();
-  }, [fetchLevel]);
+    },
+    onSuccess: (data) => {
+      // Update the query cache with the new data
+      queryClient.setQueryData(['pmLevel', user?.id], data);
+    },
+    onError: (error) => {
+      console.error('Error recalculating PM level:', error);
+    },
+  });
 
   return {
     levelData,
     isLoading,
-    error,
+    error: error || null,
     isRecalculating,
-    refetch: fetchLevel,
-    recalculate: recalculateLevel
+    refetch,
+    recalculate: (targetLevel?: PMLevelCode, roleType?: RoleType[]) => 
+      recalculate({ targetLevel, roleType }),
   };
 }
 
