@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { UserGoalsModal } from "@/components/user-goals/UserGoalsModal";
 import { MyVoiceModal } from "@/components/user-voice/MyVoiceModal";
 import { MyDataModal } from "@/components/user-data/MyDataModal";

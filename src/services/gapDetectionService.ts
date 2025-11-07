@@ -135,6 +135,89 @@ export interface GapSummaryByItem {
 
 export class GapDetectionService {
   /**
+   * Re-analyze all gaps for a user when goals/target titles change
+   * 
+   * TODO: Implement when PM Levels feature is integrated
+   * 
+   * This method depends on:
+   * 1. PMLevelsService to map target job titles to PM level codes (L3-L6, M1-M2)
+   * 2. Updated gap detection prompts that consider target level requirements
+   * 3. Role expectation gap detection based on level-specific expectations
+   * 
+   * Implementation plan:
+   * - Use PMLevelsService.getLevelFromJobTitle() to map target titles to levels
+   * - Pass target level to gap detection methods
+   * - Update detectRoleDescriptionGaps() to check against level expectations
+   * - Update detectStoryGaps() to assess story quality against target level
+   * - Broadcast job status via Supabase realtime channel
+   * 
+   * @param userId - User ID to re-analyze gaps for
+   * @param accessToken - Optional access token for authenticated requests
+   */
+  static async reanalyzeAllUserGaps(userId: string, accessToken?: string): Promise<void> {
+    console.log('[GapDetectionService] Gap re-analysis stub - will be implemented with PM Levels integration');
+    // TODO: Implement when PM Levels Service is available
+    // This will:
+    // 1. Get target job titles from UserPreferencesService
+    // 2. Map titles to PM levels using PMLevelsService
+    // 3. Re-run gap detection on all content with target level context
+    // 4. Update role expectation gaps based on level requirements
+    // 5. Broadcast job status updates
+  }
+
+  /**
+   * Detect gaps by comparing Job Description (JD) against user goals and profile
+   * 
+   * TODO: Implement in cover letter draft phase
+   * 
+   * This method will be used when drafting cover letters to identify:
+   * - Missing qualifications (JD requirements not in user profile)
+   * - Goal mismatches (JD doesn't align with user preferences)
+   * - Skill gaps (JD skills not demonstrated in user content)
+   * - Level mismatches (JD level vs user's current/target level)
+   * 
+   * Dependencies:
+   * 1. Job Description parsing/extraction service
+   * 2. User goals from UserPreferencesService
+   * 3. User profile content (work history, skills, stories)
+   * 4. PM Levels Service for level comparison
+   * 
+   * Implementation plan:
+   * - Parse JD to extract: required skills, experience level, responsibilities, qualifications
+   * - Compare JD requirements against user profile content
+   * - Compare JD level against user's current PM level (from PMLevelsService)
+   * - Compare JD details against user goals (salary, work type, company maturity, etc.)
+   * - Generate gap categories:
+   *   * 'missing_qualification' - JD requirement not found in profile
+   *   * 'skill_gap' - JD skill not demonstrated in stories/work history
+   *   * 'level_mismatch' - JD level higher/lower than user's level
+   *   * 'goal_mismatch' - JD doesn't align with user preferences
+   * - Return actionable gaps with suggestions for cover letter customization
+   * 
+   * @param userId - User ID
+   * @param jobDescription - Full text of the job description
+   * @param accessToken - Optional access token for authenticated requests
+   * @returns Array of gaps comparing JD against user profile/goals
+   */
+  static async detectJDGaps(
+    userId: string,
+    jobDescription: string,
+    accessToken?: string
+  ): Promise<Gap[]> {
+    console.log('[GapDetectionService] JD gap detection stub - will be implemented in cover letter draft phase');
+    // TODO: Implement when cover letter draft feature is ready
+    // This will:
+    // 1. Parse JD to extract requirements, skills, level, responsibilities
+    // 2. Load user goals from UserPreferencesService
+    // 3. Load user profile content (work history, skills, stories)
+    // 4. Get user's current PM level from PMLevelsService
+    // 5. Compare JD against profile and goals
+    // 6. Generate gap categories with actionable suggestions
+    // 7. Return gaps for cover letter customization guidance
+    return [];
+  }
+
+  /**
    * Detect all gaps for a work item
    */
   static async detectWorkItemGaps(

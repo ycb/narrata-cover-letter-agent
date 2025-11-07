@@ -1,6 +1,19 @@
 // Content tagging prompt for automatic story and metrics categorization
-export const buildContentTaggingPrompt = (content: string, contentType: 'story' | 'metrics' | 'workHistory'): string => {
+// TODO: Add userGoals parameter to personalize tag suggestions based on:
+// - User's industries (from career goals)
+// - User's businessModels (from career goals)
+// - Map these to role level tags, areas, verticals, and buyers
+export const buildContentTaggingPrompt = (
+  content: string, 
+  contentType: 'story' | 'metrics' | 'workHistory',
+  userGoals?: { industries?: string[]; businessModels?: string[] }
+): string => {
+  const userContext = userGoals 
+    ? `\nUser Preferences:\n- Industries of interest: ${userGoals.industries?.join(', ') || 'none'}\n- Business models of interest: ${userGoals.businessModels?.join(', ') || 'none'}\n\nWhen suggesting tags, prioritize tags that align with these preferences and map to relevant areas, verticals, and buyers.`
+    : '';
+  
   return `You are an expert at analyzing professional content and generating relevant tags for matching and categorization.
+${userContext}
 
 Content to analyze:
 ${content}
