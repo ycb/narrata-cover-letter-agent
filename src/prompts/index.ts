@@ -9,6 +9,16 @@ export { buildEvaluationPrompt, buildEnhancedEvaluationPrompt } from './evaluati
 export { buildContentTaggingPrompt, buildJobMatchingTagsPrompt } from './contentTagging';
 export { buildDynamicMatchingPrompt, buildContentLibraryAnalysisPrompt } from './dynamicMatching';
 
+// Content generation prompts (Human-in-the-Loop)
+export {
+  buildStoryGenerationPrompt,
+  buildRoleDescriptionPrompt,
+  buildSavedSectionPrompt,
+  CONTENT_GENERATION_SYSTEM_PROMPT,
+  type WorkHistoryContext,
+  type JobContext
+} from './contentGeneration';
+
 // JSON extraction prompts
 export { 
   JSON_EXTRACTION_SYSTEM_PROMPT, 
