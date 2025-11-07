@@ -23,7 +23,6 @@ export class UserPreferencesService {
       
       if (syntheticContext.isSyntheticTestingEnabled && syntheticContext.currentUser) {
         const activeProfileId = syntheticContext.currentUser.profileId;
-        console.log(`[UserPreferencesService] Saving goals for synthetic profile: ${activeProfileId}, user: ${userId}`);
         
         // Save to synthetic_users.profile_data
         // First, read current profile_data to preserve other fields
@@ -39,37 +38,24 @@ export class UserPreferencesService {
           throw fetchError;
         }
         
-        console.log(`[UserPreferencesService] Current profile_data for ${activeProfileId} before update:`, currentSyntheticUser?.profile_data ? Object.keys(currentSyntheticUser.profile_data) : 'empty');
-        
         const currentProfileData = currentSyntheticUser?.profile_data || {};
         const updatedProfileData = {
           ...currentProfileData,
           goals: goals
         };
         
-        console.log(`[UserPreferencesService] Updating profile_data for ${activeProfileId} with goals:`, goals.targetTitles);
-        
-        const { data: updateResult, error } = await supabase
+        const { error } = await supabase
           .from('synthetic_users')
           .update({
             profile_data: updatedProfileData,
             updated_at: new Date().toISOString()
           })
           .eq('parent_user_id', userId)
-          .eq('profile_id', activeProfileId)
-          .select('profile_id, profile_data->goals->targetTitles');
+          .eq('profile_id', activeProfileId);
 
         if (error) {
           console.error('[UserPreferencesService] Error saving goals to synthetic profile:', error);
           throw error;
-        }
-        
-        // Verify the update worked
-        if (updateResult && updateResult.length > 0) {
-          console.log(`[UserPreferencesService] ✅ Successfully saved goals to synthetic profile ${activeProfileId}. Updated rows: ${updateResult.length}`);
-          console.log(`[UserPreferencesService] Verification - saved targetTitles:`, updateResult[0]?.targetTitles || 'none');
-        } else {
-          console.warn(`[UserPreferencesService] ⚠️ No rows updated for profile ${activeProfileId} - profile may not exist`);
         }
       } else {
         // Normal mode: save to profiles table
@@ -104,7 +90,6 @@ export class UserPreferencesService {
       
       if (syntheticContext.isSyntheticTestingEnabled && syntheticContext.currentUser) {
         const activeProfileId = syntheticContext.currentUser.profileId;
-        console.log(`[UserPreferencesService] Loading goals for synthetic profile: ${activeProfileId}, user: ${userId}`);
         
         // Load from synthetic_users.profile_data (read directly from DB for fresh data)
         const { data: syntheticUser, error } = await supabase
@@ -121,17 +106,14 @@ export class UserPreferencesService {
         
         // Verify we got the right profile
         if (syntheticUser?.profile_id !== activeProfileId) {
-          console.error(`[UserPreferencesService] ⚠️ Profile mismatch! Requested ${activeProfileId}, got ${syntheticUser?.profile_id}`);
+          console.error(`[UserPreferencesService] Profile mismatch! Requested ${activeProfileId}, got ${syntheticUser?.profile_id}`);
           return null;
         }
-        
-        console.log(`[UserPreferencesService] ✅ Loaded synthetic user data for profile ${syntheticUser?.profile_id} (${syntheticUser?.profile_name}), profile_data keys:`, syntheticUser?.profile_data ? Object.keys(syntheticUser.profile_data) : 'none');
         
         const profileData = syntheticUser?.profile_data || {};
         const goals = profileData.goals;
         
         if (goals) {
-          console.log(`[UserPreferencesService] Found goals in profile_data for ${activeProfileId}:`, goals);
           // Handle legacy format: if it's an array, convert to UserGoals format
           if (Array.isArray(goals)) {
             console.warn('[UserPreferencesService] Legacy goals format detected (array), converting to object format');
@@ -154,12 +136,10 @@ export class UserPreferencesService {
           
           // Validate it's a proper UserGoals object
           if (goals && typeof goals === 'object' && !Array.isArray(goals)) {
-            console.log(`[UserPreferencesService] Successfully loaded goals from synthetic profile ${activeProfileId}`);
             return goals;
           }
         }
         
-        console.log(`[UserPreferencesService] No goals found in profile_data for ${activeProfileId}, returning null`);
         return null;
       } else {
         // Normal mode: load from profiles table

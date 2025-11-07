@@ -30,14 +30,11 @@ export function UserVoiceProvider({ children }: UserVoiceProviderProps) {
   const [syntheticProfileId, setSyntheticProfileId] = useState<string | null>(() => {
     try {
       const stored = localStorage.getItem('synthetic_active_profile_id');
-      if (stored) {
-        console.log(`[UserVoiceContext] Initialized synthetic profile from localStorage: ${stored}`);
-        return stored;
-      }
+      return stored || null;
     } catch (e) {
       // Ignore localStorage errors
+      return null;
     }
-    return null;
   });
 
   // Track synthetic profile ID changes - verify against service and update if needed
@@ -54,16 +51,8 @@ export function UserVoiceProvider({ children }: UserVoiceProviderProps) {
         const syntheticContext = await syntheticService.getSyntheticUserContext();
         if (syntheticContext.isSyntheticTestingEnabled && syntheticContext.currentUser) {
           const profileId = syntheticContext.currentUser.profileId;
-          console.log(`[UserVoiceContext] Verified synthetic profile from service: ${profileId}`);
-          // Update state if it changed (e.g., after page reload)
-          setSyntheticProfileId(prev => {
-            if (prev !== profileId) {
-              console.log(`[UserVoiceContext] Profile changed from ${prev} to ${profileId}`);
-            }
-            return profileId;
-          });
+          setSyntheticProfileId(profileId);
         } else {
-          console.log(`[UserVoiceContext] Synthetic mode disabled or no current user`);
           setSyntheticProfileId(null);
         }
       } catch (e) {
@@ -80,10 +69,6 @@ export function UserVoiceProvider({ children }: UserVoiceProviderProps) {
     const loadVoice = async () => {
       // Use profile-specific localStorage keys in synthetic mode
       const localStorageKey = syntheticProfileId ? `userVoice_${syntheticProfileId}` : 'userVoice';
-      
-      if (syntheticProfileId) {
-        console.log(`[UserVoiceContext] Synthetic mode: using localStorage key ${localStorageKey} for profile ${syntheticProfileId}`);
-      }
       
       if (!user?.id) {
         // Fallback to localStorage if no user
@@ -117,7 +102,6 @@ export function UserVoiceProvider({ children }: UserVoiceProviderProps) {
         } else {
           // In synthetic mode, don't fall back to localStorage - each profile should start fresh
           if (syntheticProfileId) {
-            console.log(`[UserVoiceContext] No voice found for synthetic profile ${syntheticProfileId}, using defaults`);
             setVoiceState(defaultVoice);
           } else {
             // Normal mode: Fallback to localStorage if nothing in database
@@ -138,7 +122,6 @@ export function UserVoiceProvider({ children }: UserVoiceProviderProps) {
         console.error('Error loading user voice:', error);
         // In synthetic mode, don't fall back to localStorage on error - use defaults
         if (syntheticProfileId) {
-          console.log(`[UserVoiceContext] Error loading voice for synthetic profile ${syntheticProfileId}, using defaults`);
           setVoiceState(defaultVoice);
         } else {
           // Normal mode: Fallback to localStorage on error

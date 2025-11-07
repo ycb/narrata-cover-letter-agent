@@ -65,12 +65,6 @@ export const Header = ({ currentPage }: HeaderProps) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { goals, setGoals } = useUserGoals();
   const { voice, setVoice } = useUserVoice();
-  
-  // DEBUG: Log goals whenever they change
-  useEffect(() => {
-    console.error('🎯🎯🎯 HEADER - goals from context:', goals);
-    console.log('[Header] Goals targetTitles:', goals?.targetTitles);
-  }, [goals]);
 
   const handleSignOut = async (e: React.MouseEvent) => {
     e.preventDefault();

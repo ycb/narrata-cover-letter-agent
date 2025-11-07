@@ -48,8 +48,6 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
   const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.error('🎯🎯🎯 USERGOALSMODAL - initialGoals received:', initialGoals);
-    console.log('[UserGoalsModal] initialGoals targetTitles:', initialGoals?.targetTitles);
     if (initialGoals) {
       setFormData({
         targetTitles: initialGoals.targetTitles,
