@@ -36,7 +36,10 @@ import { ContentGapBanner } from "@/components/shared/ContentGapBanner";
 import { LinkedInDataSource } from "./LinkedInDataSource";
 import { ResumeDataSource } from "./ResumeDataSource";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserGoals } from "@/contexts/UserGoalsContext";
 import { GapDetectionService } from "@/services/gapDetectionService";
+import { TagSuggestionService } from "@/services/tagSuggestionService";
+import { TagService } from "@/services/tagService";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -102,6 +105,10 @@ export const WorkHistoryDetail = ({
   const [isTagModalOpen, setIsTagModalOpen] = useState(false);
   const [tagContent, setTagContent] = useState('');
   const [suggestedTags, setSuggestedTags] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [tagContentType, setTagContentType] = useState<'company' | 'role' | 'saved_section'>('company');
+  const [tagEntityId, setTagEntityId] = useState<string | undefined>();
   
   // Success state management - tracks which success cards have been dismissed
   const [dismissedSuccessCards, setDismissedSuccessCards] = useState<Set<string>>(new Set());
@@ -297,28 +304,36 @@ export const WorkHistoryDetail = ({
     onResolvedGapsChange(new Set([...resolvedGaps, stateKey]));
   };
 
-  // Tag suggestion handlers
-  const handleTagSuggestions = (tags: string[]) => {
-    console.log('handleTagSuggestions called with:', tags);
-    // Generate mock tag suggestions based on content
-    const content = `${selectedRole.title} at ${selectedCompany.name}: ${selectedRole.description}`;
-    console.log('Generating tags for content:', content);
+  // Tag suggestion handlers for role tags
+  const handleTagSuggestions = async () => {
+    if (!selectedRole || !selectedCompany) return;
     
-    // Generate mock tags immediately without delay
-    const mockTags = generateMockTagsSync(content);
-    console.log('Generated mock tags:', mockTags);
+    const content = `${selectedRole.title} at ${selectedCompany.name}: ${selectedRole.description || ''}`;
     
-    const tagSuggestions = mockTags.map((tag, index) => ({
-      id: `tag-${index}`,
-      value: tag,
-      confidence: Math.random() > 0.5 ? 'high' : Math.random() > 0.3 ? 'medium' : 'low'
-    }));
-    console.log('Tag suggestions:', tagSuggestions);
-    setSuggestedTags(tagSuggestions);
     setTagContent(content);
-    console.log('Setting isTagModalOpen to true');
+    setTagContentType('role');
+    setTagEntityId(selectedRole.id);
+    setSuggestedTags([]);
+    setSearchError(null);
+    setIsSearching(false);
     setIsTagModalOpen(true);
-    console.log('Modal should be opening now');
+    
+    try {
+      const suggestions = await TagSuggestionService.suggestTags({
+        content,
+        contentType: 'role',
+        userGoals: goals ? {
+          industries: goals.industries,
+          businessModels: goals.businessModels
+        } : undefined,
+        existingTags: selectedRole.tags || []
+      });
+      
+      setSuggestedTags(suggestions);
+    } catch (error) {
+      console.error('Error generating tag suggestions:', error);
+      setSearchError(error instanceof Error ? error.message : 'Failed to generate tag suggestions. Please try again.');
+    }
   };
 
   // Mock tag generation function
@@ -383,35 +398,78 @@ export const WorkHistoryDetail = ({
     return [...new Set(suggestedTags)].slice(0, 5);
   };
 
-  const handleApplyTags = (selectedTags: string[]) => {
-    console.log('Applied tags:', selectedTags);
-    // TODO: Update role tags in the data
-    setIsTagModalOpen(false);
-    setSuggestedTags([]);
+  const handleApplyTags = async (selectedTags: string[]) => {
+    if (!user || !tagEntityId) return;
+    
+    try {
+      if (tagContentType === 'role') {
+        // Merge with existing tags
+        const allTags = [...new Set([...(selectedRole?.tags || []), ...selectedTags])];
+        await TagService.updateWorkItemTags(tagEntityId, allTags, user.id);
+      } else if (tagContentType === 'company') {
+        // Find company by ID if not selectedCompany
+        const targetCompany = selectedCompany || companies.find(c => c.id === tagEntityId);
+        if (targetCompany) {
+          // Merge with existing tags
+          const allTags = [...new Set([...(targetCompany.tags || []), ...selectedTags])];
+          await TagService.updateCompanyTags(tagEntityId, allTags, user.id);
+        }
+      }
+      
+      // Refresh work history
+      if (onRefresh) {
+        onRefresh();
+      }
+      
+      setIsTagModalOpen(false);
+      setSuggestedTags([]);
+      setTagContent('');
+      setSearchError(null);
+    } catch (error) {
+      console.error('Error updating tags:', error);
+      setSearchError(error instanceof Error ? error.message : 'Failed to update tags. Please try again.');
+    }
   };
 
   // Company tag suggestion handlers
-  const handleCompanyTagSuggestions = (tags: string[]) => {
-    console.log('handleCompanyTagSuggestions called with:', tags);
-    // Generate mock tag suggestions based on company content
-    const content = `${selectedCompany.name}: ${selectedCompany.description || 'Company information'}`;
-    console.log('Generating company tags for content:', content);
+  const handleCompanyTagSuggestions = async (company?: WorkHistoryCompany) => {
+    const targetCompany = company || selectedCompany;
+    if (!targetCompany) return;
     
-    // Generate mock tags immediately without delay
-    const mockTags = generateMockTagsSync(content);
-    console.log('Generated company mock tags:', mockTags);
+    const content = `${targetCompany.name}: ${targetCompany.description || 'Company information'}`;
     
-    const tagSuggestions = mockTags.map((tag, index) => ({
-      id: `company-tag-${index}`,
-      value: tag,
-      confidence: Math.random() > 0.5 ? 'high' : Math.random() > 0.3 ? 'medium' : 'low'
-    }));
-    console.log('Company tag suggestions:', tagSuggestions);
-    setSuggestedTags(tagSuggestions);
     setTagContent(content);
-    console.log('Setting isTagModalOpen to true for company tags');
+    setTagContentType('company');
+    setTagEntityId(targetCompany.id);
+    setSuggestedTags([]);
+    setSearchError(null);
+    setIsSearching(true); // Show "Researching company..." indicator
     setIsTagModalOpen(true);
-    console.log('Company tag modal should be opening now');
+    
+    try {
+      const suggestions = await TagSuggestionService.suggestTags({
+        content,
+        contentType: 'company',
+        companyName: targetCompany.name, // Pass company name for browser search
+        userGoals: goals ? {
+          industries: goals.industries,
+          businessModels: goals.businessModels
+        } : undefined,
+        existingTags: targetCompany.tags || []
+      });
+      
+      setSuggestedTags(suggestions);
+      setIsSearching(false);
+    } catch (error) {
+      console.error('Error generating tag suggestions:', error);
+      setIsSearching(false);
+      setSearchError(error instanceof Error ? error.message : 'Failed to research company. Please try again.');
+    }
+  };
+
+  // Retry handler for company tag suggestions
+  const handleRetryCompanyTags = () => {
+    handleCompanyTagSuggestions();
   };
 
   // Story tag suggestion handlers
@@ -921,8 +979,13 @@ export const WorkHistoryDetail = ({
                     <span className="mr-2">No company tags available</span>
                     <TagSuggestionButton
                       content={`${roleCompany.name}: Company information`}
-                      onTagsSuggested={handleCompanyTagSuggestions}
-                      onClick={() => handleCompanyTagSuggestions([])}
+                      onTagsSuggested={() => {}}
+                      onClick={() => {
+                        const actualCompany = companies.find(c => c.name === roleCompany.name);
+                        if (actualCompany) {
+                          handleCompanyTagSuggestions(actualCompany);
+                        }
+                      }}
                       variant="tertiary"
                       size="sm"
                     />
@@ -1042,8 +1105,13 @@ export const WorkHistoryDetail = ({
                     ))}
                     <TagSuggestionButton
                       content={`${roleCompany.name}: ${hasCompanyDescription ? roleCompany.description : 'Company information'}`}
-                      onTagsSuggested={handleCompanyTagSuggestions}
-                      onClick={() => handleCompanyTagSuggestions([])}
+                      onTagsSuggested={() => {}}
+                      onClick={() => {
+                        const actualCompany = companies.find(c => c.name === roleCompany.name);
+                        if (actualCompany) {
+                          handleCompanyTagSuggestions(actualCompany);
+                        }
+                      }}
                       variant="tertiary"
                       size="sm"
                     />
@@ -1053,8 +1121,13 @@ export const WorkHistoryDetail = ({
                     <span className="mr-2">No company tags available</span>
                     <TagSuggestionButton
                       content={`${roleCompany.name}: ${hasCompanyDescription ? roleCompany.description : 'Company information'}`}
-                      onTagsSuggested={handleCompanyTagSuggestions}
-                      onClick={() => handleCompanyTagSuggestions([])}
+                      onTagsSuggested={() => {}}
+                      onClick={() => {
+                        const actualCompany = companies.find(c => c.name === roleCompany.name);
+                        if (actualCompany) {
+                          handleCompanyTagSuggestions(actualCompany);
+                        }
+                      }}
                       variant="tertiary"
                       size="sm"
                     />
@@ -1284,11 +1357,8 @@ export const WorkHistoryDetail = ({
                 ))}
                 <TagSuggestionButton
                   content={`${selectedRole.title} at ${selectedCompany.name}: ${selectedRole.description}`}
-                  onTagsSuggested={handleTagSuggestions}
-                  onClick={() => {
-                    setTagContent(`${selectedRole.title} at ${selectedCompany.name}: ${selectedRole.description}`);
-                    handleTagSuggestions([]);
-                  }}
+                  onTagsSuggested={() => {}}
+                  onClick={handleTagSuggestions}
                   variant="tertiary"
                   size="sm"
                 />
@@ -1499,8 +1569,8 @@ export const WorkHistoryDetail = ({
             ))}
             <TagSuggestionButton
               content={`${selectedCompany.name}: ${selectedCompany.description || 'Company information'}`}
-              onTagsSuggested={handleCompanyTagSuggestions}
-              onClick={() => handleCompanyTagSuggestions([])}
+              onTagsSuggested={() => {}}
+              onClick={handleCompanyTagSuggestions}
               variant="tertiary"
               size="sm"
             />
@@ -1554,14 +1624,28 @@ export const WorkHistoryDetail = ({
         <ContentGenerationModal
           isOpen={isTagModalOpen}
           onClose={() => {
-            console.log('Closing tag suggestion modal');
             setIsTagModalOpen(false);
             setSuggestedTags([]);
+            setTagContent('');
+            setSearchError(null);
+            setIsSearching(false);
           }}
           mode="tag-suggestion"
           content={tagContent}
+          contentType={tagContentType}
+          entityId={tagEntityId}
+          existingTags={
+            tagContentType === 'company' 
+              ? (selectedCompany?.tags || companies.find(c => c.id === tagEntityId)?.tags || [])
+              : tagContentType === 'role'
+              ? (selectedRole?.tags || [])
+              : []
+          }
           suggestedTags={suggestedTags}
           onApplyTags={handleApplyTags}
+          isSearching={isSearching}
+          searchError={searchError}
+          onRetry={tagContentType === 'company' ? handleRetryCompanyTags : undefined}
         />
       </div>
     );

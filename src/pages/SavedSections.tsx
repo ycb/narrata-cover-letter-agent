@@ -7,6 +7,10 @@ import { Plus, FileText, CheckCircle, Edit, X } from "lucide-react";
 import { TemplateBlurbHierarchical } from "@/components/template-blurbs/TemplateBlurbHierarchical";
 import { type TemplateBlurb } from "@/components/template-blurbs/TemplateBlurbMaster";
 import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
+import { useUserGoals } from "@/contexts/UserGoalsContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { TagSuggestionService } from "@/services/tagSuggestionService";
+import { TagService } from "@/services/tagService";
 
 // Mock template blurbs library
 const mockTemplateBlurbs: TemplateBlurb[] = [
@@ -60,6 +64,8 @@ const mockTemplateBlurbs: TemplateBlurb[] = [
 ];
 
 export default function SavedSections() {
+  const { user } = useAuth();
+  const { goals } = useUserGoals();
   const [templateBlurbs, setTemplateBlurbs] = useState<TemplateBlurb[]>(mockTemplateBlurbs);
   const [showAddReusableContentModal, setShowAddReusableContentModal] = useState(false);
   const [newReusableContent, setNewReusableContent] = useState({ title: '', content: '', tags: '', contentType: '' });
@@ -80,6 +86,8 @@ export default function SavedSections() {
   const [isTagModalOpen, setIsTagModalOpen] = useState(false);
   const [tagContent, setTagContent] = useState('');
   const [suggestedTags, setSuggestedTags] = useState<any[]>([]);
+  const [tagEntityId, setTagEntityId] = useState<string | undefined>();
+  const [existingTags, setExistingTags] = useState<string[]>([]);
 
   const handleSelectBlurbFromLibrary = (blurb: TemplateBlurb) => {
     console.log('Selected blurb from library:', blurb);
@@ -421,12 +429,17 @@ export default function SavedSections() {
         <ContentGenerationModal
           mode="tag-suggestion"
           content={tagContent}
+          contentType="saved_section"
+          entityId={tagEntityId}
+          existingTags={existingTags}
           suggestedTags={suggestedTags}
           isOpen={isTagModalOpen}
           onClose={() => {
             setIsTagModalOpen(false);
             setSuggestedTags([]);
             setTagContent('');
+            setTagEntityId(undefined);
+            setExistingTags([]);
           }}
           onApplyTags={handleApplyTags}
         />
