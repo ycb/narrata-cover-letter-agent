@@ -88,8 +88,9 @@ export class TagSuggestionService {
       // TypeScript now knows companyName is required for 'company' type
       const companyName = request.companyName;
       try {
-        // Use minimal caching (users won't repeatedly request tags)
-        companyResearch = await BrowserSearchService.researchCompany(companyName, false);
+        // Use caching to avoid repeated API calls for the same company
+        // Cache layers: in-memory (session) → localStorage (24h) → database (persistent)
+        companyResearch = await BrowserSearchService.researchCompany(companyName, true);
       } catch (error) {
         // Don't silently fail - throw error so UI can show retry option
         throw new Error(`Failed to research company: ${error instanceof Error ? error.message : 'Unknown error'}`);

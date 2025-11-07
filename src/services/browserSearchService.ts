@@ -20,19 +20,51 @@ export interface CompanyResearchResult {
   cachedAt?: string;
 }
 
+interface CacheEntry {
+  data: CompanyResearchResult;
+  timestamp: number;
+}
+
 export class BrowserSearchService {
   private static llmService = new LLMAnalysisService();
+  
+  // In-memory cache (session-level, cleared on page refresh)
+  private static memoryCache = new Map<string, CacheEntry>();
+  private static readonly MEMORY_CACHE_TTL = 60 * 60 * 1000; // 1 hour
+  
+  // localStorage cache key prefix
+  private static readonly STORAGE_KEY_PREFIX = 'company_research:';
+  private static readonly STORAGE_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
   /**
    * Research company using OpenAI
-   * Optionally caches results (minimal caching since users won't repeatedly request)
+   * Uses multi-layer caching: in-memory → localStorage → database → API
    */
-  static async researchCompany(companyName: string, useCache: boolean = false): Promise<CompanyResearchResult> {
-    // 1. Optionally check cache first (if useCache is true)
+  static async researchCompany(companyName: string, useCache: boolean = true): Promise<CompanyResearchResult> {
+    const normalizedName = companyName.trim().toLowerCase();
+    
+    // 1. Check in-memory cache first (fastest)
     if (useCache) {
-      const cached = await this.getCachedResearch(companyName);
-      if (cached) {
-        return cached;
+      const memoryCached = this.getMemoryCached(normalizedName);
+      if (memoryCached) {
+        return memoryCached;
+      }
+      
+      // 2. Check localStorage cache (persists across page refreshes)
+      const storageCached = this.getStorageCached(normalizedName);
+      if (storageCached) {
+        // Populate memory cache for faster future access
+        this.setMemoryCached(normalizedName, storageCached);
+        return storageCached;
+      }
+      
+      // 3. Check database cache (long-term persistence)
+      const dbCached = await this.getCachedResearch(companyName);
+      if (dbCached) {
+        // Populate both memory and localStorage caches
+        this.setMemoryCached(normalizedName, dbCached);
+        this.setStorageCached(normalizedName, dbCached);
+        return dbCached;
       }
     }
 
@@ -52,9 +84,19 @@ export class BrowserSearchService {
       // 4. Extract structured company information from response
       const research = this.extractCompanyInfo(companyName, response);
       
-      // 5. Optionally cache results
+      // 5. Cache results in all layers
       if (useCache) {
-        await this.cacheResearch(research, companyName);
+        // Cache in memory (session-level)
+        this.setMemoryCached(normalizedName, research);
+        
+        // Cache in localStorage (persists across page refreshes)
+        this.setStorageCached(normalizedName, research);
+        
+        // Cache in database (long-term persistence, non-blocking)
+        this.cacheResearch(research, companyName).catch(err => {
+          console.warn('Failed to cache research in database:', err);
+          // Non-blocking: continue even if DB cache fails
+        });
       }
       
       return research;
@@ -178,6 +220,102 @@ Return valid JSON only, no markdown formatting.`;
     }
   }
 
+  /**
+   * Get from in-memory cache (session-level)
+   */
+  private static getMemoryCached(companyName: string): CompanyResearchResult | null {
+    const entry = this.memoryCache.get(companyName);
+    if (!entry) return null;
+    
+    // Check TTL
+    if (Date.now() - entry.timestamp > this.MEMORY_CACHE_TTL) {
+      this.memoryCache.delete(companyName);
+      return null;
+    }
+    
+    return entry.data;
+  }
+
+  /**
+   * Set in-memory cache
+   */
+  private static setMemoryCached(companyName: string, research: CompanyResearchResult): void {
+    this.memoryCache.set(companyName, {
+      data: research,
+      timestamp: Date.now()
+    });
+  }
+
+  /**
+   * Get from localStorage cache (persists across page refreshes)
+   */
+  private static getStorageCached(companyName: string): CompanyResearchResult | null {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') return null;
+    
+    try {
+      const key = `${this.STORAGE_KEY_PREFIX}${companyName}`;
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      
+      const entry: CacheEntry = JSON.parse(raw);
+      
+      // Check TTL
+      if (Date.now() - entry.timestamp > this.STORAGE_CACHE_TTL) {
+        localStorage.removeItem(key);
+        return null;
+      }
+      
+      return entry.data;
+    } catch (error) {
+      console.warn('Error reading from localStorage cache:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Set localStorage cache
+   */
+  private static setStorageCached(companyName: string, research: CompanyResearchResult): void {
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
+    
+    try {
+      const key = `${this.STORAGE_KEY_PREFIX}${companyName}`;
+      const entry: CacheEntry = {
+        data: research,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(key, JSON.stringify(entry));
+    } catch (error) {
+      // localStorage might be full or disabled - non-blocking
+      console.warn('Error writing to localStorage cache:', error);
+    }
+  }
+
+  /**
+   * Clear all caches (useful for testing or manual refresh)
+   */
+  static clearAllCaches(): void {
+    // Clear in-memory cache
+    this.memoryCache.clear();
+    
+    // Clear localStorage cache
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      try {
+        const keys = Object.keys(localStorage);
+        keys.forEach(key => {
+          if (key.startsWith(this.STORAGE_KEY_PREFIX)) {
+            localStorage.removeItem(key);
+          }
+        });
+      } catch (error) {
+        console.warn('Error clearing localStorage cache:', error);
+      }
+    }
+  }
+
+  /**
+   * Get from database cache (long-term persistence)
+   */
   private static async getCachedResearch(companyName: string): Promise<CompanyResearchResult | null> {
     try {
       // Check cache in companies table
