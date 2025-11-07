@@ -273,7 +273,12 @@ export default function WorkHistory() {
           .from('sources')
           .select('id, file_name, file_type, created_at')
           .eq('user_id', user.id)
-          .like('file_name', `${profileId}_%`)
+          .or(
+            `file_name.ilike.${profileId}_%,` +
+            `file_name.ilike.${profileId}-% ,` +
+            `file_name.ilike.${profileId}.% ,` +
+            `file_name.ilike.${profileId} %`
+          )
           .order('created_at', { ascending: false });
         
         if (sourcesError) {
@@ -421,9 +426,11 @@ export default function WorkHistory() {
 
       if (linksError) throw linksError;
 
-      // Phase 3: Fetch gaps for work items and stories
+      // Phase 3: Fetch gaps for work items and stories (scoped by synthetic profile when active)
       const { GapDetectionService } = await import('../services/gapDetectionService');
-      const userGaps = user.id ? await GapDetectionService.getUserGaps(user.id) : [];
+      const userGaps = user.id 
+        ? await GapDetectionService.getUserGaps(user.id, currentProfileId)
+        : [];
       
       // Create maps for efficient lookup
       const workItemGapMap = new Map<string, number>(); // work_item_id -> gap count
@@ -443,7 +450,7 @@ export default function WorkHistory() {
             {
               id: gap.id || '',
               description: gap.description || gap.gap_category || 'Content needs improvement',
-              gap_category: gap.gap_category || '' // Include category for filtering
+              gap_category: (gap as any).gap_category || ''
             }
           ]);
         } else if (gap.entity_type === 'approved_content') {
@@ -456,7 +463,8 @@ export default function WorkHistory() {
             ...existingGaps,
             {
               id: gap.id || '',
-              description: gap.description || gap.gap_category || 'Content needs improvement'
+              description: gap.description || gap.gap_category || 'Content needs improvement',
+              gap_category: (gap as any).gap_category || ''
             }
           ]);
         }
@@ -557,16 +565,18 @@ export default function WorkHistory() {
             createdAt: link.created_at
           }));
 
-          // Calculate gap count for role: count content items with gaps, not total gaps
-          // 1 if role has any gaps, plus 1 for each story with gaps
-          const workItemGaps = workItemGapsMap.get(item.id) || [];
-          const hasRoleGaps = workItemGaps.length > 0;
-          
-          // Count stories with gaps (not total gap count per story)
+          // Calculate gap count for role: count content items with gaps (not individual gaps)
+          // Role-level: treat role description and role metrics as two distinct content items
+          const workItemGaps = (workItemGapsMap.get(item.id) || []) as Array<{ id: string; description: string; gap_category?: string }>;
+          const hasRoleDescriptionItem = workItemGaps.some(g => g.gap_category === 'missing_role_description' || g.gap_category === 'generic_role_description');
+          const hasRoleMetricsItem = workItemGaps.some(g => g.gap_category === 'missing_role_metrics' || g.gap_category === 'insufficient_role_metrics');
+          const roleLevelItems = (hasRoleDescriptionItem ? 1 : 0) + (hasRoleMetricsItem ? 1 : 0);
+
+          // Stories: count stories with at least one gap as one content item each
           const storiesWithGaps = transformedBlurbs.filter(blurb => (blurb.gapCount || 0) > 0).length;
           
-          // Total = 1 if role has gaps, plus count of stories with gaps
-          const contentItemsWithGaps = (hasRoleGaps ? 1 : 0) + storiesWithGaps;
+          // Total items with gaps for badges = role-level items + story items
+          const contentItemsWithGaps = roleLevelItems + storiesWithGaps;
 
           return {
             id: item.id,

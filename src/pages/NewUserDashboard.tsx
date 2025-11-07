@@ -68,16 +68,86 @@ export default function NewUserDashboard() {
       }
     };
 
-  // Keep gap summary in sync with the item list source of truth
-  useEffect(() => {
-    if (!contentItemsWithGaps.isLoading && contentItemsWithGaps.data) {
-      // Force a refresh so gap summary recomputes from the latest items
-      gapSummary.refetch(true);
-    }
-  }, [contentItemsWithGaps.isLoading, contentItemsWithGaps.data]);
     // start on next frame for smoother UX
     requestAnimationFrame(tryScroll);
   }, []);
+
+  // Derive a minimal GapSummary from items when the authoritative summary isn't ready
+  const derivedSummary = React.useMemo(() => {
+    const items = contentItemsWithGaps.data?.byContentType.workHistory || [];
+    if (!items || items.length === 0) return null;
+    const counts: Record<'high'|'medium'|'low', number> = { high: 0, medium: 0, low: 0 };
+    items.forEach(it => { counts[it.max_severity] = (counts[it.max_severity] || 0) + 1; });
+    return {
+      total: items.length,
+      byContentType: {
+        stories: 0,
+        savedSections: 0,
+        roleDescriptions: 0,
+        roleMetrics: 0,
+        coverLetterSections: 0,
+      },
+      bySeverity: { high: counts.high, medium: counts.medium, low: counts.low },
+      bySeverityAndType: {
+        high: { stories: 0, savedSections: 0, roleDescriptions: 0, roleMetrics: 0, coverLetterSections: 0 },
+        medium: { stories: 0, savedSections: 0, roleDescriptions: 0, roleMetrics: 0, coverLetterSections: 0 },
+        low: { stories: 0, savedSections: 0, roleDescriptions: 0, roleMetrics: 0, coverLetterSections: 0 },
+      },
+    } as const;
+  }, [contentItemsWithGaps.data]);
+
+  const summaryForUI = gapSummary.data ?? derivedSummary;
+
+  // Build immediate fallback counts from summary when detailed items are not yet loaded
+  const whFallbackCount = React.useMemo(() => {
+    if (!summaryForUI) return null;
+    const bc = summaryForUI.byContentType || ({} as any);
+    return (bc.roleDescriptions || 0) + (bc.roleMetrics || 0) + (bc.stories || 0);
+  }, [summaryForUI]);
+
+  const ssFallbackCount = React.useMemo(() => {
+    if (!summaryForUI) return null;
+    const bc = summaryForUI.byContentType || ({} as any);
+    // Support both savedSections and coverLetterSections buckets
+    return (bc.coverLetterSections || 0) + (bc.savedSections || 0);
+  }, [summaryForUI]);
+
+  // Placeholder items so widgets can render counts instantly from cached summary
+  const whItems = React.useMemo(() => {
+    const items = contentItemsWithGaps.data?.byContentType.workHistory;
+    if (items && items.length >= 0) return items;
+    if (typeof whFallbackCount === 'number') {
+      return Array.from({ length: whFallbackCount }, (_, i) => ({
+        entity_id: `wh-ph-${i}`,
+        entity_type: 'work_item',
+        display_title: '',
+        max_severity: 'low',
+        gap_categories: [],
+        content_type_label: 'Work History',
+        navigation_path: '',
+        navigation_params: {}
+      } as any));
+    }
+    return [] as any[];
+  }, [contentItemsWithGaps.data, whFallbackCount]);
+
+  const ssItems = React.useMemo(() => {
+    const items = contentItemsWithGaps.data?.byContentType.coverLetterSavedSections;
+    if (items && items.length >= 0) return items;
+    if (typeof ssFallbackCount === 'number') {
+      return Array.from({ length: ssFallbackCount }, (_, i) => ({
+        entity_id: `ss-ph-${i}`,
+        entity_type: 'saved_section',
+        display_title: '',
+        max_severity: 'low',
+        gap_categories: [],
+        content_type_label: 'Cover Letter Saved Sections',
+        navigation_path: '',
+        navigation_params: {}
+      } as any));
+    }
+    return [] as any[];
+  }, [contentItemsWithGaps.data, ssFallbackCount]);
   
   const handleWidgetClick = (contentType: ContentTypeFilter, severity: SeverityFilter) => {
     setContentTypeFilter(contentType);
@@ -310,8 +380,8 @@ export default function NewUserDashboard() {
             </div>
             <div className="col-span-5 lg:col-span-1">
               <TotalGapsWidget 
-                gapSummary={gapSummary.data}
-                isLoading={gapSummary.isLoading}
+                gapSummary={summaryForUI}
+                isLoading={summaryForUI ? false : gapSummary.isLoading}
                 onClick={() => handleWidgetClick('all', 'all')}
               />
             </div>
@@ -322,13 +392,13 @@ export default function NewUserDashboard() {
             {/* Content Type Group: [WH | SS | CL] */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <WorkHistoryGapsCountWidget 
-                items={contentItemsWithGaps.data?.byContentType.workHistory || []}
-                isLoading={contentItemsWithGaps.isLoading}
+                items={whItems}
+                isLoading={!summaryForUI && contentItemsWithGaps.isLoading}
                 onClick={() => handleWidgetClick('workHistory', 'all')}
               />
               <SavedSectionsGapsCountWidget 
-                items={contentItemsWithGaps.data?.byContentType.coverLetterSavedSections || []}
-                isLoading={contentItemsWithGaps.isLoading}
+                items={ssItems}
+                isLoading={!summaryForUI && contentItemsWithGaps.isLoading}
                 onClick={() => handleWidgetClick('savedSections', 'all')}
               />
               <CoverLettersGapsCountWidget 
@@ -341,18 +411,18 @@ export default function NewUserDashboard() {
             {/* Severity Group: [H | M | L] */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <HighSeverityGapsWidget 
-                gapSummary={gapSummary.data}
-                isLoading={gapSummary.isLoading}
+                gapSummary={summaryForUI}
+                isLoading={summaryForUI ? false : gapSummary.isLoading}
                 onClick={() => handleWidgetClick('all', 'high')}
               />
               <MediumSeverityGapsWidget 
-                gapSummary={gapSummary.data}
-                isLoading={gapSummary.isLoading}
+                gapSummary={summaryForUI}
+                isLoading={summaryForUI ? false : gapSummary.isLoading}
                 onClick={() => handleWidgetClick('all', 'medium')}
               />
               <LowSeverityGapsWidget 
-                gapSummary={gapSummary.data}
-                isLoading={gapSummary.isLoading}
+                gapSummary={summaryForUI}
+                isLoading={summaryForUI ? false : gapSummary.isLoading}
                 onClick={() => handleWidgetClick('all', 'low')}
               />
             </div>
@@ -361,12 +431,14 @@ export default function NewUserDashboard() {
           {/* Content Quality Widget - Mega Gaps Tabber */}
           <ContentQualityWidget 
             ref={contentQualityWidgetRef}
-            gapSummary={gapSummary.data}
+            gapSummary={summaryForUI}
             contentItems={[
               ...(contentItemsWithGaps.data?.byContentType.workHistory || []),
               ...(contentItemsWithGaps.data?.byContentType.coverLetterSavedSections || [])
             ]}
-            isLoading={gapSummary.isLoading || contentItemsWithGaps.isLoading}
+            isLoading={
+              (contentItemsWithGaps.data ? false : contentItemsWithGaps.isLoading)
+            }
             initialContentTypeFilter={contentTypeFilter}
             initialSeverityFilter={severityFilter}
             onFilterChange={(contentType, severity) => {
