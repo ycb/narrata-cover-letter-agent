@@ -113,11 +113,12 @@ Return ONLY valid JSON with this structure:
 
 {
   "primaryTags": ["tag1", "tag2", "tag3"],
-  "skillTags": ["skill1", "skill2"],
-  "industryTags": ["industry1", "industry2"],
-  "roleLevelTags": ["senior", "leadership"],
-  "scopeTags": ["team-management", "cross-functional"],
-  "contextTags": ["startup", "enterprise", "remote"],
+  "businessModelTags": ["B2B", "SaaS"], // For company tags only - use examples: B2B, B2C, D2C, B2B2C, Enterprise, SMB, Marketplace, Platform, Developer Tools, SaaS
+  "industryTags": ["industry1", "industry2"], // Use vertical examples provided (e.g., "Software / SaaS", "Fintech / Payments / Crypto")
+  "skillTags": ["skill1", "skill2"], // For role/story/saved_section only - DO NOT include for company tags
+  "roleLevelTags": ["senior", "leadership"], // For role/story/saved_section only - DO NOT include for company tags
+  "scopeTags": ["team-management", "cross-functional"], // For role/story/saved_section only - DO NOT include for company tags
+  "contextTags": ["startup", "enterprise", "remote"], // For role/story/saved_section only - DO NOT include for company tags
   "matchingKeywords": ["keyword1", "keyword2", "keyword3"],
   "confidence": "high|medium|low"
 }
@@ -131,6 +132,8 @@ TAGGING RULES:
 - Confidence should reflect how clear the content is for tagging
 - Use the provided business model and vertical examples as reference for consistency
 - Map industries to relevant role tags (e.g., "Fintech" → "financial products", "B2B SaaS" → "enterprise", "Healthcare" → "health tech")
+- CRITICAL: Do NOT include duplicate tags. Each tag should appear only once across all arrays (primaryTags, industryTags, skillTags, etc.)
+- Use consistent capitalization (e.g., "SaaS" not "Saas", "B2B" not "b2b")
 
 TAGGING EXAMPLES:
 

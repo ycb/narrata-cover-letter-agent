@@ -155,8 +155,23 @@ export class TagSuggestionService {
       ];
     }
 
-    // Map to TagSuggestion with confidence
-    allTags.forEach((tag: string, index: number) => {
+    // 6. Deduplicate tags (case-insensitive) before processing
+    const seenTags = new Set<string>();
+    const uniqueTags: string[] = [];
+    
+    for (const tag of allTags) {
+      const normalizedTag = tag.trim();
+      if (!normalizedTag) continue; // Skip empty tags
+      
+      const tagLower = normalizedTag.toLowerCase();
+      if (!seenTags.has(tagLower)) {
+        seenTags.add(tagLower);
+        uniqueTags.push(normalizedTag);
+      }
+    }
+
+    // 7. Map to TagSuggestion with confidence
+    uniqueTags.forEach((tag: string, index: number) => {
       // Determine confidence based on:
       // - If tag matches user goals industries/businessModels → high
       // - If tag is in primaryTags → high
@@ -200,14 +215,14 @@ export class TagSuggestionService {
       });
     });
 
-    // 6. Filter out existing tags
+    // 8. Filter out existing tags (case-insensitive)
     const filtered = suggestions.filter(s => 
       !request.existingTags?.some(existing => 
-        existing.toLowerCase() === s.value.toLowerCase()
+        existing.toLowerCase().trim() === s.value.toLowerCase().trim()
       )
     );
 
-    // 7. Limit to top 10 suggestions
+    // 9. Limit to top 10 suggestions
     return filtered.slice(0, 10);
   }
 
