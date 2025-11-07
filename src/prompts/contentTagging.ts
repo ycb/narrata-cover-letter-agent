@@ -1,4 +1,8 @@
 // Content tagging prompt for automatic story and metrics categorization
+// TODO: As this grows, consider:
+// - Parameterizing weighting (e.g., industries vs. business models)
+// - Breaking into smaller functions (e.g., buildCompanyTagPrompt, buildRoleTagPrompt)
+// - Adding configurable tag categories
 import type { CompanyResearchResult } from '@/services/browserSearchService';
 
 export const buildContentTaggingPrompt = (
@@ -43,12 +47,52 @@ For METRICS, focus on:
 - Impact level
 
 For COMPANY tags, focus on:
-- Industry (e.g., SaaS, Fintech, Healthcare, E-commerce)
-- Business Model (e.g., B2B, B2C, Marketplace, Platform)
+- Industry/Vertical (see examples below)
+- Business Model/Buyers (see examples below)
 - Company Stage (startup, growth-stage, established, enterprise)
 - Company Size (small, medium, large, enterprise)
 - Key products/services
 - Market vertical
+
+BUSINESS MODEL / BUYERS EXAMPLES:
+B2B, B2C, D2C, B2B2C, Enterprise, SMB, Marketplace, Platform, Developer Tools, SaaS
+
+VERTICAL / INDUSTRY EXAMPLES:
+
+*Technology & Infrastructure*
+- Software / SaaS
+- AI / Machine Learning
+- Cloud / DevOps
+- Cybersecurity
+- Data / Analytics
+- Fintech / Payments / Crypto
+- Telecommunications / Connectivity
+- IoT / Edge Computing
+
+*Health & Life Sciences*
+- Healthcare / MedTech
+- HealthTech / Digital Health
+- Biotech / Pharma
+- Wellness / Fitness
+
+*Consumer & Commerce*
+- E-commerce / Retail
+- Consumer Goods / D2C
+- FoodTech / AgTech
+- Travel / Hospitality
+- Media / Entertainment / Gaming
+
+*Education & Work*
+- EdTech / Learning Platforms
+- HRTech / Future of Work
+- Productivity / Collaboration
+- Recruiting / Talent Platforms
+
+*Financial & Professional Services*
+- Banking / Insurance / Lending
+- LegalTech / Compliance
+- Accounting / ERP / Back Office
+- Consulting / Services
 
 For ROLE tags, focus on:
 - Industry/domain
@@ -84,6 +128,46 @@ TAGGING RULES:
 - Consider industry and company context
 - Generate 3-5 primary tags, 2-3 of each category
 - Confidence should reflect how clear the content is for tagging
+- Use the provided business model and vertical examples as reference for consistency
+- Map industries to relevant role tags (e.g., "Fintech" → "financial products", "B2B SaaS" → "enterprise", "Healthcare" → "health tech")
+
+TAGGING EXAMPLES:
+
+Example 1 - Company Tags (Stripe):
+{
+  "primaryTags": ["Fintech", "B2B", "Payments"],
+  "industryTags": ["Fintech / Payments / Crypto", "Platform"],
+  "skillTags": [],
+  "roleLevelTags": [],
+  "scopeTags": [],
+  "contextTags": ["enterprise", "established"],
+  "matchingKeywords": ["payment processing", "economic infrastructure", "API"],
+  "confidence": "high"
+}
+
+Example 2 - Role Tags (Product Manager at SaaS company):
+{
+  "primaryTags": ["Product Management", "B2B SaaS", "Enterprise"],
+  "industryTags": ["Software / SaaS"],
+  "skillTags": ["product strategy", "roadmap planning", "stakeholder management"],
+  "roleLevelTags": ["senior", "leadership"],
+  "scopeTags": ["cross-functional", "team-management"],
+  "contextTags": ["enterprise", "growth-stage"],
+  "matchingKeywords": ["product", "SaaS", "B2B", "enterprise software"],
+  "confidence": "high"
+}
+
+Example 3 - Saved Section Tags (Cover letter intro):
+{
+  "primaryTags": ["Professional", "Introduction", "Mission-aligned"],
+  "industryTags": [],
+  "skillTags": [],
+  "roleLevelTags": [],
+  "scopeTags": [],
+  "contextTags": ["professional", "formal"],
+  "matchingKeywords": ["introduction", "mission", "passion"],
+  "confidence": "medium"
+}
 
 Return valid JSON only, no markdown formatting.`;
 };
