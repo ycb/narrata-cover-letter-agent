@@ -243,3 +243,5 @@ All tests should pass:
 - Gap detection runs automatically when goals change
 - All tag operations are non-blocking (async)
 
+
+
