@@ -219,6 +219,43 @@ async function testTagSuggestionService() {
     });
     console.log('');
 
+    // Test 4: Validation - empty content
+    console.log('Test 4: Validation - empty content');
+    try {
+      await TagSuggestionService.suggestTags({
+        content: '',
+        contentType: 'role'
+      });
+      console.error('❌ Test 4 Failed: Should have thrown error for empty content');
+    } catch (error: any) {
+      if (error.message?.includes('Content is required')) {
+        console.log('✅ Correctly rejected empty content');
+      } else {
+        console.error('❌ Test 4 Failed: Wrong error message:', error.message);
+        throw error;
+      }
+    }
+    console.log('');
+
+    // Test 5: Validation - company tags without companyName
+    console.log('Test 5: Validation - company tags without companyName');
+    try {
+      await TagSuggestionService.suggestTags({
+        content: 'Some company description',
+        contentType: 'company'
+        // Missing companyName
+      });
+      console.error('❌ Test 5 Failed: Should have thrown error for missing companyName');
+    } catch (error: any) {
+      if (error.message?.includes('companyName is required')) {
+        console.log('✅ Correctly rejected company tags without companyName');
+      } else {
+        console.error('❌ Test 5 Failed: Wrong error message:', error.message);
+        throw error;
+      }
+    }
+    console.log('');
+
     console.log('✅ All tag suggestion tests passed!\n');
   } catch (error) {
     console.error('❌ Tag suggestion test failed:', error);

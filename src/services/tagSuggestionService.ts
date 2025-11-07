@@ -15,10 +15,11 @@ export interface TagSuggestion {
   category?: 'industry' | 'business_model' | 'skill' | 'competency' | 'other';
 }
 
-export interface TagSuggestionRequest {
+/**
+ * Base request interface for tag suggestions
+ */
+interface BaseTagSuggestionRequest {
   content: string;
-  contentType: 'company' | 'role' | 'saved_section';
-  companyName?: string; // For company tags - enables browser search
   userGoals?: {
     industries?: string[];
     businessModels?: string[];
@@ -26,16 +27,69 @@ export interface TagSuggestionRequest {
   existingTags?: string[];
 }
 
+/**
+ * Company tag suggestion request - requires companyName
+ */
+export interface CompanyTagSuggestionRequest extends BaseTagSuggestionRequest {
+  contentType: 'company';
+  companyName: string; // Required for company tags
+}
+
+/**
+ * Role tag suggestion request
+ */
+export interface RoleTagSuggestionRequest extends BaseTagSuggestionRequest {
+  contentType: 'role';
+  companyName?: string; // Optional for role tags (can be used for context)
+}
+
+/**
+ * Saved section tag suggestion request
+ */
+export interface SavedSectionTagSuggestionRequest extends BaseTagSuggestionRequest {
+  contentType: 'saved_section';
+}
+
+/**
+ * Discriminated union type for type-safe tag suggestion requests
+ */
+export type TagSuggestionRequest =
+  | CompanyTagSuggestionRequest
+  | RoleTagSuggestionRequest
+  | SavedSectionTagSuggestionRequest;
+
 export class TagSuggestionService {
   private static llmService = new LLMAnalysisService();
 
+  /**
+   * Validates the tag suggestion request and throws clear errors for missing required fields
+   */
+  private static validateRequest(request: TagSuggestionRequest): void {
+    // Validate content is not empty
+    if (!request.content || request.content.trim().length === 0) {
+      throw new Error('Content is required and cannot be empty');
+    }
+
+    // Validate companyName is provided when contentType is 'company'
+    if (request.contentType === 'company') {
+      if (!request.companyName || request.companyName.trim().length === 0) {
+        throw new Error('companyName is required when contentType is "company"');
+      }
+    }
+  }
+
   static async suggestTags(request: TagSuggestionRequest): Promise<TagSuggestion[]> {
+    // Validate request before processing
+    this.validateRequest(request);
+
     // 1. For company tags, research company via browser search
     let companyResearch: CompanyResearchResult | null = null;
-    if (request.contentType === 'company' && request.companyName) {
+    if (request.contentType === 'company') {
+      // TypeScript now knows companyName is required for 'company' type
+      const companyName = request.companyName;
       try {
         // Use minimal caching (users won't repeatedly request tags)
-        companyResearch = await BrowserSearchService.researchCompany(request.companyName, false);
+        companyResearch = await BrowserSearchService.researchCompany(companyName, false);
       } catch (error) {
         // Don't silently fail - throw error so UI can show retry option
         throw new Error(`Failed to research company: ${error instanceof Error ? error.message : 'Unknown error'}`);
