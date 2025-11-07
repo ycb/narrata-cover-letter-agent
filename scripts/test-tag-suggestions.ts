@@ -3,10 +3,168 @@
  * Tests the tag suggestion services without UI
  */
 
-import { TagSuggestionService } from '../src/services/tagSuggestionService';
-import { BrowserSearchService } from '../src/services/browserSearchService';
-import { TagService } from '../src/services/tagService';
-import { GapDetectionService } from '../src/services/gapDetectionService';
+import * as fs from 'fs';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Load .env file manually for Node.js
+const envPath = path.join(__dirname, '../.env');
+if (fs.existsSync(envPath)) {
+  const envContent = fs.readFileSync(envPath, 'utf-8');
+  envContent.split('\n').forEach(line => {
+    const match = line.match(/^([^=]+)=(.*)$/);
+    if (match && !match[1].startsWith('#')) {
+      const key = match[1].trim();
+      const value = match[2].trim().replace(/^["']|["']$/g, '');
+      if (!process.env[key]) {
+        process.env[key] = value;
+      }
+    }
+  });
+}
+
+// Also check parent directory for .env
+const parentEnvPath = path.join(__dirname, '../../.env');
+if (fs.existsSync(parentEnvPath)) {
+  const envContent = fs.readFileSync(parentEnvPath, 'utf-8');
+  envContent.split('\n').forEach(line => {
+    const match = line.match(/^([^=]+)=(.*)$/);
+    if (match && !match[1].startsWith('#')) {
+      const key = match[1].trim();
+      const value = match[2].trim().replace(/^["']|["']$/g, '');
+      if (!process.env[key]) {
+        process.env[key] = value;
+      }
+    }
+  });
+}
+
+// Set up environment variables for runtime
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || '';
+const OPENAI_KEY = process.env.VITE_OPENAI_KEY || '';
+
+console.log('📋 Environment check:');
+console.log(`   - SUPABASE_URL: ${SUPABASE_URL ? '✅ Set' : '❌ Missing'}`);
+console.log(`   - SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY ? '✅ Set' : '❌ Missing'}`);
+console.log(`   - OPENAI_KEY: ${OPENAI_KEY ? '✅ Set' : '❌ Missing'}`);
+console.log('');
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error('❌ Missing Supabase environment variables!');
+  console.error('Please ensure .env file exists with:');
+  console.error('  - VITE_SUPABASE_URL');
+  console.error('  - VITE_SUPABASE_ANON_KEY');
+  console.error('  - VITE_OPENAI_KEY (optional, but needed for tag suggestions)');
+  process.exit(1);
+}
+
+if (!OPENAI_KEY) {
+  console.warn('⚠️  WARNING: VITE_OPENAI_KEY not found!');
+  console.warn('   Tag suggestion tests will fail without OpenAI API key.');
+  console.warn('   Browser search tests will also fail.\n');
+}
+
+// Set process.env for runtime access
+process.env.VITE_SUPABASE_URL = SUPABASE_URL;
+process.env.VITE_SUPABASE_ANON_KEY = SUPABASE_ANON_KEY;
+if (OPENAI_KEY) {
+  process.env.VITE_OPENAI_KEY = OPENAI_KEY;
+}
+
+// Patch import.meta.env using a Proxy to intercept access
+// This must happen before any module imports that use import.meta.env
+const envValues = {
+  VITE_SUPABASE_URL: SUPABASE_URL,
+  VITE_SUPABASE_ANON_KEY: SUPABASE_ANON_KEY,
+  VITE_OPENAI_KEY: OPENAI_KEY,
+};
+
+// Use a Proxy to intercept import.meta.env access
+// This must happen before any module imports that use import.meta.env
+const envProxy = new Proxy(envValues, {
+  get(target, prop) {
+    if (typeof prop === 'string' && prop in target) {
+      return target[prop as keyof typeof target];
+    }
+    return undefined;
+  },
+  has(target, prop) {
+    return typeof prop === 'string' && prop in target;
+  },
+  ownKeys(target) {
+    return Object.keys(target);
+  },
+  getOwnPropertyDescriptor(target, prop) {
+    if (typeof prop === 'string' && prop in target) {
+      return {
+        enumerable: true,
+        configurable: true,
+        value: target[prop as keyof typeof target],
+      };
+    }
+    return undefined;
+  },
+});
+
+// Override import.meta.env
+Object.defineProperty(import.meta, 'env', {
+  get: () => envProxy,
+  configurable: true,
+  enumerable: true,
+});
+
+// Debug: Verify the proxy works
+console.log('🔍 Verifying import.meta.env proxy:');
+console.log(`   - VITE_OPENAI_KEY: ${import.meta.env?.VITE_OPENAI_KEY ? '✅ Set' : '❌ Missing'}`);
+console.log(`   - VITE_SUPABASE_URL: ${import.meta.env?.VITE_SUPABASE_URL ? '✅ Set' : '❌ Missing'}`);
+console.log('');
+
+// Mock window for Node.js environment
+if (typeof globalThis.window === 'undefined') {
+  (globalThis as any).window = {
+    dispatchEvent: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {}
+  };
+}
+
+// Now we can safely import services
+// Note: These imports will fail if Supabase env vars are missing
+// That's expected - the test will show a helpful error message
+let TagSuggestionService: any;
+let BrowserSearchService: any;
+let TagService: any;
+let GapDetectionService: any;
+
+try {
+  const tagSuggestionModule = await import('../src/services/tagSuggestionService');
+  TagSuggestionService = tagSuggestionModule.TagSuggestionService;
+  
+  const browserSearchModule = await import('../src/services/browserSearchService');
+  BrowserSearchService = browserSearchModule.BrowserSearchService;
+  
+  const tagServiceModule = await import('../src/services/tagService');
+  TagService = tagServiceModule.TagService;
+  
+  const gapDetectionModule = await import('../src/services/gapDetectionService');
+  GapDetectionService = gapDetectionModule.GapDetectionService;
+} catch (error: any) {
+  if (error.message?.includes('Missing Supabase')) {
+    console.error('❌ Cannot run tests: Missing Supabase environment variables');
+    console.error('\nPlease ensure .env file exists with:');
+    console.error('  - VITE_SUPABASE_URL');
+    console.error('  - VITE_SUPABASE_ANON_KEY');
+    console.error('  - VITE_OPENAI_KEY (required for tag suggestions)');
+    console.error('\nYou can copy .env from the parent directory or create one.');
+    process.exit(1);
+  }
+  throw error;
+}
 
 async function testTagSuggestionService() {
   console.log('🧪 Testing Tag Suggestion Service...\n');

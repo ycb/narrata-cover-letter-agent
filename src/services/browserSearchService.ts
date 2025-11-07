@@ -104,7 +104,8 @@ Return valid JSON only, no markdown formatting.`;
     // or use a workaround
     
     // For now, let's create a simple OpenAI call
-    const apiKey = (import.meta.env?.VITE_OPENAI_KEY) || '';
+    const apiKey = (import.meta.env?.VITE_OPENAI_KEY) || 
+                   (typeof process !== 'undefined' ? process.env.VITE_OPENAI_KEY : undefined) || '';
     const baseUrl = 'https://api.openai.com/v1';
     
     if (!apiKey) {
