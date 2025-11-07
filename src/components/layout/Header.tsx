@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { UserGoalsModal } from "@/components/user-goals/UserGoalsModal";
 import { MyVoiceModal } from "@/components/user-voice/MyVoiceModal";
 import { MyDataModal } from "@/components/user-data/MyDataModal";
@@ -65,6 +65,12 @@ export const Header = ({ currentPage }: HeaderProps) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { goals, setGoals } = useUserGoals();
   const { voice, setVoice } = useUserVoice();
+  
+  // DEBUG: Log goals whenever they change
+  useEffect(() => {
+    console.error('🎯🎯🎯 HEADER - goals from context:', goals);
+    console.log('[Header] Goals targetTitles:', goals?.targetTitles);
+  }, [goals]);
 
   const handleSignOut = async (e: React.MouseEvent) => {
     e.preventDefault();

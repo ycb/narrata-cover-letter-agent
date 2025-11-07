@@ -3,6 +3,10 @@ import { UserGoals } from '@/types/userGoals';
 import { UserPreferencesService } from '@/services/userPreferencesService';
 import { useAuth } from './AuthContext';
 
+// MODULE LOAD LOG - This should appear immediately when the file is imported
+console.error('🚨🚨🚨 USERGOALSCONTEXT MODULE LOADED 🚨🚨🚨');
+console.log('[UserGoalsContext] 📦 MODULE LOADED - UserGoalsContext.tsx file has been imported');
+
 interface UserGoalsContextType {
   goals: UserGoals | null;
   setGoals: (goals: UserGoals) => Promise<void>;
@@ -51,17 +55,114 @@ function validateGoalsStructure(goals: any): goals is UserGoals {
 }
 
 export function UserGoalsProvider({ children }: UserGoalsProviderProps) {
+  console.error('🚨🚨🚨 USERGOALSPROVIDER RENDERING 🚨🚨🚨');
+  console.log('[UserGoalsContext] 🚨 PROVIDER MOUNTING - UserGoalsProvider is rendering');
+  
   const { user } = useAuth();
   const [goals, setGoalsState] = useState<UserGoals | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Initialize syntheticProfileId from localStorage synchronously (set by SyntheticUserSelector)
+  const [syntheticProfileId, setSyntheticProfileId] = useState<string | null>(() => {
+    try {
+      const stored = localStorage.getItem('synthetic_active_profile_id');
+      console.log(`[UserGoalsContext] 🔍 INITIALIZING - localStorage has profile: ${stored || 'null'}`);
+      if (stored) {
+        console.log(`[UserGoalsContext] ✅ Initialized synthetic profile from localStorage: ${stored}`);
+        return stored;
+      }
+    } catch (e) {
+      console.error('[UserGoalsContext] Error reading localStorage:', e);
+    }
+    console.log('[UserGoalsContext] ⚠️ No synthetic profile in localStorage');
+    return null;
+  });
+  
+  console.log('[UserGoalsContext] 📊 State initialized - syntheticProfileId:', syntheticProfileId, 'user:', user?.id);
+
+  // Track synthetic profile ID changes - verify against service and update if needed
+  useEffect(() => {
+    const checkSyntheticProfile = async () => {
+      if (!user) {
+        setSyntheticProfileId(null);
+        return;
+      }
+      
+      try {
+        const { SyntheticUserService } = await import('@/services/syntheticUserService');
+        const syntheticService = new SyntheticUserService();
+        const syntheticContext = await syntheticService.getSyntheticUserContext();
+        if (syntheticContext.isSyntheticTestingEnabled && syntheticContext.currentUser) {
+          const profileId = syntheticContext.currentUser.profileId;
+          console.log(`[UserGoalsContext] Verified synthetic profile from service: ${profileId}`);
+          // Update state if it changed (e.g., after page reload)
+          setSyntheticProfileId(prev => {
+            if (prev !== profileId) {
+              console.log(`[UserGoalsContext] Profile changed from ${prev} to ${profileId}`);
+            }
+            return profileId;
+          });
+        } else {
+          console.log(`[UserGoalsContext] Synthetic mode disabled or no current user`);
+          setSyntheticProfileId(null);
+        }
+      } catch (e) {
+        console.error('[UserGoalsContext] Error checking synthetic mode:', e);
+        // Don't clear on error - keep localStorage value as fallback
+      }
+    };
+    
+    checkSyntheticProfile();
+  }, [user?.id]);
 
   useEffect(() => {
     // Load goals from database, fallback to localStorage
     const loadGoals = async () => {
+      // CRITICAL FIX: In synthetic mode, wait for profile to be determined
+      // Check localStorage again in case it was set after component mount
+      let activeProfileId = syntheticProfileId;
+      if (!activeProfileId && user?.id) {
+        try {
+          const stored = localStorage.getItem('synthetic_active_profile_id');
+          if (stored) {
+            console.log(`[UserGoalsContext] 🔄 Profile ID updated from localStorage during load: ${stored}`);
+            activeProfileId = stored;
+            setSyntheticProfileId(stored);
+          }
+        } catch (e) {
+          // Ignore
+        }
+      }
+      
+      console.log('[UserGoalsContext] 🚀 Starting loadGoals, user:', user?.id, 'profile:', activeProfileId);
+      
+      // Use profile-specific localStorage keys in synthetic mode
+      // CRITICAL: Never use generic 'userGoals' key in synthetic mode
+      const localStorageKey = activeProfileId ? `userGoals_${activeProfileId}` : 'userGoals';
+      
+      console.log(`[UserGoalsContext] 📦 Using localStorage key: "${localStorageKey}"`);
+      
+      // DEBUG: Check what's in localStorage for both keys
+      try {
+        const genericKey = localStorage.getItem('userGoals');
+        const profileKey = activeProfileId ? localStorage.getItem(`userGoals_${activeProfileId}`) : null;
+        console.log(`[UserGoalsContext] 🔍 DEBUG localStorage - generic key has: ${genericKey ? 'data' : 'null'}, profile key has: ${profileKey ? 'data' : 'null'}`);
+        if (genericKey && activeProfileId) {
+          console.error(`[UserGoalsContext] ⚠️ WARNING: Generic 'userGoals' key has data but we're in synthetic mode! Ignoring it.`);
+          // Don't use generic key in synthetic mode - it could be from a different profile
+        }
+      } catch (e) {
+        // Ignore
+      }
+      
+      if (activeProfileId) {
+        console.log(`[UserGoalsContext] ✅ Synthetic mode: using localStorage key ${localStorageKey} for profile ${activeProfileId}`);
+      }
+      
       if (!user?.id) {
         // Fallback to localStorage if no user
         try {
-          const savedGoals = localStorage.getItem('userGoals');
+          const savedGoals = localStorage.getItem(localStorageKey);
           if (savedGoals) {
             try {
               const parsedGoals = JSON.parse(savedGoals);
@@ -88,62 +189,79 @@ export function UserGoalsProvider({ children }: UserGoalsProviderProps) {
       }
 
       try {
+        console.log(`[UserGoalsContext] Loading goals from database for user ${user.id}...`);
         // Load from database first
         const dbGoals = await UserPreferencesService.loadGoals(user.id);
+        console.log(`[UserGoalsContext] 📊 Database returned:`, dbGoals ? `goals with ${dbGoals.targetTitles?.length || 0} titles: ${dbGoals.targetTitles?.join(', ') || 'none'}` : 'null');
+        
         if (dbGoals && validateGoalsStructure(dbGoals)) {
+          console.log(`[UserGoalsContext] ✅ Setting goals state with ${dbGoals.targetTitles?.length || 0} target titles for profile ${activeProfileId || 'normal'}`);
           setGoalsState(dbGoals);
-          // Sync to localStorage for offline support
+          // Sync to localStorage for offline support (use profile-specific key in synthetic mode)
           try {
-            localStorage.setItem('userGoals', JSON.stringify(dbGoals));
+            localStorage.setItem(localStorageKey, JSON.stringify(dbGoals));
+            console.log(`[UserGoalsContext] Synced to localStorage with key: ${localStorageKey}`);
           } catch (e) {
             // Ignore localStorage errors
           }
         } else {
-          // Fallback to localStorage if nothing in database
-          const savedGoals = localStorage.getItem('userGoals');
-          if (savedGoals) {
-            try {
-              const parsedGoals = JSON.parse(savedGoals);
-              if (validateGoalsStructure(parsedGoals)) {
-                setGoalsState(parsedGoals);
-                // Save to database for future use
-                await UserPreferencesService.saveGoals(user.id, parsedGoals);
-              } else {
-                // Invalid structure, use defaults
+          // In synthetic mode, don't fall back to localStorage - each profile should start fresh
+          if (activeProfileId) {
+            console.log(`[UserGoalsContext] ⚠️ No goals found in DB for synthetic profile ${activeProfileId}, using defaults (NOT loading from localStorage)`);
+            setGoalsState(defaultGoals);
+          } else {
+            // Normal mode: Fallback to localStorage if nothing in database
+            const savedGoals = localStorage.getItem(localStorageKey);
+            if (savedGoals) {
+              try {
+                const parsedGoals = JSON.parse(savedGoals);
+                if (validateGoalsStructure(parsedGoals)) {
+                  setGoalsState(parsedGoals);
+                  // Save to database for future use
+                  await UserPreferencesService.saveGoals(user.id, parsedGoals);
+                } else {
+                  // Invalid structure, use defaults
+                  setGoalsState(defaultGoals);
+                }
+              } catch (parseError) {
+                console.error('Error parsing goals from localStorage:', parseError);
                 setGoalsState(defaultGoals);
               }
-            } catch (parseError) {
-              console.error('Error parsing goals from localStorage:', parseError);
+            } else {
+              // No data anywhere, use defaults
               setGoalsState(defaultGoals);
             }
-          } else {
-            // No data anywhere, use defaults
-            setGoalsState(defaultGoals);
           }
         }
       } catch (error) {
         console.error('Error loading user goals:', error);
-        // Fallback to localStorage on error
-        try {
-          const savedGoals = localStorage.getItem('userGoals');
-          if (savedGoals) {
-            try {
-              const parsedGoals = JSON.parse(savedGoals);
-              if (validateGoalsStructure(parsedGoals)) {
-                setGoalsState(parsedGoals);
-              } else {
+        // In synthetic mode, don't fall back to localStorage on error - use defaults
+        if (activeProfileId) {
+          console.log(`[UserGoalsContext] Error loading goals for synthetic profile ${activeProfileId}, using defaults`);
+          setGoalsState(defaultGoals);
+        } else {
+          // Normal mode: Fallback to localStorage on error
+          try {
+            const savedGoals = localStorage.getItem(localStorageKey);
+            if (savedGoals) {
+              try {
+                const parsedGoals = JSON.parse(savedGoals);
+                if (validateGoalsStructure(parsedGoals)) {
+                  setGoalsState(parsedGoals);
+                } else {
+                  setGoalsState(defaultGoals);
+                }
+              } catch (parseError) {
+                console.error('Error parsing goals from localStorage fallback:', parseError);
                 setGoalsState(defaultGoals);
               }
-            } catch (parseError) {
-              console.error('Error parsing goals from localStorage fallback:', parseError);
+            } else {
               setGoalsState(defaultGoals);
             }
-          } else {
+          } catch (e) {
+            console.error('Error loading from localStorage fallback:', e);
             setGoalsState(defaultGoals);
           }
-        } catch (e) {
-          console.error('Error loading from localStorage fallback:', e);
-          setGoalsState(defaultGoals);
         }
       } finally {
         setIsLoading(false);
@@ -151,14 +269,30 @@ export function UserGoalsProvider({ children }: UserGoalsProviderProps) {
     };
 
     loadGoals();
-  }, [user?.id]);
+  }, [user?.id, syntheticProfileId]);
 
   const setGoals = async (newGoals: UserGoals) => {
+    // Check if target titles changed (this triggers gap re-analysis)
+    const targetTitlesChanged = goals?.targetTitles?.join(',') !== newGoals.targetTitles?.join(',');
+    
     setGoalsState(newGoals);
+    
+    // Determine localStorage key (profile-specific in synthetic mode)
+    let localStorageKey = 'userGoals';
+    try {
+      const { SyntheticUserService } = await import('@/services/syntheticUserService');
+      const syntheticService = new SyntheticUserService();
+      const syntheticContext = await syntheticService.getSyntheticUserContext();
+      if (syntheticContext.isSyntheticTestingEnabled && syntheticContext.currentUser) {
+        localStorageKey = `userGoals_${syntheticContext.currentUser.profileId}`;
+      }
+    } catch (e) {
+      // Ignore errors checking synthetic mode
+    }
     
     // Save to localStorage immediately for offline support
     try {
-      localStorage.setItem('userGoals', JSON.stringify(newGoals));
+      localStorage.setItem(localStorageKey, JSON.stringify(newGoals));
     } catch (error) {
       console.error('Error saving user goals to localStorage:', error);
     }
@@ -167,6 +301,25 @@ export function UserGoalsProvider({ children }: UserGoalsProviderProps) {
     if (user?.id) {
       try {
         await UserPreferencesService.saveGoals(user.id, newGoals);
+        
+        // Trigger gap re-analysis if target titles changed
+        // TODO: Implement full gap re-analysis when PM Levels feature is integrated
+        // This depends on PM Levels Service to:
+        // 1. Map target job titles to PM level codes (L3-L6, M1-M2)
+        // 2. Use target level to assess role expectations in gap detection
+        // 3. Update gap detection prompts to consider target level requirements
+        if (targetTitlesChanged && newGoals.targetTitles && newGoals.targetTitles.length > 0) {
+          console.log('[UserGoalsContext] Target titles changed, gap re-analysis will be triggered when PM Levels feature is integrated');
+          // Stub: Will be implemented in PM Levels integration
+          // The gap re-analysis needs:
+          // - PMLevelsService to map job titles to levels
+          // - Updated gap detection prompts that consider target level
+          // - Role expectation gaps based on level requirements
+        }
+        
+        // TODO: When building auto-suggest tags feature, invalidate tag suggestion cache
+        // when industries or businessModels change, so new suggestions reflect updated preferences
+        // This will ensure tag suggestions align with user's stated interests in career goals
       } catch (error) {
         console.error('Error saving user goals to database:', error);
         // Non-blocking: localStorage already saved

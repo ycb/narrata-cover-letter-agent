@@ -25,14 +25,70 @@ export function UserVoiceProvider({ children }: UserVoiceProviderProps) {
   const { user } = useAuth();
   const [voice, setVoiceState] = useState<UserVoice | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Initialize syntheticProfileId from localStorage synchronously (set by SyntheticUserSelector)
+  const [syntheticProfileId, setSyntheticProfileId] = useState<string | null>(() => {
+    try {
+      const stored = localStorage.getItem('synthetic_active_profile_id');
+      if (stored) {
+        console.log(`[UserVoiceContext] Initialized synthetic profile from localStorage: ${stored}`);
+        return stored;
+      }
+    } catch (e) {
+      // Ignore localStorage errors
+    }
+    return null;
+  });
+
+  // Track synthetic profile ID changes - verify against service and update if needed
+  useEffect(() => {
+    const checkSyntheticProfile = async () => {
+      if (!user) {
+        setSyntheticProfileId(null);
+        return;
+      }
+      
+      try {
+        const { SyntheticUserService } = await import('@/services/syntheticUserService');
+        const syntheticService = new SyntheticUserService();
+        const syntheticContext = await syntheticService.getSyntheticUserContext();
+        if (syntheticContext.isSyntheticTestingEnabled && syntheticContext.currentUser) {
+          const profileId = syntheticContext.currentUser.profileId;
+          console.log(`[UserVoiceContext] Verified synthetic profile from service: ${profileId}`);
+          // Update state if it changed (e.g., after page reload)
+          setSyntheticProfileId(prev => {
+            if (prev !== profileId) {
+              console.log(`[UserVoiceContext] Profile changed from ${prev} to ${profileId}`);
+            }
+            return profileId;
+          });
+        } else {
+          console.log(`[UserVoiceContext] Synthetic mode disabled or no current user`);
+          setSyntheticProfileId(null);
+        }
+      } catch (e) {
+        console.error('[UserVoiceContext] Error checking synthetic mode:', e);
+        // Don't clear on error - keep localStorage value as fallback
+      }
+    };
+    
+    checkSyntheticProfile();
+  }, [user?.id]);
 
   useEffect(() => {
     // Load voice from database, fallback to localStorage
     const loadVoice = async () => {
+      // Use profile-specific localStorage keys in synthetic mode
+      const localStorageKey = syntheticProfileId ? `userVoice_${syntheticProfileId}` : 'userVoice';
+      
+      if (syntheticProfileId) {
+        console.log(`[UserVoiceContext] Synthetic mode: using localStorage key ${localStorageKey} for profile ${syntheticProfileId}`);
+      }
+      
       if (!user?.id) {
         // Fallback to localStorage if no user
         try {
-          const savedVoice = localStorage.getItem('userVoice');
+          const savedVoice = localStorage.getItem(localStorageKey);
           if (savedVoice) {
             setVoiceState(JSON.parse(savedVoice));
           } else {
@@ -52,39 +108,51 @@ export function UserVoiceProvider({ children }: UserVoiceProviderProps) {
         const dbVoice = await UserPreferencesService.loadVoice(user.id);
         if (dbVoice) {
           setVoiceState(dbVoice);
-          // Sync to localStorage for offline support
+          // Sync to localStorage for offline support (use profile-specific key in synthetic mode)
           try {
-            localStorage.setItem('userVoice', JSON.stringify(dbVoice));
+            localStorage.setItem(localStorageKey, JSON.stringify(dbVoice));
           } catch (e) {
             // Ignore localStorage errors
           }
         } else {
-          // Fallback to localStorage if nothing in database
-          const savedVoice = localStorage.getItem('userVoice');
-          if (savedVoice) {
-            const parsedVoice = JSON.parse(savedVoice);
-            setVoiceState(parsedVoice);
-            // Save to database for future use
-            await UserPreferencesService.saveVoice(user.id, parsedVoice);
-          } else {
+          // In synthetic mode, don't fall back to localStorage - each profile should start fresh
+          if (syntheticProfileId) {
+            console.log(`[UserVoiceContext] No voice found for synthetic profile ${syntheticProfileId}, using defaults`);
             setVoiceState(defaultVoice);
-            // Save default to database
-            await UserPreferencesService.saveVoice(user.id, defaultVoice);
+          } else {
+            // Normal mode: Fallback to localStorage if nothing in database
+            const savedVoice = localStorage.getItem(localStorageKey);
+            if (savedVoice) {
+              const parsedVoice = JSON.parse(savedVoice);
+              setVoiceState(parsedVoice);
+              // Save to database for future use
+              await UserPreferencesService.saveVoice(user.id, parsedVoice);
+            } else {
+              setVoiceState(defaultVoice);
+              // Save default to database
+              await UserPreferencesService.saveVoice(user.id, defaultVoice);
+            }
           }
         }
       } catch (error) {
         console.error('Error loading user voice:', error);
-        // Fallback to localStorage on error
-        try {
-          const savedVoice = localStorage.getItem('userVoice');
-          if (savedVoice) {
-            setVoiceState(JSON.parse(savedVoice));
-          } else {
+        // In synthetic mode, don't fall back to localStorage on error - use defaults
+        if (syntheticProfileId) {
+          console.log(`[UserVoiceContext] Error loading voice for synthetic profile ${syntheticProfileId}, using defaults`);
+          setVoiceState(defaultVoice);
+        } else {
+          // Normal mode: Fallback to localStorage on error
+          try {
+            const savedVoice = localStorage.getItem(localStorageKey);
+            if (savedVoice) {
+              setVoiceState(JSON.parse(savedVoice));
+            } else {
+              setVoiceState(defaultVoice);
+            }
+          } catch (e) {
+            console.error('Error loading from localStorage fallback:', e);
             setVoiceState(defaultVoice);
           }
-        } catch (e) {
-          console.error('Error loading from localStorage fallback:', e);
-          setVoiceState(defaultVoice);
         }
       } finally {
         setIsLoading(false);
@@ -92,7 +160,7 @@ export function UserVoiceProvider({ children }: UserVoiceProviderProps) {
     };
 
     loadVoice();
-  }, [user?.id]);
+  }, [user?.id, syntheticProfileId]);
 
   const setVoice = async (newVoice: UserVoice) => {
     const voiceWithTimestamp = {
@@ -101,9 +169,22 @@ export function UserVoiceProvider({ children }: UserVoiceProviderProps) {
     };
     setVoiceState(voiceWithTimestamp);
     
+    // Determine localStorage key (profile-specific in synthetic mode)
+    let localStorageKey = 'userVoice';
+    try {
+      const { SyntheticUserService } = await import('@/services/syntheticUserService');
+      const syntheticService = new SyntheticUserService();
+      const syntheticContext = await syntheticService.getSyntheticUserContext();
+      if (syntheticContext.isSyntheticTestingEnabled && syntheticContext.currentUser) {
+        localStorageKey = `userVoice_${syntheticContext.currentUser.profileId}`;
+      }
+    } catch (e) {
+      // Ignore errors checking synthetic mode
+    }
+    
     // Save to localStorage immediately for offline support
     try {
-      localStorage.setItem('userVoice', JSON.stringify(voiceWithTimestamp));
+      localStorage.setItem(localStorageKey, JSON.stringify(voiceWithTimestamp));
     } catch (error) {
       console.error('Error saving user voice to localStorage:', error);
     }
