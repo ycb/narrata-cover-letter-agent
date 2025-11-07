@@ -1,14 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Plus, FileText, CheckCircle, Edit, X } from "lucide-react";
+import { Plus, FileText, CheckCircle, Edit, X, Loader2 } from "lucide-react";
 import { TemplateBlurbHierarchical } from "@/components/template-blurbs/TemplateBlurbHierarchical";
 import { type TemplateBlurb } from "@/components/template-blurbs/TemplateBlurbMaster";
 import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
+import { CoverLetterTemplateService, type SavedSection } from "@/services/coverLetterTemplateService";
+import { useAuth } from "@/contexts/AuthContext";
 
-// Mock template blurbs library
+// Mock template blurbs library (fallback)
 const mockTemplateBlurbs: TemplateBlurb[] = [
   {
     id: "intro-1",
@@ -60,7 +62,10 @@ const mockTemplateBlurbs: TemplateBlurb[] = [
 ];
 
 export default function SavedSections() {
-  const [templateBlurbs, setTemplateBlurbs] = useState<TemplateBlurb[]>(mockTemplateBlurbs);
+  const { user } = useAuth();
+  const [templateBlurbs, setTemplateBlurbs] = useState<TemplateBlurb[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showAddReusableContentModal, setShowAddReusableContentModal] = useState(false);
   const [newReusableContent, setNewReusableContent] = useState({ title: '', content: '', tags: '', contentType: '' });
   const [userContentTypes, setUserContentTypes] = useState<Array<{
@@ -69,7 +74,7 @@ export default function SavedSections() {
     description: string;
     icon: React.ComponentType<{ className?: string }>;
   }>>([]);
-  
+
   // HIL Content Generation state
   const [isContentModalOpen, setIsContentModalOpen] = useState(false);
   const [selectedGap, setSelectedGap] = useState<any>(null);
@@ -80,6 +85,54 @@ export default function SavedSections() {
   const [isTagModalOpen, setIsTagModalOpen] = useState(false);
   const [tagContent, setTagContent] = useState('');
   const [suggestedTags, setSuggestedTags] = useState<any[]>([]);
+
+  // Load saved sections from database
+  useEffect(() => {
+    const loadSavedSections = async () => {
+      if (!user?.id) {
+        setIsLoading(false);
+        setTemplateBlurbs(mockTemplateBlurbs); // Fallback to mock data if no user
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const sections = await CoverLetterTemplateService.getUserSavedSections(user.id);
+
+        // Convert SavedSection to TemplateBlurb format
+        const blurbs: TemplateBlurb[] = sections.map((section) => ({
+          id: section.id!,
+          type: section.type as 'intro' | 'closer' | 'signature',
+          title: section.title,
+          content: section.content,
+          tags: section.tags || [],
+          isDefault: section.is_default,
+          status: 'approved' as const,
+          confidence: 'high' as const,
+          timesUsed: section.times_used || 0,
+          lastUsed: section.last_used,
+          createdAt: section.created_at!,
+          updatedAt: section.updated_at!,
+          hasGaps: section.has_gaps,
+          gapCount: section.gap_count || 0,
+          linkedExternalLinks: [],
+          externalLinks: []
+        }));
+
+        setTemplateBlurbs(blurbs.length > 0 ? blurbs : mockTemplateBlurbs);
+      } catch (err) {
+        console.error('Error loading saved sections:', err);
+        setError('Failed to load saved sections');
+        setTemplateBlurbs(mockTemplateBlurbs); // Fallback to mock data on error
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadSavedSections();
+  }, [user?.id]);
 
   const handleSelectBlurbFromLibrary = (blurb: TemplateBlurb) => {
     console.log('Selected blurb from library:', blurb);
@@ -96,8 +149,16 @@ export default function SavedSections() {
     }
   };
 
-  const handleDeleteBlurb = (id: string) => {
-    setTemplateBlurbs(prev => prev.filter(blurb => blurb.id !== id));
+  const handleDeleteBlurb = async (id: string) => {
+    if (!user?.id) return;
+
+    try {
+      await CoverLetterTemplateService.deleteSavedSection(id);
+      setTemplateBlurbs(prev => prev.filter(blurb => blurb.id !== id));
+    } catch (err) {
+      console.error('Error deleting saved section:', err);
+      alert('Failed to delete saved section');
+    }
   };
 
   const handleGenerateContent = (blurb: TemplateBlurb) => {
@@ -240,7 +301,19 @@ export default function SavedSections() {
         <p className="text-muted-foreground mb-6">
           Manage your reusable cover letter sections and templates
         </p>
-        
+
+        {error && (
+          <div className="mb-4 p-4 bg-destructive/10 border border-destructive rounded-lg text-destructive">
+            {error}
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <span className="ml-3 text-muted-foreground">Loading saved sections...</span>
+          </div>
+        ) : (
         <div className="bg-background">
           <div className="container mx-auto px-4">
             <div className="max-w-4xl mx-auto">
@@ -286,8 +359,9 @@ export default function SavedSections() {
             </div>
           </div>
         </div>
+        )}
       </div>
-      
+
       {/* HIL Content Generation Modal */}
       {isContentModalOpen && selectedGap && (
         <ContentGenerationModal
@@ -387,24 +461,48 @@ export default function SavedSections() {
                   Cancel
                 </Button>
                 <Button
-                  onClick={() => {
-                    // Create new blurb
-                    const newBlurb: TemplateBlurb = {
-                      id: `blurb-${Date.now()}`,
-                      type: newReusableContent.contentType as 'intro' | 'closer' | 'signature',
-                      title: newReusableContent.title,
-                      content: newReusableContent.content,
-                      tags: newReusableContent.tags.split(',').map(tag => tag.trim()).filter(Boolean),
-                      status: 'draft',
-                      confidence: 'medium',
-                      timesUsed: 0,
-                      createdAt: new Date().toISOString(),
-                      updatedAt: new Date().toISOString()
-                    };
-                    
-                    setTemplateBlurbs(prev => [...prev, newBlurb]);
-                    setShowAddReusableContentModal(false);
-                    setNewReusableContent({ title: '', content: '', tags: '', contentType: '' });
+                  onClick={async () => {
+                    if (!user?.id) return;
+
+                    try {
+                      // Create saved section in database
+                      const newSection: SavedSection = {
+                        user_id: user.id,
+                        type: newReusableContent.contentType as 'intro' | 'closer' | 'signature' | 'other',
+                        title: newReusableContent.title,
+                        content: newReusableContent.content,
+                        tags: newReusableContent.tags.split(',').map(tag => tag.trim()).filter(Boolean),
+                        is_default: false,
+                        times_used: 0,
+                        source: 'manual'
+                      };
+
+                      const createdSection = await CoverLetterTemplateService.createSavedSection(newSection);
+
+                      // Convert to TemplateBlurb for UI
+                      const newBlurb: TemplateBlurb = {
+                        id: createdSection.id!,
+                        type: createdSection.type as 'intro' | 'closer' | 'signature',
+                        title: createdSection.title,
+                        content: createdSection.content,
+                        tags: createdSection.tags || [],
+                        isDefault: createdSection.is_default,
+                        status: 'approved',
+                        confidence: 'medium',
+                        timesUsed: 0,
+                        createdAt: createdSection.created_at!,
+                        updatedAt: createdSection.updated_at!,
+                        linkedExternalLinks: [],
+                        externalLinks: []
+                      };
+
+                      setTemplateBlurbs(prev => [...prev, newBlurb]);
+                      setShowAddReusableContentModal(false);
+                      setNewReusableContent({ title: '', content: '', tags: '', contentType: '' });
+                    } catch (err) {
+                      console.error('Error creating saved section:', err);
+                      alert('Failed to create saved section');
+                    }
                   }}
                   disabled={!newReusableContent.title || !newReusableContent.content || !newReusableContent.contentType}
                 >

@@ -1328,6 +1328,29 @@ export class FileUploadService {
         await this.updateRoleLevelMetrics(structuredData.roleLevelMetrics, userId, dbClient, sourceId);
       }
 
+      // 4. Create saved sections and default template from cover letter paragraphs
+      if (structuredData.paragraphs && Array.isArray(structuredData.paragraphs)) {
+        try {
+          console.log(`📝 Creating saved sections and template from ${structuredData.paragraphs.length} paragraphs...`);
+
+          // Import the service
+          const { CoverLetterTemplateService } = await import('./coverLetterTemplateService');
+
+          // Process the cover letter and create template + saved sections
+          const result = await CoverLetterTemplateService.processUploadedCoverLetter(
+            userId,
+            structuredData,
+            sourceId,
+            'Professional Template'
+          );
+
+          console.log(`✅ Created template with ${result.savedSections.length} saved sections`);
+        } catch (templateError) {
+          // Don't fail the upload if template creation fails
+          console.error('⚠️ Error creating cover letter template and saved sections:', templateError);
+        }
+      }
+
       console.log(`📊 Cover letter processing summary: ${storiesMatched} stories matched, ${storiesSkipped} skipped (likely profile data)`);
     } catch (error) {
       console.error('Error processing cover letter data:', error);

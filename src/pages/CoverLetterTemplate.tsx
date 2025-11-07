@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Upload, Save, ArrowLeft, Plus, GripVertical, Trash2, Edit, FileText, Library, MoreHorizontal, Copy, Clock, LayoutTemplate, CheckCircle, X, ChevronRight, BookOpen, Eye } from "lucide-react";
+import { Upload, Save, ArrowLeft, Plus, GripVertical, Trash2, Edit, FileText, Library, MoreHorizontal, Copy, Clock, LayoutTemplate, CheckCircle, X, ChevronRight, BookOpen, Eye, Loader2 } from "lucide-react";
 import { TemplateBanner } from "@/components/layout/TemplateBanner";
 import { Link, useNavigate } from "react-router-dom";
 import { TemplateBlurbHierarchical } from "@/components/template-blurbs/TemplateBlurbHierarchical";
@@ -22,6 +22,8 @@ import { cn } from "@/lib/utils";
 import { useTour } from "@/contexts/TourContext";
 import { TourBannerFull } from "@/components/onboarding/TourBannerFull";
 import { FormModal } from "@/components/shared/FormModal";
+import { CoverLetterTemplateService, type SavedSection } from "@/services/coverLetterTemplateService";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Mock template blurbs library
 const mockTemplateBlurbs: TemplateBlurb[] = [
@@ -243,8 +245,11 @@ const mockTemplate: CoverLetterTemplate = {
 export default function CoverLetterTemplate() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { user } = useAuth();
   const [template, setTemplate] = useState<CoverLetterTemplate>(mockTemplate);
-  const [templateBlurbs, setTemplateBlurbs] = useState<TemplateBlurb[]>(mockTemplateBlurbs);
+  const [templateBlurbs, setTemplateBlurbs] = useState<TemplateBlurb[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const [showBlurbSelector, setShowBlurbSelector] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -296,6 +301,63 @@ export default function CoverLetterTemplate() {
       }, 3000);
     }
   }, [isTourActive]);
+
+  // Load template and saved sections from database
+  useEffect(() => {
+    const loadData = async () => {
+      if (!user?.id) {
+        setIsLoading(false);
+        setTemplate(mockTemplate);
+        setTemplateBlurbs(mockTemplateBlurbs);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        // Load user's templates
+        const templates = await CoverLetterTemplateService.getUserTemplates(user.id);
+
+        // Load saved sections
+        const sections = await CoverLetterTemplateService.getUserSavedSections(user.id);
+
+        // Convert SavedSection to TemplateBlurb format
+        const blurbs: TemplateBlurb[] = sections.map((section) => ({
+          id: section.id!,
+          type: section.type as 'intro' | 'closer' | 'signature',
+          title: section.title,
+          content: section.content,
+          tags: section.tags || [],
+          isDefault: section.is_default,
+          status: 'approved' as const,
+          confidence: 'high' as const,
+          timesUsed: section.times_used || 0,
+          lastUsed: section.last_used,
+          createdAt: section.created_at!,
+          updatedAt: section.updated_at!
+        }));
+
+        // Use first template or fallback to mock
+        if (templates.length > 0) {
+          setTemplate(templates[0]);
+        } else {
+          setTemplate(mockTemplate);
+        }
+
+        setTemplateBlurbs(blurbs.length > 0 ? blurbs : mockTemplateBlurbs);
+      } catch (err) {
+        console.error('Error loading template data:', err);
+        setError('Failed to load template data');
+        setTemplate(mockTemplate);
+        setTemplateBlurbs(mockTemplateBlurbs);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, [user?.id]);
 
   const getBlurbTitleByContent = (content: string, sectionType: string) => {
     const blurb = mockTemplateBlurbs.find(b => b.content === content && b.type === sectionType);
@@ -561,6 +623,13 @@ export default function CoverLetterTemplate() {
                   Create and manage your cover letter templates
                 </p>
               </div>
+
+              {isLoading ? (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm">Loading...</span>
+                </div>
+              ) : (
               <Button
                 variant="secondary"
                 size="sm"
@@ -570,8 +639,15 @@ export default function CoverLetterTemplate() {
                 <Plus className="h-4 w-4" />
                 Add New Template
               </Button>
+              )}
             </div>
-            
+
+            {error && (
+              <div className="mb-4 p-4 bg-destructive/10 border border-destructive rounded-lg text-destructive">
+                {error}
+              </div>
+            )}
+
             {/* Content Area */}
             <div>
               <div className="template-content-spacing mt-2">
