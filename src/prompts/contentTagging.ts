@@ -1,19 +1,22 @@
 // Content tagging prompt for automatic story and metrics categorization
-// TODO: Add userGoals parameter to personalize tag suggestions based on:
-// - User's industries (from career goals)
-// - User's businessModels (from career goals)
-// - Map these to role level tags, areas, verticals, and buyers
+import type { CompanyResearchResult } from '@/services/browserSearchService';
+
 export const buildContentTaggingPrompt = (
   content: string, 
-  contentType: 'story' | 'metrics' | 'workHistory',
-  userGoals?: { industries?: string[]; businessModels?: string[] }
+  contentType: 'company' | 'role' | 'saved_section',
+  userGoals?: { industries?: string[]; businessModels?: string[] },
+  companyResearch?: CompanyResearchResult | null
 ): string => {
   const userContext = userGoals 
-    ? `\nUser Preferences:\n- Industries of interest: ${userGoals.industries?.join(', ') || 'none'}\n- Business models of interest: ${userGoals.businessModels?.join(', ') || 'none'}\n\nWhen suggesting tags, prioritize tags that align with these preferences and map to relevant areas, verticals, and buyers.`
+    ? `\n\nUSER PREFERENCES (HIGH PRIORITY - PRIORITIZE THESE):\n- Industries of interest: ${userGoals.industries?.join(', ') || 'none'}\n- Business models of interest: ${userGoals.businessModels?.join(', ') || 'none'}\n\nCRITICAL: When suggesting tags, prioritize tags that align with these preferences. If the content relates to these industries/business models, include them as high-confidence tags in the primaryTags array. Map industries to relevant role tags (e.g., "Fintech" → "financial products", "B2B SaaS" → "enterprise", "Healthcare" → "health tech").`
+    : '';
+
+  const companyContext = companyResearch
+    ? `\n\nCOMPANY RESEARCH (FROM WEB SEARCH):\n- Industry: ${companyResearch.industry || 'unknown'}\n- Business Model: ${companyResearch.businessModel || 'unknown'}\n- Company Stage: ${companyResearch.companyStage || 'unknown'}\n- Company Size: ${companyResearch.companySize || 'unknown'}\n- Description: ${companyResearch.description || 'N/A'}\n- Key Products: ${companyResearch.keyProducts?.join(', ') || 'N/A'}\n\nUse this research data to enhance tag suggestions. Prioritize tags that match the researched industry and business model.`
     : '';
   
   return `You are an expert at analyzing professional content and generating relevant tags for matching and categorization.
-${userContext}
+${userContext}${companyContext}
 
 Content to analyze:
 ${content}
@@ -39,13 +42,27 @@ For METRICS, focus on:
 - Timeframe
 - Impact level
 
-For WORK HISTORY, focus on:
-- Industry
-- Company type/size
-- Role level
-- Function (engineering, sales, marketing, etc.)
+For COMPANY tags, focus on:
+- Industry (e.g., SaaS, Fintech, Healthcare, E-commerce)
+- Business Model (e.g., B2B, B2C, Marketplace, Platform)
+- Company Stage (startup, growth-stage, established, enterprise)
+- Company Size (small, medium, large, enterprise)
+- Key products/services
+- Market vertical
+
+For ROLE tags, focus on:
+- Industry/domain
+- Role level (entry, mid, senior, executive)
+- Function (product management, engineering, sales, marketing, etc.)
 - Key skills/technologies
 - Leadership scope
+- Competencies demonstrated
+
+For SAVED SECTIONS, focus on:
+- Content theme (professional, passionate, technical, etc.)
+- Use case (introduction, closer, signature, custom)
+- Tone/style
+- Key messaging
 
 Return ONLY valid JSON with this structure:
 

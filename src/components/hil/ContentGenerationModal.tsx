@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +22,7 @@ interface TagSuggestion {
   id: string;
   value: string;
   confidence: 'high' | 'medium' | 'low';
+  category?: 'industry' | 'business_model' | 'skill' | 'competency' | 'other';
 }
 
 interface ContentGenerationModalProps {
@@ -32,8 +33,15 @@ interface ContentGenerationModalProps {
   // Tag suggestion mode
   mode?: 'gap-detection' | 'tag-suggestion';
   content?: string;
+  contentType?: 'company' | 'role' | 'saved_section';
+  entityId?: string; // For persisting tags
+  existingTags?: string[];
   suggestedTags?: TagSuggestion[];
   onApplyTags?: (tags: string[]) => void;
+  onGenerateTags?: () => Promise<void>; // New: trigger tag generation
+  isSearching?: boolean; // For company research status
+  searchError?: string | null; // For search error display
+  onRetry?: () => void; // For retrying failed searches
 }
 
 export function ContentGenerationModal({
@@ -43,10 +51,16 @@ export function ContentGenerationModal({
   onApplyContent,
   mode = 'gap-detection',
   content,
+  contentType,
+  existingTags = [],
   suggestedTags = [],
-  onApplyTags
+  onApplyTags,
+  onGenerateTags,
+  isSearching = false,
+  searchError = null,
+  onRetry
 }: ContentGenerationModalProps) {
-  console.log('ContentGenerationModal render:', { isOpen, mode, suggestedTags });
+  console.log('ContentGenerationModal render:', { isOpen, mode, suggestedTags, isSearching, searchError });
   const [generatedContent, setGeneratedContent] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [contentQuality, setContentQuality] = useState<'draft' | 'review' | 'ready'>('draft');
@@ -54,6 +68,13 @@ export function ContentGenerationModal({
   // Tag suggestion state
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isGeneratingTags, setIsGeneratingTags] = useState(false);
+  
+  // Reset selected tags when modal opens/closes or suggested tags change
+  useEffect(() => {
+    if (isOpen && mode === 'tag-suggestion') {
+      setSelectedTags([]);
+    }
+  }, [isOpen, mode, suggestedTags]);
 
   const handleGenerate = async () => {
     if (!gap) return;
@@ -231,6 +252,51 @@ export function ContentGenerationModal({
                 <p className="text-sm text-muted-foreground mb-2">Content to analyze:</p>
                 <p className="text-sm">{content}</p>
               </div>
+
+              {/* Existing tags display */}
+              {existingTags.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Existing tags:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {existingTags.map((tag, index) => (
+                      <Badge key={`existing-${index}`} variant="secondary">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Search status indicator */}
+              {isSearching && (
+                <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                  <RefreshCw className="h-4 w-4 animate-spin text-blue-600" />
+                  <span className="text-sm text-blue-700 dark:text-blue-300">
+                    Researching company information...
+                  </span>
+                </div>
+              )}
+
+              {/* Search error with retry */}
+              {searchError && (
+                <div className="p-3 bg-red-50 dark:bg-red-950 rounded-lg space-y-2">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-red-600" />
+                    <p className="text-sm text-red-700 dark:text-red-300">{searchError}</p>
+                  </div>
+                  {onRetry && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={onRetry}
+                      className="w-full"
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Retry
+                    </Button>
+                  )}
+                </div>
+              )}
               
               {suggestedTags.length > 0 ? (
                 <div className="space-y-3">
@@ -253,6 +319,11 @@ export function ContentGenerationModal({
                         {tag.confidence === 'high' && <span className="ml-1 text-green-500">✓</span>}
                         {tag.confidence === 'medium' && <span className="ml-1 text-yellow-500">~</span>}
                         {tag.confidence === 'low' && <span className="ml-1 text-gray-500">?</span>}
+                        {tag.category && (
+                          <span className="ml-1 text-xs text-muted-foreground">
+                            ({tag.category})
+                          </span>
+                        )}
                       </Badge>
                     ))}
                   </div>
@@ -265,7 +336,7 @@ export function ContentGenerationModal({
                     Apply {selectedTags.length} selected tags
                   </Button>
                 </div>
-              ) : (
+              ) : !isSearching && !searchError ? (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground mb-4">
                     Analyzing content to suggest relevant tags...
@@ -275,7 +346,7 @@ export function ContentGenerationModal({
                     <span>Generating tag suggestions...</span>
                   </div>
                 </div>
-              )}
+              ) : null}
             </div>
           ) : !generatedContent ? (
             <div className="text-center py-8">
