@@ -309,7 +309,38 @@ export const WorkHistoryDetail = ({
   const handleTagSuggestions = async () => {
     if (!selectedRole || !selectedCompany) return;
     
-    const content = `${selectedRole.title} at ${selectedCompany.name}: ${selectedRole.description || ''}`;
+    // Build comprehensive content including role description, stories, and links
+    // This ensures role-level tags reflect demonstrated work, not just job description
+    let content = `${selectedRole.title} at ${selectedCompany.name}`;
+    
+    if (selectedRole.description) {
+      content += `: ${selectedRole.description}`;
+    }
+    
+    // Include stories (up to 5, truncated to avoid excessive length)
+    // Role-level tags should be substantiated by actual demonstrated work
+    if (selectedRole.blurbs && selectedRole.blurbs.length > 0) {
+      const storyTexts = selectedRole.blurbs
+        .slice(0, 5) // Limit to 5 most recent stories
+        .map(story => {
+          // Truncate long stories to keep content manageable
+          const truncated = story.content.length > 200 
+            ? story.content.substring(0, 200) + '...' 
+            : story.content;
+          return `- ${story.title}: ${truncated}`;
+        })
+        .join('\n');
+      content += `\n\nDemonstrated work (stories):\n${storyTexts}`;
+    }
+    
+    // Include external links for additional context (up to 3)
+    if (selectedRole.externalLinks && selectedRole.externalLinks.length > 0) {
+      const linkTexts = selectedRole.externalLinks
+        .slice(0, 3)
+        .map(link => `- ${link.label || link.url}`)
+        .join('\n');
+      content += `\n\nSupporting evidence:\n${linkTexts}`;
+    }
     
     setTagContent(content);
     setTagContentType('role');

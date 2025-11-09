@@ -192,9 +192,9 @@ export default function SavedSections() {
           : blurb
       ));
       
-      setIsTagModalOpen(false);
-      setSuggestedTags([]);
-      setTagContent('');
+    setIsTagModalOpen(false);
+    setSuggestedTags([]);
+    setTagContent('');
       setTagEntityId(undefined);
       setExistingTags([]);
     } catch (error) {

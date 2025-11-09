@@ -103,6 +103,10 @@ For ROLE tags, focus on:
 - Leadership scope
 - Competencies demonstrated
 
+IMPORTANT: Role-level tags should reflect demonstrated work and accomplishments shown in the stories provided. 
+Tags should be substantiated by the actual work described in the stories, not just the job description.
+If stories are provided, prioritize tags that align with the demonstrated achievements and impact.
+
 For SAVED SECTIONS, focus on:
 - Content theme (professional, passionate, technical, etc.)
 - Use case (introduction, closer, signature, custom)
