@@ -348,7 +348,7 @@ Instructions:
    */
   private async callOpenAI(prompt: string, dynamicTokenLimit?: number): Promise<{
     success: boolean;
-    data?: Record<string, unknown>;
+    data?: Record<string, unknown> | unknown[];
     error?: string;
     retryable?: boolean;
   }> {
@@ -494,7 +494,7 @@ Instructions:
    */
   private async callOpenAIWithRetry(originalPrompt: string): Promise<{
     success: boolean;
-    data?: Record<string, unknown>;
+    data?: Record<string, unknown> | unknown[];
     error?: string;
     retryable?: boolean;
   }> {
@@ -577,8 +577,9 @@ IMPORTANT: Return ONLY the JSON object, no other text, no markdown, no explanati
 
   /**
    * Parse JSON response with improved error handling for common OpenAI response formats
+   * Supports both objects and arrays
    */
-  private parseJSONResponse(content: string): Record<string, unknown> {
+  private parseJSONResponse(content: string): Record<string, unknown> | unknown[] {
     // Remove markdown code blocks if present
     let cleanedContent = content.trim();
     
@@ -589,17 +590,26 @@ IMPORTANT: Return ONLY the JSON object, no other text, no markdown, no explanati
       cleanedContent = cleanedContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
     }
     
-    // Remove any leading/trailing text that's not JSON
+    // Check for array first (common in recommendations, lists, etc.)
+    const arrayStart = cleanedContent.indexOf('[');
+    const arrayEnd = cleanedContent.lastIndexOf(']');
+    
+    if (arrayStart !== -1 && arrayEnd !== -1 && arrayEnd > arrayStart) {
+      // Extract array content
+      cleanedContent = cleanedContent.substring(arrayStart, arrayEnd + 1);
+    } else {
+      // Fall back to object extraction
     const jsonStart = cleanedContent.indexOf('{');
     const jsonEnd = cleanedContent.lastIndexOf('}');
     
     if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
       cleanedContent = cleanedContent.substring(jsonStart, jsonEnd + 1);
+      }
     }
     
     // Try to parse the cleaned content
     try {
-      return JSON.parse(cleanedContent);
+      return JSON.parse(cleanedContent) as Record<string, unknown> | unknown[];
     } catch (error) {
       // If still failing, try to fix common JSON issues
       try {
@@ -609,7 +619,7 @@ IMPORTANT: Return ONLY the JSON object, no other text, no markdown, no explanati
           .replace(/([{,]\s*)(\w+):/g, '$1"$2":') // Add quotes to unquoted keys
           .replace(/:\s*([^",{\s][^,}\]]*?)(\s*[,}])/g, ': "$1"$2'); // Add quotes to unquoted string values
         
-        return JSON.parse(fixedContent);
+        return JSON.parse(fixedContent) as Record<string, unknown> | unknown[];
       } catch (secondError) {
         console.error('Failed to parse JSON even after cleaning:', secondError);
         console.error('Original content:', content);

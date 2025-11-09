@@ -82,6 +82,11 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
     return "bg-muted text-muted-foreground";
   };
 
+  // Provide default values if evidence is undefined
+  if (!evidence) {
+    return null;
+  }
+
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => {
@@ -108,25 +113,25 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
           <div className="summary-grid">
             <div className="summary-tile">
               <div className="summary-tile-value">
-                {evidence.matchScore}%
+                {evidence.matchScore || 0}%
               </div>
               <div className="summary-tile-label">Match</div>
             </div>
             <div className="summary-tile">
               <div className="summary-tile-value">
-                {evidence.workHistory.length}
+                {evidence.workHistory?.length || 0}
               </div>
               <div className="summary-tile-label">Relevant Roles</div>
             </div>
             <div className="summary-tile">
               <div className="summary-tile-value">
-                {evidence.tagAnalysis.length}
+                {evidence.tagAnalysis?.length || 0}
               </div>
               <div className="summary-tile-label">Key Tags</div>
             </div>
             <div className="summary-tile">
               <div className="summary-tile-value">
-                {evidence.industryPatterns.filter(p => p.match).length}
+                {(evidence.industryPatterns || []).filter(p => p.match).length}
               </div>
               <div className="summary-tile-label">Patterns Matched</div>
             </div>
@@ -141,7 +146,7 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {evidence.industryPatterns.map((pattern, index) => (
+              {(evidence.industryPatterns || []).map((pattern, index) => (
                 <div key={index} className="p-3 border rounded-lg">
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="font-medium">{pattern.pattern}</h4>
@@ -152,7 +157,7 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
                     )}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    <strong>Examples:</strong> {pattern.examples.join(', ')}
+                    <strong>Examples:</strong> {pattern.examples?.join(', ') || 'N/A'}
                   </div>
                 </div>
               ))}
@@ -170,13 +175,13 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="font-medium">Complexity Level</h4>
-                <Badge variant="outline">{evidence.problemComplexity.level}</Badge>
+                <Badge variant="outline">{evidence.problemComplexity?.level || 'N/A'}</Badge>
               </div>
-              
+
               <div>
                 <h4 className="font-medium mb-2">Problem Types Addressed</h4>
                 <div className="flex flex-wrap gap-2">
-                  {evidence.problemComplexity.examples.map((example, index) => (
+                  {(evidence.problemComplexity?.examples || []).map((example, index) => (
                     <Badge key={index} variant="secondary">
                       {example}
                     </Badge>
@@ -195,7 +200,7 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {evidence.workHistory.map((work, index) => (
+              {(evidence.workHistory || []).map((work, index) => (
                 <div key={index} className="p-3 border rounded-lg">
                   <div className="flex items-start justify-between mb-2">
                     <div>
@@ -207,7 +212,7 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
                     </Badge>
                   </div>
                   <div className="flex flex-wrap gap-1">
-                    {work.tags.map((tag) => (
+                    {(work.tags || []).map((tag) => (
                       <Badge key={tag} variant="outline" className="text-xs">
                         {tag}
                       </Badge>
@@ -238,7 +243,7 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <CardContent className="space-y-3">
-                  {evidence.tagAnalysis.map((tag) => (
+                  {(evidence.tagAnalysis || []).map((tag) => (
                     <div key={tag.tag} className="p-3 border rounded-lg">
                       <div className="flex items-center justify-between mb-2">
                         <h4 className="font-medium">{tag.tag}</h4>
@@ -248,7 +253,7 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
                         </div>
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        <strong>Examples:</strong> {tag.examples.join(', ')}
+                        <strong>Examples:</strong> {tag.examples?.join(', ') || 'N/A'}
                       </div>
                     </div>
                   ))}
@@ -266,17 +271,17 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <OutcomeMetrics 
+              <OutcomeMetrics
                 metrics={[
-                  ...evidence.outcomeMetrics.roleLevel,
-                  ...evidence.outcomeMetrics.storyLevel
-                ]} 
+                  ...(evidence.outcomeMetrics?.roleLevel || []),
+                  ...(evidence.outcomeMetrics?.storyLevel || [])
+                ]}
               />
             </CardContent>
           </Card>
 
           {/* Section 5: Areas for Improvement */}
-          {evidence.gaps.length > 0 && (
+          {(evidence.gaps?.length || 0) > 0 && (
             <Card className="section-spacing">
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -285,12 +290,12 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {evidence.gaps.map((gap, index) => (
+                {(evidence.gaps || []).map((gap, index) => (
                   <div key={index} className="p-3 border rounded-lg">
                     <h4 className="font-medium mb-2">{gap.area}</h4>
                     <p className="text-sm text-muted-foreground mb-2">{gap.description}</p>
                     <div className="text-xs text-muted-foreground">
-                      <strong>Suggestions:</strong> {gap.suggestions.join(', ')}
+                      <strong>Suggestions:</strong> {gap.suggestions?.join(', ') || 'N/A'}
                     </div>
                   </div>
                 ))}

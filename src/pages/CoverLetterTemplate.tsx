@@ -258,7 +258,7 @@ export default function CoverLetterTemplate() {
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
   const [editingBlurb, setEditingBlurb] = useState<TemplateBlurb | null>(null);
-  const [creatingBlurbType, setCreatingBlurbType] = useState<'intro' | 'closer' | 'signature' | null>(null);
+  const [creatingBlurbType, setCreatingBlurbType] = useState<'intro' | 'paragraph' | 'closer' | 'signature' | null>(null);
   const [showWorkHistorySelector, setShowWorkHistorySelector] = useState(false);
   const [showAddContentTypeModal, setShowAddContentTypeModal] = useState(false);
   const [newContentType, setNewContentType] = useState({ label: '', description: '' });
@@ -316,27 +316,50 @@ export default function CoverLetterTemplate() {
         setIsLoading(true);
         setError(null);
 
+        // Check if synthetic testing is enabled and get active profile
+        const { SyntheticUserService } = await import('../services/syntheticUserService');
+        const syntheticUserService = new SyntheticUserService();
+        const syntheticContext = await syntheticUserService.getSyntheticUserContext();
+        
+        console.log('[CoverLetterTemplate] Synthetic context:', {
+          enabled: syntheticContext.isSyntheticTestingEnabled,
+          currentProfile: syntheticContext.currentUser?.profileId,
+          profileName: syntheticContext.currentUser?.profileName
+        });
+
+        // Get profile ID if synthetic testing is enabled
+        const profileId = syntheticContext.isSyntheticTestingEnabled 
+          ? syntheticContext.currentUser?.profileId 
+          : undefined;
+
         // Load user's templates
         const templates = await CoverLetterTemplateService.getUserTemplates(user.id);
 
-        // Load saved sections
-        const sections = await CoverLetterTemplateService.getUserSavedSections(user.id);
+        // Load saved sections (with profile filtering if synthetic mode is active)
+        const sections = await CoverLetterTemplateService.getUserSavedSections(user.id, profileId);
 
         // Convert SavedSection to TemplateBlurb format
-        const blurbs: TemplateBlurb[] = sections.map((section) => ({
-          id: section.id!,
-          type: section.type as 'intro' | 'closer' | 'signature',
+        const blurbs: TemplateBlurb[] = sections.map((section) => {
+          const allowedTypes: TemplateBlurb['type'][] = ['intro', 'paragraph', 'closer', 'signature'];
+          const sectionType = allowedTypes.includes(section.type as TemplateBlurb['type'])
+            ? section.type as TemplateBlurb['type']
+            : 'intro';
+
+          return {
+            id: section.id!,
+            type: sectionType,
           title: section.title,
           content: section.content,
-          tags: section.tags || [],
-          isDefault: section.is_default,
+          tags: Array.from(new Set([...(section.tags ?? []), ...(section.purpose_tags ?? [])])),
+          isDefault: (section.type as string) === 'intro',
           status: 'approved' as const,
           confidence: 'high' as const,
           timesUsed: section.times_used || 0,
           lastUsed: section.last_used,
           createdAt: section.created_at!,
           updatedAt: section.updated_at!
-        }));
+        };
+        });
 
         // Use first template or fallback to mock
         if (templates.length > 0) {
@@ -345,12 +368,17 @@ export default function CoverLetterTemplate() {
           setTemplate(mockTemplate);
         }
 
-        setTemplateBlurbs(blurbs.length > 0 ? blurbs : mockTemplateBlurbs);
+        if (blurbs.length > 0) {
+          setTemplateBlurbs(blurbs);
+        } else {
+          setTemplateBlurbs([]);
+          console.log('[CoverLetterTemplate] No saved sections available for this profile');
+        }
       } catch (err) {
         console.error('Error loading template data:', err);
         setError('Failed to load template data');
         setTemplate(mockTemplate);
-        setTemplateBlurbs(mockTemplateBlurbs);
+        setTemplateBlurbs([]);
       } finally {
         setIsLoading(false);
       }
@@ -492,7 +520,7 @@ export default function CoverLetterTemplate() {
     return mockTemplateBlurbs.filter(blurb => blurb.type === sectionType);
   };
 
-  const handleCreateBlurb = (type: 'intro' | 'closer' | 'signature') => {
+  const handleCreateBlurb = (type: 'intro' | 'paragraph' | 'closer' | 'signature') => {
     setEditingBlurb(null);
   };
 
@@ -566,9 +594,14 @@ export default function CoverLetterTemplate() {
 
   const handleCreateReusableContent = () => {
     if (newReusableContent.title.trim() && newReusableContent.content.trim()) {
+      const allowedTypes: TemplateBlurb['type'][] = ['intro', 'paragraph', 'closer', 'signature'];
+      const sectionType = allowedTypes.includes(newReusableContent.contentType as TemplateBlurb['type'])
+        ? newReusableContent.contentType as TemplateBlurb['type']
+        : 'intro';
+
       const newBlurb: TemplateBlurb = {
         id: `${newReusableContent.contentType}-${Date.now()}`,
-        type: newReusableContent.contentType as 'intro' | 'closer' | 'signature',
+        type: sectionType,
         title: newReusableContent.title,
         content: newReusableContent.content,
         tags: newReusableContent.tags ? newReusableContent.tags.split(',').map(tag => tag.trim()) : [],
@@ -600,7 +633,7 @@ export default function CoverLetterTemplate() {
         onDone={handleDone}
         previewButton={
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
             onClick={() => setShowPreviewModal(true)}
             className="flex items-center gap-2 hover:text-[#E32D9A] hover:border-[#E32D9A]"
@@ -920,7 +953,11 @@ export default function CoverLetterTemplate() {
                     <Button 
                       variant="secondary"
                       onClick={() => {
-                        const sectionType = template.sections.find(s => s.id === selectedSection)?.type as 'intro' | 'closer' | 'signature';
+                        const allowedTypesForCreation: TemplateBlurb['type'][] = ['intro', 'paragraph', 'closer', 'signature'];
+                        const rawType = template.sections.find(s => s.id === selectedSection)?.type;
+                        const sectionType = allowedTypesForCreation.includes(rawType as TemplateBlurb['type'])
+                          ? rawType as TemplateBlurb['type']
+                          : 'intro';
                         setShowBlurbSelector(false);
                         setSelectedSection(null);
                         handleCreateBlurb(sectionType);

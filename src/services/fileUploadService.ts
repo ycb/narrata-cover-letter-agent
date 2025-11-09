@@ -711,7 +711,7 @@ export class FileUploadService {
       // Get the user_id from the source record
       const { data: sourceData, error: sourceError } = await dbClient
         .from('sources')
-        .select('user_id')
+        .select('user_id, raw_text, file_name, created_at')
         .eq('id', sourceId)
         .single();
       
@@ -1191,7 +1191,7 @@ export class FileUploadService {
       // Get the user_id from the source record
       const { data: sourceData, error: sourceError } = await dbClient
         .from('sources')
-        .select('user_id')
+        .select('user_id, raw_text')
         .eq('id', sourceId)
         .single();
       
@@ -1341,7 +1341,13 @@ export class FileUploadService {
             userId,
             structuredData,
             sourceId,
-            'Professional Template'
+            'Professional Template',
+            {
+              rawText: sourceData.raw_text || undefined,
+              fileName: sourceData.file_name || undefined,
+              createdAt: sourceData.created_at || undefined
+            },
+            accessToken
           );
 
           console.log(`✅ Created template with ${result.savedSections.length} saved sections`);

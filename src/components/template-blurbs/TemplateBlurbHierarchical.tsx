@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, Edit, Trash2, FileText, Clock, CheckCircle, AlertCircle, MoreHorizontal, Copy, Tags, Sparkles, X } from "lucide-react";
+import { Search, Plus, Edit, Trash2, FileText, Clock, CheckCircle, AlertCircle, MoreHorizontal, Copy, Tags, Sparkles, X, BookOpen } from "lucide-react";
 import { IntelligentAlertBadge } from "@/components/ui/IntelligentAlertBadge";
 import { TagSuggestionButton } from "@/components/ui/TagSuggestionButton";
 import { ContentGapBanner } from "@/components/shared/ContentGapBanner";
@@ -15,7 +15,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 
 interface TemplateBlurb {
   id: string;
-  type: 'intro' | 'closer' | 'signature';
+  type: 'intro' | 'paragraph' | 'closer' | 'signature';
   title: string;
   content: string;
   status: 'approved' | 'draft' | 'needs-review';
@@ -28,7 +28,7 @@ interface TemplateBlurb {
 }
 
 interface BlurbTypeGroup {
-  type: 'intro' | 'closer' | 'signature';
+  type: 'intro' | 'paragraph' | 'closer' | 'signature';
   label: string;
   description: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -39,7 +39,7 @@ interface TemplateBlurbHierarchicalProps {
   blurbs: TemplateBlurb[];
   selectedBlurbId?: string;
   onSelectBlurb: (blurb: TemplateBlurb) => void;
-  onCreateBlurb: (type?: 'intro' | 'closer' | 'signature' | string) => void;
+  onCreateBlurb: (type?: 'intro' | 'paragraph' | 'closer' | 'signature' | string) => void;
   onEditBlurb: (blurb: TemplateBlurb) => void;
   onDeleteBlurb: (blurbId: string) => void;
   onGenerateContent?: (blurb: TemplateBlurb) => void;
@@ -81,6 +81,13 @@ export const TemplateBlurbHierarchical = ({
       label: 'Introduction',
       description: 'Opening paragraphs that grab attention and introduce you',
       icon: FileText,
+      isDefault: true
+    },
+    {
+      type: 'paragraph',
+      label: 'Body Paragraph',
+      description: 'Static supporting paragraphs you want to reuse verbatim',
+      icon: BookOpen,
       isDefault: true
     },
     {

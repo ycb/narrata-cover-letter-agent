@@ -88,16 +88,16 @@ const EvidenceModal = ({
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div className="text-center p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-foreground">{evidence.length}</div>
+                  <div className="text-2xl font-bold text-foreground">{evidence?.length || 0}</div>
                   <div className="text-muted-foreground">Supporting Examples</div>
                 </div>
                 <div className="text-center p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-foreground">{matchedTags.length}</div>
+                  <div className="text-2xl font-bold text-foreground">{matchedTags?.length || 0}</div>
                   <div className="text-muted-foreground">Matched Tags</div>
                 </div>
                 <div className="text-center p-3 bg-muted/20 rounded-lg">
                   <div className="text-2xl font-bold text-foreground">
-                    {Math.round(evidence.reduce((sum, b) => sum + b.timesUsed, 0) / evidence.length)}
+                    {evidence?.length ? Math.round(evidence.reduce((sum, b) => sum + b.timesUsed, 0) / evidence.length) : 0}
                   </div>
                   <div className="text-muted-foreground">Avg Usage</div>
                 </div>
@@ -137,7 +137,7 @@ const EvidenceModal = ({
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                {matchedTags.map((tag) => (
+                {(matchedTags || []).map((tag) => (
                   <Badge key={tag} variant="secondary" className="text-sm">
                     {tag}
                   </Badge>
@@ -155,11 +155,11 @@ const EvidenceModal = ({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <OutcomeMetrics 
-                metrics={evidence
+              <OutcomeMetrics
+                metrics={(evidence || [])
                   .filter(story => story.outcomeMetrics && story.outcomeMetrics.length > 0)
                   .flatMap(story => story.outcomeMetrics || [])
-                } 
+                }
               />
             </CardContent>
           </Card>
@@ -167,7 +167,7 @@ const EvidenceModal = ({
           {/* Evidence Stories */}
           <div className="section-spacing">
             <h3 className="text-lg font-semibold">Supporting Examples</h3>
-            {evidence.map((story) => (
+            {(evidence || []).map((story) => (
               <Card key={story.id} className="hover:shadow-md transition-shadow">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">

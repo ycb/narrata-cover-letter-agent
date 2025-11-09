@@ -9,7 +9,6 @@ import {
   User, 
   FileText,
   Target, 
-  TrendingUp,
   BarChart3,
   Edit
 } from "lucide-react";
@@ -65,6 +64,11 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
     }
   };
 
+  // Provide default values if evidence is undefined
+  if (!evidence) {
+    return null;
+  }
+
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => {
@@ -79,7 +83,7 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
                 Evidence for {evidence.currentLevel} Assessment
               </DialogTitle>
               <DialogDescription className="text-base">
-                How we determined your current level and path to {evidence.nextLevel}
+                How we determined your current level
               </DialogDescription>
             </div>
           </div>
@@ -126,7 +130,7 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
               <div>
                 <h4 className="font-medium mb-2">Role Titles & Progression</h4>
                 <div className="flex flex-wrap gap-2">
-                  {evidence.resumeEvidence.roleTitles.map((title, index) => (
+                  {(evidence.resumeEvidence?.roleTitles || []).map((title, index) => (
                     <Badge key={index} variant="outline">
                       {title}
                     </Badge>
@@ -136,13 +140,13 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
               
               <div>
                 <h4 className="font-medium mb-2">Experience Duration</h4>
-                <p className="text-sm text-muted-foreground">{evidence.resumeEvidence.duration}</p>
+                <p className="text-sm text-muted-foreground">{evidence.resumeEvidence?.duration || 'N/A'}</p>
               </div>
-              
+
               <div>
                 <h4 className="font-medium mb-2">Company Scale</h4>
                 <div className="flex flex-wrap gap-2">
-                  {evidence.resumeEvidence.companyScale.map((scale, index) => (
+                  {(evidence.resumeEvidence?.companyScale || []).map((scale, index) => (
                     <Badge key={index} variant="secondary">
                       {scale}
                     </Badge>
@@ -163,19 +167,19 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-foreground">{evidence.storyEvidence.relevantStories}</div>
+                  <div className="text-2xl font-bold text-foreground">{evidence.storyEvidence?.relevantStories || 0}</div>
                   <div className="text-sm text-muted-foreground">Relevant to {evidence.currentLevel}</div>
                 </div>
                 <div className="p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-foreground">{evidence.storyEvidence.totalStories}</div>
-                  <div className="text-sm text-muted-foreground">Total Approved Stories</div>
+                  <div className="text-2xl font-bold text-foreground">{evidence.storyEvidence?.totalStories || 0}</div>
+                  <div className="text-sm text-muted-foreground">Total Stories</div>
                 </div>
               </div>
-              
+
               <div>
                 <h4 className="font-medium mb-2">Tag Density Analysis</h4>
                 <div className="flex flex-wrap gap-2">
-                  {evidence.storyEvidence.tagDensity.map((tag) => (
+                  {(evidence.storyEvidence?.tagDensity || []).map((tag) => (
                     <Badge key={tag.tag} variant="outline">
                       {tag.tag} ({tag.count})
                     </Badge>
@@ -196,16 +200,16 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="font-medium">{evidence.levelingFramework.framework}</h4>
+                  <h4 className="font-medium">{evidence.levelingFramework?.framework || 'N/A'}</h4>
                   <p className="text-sm text-muted-foreground">Framework used for assessment</p>
                 </div>
-                <Badge variant="secondary">{evidence.levelingFramework.match}</Badge>
+                <Badge variant="secondary">{evidence.levelingFramework?.match || 'N/A'}</Badge>
               </div>
-              
+
               <div>
                 <h4 className="font-medium mb-2">Key Criteria Met</h4>
                 <ul className="space-y-1">
-                  {evidence.levelingFramework.criteria.map((criterion, index) => (
+                  {(evidence.levelingFramework?.criteria || []).map((criterion, index) => (
                     <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
                       <div className="h-1.5 w-1.5 rounded-full bg-success mt-2 flex-shrink-0" />
                       {criterion}
@@ -213,27 +217,6 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
                   ))}
                 </ul>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Gaps to Next Level */}
-          <Card className="section-spacing">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Gaps to {evidence.nextLevel}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {evidence.gaps.map((gap, index) => (
-                <div key={index} className="p-3 border rounded-lg">
-                  <h4 className="font-medium mb-2">{gap.area}</h4>
-                  <p className="text-sm text-muted-foreground mb-2">{gap.description}</p>
-                  <div className="text-xs text-muted-foreground">
-                    <strong>Examples:</strong> {gap.examples.join(', ')}
-                  </div>
-                </div>
-              ))}
             </CardContent>
           </Card>
 
@@ -246,11 +229,17 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <OutcomeMetrics 
+              <OutcomeMetrics
                 metrics={[
-                  ...evidence.outcomeMetrics.roleLevel,
-                  ...evidence.outcomeMetrics.storyLevel
-                ]} 
+                  ...(evidence.outcomeMetrics?.roleLevel || []),
+                  ...(evidence.outcomeMetrics?.storyLevel || [])
+                ].filter((metric, index, arr) => {
+                  // Remove duplicates and invalid metrics
+                  return metric && 
+                         metric.trim().length > 0 && 
+                         !/^[%+\-]?$/.test(metric.trim()) &&
+                         arr.indexOf(metric) === index; // Remove duplicates
+                })}
               />
             </CardContent>
           </Card>

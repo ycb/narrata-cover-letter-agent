@@ -17,7 +17,7 @@ interface TemplateBlurbDetailProps {
   isEditing: boolean;
   onSave: (blurb: Partial<TemplateBlurb>) => void;
   onCancel: () => void;
-  type?: 'intro' | 'closer' | 'signature';
+  type?: 'intro' | 'paragraph' | 'closer' | 'signature';
 }
 
 export const TemplateBlurbDetail = ({
@@ -56,6 +56,7 @@ export const TemplateBlurbDetail = ({
   const getSectionTypeLabel = (type: string) => {
     switch (type) {
       case 'intro': return 'Introduction';
+      case 'paragraph': return 'Body Paragraph';
       case 'closer': return 'Closing';
       case 'signature': return 'Signature';
       default: return type;

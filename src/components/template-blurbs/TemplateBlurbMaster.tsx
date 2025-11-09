@@ -7,7 +7,7 @@ import { Search, Plus, FileText, Edit, Trash2, Check } from "lucide-react";
 
 export interface TemplateBlurb {
   id: string;
-  type: 'intro' | 'closer' | 'signature';
+  type: 'intro' | 'paragraph' | 'closer' | 'signature';
   title: string;
   content: string;
   tags: string[];
@@ -23,10 +23,10 @@ interface TemplateBlurbMasterProps {
   blurbs: TemplateBlurb[];
   selectedBlurbId?: string;
   onSelectBlurb: (blurb: TemplateBlurb) => void;
-  onCreateBlurb: (type: 'intro' | 'closer' | 'signature') => void;
+  onCreateBlurb: (type: 'intro' | 'paragraph' | 'closer' | 'signature') => void;
   onEditBlurb: (blurb: TemplateBlurb) => void;
   onDeleteBlurb: (blurbId: string) => void;
-  filterType?: 'intro' | 'closer' | 'signature';
+  filterType?: 'intro' | 'paragraph' | 'closer' | 'signature';
 }
 
 export const TemplateBlurbMaster = ({

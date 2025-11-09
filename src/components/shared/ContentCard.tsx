@@ -147,7 +147,7 @@ export const ContentCard = ({
         {/* Content - Show read-only preview if children provided (for inline editing), otherwise show content */}
         {!children && (
         <div className="mb-6">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground whitespace-pre-line">
             {content}
           </p>
         </div>

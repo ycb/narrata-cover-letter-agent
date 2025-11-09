@@ -158,6 +158,8 @@ async function clearUserData(userId: string, accessToken: string): Promise<void>
     'companies',
     'evaluation_runs',
     'linkedin_profiles',
+    'saved_sections',
+    'cover_letter_templates',
     'sources'
   ];
   

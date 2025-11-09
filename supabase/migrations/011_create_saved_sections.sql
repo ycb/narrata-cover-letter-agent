@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS public.saved_sections (
 
   -- Source tracking
   source TEXT CHECK (source IN ('uploaded', 'manual', 'generated')),
-  source_file_id UUID REFERENCES public.uploaded_files(id) ON DELETE SET NULL,
+  source_file_id UUID REFERENCES public.sources(id) ON DELETE SET NULL,
 
   -- Gap detection integration
   has_gaps BOOLEAN DEFAULT false,

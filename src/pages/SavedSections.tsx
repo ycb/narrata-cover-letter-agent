@@ -1,69 +1,33 @@
 import { useState, useEffect } from "react";
+import type { ComponentProps } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Plus, FileText, CheckCircle, Edit, X, Loader2 } from "lucide-react";
+import { Plus, FileText, CheckCircle, Edit, X, Loader2, BookOpen } from "lucide-react";
 import { TemplateBlurbHierarchical } from "@/components/template-blurbs/TemplateBlurbHierarchical";
-import { type TemplateBlurb } from "@/components/template-blurbs/TemplateBlurbMaster";
 import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
 import { CoverLetterTemplateService, type SavedSection } from "@/services/coverLetterTemplateService";
 import { useAuth } from "@/contexts/AuthContext";
 
-// Mock template blurbs library (fallback)
-const mockTemplateBlurbs: TemplateBlurb[] = [
-  {
-    id: "intro-1",
-    type: "intro",
-    title: "Standard Professional Opening",
-    content: "I am writing to express my strong interest in the [Position] role at [Company]. With my background in [Industry/Field], I am excited about the opportunity to contribute to your team's success.",
-    tags: ["professional", "standard", "interest", "background"],
-    isDefault: true,
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z",
-    // Mock gap detection data - lacks compelling hook and company research
-    hasGaps: true,
-    gapCount: 1
-  },
-  {
-    id: "intro-2", 
-    type: "intro",
-    title: "Passionate Connection",
-    content: "I was thrilled to discover the [Position] opening at [Company], as it perfectly aligns with my passion for [Industry/Field] and my career goals in [Specific Area].",
-    tags: ["passion", "thrilled", "alignment", "career goals"],
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z",
-    // Mock gap detection data - lacks compelling hook and company research
-    hasGaps: true,
-    gapCount: 1
-  },
-  {
-    id: "intro-3",
-    type: "intro",
-    title: "Referral Opening",
-    content: "I was referred to this [Position] opportunity at [Company] by [Referral Name], who spoke highly of your team and the innovative work you're doing in [Industry/Field].",
-    tags: ["referral", "network", "recommendation", "connection"],
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
-  },
-  {
-    id: "closer-1",
-    type: "closer",
-    title: "Professional Closing",
-    content: "I am excited about the opportunity to discuss how my experience and skills can contribute to [Company]'s continued success. I look forward to hearing from you soon.",
-    tags: ["professional", "closing", "excitement", "follow-up"],
-    isDefault: true,
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z",
-    // Mock gap detection data - no gaps
-    hasGaps: false,
-    gapCount: 0
-  }
-];
+type SavedSectionBlurb = {
+  id: string;
+  type: 'intro' | 'paragraph' | 'closer' | 'signature';
+  title: string;
+  content: string;
+  tags: string[];
+  isDefault?: boolean;
+  timesUsed: number;
+  lastUsed?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type HierarchicalBlurb = ComponentProps<typeof TemplateBlurbHierarchical>['blurbs'][number];
 
 export default function SavedSections() {
   const { user } = useAuth();
-  const [templateBlurbs, setTemplateBlurbs] = useState<TemplateBlurb[]>([]);
+  const [templateBlurbs, setTemplateBlurbs] = useState<SavedSectionBlurb[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddReusableContentModal, setShowAddReusableContentModal] = useState(false);
@@ -91,7 +55,7 @@ export default function SavedSections() {
     const loadSavedSections = async () => {
       if (!user?.id) {
         setIsLoading(false);
-        setTemplateBlurbs(mockTemplateBlurbs); // Fallback to mock data if no user
+        setTemplateBlurbs([]);
         return;
       }
 
@@ -99,50 +63,76 @@ export default function SavedSections() {
         setIsLoading(true);
         setError(null);
 
-        const sections = await CoverLetterTemplateService.getUserSavedSections(user.id);
+        // Check if synthetic testing is enabled and get active profile
+        const { SyntheticUserService } = await import('../services/syntheticUserService');
+        const syntheticUserService = new SyntheticUserService();
+        const syntheticContext = await syntheticUserService.getSyntheticUserContext();
+        
+        console.log('[SavedSections] Synthetic context:', {
+          enabled: syntheticContext.isSyntheticTestingEnabled,
+          currentProfile: syntheticContext.currentUser?.profileId,
+          profileName: syntheticContext.currentUser?.profileName
+        });
+
+        // Get profile ID if synthetic testing is enabled
+        const profileId = syntheticContext.isSyntheticTestingEnabled 
+          ? syntheticContext.currentUser?.profileId 
+          : undefined;
+
+        const sections = await CoverLetterTemplateService.getUserSavedSections(user.id, profileId);
 
         // Convert SavedSection to TemplateBlurb format
-        const blurbs: TemplateBlurb[] = sections.map((section) => ({
+        const blurbs: SavedSectionBlurb[] = sections.map((section) => ({
           id: section.id!,
-          type: section.type as 'intro' | 'closer' | 'signature',
+          type: section.type as SavedSectionBlurb['type'],
           title: section.title,
           content: section.content,
-          tags: section.tags || [],
-          isDefault: section.is_default,
+          tags: Array.from(new Set([...(section.tags ?? []), ...(section.purpose_tags ?? [])])),
+          isDefault: (section.type as string) === 'intro',
           status: 'approved' as const,
           confidence: 'high' as const,
           timesUsed: section.times_used || 0,
           lastUsed: section.last_used,
           createdAt: section.created_at!,
           updatedAt: section.updated_at!,
-          hasGaps: section.has_gaps,
-          gapCount: section.gap_count || 0,
+          hasGaps: false,
+          gapCount: 0,
           linkedExternalLinks: [],
           externalLinks: []
         }));
 
-        setTemplateBlurbs(blurbs.length > 0 ? blurbs : mockTemplateBlurbs);
+        // Only show mock data if we have no real data AND no error occurred
+        // Empty array is valid - means no saved sections yet for this profile
+        if (blurbs.length > 0) {
+          setTemplateBlurbs(blurbs);
+        } else {
+          // No saved sections found - show empty state, not mock data
+          setTemplateBlurbs([]);
+          console.log('[SavedSections] No saved sections found for this profile');
+        }
       } catch (err) {
         console.error('Error loading saved sections:', err);
-        setError('Failed to load saved sections');
-        setTemplateBlurbs(mockTemplateBlurbs); // Fallback to mock data on error
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        console.error('Full error details:', err);
+        setError(`Failed to load saved sections: ${errorMessage}`);
+        setTemplateBlurbs([]);
       } finally {
         setIsLoading(false);
       }
     };
 
     loadSavedSections();
-  }, [user?.id]);
+  }, [user?.id]); // Note: This will reload when user changes, but synthetic profile changes trigger page reload
 
-  const handleSelectBlurbFromLibrary = (blurb: TemplateBlurb) => {
+  const handleSelectBlurbFromLibrary = (blurb: HierarchicalBlurb) => {
     console.log('Selected blurb from library:', blurb);
   };
 
-  const handleEditBlurb = (blurb: TemplateBlurb) => {
+  const handleEditBlurb = (blurb: HierarchicalBlurb) => {
     console.log('Edit blurb:', blurb);
   };
 
-  const handleCreateBlurb = (type?: 'intro' | 'closer' | 'signature' | string) => {
+  const handleCreateBlurb = (type?: 'intro' | 'paragraph' | 'closer' | 'signature' | string) => {
     if (type) {
       setNewReusableContent(prev => ({ ...prev, contentType: type }));
       setShowAddReusableContentModal(true);
@@ -161,7 +151,7 @@ export default function SavedSections() {
     }
   };
 
-  const handleGenerateContent = (blurb: TemplateBlurb) => {
+  const handleGenerateContent = (blurb: HierarchicalBlurb) => {
     const mockGapData = {
       id: `blurb-gap-${blurb.id}`,
       type: 'content-enhancement' as const,
@@ -266,7 +256,7 @@ export default function SavedSections() {
   };
 
   // Tag suggestion handler for Saved Sections
-  const handleTagSuggestions = async (blurb: TemplateBlurb) => {
+  const handleTagSuggestions = async (blurb: HierarchicalBlurb) => {
     console.log('handleTagSuggestions called with blurb:', blurb);
     // Generate mock tag suggestions based on blurb content
     const mockTags = await generateMockTags(blurb.content);
@@ -294,6 +284,20 @@ export default function SavedSections() {
     setTagContent('');
   };
 
+  const hierarchicalBlurbs = templateBlurbs.map((blurb) => ({
+    id: blurb.id,
+    type: blurb.type,
+    title: blurb.title,
+    content: blurb.content,
+    status: 'approved' as const,
+    confidence: 'high' as const,
+    tags: blurb.tags,
+    timesUsed: blurb.timesUsed,
+    lastUsed: blurb.lastUsed,
+    createdAt: blurb.createdAt,
+    updatedAt: blurb.updatedAt
+  }));
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-6">
@@ -318,16 +322,16 @@ export default function SavedSections() {
           <div className="container mx-auto px-4">
             <div className="max-w-4xl mx-auto">
               <div className="template-content-spacing mt-2">
+                {templateBlurbs.length === 0 ? (
+                  <div className="border border-dashed border-muted-foreground/40 rounded-lg p-8 text-center text-muted-foreground">
+                    <p className="font-medium text-foreground mb-2">No saved sections found for this profile.</p>
+                    <p>
+                      Upload a cover letter for this persona (e.g. P01) or create a new section manually to populate your library.
+                    </p>
+                  </div>
+                ) : (
                 <TemplateBlurbHierarchical
-                  blurbs={templateBlurbs.map(blurb => ({
-                    ...blurb,
-                    status: 'approved' as const,
-                    confidence: 'high' as const,
-                    timesUsed: 5,
-                    lastUsed: '2024-01-15',
-                    linkedExternalLinks: [],
-                    externalLinks: []
-                  }))}
+                    blurbs={hierarchicalBlurbs}
                   selectedBlurbId={undefined}
                   onSelectBlurb={handleSelectBlurbFromLibrary}
                   onCreateBlurb={handleCreateBlurb}
@@ -343,18 +347,29 @@ export default function SavedSections() {
                       type: 'intro',
                       label: 'Introduction',
                       description: 'Opening paragraphs that grab attention and introduce you',
-                      icon: FileText,
-                      blurbs: templateBlurbs.filter(b => b.type === 'intro')
+                      icon: FileText
+                    },
+                    {
+                      type: 'paragraph',
+                      label: 'Body Paragraph',
+                      description: 'Static supporting paragraphs kept verbatim from uploads',
+                      icon: BookOpen
                     },
                     {
                       type: 'closer',
                       label: 'Closing',
                       description: 'Professional closing paragraphs that wrap up your letter',
-                      icon: CheckCircle,
-                      blurbs: templateBlurbs.filter(b => b.type === 'closer')
+                      icon: CheckCircle
+                    },
+                    {
+                      type: 'signature',
+                      label: 'Signature',
+                      description: 'Sign-offs and contact information blocks',
+                      icon: Edit
                     }
                   ]}
                 />
+                )}
               </div>
             </div>
           </div>
@@ -468,32 +483,26 @@ export default function SavedSections() {
                       // Create saved section in database
                       const newSection: SavedSection = {
                         user_id: user.id,
-                        type: newReusableContent.contentType as 'intro' | 'closer' | 'signature' | 'other',
+                        type: newReusableContent.contentType as 'intro' | 'paragraph' | 'closer' | 'signature' | 'other',
                         title: newReusableContent.title,
                         content: newReusableContent.content,
                         tags: newReusableContent.tags.split(',').map(tag => tag.trim()).filter(Boolean),
-                        is_default: false,
-                        times_used: 0,
-                        source: 'manual'
+                        times_used: 0
                       };
 
                       const createdSection = await CoverLetterTemplateService.createSavedSection(newSection);
 
                       // Convert to TemplateBlurb for UI
-                      const newBlurb: TemplateBlurb = {
+                      const newBlurb: SavedSectionBlurb = {
                         id: createdSection.id!,
-                        type: createdSection.type as 'intro' | 'closer' | 'signature',
+                        type: createdSection.type as SavedSectionBlurb['type'],
                         title: createdSection.title,
                         content: createdSection.content,
-                        tags: createdSection.tags || [],
-                        isDefault: createdSection.is_default,
-                        status: 'approved',
-                        confidence: 'medium',
-                        timesUsed: 0,
+                        tags: createdSection.tags ?? [],
+                        timesUsed: createdSection.times_used ?? 0,
+                        lastUsed: createdSection.last_used ?? undefined,
                         createdAt: createdSection.created_at!,
-                        updatedAt: createdSection.updated_at!,
-                        linkedExternalLinks: [],
-                        externalLinks: []
+                        updatedAt: createdSection.updated_at!
                       };
 
                       setTemplateBlurbs(prev => [...prev, newBlurb]);
