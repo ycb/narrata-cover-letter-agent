@@ -386,93 +386,9 @@ export const WorkHistoryDetail = ({
     handleCompanyTagSuggestions();
   };
 
-  // Story tag suggestion handlers
-  const handleStoryTagSuggestions = async (tags: string[]) => {
-    console.log('handleStoryTagSuggestions called with:', tags);
-    // Get the actual story content from the current story
-    const currentStory = selectedRole?.blurbs?.[0]; // Get first story for now
-    const content = currentStory?.content || 'Story content for analysis';
-    console.log('Generating story tags for content:', content);
-    
-    // Open modal first with loading state
-    setTagContent(content);
-    setSuggestedTags([]); // Start with empty tags to show loading
-    setIsTagModalOpen(true);
-    console.log('Modal opened with loading state');
-    
-    // Generate tags asynchronously
-    const mockTags = await generateMockTags(content);
-    console.log('Generated story mock tags:', mockTags);
-    
-    const tagSuggestions = mockTags.map((tag, index) => ({
-      id: `story-tag-${index}`,
-      value: tag,
-      confidence: Math.random() > 0.5 ? 'high' : Math.random() > 0.3 ? 'medium' : 'low'
-    }));
-    console.log('Story tag suggestions:', tagSuggestions);
-    setSuggestedTags(tagSuggestions);
-    console.log('Updated modal with tag suggestions');
-  };
-
-  // Synchronous mock tag generation for stories
-  const generateMockTagsSync = (content: string): string[] => {
-    const keywords = content.toLowerCase();
-    const suggestedTags: string[] = [];
-    
-    // Story-specific tags
-    if (keywords.includes('achievement') || keywords.includes('success')) {
-      suggestedTags.push('Achievement');
-    }
-    if (keywords.includes('leadership') || keywords.includes('lead')) {
-      suggestedTags.push('Leadership');
-    }
-    if (keywords.includes('innovation') || keywords.includes('creative')) {
-      suggestedTags.push('Innovation');
-    }
-    if (keywords.includes('collaboration') || keywords.includes('team')) {
-      suggestedTags.push('Collaboration');
-    }
-    if (keywords.includes('results') || keywords.includes('impact')) {
-      suggestedTags.push('Results-driven');
-    }
-    if (keywords.includes('growth') || keywords.includes('scale')) {
-      suggestedTags.push('Growth');
-    }
-    if (keywords.includes('technical') || keywords.includes('engineering')) {
-      suggestedTags.push('Technical');
-    }
-    if (keywords.includes('strategy') || keywords.includes('strategic')) {
-      suggestedTags.push('Strategy');
-    }
-    
-    // Remove duplicates and limit to 5 tags
-    return [...new Set(suggestedTags)].slice(0, 5);
-  };
-
-  // Link tag suggestion handlers
-  const handleLinkTagSuggestions = (tags: string[]) => {
-    console.log('handleLinkTagSuggestions called with:', tags);
-    // Get the actual link content from the current link
-    const currentLink = selectedRole?.externalLinks?.[0]; // Get first link for now
-    const content = currentLink ? `${currentLink.label}: ${currentLink.url}` : 'Link content for analysis';
-    console.log('Generating link tags for content:', content);
-    
-    // Generate mock tags immediately without delay
-    const mockTags = generateMockTagsSync(content);
-    console.log('Generated link mock tags:', mockTags);
-    
-    const tagSuggestions = mockTags.map((tag, index) => ({
-      id: `link-tag-${index}`,
-      value: tag,
-      confidence: Math.random() > 0.5 ? 'high' : Math.random() > 0.3 ? 'medium' : 'low'
-    }));
-    console.log('Link tag suggestions:', tagSuggestions);
-    setSuggestedTags(tagSuggestions);
-    setTagContent(content);
-    console.log('Setting isTagModalOpen to true for link tags');
-    setIsTagModalOpen(true);
-    console.log('Link tag modal should be opening now');
-  };
+  // NOTE: Story and link tag suggestions removed
+  // Story tags are auto-generated when creating content to address gaps (using gapContext)
+  // Link tags are not needed - links are supporting evidence, not primary content
 
   // Update detail view when initialTab prop changes
   useEffect(() => {
