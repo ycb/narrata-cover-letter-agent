@@ -612,8 +612,28 @@ export const WorkHistoryDetail = ({
 
   const handleEditRole = () => {
     if (selectedRole) {
-      setEditingRole({ ...selectedRole });
+      setEditingRole({ ...selectedRole, tags: selectedRole.tags || [] });
+      setRoleTagInput('');
       setIsEditingRole(true);
+    }
+  };
+
+  const handleAddRoleTag = () => {
+    if (roleTagInput.trim() && editingRole && !editingRole.tags?.includes(roleTagInput.trim())) {
+      setEditingRole({
+        ...editingRole,
+        tags: [...(editingRole.tags || []), roleTagInput.trim()]
+      });
+      setRoleTagInput('');
+    }
+  };
+
+  const handleRemoveRoleTag = (tagToRemove: string) => {
+    if (editingRole) {
+      setEditingRole({
+        ...editingRole,
+        tags: (editingRole.tags || []).filter(tag => tag !== tagToRemove)
+      });
     }
   };
 
