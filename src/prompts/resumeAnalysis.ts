@@ -1,11 +1,27 @@
 // Resume analysis prompt with robust story, metric, and tag extraction
-export const buildResumeAnalysisPrompt = (text: string): string => {
+// Now supports cover letter context for enhanced tag extraction
+export const buildResumeAnalysisPrompt = (resumeText: string, coverLetterText?: string): string => {
+  const coverLetterSection = coverLetterText 
+    ? `\n\nCover Letter Text:
+${coverLetterText}
+
+IMPORTANT: Use cover letter content to enhance role tag extraction.
+Cover letters often expand on resume achievements with more detail and context.
+When extracting roleTags, consider both:
+1. Resume bullets (concise, metric-focused)
+2. Cover letter stories that reference each role (narrative, detailed)
+
+If a cover letter story references a specific role (company + title), use that story's context to enhance the roleTags for that role.
+Cover letter stories provide richer context about competencies, skills, and impact demonstrated in each role.
+` 
+    : '';
+
   return `
-You are analyzing a resume to extract structured data for a job application platform.
+You are analyzing a resume${coverLetterText ? ' and cover letter' : ''} to extract structured data for a job application platform.
 Your goal is to create a rich, searchable profile with stories, metrics, and thematic tags.
 
 Resume Text:
-${text}
+${resumeText}${coverLetterSection}
 
 Return ONLY valid JSON with this exact structure. ALL FIELDS ARE REQUIRED:
 

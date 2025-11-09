@@ -181,15 +181,23 @@ export const TemplateBlurbMaster = ({
                           {blurb.content}
                         </p>
                         
-                        {blurb.tags && blurb.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mb-2">
-                            {blurb.tags.map((tag, index) => (
-                              <Badge key={index} variant="secondary" className="text-xs">
-                                {tag}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {blurb.tags && blurb.tags.length > 0 && blurb.tags.map((tag, index) => (
+                            <Badge key={index} variant="secondary" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                          {(!blurb.tags || blurb.tags.length === 0) && (
+                            <Badge 
+                              variant="outline" 
+                              className="text-xs cursor-pointer hover:bg-muted border-dashed"
+                              onClick={() => onEditBlurb(blurb)}
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              Add tag
+                            </Badge>
+                          )}
+                        </div>
                         
                         <p className="text-xs text-muted-foreground">
                           Updated {new Date(blurb.updatedAt).toLocaleDateString()}

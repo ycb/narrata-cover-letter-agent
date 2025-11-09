@@ -229,17 +229,34 @@ export class GapDetectionService {
       metrics?: any[];
       startDate?: string;
       endDate?: string | null;
+      tags?: string[];
     },
     stories?: Array<{
       id: string;
       title: string;
       content: string;
       metrics?: any[];
-    }>
+    }>,
+    userGoals?: {
+      industries?: string[];
+      businessModels?: string[];
+    }
   ): Promise<Gap[]> {
     const gaps: Gap[] = [];
 
-    // 1. Detect role-level description gaps
+    // 1. Detect tag misalignment gaps (if user goals provided)
+    if (userGoals && (userGoals.industries?.length > 0 || userGoals.businessModels?.length > 0)) {
+      const tagGaps = this.detectTagMisalignmentGaps(
+        userId,
+        workItemId,
+        'work_item',
+        workItemData.tags || [],
+        userGoals
+      );
+      gaps.push(...tagGaps);
+    }
+
+    // 2. Detect role-level description gaps
     const roleDescriptionGaps = await this.detectRoleDescriptionGaps(
       userId,
       workItemId,
@@ -423,6 +440,253 @@ export class GapDetectionService {
     const tenureMonths = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30);
     
     return tenureMonths >= 12; // 1 year or more
+  }
+
+  /**
+   * Detect tag misalignment gaps
+   * Compares tags against user goals (industries and business models)
+   * Creates gaps when tags don't align with user preferences
+   */
+  static detectTagMisalignmentGaps(
+    userId: string,
+    entityId: string,
+    entityType: 'work_item' | 'company' | 'saved_section',
+    tags: string[],
+    userGoals: {
+      industries?: string[];
+      businessModels?: string[];
+    }
+  ): Gap[] {
+    const gaps: Gap[] = [];
+
+    if (!tags || tags.length === 0) {
+      // No tags at all - suggest adding tags
+      gaps.push({
+        user_id: userId,
+        entity_type: entityType === 'company' ? 'work_item' : entityType,
+        entity_id: entityId,
+        gap_type: 'data_quality',
+        gap_category: 'missing_tags',
+        severity: 'medium',
+        description: 'No tags found. Add tags to help match your experience to opportunities.',
+        suggestions: [
+          {
+            type: 'add_tags',
+            description: 'Use the tag suggestion feature to add relevant tags'
+          }
+        ]
+      });
+      return gaps;
+    }
+
+    // Normalize tags and goals for comparison
+    const normalizedTags = tags.map(t => t.toLowerCase().trim());
+    const userIndustries = (userGoals.industries || []).map(i => i.toLowerCase().trim());
+    const userBusinessModels = (userGoals.businessModels || []).map(b => b.toLowerCase().trim());
+
+    // Check for industry alignment
+    const hasIndustryMatch = userIndustries.some(industry => 
+      normalizedTags.some(tag => 
+        tag.includes(industry) || industry.includes(tag) ||
+        this.areSemanticallySimilar(tag, industry)
+      )
+    );
+
+    // Check for business model alignment
+    const hasBusinessModelMatch = userBusinessModels.some(model => 
+      normalizedTags.some(tag => 
+        tag.includes(model) || model.includes(tag) ||
+        this.areSemanticallySimilar(tag, model)
+      )
+    );
+
+    // Create gaps for misalignment
+    if (userIndustries.length > 0 && !hasIndustryMatch) {
+      gaps.push({
+        user_id: userId,
+        entity_type: entityType === 'company' ? 'work_item' : entityType,
+        entity_id: entityId,
+        gap_type: 'role_expectation',
+        gap_category: 'tag_industry_misalignment',
+        severity: 'medium',
+        description: `Tags don't align with your target industries (${userGoals.industries?.join(', ')}). Consider adding industry-relevant tags.`,
+        suggestions: [
+          {
+            type: 'update_tags',
+            description: `Add tags related to: ${userGoals.industries?.join(', ')}`,
+            targetIndustries: userGoals.industries
+          }
+        ]
+      });
+    }
+
+    if (userBusinessModels.length > 0 && !hasBusinessModelMatch) {
+      gaps.push({
+        user_id: userId,
+        entity_type: entityType === 'company' ? 'work_item' : entityType,
+        entity_id: entityId,
+        gap_type: 'role_expectation',
+        gap_category: 'tag_business_model_misalignment',
+        severity: 'medium',
+        description: `Tags don't align with your target business models (${userGoals.businessModels?.join(', ')}). Consider adding business model-relevant tags.`,
+        suggestions: [
+          {
+            type: 'update_tags',
+            description: `Add tags related to: ${userGoals.businessModels?.join(', ')}`,
+            targetBusinessModels: userGoals.businessModels
+          }
+        ]
+      });
+    }
+
+    return gaps;
+  }
+
+  /**
+   * Simple semantic similarity check
+   * Checks if two strings are semantically related (e.g., "fintech" and "financial technology")
+   */
+  private static areSemanticallySimilar(tag: string, goal: string): boolean {
+    // Common semantic mappings
+    const mappings: Record<string, string[]> = {
+      'fintech': ['financial', 'finance', 'banking', 'fintech'],
+      'saas': ['software', 'saas', 'cloud', 'platform'],
+      'b2b': ['enterprise', 'b2b', 'business-to-business'],
+      'b2c': ['consumer', 'b2c', 'retail', 'ecommerce'],
+      'healthcare': ['health', 'medical', 'healthcare', 'pharma'],
+      'ecommerce': ['ecommerce', 'e-commerce', 'retail', 'online'],
+    };
+
+    // Check direct mappings
+    for (const [key, values] of Object.entries(mappings)) {
+      if (tag.includes(key) || goal.includes(key)) {
+        const other = tag.includes(key) ? goal : tag;
+        if (values.some(v => other.includes(v))) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Re-analyze tag misalignment gaps when user goals change
+   * Checks all work items, companies, and saved sections for tag misalignment
+   */
+  static async reanalyzeTagMisalignmentGaps(
+    userId: string,
+    userGoals: {
+      industries?: string[];
+      businessModels?: string[];
+    }
+  ): Promise<void> {
+    try {
+      console.log('[GapDetectionService] Re-analyzing tag misalignment gaps...');
+
+      // 1. Get all work items with tags
+      const { data: workItems, error: workItemsError } = await supabase
+        .from('work_items')
+        .select('id, tags')
+        .eq('user_id', userId);
+
+      if (workItemsError) {
+        console.error('Error fetching work items:', workItemsError);
+        return;
+      }
+
+      // 2. Get all companies with tags
+      const { data: companies, error: companiesError } = await supabase
+        .from('companies')
+        .select('id, tags')
+        .eq('user_id', userId);
+
+      if (companiesError) {
+        console.error('Error fetching companies:', companiesError);
+        return;
+      }
+
+      // 3. Get all saved sections with tags
+      const { data: savedSections, error: savedSectionsError } = await supabase
+        .from('saved_sections')
+        .select('id, tags')
+        .eq('user_id', userId);
+
+      if (savedSectionsError) {
+        console.error('Error fetching saved sections:', savedSectionsError);
+        return;
+      }
+
+      // 4. Detect gaps for each entity
+      const allGaps: Gap[] = [];
+
+      // Work items
+      for (const workItem of workItems || []) {
+        const gaps = this.detectTagMisalignmentGaps(
+          userId,
+          workItem.id,
+          'work_item',
+          workItem.tags || [],
+          userGoals
+        );
+        allGaps.push(...gaps);
+      }
+
+      // Companies (map to work_item entity type for gaps table)
+      for (const company of companies || []) {
+        const gaps = this.detectTagMisalignmentGaps(
+          userId,
+          company.id,
+          'company',
+          company.tags || [],
+          userGoals
+        );
+        allGaps.push(...gaps);
+      }
+
+      // Saved sections
+      for (const section of savedSections || []) {
+        const gaps = this.detectTagMisalignmentGaps(
+          userId,
+          section.id,
+          'saved_section',
+          section.tags || [],
+          userGoals
+        );
+        allGaps.push(...gaps);
+      }
+
+      // 5. Resolve existing tag misalignment gaps before saving new ones
+      // This prevents duplicate gaps when goals change
+      const { data: existingGaps } = await supabase
+        .from('gaps')
+        .select('id')
+        .eq('user_id', userId)
+        .in('gap_category', ['missing_tags', 'tag_industry_misalignment', 'tag_business_model_misalignment'])
+        .eq('resolved', false);
+
+      if (existingGaps && existingGaps.length > 0) {
+        await supabase
+          .from('gaps')
+          .update({
+            resolved: true,
+            resolved_at: new Date().toISOString(),
+            resolved_reason: 'no_longer_applicable'
+          })
+          .in('id', existingGaps.map(g => g.id));
+      }
+
+      // 6. Save new gaps
+      if (allGaps.length > 0) {
+        await this.saveGaps(allGaps);
+        console.log(`[GapDetectionService] Created ${allGaps.length} tag misalignment gap(s)`);
+      } else {
+        console.log('[GapDetectionService] No tag misalignment gaps found');
+      }
+    } catch (error) {
+      console.error('[GapDetectionService] Error re-analyzing tag misalignment gaps:', error);
+      throw error;
+    }
   }
 
   /**

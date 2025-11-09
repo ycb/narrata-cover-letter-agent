@@ -36,7 +36,10 @@ import { ContentGapBanner } from "@/components/shared/ContentGapBanner";
 import { LinkedInDataSource } from "./LinkedInDataSource";
 import { ResumeDataSource } from "./ResumeDataSource";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserGoals } from "@/contexts/UserGoalsContext";
 import { GapDetectionService } from "@/services/gapDetectionService";
+import { TagSuggestionService } from "@/services/tagSuggestionService";
+import { TagService } from "@/services/tagService";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -88,11 +91,14 @@ export const WorkHistoryDetail = ({
   onRefresh,
 }: WorkHistoryDetailProps) => {
   const { user } = useAuth();
+  const { goals } = useUserGoals();
   const [detailView, setDetailView] = useState<DetailView>(initialTab);
   const [isEditingRole, setIsEditingRole] = useState(false);
   const [editingRole, setEditingRole] = useState<WorkHistoryRole | null>(null);
+  const [roleTagInput, setRoleTagInput] = useState('');
   const [isEditingStory, setIsEditingStory] = useState(false);
   const [editingStory, setEditingStory] = useState<WorkHistoryBlurb | null>(null);
+  const [storyTagInput, setStoryTagInput] = useState('');
   
   // Content Generation Modal state
   const [isContentModalOpen, setIsContentModalOpen] = useState(false);
@@ -102,6 +108,10 @@ export const WorkHistoryDetail = ({
   const [isTagModalOpen, setIsTagModalOpen] = useState(false);
   const [tagContent, setTagContent] = useState('');
   const [suggestedTags, setSuggestedTags] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [tagContentType, setTagContentType] = useState<'company' | 'role' | 'saved_section'>('company');
+  const [tagEntityId, setTagEntityId] = useState<string | undefined>();
   
   // Success state management - tracks which success cards have been dismissed
   const [dismissedSuccessCards, setDismissedSuccessCards] = useState<Set<string>>(new Set());
@@ -297,210 +307,88 @@ export const WorkHistoryDetail = ({
     onResolvedGapsChange(new Set([...resolvedGaps, stateKey]));
   };
 
-  // Tag suggestion handlers
-  const handleTagSuggestions = (tags: string[]) => {
-    console.log('handleTagSuggestions called with:', tags);
-    // Generate mock tag suggestions based on content
-    const content = `${selectedRole.title} at ${selectedCompany.name}: ${selectedRole.description}`;
-    console.log('Generating tags for content:', content);
-    
-    // Generate mock tags immediately without delay
-    const mockTags = generateMockTagsSync(content);
-    console.log('Generated mock tags:', mockTags);
-    
-    const tagSuggestions = mockTags.map((tag, index) => ({
-      id: `tag-${index}`,
-      value: tag,
-      confidence: Math.random() > 0.5 ? 'high' : Math.random() > 0.3 ? 'medium' : 'low'
-    }));
-    console.log('Tag suggestions:', tagSuggestions);
-    setSuggestedTags(tagSuggestions);
-    setTagContent(content);
-    console.log('Setting isTagModalOpen to true');
-    setIsTagModalOpen(true);
-    console.log('Modal should be opening now');
-  };
+  // NOTE: Role-level tag suggestions removed
+  // Tags are now extracted during onboarding from resume + cover letter in a single LLM call
+  // This avoids sending the same data to LLM twice
+  // Users can manually edit tags if needed, but auto-suggest is no longer needed for roles
 
-  // Mock tag generation function
-  const generateMockTags = async (content: string): Promise<string[]> => {
-    // No delay for demo purposes
+  const handleApplyTags = async (selectedTags: string[]) => {
+    if (!user || !tagEntityId) return;
     
-    const keywords = content.toLowerCase();
-    const suggestedTags: string[] = [];
-    
-    // Industry tags
-    if (keywords.includes('product') || keywords.includes('pm')) {
-      suggestedTags.push('Product Management');
+    try {
+      if (tagContentType === 'role') {
+        // Merge with existing tags
+        const allTags = [...new Set([...(selectedRole?.tags || []), ...selectedTags])];
+        await TagService.updateWorkItemTags(tagEntityId, allTags, user.id);
+      } else if (tagContentType === 'company') {
+        // Find company by ID if not selectedCompany
+        const targetCompany = selectedCompany || companies.find(c => c.id === tagEntityId);
+        if (targetCompany) {
+          // Merge with existing tags
+          const allTags = [...new Set([...(targetCompany.tags || []), ...selectedTags])];
+          await TagService.updateCompanyTags(tagEntityId, allTags, user.id);
+        }
+      }
+      
+      // Refresh work history
+      if (onRefresh) {
+        onRefresh();
+      }
+      
+      setIsTagModalOpen(false);
+      setSuggestedTags([]);
+      setTagContent('');
+      setSearchError(null);
+    } catch (error) {
+      console.error('Error updating tags:', error);
+      setSearchError(error instanceof Error ? error.message : 'Failed to update tags. Please try again.');
     }
-    if (keywords.includes('saas') || keywords.includes('software')) {
-      suggestedTags.push('SaaS');
-    }
-    if (keywords.includes('fintech') || keywords.includes('finance')) {
-      suggestedTags.push('Fintech');
-    }
-    if (keywords.includes('healthcare') || keywords.includes('medical')) {
-      suggestedTags.push('Healthcare');
-    }
-    if (keywords.includes('ecommerce') || keywords.includes('retail')) {
-      suggestedTags.push('E-commerce');
-    }
-    
-    // Competency tags
-    if (keywords.includes('strategy') || keywords.includes('strategic')) {
-      suggestedTags.push('Strategy');
-    }
-    if (keywords.includes('growth') || keywords.includes('scale')) {
-      suggestedTags.push('Growth');
-    }
-    if (keywords.includes('ux') || keywords.includes('user experience')) {
-      suggestedTags.push('UX');
-    }
-    if (keywords.includes('data') || keywords.includes('analytics')) {
-      suggestedTags.push('Data Analytics');
-    }
-    if (keywords.includes('leadership') || keywords.includes('team')) {
-      suggestedTags.push('Leadership');
-    }
-    if (keywords.includes('launch') || keywords.includes('release')) {
-      suggestedTags.push('Product Launch');
-    }
-    if (keywords.includes('revenue') || keywords.includes('monetization')) {
-      suggestedTags.push('Monetization');
-    }
-    
-    // Business model tags
-    if (keywords.includes('b2b') || keywords.includes('enterprise')) {
-      suggestedTags.push('B2B');
-    }
-    if (keywords.includes('b2c') || keywords.includes('consumer')) {
-      suggestedTags.push('B2C');
-    }
-    if (keywords.includes('marketplace') || keywords.includes('platform')) {
-      suggestedTags.push('Platform');
-    }
-    
-    // Remove duplicates and limit to 5 tags
-    return [...new Set(suggestedTags)].slice(0, 5);
-  };
-
-  const handleApplyTags = (selectedTags: string[]) => {
-    console.log('Applied tags:', selectedTags);
-    // TODO: Update role tags in the data
-    setIsTagModalOpen(false);
-    setSuggestedTags([]);
   };
 
   // Company tag suggestion handlers
-  const handleCompanyTagSuggestions = (tags: string[]) => {
-    console.log('handleCompanyTagSuggestions called with:', tags);
-    // Generate mock tag suggestions based on company content
-    const content = `${selectedCompany.name}: ${selectedCompany.description || 'Company information'}`;
-    console.log('Generating company tags for content:', content);
+  const handleCompanyTagSuggestions = async (company?: WorkHistoryCompany) => {
+    const targetCompany = company || selectedCompany;
+    if (!targetCompany) return;
     
-    // Generate mock tags immediately without delay
-    const mockTags = generateMockTagsSync(content);
-    console.log('Generated company mock tags:', mockTags);
+    const content = `${targetCompany.name}: ${targetCompany.description || 'Company information'}`;
     
-    const tagSuggestions = mockTags.map((tag, index) => ({
-      id: `company-tag-${index}`,
-      value: tag,
-      confidence: Math.random() > 0.5 ? 'high' : Math.random() > 0.3 ? 'medium' : 'low'
-    }));
-    console.log('Company tag suggestions:', tagSuggestions);
-    setSuggestedTags(tagSuggestions);
     setTagContent(content);
-    console.log('Setting isTagModalOpen to true for company tags');
+    setTagContentType('company');
+    setTagEntityId(targetCompany.id);
+    setSuggestedTags([]);
+    setSearchError(null);
+    setIsSearching(true); // Show "Researching company..." indicator
     setIsTagModalOpen(true);
-    console.log('Company tag modal should be opening now');
+    
+    try {
+      const suggestions = await TagSuggestionService.suggestTags({
+        content,
+        contentType: 'company',
+        companyName: targetCompany.name, // Pass company name for browser search
+        userGoals: goals ? {
+          industries: goals.industries,
+          businessModels: goals.businessModels
+        } : undefined,
+        existingTags: targetCompany.tags || []
+      });
+      
+      setSuggestedTags(suggestions);
+      setIsSearching(false);
+    } catch (error) {
+      console.error('Error generating tag suggestions:', error);
+      setIsSearching(false);
+      setSearchError(error instanceof Error ? error.message : 'Failed to research company. Please try again.');
+    }
   };
 
-  // Story tag suggestion handlers
-  const handleStoryTagSuggestions = async (tags: string[]) => {
-    console.log('handleStoryTagSuggestions called with:', tags);
-    // Get the actual story content from the current story
-    const currentStory = selectedRole?.blurbs?.[0]; // Get first story for now
-    const content = currentStory?.content || 'Story content for analysis';
-    console.log('Generating story tags for content:', content);
-    
-    // Open modal first with loading state
-    setTagContent(content);
-    setSuggestedTags([]); // Start with empty tags to show loading
-    setIsTagModalOpen(true);
-    console.log('Modal opened with loading state');
-    
-    // Generate tags asynchronously
-    const mockTags = await generateMockTags(content);
-    console.log('Generated story mock tags:', mockTags);
-    
-    const tagSuggestions = mockTags.map((tag, index) => ({
-      id: `story-tag-${index}`,
-      value: tag,
-      confidence: Math.random() > 0.5 ? 'high' : Math.random() > 0.3 ? 'medium' : 'low'
-    }));
-    console.log('Story tag suggestions:', tagSuggestions);
-    setSuggestedTags(tagSuggestions);
-    console.log('Updated modal with tag suggestions');
+  // Retry handler for company tag suggestions
+  const handleRetryCompanyTags = () => {
+    handleCompanyTagSuggestions();
   };
 
-  // Synchronous mock tag generation for stories
-  const generateMockTagsSync = (content: string): string[] => {
-    const keywords = content.toLowerCase();
-    const suggestedTags: string[] = [];
-    
-    // Story-specific tags
-    if (keywords.includes('achievement') || keywords.includes('success')) {
-      suggestedTags.push('Achievement');
-    }
-    if (keywords.includes('leadership') || keywords.includes('lead')) {
-      suggestedTags.push('Leadership');
-    }
-    if (keywords.includes('innovation') || keywords.includes('creative')) {
-      suggestedTags.push('Innovation');
-    }
-    if (keywords.includes('collaboration') || keywords.includes('team')) {
-      suggestedTags.push('Collaboration');
-    }
-    if (keywords.includes('results') || keywords.includes('impact')) {
-      suggestedTags.push('Results-driven');
-    }
-    if (keywords.includes('growth') || keywords.includes('scale')) {
-      suggestedTags.push('Growth');
-    }
-    if (keywords.includes('technical') || keywords.includes('engineering')) {
-      suggestedTags.push('Technical');
-    }
-    if (keywords.includes('strategy') || keywords.includes('strategic')) {
-      suggestedTags.push('Strategy');
-    }
-    
-    // Remove duplicates and limit to 5 tags
-    return [...new Set(suggestedTags)].slice(0, 5);
-  };
-
-  // Link tag suggestion handlers
-  const handleLinkTagSuggestions = (tags: string[]) => {
-    console.log('handleLinkTagSuggestions called with:', tags);
-    // Get the actual link content from the current link
-    const currentLink = selectedRole?.externalLinks?.[0]; // Get first link for now
-    const content = currentLink ? `${currentLink.label}: ${currentLink.url}` : 'Link content for analysis';
-    console.log('Generating link tags for content:', content);
-    
-    // Generate mock tags immediately without delay
-    const mockTags = generateMockTagsSync(content);
-    console.log('Generated link mock tags:', mockTags);
-    
-    const tagSuggestions = mockTags.map((tag, index) => ({
-      id: `link-tag-${index}`,
-      value: tag,
-      confidence: Math.random() > 0.5 ? 'high' : Math.random() > 0.3 ? 'medium' : 'low'
-    }));
-    console.log('Link tag suggestions:', tagSuggestions);
-    setSuggestedTags(tagSuggestions);
-    setTagContent(content);
-    console.log('Setting isTagModalOpen to true for link tags');
-    setIsTagModalOpen(true);
-    console.log('Link tag modal should be opening now');
-  };
+  // NOTE: Story and link tag suggestions removed
+  // Story tags are auto-generated when creating content to address gaps (using gapContext)
+  // Link tags are not needed - links are supporting evidence, not primary content
 
   // Update detail view when initialTab prop changes
   useEffect(() => {
@@ -520,8 +408,28 @@ export const WorkHistoryDetail = ({
 
   const handleEditRole = () => {
     if (selectedRole) {
-      setEditingRole({ ...selectedRole });
+      setEditingRole({ ...selectedRole, tags: selectedRole.tags || [] });
+      setRoleTagInput('');
       setIsEditingRole(true);
+    }
+  };
+
+  const handleAddRoleTag = () => {
+    if (roleTagInput.trim() && editingRole && !editingRole.tags?.includes(roleTagInput.trim())) {
+      setEditingRole({
+        ...editingRole,
+        tags: [...(editingRole.tags || []), roleTagInput.trim()]
+      });
+      setRoleTagInput('');
+    }
+  };
+
+  const handleRemoveRoleTag = (tagToRemove: string) => {
+    if (editingRole) {
+      setEditingRole({
+        ...editingRole,
+        tags: (editingRole.tags || []).filter(tag => tag !== tagToRemove)
+      });
     }
   };
 
@@ -531,17 +439,39 @@ export const WorkHistoryDetail = ({
       Object.assign(selectedRole, editingRole);
       setIsEditingRole(false);
       setEditingRole(null);
+      setRoleTagInput('');
     }
   };
 
   const handleCancelEdit = () => {
     setIsEditingRole(false);
     setEditingRole(null);
+    setRoleTagInput('');
   };
 
   const handleEditStory = (story: WorkHistoryBlurb) => {
-    setEditingStory({ ...story });
+    setEditingStory({ ...story, tags: story.tags || [] });
+    setStoryTagInput('');
     setIsEditingStory(true);
+  };
+
+  const handleAddStoryTag = () => {
+    if (storyTagInput.trim() && editingStory && !editingStory.tags?.includes(storyTagInput.trim())) {
+      setEditingStory({
+        ...editingStory,
+        tags: [...(editingStory.tags || []), storyTagInput.trim()]
+      });
+      setStoryTagInput('');
+    }
+  };
+
+  const handleRemoveStoryTag = (tagToRemove: string) => {
+    if (editingStory) {
+      setEditingStory({
+        ...editingStory,
+        tags: (editingStory.tags || []).filter(tag => tag !== tagToRemove)
+      });
+    }
   };
 
   const handleSaveStory = () => {
@@ -559,6 +489,7 @@ export const WorkHistoryDetail = ({
   const handleCancelEditStory = () => {
     setIsEditingStory(false);
     setEditingStory(null);
+    setStoryTagInput('');
   };
 
   // Edit Role Modal - Check this first
@@ -647,6 +578,45 @@ export const WorkHistoryDetail = ({
                     Add Metric
                   </Button>
                 </div>
+              </div>
+              
+              {/* Tags */}
+              <div className="space-y-2">
+                <Label htmlFor="roleTags">Tags</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="roleTags"
+                    value={roleTagInput}
+                    onChange={(e) => setRoleTagInput(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddRoleTag();
+                      }
+                    }}
+                    placeholder="Add a tag and press Enter"
+                  />
+                  <Button type="button" onClick={handleAddRoleTag} size="sm">
+                    Add
+                  </Button>
+                </div>
+                
+                {editingRole.tags && editingRole.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {editingRole.tags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-xs">
+                        {tag}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveRoleTag(tag)}
+                          className="ml-1 hover:text-destructive"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -749,6 +719,45 @@ export const WorkHistoryDetail = ({
                     Add Metric
                   </Button>
                 </div>
+              </div>
+              
+              {/* Tags */}
+              <div className="space-y-2">
+                <Label htmlFor="storyTags">Tags</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="storyTags"
+                    value={storyTagInput}
+                    onChange={(e) => setStoryTagInput(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddStoryTag();
+                      }
+                    }}
+                    placeholder="Add a tag and press Enter"
+                  />
+                  <Button type="button" onClick={handleAddStoryTag} size="sm">
+                    Add
+                  </Button>
+                </div>
+                
+                {editingStory.tags && editingStory.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {editingStory.tags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-xs">
+                        {tag}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveStoryTag(tag)}
+                          className="ml-1 hover:text-destructive"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -921,8 +930,13 @@ export const WorkHistoryDetail = ({
                     <span className="mr-2">No company tags available</span>
                     <TagSuggestionButton
                       content={`${roleCompany.name}: Company information`}
-                      onTagsSuggested={handleCompanyTagSuggestions}
-                      onClick={() => handleCompanyTagSuggestions([])}
+                      onTagsSuggested={() => {}}
+                      onClick={() => {
+                        const actualCompany = companies.find(c => c.name === roleCompany.name);
+                        if (actualCompany) {
+                          handleCompanyTagSuggestions(actualCompany);
+                        }
+                      }}
                       variant="tertiary"
                       size="sm"
                     />
@@ -1033,33 +1047,28 @@ export const WorkHistoryDetail = ({
                   <Tags className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm font-medium">Company Tags</span>
                 </div>
-                {hasCompanyTags ? (
-                  <div className="flex flex-wrap gap-1">
-                    {roleCompany.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="text-xs">
-                        {tag}
-                      </Badge>
-                    ))}
-                    <TagSuggestionButton
-                      content={`${roleCompany.name}: ${hasCompanyDescription ? roleCompany.description : 'Company information'}`}
-                      onTagsSuggested={handleCompanyTagSuggestions}
-                      onClick={() => handleCompanyTagSuggestions([])}
-                      variant="tertiary"
-                      size="sm"
-                    />
-                  </div>
-                ) : (
-                  <div className="text-sm text-muted-foreground">
-                    <span className="mr-2">No company tags available</span>
-                    <TagSuggestionButton
-                      content={`${roleCompany.name}: ${hasCompanyDescription ? roleCompany.description : 'Company information'}`}
-                      onTagsSuggested={handleCompanyTagSuggestions}
-                      onClick={() => handleCompanyTagSuggestions([])}
-                      variant="tertiary"
-                      size="sm"
-                    />
-                  </div>
-                )}
+                <div className="flex flex-wrap gap-1">
+                  {hasCompanyTags && roleCompany.tags.map((tag) => (
+                    <Badge key={tag} variant="secondary" className="text-xs">
+                      {tag}
+                    </Badge>
+                  ))}
+                  {!hasCompanyTags && (
+                    <Badge 
+                      variant="outline" 
+                      className="text-xs cursor-pointer hover:bg-muted border-dashed"
+                      onClick={() => {
+                        const actualCompany = companies.find(c => c.name === roleCompany.name);
+                        if (actualCompany) {
+                          handleCompanyTagSuggestions(actualCompany);
+                        }
+                      }}
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add tag
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
           );
@@ -1282,16 +1291,16 @@ export const WorkHistoryDetail = ({
                     {tag}
                   </Badge>
                 ))}
-                <TagSuggestionButton
-                  content={`${selectedRole.title} at ${selectedCompany.name}: ${selectedRole.description}`}
-                  onTagsSuggested={handleTagSuggestions}
-                  onClick={() => {
-                    setTagContent(`${selectedRole.title} at ${selectedCompany.name}: ${selectedRole.description}`);
-                    handleTagSuggestions([]);
-                  }}
-                  variant="tertiary"
-                  size="sm"
-                />
+                {selectedRole.tags.length === 0 && (
+                  <Badge 
+                    variant="outline" 
+                    className="text-xs cursor-pointer hover:bg-muted border-dashed"
+                    onClick={handleEditRole}
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Add tag
+                  </Badge>
+                )}
               </div>
             </div>
           </div>
@@ -1326,7 +1335,6 @@ export const WorkHistoryDetail = ({
                             onEdit={() => handleEditStory(story)}
                             onDuplicate={() => onDuplicateStory?.(story)}
                             onDelete={() => onDeleteStory?.(story)}
-                            onTagSuggestions={handleStoryTagSuggestions}
                             isGapResolved={resolvedGaps.has(`story-content-gap-${story.id}`)}
                             hasGaps={(story as any).hasGaps}
                             gaps={(story as any).gaps}
@@ -1404,7 +1412,6 @@ export const WorkHistoryDetail = ({
                           onEdit={() => onEditLink?.(link)}
                           onDuplicate={() => {}} // TODO: Implement link duplication
                           onDelete={() => {}} // TODO: Implement link deletion
-                          onTagSuggestions={handleLinkTagSuggestions}
                         />
                       </div>
                     ))}
@@ -1497,13 +1504,16 @@ export const WorkHistoryDetail = ({
                 {tag}
               </Badge>
             ))}
-            <TagSuggestionButton
-              content={`${selectedCompany.name}: ${selectedCompany.description || 'Company information'}`}
-              onTagsSuggested={handleCompanyTagSuggestions}
-              onClick={() => handleCompanyTagSuggestions([])}
-              variant="tertiary"
-              size="sm"
-            />
+            {selectedCompany.tags.length === 0 && (
+              <Badge 
+                variant="outline" 
+                className="text-xs cursor-pointer hover:bg-muted border-dashed"
+                onClick={handleCompanyTagSuggestions}
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Add tag
+              </Badge>
+            )}
           </div>
         </div>
 
@@ -1554,14 +1564,28 @@ export const WorkHistoryDetail = ({
         <ContentGenerationModal
           isOpen={isTagModalOpen}
           onClose={() => {
-            console.log('Closing tag suggestion modal');
             setIsTagModalOpen(false);
             setSuggestedTags([]);
+            setTagContent('');
+            setSearchError(null);
+            setIsSearching(false);
           }}
           mode="tag-suggestion"
           content={tagContent}
+          contentType={tagContentType}
+          entityId={tagEntityId}
+          existingTags={
+            tagContentType === 'company' 
+              ? (selectedCompany?.tags || companies.find(c => c.id === tagEntityId)?.tags || [])
+              : tagContentType === 'role'
+              ? (selectedRole?.tags || [])
+              : []
+          }
           suggestedTags={suggestedTags}
           onApplyTags={handleApplyTags}
+          isSearching={isSearching}
+          searchError={searchError}
+          onRetry={tagContentType === 'company' ? handleRetryCompanyTags : undefined}
         />
       </div>
     );

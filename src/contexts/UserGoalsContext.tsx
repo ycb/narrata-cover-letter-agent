@@ -268,9 +268,26 @@ export function UserGoalsProvider({ children }: UserGoalsProviderProps) {
           // - Role expectation gaps based on level requirements
         }
         
-        // TODO: When building auto-suggest tags feature, invalidate tag suggestion cache
-        // when industries or businessModels change, so new suggestions reflect updated preferences
-        // This will ensure tag suggestions align with user's stated interests in career goals
+        // Trigger tag misalignment gap re-analysis when industries or businessModels change
+        const industriesChanged = goals?.industries?.join(',') !== newGoals.industries?.join(',');
+        const businessModelsChanged = goals?.businessModels?.join(',') !== newGoals.businessModels?.join(',');
+        
+        if ((industriesChanged || businessModelsChanged) && user?.id) {
+          // Re-analyze tag misalignment gaps for all work items and saved sections
+          try {
+            const { GapDetectionService } = await import('@/services/gapDetectionService');
+            await GapDetectionService.reanalyzeTagMisalignmentGaps(
+              user.id,
+              {
+                industries: newGoals.industries,
+                businessModels: newGoals.businessModels
+              }
+            );
+          } catch (error) {
+            console.error('Error re-analyzing tag misalignment gaps:', error);
+            // Non-blocking: gap re-analysis failure shouldn't block goal save
+          }
+        }
       } catch (error) {
         console.error('Error saving user goals to database:', error);
         // Non-blocking: localStorage already saved

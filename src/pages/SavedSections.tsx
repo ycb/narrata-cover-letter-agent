@@ -7,6 +7,10 @@ import { Plus, FileText, CheckCircle, Edit, X } from "lucide-react";
 import { TemplateBlurbHierarchical } from "@/components/template-blurbs/TemplateBlurbHierarchical";
 import { type TemplateBlurb } from "@/components/template-blurbs/TemplateBlurbMaster";
 import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
+import { useUserGoals } from "@/contexts/UserGoalsContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { TagSuggestionService } from "@/services/tagSuggestionService";
+import { TagService } from "@/services/tagService";
 
 // Mock template blurbs library
 const mockTemplateBlurbs: TemplateBlurb[] = [
@@ -60,6 +64,8 @@ const mockTemplateBlurbs: TemplateBlurb[] = [
 ];
 
 export default function SavedSections() {
+  const { user } = useAuth();
+  const { goals } = useUserGoals();
   const [templateBlurbs, setTemplateBlurbs] = useState<TemplateBlurb[]>(mockTemplateBlurbs);
   const [showAddReusableContentModal, setShowAddReusableContentModal] = useState(false);
   const [newReusableContent, setNewReusableContent] = useState({ title: '', content: '', tags: '', contentType: '' });
@@ -80,6 +86,8 @@ export default function SavedSections() {
   const [isTagModalOpen, setIsTagModalOpen] = useState(false);
   const [tagContent, setTagContent] = useState('');
   const [suggestedTags, setSuggestedTags] = useState<any[]>([]);
+  const [tagEntityId, setTagEntityId] = useState<string | undefined>();
+  const [existingTags, setExistingTags] = useState<string[]>([]);
 
   const handleSelectBlurbFromLibrary = (blurb: TemplateBlurb) => {
     console.log('Selected blurb from library:', blurb);
@@ -143,94 +151,35 @@ export default function SavedSections() {
     setDismissedSuccessCards(prev => new Set([...prev, gapId]));
   };
 
-  // Mock tag generation function
-  const generateMockTags = async (content: string): Promise<string[]> => {
-    // No delay for demo purposes
-    const keywords = content.toLowerCase();
-    const suggestedTags: string[] = [];
-    
-    // Industry tags
-    if (keywords.includes('product') || keywords.includes('pm')) {
-      suggestedTags.push('Product Management');
-    }
-    if (keywords.includes('saas') || keywords.includes('software')) {
-      suggestedTags.push('SaaS');
-    }
-    if (keywords.includes('fintech') || keywords.includes('finance')) {
-      suggestedTags.push('Fintech');
-    }
-    if (keywords.includes('healthcare') || keywords.includes('medical')) {
-      suggestedTags.push('Healthcare');
-    }
-    if (keywords.includes('ecommerce') || keywords.includes('retail')) {
-      suggestedTags.push('E-commerce');
-    }
-    
-    // Competency tags
-    if (keywords.includes('strategy') || keywords.includes('strategic')) {
-      suggestedTags.push('Strategy');
-    }
-    if (keywords.includes('growth') || keywords.includes('scale')) {
-      suggestedTags.push('Growth');
-    }
-    if (keywords.includes('ux') || keywords.includes('user experience')) {
-      suggestedTags.push('UX');
-    }
-    if (keywords.includes('data') || keywords.includes('analytics')) {
-      suggestedTags.push('Data Analytics');
-    }
-    if (keywords.includes('leadership') || keywords.includes('team')) {
-      suggestedTags.push('Leadership');
-    }
-    if (keywords.includes('launch') || keywords.includes('release')) {
-      suggestedTags.push('Product Launch');
-    }
-    if (keywords.includes('revenue') || keywords.includes('monetization')) {
-      suggestedTags.push('Monetization');
-    }
-    
-    // Business model tags
-    if (keywords.includes('b2b') || keywords.includes('enterprise')) {
-      suggestedTags.push('B2B');
-    }
-    if (keywords.includes('b2c') || keywords.includes('consumer')) {
-      suggestedTags.push('B2C');
-    }
-    if (keywords.includes('marketplace') || keywords.includes('platform')) {
-      suggestedTags.push('Platform');
-    }
-    
-    // Remove duplicates and limit to 5 tags
-    return [...new Set(suggestedTags)].slice(0, 5);
-  };
-
-  // Tag suggestion handler for Saved Sections
-  const handleTagSuggestions = async (blurb: TemplateBlurb) => {
-    console.log('handleTagSuggestions called with blurb:', blurb);
-    // Generate mock tag suggestions based on blurb content
-    const mockTags = await generateMockTags(blurb.content);
-    console.log('Generated mock tags for blurb:', mockTags);
-    
-    const tagSuggestions = mockTags.map((tag, index) => ({
-      id: `blurb-tag-${index}`,
-      value: tag,
-      confidence: Math.random() > 0.5 ? 'high' : Math.random() > 0.3 ? 'medium' : 'low'
-    }));
-    console.log('Blurb tag suggestions:', tagSuggestions);
-    setSuggestedTags(tagSuggestions);
-    setTagContent(blurb.content);
-    console.log('Setting isTagModalOpen to true for blurb tags');
-    setIsTagModalOpen(true);
-    console.log('Blurb tag modal should be opening now');
-  };
+  // NOTE: Saved section tag suggestions removed
+  // Tags are auto-generated when creating content to address gaps (using gapContext)
+  // This happens automatically during HIL content creation flow
 
   // Handle applying selected tags
-  const handleApplyTags = (selectedTags: string[]) => {
-    console.log('Applied tags to blurb:', selectedTags);
-    // TODO: Update blurb tags in the data
+  const handleApplyTags = async (selectedTags: string[]) => {
+    if (!user || !tagEntityId) return;
+    
+    try {
+      // Merge with existing tags
+      const allTags = [...new Set([...existingTags, ...selectedTags])];
+      await TagService.updateSavedSectionTags(tagEntityId, allTags, user.id);
+      
+      // Update local state
+      setTemplateBlurbs(prev => prev.map(blurb => 
+        blurb.id === tagEntityId 
+          ? { ...blurb, tags: allTags, updatedAt: new Date().toISOString() }
+          : blurb
+      ));
+      
     setIsTagModalOpen(false);
     setSuggestedTags([]);
     setTagContent('');
+      setTagEntityId(undefined);
+      setExistingTags([]);
+    } catch (error) {
+      console.error('Error updating tags:', error);
+      // Error handling could be added here
+    }
   };
 
   return (
@@ -261,7 +210,6 @@ export default function SavedSections() {
                   onEditBlurb={handleEditBlurb}
                   onDeleteBlurb={handleDeleteBlurb}
                   onGenerateContent={handleGenerateContent}
-                  onTagSuggestions={handleTagSuggestions}
                   resolvedGaps={resolvedGaps}
                   dismissedSuccessCards={dismissedSuccessCards}
                   onDismissSuccessCard={handleDismissSuccessCard}
@@ -421,12 +369,17 @@ export default function SavedSections() {
         <ContentGenerationModal
           mode="tag-suggestion"
           content={tagContent}
+          contentType="saved_section"
+          entityId={tagEntityId}
+          existingTags={existingTags}
           suggestedTags={suggestedTags}
           isOpen={isTagModalOpen}
           onClose={() => {
             setIsTagModalOpen(false);
             setSuggestedTags([]);
             setTagContent('');
+            setTagEntityId(undefined);
+            setExistingTags([]);
           }}
           onApplyTags={handleApplyTags}
         />

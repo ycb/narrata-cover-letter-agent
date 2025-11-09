@@ -583,7 +583,10 @@ source_type: dbSourceType,
         analysisResult = await this.llmAnalysisService.analyzeCaseStudy(extractedText);
       } else {
         console.log('→ Using RESUME analysis');
-        analysisResult = await this.llmAnalysisService.analyzeResume(extractedText);
+        // Check if we have a pending cover letter to include in resume analysis
+        // This allows tag extraction from both resume AND cover letter in one call
+        const coverLetterText = this.pendingCoverLetter?.text;
+        analysisResult = await this.llmAnalysisService.analyzeResume(extractedText, coverLetterText);
       }
       const llmEndTime = performance.now();
       const llmDuration = (llmEndTime - llmStartTime).toFixed(2);
