@@ -1306,14 +1306,16 @@ export const WorkHistoryDetail = ({
                     {tag}
                   </Badge>
                 ))}
-                <Badge 
-                  variant="outline" 
-                  className="text-xs cursor-pointer hover:bg-muted border-dashed"
-                  onClick={handleEditRole}
-                >
-                  <Plus className="h-3 w-3 mr-1" />
-                  {selectedRole.tags.length === 0 ? 'Add tag' : ''}
-                </Badge>
+                {selectedRole.tags.length === 0 && (
+                  <Badge 
+                    variant="outline" 
+                    className="text-xs cursor-pointer hover:bg-muted border-dashed"
+                    onClick={handleEditRole}
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Add tag
+                  </Badge>
+                )}
               </div>
             </div>
           </div>
@@ -1517,13 +1519,16 @@ export const WorkHistoryDetail = ({
                 {tag}
               </Badge>
             ))}
-            <TagSuggestionButton
-              content={`${selectedCompany.name}: ${selectedCompany.description || 'Company information'}`}
-              onTagsSuggested={() => {}}
-              onClick={handleCompanyTagSuggestions}
-              variant="tertiary"
-              size="sm"
-            />
+            {selectedCompany.tags.length === 0 && (
+              <Badge 
+                variant="outline" 
+                className="text-xs cursor-pointer hover:bg-muted border-dashed"
+                onClick={handleCompanyTagSuggestions}
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Add tag
+              </Badge>
+            )}
           </div>
         </div>
 
