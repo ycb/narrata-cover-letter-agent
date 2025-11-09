@@ -6,6 +6,7 @@
 
 import { supabase } from '@/lib/supabase';
 import { LLMAnalysisService } from './openaiService';
+import { mapCompanyStageToMaturity } from '@/utils/companyMaturity';
 
 export interface CompanyResearchResult {
   companyName: string;
@@ -345,12 +346,17 @@ Return valid JSON only, no markdown formatting.`;
 
   private static async cacheResearch(research: CompanyResearchResult, companyName: string): Promise<void> {
     try {
-      // Cache in companies table
+      // Map companyStage to maturity for PM Levels
+      const maturity = mapCompanyStageToMaturity(research.companyStage);
+      
+      // Cache in companies table, including company_stage and maturity for PM Levels
       const { error } = await supabase
         .from('companies')
         .update({
           research_cache: research,
-          research_cached_at: new Date().toISOString()
+          research_cached_at: new Date().toISOString(),
+          company_stage: research.companyStage || null,
+          maturity: maturity || null
         })
         .ilike('name', companyName);
 
