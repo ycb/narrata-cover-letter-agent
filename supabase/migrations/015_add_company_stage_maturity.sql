@@ -23,21 +23,33 @@ COMMENT ON COLUMN companies.maturity IS 'Normalized maturity for PM Levels: earl
 
 -- Backfill maturity from research_cache if available
 -- Map companyStage from research_cache to maturity
-UPDATE companies
-SET 
-  company_stage = CASE 
-    WHEN research_cache->>'companyStage' IS NOT NULL 
-    THEN research_cache->>'companyStage'
-    ELSE NULL
-  END,
-  maturity = CASE
-    WHEN research_cache->>'companyStage' = 'startup' THEN 'early'
-    WHEN research_cache->>'companyStage' = 'growth-stage' THEN 'growth'
-    WHEN research_cache->>'companyStage' = 'established' THEN 'late'
-    WHEN research_cache->>'companyStage' = 'enterprise' THEN 'late'
-    ELSE NULL
-  END
-WHERE research_cache IS NOT NULL 
-  AND research_cache->>'companyStage' IS NOT NULL
-  AND (company_stage IS NULL OR maturity IS NULL);
+-- Only run if research_cache column exists (migration 014 may not have run yet)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 
+    FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'companies' 
+    AND column_name = 'research_cache'
+  ) THEN
+    UPDATE companies
+    SET 
+      company_stage = CASE 
+        WHEN research_cache->>'companyStage' IS NOT NULL 
+        THEN research_cache->>'companyStage'
+        ELSE NULL
+      END,
+      maturity = CASE
+        WHEN research_cache->>'companyStage' = 'startup' THEN 'early'
+        WHEN research_cache->>'companyStage' = 'growth-stage' THEN 'growth'
+        WHEN research_cache->>'companyStage' = 'established' THEN 'late'
+        WHEN research_cache->>'companyStage' = 'enterprise' THEN 'late'
+        ELSE NULL
+      END
+    WHERE research_cache IS NOT NULL 
+      AND research_cache->>'companyStage' IS NOT NULL
+      AND (company_stage IS NULL OR maturity IS NULL);
+  END IF;
+END $$;
 
