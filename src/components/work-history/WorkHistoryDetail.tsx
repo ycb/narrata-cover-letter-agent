@@ -1387,13 +1387,9 @@ export const WorkHistoryDetail = ({
                     {tag}
                   </Badge>
                 ))}
-                <TagSuggestionButton
-                  content={`${selectedRole.title} at ${selectedCompany.name}: ${selectedRole.description}`}
-                  onTagsSuggested={() => {}}
-                  onClick={handleTagSuggestions}
-                  variant="tertiary"
-                  size="sm"
-                />
+                {selectedRole.tags.length === 0 && (
+                  <span className="text-xs text-muted-foreground">No tags yet. Tags are extracted during onboarding from your resume and cover letter.</span>
+                )}
               </div>
             </div>
           </div>

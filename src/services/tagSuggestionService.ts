@@ -6,7 +6,7 @@
 
 import { LLMAnalysisService } from './openaiService';
 import { BrowserSearchService, type CompanyResearchResult } from './browserSearchService';
-import { buildContentTaggingPrompt } from '@/prompts/contentTagging';
+import { buildContentTaggingPrompt, type GapContext } from '@/prompts/contentTagging';
 
 export interface TagSuggestion {
   id: string;
@@ -48,6 +48,7 @@ export interface RoleTagSuggestionRequest extends BaseTagSuggestionRequest {
  */
 export interface SavedSectionTagSuggestionRequest extends BaseTagSuggestionRequest {
   contentType: 'saved_section';
+  gapContext?: GapContext; // For new content created to address gaps
 }
 
 /**
@@ -97,12 +98,13 @@ export class TagSuggestionService {
       }
     }
 
-    // 2. Build prompt with user goals context and company research
+    // 2. Build prompt with user goals context, company research, and gap context
     const prompt = buildContentTaggingPrompt(
       request.content,
       request.contentType,
       request.userGoals,
-      companyResearch
+      companyResearch,
+      request.gapContext
     );
 
     // 3. Call OpenAI

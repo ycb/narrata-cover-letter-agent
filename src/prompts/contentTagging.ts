@@ -5,11 +5,19 @@
 // - Adding configurable tag categories
 import type { CompanyResearchResult } from '@/services/browserSearchService';
 
+export interface GapContext {
+  gapCategory?: string;
+  gapType?: string;
+  gapDescription?: string;
+  suggestions?: any[];
+}
+
 export const buildContentTaggingPrompt = (
   content: string, 
   contentType: 'company' | 'role' | 'saved_section',
   userGoals?: { industries?: string[]; businessModels?: string[] },
-  companyResearch?: CompanyResearchResult | null
+  companyResearch?: CompanyResearchResult | null,
+  gapContext?: GapContext | null
 ): string => {
   const userContext = userGoals 
     ? `\n\nUSER PREFERENCES (HIGH PRIORITY - PRIORITIZE THESE):\n- Industries of interest: ${userGoals.industries?.join(', ') || 'none'}\n- Business models of interest: ${userGoals.businessModels?.join(', ') || 'none'}\n\nCRITICAL: When suggesting tags, prioritize tags that align with these preferences. If the content relates to these industries/business models, include them as high-confidence tags in the primaryTags array. Map industries to relevant role tags (e.g., "Fintech" → "financial products", "B2B SaaS" → "enterprise", "Healthcare" → "health tech").`
@@ -18,9 +26,16 @@ export const buildContentTaggingPrompt = (
   const companyContext = companyResearch
     ? `\n\nCOMPANY RESEARCH (FROM WEB SEARCH):\n- Industry: ${companyResearch.industry || 'unknown'}\n- Business Model: ${companyResearch.businessModel || 'unknown'}\n- Company Stage: ${companyResearch.companyStage || 'unknown'}\n- Company Size: ${companyResearch.companySize || 'unknown'}\n- Description: ${companyResearch.description || 'N/A'}\n- Key Products: ${companyResearch.keyProducts?.join(', ') || 'N/A'}\n\nUse this research data to enhance tag suggestions. Prioritize tags that match the researched industry and business model.`
     : '';
+
+  const gapContextSection = gapContext
+    ? `\n\nGAP CONTEXT (This content addresses a specific gap):\n- Gap Category: ${gapContext.gapCategory || 'unknown'}\n- Gap Type: ${gapContext.gapType || 'unknown'}\n- Gap Description: ${gapContext.gapDescription || 'N/A'}\n- Suggestions: ${gapContext.suggestions?.map((s: any) => typeof s === 'string' ? s : s?.suggestion || s?.description || JSON.stringify(s)).join(', ') || 'N/A'}\n\nUse this gap context to inform tag suggestions. Tags should reflect what gap this content addresses and what competencies/skills it demonstrates.`
+    : '';
   
   return `You are an expert at analyzing professional content and generating relevant tags for matching and categorization.
-${userContext}${companyContext}
+${userContext}${companyContext}${gapContextSection}
+  
+  return `You are an expert at analyzing professional content and generating relevant tags for matching and categorization.
+${userContext}${companyContext}${gapContext}
 
 Content to analyze:
 ${content}

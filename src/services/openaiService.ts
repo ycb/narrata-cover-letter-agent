@@ -35,13 +35,14 @@ export class LLMAnalysisService {
   /**
    * Analyze resume text and extract structured data
    */
-  async analyzeResume(text: string): Promise<LLMAnalysisResult> {
+  async analyzeResume(text: string, coverLetterText?: string): Promise<LLMAnalysisResult> {
     try {
       // Calculate optimal token limit based on content analysis
+      const contentLength = text.length + (coverLetterText?.length || 0);
       const optimalTokens = this.calculateOptimalTokens(text, 'resume');
-      console.warn(`🚀 Starting resume analysis with ${optimalTokens} tokens (smart calculation)`);
+      console.warn(`🚀 Starting resume${coverLetterText ? ' + cover letter' : ''} analysis with ${optimalTokens} tokens (smart calculation)`);
       
-      const prompt = this.buildResumeAnalysisPrompt(text);
+      const prompt = this.buildResumeAnalysisPrompt(text, coverLetterText);
       const response = await this.callOpenAI(prompt, optimalTokens);
       
       if (!response.success) {
@@ -183,8 +184,8 @@ export class LLMAnalysisService {
   /**
    * Build prompt for resume analysis
    */
-  private buildResumeAnalysisPrompt(text: string): string {
-    return buildResumeAnalysisPrompt(text);
+  private buildResumeAnalysisPrompt(text: string, coverLetterText?: string): string {
+    return buildResumeAnalysisPrompt(text, coverLetterText);
   }
 
   // Removed legacy cover letter prompt; we rely on prompts/coverLetterAnalysis.ts
