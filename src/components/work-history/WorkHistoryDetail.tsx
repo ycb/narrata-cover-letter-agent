@@ -95,8 +95,10 @@ export const WorkHistoryDetail = ({
   const [detailView, setDetailView] = useState<DetailView>(initialTab);
   const [isEditingRole, setIsEditingRole] = useState(false);
   const [editingRole, setEditingRole] = useState<WorkHistoryRole | null>(null);
+  const [roleTagInput, setRoleTagInput] = useState('');
   const [isEditingStory, setIsEditingStory] = useState(false);
   const [editingStory, setEditingStory] = useState<WorkHistoryBlurb | null>(null);
+  const [storyTagInput, setStoryTagInput] = useState('');
   
   // Content Generation Modal state
   const [isContentModalOpen, setIsContentModalOpen] = useState(false);
@@ -621,17 +623,39 @@ export const WorkHistoryDetail = ({
       Object.assign(selectedRole, editingRole);
       setIsEditingRole(false);
       setEditingRole(null);
+      setRoleTagInput('');
     }
   };
 
   const handleCancelEdit = () => {
     setIsEditingRole(false);
     setEditingRole(null);
+    setRoleTagInput('');
   };
 
   const handleEditStory = (story: WorkHistoryBlurb) => {
-    setEditingStory({ ...story });
+    setEditingStory({ ...story, tags: story.tags || [] });
+    setStoryTagInput('');
     setIsEditingStory(true);
+  };
+
+  const handleAddStoryTag = () => {
+    if (storyTagInput.trim() && editingStory && !editingStory.tags?.includes(storyTagInput.trim())) {
+      setEditingStory({
+        ...editingStory,
+        tags: [...(editingStory.tags || []), storyTagInput.trim()]
+      });
+      setStoryTagInput('');
+    }
+  };
+
+  const handleRemoveStoryTag = (tagToRemove: string) => {
+    if (editingStory) {
+      setEditingStory({
+        ...editingStory,
+        tags: (editingStory.tags || []).filter(tag => tag !== tagToRemove)
+      });
+    }
   };
 
   const handleSaveStory = () => {
@@ -649,6 +673,7 @@ export const WorkHistoryDetail = ({
   const handleCancelEditStory = () => {
     setIsEditingStory(false);
     setEditingStory(null);
+    setStoryTagInput('');
   };
 
   // Edit Role Modal - Check this first
@@ -737,6 +762,45 @@ export const WorkHistoryDetail = ({
                     Add Metric
                   </Button>
                 </div>
+              </div>
+              
+              {/* Tags */}
+              <div className="space-y-2">
+                <Label htmlFor="roleTags">Tags</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="roleTags"
+                    value={roleTagInput}
+                    onChange={(e) => setRoleTagInput(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddRoleTag();
+                      }
+                    }}
+                    placeholder="Add a tag and press Enter"
+                  />
+                  <Button type="button" onClick={handleAddRoleTag} size="sm">
+                    Add
+                  </Button>
+                </div>
+                
+                {editingRole.tags && editingRole.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {editingRole.tags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-xs">
+                        {tag}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveRoleTag(tag)}
+                          className="ml-1 hover:text-destructive"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -839,6 +903,45 @@ export const WorkHistoryDetail = ({
                     Add Metric
                   </Button>
                 </div>
+              </div>
+              
+              {/* Tags */}
+              <div className="space-y-2">
+                <Label htmlFor="storyTags">Tags</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="storyTags"
+                    value={storyTagInput}
+                    onChange={(e) => setStoryTagInput(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddStoryTag();
+                      }
+                    }}
+                    placeholder="Add a tag and press Enter"
+                  />
+                  <Button type="button" onClick={handleAddStoryTag} size="sm">
+                    Add
+                  </Button>
+                </div>
+                
+                {editingStory.tags && editingStory.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {editingStory.tags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-xs">
+                        {tag}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveStoryTag(tag)}
+                          className="ml-1 hover:text-destructive"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1387,9 +1490,14 @@ export const WorkHistoryDetail = ({
                     {tag}
                   </Badge>
                 ))}
-                {selectedRole.tags.length === 0 && (
-                  <span className="text-xs text-muted-foreground">No tags yet. Tags are extracted during onboarding from your resume and cover letter.</span>
-                )}
+                <Badge 
+                  variant="outline" 
+                  className="text-xs cursor-pointer hover:bg-muted border-dashed"
+                  onClick={handleEditRole}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  {selectedRole.tags.length === 0 ? 'Add tag' : ''}
+                </Badge>
               </div>
             </div>
           </div>
