@@ -151,30 +151,9 @@ export default function SavedSections() {
     setDismissedSuccessCards(prev => new Set([...prev, gapId]));
   };
 
-  const handleTagSuggestions = async (blurb: TemplateBlurb) => {
-    setTagContent(blurb.content);
-    setTagEntityId(blurb.id);
-    setExistingTags(blurb.tags || []);
-    setSuggestedTags([]);
-    setIsTagModalOpen(true);
-    
-    try {
-      const suggestions = await TagSuggestionService.suggestTags({
-        content: blurb.content,
-        contentType: 'saved_section',
-        userGoals: goals ? {
-          industries: goals.industries,
-          businessModels: goals.businessModels
-        } : undefined,
-        existingTags: blurb.tags || []
-      });
-      
-      setSuggestedTags(suggestions);
-    } catch (error) {
-      console.error('Error generating tag suggestions:', error);
-      // Error will be shown in modal if needed
-    }
-  };
+  // NOTE: Saved section tag suggestions removed
+  // Tags are auto-generated when creating content to address gaps (using gapContext)
+  // This happens automatically during HIL content creation flow
 
   // Handle applying selected tags
   const handleApplyTags = async (selectedTags: string[]) => {
