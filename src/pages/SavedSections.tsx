@@ -231,7 +231,6 @@ export default function SavedSections() {
                   onEditBlurb={handleEditBlurb}
                   onDeleteBlurb={handleDeleteBlurb}
                   onGenerateContent={handleGenerateContent}
-                  onTagSuggestions={handleTagSuggestions}
                   resolvedGaps={resolvedGaps}
                   dismissedSuccessCards={dismissedSuccessCards}
                   onDismissSuccessCard={handleDismissSuccessCard}

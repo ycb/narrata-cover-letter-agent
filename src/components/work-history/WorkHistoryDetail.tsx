@@ -1552,7 +1552,6 @@ export const WorkHistoryDetail = ({
                             onEdit={() => handleEditStory(story)}
                             onDuplicate={() => onDuplicateStory?.(story)}
                             onDelete={() => onDeleteStory?.(story)}
-                            onTagSuggestions={handleStoryTagSuggestions}
                             isGapResolved={resolvedGaps.has(`story-content-gap-${story.id}`)}
                             hasGaps={(story as any).hasGaps}
                             gaps={(story as any).gaps}
@@ -1630,7 +1629,6 @@ export const WorkHistoryDetail = ({
                           onEdit={() => onEditLink?.(link)}
                           onDuplicate={() => {}} // TODO: Implement link duplication
                           onDelete={() => {}} // TODO: Implement link deletion
-                          onTagSuggestions={handleLinkTagSuggestions}
                         />
                       </div>
                     ))}
