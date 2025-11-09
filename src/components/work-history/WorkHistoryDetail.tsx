@@ -1047,43 +1047,28 @@ export const WorkHistoryDetail = ({
                   <Tags className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm font-medium">Company Tags</span>
                 </div>
-                {hasCompanyTags ? (
-                  <div className="flex flex-wrap gap-1">
-                    {roleCompany.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="text-xs">
-                        {tag}
-                      </Badge>
-                    ))}
-                    <TagSuggestionButton
-                      content={`${roleCompany.name}: ${hasCompanyDescription ? roleCompany.description : 'Company information'}`}
-                      onTagsSuggested={() => {}}
+                <div className="flex flex-wrap gap-1">
+                  {hasCompanyTags && roleCompany.tags.map((tag) => (
+                    <Badge key={tag} variant="secondary" className="text-xs">
+                      {tag}
+                    </Badge>
+                  ))}
+                  {!hasCompanyTags && (
+                    <Badge 
+                      variant="outline" 
+                      className="text-xs cursor-pointer hover:bg-muted border-dashed"
                       onClick={() => {
                         const actualCompany = companies.find(c => c.name === roleCompany.name);
                         if (actualCompany) {
                           handleCompanyTagSuggestions(actualCompany);
                         }
                       }}
-                      variant="tertiary"
-                      size="sm"
-                    />
-                  </div>
-                ) : (
-                  <div className="text-sm text-muted-foreground">
-                    <span className="mr-2">No company tags available</span>
-                    <TagSuggestionButton
-                      content={`${roleCompany.name}: ${hasCompanyDescription ? roleCompany.description : 'Company information'}`}
-                      onTagsSuggested={() => {}}
-                      onClick={() => {
-                        const actualCompany = companies.find(c => c.name === roleCompany.name);
-                        if (actualCompany) {
-                          handleCompanyTagSuggestions(actualCompany);
-                        }
-                      }}
-                      variant="tertiary"
-                      size="sm"
-                    />
-                  </div>
-                )}
+                    >
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add tag
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
           );
