@@ -33,9 +33,6 @@ export const buildContentTaggingPrompt = (
   
   return `You are an expert at analyzing professional content and generating relevant tags for matching and categorization.
 ${userContext}${companyContext}${gapContextSection}
-  
-  return `You are an expert at analyzing professional content and generating relevant tags for matching and categorization.
-${userContext}${companyContext}${gapContext}
 
 Content to analyze:
 ${content}
