@@ -442,11 +442,6 @@ export default function CoverLetterTemplate() {
       value: 'closer',
       label: 'Closing',
       description: 'Professional closing paragraphs that wrap up your letter'
-    },
-    {
-      value: 'signature',
-      label: 'Signature',
-      description: 'Sign-offs and contact information blocks'
     }
   ];
 

@@ -336,14 +336,8 @@ export default function SavedSections() {
                     {
                       type: 'closer',
                       label: 'Closing',
-                      description: 'Professional closing paragraphs that wrap up your letter',
+                      description: 'Professional closing paragraphs that reinforce your interest',
                       icon: CheckCircle
-                    },
-                    {
-                      type: 'signature',
-                      label: 'Signature',
-                      description: 'Sign-offs and contact information blocks',
-                      icon: Edit
                     }
                   ]}
                 />

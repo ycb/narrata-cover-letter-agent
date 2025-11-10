@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
@@ -11,10 +11,11 @@ import { ContentGapBanner } from "@/components/shared/ContentGapBanner";
 import { ContentCard } from "@/components/shared/ContentCard";
 import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 interface TemplateBlurb {
   id: string;
-  type: 'intro' | 'paragraph' | 'closer' | 'signature';
+  type: 'intro' | 'paragraph' | 'closer' | 'signature' | string;
   title: string;
   content: string;
   status: 'approved' | 'draft' | 'needs-review';
@@ -27,7 +28,7 @@ interface TemplateBlurb {
 }
 
 interface BlurbTypeGroup {
-  type: 'intro' | 'paragraph' | 'closer' | 'signature';
+  type: 'intro' | 'paragraph' | 'closer' | 'signature' | string;
   label: string;
   description: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -95,21 +96,27 @@ export const TemplateBlurbHierarchical = ({
       description: 'Concluding paragraphs that reinforce your interest',
       icon: CheckCircle,
       isDefault: true
-    },
-    {
-      type: 'signature',
-      label: 'Signature',
-      description: 'Professional sign-offs and contact information',
-      icon: Edit,
-      isDefault: true
     }
   ];
 
   // Use provided content types or fall back to defaults
   const allContentTypes = contentTypes.length > 0 ? contentTypes : defaultContentTypes;
 
+  const uniqueBlurbTypes = Array.from(new Set(blurbs.map((blurb) => blurb.type)));
+  const missingConfigs = uniqueBlurbTypes
+    .filter((type) => !allContentTypes.some((config) => config.type === type))
+    .map((type) => ({
+      type,
+      label: type.charAt(0).toUpperCase() + type.slice(1),
+      description: 'Custom content type',
+      icon: FileText,
+      isDefault: false,
+    }));
+
+  const contentTypeConfigs = [...allContentTypes, ...missingConfigs];
+
   const getTypeConfig = (type: string) => {
-    const config = allContentTypes.find(ct => ct.type === type);
+    const config = contentTypeConfigs.find(ct => ct.type === type);
     if (config) {
       return config;
     }
@@ -158,7 +165,7 @@ export const TemplateBlurbHierarchical = ({
   };
 
   // Group blurbs by type and filter by search
-  const groupedBlurbs: BlurbTypeGroup[] = allContentTypes.map((contentType) => {
+  const groupedBlurbs: BlurbTypeGroup[] = contentTypeConfigs.map((contentType) => {
     let typeBlurbs = blurbs.filter(blurb => {
       const matchesType = blurb.type === contentType.type;
       const matchesSearch = searchTerm === '' || 
@@ -195,14 +202,17 @@ export const TemplateBlurbHierarchical = ({
       .replace(/_/g, ' ')
       .replace(/\b\w/g, (char) => char.toUpperCase());
 
+  const hasInitializedRef = React.useRef(false);
+
   React.useEffect(() => {
-    if (!expandedType) {
+    if (!hasInitializedRef.current) {
       const firstGroupWithContent = groupedBlurbs.find((group) => group.blurbs.length > 0);
       if (firstGroupWithContent) {
         setExpandedType(firstGroupWithContent.type);
       }
+      hasInitializedRef.current = true;
     }
-  }, [expandedType, groupedBlurbs]);
+  }, [groupedBlurbs]);
 
   return (
     <div className="space-y-6">
@@ -241,7 +251,13 @@ export const TemplateBlurbHierarchical = ({
 
       {/* Blurb Groups */}
       {hasResults ? (
-        <Accordion type="single" collapsible value={expandedType} onValueChange={setExpandedType} className="accordion-item-spacing">
+        <Accordion
+          type="single"
+          collapsible
+          value={expandedType}
+          onValueChange={(value) => setExpandedType(value || undefined)}
+          className="accordion-item-spacing"
+        >
           {groupedBlurbs.map((group) => {
             const isDefaultType = allContentTypes.find(ct => ct.type === group.type)?.isDefault;
             const firstBlurb = group.blurbs[0];
@@ -253,9 +269,9 @@ export const TemplateBlurbHierarchical = ({
 
             return (
               <AccordionItem key={group.type} value={group.type} className="border rounded-lg">
-                <div className="flex items-center justify-between px-6 py-4">
-                  <AccordionTrigger className="flex-1 px-0 py-0 hover:no-underline focus:outline-none focus-visible:ring-0">
-                    <div className="flex items-center gap-4 pr-4 text-left">
+                <AccordionTrigger className="px-6 py-4 hover:no-underline focus:outline-none focus-visible:ring-0">
+                  <div className="flex w-full items-center justify-between gap-4">
+                    <div className="flex items-center gap-4 pr-2 text-left">
                       {remainingGapCount > 0 ? (
                         <IntelligentAlertBadge
                           gapCount={remainingGapCount}
@@ -273,46 +289,65 @@ export const TemplateBlurbHierarchical = ({
                         <p className="text-sm text-muted-foreground leading-relaxed">{group.description}</p>
                       </div>
                     </div>
-                  </AccordionTrigger>
-                  <div className="flex items-center gap-3">
-                    <Button
-                      variant="tertiary"
-                      size="sm"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        onCreateBlurb(group.type);
-                      }}
-                    >
-                      Add {group.label}
-                    </Button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          disabled={isDefaultType || !firstBlurb}
-                          onClick={() => firstBlurb && onEditBlurb(firstBlurb)}
-                        >
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit Section
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          disabled={isDefaultType || !firstBlurb}
-                          onClick={() => firstBlurb && onDeleteBlurb(firstBlurb.id)}
-                          className="text-destructive"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete Section
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <div className="flex items-center gap-2">
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        className={buttonVariants({ variant: "tertiary", size: "sm" })}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          onCreateBlurb(group.type);
+                        }}
+                        onKeyDown={(event) => handleKeyActivate(event, () => onCreateBlurb(group.type))}
+                      >
+                        Add {group.label}
+                      </span>
+                      {expandedType === group.type && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              className={cn(
+                                buttonVariants({ variant: "ghost", size: "sm" }),
+                                "h-8 w-8 p-0 flex items-center justify-center"
+                              )}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.stopPropagation();
+                                }
+                              }}
+                            >
+                              <span className="sr-only">Open menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </span>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
+                            <DropdownMenuItem
+                              disabled={isDefaultType || !firstBlurb}
+                              onClick={() => firstBlurb && onEditBlurb(firstBlurb)}
+                            >
+                              <Edit className="mr-2 h-4 w-4" />
+                              Edit Section
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              disabled={isDefaultType || !firstBlurb}
+                              onClick={() => firstBlurb && onDeleteBlurb(firstBlurb.id)}
+                              className="text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete Section
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </div>
                   </div>
-                </div>
+                </AccordionTrigger>
                 <AccordionContent className="px-6 pb-6">
                   <div className="space-y-4 mt-6">
                     {group.blurbs.map((blurb) => {

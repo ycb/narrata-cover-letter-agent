@@ -23,12 +23,13 @@ import LevelEvidenceModal from "@/components/assessment/LevelEvidenceModal";
 import RoleEvidenceModal from "@/components/assessment/RoleEvidenceModal";
 import { SpecializationCard } from "@/components/assessment/SpecializationCard";
 import { CompetencyCard } from "@/components/assessment/CompetencyCard";
+import { CareerLadder } from "@/components/assessment/CareerLadder";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { usePMLevel } from "@/hooks/usePMLevel";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { calculateEvidenceBasedConfidence } from "@/utils/confidenceCalculation";
-import { getConfidenceProgressColor, getConfidenceBadgeColor } from "@/utils/confidenceBadge";
+import { getConfidenceProgressColor, getConfidenceBadgeColor, textConfidenceToPercentage } from "@/utils/confidenceBadge";
 import { cn } from "@/lib/utils";
 
 // Helper function to map PM level code to display text
@@ -261,7 +262,6 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
   const [activeTab, setActiveTab] = useState<string>(initialSection);
   const [selectedCompetency, setSelectedCompetency] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
-  const [showLeadershipTrack, setShowLeadershipTrack] = useState(false);
   const [evidenceModalOpen, setEvidenceModalOpen] = useState(false);
   const [selectedEvidence, setSelectedEvidence] = useState<any>(null);
   const [levelEvidenceModalOpen, setLevelEvidenceModalOpen] = useState(false);
@@ -542,7 +542,6 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
     inferenceSource,
     competencies,
     roleArchetypes,
-    levelProgression,
     roleArchetypeEvidence,
     levelEvidence,
     evidenceByCompetency,
@@ -559,7 +558,7 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
             <div>
               <h1 className="text-3xl font-bold tracking-tight">PM Level Assessment</h1>
               <p className="text-muted-foreground">
-                {levelDescription} • {inferenceSource}
+                {inferenceSource}
               </p>
             </div>
             <div className="flex items-center space-x-2">
@@ -584,97 +583,58 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
           </div>
 
           {/* Main Content */}
-          {/* Level Overview Card */}
+          {/* Level Assessment Summary Card */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
-              Your PM Level
-            </CardTitle>
-            <CardDescription>
-              Based on your experience, skills, and impact
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-2xl font-bold">{currentLevel}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Confidence: <span className="capitalize">{confidence}</span>
-                  </p>
-                </div>
+          <CardContent className="p-6">
+            <div className="text-center space-y-4">
+              {/* Level Header Section */}
+              <h2 className="text-3xl font-bold tracking-tight">
+                You are a {currentLevel}
+              </h2>
+              
+              {/* Basis and Confidence on single line */}
+              {(() => {
+                // Get confidence percentage from levelEvidence or convert from text
+                const confidencePercentage = levelEvidence?.levelingFramework?.confidencePercentage !== undefined
+                  ? levelEvidence.levelingFramework.confidencePercentage
+                  : textConfidenceToPercentage(confidence as 'high' | 'medium' | 'low');
+                
+                return (
+                  <div className="flex items-center justify-center gap-2">
+                    <p className="text-sm text-muted-foreground">
+                      {inferenceSource}
+                    </p>
+                    <Badge className={getConfidenceBadgeColor(confidencePercentage)}>
+                      {confidencePercentage}% confidence
+                    </Badge>
+                  </div>
+                );
+              })()}
+              
+              {/* Primary CTA */}
+              <div className="pt-2">
                 <Button 
-                  variant="secondary" 
-                  size="sm"
+                  size="lg"
                   onClick={() => setLevelEvidenceModalOpen(true)}
+                  className="px-6"
                 >
-                  <Info className="w-4 h-4 mr-2" />
-                  View Evidence
+                  View Evidence for Overall Level
+                  <TrendingUp className="w-4 h-4 ml-2" />
                 </Button>
               </div>
-              
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Level Progression</span>
-                  <button 
-                    className="text-primary hover:underline text-sm"
-                    onClick={() => setShowLeadershipTrack(!showLeadershipTrack)}
-                  >
-                    {showLeadershipTrack ? 'Hide' : 'Show'} Leadership Track
-                  </button>
-                </div>
-                
-                <div className="relative pt-1">
-                  <div className="flex items-center justify-between">
-                    {levelProgression.map((level: any, index: number) => (
-                      <div 
-                        key={level.level} 
-                        className={`relative flex-1 ${index < levelProgression.length - 1 ? 'mr-2' : ''}`}
-                      >
-                        <div 
-                          className={`text-xs text-center ${level.current ? 'font-bold text-primary' : 'text-muted-foreground'}`}
-                        >
-                          {level.level}
-                        </div>
-                        {level.current && (
-                          <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                            <div className="w-2 h-2 bg-primary rounded-full"></div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="relative h-2 mt-2 overflow-hidden bg-gray-100 rounded-full">
-                    <div 
-                      className="absolute top-0 left-0 h-full bg-primary rounded-full"
-                      style={{
-                        width: `${(levelProgression.findIndex((l: any) => l.current) + 1) / levelProgression.length * 100}%`
-                      }}
-                    ></div>
-                  </div>
-                </div>
-              </div>
-
-              {showLeadershipTrack && (
-                <div className="p-4 mt-4 border rounded-md bg-muted/20">
-                  <h4 className="mb-2 font-medium">Leadership Track</h4>
-                  <p className="text-sm text-muted-foreground">
-                    As you progress in your career, you'll take on more strategic responsibilities and leadership roles.
-                    The next step after {currentLevel} is typically {nextLevel}.
-                  </p>
-                  <Button 
-                    variant="secondary" 
-                    size="sm" 
-                    className="mt-3"
-                    onClick={() => setLevelEvidenceModalOpen(true)}
-                  >
-                    <Info className="w-4 h-4 mr-2" />
-                    View Leadership Track Details
-                  </Button>
-                </div>
-              )}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Career Ladder Card */}
+        <Card>
+          <CardContent className="p-6">
+            <h3 className="text-xl font-semibold mb-4">PM Career Ladder</h3>
+            <CareerLadder
+              currentLevelCode={levelData?.inferredLevel || 'L4'}
+              currentLevelDisplay={currentLevel}
+              onViewEvidence={() => setLevelEvidenceModalOpen(true)}
+            />
           </CardContent>
         </Card>
 
@@ -713,7 +673,7 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
               Role Specializations
             </CardTitle>
             <CardDescription>
-              How your profile matches different PM specializations
+              How your profile matches PM specializations
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -756,11 +716,8 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
               </div>
             ) : (
               <div className="text-center py-8">
-                <p className="text-muted-foreground mb-2">
-                  No specializations detected yet
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Add more work history and stories to see your specialization matches
+                <p className="text-muted-foreground">
+                  No specializations detected: add stories to see new matches
                 </p>
               </div>
             )}
@@ -780,7 +737,7 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {(() => {
                   // Sort recommendations: Narrata-specific types first, then general
                   const narrataTypes = ['quantify-metrics', 'add-story'];
@@ -798,12 +755,14 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
                   });
                   
                   return sortedRecommendations.map((rec: any, index: number) => (
-                    <div key={rec.id || index}>
-                      <h4 className="font-medium">{rec.title}</h4>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {rec.description}
-                      </p>
-                    </div>
+                    <Card key={rec.id || index}>
+                      <CardContent className="p-4">
+                        <h4 className="font-medium mb-2">{rec.title}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          {rec.description}
+                        </p>
+                      </CardContent>
+                    </Card>
                   ));
                 })()}
               </div>
