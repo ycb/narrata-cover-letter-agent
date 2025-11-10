@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { PMLevelsService } from '@/services/pmLevelsService';
 import type { PMLevelInference, PMLevelCode, RoleType } from '@/types/content';
+import { toast } from 'sonner';
 
 export function usePMLevel() {
   const { user } = useAuth();
@@ -43,9 +44,12 @@ export function usePMLevel() {
     onSuccess: (data) => {
       // Update the query cache with the new data
       queryClient.setQueryData(['pmLevel', user?.id], data);
+      // Show success toast only after analysis actually completes
+      toast.success('Analysis completed successfully');
     },
     onError: (error) => {
       console.error('Error recalculating PM level:', error);
+      toast.error('Failed to run analysis. Please try again.');
     },
   });
 

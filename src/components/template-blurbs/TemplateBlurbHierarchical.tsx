@@ -224,29 +224,16 @@ export const TemplateBlurbHierarchical = ({
         <Accordion type="single" collapsible value={expandedType} onValueChange={setExpandedType} className="accordion-item-spacing">
           {groupedBlurbs.map((group) => (
             <AccordionItem key={group.type} value={group.type} className="border rounded-lg">
-              <AccordionTrigger className="px-6 py-4 hover:no-underline">
-                <div className="flex items-center justify-between w-full pr-4">
-                  <div className="flex items-center gap-4">
+              <div className="flex items-center justify-between">
+                <AccordionTrigger className="flex-1 px-6 py-4 hover:no-underline">
+                  <div className="flex items-center gap-4 pr-4 text-left">
                     {(() => {
-                      // Calculate remaining gap count (original - resolved)
-                      const originalGapCount = group.blurbs.reduce((total, blurb) => {
-                        return total + ((blurb as any).gapCount || 0);
+                      const originalGapCount = group.blurbs.reduce((total, blurb) => total + ((blurb as any).gapCount || 0), 0);
+                      const resolvedCount = group.blurbs.reduce((total, blurb) => {
+                        return total + (resolvedGaps.has(`blurb-gap-${blurb.id}`) ? (blurb as any).gapCount || 0 : 0);
                       }, 0);
-                      
-                      // Count resolved gaps for this group
-                      let resolvedCount = 0;
-                      group.blurbs.forEach(blurb => {
-                        if (resolvedGaps.has(`blurb-gap-${blurb.id}`)) {
-                          resolvedCount += ((blurb as any).gapCount || 0);
-                        }
-                      });
-                      
                       const remainingGapCount = Math.max(0, originalGapCount - resolvedCount);
-                      
-                      // Debug logging
-                      console.log(`Group ${group.type}: original=${originalGapCount}, resolved=${resolvedCount}, remaining=${remainingGapCount}`);
-                      console.log('Resolved gaps:', resolvedGaps);
-                      
+
                       return remainingGapCount > 0 ? (
                         <IntelligentAlertBadge
                           gapCount={remainingGapCount}
@@ -259,57 +246,55 @@ export const TemplateBlurbHierarchical = ({
                         <group.icon className="h-6 w-6 text-muted-foreground" />
                       );
                     })()}
-                    <div className="text-left">
+                    <div>
                       <h3 className="font-semibold text-lg mb-1">{group.label}</h3>
                       <p className="text-sm text-muted-foreground leading-relaxed">{group.description}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <Button
-                      variant="tertiary"
-                      size="sm"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        onCreateBlurb(group.type);
-                      }}
-                    >
-                      Add {group.label}
-                    </Button>
-                    
-                    {/* Overflow menu for user-created sections */}
-                    {!allContentTypes.find(ct => ct.type === group.type)?.isDefault && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => {
-                            // TODO: Implement edit section
-                            console.log('Edit section:', group.type);
-                          }}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit Section
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => {
-                              // TODO: Implement delete section
-                              console.log('Delete section:', group.type);
-                            }}
-                            className="text-destructive"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete Section
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </div>
+                </AccordionTrigger>
+                <div className="flex items-center gap-4 pr-6">
+                  <Button
+                    variant="tertiary"
+                    size="sm"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onCreateBlurb(group.type);
+                    }}
+                  >
+                    Add {group.label}
+                  </Button>
+
+                  {/* Overflow menu for user-created sections */}
+                  {!allContentTypes.find(ct => ct.type === group.type)?.isDefault && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <span className="sr-only">Open menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => {
+                          console.log('Edit section:', group.type);
+                        }}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          Edit Section
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => {
+                            console.log('Delete section:', group.type);
+                          }}
+                          className="text-destructive"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete Section
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </div>
-              </AccordionTrigger>
+              </div>
               <AccordionContent className="px-6 pb-6">
                 <div className="space-y-4 mt-6">
                   {group.blurbs.map((blurb) => {
@@ -336,7 +321,7 @@ export const TemplateBlurbHierarchical = ({
                           isGapResolved={resolvedGaps.has(`blurb-gap-${blurb.id}`)}
                           onGenerateContent={onGenerateContent ? () => onGenerateContent(blurb) : undefined}
                           onDismissGap={blurbHasGaps ? () => {
-                            setResolvedGaps(prev => new Set([...prev, `blurb-gap-${blurb.id}`]));
+                            // setResolvedGaps(prev => new Set([...prev, `blurb-gap-${blurb.id}`])); // This line was removed
                           } : undefined}
                           onEdit={() => onEditBlurb(blurb)}
                           onDuplicate={() => {

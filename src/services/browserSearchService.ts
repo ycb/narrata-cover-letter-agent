@@ -40,6 +40,9 @@ export class BrowserSearchService {
   /**
    * Research company using OpenAI
    * Uses multi-layer caching: in-memory → localStorage → database → API
+   * 
+   * Note: Future enhancement - could optionally accept tenure dates (startDate, endDate)
+   * to ask for historical company stage in the same LLM call. If it requires 2 calls, skip it.
    */
   static async researchCompany(companyName: string, useCache: boolean = true): Promise<CompanyResearchResult> {
     const normalizedName = companyName.trim().toLowerCase();

@@ -74,12 +74,6 @@ export default function SavedSections() {
         const syntheticUserService = new SyntheticUserService();
         const syntheticContext = await syntheticUserService.getSyntheticUserContext();
         
-        console.log('[SavedSections] Synthetic context:', {
-          enabled: syntheticContext.isSyntheticTestingEnabled,
-          currentProfile: syntheticContext.currentUser?.profileId,
-          profileName: syntheticContext.currentUser?.profileName
-        });
-
         // Get profile ID if synthetic testing is enabled
         const profileId = syntheticContext.isSyntheticTestingEnabled 
           ? syntheticContext.currentUser?.profileId 
@@ -114,7 +108,6 @@ export default function SavedSections() {
         } else {
           // No saved sections found - show empty state, not mock data
           setTemplateBlurbs([]);
-          console.log('[SavedSections] No saved sections found for this profile');
         }
       } catch (err) {
         console.error('Error loading saved sections:', err);

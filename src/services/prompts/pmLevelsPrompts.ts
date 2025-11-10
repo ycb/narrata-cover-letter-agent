@@ -154,9 +154,10 @@ If multiple companies, use the most mature one (highest level).
 Return ONLY valid JSON with this structure:
 {
   "maturity": <"early" | "growth" | "late">,
-  "value": <0.8 for early, 1.0 for growth, 1.2 for late>,
   "reasoning": <brief explanation>
 }
+
+Note: Maturity is used for display/evidence only, not as a scoring modifier.
 
 Return valid JSON only, no markdown formatting.`;
 };

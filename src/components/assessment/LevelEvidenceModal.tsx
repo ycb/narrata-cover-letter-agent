@@ -5,12 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
 import { 
-  Building, 
-  User, 
-  FileText,
-  Target, 
-  BarChart3,
-  Edit
+  ArrowRight,
+  CheckCircle2,
+  HelpCircle
 } from "lucide-react";
 
 interface LevelEvidence {
@@ -31,6 +28,8 @@ interface LevelEvidence {
     framework: string;
     criteria: string[];
     match: string;
+    confidencePercentage?: number;
+    metCriteria?: Array<{ criterion: string; met: boolean }>;
   };
   gaps: {
     area: string;
@@ -96,7 +95,7 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">Level Assessment Summary</CardTitle>
                 <Badge className={getConfidenceColor(evidence.confidence)}>
-                  {evidence.confidence} confidence
+                  {evidence.levelingFramework?.confidencePercentage || Math.round(parseFloat(evidence.levelingFramework?.match?.replace('% confident', '') || '0'))}% confidence
                 </Badge>
               </div>
             </CardHeader>
@@ -121,37 +120,41 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
           {/* Resume Evidence */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Building className="h-5 w-5" />
+              <CardTitle className="text-lg">
                 Resume & LinkedIn Evidence
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
                 <h4 className="font-medium mb-2">Role Titles & Progression</h4>
-                <div className="flex flex-wrap gap-2">
-                  {(evidence.resumeEvidence?.roleTitles || []).map((title, index) => (
-                    <Badge key={index} variant="outline">
-                      {title}
-                    </Badge>
+                <div className="flex flex-wrap items-center gap-2">
+                  {(evidence.resumeEvidence?.roleTitles || []).map((title, index, array) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Badge variant="outline">
+                        {title}
+                      </Badge>
+                      {index < array.length - 1 && (
+                        <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </div>
                   ))}
                 </div>
-              </div>
-              
-              <div>
-                <h4 className="font-medium mb-2">Experience Duration</h4>
-                <p className="text-sm text-muted-foreground">{evidence.resumeEvidence?.duration || 'N/A'}</p>
               </div>
 
               <div>
-                <h4 className="font-medium mb-2">Company Scale</h4>
+                <h4 className="font-medium mb-2">Companies</h4>
                 <div className="flex flex-wrap gap-2">
-                  {(evidence.resumeEvidence?.companyScale || []).map((scale, index) => (
+                  {(evidence.resumeEvidence?.companyScale || []).map((company, index) => (
                     <Badge key={index} variant="secondary">
-                      {scale}
+                      {company}
                     </Badge>
                   ))}
                 </div>
+              </div>
+
+              <div>
+                <h4 className="font-medium mb-2">Experience</h4>
+                <p className="text-sm text-muted-foreground">{evidence.resumeEvidence?.duration || 'N/A'}</p>
               </div>
             </CardContent>
           </Card>
@@ -159,9 +162,8 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
           {/* Story Evidence */}
           <Card className="section-spacing">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Content & Story Evidence
+              <CardTitle className="text-lg">
+                Cover Letter Content & Story Evidence
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -192,30 +194,44 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
           {/* Leveling Framework */}
           <Card className="section-spacing">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Target className="h-5 w-5" />
-                Leveling Framework Analysis
+              <CardTitle className="text-lg">
+                Leveling Framework for {evidence.currentLevel}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="font-medium">{evidence.levelingFramework?.framework || 'N/A'}</h4>
-                  <p className="text-sm text-muted-foreground">Framework used for assessment</p>
-                </div>
-                <Badge variant="secondary">{evidence.levelingFramework?.match || 'N/A'}</Badge>
-              </div>
-
               <div>
-                <h4 className="font-medium mb-2">Key Criteria Met</h4>
-                <ul className="space-y-1">
-                  {(evidence.levelingFramework?.criteria || []).map((criterion, index) => (
-                    <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
-                      <div className="h-1.5 w-1.5 rounded-full bg-success mt-2 flex-shrink-0" />
-                      {criterion}
-                    </li>
-                  ))}
-                </ul>
+                <h4 className="font-medium mb-3">Criteria</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Met Criteria - Left Column */}
+                  <div>
+                    <ul className="space-y-2">
+                      {(evidence.levelingFramework?.metCriteria || []).filter(c => c.met).map((item, index) => (
+                        <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
+                          <span>{item.criterion}</span>
+                        </li>
+                      ))}
+                      {(!evidence.levelingFramework?.metCriteria || evidence.levelingFramework.metCriteria.filter(c => c.met).length === 0) && (
+                        <li className="text-sm text-muted-foreground">No criteria met</li>
+                      )}
+                    </ul>
+                  </div>
+
+                  {/* Unmet/TBD Criteria - Right Column */}
+                  <div>
+                    <ul className="space-y-2">
+                      {(evidence.levelingFramework?.metCriteria || []).filter(c => !c.met).map((item, index) => (
+                        <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
+                          <HelpCircle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                          <span>{item.criterion}</span>
+                        </li>
+                      ))}
+                      {(!evidence.levelingFramework?.metCriteria || evidence.levelingFramework.metCriteria.filter(c => !c.met).length === 0) && (
+                        <li className="text-sm text-muted-foreground">All criteria met</li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -223,8 +239,7 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
           {/* Outcome Metrics */}
           <Card className="section-spacing">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
+              <CardTitle className="text-lg">
                 Outcome Metrics
               </CardTitle>
             </CardHeader>

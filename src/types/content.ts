@@ -276,14 +276,14 @@ export interface TruthScore {
 // PM Levels Service types
 export type PMLevelCode = 'L3' | 'L4' | 'L5' | 'L6' | 'M1' | 'M2';
 export type PMLevelDisplay = 
-  | 'Associate PM'
-  | 'PM'
-  | 'Senior PM'
-  | 'Staff PM'
-  | 'Principal PM'
-  | 'Lead PM'
-  | 'Manager'
-  | 'Senior Manager';
+  | 'Associate Product Manager'
+  | 'Product Manager'
+  | 'Senior Product Manager'
+  | 'Staff Product Manager'
+  | 'Principal Product Manager'
+  | 'Staff/Principal Product Manager'
+  | 'Group Product Manager'
+  | 'Director of Product';
 
 export type RoleType = 'growth' | 'platform' | 'ai_ml' | 'founding' | 'technical' | 'general';
 export type BusinessMaturity = 'early' | 'growth' | 'late';
@@ -442,7 +442,7 @@ export interface PMLevelInference {
   displayLevel: PMLevelDisplay;
   confidence: number; // 0-1
   scopeScore: number; // 0-1
-  maturityModifier: number; // 0.8-1.2
+  maturityInfo: BusinessMaturity; // Maturity for display/evidence only, not used as modifier
   roleType: RoleType[];
   competencyScores: CompetencyScore;
   levelScore: number; // Calculated score

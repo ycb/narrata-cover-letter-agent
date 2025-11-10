@@ -1481,6 +1481,124 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
         entityMap.get(key)!.gaps.push(gap);
       });
 
+      const workItemIds = new Set<string>();
+      const storyIds = new Set<string>();
+      const savedSectionIds = new Set<string>();
+
+      for (const entityData of entityMap.values()) {
+        if (entityData.entity_type === 'work_item') {
+          workItemIds.add(entityData.entity_id);
+        } else if (entityData.entity_type === 'approved_content') {
+          storyIds.add(entityData.entity_id);
+        } else if (entityData.entity_type === 'saved_section') {
+          savedSectionIds.add(entityData.entity_id);
+        }
+      }
+
+      const workItemMap = new Map<string, any>();
+      if (workItemIds.size > 0) {
+        const { data: workItemsData, error: workItemsError } = await db
+          .from('work_items')
+          .select('id, title, description, metrics, source_id, company:companies!company_id(name)')
+          .in('id', Array.from(workItemIds));
+
+        if (workItemsError) {
+          console.error('[GapDetection] Error loading work items for gaps:', workItemsError);
+        } else {
+          (workItemsData || []).forEach((wi: any) => {
+            workItemMap.set(wi.id, wi);
+          });
+        }
+      }
+
+      const storyMap = new Map<string, any>();
+      if (storyIds.size > 0) {
+        const { data: storiesData, error: storiesError } = await db
+          .from('approved_content')
+          .select('id, title, source_id, work_item_id, work_item:work_items!work_item_id(id, title, source_id, company:companies!company_id(name))')
+          .in('id', Array.from(storyIds));
+
+        if (storiesError) {
+          console.error('[GapDetection] Error loading stories for gaps:', storiesError);
+        } else {
+          (storiesData || []).forEach((story: any) => {
+            storyMap.set(story.id, story);
+          });
+        }
+      }
+
+      const savedSectionMap = new Map<string, any>();
+      if (savedSectionIds.size > 0) {
+        const { data: savedSectionsData, error: savedSectionsError } = await db
+          .from('saved_sections')
+          .select('id, title, type, profile_id')
+          .in('id', Array.from(savedSectionIds));
+
+        if (savedSectionsError) {
+          console.error('[GapDetection] Error loading saved sections for gaps:', savedSectionsError);
+        } else {
+          (savedSectionsData || []).forEach((section: any) => {
+            savedSectionMap.set(section.id, section);
+          });
+        }
+      }
+
+      const sourceMap = new Map<string, string>();
+      if (profileId) {
+        const sourceIdsToFetch = new Set<string>();
+
+        workItemMap.forEach((wi: any) => {
+          if (!wi?.profile_id && wi?.source_id) {
+            sourceIdsToFetch.add(wi.source_id);
+          }
+        });
+
+        storyMap.forEach((story: any) => {
+          if (story?.source_id) {
+            sourceIdsToFetch.add(story.source_id);
+          }
+          const joinedWorkItem = story?.work_item;
+          if (joinedWorkItem?.source_id && !joinedWorkItem?.profile_id) {
+            sourceIdsToFetch.add(joinedWorkItem.source_id);
+          } else if (!joinedWorkItem && story?.work_item_id) {
+            const fallbackWI = workItemMap.get(story.work_item_id);
+            if (fallbackWI?.source_id && !fallbackWI?.profile_id) {
+              sourceIdsToFetch.add(fallbackWI.source_id);
+            }
+          }
+        });
+
+        if (sourceIdsToFetch.size > 0) {
+          const { data: sourcesData, error: sourcesError } = await db
+            .from('sources')
+            .select('id, file_name')
+            .in('id', Array.from(sourceIdsToFetch));
+
+          if (sourcesError) {
+            console.error('[GapDetection] Error loading source metadata for gaps:', sourcesError);
+          } else {
+            (sourcesData || []).forEach((src: any) => {
+              if (src?.id && src?.file_name) {
+                sourceMap.set(src.id, src.file_name.toUpperCase());
+              }
+            });
+          }
+        }
+      }
+
+      const matchesProfileByFilename = (sourceId?: string | null) => {
+        if (!profileId || !sourceId) return false;
+        const fileName = sourceMap.get(sourceId);
+        if (!fileName) return false;
+        const pid = profileId.toUpperCase();
+        return (
+          fileName.startsWith(`${pid}_`) ||
+          fileName.startsWith(`${pid}-`) ||
+          fileName.startsWith(`${pid}.`) ||
+          fileName.startsWith(`${pid} `)
+        );
+      };
+
       // Fetch content metadata for each entity
       for (const [key, entityData] of entityMap.entries()) {
         const [entityType, entityId] = key.split(':');
@@ -1494,34 +1612,14 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
         const gapCategories = [...new Set(entityGaps.map((g: any) => g.gap_category))];
 
         if (entityType === 'work_item') {
-          // Fetch work item with company
-          const { data: workItem, error: wiError } = await db
-            .from('work_items')
-            .select('title, description, metrics, source_id, company:companies!company_id(name)')
-            .eq('id', entityId)
-            .single();
+          const workItem = workItemMap.get(entityId);
+          if (!workItem) continue;
 
-          if (wiError || !workItem) continue;
-
-          // Profile filter: when profile_id available, use it; otherwise fallback to source file prefix
           if (profileId) {
-            const wi: any = workItem as any;
-            if (wi?.profile_id) {
-              if (wi.profile_id !== profileId) continue;
-            } else if (wi?.source_id) {
-              const { data: src, error: srcError }: any = await db
-                .from('sources')
-                .select('file_name')
-                .eq('id', wi.source_id)
-                .maybeSingle();
-
-              if (srcError) throw srcError;
-
-              const fileName = (src?.file_name || '').toUpperCase();
-              const pid = profileId.toUpperCase();
-              const matches = fileName.startsWith(`${pid}_`) || fileName.startsWith(`${pid}-`) || fileName.startsWith(`${pid} `) || fileName.startsWith(`${pid}.`);
-              if (!fileName || !matches) continue;
-            }
+            const matchesProfile = workItem.profile_id
+              ? workItem.profile_id === profileId
+              : matchesProfileByFilename(workItem.source_id);
+            if (!matchesProfile) continue;
           }
 
           const companyName = (workItem.company as any)?.name || 'Unknown Company';
@@ -1646,35 +1744,24 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
             });
           }
         } else if (entityType === 'approved_content') {
-          // Fetch story with work item and company
-          const { data: story, error: storyError }: any = await db
-            .from('approved_content')
-            .select('title, source_id, work_item:work_items!work_item_id(id, title, company:companies!company_id(name))')
-            .eq('id', entityId)
-            .single();
+          const story = storyMap.get(entityId);
+          if (!story) continue;
 
-          if (storyError || !story) continue;
+          const linkedWorkItem = (story.work_item as any) || (story.work_item_id ? workItemMap.get(story.work_item_id) : null);
+          if (!linkedWorkItem) continue;
 
-          const workItem = story.work_item as any;
-
-          // Profile filter: use work_item.profile_id when present; else fallback to story.source filename prefix
           if (profileId) {
-            if (workItem?.profile_id) {
-              if (workItem.profile_id !== profileId) continue;
-            } else if ((story as any)?.source_id) {
-              const { data: src }: any = await db
-                .from('sources')
-                .select('file_name')
-                .eq('id', (story as any).source_id)
-                .maybeSingle();
-              const fileName = (src?.file_name || '').toUpperCase();
-              const pid = profileId.toUpperCase();
-              const matches = fileName.startsWith(`${pid}_`) || fileName.startsWith(`${pid}-`) || fileName.startsWith(`${pid} `) || fileName.startsWith(`${pid}.`);
-              if (!fileName || !matches) continue;
+            let matchesProfile = false;
+            if (linkedWorkItem.profile_id) {
+              matchesProfile = linkedWorkItem.profile_id === profileId;
+            } else {
+              matchesProfile = matchesProfileByFilename(linkedWorkItem.source_id) || matchesProfileByFilename(story.source_id);
             }
+            if (!matchesProfile) continue;
           }
-          const roleTitle = workItem?.title || 'Unknown Role';
-          const companyName = workItem?.company?.name || 'Unknown Company';
+
+          const roleTitle = linkedWorkItem?.title || 'Unknown Role';
+          const companyName = linkedWorkItem?.company?.name || 'Unknown Company';
           const storyTitle = story.title;
 
           items.push({
@@ -1689,22 +1776,14 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
             gap_categories: gapCategories,
             content_type_label: 'Work History',
             navigation_path: '/work-history',
-            navigation_params: { roleId: workItem?.id || '', storyId: entityId },
+            navigation_params: { roleId: linkedWorkItem?.id || story.work_item_id || '', storyId: entityId },
           });
         } else if (entityType === 'saved_section') {
-          // Fetch saved section (use the same db client to respect auth in Node contexts)
-          const { data: section, error: sectionError } = await db
-            .from('saved_sections')
-            .select('title, type, profile_id')
-            .eq('id', entityId)
-            .single();
+          const section = savedSectionMap.get(entityId);
+          if (!section) continue;
 
-          if (sectionError || !section) continue;
-
-          // Profile filter: skip if profileId provided and does not match
           if (profileId) {
-            const sec: any = section as any;
-            if (sec?.profile_id && sec.profile_id !== profileId) continue;
+            if (section?.profile_id && section.profile_id !== profileId) continue;
           }
 
           const sectionTitle = section.title || section.type || 'Section';

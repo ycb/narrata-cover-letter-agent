@@ -31,12 +31,12 @@ import { toast } from "sonner";
 // Helper function to map PM level code to display text
 const getLevelDisplay = (levelCode: string): string => {
   const levelMap: Record<string, string> = {
-    'l3': 'Product Manager',
-    'l4': 'Senior PM',
-    'l5': 'Staff PM',
-    'l6': 'Principal PM',
-    'm1': 'Group PM',
-    'm2': 'Director of PM',
+    'l3': 'Associate Product Manager',
+    'l4': 'Product Manager',
+    'l5': 'Senior Product Manager',
+    'l6': 'Staff/Principal Product Manager',
+    'm1': 'Group Product Manager',
+    'm2': 'Director of Product',
   };
   return levelMap[levelCode.toLowerCase()] || levelCode;
 };
@@ -172,16 +172,19 @@ const transformLevelData = (levelData: any) => {
     }
   ];
 
-  // Find current level for next level calculation
+  // Find current level for next level calculation (fallback only)
   const currentLevelIndex = levelProgression.findIndex(l => l.current);
-  const nextLevel = currentLevelIndex < levelProgression.length - 1 
+  const fallbackNextLevel = currentLevelIndex < levelProgression.length - 1 
     ? levelProgression[currentLevelIndex + 1]?.level 
     : levelProgression[levelProgression.length - 1]?.level;
 
+  // Use nextLevel from levelEvidence if available (correctly formatted), otherwise use fallback
+  const nextLevel = levelData?.levelEvidence?.nextLevel || fallbackNextLevel || 'Staff/Principal Product Manager';
+
   return {
-    currentLevel: displayLevel || 'PM',
+    currentLevel: levelData?.levelEvidence?.currentLevel || displayLevel || 'Product Manager',
     confidence: getConfidenceText(confidence),
-    nextLevel: nextLevel || 'Senior PM',
+    nextLevel: nextLevel,
     levelDescription: levelData?.levelDescription || `Product manager with a focus on ${roleType?.[0] || 'general product management'}`,
     inferenceSource: levelData?.inferenceSource || "Based on your profile and work history",
     competencies,
@@ -248,17 +251,17 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
 
   // Handle run analysis
   const handleRunAnalysis = async () => {
-    try {
-      setIsAnalyzing(true);
-      await recalculate();
-      toast.success('Analysis completed successfully');
-    } catch (err) {
-      console.error('Error running analysis:', err);
-      toast.error('Failed to run analysis. Please try again.');
-    } finally {
+    setIsAnalyzing(true);
+    // Use mutation callback - toast will be shown in usePMLevel hook after completion
+    recalculate();
+  };
+  
+  // Update isAnalyzing state when recalculating completes
+  useEffect(() => {
+    if (!isRecalculating && isAnalyzing) {
       setIsAnalyzing(false);
     }
-  };
+  }, [isRecalculating, isAnalyzing]);
 
   // Handle showing evidence for a competency
   const handleShowEvidence = (competency: any) => {
@@ -751,8 +754,8 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
         isOpen={levelEvidenceModalOpen}
         onClose={() => setLevelEvidenceModalOpen(false)}
         evidence={{
-          currentLevel: currentLevel || 'PM',
-          nextLevel: nextLevel || 'Senior PM',
+          currentLevel: levelEvidence?.currentLevel || currentLevel || 'Product Manager',
+          nextLevel: levelEvidence?.nextLevel || nextLevel || 'Staff/Principal Product Manager',
           confidence: confidence || 'medium',
           resumeEvidence: levelEvidence?.resumeEvidence || {
             roleTitles: [],

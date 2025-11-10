@@ -79,24 +79,23 @@ export class PMLevelsService {
       // Extract signals from content using LLM
       const signals = await this.extractSignals(content.combinedText);
 
-      // Derive business maturity from company metadata
-      const maturityModifier = await this.deriveBusinessMaturity(content.companies);
+      // Derive business maturity from company metadata (for display/evidence only, not used as modifier)
+      const maturityInfo = await this.deriveBusinessMaturity(content.companies);
 
       // Compute competency scores
       const competencyScores = await this.computeCompetencyScores(
         content.combinedText,
         roleType || [],
-        maturityModifier.maturity
+        maturityInfo.maturity
       );
 
       // Compute scope score
       const scopeScore = this.computeScopeScore(signals, content.artifacts);
 
-      // Compute level score using formula
+      // Compute level score using formula (maturity modifier removed - no penalty/reward for company stage)
       const levelScore = this.computeLevelScore(
         competencyScores,
-        scopeScore,
-        maturityModifier.value
+        scopeScore
       );
 
       // Map level score to level code
@@ -134,7 +133,7 @@ export class PMLevelsService {
         displayLevel,
         confidence,
         scopeScore,
-        maturityModifier: maturityModifier.value,
+        maturityInfo: maturityInfo.maturity, // Store for display/evidence, not used as modifier
         roleType: roleType || [],
         competencyScores,
         levelScore,
@@ -270,6 +269,14 @@ export class PMLevelsService {
         .from('companies')
         .select('id, name, description, company_stage, maturity')
         .eq('user_id', userId);
+      
+      console.log(`[PMLevelsService] Fetched ${companies?.length || 0} companies for user ${userId}`);
+      if (companies && companies.length > 0) {
+        console.log('[PMLevelsService] Company maturity data:');
+        companies.forEach(c => {
+          console.log(`  - ${c.name}: stage=${c.company_stage || 'NULL'}, maturity=${c.maturity || 'NULL'}`);
+        });
+      }
 
       if (!sources || sources.length === 0) {
         return null;
@@ -396,20 +403,20 @@ export class PMLevelsService {
 
   /**
    * Derive business maturity from company metadata
-   * Uses researched maturity if available, otherwise falls back to LLM inference
+   * Returns maturity info for display/evidence only (not used as modifier in scoring)
    */
   private async deriveBusinessMaturity(
     companies: CompanyMetadata[]
-  ): Promise<{ maturity: BusinessMaturity; value: number; reasoning: string }> {
+  ): Promise<{ maturity: BusinessMaturity; reasoning: string }> {
     try {
       if (companies.length === 0) {
-        return { maturity: 'growth', value: 1.0, reasoning: 'No company data available' };
+        return { maturity: 'growth', reasoning: 'No company data available' };
       }
 
       // Check if we have researched maturity data (from browser search)
       const companiesWithMaturity = companies.filter(c => c.maturity);
       if (companiesWithMaturity.length > 0) {
-        // Use the most mature company (highest modifier)
+        // Use the most mature company
         const maturityOrder: BusinessMaturity[] = ['early', 'growth', 'late'];
         const mostMature = companiesWithMaturity.reduce((prev, curr) => {
           const prevIndex = maturityOrder.indexOf(prev.maturity!);
@@ -417,15 +424,8 @@ export class PMLevelsService {
           return currIndex > prevIndex ? curr : prev;
         });
         
-        const modifierMap: Record<BusinessMaturity, number> = {
-          early: 0.8,
-          growth: 1.0,
-          late: 1.2
-        };
-        
         return {
           maturity: mostMature.maturity!,
-          value: modifierMap[mostMature.maturity!],
           reasoning: `Using researched maturity from company data: ${mostMature.name} (${mostMature.maturity})`
         };
       }
@@ -439,7 +439,12 @@ export class PMLevelsService {
         return this.fallbackBusinessMaturity(companies);
       }
 
-      return response.data;
+      // Extract maturity from response (remove value field if present)
+      const data = response.data as any;
+      return {
+        maturity: data.maturity || 'growth',
+        reasoning: data.reasoning || 'LLM inference'
+      };
     } catch (error) {
       console.error('[PMLevelsService] Error deriving business maturity:', error);
       return this.fallbackBusinessMaturity(companies);
@@ -451,9 +456,9 @@ export class PMLevelsService {
    */
   private fallbackBusinessMaturity(
     companies: CompanyMetadata[]
-  ): { maturity: BusinessMaturity; value: number; reasoning: string } {
+  ): { maturity: BusinessMaturity; reasoning: string } {
     // Simple heuristic: assume growth stage if no data
-    return { maturity: 'growth', value: 1.0, reasoning: 'Default: growth stage (no company data)' };
+    return { maturity: 'growth', reasoning: 'Default: growth stage (no company data)' };
   }
 
   /**
@@ -491,12 +496,12 @@ export class PMLevelsService {
 
   /**
    * Compute level score using formula:
-   * Level Score = (Σ competency_scores × weights) × (1 + scope_score × 0.3) × maturity_modifier
+   * Level Score = (Σ competency_scores × weights) × (1 + scope_score × 0.3)
+   * Note: Maturity modifier removed - no automatic penalty/reward for company stage
    */
   private computeLevelScore(
     competencyScores: CompetencyScore,
-    scopeScore: number,
-    maturityModifier: number
+    scopeScore: number
   ): number {
     // Competency weights (sum to 1.0)
     const weights = {
@@ -516,8 +521,8 @@ export class PMLevelsService {
     // Apply scope multiplier (1.0 to 1.3)
     const scopeMultiplier = 1 + scopeScore * 0.3;
 
-    // Apply maturity modifier (0.8 to 1.2)
-    const finalScore = weightedSum * scopeMultiplier * maturityModifier;
+    // Final score (maturity modifier removed)
+    const finalScore = weightedSum * scopeMultiplier;
 
     return finalScore;
   }
@@ -531,17 +536,17 @@ export class PMLevelsService {
   } {
     // Level thresholds (based on score ranges)
     if (score < 1.5) {
-      return { levelCode: 'L3', displayLevel: 'Associate PM' };
+      return { levelCode: 'L3', displayLevel: 'Associate Product Manager' };
     } else if (score < 2.5) {
-      return { levelCode: 'L4', displayLevel: 'PM' };
+      return { levelCode: 'L4', displayLevel: 'Product Manager' };
     } else if (score < 3.5) {
-      return { levelCode: 'L5', displayLevel: 'Senior PM' };
+      return { levelCode: 'L5', displayLevel: 'Senior Product Manager' };
     } else if (score < 4.5) {
-      return { levelCode: 'L6', displayLevel: 'Staff PM' };
+      return { levelCode: 'L6', displayLevel: 'Staff Product Manager' };
     } else {
       // Manager levels (M1/M2) would need additional signals (team size, direct reports)
       // For now, default to L6 for high scores
-      return { levelCode: 'L6', displayLevel: 'Principal PM' };
+      return { levelCode: 'L6', displayLevel: 'Principal Product Manager' };
     }
   }
 
@@ -794,8 +799,8 @@ export class PMLevelsService {
     console.log(`[collectLevelEvidence] Starting with ${content.workItems.length} work items, ${content.stories.length} stories`);
 
     // Extract resume evidence from sources
-    const roleTitles: string[] = [];
-    const companyScale: string[] = [];
+    const roleTitlesWithDates: Array<{ title: string; startDate: string | null }> = [];
+    const companiesWithDates: Array<{ name: string; startDate: string | null }> = [];
     let totalDuration = 0;
 
     // Extract role-level metrics from work items
@@ -816,27 +821,28 @@ export class PMLevelsService {
 
     let totalPMDuration = 0; // PM-specific experience
     for (const workItem of content.workItems) {
-      if (workItem.title) roleTitles.push(workItem.title);
+      if (workItem.title) {
+        roleTitlesWithDates.push({
+          title: workItem.title,
+          startDate: workItem.start_date || null
+        });
+      }
+      
+      // Collect company names with dates (use most recent date for each company)
       if (workItem.companies?.name) {
-        // Format company name with maturity/stage if available
         const companyName = workItem.companies.name;
-        const stage = workItem.companies.company_stage;
-        const maturity = workItem.companies.maturity;
-        
-        if (maturity) {
-          const maturityLabel = maturity === 'early' ? 'Early-stage' : 
-                               maturity === 'growth' ? 'Growth-stage' : 
-                               'Late-stage';
-          companyScale.push(`${companyName} (${maturityLabel})`);
-        } else if (stage) {
-          const stageLabel = stage === 'startup' ? 'Early-stage' : 
-                            stage === 'growth-stage' ? 'Growth-stage' : 
-                            stage === 'established' ? 'Late-stage' : 
-                            stage === 'enterprise' ? 'Late-stage' : 
-                            stage;
-          companyScale.push(`${companyName} (${stageLabel})`);
+        const existingCompany = companiesWithDates.find(c => c.name === companyName);
+        if (existingCompany) {
+          // Update with more recent date if this work item is more recent
+          if (workItem.start_date && (!existingCompany.startDate || 
+              new Date(workItem.start_date) > new Date(existingCompany.startDate))) {
+            existingCompany.startDate = workItem.start_date;
+          }
         } else {
-          companyScale.push(companyName);
+          companiesWithDates.push({
+            name: companyName,
+            startDate: workItem.start_date || null
+          });
         }
       }
       
@@ -921,14 +927,36 @@ export class PMLevelsService {
       });
     }
 
+    // Sort roles by chronological order (oldest first, most recent last)
+    const sortedRoleTitles = roleTitlesWithDates
+      .sort((a, b) => {
+        if (!a.startDate && !b.startDate) return 0;
+        if (!a.startDate) return 1; // No date goes to end
+        if (!b.startDate) return -1; // No date goes to end
+        return new Date(a.startDate).getTime() - new Date(b.startDate).getTime(); // Oldest first
+      })
+      .map(item => item.title)
+      .slice(0, 5);
+    
+    // Sort companies by chronological order (oldest first, most recent last)
+    const sortedCompanies = companiesWithDates
+      .sort((a, b) => {
+        if (!a.startDate && !b.startDate) return 0;
+        if (!a.startDate) return 1; // No date goes to end
+        if (!b.startDate) return -1; // No date goes to end
+        return new Date(a.startDate).getTime() - new Date(b.startDate).getTime(); // Oldest first
+      })
+      .map(item => item.name)
+      .slice(0, 5);
+
     const levelEvidence = {
       currentLevel: inference.displayLevel,
       nextLevel: this.mapLevelCodeToDisplay(nextLevel),
       confidence: this.scoreToConfidence(inference.confidence),
       resumeEvidence: {
-        roleTitles: roleTitles.slice(0, 5),
-        duration: totalDuration > 0 ? `${totalDuration.toFixed(1)} years total (${totalPMDuration.toFixed(1)} years PM experience)` : '0 years',
-        companyScale: [...new Set(companyScale)].slice(0, 5)
+        roleTitles: sortedRoleTitles,
+        duration: totalDuration > 0 ? `${totalDuration.toFixed(1)} years total / ${totalPMDuration.toFixed(1)} years Product Manager experience` : '0 years',
+        companyScale: sortedCompanies
       },
       storyEvidence: {
         totalStories: content.stories.length,
@@ -936,14 +964,21 @@ export class PMLevelsService {
         tagDensity
       },
       levelingFramework: {
-        framework: 'IC Levels (L3-L6)',
+        framework: 'PM Level Assessment',
         criteria: [
           'Execution: ability to ship products',
           'Customer Insight: user research depth',
           'Strategy: vision and roadmap thinking',
           'Influence: cross-functional leadership'
         ],
-        match: `${Math.round(inference.confidence * 100)}% confident`
+        match: `${Math.round(inference.confidence * 100)}% confident`,
+        confidencePercentage: Math.round(inference.confidence * 100),
+        metCriteria: [
+          { criterion: 'Execution: ability to ship products', met: inference.competencyScores.execution >= 2.5 },
+          { criterion: 'Customer Insight: user research depth', met: inference.competencyScores.customer_insight >= 2.5 },
+          { criterion: 'Strategy: vision and roadmap thinking', met: inference.competencyScores.strategy >= 2.5 },
+          { criterion: 'Influence: cross-functional leadership', met: inference.competencyScores.influence >= 2.5 }
+        ]
       },
       gaps,
       outcomeMetrics: {
@@ -957,7 +992,7 @@ export class PMLevelsService {
       }
     };
 
-    console.log(`[collectLevelEvidence] Complete - ${roleTitles.length} roles, ${totalDuration.toFixed(1)} years, ${content.stories.length} total stories`);
+    console.log(`[collectLevelEvidence] Complete - ${sortedRoleTitles.length} roles, ${totalDuration.toFixed(1)} years, ${content.stories.length} total stories`);
     return levelEvidence;
   }
 
@@ -1130,6 +1165,80 @@ export class PMLevelsService {
   }
 
   /**
+   * Sort roles by progression level (Associate Product Manager -> Product Manager -> Senior Product Manager -> etc.)
+   */
+  private sortRolesByProgression(roles: string[]): string[] {
+    const progressionOrder = [
+      'associate product manager',
+      'product manager',
+      'senior product manager',
+      'staff product manager',
+      'principal product manager',
+      'group product manager',
+      'director of product'
+    ];
+
+    return [...roles].sort((a, b) => {
+      const aLower = a.toLowerCase();
+      const bLower = b.toLowerCase();
+      
+      // Find index in progression order
+      const aIndex = progressionOrder.findIndex(level => aLower.includes(level));
+      const bIndex = progressionOrder.findIndex(level => bLower.includes(level));
+      
+      // If both found, sort by progression order
+      if (aIndex !== -1 && bIndex !== -1) {
+        return aIndex - bIndex;
+      }
+      // If only one found, prioritize it
+      if (aIndex !== -1) return -1;
+      if (bIndex !== -1) return 1;
+      // If neither found, maintain original order
+      return 0;
+    });
+  }
+
+  /**
+   * Sort companies to match role progression order
+   */
+  private sortCompaniesByRoleProgression(workItems: any[], companies: string[]): string[] {
+    const progressionOrder = [
+      'associate product manager',
+      'product manager',
+      'senior product manager',
+      'staff product manager',
+      'principal product manager',
+      'group product manager',
+      'director of product'
+    ];
+
+    // Create a map of company -> earliest role level
+    const companyRoleMap = new Map<string, number>();
+    
+    for (const workItem of workItems) {
+      if (workItem.companies?.name && workItem.title) {
+        const companyName = workItem.companies.name;
+        const titleLower = workItem.title.toLowerCase();
+        const roleIndex = progressionOrder.findIndex(level => titleLower.includes(level));
+        
+        if (roleIndex !== -1) {
+          const currentIndex = companyRoleMap.get(companyName);
+          if (currentIndex === undefined || roleIndex < currentIndex) {
+            companyRoleMap.set(companyName, roleIndex);
+          }
+        }
+      }
+    }
+
+    // Sort companies by their earliest role level
+    return [...companies].sort((a, b) => {
+      const aIndex = companyRoleMap.get(a) ?? 999;
+      const bIndex = companyRoleMap.get(b) ?? 999;
+      return aIndex - bIndex;
+    });
+  }
+
+  /**
    * Format metric object to readable string
    */
   private formatMetric(metric: any): string | null {
@@ -1211,24 +1320,27 @@ export class PMLevelsService {
     inference: PMLevelInference
   ): Promise<void> {
     try {
+      // Build upsert payload - exclude deprecated maturity_modifier
+      const upsertPayload: any = {
+        user_id: userId,
+        inferred_level: inference.inferredLevel,
+        confidence: inference.confidence,
+        scope_score: inference.scopeScore,
+        maturity_info: inference.maturityInfo, // Store maturity for display, not used as modifier
+        role_type: inference.roleType,
+        delta_summary: inference.deltaSummary,
+        recommendations: inference.recommendations,
+        competency_scores: inference.competencyScores,
+        signals: inference.signals,
+        evidence_by_competency: inference.evidenceByCompetency || {},
+        level_evidence: inference.levelEvidence || {},
+        role_archetype_evidence: inference.roleArchetypeEvidence || {},
+        last_run_timestamp: new Date().toISOString()
+      };
+      
       const { error } = await supabase
         .from('user_levels')
-        .upsert({
-          user_id: userId,
-          inferred_level: inference.inferredLevel,
-          confidence: inference.confidence,
-          scope_score: inference.scopeScore,
-          maturity_modifier: inference.maturityModifier,
-          role_type: inference.roleType,
-          delta_summary: inference.deltaSummary,
-          recommendations: inference.recommendations,
-          competency_scores: inference.competencyScores,
-          signals: inference.signals,
-          evidence_by_competency: inference.evidenceByCompetency || {},
-          level_evidence: inference.levelEvidence || {},
-          role_archetype_evidence: inference.roleArchetypeEvidence || {},
-          last_run_timestamp: new Date().toISOString()
-        }, {
+        .upsert(upsertPayload, {
           onConflict: 'user_id'
         });
 
@@ -1332,7 +1444,7 @@ export class PMLevelsService {
         displayLevel: this.mapLevelCodeToDisplay(data.inferred_level),
         confidence: data.confidence,
         scopeScore: data.scope_score,
-        maturityModifier: data.maturity_modifier,
+        maturityInfo: data.maturity_info || 'growth', // Maturity for display only, not used as modifier
         roleType: data.role_type || [],
         competencyScores: data.competency_scores || {
           execution: 0,
@@ -1360,11 +1472,11 @@ export class PMLevelsService {
    */
   private mapLevelCodeToDisplay(levelCode: string): PMLevelDisplay {
     const displayMap: Record<string, PMLevelDisplay> = {
-      'L3': 'Associate PM' as PMLevelDisplay,
+      'L3': 'Associate Product Manager' as PMLevelDisplay,
       'L4': 'Product Manager' as PMLevelDisplay,
-      'L5': 'Senior PM' as PMLevelDisplay,
-      'L6': 'Staff/Principal PM' as PMLevelDisplay,
-      'M1': 'Group PM/Manager' as PMLevelDisplay,
+      'L5': 'Senior Product Manager' as PMLevelDisplay,
+      'L6': 'Staff/Principal Product Manager' as PMLevelDisplay,
+      'M1': 'Group Product Manager' as PMLevelDisplay,
       'M2': 'Director of Product' as PMLevelDisplay
     };
     return displayMap[levelCode] || (levelCode as PMLevelDisplay);

@@ -346,7 +346,7 @@ export default function CoverLetterTemplate() {
             : 'intro';
 
           return {
-            id: section.id!,
+          id: section.id!,
             type: sectionType,
           title: section.title,
           content: section.content,
