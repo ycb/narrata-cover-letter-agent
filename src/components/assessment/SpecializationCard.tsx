@@ -1,9 +1,10 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MatchPill } from "./MatchPill";
-import { TrendingUp, Tag } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getConfidenceProgressColor, getConfidenceBadgeColor } from "@/utils/confidenceBadge";
 
 interface SpecializationCardProps {
   type: string;
@@ -24,57 +25,59 @@ export const SpecializationCard = ({
   onViewEvidence,
   className
 }: SpecializationCardProps) => {
+  // Get match label based on percentage (similar to competency levels)
+  const getMatchLabel = (match: number): string => {
+    if (match >= 80) return 'Strong Match';
+    if (match >= 60) return 'Good Match';
+    if (match >= 40) return 'Moderate Match';
+    return 'Weak Match';
+  };
+
   return (
-    <Card className={cn(
-      "assessment-card group",
-      className
-    )}>
+    <Card 
+      className={cn(
+        "assessment-card group cursor-pointer hover:shadow-md transition-all",
+        className
+      )}
+      onClick={onViewEvidence}
+    >
       <CardContent className="assessment-card-content">
-        {/* Header: Title and Match Pill */}
+        {/* Header: Title and Match Badge */}
         <div className="flex items-start justify-between">
           <h3 className="font-semibold text-lg text-foreground pr-4">
             {type}
           </h3>
-          <MatchPill match={match} />
+          <Badge className={cn("text-sm", getConfidenceBadgeColor(match))}>
+            {getMatchLabel(match)}
+          </Badge>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="mt-2">
+          <div className="flex justify-between text-xs text-muted-foreground mb-1">
+            <span>Confidence</span>
+            <span>{match}%</span>
+          </div>
+          <Progress 
+            value={match} 
+            className={cn("h-2", getConfidenceProgressColor(match))} 
+          />
         </div>
 
         {/* Description */}
-        <p className="text-sm text-muted-foreground line-clamp-2">
+        <p className="text-sm text-muted-foreground line-clamp-2 mt-2">
           {description}
         </p>
-
-        {/* Tags */}
-        {tags.length > 0 && (
-          <div className="flex items-center gap-2">
-            <Tag className="h-4 w-4 text-muted-foreground" />
-            <div className="flex flex-wrap gap-1">
-              {tags.slice(0, 3).map((tag) => (
-                <Badge key={tag} variant="secondary" className="text-xs">
-                  {tag}
-                </Badge>
-              ))}
-              {tags.length > 3 && (
-                <Badge variant="outline" className="text-xs">
-                  +{tags.length - 3} more
-                </Badge>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Experience Level */}
-        {experienceLevel && (
-          <div className="text-xs text-muted-foreground">
-            Experience: {experienceLevel}
-          </div>
-        )}
 
         {/* CTA Button */}
         <Button 
           variant="outline" 
           size="sm" 
-          className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
-          onClick={onViewEvidence}
+          className="w-full mt-3 group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
+          onClick={(e) => {
+            e.stopPropagation();
+            onViewEvidence();
+          }}
         >
           View Evidence
           <TrendingUp className="h-4 w-4 ml-2" />

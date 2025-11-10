@@ -374,7 +374,7 @@ export class CoverLetterTemplateService {
     const client = await this.getClient(accessToken);
     const { data, error } = await client
       .from('saved_sections')
-      .insert(payload)
+      .insert(payload as any)
       .select();
 
     if (error) {
@@ -429,7 +429,7 @@ export class CoverLetterTemplateService {
         user_id: templateRecord.user_id!,
         name: templateRecord.name,
         sections: templateRecord.sections
-      })
+      } as any)
       .select()
       .single();
 
@@ -540,7 +540,7 @@ export class CoverLetterTemplateService {
         name: updates.name,
         sections: updates.sections,
         updated_at: new Date().toISOString()
-      })
+      } as any)
       .eq('id', templateId)
       .select()
       .single();
@@ -580,7 +580,7 @@ export class CoverLetterTemplateService {
     const client = await this.getClient();
     const { data, error } = await client
       .from('saved_sections')
-      .update(sanitizedPayload)
+      .update(sanitizedPayload as any)
       .eq('id', sectionId)
       .select()
       .single();
@@ -617,7 +617,7 @@ export class CoverLetterTemplateService {
     const client = await this.getClient();
     const { data, error } = await client
       .from('saved_sections')
-      .insert(payload)
+      .insert(payload as any)
       .select()
       .single();
 
@@ -669,8 +669,7 @@ export class CoverLetterTemplateService {
           .update({
             times_used: (section.times_used || 0) + 1,
             last_used: new Date().toISOString()
-          })
-          .eq('id', sectionId);
+          } as any);
       }
     }
   }
@@ -752,6 +751,27 @@ export class CoverLetterTemplateService {
 
         const createdSections = await this.createSavedSections(savedSections, undefined);
         console.log(`[SavedSections] Backfill: created ${createdSections.length} section(s) for ${source.file_name}`);
+
+        if (createdSections.length > 0) {
+          try {
+            const { GapDetectionService } = await import('./gapDetectionService');
+            const gapPayload: any[] = [];
+            for (const section of createdSections) {
+              const gaps = await GapDetectionService.detectCoverLetterSectionGaps(userId, {
+                id: section.id!,
+                type: section.type as 'intro' | 'paragraph' | 'closer' | 'signature',
+                content: section.content,
+                title: section.title
+              });
+              gapPayload.push(...gaps);
+            }
+            if (gapPayload.length > 0) {
+              await GapDetectionService.saveGaps(gapPayload);
+            }
+          } catch (gapError) {
+            console.error('[SavedSections] Backfill: failed to create gaps for saved sections', gapError);
+          }
+        }
 
         if (templateStructure.length > 0) {
           if (!userTemplates) {
@@ -984,9 +1004,9 @@ export class CoverLetterTemplateService {
     return lines.join('\n');
   }
 
-  private static async getClient(accessToken?: string) {
+  private static async getClient(accessToken?: string): Promise<any> {
     if (!accessToken) {
-      return supabase;
+      return supabase as any;
     }
 
     const { createClient } = await import('@supabase/supabase-js');
@@ -998,7 +1018,7 @@ export class CoverLetterTemplateService {
           Authorization: `Bearer ${accessToken}`
         }
       }
-    });
+    }) as any;
   }
 
   /**
@@ -1027,6 +1047,30 @@ export class CoverLetterTemplateService {
 
       // 2. Create saved sections in database
       const createdSavedSections = await this.createSavedSections(savedSections, accessToken);
+
+      // 2b. Run gap detection on the new saved sections so UX can surface banners immediately
+      try {
+        if (createdSavedSections.length > 0) {
+          const { GapDetectionService } = await import('./gapDetectionService');
+          const sectionGaps: any[] = [];
+
+          for (const section of createdSavedSections) {
+            const gaps = await GapDetectionService.detectCoverLetterSectionGaps(userId, {
+              id: section.id!,
+              type: section.type as 'intro' | 'paragraph' | 'closer' | 'signature',
+              content: section.content,
+              title: section.title
+            });
+            sectionGaps.push(...gaps);
+          }
+
+          if (sectionGaps.length > 0) {
+            await GapDetectionService.saveGaps(sectionGaps, accessToken);
+          }
+        }
+      } catch (gapError) {
+        console.error('[CoverLetterTemplateService] Failed to detect cover letter section gaps:', gapError);
+      }
 
       // 3. Create template with references to saved sections
       const template = await this.createDefaultTemplate(

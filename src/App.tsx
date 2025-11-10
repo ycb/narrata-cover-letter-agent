@@ -135,22 +135,22 @@ function AppLayout() {
             <Assessment initialSection="specialization-growth" />
           </ProtectedRoute>
         } />
-        <Route path="/assessment/specializations/technical" element={
+        <Route path="/assessment/specializations/platform" element={
           <ProtectedRoute>
             <Header />
-            <Assessment initialSection="specialization-technical" />
+            <Assessment initialSection="specialization-platform" />
+          </ProtectedRoute>
+        } />
+        <Route path="/assessment/specializations/ai-ml" element={
+          <ProtectedRoute>
+            <Header />
+            <Assessment initialSection="specialization-ai_ml" />
           </ProtectedRoute>
         } />
         <Route path="/assessment/specializations/founding" element={
           <ProtectedRoute>
             <Header />
             <Assessment initialSection="specialization-founding" />
-          </ProtectedRoute>
-        } />
-        <Route path="/assessment/specializations/platform" element={
-          <ProtectedRoute>
-            <Header />
-            <Assessment initialSection="specialization-platform" />
           </ProtectedRoute>
         } />
 

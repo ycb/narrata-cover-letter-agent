@@ -265,12 +265,15 @@ export default function CoverLetters() {
 
   return (
     <div className="min-h-screen bg-background">
-      <main className={`container mx-auto px-4 pb-8 ${isTourActive ? 'pt-24' : ''}`}>
+      <main className={`container mx-auto px-4 py-6 ${isTourActive ? 'pt-24' : ''}`}>
         <div className="max-w-7xl mx-auto">
           
           {/* Page Header */}
-          <div className="flex items-center justify-between">
-            <p className="text-muted-foreground description-spacing">Manage and track your cover letter applications</p>
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground mb-2">All Cover Letters</h1>
+              <p className="text-muted-foreground description-spacing">Manage and track your cover letter applications</p>
+            </div>
             <div className="flex gap-3">
               <Button variant="secondary" asChild>
                 <Link to="/cover-letter-template">

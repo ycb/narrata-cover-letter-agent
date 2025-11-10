@@ -1529,15 +1529,33 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
 
       const savedSectionMap = new Map<string, any>();
       if (savedSectionIds.size > 0) {
-        const { data: savedSectionsData, error: savedSectionsError } = await db
-          .from('saved_sections')
-          .select('id, title, type, profile_id')
-          .in('id', Array.from(savedSectionIds));
+        let savedSectionsData: any[] | null = null;
+        let savedSectionsError: any = null;
+
+        const attemptSelect = async (columns: string) => {
+          const { data, error } = await db
+            .from('saved_sections')
+            .select(columns)
+            .in('id', Array.from(savedSectionIds));
+          if (error) {
+            savedSectionsError = error;
+            return null;
+          }
+          savedSectionsError = null;
+          return data;
+        };
+
+        savedSectionsData = await attemptSelect('id, title, type, profile_id, source_id');
+
+        if (savedSectionsError?.code === '42703') {
+          // Older environments may not have profile_id column yet
+          savedSectionsData = await attemptSelect('id, title, type, source_id');
+        }
 
         if (savedSectionsError) {
           console.error('[GapDetection] Error loading saved sections for gaps:', savedSectionsError);
-        } else {
-          (savedSectionsData || []).forEach((section: any) => {
+        } else if (savedSectionsData) {
+          savedSectionsData.forEach((section: any) => {
             savedSectionMap.set(section.id, section);
           });
         }
@@ -1565,6 +1583,12 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
             if (fallbackWI?.source_id && !fallbackWI?.profile_id) {
               sourceIdsToFetch.add(fallbackWI.source_id);
             }
+          }
+        });
+
+        savedSectionMap.forEach((section: any) => {
+          if (!section?.profile_id && section?.source_id) {
+            sourceIdsToFetch.add(section.source_id);
           }
         });
 
@@ -1783,7 +1807,11 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
           if (!section) continue;
 
           if (profileId) {
-            if (section?.profile_id && section.profile_id !== profileId) continue;
+            const sectionProfileId = section?.profile_id;
+            const matchesProfile = sectionProfileId
+              ? sectionProfileId === profileId
+              : matchesProfileByFilename(section?.source_id);
+            if (!matchesProfile) continue;
           }
 
           const sectionTitle = section.title || section.type || 'Section';

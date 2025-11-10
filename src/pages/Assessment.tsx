@@ -65,6 +65,19 @@ const scoreToPercentage = (score: number, max: number = 3): number => {
   return Math.round((score / max) * 100);
 };
 
+// Helper to format role type key to display name
+function formatRoleTypeName(key: string): string {
+  const nameMap: Record<string, string> = {
+    'growth': 'Growth PM',
+    'platform': 'Platform PM',
+    'ai_ml': 'AI/ML PM',
+    'founding': 'Founding PM',
+    'technical': 'Technical PM',
+    'general': 'General PM'
+  };
+  return nameMap[key] || key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ');
+}
+
 // Transform PMLevelInference to the expected format
 const transformLevelData = (levelData: any) => {
   if (!levelData) return null;
@@ -81,7 +94,8 @@ const transformLevelData = (levelData: any) => {
     confidence = 0.5,
     signals = {},
     roleType = [],
-    evidenceByCompetency = {}
+    evidenceByCompetency = {},
+    roleArchetypeEvidence = {}
   } = levelData;
   
   // Map competency domain to dimension key
@@ -154,24 +168,28 @@ const transformLevelData = (levelData: any) => {
     }
   ];
 
-  // Map role archetypes from roleType or use defaults
+  // Map role archetypes from roleType - filter out 'general' and 'technical'
+  // Only show the 4 main specializations: growth, platform, ai_ml, founding
+  const validSpecializations = ['growth', 'platform', 'ai_ml', 'founding'];
+  
   const roleArchetypes = Array.isArray(roleType) && roleType.length > 0 
-    ? roleType.map((role: string) => ({
-        type: role,
-        match: 80, // Default match percentage
-        description: `${role} product management focus`,
-        evidence: `Based on your ${role.toLowerCase()} experience`,
-        typicalProfile: `Experience with ${role.toLowerCase()} products and initiatives`
-      }))
-    : [
-        {
-          type: "General PM",
-          match: 100,
-          description: "Versatile product management skills",
-          evidence: "Based on your diverse experience",
-          typicalProfile: "Experience across multiple product areas and business functions"
-        }
-      ];
+    ? roleType
+        .filter((roleTypeKey: string) => validSpecializations.includes(roleTypeKey))
+        .map((roleTypeKey: string) => {
+          // Get evidence for this role type
+          const evidence = roleArchetypeEvidence[roleTypeKey];
+          const formattedName = formatRoleTypeName(roleTypeKey);
+          
+          return {
+            type: formattedName,
+            typeKey: roleTypeKey, // Store original key for evidence lookup
+            match: evidence?.matchScore || 80, // Use evidence match score if available
+            description: evidence?.description || `${formattedName} product management focus`,
+            evidence: `Based on your ${roleTypeKey.toLowerCase()} experience`,
+            typicalProfile: evidence?.description || `Experience with ${roleTypeKey.toLowerCase()} products and initiatives`
+          };
+        })
+    : [];
 
   // Level progression based on displayLevel
   const levelProgression = [
@@ -270,7 +288,28 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
   useEffect(() => {
     const section = searchParams.get('section') || initialSection;
     setActiveTab(section);
-  }, [searchParams, initialSection]);
+    
+    // If navigating to a specialization section, scroll to Role Specializations section
+    if (section?.startsWith('specialization-')) {
+      // Wait for component to render, then scroll
+      const scrollToSpecializations = () => {
+        const element = document.getElementById('role-specializations');
+        if (element) {
+          const y = element.getBoundingClientRect().top + window.scrollY - 100;
+          window.scrollTo({ top: y, behavior: 'smooth' });
+          return true;
+        }
+        return false;
+      };
+      
+      // Try immediately, then retry if element not found
+      if (!scrollToSpecializations()) {
+        setTimeout(() => {
+          scrollToSpecializations();
+        }, 300);
+      }
+    }
+  }, [searchParams, initialSection, assessmentData]);
 
   // Update URL when tab changes
   useEffect(() => {
@@ -355,60 +394,70 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
   // Show error state
   if (error) {
     return (
-      <div className="p-6 max-w-3xl mx-auto">
-        <div className="p-6 border rounded-lg bg-destructive/5 border-destructive/30">
-          <div className="flex items-start">
-            <div className="flex-shrink-0">
-              <AlertCircle className="w-6 h-6 text-destructive mt-0.5" />
-            </div>
-            <div className="ml-3">
-              <h3 className="text-lg font-medium text-destructive">Error Loading Assessment</h3>
-              <div className="mt-2 text-sm text-muted-foreground">
-                <p>We encountered an issue while loading your PM level assessment:</p>
-                <div className="mt-2 p-3 bg-background rounded-md border border-border">
-                  <code className="text-sm break-all">
-                    {error instanceof Error ? error.message : String(error)}
-                  </code>
+      <div className="min-h-screen bg-background">
+        <main className="container mx-auto px-4 py-6">
+          <div className="max-w-3xl mx-auto">
+            <div className="p-6 border rounded-lg bg-destructive/5 border-destructive/30">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <AlertCircle className="w-6 h-6 text-destructive mt-0.5" />
                 </div>
-                <p className="mt-3">This might be due to a temporary issue. Please try again or contact support if the problem persists.</p>
-              </div>
-              <div className="mt-4 space-x-3">
-                <Button 
-                  variant="default" 
-                  onClick={() => window.location.reload()}
-                >
-                  <RotateCw className="w-4 h-4 mr-2" />
-                  Try Again
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => recalculate()}
-                  disabled={isRecalculating}
-                >
-                  {isRecalculating ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Recalculating...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                      Recalculate PM Level
-                    </>
-                  )}
-                </Button>
+                <div className="ml-3">
+                  <h3 className="text-lg font-medium text-destructive">Error Loading Assessment</h3>
+                  <div className="mt-2 text-sm text-muted-foreground">
+                    <p>We encountered an issue while loading your PM level assessment:</p>
+                    <div className="mt-2 p-3 bg-background rounded-md border border-border">
+                      <code className="text-sm break-all">
+                        {error instanceof Error ? error.message : String(error)}
+                      </code>
+                    </div>
+                    <p className="mt-3">This might be due to a temporary issue. Please try again or contact support if the problem persists.</p>
+                  </div>
+                  <div className="mt-4 space-x-3">
+                    <Button 
+                      variant="default" 
+                      onClick={() => window.location.reload()}
+                    >
+                      <RotateCw className="w-4 h-4 mr-2" />
+                      Try Again
+                    </Button>
+                    <Button 
+                      variant="secondary" 
+                      onClick={() => recalculate()}
+                      disabled={isRecalculating}
+                    >
+                      {isRecalculating ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Recalculating...
+                        </>
+                      ) : (
+                        <>
+                          <RotateCw className="w-4 h-4 mr-2" />
+                          Recalculate PM Level
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        </main>
       </div>
     );
   }
 
   // Show empty state - no data available
   if (!assessmentData) {
+    // Check if user is trying to view a specialization section
+    const isSpecializationSection = initialSection?.startsWith('specialization-') || 
+                                    searchParams.get('section')?.startsWith('specialization-');
+    
     return (
-      <div className="p-6 max-w-4xl mx-auto">
+      <div className="min-h-screen bg-background">
+        <main className="container mx-auto px-4 py-6">
+          <div className="max-w-4xl mx-auto">
         <div className="bg-background rounded-xl border shadow-sm overflow-hidden">
           <div className="p-8 text-center">
             <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 mb-4">
@@ -416,8 +465,9 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
             </div>
             <h2 className="text-2xl font-bold tracking-tight mb-2">PM Level Assessment</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto mb-8">
-              Get a detailed analysis of your product management level based on your experience, skills, and achievements.
-              Understand your strengths and areas for growth with personalized recommendations.
+              {isSpecializationSection 
+                ? "Run an analysis to see your specialization matches. Add work history and stories to get detailed insights."
+                : "Get a detailed analysis of your product management level based on your experience, skills, and achievements. Understand your strengths and areas for growth with personalized recommendations."}
             </p>
             
             <div className="bg-muted/30 border rounded-lg p-6 mb-8 text-left max-w-2xl mx-auto">
@@ -462,7 +512,7 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
               </Button>
               
               <Button 
-                variant="outline" 
+                variant="secondary" 
                 size="lg"
                 className="px-8 py-6 text-base"
                 onClick={() => setActiveTab('how-it-works')}
@@ -477,6 +527,8 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
             </p>
           </div>
         </div>
+          </div>
+        </main>
       </div>
     );
   }
@@ -499,39 +551,40 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
 
   // Render the assessment UI with the dynamic data
   return (
-    <div className="space-y-6">
-      {/* Header Section */}
-      <div className="flex flex-col justify-between space-y-4 md:flex-row md:items-center md:space-y-0">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">PM Level Assessment</h1>
-          <p className="text-muted-foreground">
-            {levelDescription} • {inferenceSource}
-          </p>
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button 
-            variant="secondary" 
-            onClick={handleRunAnalysis}
-            disabled={isAnalyzing || isRecalculating}
-          >
-            {isAnalyzing || isRecalculating ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Recalculating...
-              </>
-            ) : (
-              <>
-                <RotateCw className="w-4 h-4 mr-2" />
-                Recalculate
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
+    <div className="min-h-screen bg-background">
+      <main className="container mx-auto px-4 py-6">
+        <div className="space-y-6">
+          {/* Header Section */}
+          <div className="flex flex-col justify-between space-y-4 md:flex-row md:items-center md:space-y-0">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">PM Level Assessment</h1>
+              <p className="text-muted-foreground">
+                {levelDescription} • {inferenceSource}
+              </p>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button 
+                variant="secondary" 
+                onClick={handleRunAnalysis}
+                disabled={isAnalyzing || isRecalculating}
+              >
+                {isAnalyzing || isRecalculating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Recalculating...
+                  </>
+                ) : (
+                  <>
+                    <RotateCw className="w-4 h-4 mr-2" />
+                    Recalculate
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
 
-      {/* Main Content */}
-      <div className="space-y-6">
-        {/* Level Overview Card */}
+          {/* Main Content */}
+          {/* Level Overview Card */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -639,45 +692,21 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
           <CardContent>
             <div className="grid gap-4 md:grid-cols-2">
               {competencies.map((competency: any) => (
-                <div 
+                <CompetencyCard
                   key={competency.domain}
-                  className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                  onClick={() => handleShowEvidence(competency)}
-                >
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium">{competency.domain}</h4>
-                    <Badge className={getConfidenceBadgeColor(competency.score)}>
-                      {competency.level}
-                    </Badge>
-                  </div>
-                  <div className="mt-2">
-                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                      <span>Confidence</span>
-                      <span>{competency.score}%</span>
-                    </div>
-                    <Progress 
-                      value={competency.score} 
-                      className={cn("h-2", getConfidenceProgressColor(competency.score))} 
-                    />
-                  </div>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {competency.description}
-                  </p>
-                  <div className="flex flex-wrap gap-1 mt-3">
-                    {competency.tags.map((tag: string) => (
-                      <Badge key={tag} variant="secondary" className="text-xs">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
+                  domain={competency.domain}
+                  level={competency.level}
+                  score={competency.score}
+                  description={competency.description}
+                  onViewEvidence={() => handleShowEvidence(competency)}
+                />
               ))}
             </div>
           </CardContent>
         </Card>
 
         {/* Role Archetypes Section */}
-        <Card>
+        <Card id="role-specializations">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
@@ -688,40 +717,53 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-2">
-              {roleArchetypes.map((archetype: any) => (
-                <div 
-                  key={archetype.type}
-                  className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                  onClick={() => {
-                    setSelectedRole(archetype.type);
-                    setRoleEvidenceModalOpen(true);
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium">{archetype.type}</h4>
-                    <div className="flex items-center">
-                      <span className="text-sm font-medium mr-2">{archetype.match}%</span>
-                      <div className="w-16 bg-gray-200 rounded-full h-2.5">
-                        <div 
-                          className="bg-primary h-2.5 rounded-full" 
-                          style={{ width: `${archetype.match}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  </div>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {archetype.description}
-                  </p>
-                  <div className="mt-3">
-                    <span className="text-xs font-medium">Typical Profile:</span>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {archetype.typicalProfile}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {roleArchetypes.length > 0 ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                {roleArchetypes.map((archetype: any) => {
+                  // Get evidence data using the typeKey (original roleType enum value)
+                  const evidence = roleArchetypeEvidence[archetype.typeKey] || roleArchetypeEvidence[archetype.type];
+                  const hasEvidence = evidence && evidence.matchScore > 0;
+                  
+                  return (
+                    <SpecializationCard
+                      key={archetype.type}
+                      type={archetype.type}
+                      match={archetype.match}
+                      description={archetype.description || archetype.typicalProfile || ''}
+                      tags={evidence?.tagAnalysis?.slice(0, 5).map((t: any) => t.tag) || []}
+                      experienceLevel={archetype.experienceLevel}
+                      onViewEvidence={() => {
+                        if (hasEvidence) {
+                          // Store both display name and key for modal lookup
+                          setSelectedRole(archetype.typeKey || archetype.type);
+                          setRoleEvidenceModalOpen(true);
+                        } else {
+                          // Navigate to specialization section to show empty state
+                          const sectionMap: Record<string, string> = {
+                            'growth': 'specialization-growth',
+                            'platform': 'specialization-platform',
+                            'ai_ml': 'specialization-ai_ml',
+                            'founding': 'specialization-founding'
+                          };
+                          const section = sectionMap[archetype.typeKey] || 'overview';
+                          setActiveTab(section);
+                          navigate(`/assessment?section=${section}`);
+                        }
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground mb-2">
+                  No specializations detected yet
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Add more work history and stories to see your specialization matches
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -739,41 +781,37 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {recommendations.map((rec: any, index: number) => (
-                  <div key={index} className="flex items-start gap-3">
-                    <div className="flex-shrink-0 mt-1">
-                      {rec.priority === 'high' ? (
-                        <AlertCircle className="w-5 h-5 text-yellow-500" />
-                      ) : rec.priority === 'medium' ? (
-                        <Info className="w-5 h-5 text-blue-500" />
-                      ) : (
-                        <Lightbulb className="w-5 h-5 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div>
+                {(() => {
+                  // Sort recommendations: Narrata-specific types first, then general
+                  const narrataTypes = ['quantify-metrics', 'add-story'];
+                  const sortedRecommendations = [...recommendations].sort((a, b) => {
+                    const aIsNarrata = narrataTypes.includes(a.type);
+                    const bIsNarrata = narrataTypes.includes(b.type);
+                    
+                    // Narrata-specific items first
+                    if (aIsNarrata && !bIsNarrata) return -1;
+                    if (!aIsNarrata && bIsNarrata) return 1;
+                    
+                    // Within same category, sort by priority (high > medium > low)
+                    const priorityOrder = { high: 0, medium: 1, low: 2 };
+                    return priorityOrder[a.priority] - priorityOrder[b.priority];
+                  });
+                  
+                  return sortedRecommendations.map((rec: any, index: number) => (
+                    <div key={rec.id || index}>
                       <h4 className="font-medium">{rec.title}</h4>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-muted-foreground mt-1">
                         {rec.description}
                       </p>
-                      {rec.suggestedAction && (
-                        <div className="mt-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            className="text-sm"
-                          >
-                            {rec.suggestedAction}
-                          </Button>
-                        </div>
-                      )}
                     </div>
-                  </div>
-                ))}
+                  ));
+                })()}
               </div>
             </CardContent>
           </Card>
         )}
-      </div>
+        </div>
+      </main>
 
       {/* Modals */}
       <EvidenceModal
@@ -825,7 +863,17 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
       <RoleEvidenceModal
         isOpen={roleEvidenceModalOpen}
         onClose={() => setRoleEvidenceModalOpen(false)}
-        evidence={roleArchetypeEvidence[selectedRole || '']}
+        evidence={roleArchetypeEvidence[selectedRole || ''] || {
+          roleType: selectedRole || 'Unknown',
+          matchScore: 0,
+          description: '',
+          industryPatterns: [],
+          problemComplexity: { level: 'N/A', examples: [], evidence: [] },
+          workHistory: [],
+          tagAnalysis: [],
+          gaps: [],
+          outcomeMetrics: { roleLevel: [], storyLevel: [], analysis: { totalMetrics: 0, impactLevel: 'feature', keyAchievements: [] } }
+        }}
       />
     </div>
   );

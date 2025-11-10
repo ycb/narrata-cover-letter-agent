@@ -58,10 +58,16 @@ export const CompetencyCard = ({
         </div>
 
         {/* Progress Bar */}
-        <Progress 
-          value={score} 
-          className={cn("h-2", getConfidenceProgressColor(score))}
-        />
+        <div className="mt-2">
+          <div className="flex justify-between text-xs text-muted-foreground mb-1">
+            <span>Confidence</span>
+            <span>{score}%</span>
+          </div>
+          <Progress 
+            value={score} 
+            className={cn("h-2", getConfidenceProgressColor(score))}
+          />
+        </div>
 
         {/* Description */}
         <p className="text-sm text-muted-foreground line-clamp-2">

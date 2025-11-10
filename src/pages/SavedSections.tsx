@@ -12,6 +12,7 @@ import { useUserGoals } from "@/contexts/UserGoalsContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { TagSuggestionService } from "@/services/tagSuggestionService";
 import { TagService } from "@/services/tagService";
+import { GapDetectionService } from "@/services/gapDetectionService";
 
 type SavedSectionBlurb = {
   id: string;
@@ -24,6 +25,14 @@ type SavedSectionBlurb = {
   lastUsed?: string;
   createdAt: string;
   updatedAt: string;
+  hasGaps?: boolean;
+  gapCount?: number;
+  gapCategories?: string[];
+  maxGapSeverity?: 'high' | 'medium' | 'low';
+  status?: 'approved' | 'draft' | 'needs-review';
+  confidence?: 'high' | 'medium' | 'low';
+  linkedExternalLinks?: string[];
+  externalLinks?: string[];
 };
 
 type HierarchicalBlurb = ComponentProps<typeof TemplateBlurbHierarchical>['blurbs'][number];
@@ -86,6 +95,25 @@ export default function SavedSections() {
         const sections = await CoverLetterTemplateService.getUserSavedSections(user.id, profileId);
         console.log('[SavedSections] Loaded sections:', sections.map(section => ({ id: section.id, title: section.title, type: section.type })));
 
+        // Load gap data for saved sections so we can surface gap badges/banners
+        let savedSectionGapIndex = new Map<string, { gapCount: number; categories: string[]; maxSeverity: 'high' | 'medium' | 'low'; }>();
+        try {
+          const gapSummary = await GapDetectionService.getContentItemsWithGaps(user.id, profileId);
+          const savedSectionGaps = gapSummary.byContentType.coverLetterSavedSections || [];
+          savedSectionGapIndex = new Map(
+            savedSectionGaps.map((item) => [
+              item.entity_id,
+              {
+                gapCount: item.gap_categories?.length ?? 0,
+                categories: item.gap_categories ?? [],
+                maxSeverity: item.max_severity ?? 'low'
+              }
+            ])
+          );
+        } catch (gapError) {
+          console.error('[SavedSections] Failed to load gap data for saved sections:', gapError);
+        }
+
         // Convert SavedSection to TemplateBlurb format
         const blurbs: SavedSectionBlurb[] = sections.map((section) => ({
           id: section.id!,
@@ -100,8 +128,10 @@ export default function SavedSections() {
           lastUsed: section.last_used,
           createdAt: section.created_at!,
           updatedAt: section.updated_at!,
-          hasGaps: false,
-          gapCount: 0,
+          hasGaps: (savedSectionGapIndex.get(section.id!)?.gapCount ?? 0) > 0,
+          gapCount: savedSectionGapIndex.get(section.id!)?.gapCount ?? 0,
+          gapCategories: savedSectionGapIndex.get(section.id!)?.categories ?? [],
+          maxGapSeverity: savedSectionGapIndex.get(section.id!)?.maxSeverity,
           linkedExternalLinks: [],
           externalLinks: []
         }));
@@ -240,7 +270,11 @@ export default function SavedSections() {
     timesUsed: blurb.timesUsed,
     lastUsed: blurb.lastUsed,
     createdAt: blurb.createdAt,
-    updatedAt: blurb.updatedAt
+    updatedAt: blurb.updatedAt,
+    hasGaps: blurb.hasGaps,
+    gapCount: blurb.gapCount,
+    gapCategories: blurb.gapCategories,
+    maxGapSeverity: blurb.maxGapSeverity
   }));
 
   return (
@@ -446,7 +480,11 @@ export default function SavedSections() {
                         timesUsed: createdSection.times_used ?? 0,
                         lastUsed: createdSection.last_used ?? undefined,
                         createdAt: createdSection.created_at!,
-                        updatedAt: createdSection.updated_at!
+                        updatedAt: createdSection.updated_at!,
+                        hasGaps: false, // Newly created sections have no gaps
+                        gapCount: 0,
+                        gapCategories: [],
+                        maxGapSeverity: 'low'
                       };
 
                       setTemplateBlurbs(prev => [...prev, newBlurb]);
