@@ -60,7 +60,7 @@ const ALL_LEVELS: LevelCard[] = [
     code: 'M2', 
     name: 'Director of Product', 
     yearsOfExperience: '10+ years',
-    coreCompetency: 'Organizational leadership',
+    coreCompetency: 'Business leadership',
     scopeOfOwnership: 'Product organization',
     isIC: false 
   },
@@ -69,7 +69,7 @@ const ALL_LEVELS: LevelCard[] = [
     name: 'Senior Leadership', 
     yearsOfExperience: '',
     coreCompetency: '',
-    scopeOfOwnership: 'VP, SVP, CPO roles',
+    scopeOfOwnership: 'VP, SVP, CPO roles: coming soon',
     isIC: false 
   }
 ];
@@ -163,7 +163,7 @@ export function CareerLadder({
     return (
       <Card 
         className={cn(
-          "flex-shrink-0 w-40 h-56 p-4 transition-all flex flex-col",
+          "flex-shrink-0 w-48 h-56 p-4 transition-all flex flex-col",
           // White background for all except current
           isCurrent 
             ? (isIC ? "bg-blue-600 text-white" : "bg-green-600 text-white")
@@ -179,9 +179,9 @@ export function CareerLadder({
           isComingSoon && "border-2 border-dashed border-gray-300"
         )}
       >
-        <div className="flex flex-col h-full space-y-2">
+        <div className="flex flex-col h-full">
           {/* Status Icon */}
-          <div className="flex-shrink-0">
+          <div className="flex-shrink-0 mb-2">
             {isCompleted && (
               <CheckCircle2 className={cn(
                 "h-5 w-5",
@@ -209,7 +209,7 @@ export function CareerLadder({
           
           {/* Level Name */}
           <h4 className={cn(
-            "font-semibold text-sm flex-grow",
+            "font-semibold text-sm h-10",
             isCurrent 
               ? "text-white"
               : (isIC ? "text-blue-900" : "text-green-900"),
@@ -221,7 +221,7 @@ export function CareerLadder({
           
           {/* Level Parameters - Bullet points */}
           {!isComingSoon ? (
-            <ul className="mt-auto space-y-1 text-xs list-disc list-inside">
+            <ul className="mt-6 space-y-1 text-xs list-disc list-inside">
               <li className={cn(
                 isCurrent 
                   ? "text-white/90"
@@ -257,9 +257,9 @@ export function CareerLadder({
     );
   };
 
-  // Calculate widths for banner alignment (card width: 160px, gap: 16px)
-  const icCardsWidth = (icLevels.length * 160) + ((icLevels.length - 1) * 16);
-  const leadershipCardsWidth = (leadershipLevels.length * 160) + ((leadershipLevels.length - 1) * 16);
+  // Calculate widths for banner alignment (card width: 192px, gap: 16px)
+  const icCardsWidth = (icLevels.length * 192) + ((icLevels.length - 1) * 16);
+  const leadershipCardsWidth = (leadershipLevels.length * 192) + ((leadershipLevels.length - 1) * 16);
 
   return (
     <div className="space-y-6">
