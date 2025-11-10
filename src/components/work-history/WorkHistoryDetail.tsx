@@ -931,13 +931,13 @@ export const WorkHistoryDetail = ({
                     <TagSuggestionButton
                       content={`${roleCompany.name}: Company information`}
                       onTagsSuggested={() => {}}
+                      variant="tertiary"
                       onClick={() => {
                         const actualCompany = companies.find(c => c.name === roleCompany.name);
                         if (actualCompany) {
                           handleCompanyTagSuggestions(actualCompany);
                         }
                       }}
-                      variant="tertiary"
                       size="sm"
                     />
                   </div>
@@ -1060,10 +1060,10 @@ export const WorkHistoryDetail = ({
                       onClick={() => {
                         const actualCompany = companies.find(c => c.name === roleCompany.name);
                         if (actualCompany) {
-                          handleCompanyTagSuggestions([]);
+                          handleCompanyTagSuggestions(actualCompany);
                         }
                       }}
-                      variant="outline"
+                      variant="tertiary"
                       size="sm"
                     />
                   )}
@@ -1522,7 +1522,7 @@ export const WorkHistoryDetail = ({
               <Badge 
                 variant="outline" 
                 className="text-xs cursor-pointer hover:bg-muted border-dashed"
-                onClick={handleCompanyTagSuggestions}
+                onClick={() => handleCompanyTagSuggestions()}
               >
                 <Plus className="h-3 w-3 mr-1" />
                 Add tag
@@ -1531,8 +1531,8 @@ export const WorkHistoryDetail = ({
             <TagSuggestionButton
               content={`${selectedCompany.name}: ${selectedCompany.description || 'Company information'}`}
               onTagsSuggested={() => {}}
-              onClick={() => handleCompanyTagSuggestions([])}
-              variant="outline"
+              onClick={() => handleCompanyTagSuggestions()}
+              variant="tertiary"
               size="sm"
             />
           </div>
