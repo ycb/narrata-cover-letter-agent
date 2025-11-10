@@ -27,6 +27,9 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { usePMLevel } from "@/hooks/usePMLevel";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { calculateEvidenceBasedConfidence } from "@/utils/confidenceCalculation";
+import { getConfidenceProgressColor, getConfidenceBadgeColor } from "@/utils/confidenceBadge";
+import { cn } from "@/lib/utils";
 
 // Helper function to map PM level code to display text
 const getLevelDisplay = (levelCode: string): string => {
@@ -48,15 +51,16 @@ const getConfidenceText = (score: number): string => {
   return 'low';
 };
 
-// Helper function to map score to level text
-const getCompetencyLevel = (score: number): string => {
-  if (score >= 2.5) return 'Strong';
-  if (score >= 1.5) return 'Solid';
-  if (score >= 0.5) return 'Emerging';
+// Helper function to map percentage score to level text
+const getCompetencyLevel = (percentage: number): string => {
+  if (percentage >= 90) return 'Advanced';
+  if (percentage >= 70) return 'Proficient';
+  if (percentage >= 50) return 'Needs Work';
   return 'Developing';
 };
 
 // Helper function to map score to percentage (0-100)
+// NOTE: For evidence-based confidence, use calculateEvidenceBasedConfidence instead
 const scoreToPercentage = (score: number, max: number = 3): number => {
   return Math.round((score / max) * 100);
 };
@@ -76,15 +80,43 @@ const transformLevelData = (levelData: any) => {
     displayLevel = 'PM', 
     confidence = 0.5,
     signals = {},
-    roleType = []
+    roleType = [],
+    evidenceByCompetency = {}
   } = levelData;
+  
+  // Map competency domain to dimension key
+  const dimensionMap: Record<string, string> = {
+    'Product Execution': 'execution',
+    'Customer Insight': 'customer_insight',
+    'Product Strategy': 'strategy',
+    'Influencing People': 'influence'
+  };
+
+  // Helper to get evidence-based confidence for a competency
+  const getEvidenceBasedScore = (domain: string, rawScore: number): number => {
+    const dimensionKey = dimensionMap[domain];
+    const evidence = evidenceByCompetency?.[dimensionKey];
+    
+    if (evidence) {
+      return calculateEvidenceBasedConfidence({
+        competencyScore: rawScore,
+        evidence: evidence.evidence || [],
+        matchedTags: evidence.matchedTags || [],
+        overallConfidence: evidence.overallConfidence
+      });
+    }
+    
+    // Fallback to simple percentage if no evidence available
+    return scoreToPercentage(rawScore);
+  };
   
   // Map competency scores to the expected format
   const competencies = [
     {
       domain: "Product Execution",
-      level: getCompetencyLevel(competencyScores.execution || 0),
-      score: scoreToPercentage(competencyScores.execution || 0),
+      score: getEvidenceBasedScore("Product Execution", competencyScores.execution || 0),
+      level: getCompetencyLevel(getEvidenceBasedScore("Product Execution", competencyScores.execution || 0)),
+      rawScore: competencyScores.execution || 0, // 0-3 scale for percentage calculation
       evidence: signals?.execution_evidence || "Based on your work history and achievements",
       tags: ["Execution", "Delivery", "Technical"],
       description: "Measures your ability to deliver products effectively",
@@ -92,8 +124,9 @@ const transformLevelData = (levelData: any) => {
     },
     {
       domain: "Customer Insight",
-      level: getCompetencyLevel(competencyScores.customer_insight || 0),
-      score: scoreToPercentage(competencyScores.customer_insight || 0),
+      score: getEvidenceBasedScore("Customer Insight", competencyScores.customer_insight || 0),
+      level: getCompetencyLevel(getEvidenceBasedScore("Customer Insight", competencyScores.customer_insight || 0)),
+      rawScore: competencyScores.customer_insight || 0,
       evidence: signals?.customer_evidence || "Based on your user research and customer focus",
       tags: ["Research", "User Experience", "Customer"],
       description: "Assesses your understanding of user needs",
@@ -101,8 +134,9 @@ const transformLevelData = (levelData: any) => {
     },
     {
       domain: "Product Strategy",
-      level: getCompetencyLevel(competencyScores.strategy || 0),
-      score: scoreToPercentage(competencyScores.strategy || 0),
+      score: getEvidenceBasedScore("Product Strategy", competencyScores.strategy || 0),
+      level: getCompetencyLevel(getEvidenceBasedScore("Product Strategy", competencyScores.strategy || 0)),
+      rawScore: competencyScores.strategy || 0,
       evidence: signals?.strategy_evidence || "Based on your strategic initiatives",
       tags: ["Strategy", "Vision", "Roadmap"],
       description: "Evaluates your strategic thinking and planning",
@@ -110,8 +144,9 @@ const transformLevelData = (levelData: any) => {
     },
     {
       domain: "Influencing People",
-      level: getCompetencyLevel(competencyScores.influence || 0),
-      score: scoreToPercentage(competencyScores.influence || 0),
+      score: getEvidenceBasedScore("Influencing People", competencyScores.influence || 0),
+      level: getCompetencyLevel(getEvidenceBasedScore("Influencing People", competencyScores.influence || 0)),
+      rawScore: competencyScores.influence || 0,
       evidence: signals?.influence_evidence || "Based on your leadership examples",
       tags: ["Leadership", "Collaboration", "Stakeholder"],
       description: "Measures your ability to lead and influence",
@@ -282,8 +317,10 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
       evidence: realEvidence?.evidence || competency.evidenceStories || [],
       matchedTags: realEvidence?.matchedTags || competency.tags || [],
       overallConfidence: realEvidence?.overallConfidence ||
-                        (competency.level === 'Strong' ? 'high' :
-                         competency.level === 'Solid' ? 'medium' : 'low')
+                        (competency.level === 'Advanced' ? 'high' :
+                         competency.level === 'Proficient' ? 'medium' : 'low'),
+      competencyScore: competency.rawScore, // Pass raw score (0-3) for percentage calculation
+      currentLevel: currentLevel // Pass current level for criteria title
     });
     setEvidenceModalOpen(true);
   };
@@ -609,21 +646,19 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
                 >
                   <div className="flex items-center justify-between">
                     <h4 className="font-medium">{competency.domain}</h4>
-                    <span className={`text-sm px-2 py-1 rounded-full ${
-                      competency.level === 'Strong' ? 'bg-green-100 text-green-800' :
-                      competency.level === 'Solid' ? 'bg-blue-100 text-blue-800' :
-                      competency.level === 'Emerging' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
+                    <Badge className={getConfidenceBadgeColor(competency.score)}>
                       {competency.level}
-                    </span>
+                    </Badge>
                   </div>
                   <div className="mt-2">
                     <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                      <span>Progress</span>
+                      <span>Confidence</span>
                       <span>{competency.score}%</span>
                     </div>
-                    <Progress value={competency.score} className="h-2" />
+                    <Progress 
+                      value={competency.score} 
+                      className={cn("h-2", getConfidenceProgressColor(competency.score))} 
+                    />
                   </div>
                   <p className="mt-2 text-sm text-muted-foreground">
                     {competency.description}
@@ -748,6 +783,8 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
         matchedTags={selectedEvidence?.matchedTags || []}
         overallConfidence={selectedEvidence?.overallConfidence || 'medium'}
         competency={selectedCompetency || ''}
+        competencyScore={selectedEvidence?.competencyScore}
+        currentLevel={selectedEvidence?.currentLevel || currentLevel}
       />
 
       <LevelEvidenceModal

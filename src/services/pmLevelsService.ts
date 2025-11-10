@@ -552,33 +552,62 @@ export class PMLevelsService {
 
   /**
    * Calculate confidence score (0-1)
+   * 
+   * Confidence is primarily driven by whether criteria are met, since that's the assessment outcome.
+   * Artifacts, metrics, and tags are inputs that help determine if criteria are met, but once we know
+   * criteria status, that should be the main confidence driver.
    */
   private calculateConfidence(
     artifactCount: number,
     signals: LevelSignal,
     competencyScores: CompetencyScore
   ): number {
-    let confidence = 0.5; // Base confidence
+    // Count how many criteria are met (score >= 2.5)
+    const criteriaMet = [
+      competencyScores.execution >= 2.5,
+      competencyScores.customer_insight >= 2.5,
+      competencyScores.strategy >= 2.5,
+      competencyScores.influence >= 2.5
+    ].filter(Boolean).length;
 
-    // More artifacts = higher confidence
-    if (artifactCount >= 20) confidence += 0.2;
-    else if (artifactCount >= 10) confidence += 0.15;
-    else if (artifactCount >= 5) confidence += 0.1;
+    // PRIMARY FACTOR: Criteria met drives base confidence
+    // If all criteria are met, we're confident in the assessment
+    // If few/no criteria are met, we're less confident
+    let confidence: number;
+    if (criteriaMet === 4) {
+      confidence = 0.75; // High base confidence when all criteria met
+    } else if (criteriaMet === 3) {
+      confidence = 0.60; // Moderate confidence when 3/4 criteria met
+    } else if (criteriaMet === 2) {
+      confidence = 0.45; // Lower confidence when only 2/4 criteria met
+    } else if (criteriaMet === 1) {
+      confidence = 0.35; // Low confidence when only 1/4 criteria met
+    } else {
+      confidence = 0.25; // Very low confidence when no criteria met
+    }
 
-    // Quantified metrics = higher confidence
-    if (signals.impact.quantified) confidence += 0.15;
+    // SECONDARY FACTORS: Evidence quality/quantity adjusts confidence
+    // More artifacts = more data to assess = slightly higher confidence
+    if (artifactCount >= 20) confidence += 0.10;
+    else if (artifactCount >= 10) confidence += 0.08;
+    else if (artifactCount >= 5) confidence += 0.05;
+    else if (artifactCount < 3) confidence -= 0.10; // Penalty for very few artifacts
 
-    // Strong competency scores = higher confidence
+    // Quantified metrics = stronger evidence = slightly higher confidence
+    if (signals.impact.quantified) confidence += 0.08;
+    else if (signals.impact.metrics.length === 0) confidence -= 0.05; // Penalty if no metrics at all
+
+    // Strong average competency scores = additional validation
     const avgCompetency = (
       competencyScores.execution +
       competencyScores.customer_insight +
       competencyScores.strategy +
       competencyScores.influence
     ) / 4;
-    if (avgCompetency >= 2.5) confidence += 0.1;
-    else if (avgCompetency >= 2.0) confidence += 0.05;
+    if (avgCompetency >= 2.5) confidence += 0.05;
+    else if (avgCompetency < 1.5) confidence -= 0.05; // Penalty for very low scores
 
-    return Math.min(confidence, 1.0);
+    return Math.min(Math.max(confidence, 0.0), 1.0); // Clamp between 0 and 1
   }
 
   /**
@@ -702,6 +731,14 @@ export class PMLevelsService {
             }
           }
 
+          // Always set levelAssessment (never undefined)
+          const levelAssessment = this.assessStoryLevelExpectation(
+            story, 
+            levelCode, 
+            dimension, 
+            competencyScores[dimension]
+          );
+
           relevantStories.push({
             id: story.id,
             title: story.title,
@@ -713,7 +750,7 @@ export class PMLevelsService {
             timesUsed: 1, // Could track in database
             confidence: relevance.confidence,
             outcomeMetrics: storyMetrics,
-            levelAssessment: this.assessStoryLevelExpectation(story, levelCode, dimension, competencyScores[dimension])
+            levelAssessment // Always set, never undefined
           });
 
           // Add matched tags

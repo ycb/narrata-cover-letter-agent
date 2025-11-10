@@ -73,6 +73,10 @@ export default function SavedSections() {
         const { SyntheticUserService } = await import('../services/syntheticUserService');
         const syntheticUserService = new SyntheticUserService();
         const syntheticContext = await syntheticUserService.getSyntheticUserContext();
+        console.log('[SavedSections] Synthetic context:', {
+          enabled: syntheticContext.isSyntheticTestingEnabled,
+          currentProfile: syntheticContext.currentUser?.profileId,
+        });
         
         // Get profile ID if synthetic testing is enabled
         const profileId = syntheticContext.isSyntheticTestingEnabled 
@@ -80,6 +84,7 @@ export default function SavedSections() {
           : undefined;
 
         const sections = await CoverLetterTemplateService.getUserSavedSections(user.id, profileId);
+        console.log('[SavedSections] Loaded sections:', sections.map(section => ({ id: section.id, title: section.title, type: section.type })));
 
         // Convert SavedSection to TemplateBlurb format
         const blurbs: SavedSectionBlurb[] = sections.map((section) => ({

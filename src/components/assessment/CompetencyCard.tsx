@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { TrendingUp, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getConfidenceProgressColor, getConfidenceBadgeColor } from "@/utils/confidenceBadge";
 
 interface CompetencyCardProps {
   domain: string;
@@ -24,22 +25,21 @@ export const CompetencyCard = ({
 }: CompetencyCardProps) => {
   const getLevelColor = (level: string) => {
     switch (level) {
-      case "Strong": return "text-success border-success/20";
-      case "Solid": return "text-blue-600 border-blue-200";
-      case "Emerging": return "text-warning border-warning/20";
-      case "Needs More Evidence": return "text-muted-foreground border-muted";
-      default: return "text-foreground border-muted";
+      case "Advanced":
+        return "bg-green-100 text-green-800 border-green-200";
+      case "Proficient":
+        return "bg-blue-100 text-blue-800 border-blue-200";
+      case "Needs Work":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "Developing":
+        return "bg-gray-100 text-gray-800 border-gray-200";
+      default:
+        return "bg-muted text-foreground border-muted";
     }
   };
 
-  const getProgressColor = (level: string) => {
-    switch (level) {
-      case "Strong": return "[&>div]:bg-success";
-      case "Solid": return "[&>div]:bg-blue-500";
-      case "Emerging": return "[&>div]:bg-warning";
-      default: return "[&>div]:bg-muted-foreground";
-    }
-  };
+  // Progress color now based on score percentage, not level label
+  // This ensures consistency with confidence badge colors
 
   return (
     <Card className={cn(
@@ -52,7 +52,7 @@ export const CompetencyCard = ({
           <h3 className="font-semibold text-lg text-foreground pr-4">
             {domain}
           </h3>
-          <Badge variant="outline" className={cn("text-sm", getLevelColor(level))}>
+          <Badge className={cn("text-sm", getConfidenceBadgeColor(score))}>
             {level}
           </Badge>
         </div>
@@ -60,7 +60,7 @@ export const CompetencyCard = ({
         {/* Progress Bar */}
         <Progress 
           value={score} 
-          className={cn("h-2", getProgressColor(level))}
+          className={cn("h-2", getConfidenceProgressColor(score))}
         />
 
         {/* Description */}

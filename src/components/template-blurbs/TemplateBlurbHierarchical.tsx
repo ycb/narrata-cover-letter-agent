@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
@@ -184,6 +184,13 @@ export const TemplateBlurbHierarchical = ({
   const totalBlurbs = groupedBlurbs.reduce((total, group) => total + group.blurbs.length, 0);
   const hasResults = totalBlurbs > 0;
 
+  const handleKeyActivate = (event: React.KeyboardEvent, callback: () => void) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      callback();
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Enhanced Search and Filter Bar */}
@@ -233,7 +240,7 @@ export const TemplateBlurbHierarchical = ({
                         return total + (resolvedGaps.has(`blurb-gap-${blurb.id}`) ? (blurb as any).gapCount || 0 : 0);
                       }, 0);
                       const remainingGapCount = Math.max(0, originalGapCount - resolvedCount);
-
+                      
                       return remainingGapCount > 0 ? (
                         <IntelligentAlertBadge
                           gapCount={remainingGapCount}
@@ -253,48 +260,58 @@ export const TemplateBlurbHierarchical = ({
                   </div>
                 </AccordionTrigger>
                 <div className="flex items-center gap-4 pr-6">
-                  <Button
-                    variant="tertiary"
-                    size="sm"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onCreateBlurb(group.type);
-                    }}
-                  >
-                    Add {group.label}
-                  </Button>
-
-                  {/* Overflow menu for user-created sections */}
-                  {!allContentTypes.find(ct => ct.type === group.type)?.isDefault && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => {
-                          console.log('Edit section:', group.type);
-                        }}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit Section
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => {
-                            console.log('Delete section:', group.type);
-                          }}
-                          className="text-destructive"
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    className={buttonVariants({ variant: "tertiary", size: "sm" })}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onCreateBlurb(group.type);
+                      }}
+                    onKeyDown={(event) => handleKeyActivate(event, () => onCreateBlurb(group.type))}
+                    >
+                      Add {group.label}
+                  </span>
+                    
+                    {/* Overflow menu for user-created sections */}
+                    {!allContentTypes.find(ct => ct.type === group.type)?.isDefault && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          className={cn(
+                            buttonVariants({ variant: "ghost", size: "sm" }),
+                            "h-8 w-8 p-0 flex items-center justify-center"
+                          )}
+                          onKeyDown={(event) => handleKeyActivate(event, () => console.log('Open menu'))}
                         >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete Section
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                        </span>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => {
+                            console.log('Edit section:', group.type);
+                          }}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit Section
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => {
+                              console.log('Delete section:', group.type);
+                            }}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete Section
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
                 </div>
-              </div>
               <AccordionContent className="px-6 pb-6">
                 <div className="space-y-4 mt-6">
                   {group.blurbs.map((blurb) => {

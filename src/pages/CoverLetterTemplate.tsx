@@ -16,237 +16,31 @@ import { TemplateBlurbDetail } from "@/components/template-blurbs/TemplateBlurbD
 import { WorkHistoryBlurbSelector } from "@/components/work-history/WorkHistoryBlurbSelector";
 import { SectionInsertButton } from "@/components/template-blurbs/SectionInsertButton";
 import { CoverLetterViewModal } from "@/components/cover-letters/CoverLetterViewModal";
-import type { CoverLetterSection, CoverLetterTemplate, WorkHistoryBlurb } from "@/types/workHistory";
+import type { CoverLetterSection, CoverLetterTemplate, WorkHistoryBlurb, WorkHistoryCompany, WorkHistoryRole } from "@/types/workHistory";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 import { useTour } from "@/contexts/TourContext";
 import { TourBannerFull } from "@/components/onboarding/TourBannerFull";
 import { FormModal } from "@/components/shared/FormModal";
 import { CoverLetterTemplateService, type SavedSection } from "@/services/coverLetterTemplateService";
 import { useAuth } from "@/contexts/AuthContext";
 
-// Mock template blurbs library
-const mockTemplateBlurbs: TemplateBlurb[] = [
-  {
-    id: "intro-1",
-    type: "intro",
-    title: "Standard Professional Opening",
-    content: "I am writing to express my strong interest in the [Position] role at [Company]. With my background in [Industry/Field], I am excited about the opportunity to contribute to your team's success.",
-    tags: ["professional", "standard", "interest", "background"],
-    isDefault: true,
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
-  },
-  {
-    id: "intro-2", 
-    type: "intro",
-    title: "Passionate Connection",
-    content: "I was thrilled to discover the [Position] opening at [Company], as it perfectly aligns with my passion for [Industry/Field] and my career goals in [Specific Area].",
-    tags: ["passion", "thrilled", "alignment", "career goals"],
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
-  },
-  {
-    id: "intro-3",
-    type: "intro",
-    title: "Referral Opening",
-    content: "I was referred to this [Position] opportunity at [Company] by [Referral Name], who spoke highly of your team and the innovative work you're doing in [Industry/Field].",
-    tags: ["referral", "recommendation", "networking", "innovation"],
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
-  },
-  {
-    id: "closer-1",
-    type: "closer",
-    title: "Standard Professional Close",
-    content: "I would welcome the opportunity to discuss how my background and passion can contribute to your team's continued success. Thank you for your time and consideration.",
-    tags: ["professional", "discussion", "contribution", "gratitude"],
-    isDefault: true,
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
-  },
-  {
-    id: "closer-2",
-    type: "closer",
-    title: "Eager Follow-up",
-    content: "I am excited about the possibility of joining your team and would love to discuss how I can help [Company] achieve its goals. I look forward to hearing from you soon.",
-    tags: ["excitement", "team", "goals", "follow up"],
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
-  },
-  {
-    id: "closer-3",
-    type: "closer",
-    title: "Value-focused Close",
-    content: "I am confident that my skills and experience would be valuable additions to your team. I would appreciate the opportunity to discuss how I can contribute to [Company]'s continued growth and success.",
-    tags: ["confidence", "value", "skills", "growth"],
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
-  },
-  {
-    id: "signature-1",
-    type: "signature",
-    title: "Professional",
-    content: "Sincerely,\n[Your Name]",
-    tags: ["formal", "professional", "traditional"],
-    isDefault: true,
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
-  },
-  {
-    id: "signature-2",
-    type: "signature",
-    title: "Warm Professional",
-    content: "Best regards,\n[Your Name]",
-    tags: ["warm", "professional", "friendly"],
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
-  },
-  {
-    id: "signature-3",
-    type: "signature",
-    title: "Respectful",
-    content: "Respectfully,\n[Your Name]",
-    tags: ["respectful", "formal", "courteous"],
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
-  }
-];
+const DEFAULT_TEMPLATE_NAME = "Professional Template";
 
-// Mock work history data for the modal
-const mockWorkHistory = [
-  {
-    id: 'company-1',
-    name: 'TechCorp Inc.',
-    description: 'Software development company',
-    roles: [
-      {
-        id: 'role-1',
-        title: 'Senior Software Engineer',
-        description: 'Led development of web applications',
-        blurbs: [
-          {
-            id: 'story-1',
-            title: 'Improved Performance by 40%',
-            content: 'Optimized database queries and implemented caching strategies, resulting in a 40% improvement in application performance.',
-            tags: ['performance', 'optimization', 'database'],
-            confidence: 'high',
-            timesUsed: 3,
-            source: 'work-history',
-            status: 'approved',
-            createdAt: '2024-01-01T00:00:00Z',
-            updatedAt: '2024-01-01T00:00:00Z'
-          },
-          {
-            id: 'story-2',
-            title: 'Led Team of 5 Developers',
-            content: 'Successfully led a team of 5 developers to deliver a major feature on time and under budget.',
-            tags: ['leadership', 'team management', 'delivery'],
-            confidence: 'high',
-            timesUsed: 2,
-            source: 'work-history',
-            status: 'approved',
-            createdAt: '2024-01-01T00:00:00Z',
-            updatedAt: '2024-01-01T00:00:00Z'
-          }
-        ],
-        source: 'work-history',
-        createdAt: '2024-01-01T00:00:00Z',
-        updatedAt: '2024-01-01T00:00:00Z'
-      }
-    ],
-    source: 'work-history',
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z'
-  },
-  {
-    id: 'company-2',
-    name: 'StartupXYZ',
-    description: 'Innovative startup',
-    roles: [
-      {
-        id: 'role-2',
-        title: 'Full Stack Developer',
-        description: 'Built end-to-end solutions',
-        blurbs: [
-          {
-            id: 'story-3',
-            title: 'Built MVP in 3 Months',
-            content: 'Designed and built a complete MVP from scratch in just 3 months, including frontend, backend, and database.',
-            tags: ['mvp', 'full stack', 'rapid development'],
-            confidence: 'high',
-            timesUsed: 1,
-            source: 'work-history',
-            status: 'approved',
-            createdAt: '2024-01-01T00:00:00Z',
-            updatedAt: '2024-01-01T00:00:00Z'
-          }
-        ],
-        source: 'work-history',
-        createdAt: '2024-01-01T00:00:00Z',
-        updatedAt: '2024-01-01T00:00:00Z'
-      }
-    ],
-    source: 'work-history',
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z'
-  }
-];
-
-// Mock template data with default static content
-const mockTemplate: CoverLetterTemplate = {
-  id: "template-1",
-  name: "Professional Template",
-  sections: [
-    {
-      id: "intro",
-      type: "intro" as const,
-      isStatic: true,
-      staticContent: "I am writing to express my strong interest in the [Position] role at [Company]. With my background in [Industry/Field], I am excited about the opportunity to contribute to your team's success.",
-      order: 1
-    },
-    {
-      id: "paragraph-1",
-      type: "paragraph" as const,
-      isStatic: false,
-      blurbCriteria: {
-        goals: ["showcase relevant experience and technical skills"]
-      },
-      order: 2
-    },
-    {
-      id: "paragraph-2", 
-      type: "paragraph" as const,
-      isStatic: false,
-      blurbCriteria: {
-        goals: ["highlight achievements and quantifiable impact"]
-      },
-      order: 3
-    },
-    {
-      id: "closer",
-      type: "closer" as const,
-      isStatic: true,
-      staticContent: "I would welcome the opportunity to discuss how my background and passion can contribute to your team's continued success. Thank you for your time and consideration.",
-      order: 4
-    },
-    {
-      id: "signature",
-      type: "signature" as const,
-      isStatic: true,
-      staticContent: "Sincerely,\n[Your Name]",
-      order: 5
-    }
-  ],
-  createdAt: "2024-01-01",
-  updatedAt: "2024-01-01"
-};
+const createEmptyTemplate = (name: string = DEFAULT_TEMPLATE_NAME): CoverLetterTemplate => ({
+  id: "draft-template",
+  name,
+  sections: [],
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString()
+});
 
 export default function CoverLetterTemplate() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
-  const [template, setTemplate] = useState<CoverLetterTemplate>(mockTemplate);
+  const [template, setTemplate] = useState<CoverLetterTemplate>(createEmptyTemplate());
   const [templateBlurbs, setTemplateBlurbs] = useState<TemplateBlurb[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -272,6 +66,9 @@ export default function CoverLetterTemplate() {
     icon: React.ComponentType<{ className?: string }>;
     isDefault: boolean;
   }>>([]);
+  const [workHistoryLibrary, setWorkHistoryLibrary] = useState<WorkHistoryCompany[]>([]);
+  const [isLibraryLoading, setIsLibraryLoading] = useState(false);
+  const [libraryError, setLibraryError] = useState<string | null>(null);
 
   // Add Section Modal State
   const [showAddSectionModal, setShowAddSectionModal] = useState(false);
@@ -307,8 +104,8 @@ export default function CoverLetterTemplate() {
     const loadData = async () => {
       if (!user?.id) {
         setIsLoading(false);
-        setTemplate(mockTemplate);
-        setTemplateBlurbs(mockTemplateBlurbs);
+        setTemplate(createEmptyTemplate());
+        setTemplateBlurbs([]);
         return;
       }
 
@@ -316,20 +113,12 @@ export default function CoverLetterTemplate() {
         setIsLoading(true);
         setError(null);
 
-        // Check if synthetic testing is enabled and get active profile
         const { SyntheticUserService } = await import('../services/syntheticUserService');
         const syntheticUserService = new SyntheticUserService();
         const syntheticContext = await syntheticUserService.getSyntheticUserContext();
-        
-        console.log('[CoverLetterTemplate] Synthetic context:', {
-          enabled: syntheticContext.isSyntheticTestingEnabled,
-          currentProfile: syntheticContext.currentUser?.profileId,
-          profileName: syntheticContext.currentUser?.profileName
-        });
 
-        // Get profile ID if synthetic testing is enabled
-        const profileId = syntheticContext.isSyntheticTestingEnabled 
-          ? syntheticContext.currentUser?.profileId 
+        const profileId = syntheticContext.isSyntheticTestingEnabled
+          ? syntheticContext.currentUser?.profileId
           : undefined;
 
         // Load user's templates
@@ -337,6 +126,8 @@ export default function CoverLetterTemplate() {
 
         // Load saved sections (with profile filtering if synthetic mode is active)
         const sections = await CoverLetterTemplateService.getUserSavedSections(user.id, profileId);
+
+        await fetchWorkHistoryLibrary(user.id, profileId);
 
         // Convert SavedSection to TemplateBlurb format
         const blurbs: TemplateBlurb[] = sections.map((section) => {
@@ -361,24 +152,23 @@ export default function CoverLetterTemplate() {
         };
         });
 
-        // Use first template or fallback to mock
-        if (templates.length > 0) {
-          setTemplate(templates[0]);
-        } else {
-          setTemplate(mockTemplate);
-        }
+        const templateToUse = templates.length > 0
+          ? templates[0]
+          : buildTemplateFromSections(sections);
+
+        setTemplate(templateToUse);
 
         if (blurbs.length > 0) {
           setTemplateBlurbs(blurbs);
         } else {
           setTemplateBlurbs([]);
-          console.log('[CoverLetterTemplate] No saved sections available for this profile');
         }
       } catch (err) {
         console.error('Error loading template data:', err);
         setError('Failed to load template data');
-        setTemplate(mockTemplate);
+        setTemplate(createEmptyTemplate());
         setTemplateBlurbs([]);
+        setWorkHistoryLibrary([]);
       } finally {
         setIsLoading(false);
       }
@@ -388,7 +178,7 @@ export default function CoverLetterTemplate() {
   }, [user?.id]);
 
   const getBlurbTitleByContent = (content: string, sectionType: string) => {
-    const blurb = mockTemplateBlurbs.find(b => b.content === content && b.type === sectionType);
+    const blurb = templateBlurbs.find(b => b.content === content && b.type === sectionType);
     return blurb?.title || 'Custom Content';
   };
 
@@ -517,7 +307,8 @@ export default function CoverLetterTemplate() {
   };
 
   const getAvailableBlurbs = (sectionType: string) => {
-    return mockTemplateBlurbs.filter(blurb => blurb.type === sectionType);
+    if (!sectionType) return templateBlurbs;
+    return templateBlurbs.filter(blurb => blurb.type === sectionType);
   };
 
   const handleCreateBlurb = (type: 'intro' | 'paragraph' | 'closer' | 'signature') => {
@@ -625,6 +416,260 @@ export default function CoverLetterTemplate() {
 
   const handleDone = () => {
     navigate('/cover-letters');
+  };
+
+  const getConfidenceColor = (confidence: 'high' | 'medium' | 'low') => {
+    const colors = {
+      high: 'bg-confidence-high',
+      medium: 'bg-confidence-medium',
+      low: 'bg-confidence-low'
+    };
+    return colors[confidence];
+  };
+
+  const savedSectionGroups = [
+    {
+      value: 'intro',
+      label: 'Introduction',
+      description: 'Opening paragraphs that grab attention and introduce you'
+    },
+    {
+      value: 'paragraph',
+      label: 'Body Paragraph',
+      description: 'Static supporting paragraphs kept verbatim from uploads'
+    },
+    {
+      value: 'closer',
+      label: 'Closing',
+      description: 'Professional closing paragraphs that wrap up your letter'
+    },
+    {
+      value: 'signature',
+      label: 'Signature',
+      description: 'Sign-offs and contact information blocks'
+    }
+  ];
+
+  const matchesProfilePrefix = (fileName: string | null | undefined, profileId: string) => {
+    if (!fileName) return false;
+    const normalized = fileName.toUpperCase();
+    const pid = profileId.toUpperCase();
+    return (
+      normalized.startsWith(`${pid}_`) ||
+      normalized.startsWith(`${pid}-`) ||
+      normalized.startsWith(`${pid} `) ||
+      normalized.startsWith(`${pid}.`)
+    );
+  };
+
+  const fetchWorkHistoryLibrary = async (currentUserId: string, currentProfileId?: string) => {
+    setIsLibraryLoading(true);
+    setLibraryError(null);
+
+    try {
+      const { data: sourceRows, error: sourceError } = await supabase
+        .from('sources')
+        .select('id, file_name')
+        .eq('user_id', currentUserId);
+
+      if (sourceError) throw sourceError;
+
+      let allowedSourceIds: string[] | undefined;
+
+      if (currentProfileId) {
+        const matchingSources = (sourceRows || []).filter((row) =>
+          matchesProfilePrefix(row.file_name, currentProfileId)
+        );
+
+        if (matchingSources.length === 0) {
+          setWorkHistoryLibrary([]);
+          setIsLibraryLoading(false);
+          return;
+        }
+
+        allowedSourceIds = matchingSources.map((row) => row.id);
+      }
+
+      const buildWorkItemsQuery = () => {
+        let query = supabase
+          .from('work_items')
+          .select('id, title, description, company_id, source_id, created_at, updated_at, start_date, end_date, tags, metrics')
+          .eq('user_id', currentUserId);
+
+        if (allowedSourceIds && allowedSourceIds.length > 0) {
+          query = query.in('source_id', allowedSourceIds);
+        }
+
+        return query;
+      };
+
+      const buildStoriesQuery = () => {
+        let query = supabase
+          .from('approved_content')
+          .select('id, title, content, status, confidence, tags, times_used, last_used, work_item_id, source_id, created_at, updated_at')
+          .eq('user_id', currentUserId);
+
+        if (allowedSourceIds && allowedSourceIds.length > 0) {
+          query = query.in('source_id', allowedSourceIds);
+        }
+
+        return query;
+      };
+
+      const buildCompaniesQuery = () =>
+        supabase
+          .from('companies')
+          .select('id, name, description, created_at, updated_at')
+          .eq('user_id', currentUserId);
+
+      const [
+        { data: workItems, error: workItemsError },
+        { data: stories, error: storiesError },
+        { data: companies, error: companiesError }
+      ] = await Promise.all([
+        buildWorkItemsQuery(),
+        buildStoriesQuery(),
+        buildCompaniesQuery()
+      ]);
+
+      if (workItemsError) throw workItemsError;
+      if (storiesError) throw storiesError;
+      if (companiesError) throw companiesError;
+
+      const companyMap = new Map<string, WorkHistoryCompany>();
+      const roleMap = new Map<string, WorkHistoryRole>();
+
+      const ensureCompany = (companyId?: string | null) => {
+        const fallbackId = companyId ?? 'unknown-company';
+        if (!companyMap.has(fallbackId)) {
+          const companyRecord = (companies || []).find((company) => company.id === fallbackId);
+          companyMap.set(fallbackId, {
+            id: fallbackId,
+            name: companyRecord?.name || 'Untitled Company',
+            description: companyRecord?.description || '',
+            tags: [],
+            source: 'resume',
+            createdAt: companyRecord?.created_at || new Date().toISOString(),
+            updatedAt: companyRecord?.updated_at || companyRecord?.created_at || new Date().toISOString(),
+            roles: []
+          });
+        }
+
+        return companyMap.get(fallbackId)!;
+      };
+
+      (workItems || []).forEach((item) => {
+        const company = ensureCompany(item.company_id);
+        const metricsArray = Array.isArray(item.metrics)
+          ? item.metrics.map((metric: any) => String(metric))
+          : [];
+        const tagsArray = Array.isArray(item.tags)
+          ? item.tags.map((tag: any) => String(tag))
+          : [];
+
+        const role: WorkHistoryRole = {
+          id: item.id,
+          companyId: company.id,
+          title: item.title || 'Role',
+          type: 'full-time',
+          startDate: item.start_date || '',
+          endDate: item.end_date || undefined,
+          description: item.description || '',
+          tags: tagsArray,
+          outcomeMetrics: metricsArray,
+          blurbs: [],
+          externalLinks: [],
+          createdAt: item.created_at || new Date().toISOString(),
+          updatedAt: item.updated_at || item.created_at || new Date().toISOString()
+        };
+
+        roleMap.set(item.id, role);
+        company.roles.push(role);
+      });
+
+      (stories || []).forEach((story) => {
+        if (!story.work_item_id) return;
+        const role = roleMap.get(story.work_item_id);
+        if (!role) return;
+
+        const blurb: WorkHistoryBlurb = {
+          id: story.id,
+          roleId: story.work_item_id,
+          title: story.title || 'Untitled Story',
+          content: story.content || '',
+          outcomeMetrics: [],
+          tags: Array.isArray(story.tags)
+            ? story.tags.map((tag: any) => String(tag))
+            : [],
+          source: 'resume',
+          status: (story.status as WorkHistoryBlurb['status']) || 'draft',
+          confidence: (story.confidence as WorkHistoryBlurb['confidence']) || 'medium',
+          timesUsed: story.times_used ?? 0,
+          lastUsed: story.last_used ?? undefined,
+          linkedExternalLinks: [],
+          hasGaps: false,
+          gapCount: 0,
+          createdAt: story.created_at || new Date().toISOString(),
+          updatedAt: story.updated_at || story.created_at || new Date().toISOString()
+        };
+
+        role.blurbs.push(blurb);
+      });
+
+      const companiesWithStories = Array.from(companyMap.values())
+        .map((company) => ({
+          ...company,
+          roles: company.roles
+            .map((role) => ({
+              ...role,
+              blurbs: role.blurbs
+            }))
+            .filter((role) => role.blurbs.length > 0)
+        }))
+        .filter((company) => company.roles.length > 0);
+
+      setWorkHistoryLibrary(companiesWithStories);
+    } catch (libraryErr: any) {
+      console.error('Error loading work history library:', libraryErr);
+      setLibraryError(libraryErr?.message || 'Failed to load work history blurbs');
+      setWorkHistoryLibrary([]);
+    } finally {
+      setIsLibraryLoading(false);
+    }
+  };
+
+  const buildTemplateFromSections = (sections: SavedSection[]): CoverLetterTemplate => {
+    if (!sections || sections.length === 0) {
+      return createEmptyTemplate();
+    }
+
+    const sortedSections = [...sections].sort((a, b) => {
+      const aDate = a.created_at || '';
+      const bDate = b.created_at || '';
+      return aDate.localeCompare(bDate);
+    });
+
+    const templateSections: CoverLetterSection[] = sortedSections.map((section, index) => {
+      const allowedTypes: CoverLetterSection['type'][] = ['intro', 'paragraph', 'closer', 'signature'];
+      const sectionType = allowedTypes.includes(section.type as CoverLetterSection['type'])
+        ? (section.type as CoverLetterSection['type'])
+        : 'paragraph';
+
+      return {
+        id: section.id || `${sectionType}-${index}`,
+        type: sectionType,
+        contentType: 'saved',
+        isStatic: true,
+        staticContent: section.content,
+        order: index + 1
+      };
+    });
+
+    return {
+      ...createEmptyTemplate(),
+      id: 'derived-template',
+      sections: templateSections
+    };
   };
 
   return (
@@ -995,6 +1040,9 @@ export default function CoverLetterTemplate() {
       {/* Work History Blurb Selector */}
       {showWorkHistorySelector && selectedSection && (
         <WorkHistoryBlurbSelector
+          companies={workHistoryLibrary}
+          isLoading={isLibraryLoading}
+          error={libraryError}
           onSelectBlurb={handleSelectWorkHistoryBlurb}
           onCancel={() => {
             setShowWorkHistorySelector(false);
@@ -1317,131 +1365,201 @@ export default function CoverLetterTemplate() {
                     </div>
                     
                     {selectedContentType === 'story' && (
-                      /* Story Selection - Single Panel at a time */
                       <div>
-                        {/* Company Selection */}
-                        {!selectedCompany && (
-                          <div className="space-y-2">
-                            {mockWorkHistory.map((company) => (
-                              <div
-                                key={company.id}
-                                className="p-3 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
-                                onClick={() => setSelectedCompany(company.id)}
-                              >
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <h4 className="font-medium">{company.name}</h4>
-                                    <p className="text-sm text-muted-foreground">{company.description}</p>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <Badge variant="secondary">{company.roles.length} role{company.roles.length !== 1 ? 's' : ''}</Badge>
-                                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                                  </div>
-                                </div>
+                        {isLibraryLoading ? (
+                          <div className="p-4 border border-dashed rounded-lg text-sm text-muted-foreground text-center">
+                            Loading stories...
+                          </div>
+                        ) : libraryError ? (
+                          <div className="p-4 border border-destructive/30 bg-destructive/5 rounded-lg text-sm text-destructive">
+                            {libraryError}
+                          </div>
+                        ) : workHistoryLibrary.length === 0 ? (
+                          <div className="p-4 border border-dashed rounded-lg text-sm text-muted-foreground text-center">
+                            No approved stories available yet. Upload a resume or add work history blurbs to populate this list.
+                          </div>
+                        ) : (
+                          <div className="space-y-4">
+                            {!selectedCompany && (
+                              <div className="space-y-2">
+                                {workHistoryLibrary.map((company) => {
+                                  const roleCount = company.roles.filter((role) => role.blurbs.length > 0).length;
+                                  return (
+                                    <div
+                                      key={company.id}
+                                      className="p-3 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
+                                      onClick={() => {
+                                        if (roleCount === 0) return;
+                                        setSelectedCompany(company.id);
+                                        setSelectedRole('');
+                                      }}
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <div>
+                                          <h4 className="font-medium">{company.name}</h4>
+                                          {company.description && (
+                                            <p className="text-sm text-muted-foreground">{company.description}</p>
+                                          )}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <Badge variant="secondary">{roleCount} role{roleCount === 1 ? '' : 's'}</Badge>
+                                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
-                            ))}
-                          </div>
-                        )}
+                            )}
 
-                        {/* Role Selection */}
-                        {selectedCompany && !selectedRole && (
-                          <div className="space-y-2">
-                            {mockWorkHistory
-                              .find(c => c.id === selectedCompany)
-                              ?.roles.map((role) => (
-                                <div
-                                  key={role.id}
-                                  className="p-3 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
-                                  onClick={() => setSelectedRole(role.id)}
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <div>
-                                      <h4 className="font-medium">{role.title}</h4>
-                                      <p className="text-sm text-muted-foreground">{role.description}</p>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <Badge variant="secondary">{role.blurbs.length === 0 ? '0 stories' : `${role.blurbs.length} story${role.blurbs.length === 1 ? '' : 's'}`}</Badge>
-                                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                                    </div>
-                                  </div>
+                            {selectedCompany && !selectedRole && (
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedCompany('');
+                                      setSelectedRole('');
+                                    }}
+                                    className="h-8 px-2"
+                                  >
+                                    ← Back
+                                  </Button>
                                 </div>
-                              ))}
-                          </div>
-                        )}
+                                {workHistoryLibrary
+                                  .find((company) => company.id === selectedCompany)
+                                  ?.roles.filter((role) => role.blurbs.length > 0)
+                                  .map((role) => (
+                                    <div
+                                      key={role.id}
+                                      className="p-3 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
+                                      onClick={() => setSelectedRole(role.id)}
+                                    >
+                                      <div className="flex items-center justify-between">
+                                        <div>
+                                          <h4 className="font-medium">{role.title}</h4>
+                                          {role.description && (
+                                            <p className="text-sm text-muted-foreground">{role.description}</p>
+                                          )}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <Badge variant="secondary">{role.blurbs.length} story{role.blurbs.length === 1 ? '' : 's'}</Badge>
+                                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                            )}
 
-                        {/* Story Selection */}
-                        {selectedRole && (
-                          <div className="space-y-3">
-                            {mockWorkHistory
-                              .find(c => c.id === selectedCompany)
-                              ?.roles.find(r => r.id === selectedRole)
-                              ?.blurbs.map((blurb) => (
-                                <div
-                                  key={blurb.id}
-                                  className="p-4 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
-                                  onClick={() => handleContentSelection(blurb)}
-                                >
-                                  <div className="space-y-3">
-                                    <h4 className="font-medium">{blurb.title}</h4>
-                                    <p className="text-sm text-muted-foreground">{blurb.content}</p>
-                                  </div>
+                            {selectedRole && (
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setSelectedRole('')}
+                                    className="h-8 px-2"
+                                  >
+                                    ← Back
+                                  </Button>
                                 </div>
-                              ))}
+                                {workHistoryLibrary
+                                  .find((company) => company.id === selectedCompany)
+                                  ?.roles.find((role) => role.id === selectedRole)
+                                  ?.blurbs.map((blurb) => (
+                                    <div
+                                      key={blurb.id}
+                                      className="p-4 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
+                                      onClick={() => handleContentSelection(blurb)}
+                                    >
+                                      <div className="space-y-3">
+                                        <h4 className="font-medium">{blurb.title}</h4>
+                                        <p className="text-sm text-muted-foreground whitespace-pre-line">
+                                          {blurb.content || 'No story content captured yet.'}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
                     )}
 
                     {selectedContentType === 'saved' && (
-                      /* Saved Sections Selection - Single Panel at a time */
                       <div>
-                        {/* Content Type Selection */}
-                        {!selectedReusableType && (
+                        {!selectedReusableType ? (
                           <div className="space-y-2">
-                            {['Intro', 'Closing', 'Signature'].map((contentType) => (
-                              <div
-                                key={contentType}
-                                className="p-3 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
-                                onClick={() => setSelectedReusableType(contentType)}
-                              >
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <h4 className="font-medium">{contentType}</h4>
-                                    <p className="text-sm text-muted-foreground">
-                                      {contentType === 'Intro' && 'Opening paragraphs and introductions'}
-                                      {contentType === 'Closing' && 'Closing statements and calls to action'}
-                                      {contentType === 'Signature' && 'Professional sign-offs and contact information'}
-                                    </p>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <Badge variant="secondary">
-                                      {mockTemplateBlurbs.filter(b => b.type === contentType.toLowerCase()).length} items
-                                    </Badge>
-                                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Content Selection */}
-                        {selectedReusableType && (
-                          <div className="space-y-3">
-                            {mockTemplateBlurbs
-                              .filter(b => b.type === selectedReusableType.toLowerCase())
-                              .map((blurb) => (
+                            {savedSectionGroups.map((group) => {
+                              const count = templateBlurbs.filter(blurb => blurb.type === group.value).length;
+                              return (
                                 <div
-                                  key={blurb.id}
-                                  className="p-4 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
-                                  onClick={() => handleContentSelection(blurb)}
+                                  key={group.value}
+                                  className="p-3 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
+                                  onClick={() => {
+                                    if (count === 0) return;
+                                    setSelectedReusableType(group.value);
+                                  }}
                                 >
-                                  <div className="space-y-3">
-                                    <h4 className="font-medium">{blurb.title}</h4>
-                                    <p className="text-sm text-muted-foreground">{blurb.content}</p>
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <h4 className="font-medium">{group.label}</h4>
+                                      <p className="text-sm text-muted-foreground">{group.description}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant="secondary">
+                                        {count} item{count === 1 ? '' : 's'}
+                                      </Badge>
+                                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                    </div>
                                   </div>
                                 </div>
-                              ))}
+                              );
+                            })}
+                            {templateBlurbs.length === 0 && (
+                              <div className="p-3 border border-dashed rounded-lg text-sm text-muted-foreground text-center">
+                                Upload a cover letter or create a saved section to populate this library.
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setSelectedReusableType('')}
+                                className="h-8 px-2"
+                              >
+                                ← Back
+                              </Button>
+                              <span className="text-sm text-muted-foreground">
+                                {savedSectionGroups.find(group => group.value === selectedReusableType)?.label}
+                              </span>
+                            </div>
+                            {templateBlurbs.filter(blurb => blurb.type === selectedReusableType).length === 0 ? (
+                              <div className="p-4 border border-dashed rounded-lg text-sm text-muted-foreground text-center">
+                                No saved sections of this type yet.
+                              </div>
+                            ) : (
+                              templateBlurbs
+                                .filter(blurb => blurb.type === selectedReusableType)
+                                .map((blurb) => (
+                                  <div
+                                    key={blurb.id}
+                                    className="p-4 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
+                                    onClick={() => handleContentSelection(blurb)}
+                                  >
+                                    <div className="space-y-3">
+                                      <h4 className="font-medium">{blurb.title}</h4>
+                                      <p className="text-sm text-muted-foreground whitespace-pre-line">{blurb.content}</p>
+                                    </div>
+                                  </div>
+                                ))
+                            )}
                           </div>
                         )}
                       </div>

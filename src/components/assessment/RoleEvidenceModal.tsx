@@ -5,21 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
 import { 
-  Building, 
-  Target, 
-  FileText,
-  TrendingUp,
-  MessageSquare,
-  Edit,
   CheckCircle,
   AlertCircle,
   ChevronDown,
-  ChevronUp,
-  Tag,
-  Puzzle,
-  Settings,
-  BarChart3,
-  TrendingDown
+  ChevronUp
 } from "lucide-react";
 import { useState } from "react";
 import { MatchPill } from "./MatchPill";
@@ -140,8 +129,7 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
           {/* Section 1: Industry Pattern Analysis */}
           <Card className="section-spacing">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Puzzle className="h-5 w-5" />
+              <CardTitle className="text-lg">
                 Industry Pattern Analysis
               </CardTitle>
             </CardHeader>
@@ -167,8 +155,7 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
           {/* Section 2: Problem Complexity */}
           <Card className="section-spacing">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Settings className="h-5 w-5" />
+              <CardTitle className="text-lg">
                 Problem Complexity
               </CardTitle>
             </CardHeader>
@@ -194,8 +181,7 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
           {/* Section 3: Relevant Work History */}
           <Card className="section-spacing">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <FileText className="h-5 w-5" />
+              <CardTitle className="text-lg">
                 Relevant Work History
               </CardTitle>
             </CardHeader>
@@ -229,8 +215,7 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
               <CollapsibleTrigger asChild>
                 <CardHeader className="pb-3 cursor-pointer hover:bg-muted/50 transition-colors">
                   <CardTitle className="text-lg flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Tag className="h-5 w-5" />
+                    <div>
                       Tag Relevance Analysis
                     </div>
                     {isTagAnalysisOpen ? (
@@ -265,8 +250,7 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
           {/* Outcome Metrics */}
           <Card className="section-spacing">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
+              <CardTitle className="text-lg">
                 Outcome Metrics
               </CardTitle>
             </CardHeader>
@@ -284,8 +268,7 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
           {(evidence.gaps?.length || 0) > 0 && (
             <Card className="section-spacing">
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <TrendingDown className="h-5 w-5" />
+                <CardTitle className="text-lg">
                   Areas for Improvement
                 </CardTitle>
               </CardHeader>

@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   HelpCircle
 } from "lucide-react";
+import { getConfidenceBadgeColor, textConfidenceToPercentage } from "@/utils/confidenceBadge";
 
 interface LevelEvidence {
   currentLevel: string;
@@ -54,13 +55,22 @@ interface LevelEvidenceModalProps {
 }
 
 const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalProps) => {
-  const getConfidenceColor = (confidence: string) => {
-    switch (confidence) {
-      case 'high': return 'bg-success text-success-foreground';
-      case 'medium': return 'bg-warning text-warning-foreground';
-      case 'low': return 'bg-muted text-muted-foreground';
-      default: return 'bg-muted text-muted-foreground';
+  // Get confidence percentage from evidence
+  const getConfidencePercentage = (): number => {
+    // Prefer explicit percentage from levelingFramework
+    if (evidence.levelingFramework?.confidencePercentage !== undefined) {
+      return evidence.levelingFramework.confidencePercentage;
     }
+    
+    // Try to parse from match string (e.g., "75% confident")
+    const matchStr = evidence.levelingFramework?.match || '';
+    const parsed = parseFloat(matchStr.replace('% confident', '').replace('%', ''));
+    if (!isNaN(parsed)) {
+      return Math.round(parsed);
+    }
+    
+    // Fallback to text-based confidence conversion
+    return textConfidenceToPercentage(evidence.confidence as 'high' | 'medium' | 'low');
   };
 
   // Provide default values if evidence is undefined
@@ -94,8 +104,8 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">Level Assessment Summary</CardTitle>
-                <Badge className={getConfidenceColor(evidence.confidence)}>
-                  {evidence.levelingFramework?.confidencePercentage || Math.round(parseFloat(evidence.levelingFramework?.match?.replace('% confident', '') || '0'))}% confidence
+                <Badge className={getConfidenceBadgeColor(getConfidencePercentage())}>
+                  {getConfidencePercentage()}% confidence
                 </Badge>
               </div>
             </CardHeader>
@@ -201,37 +211,69 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
             <CardContent className="space-y-4">
               <div>
                 <h4 className="font-medium mb-3">Criteria</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Met Criteria - Left Column */}
-                  <div>
-                    <ul className="space-y-2">
-                      {(evidence.levelingFramework?.metCriteria || []).filter(c => c.met).map((item, index) => (
-                        <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
-                          <CheckCircle2 className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
-                          <span>{item.criterion}</span>
-                        </li>
-                      ))}
-                      {(!evidence.levelingFramework?.metCriteria || evidence.levelingFramework.metCriteria.filter(c => c.met).length === 0) && (
-                        <li className="text-sm text-muted-foreground">No criteria met</li>
-                      )}
-                    </ul>
-                  </div>
+                {(() => {
+                  const metCriteria = evidence.levelingFramework?.metCriteria || [];
+                  const metCount = metCriteria.filter(c => c.met).length;
+                  const unmetCount = metCriteria.filter(c => !c.met).length;
+                  const allMet = unmetCount === 0 && metCount > 0;
+                  const noneMet = metCount === 0 && unmetCount > 0;
+                  const hasBoth = metCount > 0 && unmetCount > 0;
 
-                  {/* Unmet/TBD Criteria - Right Column */}
-                  <div>
-                    <ul className="space-y-2">
-                      {(evidence.levelingFramework?.metCriteria || []).filter(c => !c.met).map((item, index) => (
-                        <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
-                          <HelpCircle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                          <span>{item.criterion}</span>
-                        </li>
-                      ))}
-                      {(!evidence.levelingFramework?.metCriteria || evidence.levelingFramework.metCriteria.filter(c => !c.met).length === 0) && (
-                        <li className="text-sm text-muted-foreground">All criteria met</li>
-                      )}
-                    </ul>
-                  </div>
-                </div>
+                  // Single column layout when all met or none met
+                  if (allMet || noneMet) {
+                    return (
+                      <div>
+                        {allMet && (
+                          <div className="text-sm text-muted-foreground mb-2 font-semibold">All criteria met 😊</div>
+                        )}
+                        {noneMet && (
+                          <div className="text-sm text-muted-foreground mb-2 font-semibold">No criteria met 😢</div>
+                        )}
+                        <ul className="space-y-2">
+                          {metCriteria.map((item, index) => (
+                            <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
+                              {item.met ? (
+                                <CheckCircle2 className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
+                              ) : (
+                                <HelpCircle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                              )}
+                              <span>{item.criterion}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    );
+                  }
+
+                  // Two column layout when mixed (met and unmet)
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Met Criteria - Left Column */}
+                      <div>
+                        <ul className="space-y-2">
+                          {metCriteria.filter(c => c.met).map((item, index) => (
+                            <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
+                              <CheckCircle2 className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
+                              <span>{item.criterion}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {/* Unmet/TBD Criteria - Right Column */}
+                      <div>
+                        <ul className="space-y-2">
+                          {metCriteria.filter(c => !c.met).map((item, index) => (
+                            <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
+                              <HelpCircle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                              <span>{item.criterion}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </CardContent>
           </Card>

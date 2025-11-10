@@ -1758,7 +1758,7 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
               matchesProfile = matchesProfileByFilename(linkedWorkItem.source_id) || matchesProfileByFilename(story.source_id);
             }
             if (!matchesProfile) continue;
-          }
+            }
 
           const roleTitle = linkedWorkItem?.title || 'Unknown Role';
           const companyName = linkedWorkItem?.company?.name || 'Unknown Company';
