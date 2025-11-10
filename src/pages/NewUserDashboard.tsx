@@ -97,6 +97,57 @@ export default function NewUserDashboard() {
   }, [contentItemsWithGaps.data]);
 
   const summaryForUI = gapSummary.data ?? derivedSummary;
+
+  // Build immediate fallback counts from summary when detailed items are not yet loaded
+  const whFallbackCount = React.useMemo(() => {
+    if (!summaryForUI) return null;
+    const bc = summaryForUI.byContentType || ({} as any);
+    return (bc.roleDescriptions || 0) + (bc.roleMetrics || 0) + (bc.stories || 0);
+  }, [summaryForUI]);
+
+  const ssFallbackCount = React.useMemo(() => {
+    if (!summaryForUI) return null;
+    const bc = summaryForUI.byContentType || ({} as any);
+    // Support both savedSections and coverLetterSections buckets
+    return (bc.coverLetterSections || 0) + (bc.savedSections || 0);
+  }, [summaryForUI]);
+
+  // Placeholder items so widgets can render counts instantly from cached summary
+  const whItems = React.useMemo(() => {
+    const items = contentItemsWithGaps.data?.byContentType.workHistory;
+    if (items && items.length >= 0) return items;
+    if (typeof whFallbackCount === 'number') {
+      return Array.from({ length: whFallbackCount }, (_, i) => ({
+        entity_id: `wh-ph-${i}`,
+        entity_type: 'work_item',
+        display_title: '',
+        max_severity: 'low',
+        gap_categories: [],
+        content_type_label: 'Work History',
+        navigation_path: '',
+        navigation_params: {}
+      } as any));
+    }
+    return [] as any[];
+  }, [contentItemsWithGaps.data, whFallbackCount]);
+
+  const ssItems = React.useMemo(() => {
+    const items = contentItemsWithGaps.data?.byContentType.coverLetterSavedSections;
+    if (items && items.length >= 0) return items;
+    if (typeof ssFallbackCount === 'number') {
+      return Array.from({ length: ssFallbackCount }, (_, i) => ({
+        entity_id: `ss-ph-${i}`,
+        entity_type: 'saved_section',
+        display_title: '',
+        max_severity: 'low',
+        gap_categories: [],
+        content_type_label: 'Cover Letter Saved Sections',
+        navigation_path: '',
+        navigation_params: {}
+      } as any));
+    }
+    return [] as any[];
+  }, [contentItemsWithGaps.data, ssFallbackCount]);
   
   const handleWidgetClick = (contentType: ContentTypeFilter, severity: SeverityFilter) => {
     setContentTypeFilter(contentType);
@@ -341,13 +392,13 @@ export default function NewUserDashboard() {
             {/* Content Type Group: [WH | SS | CL] */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <WorkHistoryGapsCountWidget 
-                items={contentItemsWithGaps.data?.byContentType.workHistory || []}
-                isLoading={contentItemsWithGaps.isLoading}
+                items={whItems}
+                isLoading={!summaryForUI && contentItemsWithGaps.isLoading}
                 onClick={() => handleWidgetClick('workHistory', 'all')}
               />
               <SavedSectionsGapsCountWidget 
-                items={contentItemsWithGaps.data?.byContentType.coverLetterSavedSections || []}
-                isLoading={contentItemsWithGaps.isLoading}
+                items={ssItems}
+                isLoading={!summaryForUI && contentItemsWithGaps.isLoading}
                 onClick={() => handleWidgetClick('savedSections', 'all')}
               />
               <CoverLettersGapsCountWidget 

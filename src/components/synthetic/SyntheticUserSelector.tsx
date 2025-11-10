@@ -34,6 +34,13 @@ export const SyntheticUserSelector: React.FC<SyntheticUserSelectorProps> = ({ cl
     try {
       const context = await syntheticUserService.getSyntheticUserContext();
       setContext(context);
+      try {
+        if (context.currentUser?.profileId) {
+          localStorage.setItem('synthetic_active_profile_id', context.currentUser.profileId);
+        } else {
+          localStorage.removeItem('synthetic_active_profile_id');
+        }
+      } catch {}
     } catch (error) {
       console.error('Error loading synthetic user context:', error);
     }
@@ -46,6 +53,9 @@ export const SyntheticUserSelector: React.FC<SyntheticUserSelectorProps> = ({ cl
       if (result.success) {
         // Reload context to get updated current user
         await loadSyntheticUserContext();
+        try {
+          localStorage.setItem('synthetic_active_profile_id', profileId);
+        } catch {}
         // Trigger a page refresh to clear any cached data
         window.location.reload();
       } else {

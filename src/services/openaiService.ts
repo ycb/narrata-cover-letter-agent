@@ -7,9 +7,17 @@ import type {
   Education, 
   ContactInfo,
   Certification,
-  Project
+  Project,
+  FileType
 } from '@/types/fileUpload';
-import { buildResumeAnalysisPrompt, buildCoverLetterAnalysisPrompt } from '../prompts';
+import { 
+  buildResumeAnalysisPrompt, 
+  buildCoverLetterAnalysisPrompt,
+  RESUME_COVER_LETTER_ANALYSIS_PROMPT,
+  CASE_STUDY_ANALYSIS_PROMPT,
+  JSON_EXTRACTION_SYSTEM_PROMPT,
+  SIMPLE_JSON_EXTRACTION_PROMPT
+} from '../prompts';
 
 export class LLMAnalysisService {
   private apiKey: string;
@@ -27,13 +35,14 @@ export class LLMAnalysisService {
   /**
    * Analyze resume text and extract structured data
    */
-  async analyzeResume(text: string): Promise<LLMAnalysisResult> {
+  async analyzeResume(text: string, coverLetterText?: string): Promise<LLMAnalysisResult> {
     try {
       // Calculate optimal token limit based on content analysis
+      const contentLength = text.length + (coverLetterText?.length || 0);
       const optimalTokens = this.calculateOptimalTokens(text, 'resume');
-      console.warn(`🚀 Starting resume analysis with ${optimalTokens} tokens (smart calculation)`);
+      console.warn(`🚀 Starting resume${coverLetterText ? ' + cover letter' : ''} analysis with ${optimalTokens} tokens (smart calculation)`);
       
-      const prompt = this.buildResumeAnalysisPrompt(text);
+      const prompt = this.buildResumeAnalysisPrompt(text, coverLetterText);
       const response = await this.callOpenAI(prompt, optimalTokens);
       
       if (!response.success) {
@@ -175,8 +184,8 @@ export class LLMAnalysisService {
   /**
    * Build prompt for resume analysis
    */
-  private buildResumeAnalysisPrompt(text: string): string {
-    return buildResumeAnalysisPrompt(text);
+  private buildResumeAnalysisPrompt(text: string, coverLetterText?: string): string {
+    return buildResumeAnalysisPrompt(text, coverLetterText);
   }
 
   // Removed legacy cover letter prompt; we rely on prompts/coverLetterAnalysis.ts
@@ -185,87 +194,19 @@ export class LLMAnalysisService {
    * Build prompt for combined resume and cover letter analysis
    */
   private buildCombinedAnalysisPrompt(resumeText: string, coverLetterText: string): string {
-    // Use the comprehensive prompts from the prompts directory
-    const resumePrompt = buildResumeAnalysisPrompt(resumeText);
-    const coverLetterPrompt = buildCoverLetterAnalysisPrompt(coverLetterText);
-    
-    return `Analyze the following resume and cover letter together. Extract structured data for each document and return a JSON object with separate "resume" and "coverLetter" sections.
-
-IMPORTANT: Cross-reference information between documents. If the cover letter mentions work experiences, metrics, or stories not fully detailed in the resume, include them in the resume section's workHistory with appropriate annotations.
-
-RESUME ANALYSIS:
-${resumePrompt}
-
----
-
-COVER LETTER ANALYSIS:
-${coverLetterPrompt}
-
----
-
-Return as JSON with this top-level structure:
-{
-  "resume": { /* comprehensive resume structured data using the schema above */ },
-  "coverLetter": { /* cover letter structured data using the schema above */ }
-}
-
-Return ONLY valid JSON with no additional text or markdown formatting. Ensure all dates are in YYYY-MM-DD format and generate unique IDs for each item.`;
+    // Use the centralized prompt for combined analysis
+    return RESUME_COVER_LETTER_ANALYSIS_PROMPT
+      .replace('{{resumeText}}', resumeText)
+      .replace('{{coverLetterText}}', coverLetterText);
   }
 
   /**
    * Build prompt for case study analysis
    */
   private buildCaseStudyAnalysisPrompt(text: string): string {
-    return `
-Analyze this case study text and extract structured data. Return ONLY valid JSON with no additional text.
-
-Case Study Text:
-${text}
-
-Extract the following information and return as JSON:
-
-{
-  "workHistory": [
-    {
-      "id": "unique_id",
-      "company": "Company Name",
-      "title": "Job Title",
-      "startDate": "YYYY-MM-DD",
-      "endDate": "YYYY-MM-DD or null if current",
-      "description": "Project/case study description",
-      "achievements": ["achievement1", "achievement2"],
-      "location": "City, State",
-      "current": true/false
-    }
-  ],
-  "education": [],
-  "skills": ["skill1", "skill2", "skill3"],
-  "achievements": ["achievement1", "achievement2"],
-  "contactInfo": {
-    "email": "email@example.com",
-    "phone": "phone number if mentioned",
-    "location": "City, State",
-    "website": "website if mentioned",
-    "linkedin": "linkedin if mentioned"
-  },
-  "summary": "Brief summary of the case study and its outcomes"
-}
-
-Instructions:
-- Extract project details, methodologies, and outcomes from the case study
-- Focus on technical skills, problem-solving approaches, and measurable results
-- Include any specific metrics, tools, or technologies mentioned
-- Extract any work experience or project context
-- Create a summary highlighting the key outcomes and learnings
-- Ensure all dates are in YYYY-MM-DD format
-- Generate unique IDs for each item
-- Return valid JSON only, no markdown formatting
-`;
+    return CASE_STUDY_ANALYSIS_PROMPT.replace('{{text}}', text);
   }
 
-  /**
-   * Calculate optimal token limit based on extracted text analysis
-   */
   private calculateOptimalTokens(extractedText: string, type: FileType): number {
     // Improved token estimate (more accurate char-to-token ratio)
     const contentTokens = Math.ceil(extractedText.length / 3.5); // Better ratio: ~3.5 chars per token
@@ -364,7 +305,7 @@ Instructions:
           messages: [
             {
               role: 'system',
-              content: 'You are an expert at parsing resume data and extracting structured information. You must return ONLY valid JSON with no additional text, no markdown formatting, no code blocks, and no explanations. The response must be parseable by JSON.parse().'
+              content: JSON_EXTRACTION_SYSTEM_PROMPT
             },
             {
               role: 'user',
@@ -527,7 +468,7 @@ IMPORTANT: Return ONLY the JSON object, no other text, no markdown, no explanati
           messages: [
             {
               role: 'system',
-              content: 'You are a JSON extraction tool. Return ONLY valid JSON with no additional text.'
+              content: SIMPLE_JSON_EXTRACTION_PROMPT
             },
             {
               role: 'user',

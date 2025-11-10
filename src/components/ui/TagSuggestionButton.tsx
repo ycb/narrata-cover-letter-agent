@@ -46,11 +46,19 @@ export const TagSuggestionButton = ({
 };
 
 // Mock tag suggestion service
+// TODO: Implement real auto-suggest tags service when building this feature
+// This should:
+// 1. Use user's industries and businessModels from UserGoals (career goals)
+// 2. Match role level tags to areas, verticals, and buyers user has experience with
+// 3. Personalize suggestions based on what user wants to work with
+// 4. Use LLM-based tagging with user preferences as context
+// 5. Map industries/business models to relevant role tags (e.g., Fintech → financial products, B2B SaaS → enterprise)
 const suggestTags = async (content: string): Promise<string[]> => {
   // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 1000));
   
   // Simple keyword-based tag suggestions
+  // TODO: Replace with real service that uses UserGoals.industries and UserGoals.businessModels
   const keywords = content.toLowerCase();
   const suggestedTags: string[] = [];
   

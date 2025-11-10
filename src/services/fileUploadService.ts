@@ -95,11 +95,12 @@ export class FileUploadService {
   }
 
   /**
-   * Look for an existing fully processed source with the same checksum
+   * Look for an existing fully processed source with the same checksum and type
    */
   private async findExistingSourceByChecksum(
     userId: string,
-    checksum: string
+    checksum: string,
+    sourceType: 'resume' | 'cover_letter'
   ): Promise<{ id: string; structured_data?: unknown } | null> {
     try {
       const { data, error } = await supabase
@@ -107,6 +108,7 @@ export class FileUploadService {
         .select('id, processing_status, structured_data')
         .eq('user_id', userId)
         .eq('file_checksum', checksum)
+        .eq('source_type', sourceType)
         .order('created_at', { ascending: false })
         .limit(1);
 
@@ -119,7 +121,8 @@ export class FileUploadService {
         return null;
       }
 
-      const existing = data.find((entry: any) => entry.processing_status === 'completed');
+type SourceEntry = { id: string; processing_status: string; structured_data?: unknown };
+      const existing = (data as SourceEntry[]).find(entry => entry.processing_status === 'completed');
       return existing || null;
     } catch (error) {
       console.error('Error checking for existing source by checksum:', error);
@@ -244,9 +247,10 @@ export class FileUploadService {
     file: File, 
     userId: string, 
     storagePath: string,
+    sourceType: 'resume' | 'cover_letter',
     accessToken?: string,
     checksum?: string,
-    sourceType?: FileType
+    fileType?: FileType
   ): Promise<string> {
     try {
       const computedChecksum = checksum ?? await this.generateChecksum(file);
@@ -264,8 +268,8 @@ export class FileUploadService {
         file_size: file.size,
         file_checksum: computedChecksum,
         storage_path: storagePath,
-        processing_status: 'pending',
-        source_type: dbSourceType // Convert FileType to database format
+source_type: dbSourceType,
+        processing_status: 'pending'
       };
       
       const response = await fetch(`${supabaseUrl}/rest/v1/sources`, {
@@ -406,8 +410,26 @@ export class FileUploadService {
         console.warn('Failed to compute checksum for file:', error);
       }
 
-      // Check for duplicates AFTER batching logic
-      // (We'll move this check later in the flow)
+      // If resume or cover letter matches previously processed content, reuse existing data
+      if ((type === 'resume' || type === 'coverLetter') && checksum) {
+        const sourceType: 'resume' | 'cover_letter' = type === 'coverLetter' ? 'cover_letter' : 'resume';
+        const existingSource = await this.findExistingSourceByChecksum(userId, checksum, sourceType);
+        if (existingSource) {
+          console.log(`♻️ Detected duplicate ${type} upload, reusing existing structured data.`);
+          window.dispatchEvent(new CustomEvent('file-upload-progress', { 
+            detail: { 
+              sourceId: existingSource.id, 
+              stage: 'duplicate', 
+              progress: 100, 
+              message: `${type === 'resume' ? 'Resume' : 'Cover letter'} already processed — using saved data.` 
+            } 
+          }));
+          return {
+            success: true,
+            fileId: existingSource.id
+          };
+        }
+      }
 
       // For manual text, skip storage upload and create virtual storage path
       let storagePath: string;
@@ -427,9 +449,9 @@ export class FileUploadService {
         storagePath = uploadResult.storagePath!;
       }
 
-      // Create source record with correct source_type
-      const sourceId = await this.createSourceRecord(file, userId, storagePath, accessToken, checksum, type);
-
+      // Create source record with appropriate type
+      const sourceType: 'resume' | 'cover_letter' = type === 'coverLetter' ? 'cover_letter' : 'resume';
+      const sourceId = await this.createSourceRecord(file, userId, storagePath, sourceType, accessToken, checksum, type);
       
       // Process content (immediate for small content, background for large)
       const contentSize = isManualText ? (content as string).length : file.size;
@@ -561,7 +583,10 @@ export class FileUploadService {
         analysisResult = await this.llmAnalysisService.analyzeCaseStudy(extractedText);
       } else {
         console.log('→ Using RESUME analysis');
-        analysisResult = await this.llmAnalysisService.analyzeResume(extractedText);
+        // Check if we have a pending cover letter to include in resume analysis
+        // This allows tag extraction from both resume AND cover letter in one call
+        const coverLetterText = this.pendingCoverLetter?.text;
+        analysisResult = await this.llmAnalysisService.analyzeResume(extractedText, coverLetterText);
       }
       const llmEndTime = performance.now();
       const llmDuration = (llmEndTime - llmStartTime).toFixed(2);
@@ -726,6 +751,20 @@ export class FileUploadService {
       }
       
       const userId = sourceData.user_id;
+
+      // Determine active synthetic profile for this user (if any)
+      let activeProfileId: string | null = null;
+      try {
+        const { data: syntheticUsers } = await dbClient
+          .from('synthetic_users')
+          .select('profile_id')
+          .eq('parent_user_id', userId)
+          .eq('is_active', true)
+          .maybeSingle();
+        activeProfileId = syntheticUsers?.profile_id ?? null;
+      } catch (e) {
+        console.warn('[processStructuredData] Unable to read active synthetic profile:', e);
+      }
       
       // Track insertion stats
       let companiesCreated = 0;
@@ -2136,7 +2175,60 @@ export class FileUploadService {
       
       // Create unified profile from all three sources (resume + cover letter + LinkedIn)
       await this.createUnifiedProfile(accessToken);
-      
+      // Finalize the original coverLetter evaluation run with pipeline-complete gap totals (no extra LLM call)
+      try {
+        if (this.pendingCoverLetter?.sourceId) {
+          const { createClient } = await import('@supabase/supabase-js');
+          const { url, key } = getSupabaseConfig();
+          const db = createClient(url, key, {
+            global: { headers: { Authorization: `Bearer ${accessToken}` } }
+          });
+          // Authenticated user
+          const { data: { user } } = await db.auth.getUser();
+          const userId = user?.id;
+          // Derive synthetic profile from source file name
+          const { data: src } = await db
+            .from('sources')
+            .select('file_name')
+            .eq('id', this.pendingCoverLetter.sourceId)
+            .single();
+          const fileName = src?.file_name || '';
+          const match = fileName.match(/^(P\d{2})[\-_.\s]?/i);
+          const profileId = match ? match[1].toUpperCase() : undefined;
+          // Compute final gap summary
+          let finalSummary: any = null;
+          let finalTotal = 0;
+          if (userId) {
+            const { GapDetectionService } = await import('./gapDetectionService');
+            const summary = await GapDetectionService.getGapSummary(userId, profileId, accessToken);
+            finalSummary = summary;
+            finalTotal = summary?.total || 0;
+          }
+          // Update latest coverLetter evaluation run for this source
+          const { data: run } = await db
+            .from('evaluation_runs')
+            .select('id')
+            .eq('source_id', this.pendingCoverLetter.sourceId)
+            .eq('file_type', 'coverLetter')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+          if (run?.id) {
+            const totalLatency = performance.now() - llmStartTime;
+            await db
+              .from('evaluation_runs')
+              .update({
+                gap_total: finalTotal,
+                gap_summary: finalSummary,
+                total_latency_ms: Math.round(totalLatency)
+              })
+              .eq('id', run.id);
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to finalize evaluation run with final gaps:', e);
+      }
+
       // Clear batching data
       this.pendingResume = null;
       this.pendingCoverLetter = null;
@@ -2305,14 +2397,31 @@ export class FileUploadService {
       // Parse evaluation results
       const evaluation = data.evaluation || {};
       
-      // Determine user_type by checking the source file_name in the database
+      // Determine user_type and synthetic profile from the source file name
       const { data: sourceData } = await dbClient
         .from('sources')
         .select('file_name')
         .eq('id', data.sourceId)
         .single();
       
-      const userType = sourceData?.file_name?.startsWith('P') ? 'synthetic' : 'real';
+      const fileName = sourceData?.file_name || '';
+      const profileMatch = fileName.match(/^(P\d{2})[\-_\.\s]?/i);
+      const syntheticProfileId = profileMatch ? profileMatch[1].toUpperCase() : null;
+      const userType = syntheticProfileId ? 'synthetic' : 'real';
+
+      // Compute current gap summary for this user (scoped by detected synthetic profile when present)
+      let gapSummary: any = null;
+      let gapTotal: number = 0;
+      try {
+        const { GapDetectionService } = await import('./gapDetectionService');
+        if (userId) {
+          const summary = await GapDetectionService.getGapSummary(userId, syntheticProfileId || undefined, accessToken);
+          gapSummary = summary;
+          gapTotal = summary?.total || 0;
+        }
+      } catch (e) {
+        console.warn('Failed to compute gap summary for evaluation run:', e);
+      }
       
       // Store in Supabase evaluation_runs table
       const { error } = await dbClient
@@ -2323,6 +2432,7 @@ export class FileUploadService {
           source_id: data.sourceId, // This should be the UUID from sources table
           file_type: data.type,
           user_type: userType,
+          synthetic_profile_id: syntheticProfileId,
           
           // Performance Metrics
           text_extraction_latency_ms: 0, // TODO: Add granular timing
@@ -2347,9 +2457,9 @@ export class FileUploadService {
           // Heuristics Data
           heuristics: data.heuristics,
           
-          // Raw Input/Output for comparison
-          raw_text: data.inputText, // Store raw text
-          structured_data: JSON.parse(data.outputText) // Store structured data
+          // Gap Summary Snapshot (source of truth for counts at analysis time)
+          gap_total: gapTotal,
+          gap_summary: gapSummary
         } as any);
 
       if (error) {

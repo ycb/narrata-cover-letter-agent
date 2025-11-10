@@ -8,6 +8,7 @@ export interface FileUploadMetadata {
   fileSize: number;
   fileChecksum: string;
   storagePath: string;
+  sourceType: 'resume' | 'cover_letter';
   processingStatus: ProcessingStatus;
   rawText?: string;
   structuredData?: StructuredResumeData | LinkedInProfileData;

@@ -19,7 +19,7 @@ import { X, Plus } from 'lucide-react';
 interface UserGoalsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (goals: UserGoals) => void;
+  onSave: (goals: UserGoals) => Promise<void> | void;
   initialGoals?: UserGoals;
 }
 
@@ -44,6 +44,8 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
   const [customIndustry, setCustomIndustry] = useState('');
   const [customBusinessModel, setCustomBusinessModel] = useState('');
   const [customCity, setCustomCity] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialGoals) {
@@ -65,24 +67,35 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
     }
   }, [initialGoals]);
 
-  const handleSave = () => {
-    const goals: UserGoals = {
-      targetTitles: formData.targetTitles,
-      minimumSalary: parseInt(formData.minimumSalary) || 0,
-      companyMaturity: formData.companyMaturity,
-      workType: formData.workType,
-      industries: formData.industries,
-      businessModels: formData.businessModels,
-      dealBreakers: {
-        workType: formData.dealBreakers.workType,
-        companyMaturity: formData.dealBreakers.companyMaturity,
-        salaryMinimum: formData.dealBreakers.salaryMinimum ? parseInt(formData.dealBreakers.salaryMinimum) : null
-      },
-      preferredCities: formData.preferredCities,
-      openToRelocation: formData.openToRelocation
-    };
-    onSave(goals);
-    onClose();
+  const handleSave = async () => {
+    setIsSaving(true);
+    setSaveError(null);
+    
+    try {
+      const goals: UserGoals = {
+        targetTitles: formData.targetTitles,
+        minimumSalary: parseInt(formData.minimumSalary) || 0,
+        companyMaturity: formData.companyMaturity,
+        workType: formData.workType,
+        industries: formData.industries,
+        businessModels: formData.businessModels,
+        dealBreakers: {
+          workType: formData.dealBreakers.workType,
+          companyMaturity: formData.dealBreakers.companyMaturity,
+          salaryMinimum: formData.dealBreakers.salaryMinimum ? parseInt(formData.dealBreakers.salaryMinimum) : null
+        },
+        preferredCities: formData.preferredCities,
+        openToRelocation: formData.openToRelocation
+      };
+      
+      await onSave(goals);
+      onClose();
+    } catch (error) {
+      console.error('Error saving goals:', error);
+      setSaveError(error instanceof Error ? error.message : 'Failed to save goals. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const addCustomItem = (type: 'title' | 'industry' | 'businessModel' | 'city', value: string) => {
@@ -569,13 +582,20 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
 
         </div>
 
-        <div className="flex justify-end gap-3 pt-6">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave}>
-            Save Goals
-          </Button>
+        <div className="space-y-3 pt-6">
+          {saveError && (
+            <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-2 rounded-md text-sm">
+              {saveError}
+            </div>
+          )}
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={onClose} disabled={isSaving}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={isSaving}>
+              {isSaving ? 'Saving...' : 'Save Goals'}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

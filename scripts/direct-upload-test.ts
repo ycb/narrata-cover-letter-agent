@@ -153,6 +153,7 @@ async function clearUserData(userId: string, accessToken: string): Promise<void>
   
   // Delete in dependency order
   const tables = [
+    'gaps',
     'approved_content',
     'work_items',
     'companies',

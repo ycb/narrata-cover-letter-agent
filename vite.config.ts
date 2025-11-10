@@ -13,6 +13,6 @@ export default defineConfig(({ mode }) => ({
   },
   server: {
     host: "::",
-    port: 8080,
+    port: 8081, // Different port for auto-suggest-tags worktree (main uses 8080)
   },
 }));
