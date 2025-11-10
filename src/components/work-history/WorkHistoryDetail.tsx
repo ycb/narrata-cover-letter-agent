@@ -1053,6 +1053,20 @@ export const WorkHistoryDetail = ({
                       {tag}
                     </Badge>
                   ))}
+                  {hasCompanyTags && (
+                    <TagSuggestionButton
+                      content={`${roleCompany.name}: ${hasCompanyDescription ? roleCompany.description : 'Company information'}`}
+                      onTagsSuggested={() => {}}
+                      onClick={() => {
+                        const actualCompany = companies.find(c => c.name === roleCompany.name);
+                        if (actualCompany) {
+                          handleCompanyTagSuggestions([]);
+                        }
+                      }}
+                      variant="outline"
+                      size="sm"
+                    />
+                  )}
                   {!hasCompanyTags && (
                     <Badge 
                       variant="outline" 
@@ -1514,6 +1528,13 @@ export const WorkHistoryDetail = ({
                 Add tag
               </Badge>
             )}
+            <TagSuggestionButton
+              content={`${selectedCompany.name}: ${selectedCompany.description || 'Company information'}`}
+              onTagsSuggested={() => {}}
+              onClick={() => handleCompanyTagSuggestions([])}
+              variant="outline"
+              size="sm"
+            />
           </div>
         </div>
 

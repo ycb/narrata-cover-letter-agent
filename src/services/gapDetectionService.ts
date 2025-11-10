@@ -1497,7 +1497,7 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
           // Fetch work item with company
           const { data: workItem, error: wiError } = await db
             .from('work_items')
-            .select('title, description, metrics, source_id, company:companies(name)')
+            .select('title, description, metrics, source_id, company:companies!company_id(name)')
             .eq('id', entityId)
             .single();
 
@@ -1649,7 +1649,7 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
           // Fetch story with work item and company
           const { data: story, error: storyError }: any = await db
             .from('approved_content')
-            .select('title, source_id, work_item:work_items!work_item_id(id, title, company:companies(name))')
+            .select('title, source_id, work_item:work_items!work_item_id(id, title, company:companies!company_id(name))')
             .eq('id', entityId)
             .single();
 
