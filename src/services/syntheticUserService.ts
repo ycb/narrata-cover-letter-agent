@@ -32,21 +32,35 @@ export class SyntheticUserService {
    * Simple allowlist-based approach - only specified users can access
    */
   async isSyntheticTestingEnabled(): Promise<boolean> {
+    const startTime = Date.now();
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      console.log('[Synthetic] Starting isSyntheticTestingEnabled check...');
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        console.error('[Synthetic] Error getting user:', userError);
+        return false;
+      }
+      
       if (!user) {
         console.log('[Synthetic] No authenticated user');
         return false;
       }
 
+      console.log('[Synthetic] Got user, fetching profile...');
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('email')
         .eq('id', user.id)
         .single();
 
-      if (profileError || !profile || !('email' in profile)) {
-        console.log('[Synthetic] No profile email found:', profileError?.message);
+      if (profileError) {
+        console.error('[Synthetic] Error fetching profile:', profileError);
+        return false;
+      }
+
+      if (!profile || !('email' in profile)) {
+        console.log('[Synthetic] No profile email found');
         return false;
       }
 
@@ -56,11 +70,21 @@ export class SyntheticUserService {
         return false;
       }
 
-      const isAllowed = this.SYNTHETIC_TESTING_ALLOWLIST.includes(profileEmail);
-      console.log(`[Synthetic] User ${profileEmail} - Synthetic testing: ${isAllowed ? 'ENABLED' : 'DISABLED'}`);
+      // Normalize email for comparison (lowercase, trim)
+      const normalizedEmail = profileEmail.toLowerCase().trim();
+      const normalizedAllowlist = this.SYNTHETIC_TESTING_ALLOWLIST.map(e => e.toLowerCase().trim());
+      const isAllowed = normalizedAllowlist.includes(normalizedEmail);
+      const elapsed = Date.now() - startTime;
+      console.log(`[Synthetic] User ${profileEmail} (normalized: ${normalizedEmail}) - Synthetic testing: ${isAllowed ? 'ENABLED' : 'DISABLED'} (took ${elapsed}ms)`);
+      console.log(`[Synthetic] Allowlist:`, this.SYNTHETIC_TESTING_ALLOWLIST);
       return isAllowed;
     } catch (error) {
-      console.error('[Synthetic] Error checking synthetic testing access:', error);
+      const elapsed = Date.now() - startTime;
+      console.error(`[Synthetic] Error checking synthetic testing access (after ${elapsed}ms):`, error);
+      console.error('[Synthetic] Error details:', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
       return false;
     }
   }
@@ -69,9 +93,12 @@ export class SyntheticUserService {
    * Get current synthetic user context
    */
   async getSyntheticUserContext(): Promise<SyntheticUserContext> {
+    const startTime = Date.now();
     try {
+      console.log('[Synthetic] getSyntheticUserContext: Starting...');
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
+        console.log('[Synthetic] getSyntheticUserContext: No user found');
         return {
           currentUser: null,
           availableUsers: [],
@@ -79,8 +106,10 @@ export class SyntheticUserService {
         };
       }
 
+      console.log('[Synthetic] getSyntheticUserContext: Checking if enabled...');
       const isEnabled = await this.isSyntheticTestingEnabled();
       if (!isEnabled) {
+        console.log('[Synthetic] getSyntheticUserContext: Not enabled, returning early');
         return {
           currentUser: null,
           availableUsers: [],
@@ -88,18 +117,24 @@ export class SyntheticUserService {
         };
       }
 
-      // Ensure synthetic users exist (create if missing)
+      console.log('[Synthetic] getSyntheticUserContext: Ensuring synthetic users exist...');
+      const ensureStart = Date.now();
       await this.ensureSyntheticUsersExist();
+      console.log(`[Synthetic] getSyntheticUserContext: ensureSyntheticUsersExist completed in ${Date.now() - ensureStart}ms`);
 
+      console.log('[Synthetic] getSyntheticUserContext: Fetching synthetic users from database...');
+      const fetchStart = Date.now();
       // Get all synthetic users for this parent user
       const { data: syntheticUsers, error } = await (supabase
         .from('synthetic_users') as any)
         .select('*')
         .eq('parent_user_id', user.id)
         .order('profile_id');
+      console.log(`[Synthetic] getSyntheticUserContext: Fetched synthetic users in ${Date.now() - fetchStart}ms, count: ${syntheticUsers?.length || 0}`);
 
       if (error) {
-        console.error('Error fetching synthetic users:', error);
+        const elapsed = Date.now() - startTime;
+        console.error(`[Synthetic] getSyntheticUserContext: Error fetching synthetic users (after ${elapsed}ms):`, error);
         return {
           currentUser: null,
           availableUsers: [],
@@ -107,6 +142,7 @@ export class SyntheticUserService {
         };
       }
 
+      console.log('[Synthetic] getSyntheticUserContext: Mapping users...');
       // Map database fields to component interface
       const localOnly = getSyntheticLocalOnlyFlag();
       const overrideProfileId = localOnly ? syntheticStorage.getActiveProfileId() : null;
@@ -145,13 +181,20 @@ export class SyntheticUserService {
         null;
       const availableUsers = mappedUsers;
 
+      const elapsed = Date.now() - startTime;
+      console.log(`[Synthetic] getSyntheticUserContext: Completed successfully in ${elapsed}ms`, {
+        currentUser: currentUser?.profileId,
+        availableUsersCount: availableUsers.length
+      });
+
       return {
         currentUser,
         availableUsers,
         isSyntheticTestingEnabled: true
       };
     } catch (error) {
-      console.error('Error getting synthetic user context:', error);
+      const elapsed = Date.now() - startTime;
+      console.error(`[Synthetic] getSyntheticUserContext: Exception (after ${elapsed}ms):`, error);
       return {
         currentUser: null,
         availableUsers: [],
@@ -230,14 +273,19 @@ export class SyntheticUserService {
    * Ensure synthetic users exist in database (create if missing)
    */
   async ensureSyntheticUsersExist(): Promise<{ success: boolean; error?: string }> {
+    const startTime = Date.now();
     try {
+      console.log('[Synthetic] ensureSyntheticUsersExist: Starting...');
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
+        console.log('[Synthetic] ensureSyntheticUsersExist: No user');
         return { success: false, error: 'No authenticated user' };
       }
 
+      console.log('[Synthetic] ensureSyntheticUsersExist: Checking if enabled...');
       const isEnabled = await this.isSyntheticTestingEnabled();
       if (!isEnabled) {
+        console.log('[Synthetic] ensureSyntheticUsersExist: Not enabled');
         return { success: false, error: 'Synthetic testing not enabled for this user' };
       }
 
@@ -257,11 +305,20 @@ export class SyntheticUserService {
         'P10': 'Sophia Rivera'
       };
 
+      console.log('[Synthetic] ensureSyntheticUsersExist: Checking existing users...');
+      const checkStart = Date.now();
       // Get existing synthetic users to avoid duplicates
-      const { data: existingUsers } = await (supabase
+      const { data: existingUsers, error: checkError } = await (supabase
         .from('synthetic_users') as any)
         .select('profile_id')
         .eq('parent_user_id', user.id);
+      
+      if (checkError) {
+        console.error('[Synthetic] ensureSyntheticUsersExist: Error checking existing users:', checkError);
+        return { success: false, error: checkError.message };
+      }
+      
+      console.log(`[Synthetic] ensureSyntheticUsersExist: Checked existing users in ${Date.now() - checkStart}ms, found ${existingUsers?.length || 0}`);
 
       const existingProfileIds = new Set((existingUsers || []).map((u: any) => u.profile_id));
       
@@ -269,10 +326,12 @@ export class SyntheticUserService {
       const profilesToCreate = profiles.filter(profileId => !existingProfileIds.has(profileId));
 
       if (profilesToCreate.length === 0) {
-        console.log('[Synthetic] All synthetic users already exist');
+        const elapsed = Date.now() - startTime;
+        console.log(`[Synthetic] ensureSyntheticUsersExist: All synthetic users already exist (took ${elapsed}ms)`);
         return { success: true };
       }
 
+      console.log(`[Synthetic] ensureSyntheticUsersExist: Creating ${profilesToCreate.length} missing profiles: ${profilesToCreate.join(', ')}`);
       // Create missing synthetic users (including P00 if needed)
       const syntheticUsers = profilesToCreate.map(profileId => ({
         parent_user_id: user.id,
@@ -283,19 +342,24 @@ export class SyntheticUserService {
         profile_data: {}
       }));
 
+      console.log('[Synthetic] ensureSyntheticUsersExist: Inserting synthetic users into database...');
+      const insertStart = Date.now();
       const { error } = await (supabase
         .from('synthetic_users') as any)
         .insert(syntheticUsers);
+      console.log(`[Synthetic] ensureSyntheticUsersExist: Insert completed in ${Date.now() - insertStart}ms`);
 
       if (error) {
-        console.error('[Synthetic] Error creating synthetic users:', error);
+        console.error('[Synthetic] ensureSyntheticUsersExist: Error creating synthetic users:', error);
         return { success: false, error: error.message };
       }
 
-      console.log(`[Synthetic] Created ${profilesToCreate.length} synthetic user(s): ${profilesToCreate.join(', ')}`);
+      const elapsed = Date.now() - startTime;
+      console.log(`[Synthetic] ensureSyntheticUsersExist: Created ${profilesToCreate.length} synthetic user(s): ${profilesToCreate.join(', ')} (took ${elapsed}ms)`);
       return { success: true };
     } catch (error) {
-      console.error('[Synthetic] Error ensuring synthetic users exist:', error);
+      const elapsed = Date.now() - startTime;
+      console.error(`[Synthetic] ensureSyntheticUsersExist: Exception (after ${elapsed}ms):`, error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error' 

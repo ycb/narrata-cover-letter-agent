@@ -52,6 +52,20 @@ interface HeaderProps {
   currentPage?: string;
 }
 
+// Wrapper component that renders the SyntheticUserSelector section
+// The SyntheticUserSelector component handles its own visibility check
+const SyntheticUserSelectorWrapper = () => {
+  return (
+    <>
+      <DropdownMenuSeparator />
+      <div className="px-3 py-2" data-testid="synthetic-selector-wrapper">
+        <SyntheticUserSelector className="w-full" />
+      </div>
+      <DropdownMenuSeparator />
+    </>
+  );
+};
+
 export const Header = ({ currentPage }: HeaderProps) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -516,11 +530,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                   </Badge>
                 </DropdownMenuItem>
               )}
-              <DropdownMenuSeparator />
-              <div className="px-3 py-2">
-                <SyntheticUserSelector className="w-full" />
-              </div>
-              <DropdownMenuSeparator />
+              <SyntheticUserSelectorWrapper />
               <DropdownMenuItem 
                 onClick={handleSignOut}
                 disabled={isSigningOut}

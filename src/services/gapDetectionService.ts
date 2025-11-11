@@ -311,16 +311,17 @@ export class GapDetectionService {
         .eq('user_id', userId)
         .or(
           `file_name.ilike.${pid}_%,` +
-          `file_name.ilike.${pid}-% ,` +
-          `file_name.ilike.${pid}.% ,` +
+          `file_name.ilike.${pid}-%,` +
+          `file_name.ilike.${pid}.%,` +
           `file_name.ilike.${pid} %`
         );
 
       const profileSourceIds = new Set<string>((profileSources || []).map((s: any) => s.id));
 
-      // Preload work_items and approved_content ids associated with this profile's sources
+      // Preload work_items, approved_content, and saved_sections ids associated with this profile's sources
       let workItemIdsBySource = new Set<string>();
       let storyIdsBySource = new Set<string>();
+      let savedSectionIdsBySource = new Set<string>();
 
       if (profileSourceIds.size > 0) {
         const sourceIdList = Array.from(profileSourceIds);
@@ -348,6 +349,14 @@ export class GapDetectionService {
             .in('work_item_id', workItemIdList);
           (acByWi || []).forEach((r: any) => storyIdsBySource.add(r.id));
         }
+
+        // Get saved_sections for this profile's sources
+        const { data: ssBySource } = await db
+          .from('saved_sections')
+          .select('id')
+          .eq('user_id', userId)
+          .in('source_id', sourceIdList);
+        savedSectionIdsBySource = new Set((ssBySource || []).map((r: any) => r.id));
       }
 
       // Filter gaps by whether their entity belongs to this profile
@@ -358,9 +367,8 @@ export class GapDetectionService {
         } else if (g.entity_type === 'approved_content') {
           if (storyIdsBySource.has(g.entity_id)) filtered.push(g);
         } else if (g.entity_type === 'saved_section') {
-          // Saved sections are cover letter items which are inherently profile-scoped by source filename
-          // There is no direct FK; keep them for now only when we cannot disambiguate by source
-          filtered.push(g);
+          // Filter saved sections by source_id (they're linked via source, not direct profile_id)
+          if (savedSectionIdsBySource.has(g.entity_id)) filtered.push(g);
         }
       }
 
@@ -1452,13 +1460,21 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
   static async getContentItemsWithGaps(userId: string, profileId?: string, accessToken?: string): Promise<GapSummaryByItem> {
     try {
       const db = accessToken ? await this.getAuthenticatedClient(accessToken) : supabase;
-      const { data: gaps, error } = await db
-        .from('gaps')
-        .select('*')
-        .eq('user_id', userId)
-        .or('resolved.is.null,resolved.eq.false');
-
-      if (error) throw error;
+      
+      // Filter gaps by profile_id if provided (similar to getUserGaps)
+      let gaps: any[] = [];
+      if (profileId) {
+        // Use getUserGaps which already handles profile filtering
+        gaps = await this.getUserGaps(userId, profileId, accessToken);
+      } else {
+        const { data, error } = await db
+          .from('gaps')
+          .select('*')
+          .eq('user_id', userId)
+          .or('resolved.is.null,resolved.eq.false');
+        if (error) throw error;
+        gaps = data || [];
+      }
 
       const items: ContentItemWithGaps[] = [];
 
@@ -1469,7 +1485,7 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
         entity_id: string;
       }>();
 
-      (gaps as any[])?.forEach((gap: any) => {
+      gaps.forEach((gap: any) => {
         const key = `${gap.entity_type}:${gap.entity_id}`;
         if (!entityMap.has(key)) {
           entityMap.set(key, {
@@ -1532,11 +1548,40 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
         let savedSectionsData: any[] | null = null;
         let savedSectionsError: any = null;
 
-        const attemptSelect = async (columns: string) => {
-          const { data, error } = await db
+        // Batch query if too many IDs (Supabase has limits on .in() queries)
+        const savedSectionIdArray = Array.from(savedSectionIds);
+        const BATCH_SIZE = 100; // Safe batch size for Supabase queries
+        
+        // Get profile source IDs to filter saved_sections by source_id (not profile_id)
+        let profileSourceIds = new Set<string>();
+        if (profileId) {
+          const pid = profileId.toUpperCase();
+          const { data: profileSources } = await db
+            .from('sources')
+            .select('id')
+            .eq('user_id', userId)
+            .or(
+              `file_name.ilike.${pid}_%,` +
+              `file_name.ilike.${pid}-%,` +
+              `file_name.ilike.${pid}.%,` +
+              `file_name.ilike.${pid} %`
+            );
+          profileSourceIds = new Set((profileSources || []).map((s: any) => s.id));
+        }
+
+        const attemptSelect = async (columns: string, ids: string[]) => {
+          let query = db
             .from('saved_sections')
             .select(columns)
-            .in('id', Array.from(savedSectionIds));
+            .eq('user_id', userId)
+            .in('id', ids);
+          
+          // Filter by source_id if profileId is provided (saved_sections are linked via source, not profile_id)
+          if (profileId && profileSourceIds.size > 0) {
+            query = query.in('source_id', Array.from(profileSourceIds));
+          }
+          
+          const { data, error } = await query;
           if (error) {
             savedSectionsError = error;
             return null;
@@ -1545,11 +1590,17 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
           return data;
         };
 
-        savedSectionsData = await attemptSelect('id, title, type, profile_id, source_id');
-
-        if (savedSectionsError?.code === '42703') {
-          // Older environments may not have profile_id column yet
-          savedSectionsData = await attemptSelect('id, title, type, source_id');
+        // Process in batches if needed
+        if (savedSectionIdArray.length > BATCH_SIZE) {
+          const batches: any[] = [];
+          for (let i = 0; i < savedSectionIdArray.length; i += BATCH_SIZE) {
+            const batch = savedSectionIdArray.slice(i, i + BATCH_SIZE);
+            const batchData = await attemptSelect('id, title, type, source_id', batch);
+            if (batchData) batches.push(...batchData);
+          }
+          savedSectionsData = batches;
+        } else {
+          savedSectionsData = await attemptSelect('id, title, type, source_id', savedSectionIdArray);
         }
 
         if (savedSectionsError) {
@@ -1587,7 +1638,7 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
         });
 
         savedSectionMap.forEach((section: any) => {
-          if (!section?.profile_id && section?.source_id) {
+          if (section?.source_id) {
             sourceIdsToFetch.add(section.source_id);
           }
         });
@@ -1807,10 +1858,7 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
           if (!section) continue;
 
           if (profileId) {
-            const sectionProfileId = section?.profile_id;
-            const matchesProfile = sectionProfileId
-              ? sectionProfileId === profileId
-              : matchesProfileByFilename(section?.source_id);
+          const matchesProfile = matchesProfileByFilename(section?.source_id);
             if (!matchesProfile) continue;
           }
 
