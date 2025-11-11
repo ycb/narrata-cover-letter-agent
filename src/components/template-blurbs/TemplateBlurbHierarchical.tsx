@@ -264,9 +264,9 @@ export const TemplateBlurbHierarchical = ({
             const originalGapCount = group.blurbs.reduce((total, blurb) => total + ((blurb as any).gapCount || 0), 0);
             const resolvedCount = group.blurbs.reduce((total, blurb) => {
               return total + (resolvedGaps.has(`blurb-gap-${blurb.id}`) ? (blurb as any).gapCount || 0 : 0);
-            }, 0);
-            const remainingGapCount = Math.max(0, originalGapCount - resolvedCount);
-
+                      }, 0);
+                      const remainingGapCount = Math.max(0, originalGapCount - resolvedCount);
+                      
             return (
               <AccordionItem key={group.type} value={group.type} className="border rounded-lg">
                 <AccordionTrigger className="px-6 py-4 hover:no-underline focus:outline-none focus-visible:ring-0">
@@ -286,9 +286,9 @@ export const TemplateBlurbHierarchical = ({
                       )}
                       <div className="space-y-1">
                         <h3 className="font-semibold text-lg leading-none">{group.label}</h3>
-                        <p className="text-sm text-muted-foreground leading-relaxed">{group.description}</p>
-                      </div>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{group.description}</p>
                     </div>
+                  </div>
                     <div className="flex items-center gap-2">
                       <span
                         role="button"
@@ -297,15 +297,15 @@ export const TemplateBlurbHierarchical = ({
                         onClick={(event) => {
                           event.preventDefault();
                           event.stopPropagation();
-                          onCreateBlurb(group.type);
-                        }}
+                        onCreateBlurb(group.type);
+                      }}
                         onKeyDown={(event) => handleKeyActivate(event, () => onCreateBlurb(group.type))}
-                      >
-                        Add {group.label}
+                    >
+                      Add {group.label}
                       </span>
                       {expandedType === group.type && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
                             <span
                               role="button"
                               tabIndex={0}
@@ -322,39 +322,39 @@ export const TemplateBlurbHierarchical = ({
                                 }
                               }}
                             >
-                              <span className="sr-only">Open menu</span>
-                              <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
                             </span>
-                          </DropdownMenuTrigger>
+                        </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
                             <DropdownMenuItem
                               disabled={isDefaultType || !firstBlurb}
                               onClick={() => firstBlurb && onEditBlurb(firstBlurb)}
                             >
-                              <Edit className="mr-2 h-4 w-4" />
-                              Edit Section
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit Section
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
                               disabled={isDefaultType || !firstBlurb}
                               onClick={() => firstBlurb && onDeleteBlurb(firstBlurb.id)}
-                              className="text-destructive"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete Section
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
-                    </div>
+                            className="text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete Section
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </div>
-                </AccordionTrigger>
-                <AccordionContent className="px-6 pb-6">
-                  <div className="space-y-4 mt-6">
-                    {group.blurbs.map((blurb) => {
-                      const statusConfig = getStatusConfig(blurb.status);
-                      const StatusIcon = statusConfig.icon;
- 
-                      // Map gaps for ContentGapBanner
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="px-6 pb-6">
+                <div className="space-y-4 mt-6">
+                  {group.blurbs.map((blurb) => {
+                    const statusConfig = getStatusConfig(blurb.status);
+                    const StatusIcon = statusConfig.icon;
+                    
+                    // Map gaps for ContentGapBanner
                       const blurbGapCategories: string[] = ((blurb as any).gapCategories ?? []) as string[];
                       const blurbHasGaps = (blurb as any).hasGaps && !resolvedGaps.has(`blurb-gap-${blurb.id}`) && blurbGapCategories.length > 0;
                       const gaps = blurbHasGaps
@@ -363,66 +363,66 @@ export const TemplateBlurbHierarchical = ({
                             description: formatGapCategory(category)
                           }))
                         : [];
- 
-                      return (
-                        <React.Fragment key={blurb.id}>
-                          <ContentCard
-                            title={blurb.title}
-                            content={blurb.content}
-                            tags={blurb.tags}
-                            timesUsed={blurb.timesUsed}
-                            lastUsed={blurb.lastUsed}
-                            hasGaps={blurbHasGaps}
-                            gaps={gaps}
-                            isGapResolved={resolvedGaps.has(`blurb-gap-${blurb.id}`)}
-                            onGenerateContent={onGenerateContent ? () => onGenerateContent(blurb) : undefined}
-                            onDismissGap={blurbHasGaps ? () => {
+
+                    return (
+                      <React.Fragment key={blurb.id}>
+                        <ContentCard
+                          title={blurb.title}
+                          content={blurb.content}
+                          tags={blurb.tags}
+                          timesUsed={blurb.timesUsed}
+                          lastUsed={blurb.lastUsed}
+                          hasGaps={blurbHasGaps}
+                          gaps={gaps}
+                          isGapResolved={resolvedGaps.has(`blurb-gap-${blurb.id}`)}
+                          onGenerateContent={onGenerateContent ? () => onGenerateContent(blurb) : undefined}
+                          onDismissGap={blurbHasGaps ? () => {
                               // setResolvedGaps(prev => new Set([...prev, `blurb-gap-${blurb.id}`])); // This line was removed
-                            } : undefined}
-                            onEdit={() => onEditBlurb(blurb)}
-                            onDuplicate={() => {
-                              // TODO: Implement duplicate blurb
-                              console.log('Duplicate blurb:', blurb.id);
-                            }}
-                            onDelete={() => onDeleteBlurb(blurb.id)}
-                            onTagSuggestions={onTagSuggestions ? (tags) => {
-                              // TagSuggestions expects a blurb callback, but ContentCard uses tags callback
-                              // We'll call the blurb callback when tags are suggested
-                              if (onTagSuggestions) {
-                                onTagSuggestions(blurb);
-                              }
-                            } : undefined}
-                            tagsLabel="Content Tags"
-                          />
-                          
-                          {/* Success State Cards */}
-                          {resolvedGaps.has(`blurb-gap-${blurb.id}`) && !dismissedSuccessCards.has(`blurb-gap-${blurb.id}`) && (
-                            <div className="mt-4 border-success bg-success/5 p-4 rounded-lg">
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                  <CheckCircle className="h-4 w-4 text-success" />
-                                  <span className="font-medium text-success">Content Enhanced</span>
-                                </div>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 w-6 p-0 hover:bg-success/10"
-                                  onClick={() => onDismissSuccessCard?.(`blurb-gap-${blurb.id}`)}
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
+                          } : undefined}
+                          onEdit={() => onEditBlurb(blurb)}
+                          onDuplicate={() => {
+                            // TODO: Implement duplicate blurb
+                            console.log('Duplicate blurb:', blurb.id);
+                          }}
+                          onDelete={() => onDeleteBlurb(blurb.id)}
+                          onTagSuggestions={onTagSuggestions ? (tags) => {
+                            // TagSuggestions expects a blurb callback, but ContentCard uses tags callback
+                            // We'll call the blurb callback when tags are suggested
+                            if (onTagSuggestions) {
+                              onTagSuggestions(blurb);
+                            }
+                          } : undefined}
+                          tagsLabel="Content Tags"
+                        />
+                        
+                        {/* Success State Cards */}
+                        {resolvedGaps.has(`blurb-gap-${blurb.id}`) && !dismissedSuccessCards.has(`blurb-gap-${blurb.id}`) && (
+                          <div className="mt-4 border-success bg-success/5 p-4 rounded-lg">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <CheckCircle className="h-4 w-4 text-success" />
+                                <span className="font-medium text-success">Content Enhanced</span>
                               </div>
-                              <p className="text-sm text-muted-foreground">
-                                Content has been successfully generated and applied.
-                              </p>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0 hover:bg-success/10"
+                                onClick={() => onDismissSuccessCard?.(`blurb-gap-${blurb.id}`)}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
                             </div>
-                          )}
-                        </React.Fragment>
-                      );
-                    })}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
+                            <p className="text-sm text-muted-foreground">
+                              Content has been successfully generated and applied.
+                            </p>
+                          </div>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
             );
           })}
         </Accordion>

@@ -323,9 +323,9 @@ export class SyntheticUserService {
       
       try {
         const queryPromise = (supabase
-          .from('synthetic_users') as any)
-          .select('profile_id')
-          .eq('parent_user_id', user.id);
+        .from('synthetic_users') as any)
+        .select('profile_id')
+        .eq('parent_user_id', user.id);
         
         const result = await Promise.race([
           queryPromise.then(({ data, error }: any) => ({ data, error })),
@@ -380,9 +380,9 @@ export class SyntheticUserService {
       
       try {
         const insertPromise = (supabase
-          .from('synthetic_users') as any)
-          .insert(syntheticUsers);
-        
+        .from('synthetic_users') as any)
+        .insert(syntheticUsers);
+
         const result = await Promise.race([
           insertPromise.then(({ error }: any) => ({ error })),
           insertTimeout

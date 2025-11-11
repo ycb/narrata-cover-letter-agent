@@ -284,26 +284,26 @@ async function uploadProfile(
   if (localOnly) {
     syntheticStorage.setActiveProfileId(profileId);
   } else {
-    const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
+  const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
       }
-    });
-
-    // Switch to the profile we're uploading
-    const { error: switchError } = await supabaseAuth.rpc('switch_synthetic_user', {
-      p_parent_user_id: userId,
-      p_profile_id: profileId
-    });
-    
-    if (switchError) {
-      console.warn(`  ⚠️ Could not switch to synthetic user ${profileId}:`, switchError.message);
-      // Continue anyway - might work if user doesn't exist yet
-    } else {
+    }
+  });
+  
+  // Switch to the profile we're uploading
+  const { error: switchError } = await supabaseAuth.rpc('switch_synthetic_user', {
+    p_parent_user_id: userId,
+    p_profile_id: profileId
+  });
+  
+  if (switchError) {
+    console.warn(`  ⚠️ Could not switch to synthetic user ${profileId}:`, switchError.message);
+    // Continue anyway - might work if user doesn't exist yet
+  } else {
       syntheticStorage.setActiveProfileId(profileId);
-      console.log(`  ✅ Switched active synthetic user to ${profileId}`);
+    console.log(`  ✅ Switched active synthetic user to ${profileId}`);
     }
   }
   

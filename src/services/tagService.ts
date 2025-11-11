@@ -4,6 +4,30 @@
  */
 
 import { supabase } from '@/lib/supabase';
+import { schedulePMLevelBackgroundRun } from './pmLevelsService';
+
+const getActiveSyntheticProfileId = () => {
+  if (typeof window === 'undefined') {
+    return undefined;
+  }
+
+  try {
+    const profileId = window.localStorage.getItem('synthetic_active_profile_id');
+    return profileId || undefined;
+  } catch (error) {
+    console.warn('[TagService] Failed to read synthetic profile id:', error);
+    return undefined;
+  }
+};
+
+const triggerPMLevelRefresh = (userId: string, reason: string) => {
+  schedulePMLevelBackgroundRun({
+    userId,
+    syntheticProfileId: getActiveSyntheticProfileId(),
+    delayMs: 2500,
+    reason,
+  });
+};
 
 export class TagService {
   /**
@@ -29,6 +53,8 @@ export class TagService {
     if (error) {
       throw new Error(`Failed to update company tags: ${error.message}`);
     }
+
+    triggerPMLevelRefresh(userId, 'Company tags updated');
   }
 
   /**
@@ -53,6 +79,8 @@ export class TagService {
     if (error) {
       throw new Error(`Failed to update work item tags: ${error.message}`);
     }
+
+    triggerPMLevelRefresh(userId, 'Work item tags updated');
   }
 
   /**

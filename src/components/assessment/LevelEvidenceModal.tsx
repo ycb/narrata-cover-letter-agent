@@ -1,8 +1,6 @@
-import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
 import { 
   ArrowRight
@@ -10,6 +8,7 @@ import {
 import { getConfidenceBadgeColor, textConfidenceToPercentage } from "@/utils/confidenceBadge";
 import { CriteriaDisplay } from "./CriteriaDisplay";
 import { StoryCard } from "./StoryCard";
+import { DisputeFeedbackDialog } from "./DisputeFeedbackDialog";
 
 interface LevelEvidence {
   currentLevel: string;
@@ -119,6 +118,19 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
     return null;
   }
 
+  const locationHref = typeof window !== 'undefined' ? window.location.href : '';
+  const disputeMetadata = {
+    currentLevel: evidence.currentLevel,
+    nextLevel: evidence.nextLevel,
+    confidence: evidence.confidence,
+    confidencePercentage: getConfidencePercentage(),
+    resumeEvidence: evidence.resumeEvidence,
+    storyIds: evidence.storyEvidence?.stories?.map((story) => story.id),
+    storyTitles: evidence.storyEvidence?.stories?.map((story) => story.title),
+    gaps: evidence.gaps,
+    location: locationHref,
+  };
+
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => {
@@ -127,14 +139,22 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
       }}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="pb-4">
-          <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-start justify-between gap-3">
             <div>
               <DialogTitle className="text-2xl font-bold">
                 Evidence for {evidence.currentLevel} Assessment
               </DialogTitle>
               <DialogDescription className="text-base">
-                How we determined your current level
+                    How we determined your current level
               </DialogDescription>
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <DisputeFeedbackDialog
+                  subject={`PM Level dispute: ${evidence.currentLevel} → ${evidence.nextLevel}`}
+                  metadata={disputeMetadata}
+                />
             </div>
           </div>
         </DialogHeader>
@@ -178,8 +198,8 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
                   {(evidence.resumeEvidence?.roleTitles || []).map((title, index, array) => (
                     <div key={index} className="flex items-center gap-2">
                       <Badge variant="outline">
-                        {title}
-                      </Badge>
+                      {title}
+                    </Badge>
                       {index < array.length - 1 && (
                         <ArrowRight className="h-4 w-4 text-muted-foreground" />
                       )}
@@ -187,7 +207,7 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
                   ))}
                 </div>
               </div>
-
+              
               <div>
                 <h4 className="font-medium mb-2">Companies</h4>
                 <div className="flex flex-wrap gap-2">
@@ -232,7 +252,7 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
                     {tag.tag} ({tag.count})
                   </Badge>
                 ))}
-              </div>
+                </div>
             </CardContent>
           </Card>
 
@@ -283,8 +303,6 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
               ))}
             </div>
           </div>
-
-
         </div>
       </DialogContent>
       </Dialog>

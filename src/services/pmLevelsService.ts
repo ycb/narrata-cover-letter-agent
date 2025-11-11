@@ -7,6 +7,7 @@
 
 import { supabase } from '@/lib/supabase';
 import { LLMAnalysisService } from './openaiService';
+import { GapDetectionService } from './gapDetectionService';
 import {
   EXTRACT_SIGNALS_PROMPT,
   RATE_COMPETENCIES_PROMPT,
@@ -43,6 +44,85 @@ interface UserContent {
 interface EvaluationTracking {
   sourceId?: string;
   sessionId?: string;
+}
+
+type BackgroundRunOptions = {
+  userId: string;
+  syntheticProfileId?: string;
+  delayMs?: number;
+  reason?: string;
+  targetLevel?: PMLevelCode;
+  roleType?: RoleType[];
+};
+
+type PMLevelEventDetail = {
+  userId: string;
+  syntheticProfileId?: string;
+  reason?: string;
+  error?: string;
+};
+
+const backgroundRunTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+const dispatchPMLevelEvent = (eventName: string, detail: PMLevelEventDetail) => {
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+    window.dispatchEvent(new CustomEvent<PMLevelEventDetail>(eventName, { detail }));
+  }
+};
+
+export function schedulePMLevelBackgroundRun({
+  userId,
+  syntheticProfileId,
+  delayMs = 5000,
+  reason,
+  targetLevel,
+  roleType,
+}: BackgroundRunOptions): void {
+  if (!userId) {
+    console.warn('[PMLevelsService] schedulePMLevelBackgroundRun called without userId');
+    return;
+  }
+
+  const profileKey = syntheticProfileId ? `${userId}:${syntheticProfileId}` : userId;
+  const existingTimer = backgroundRunTimers.get(profileKey);
+  if (existingTimer) {
+    clearTimeout(existingTimer);
+  }
+
+  dispatchPMLevelEvent('pm-levels:scheduled', { userId, syntheticProfileId, reason });
+
+  const timer = setTimeout(async () => {
+    backgroundRunTimers.delete(profileKey);
+    try {
+      console.log(
+        `[PMLevelsService] Background analysis triggered` +
+          ` for ${userId}${syntheticProfileId ? ` (profile: ${syntheticProfileId})` : ''}` +
+          `${reason ? ` — reason: ${reason}` : ''}`
+      );
+
+      const pmLevelsService = new PMLevelsService();
+      await pmLevelsService.analyzeUserLevel(
+        userId,
+        targetLevel,
+        roleType,
+        undefined,
+        syntheticProfileId
+      );
+
+      dispatchPMLevelEvent('pm-levels:updated', { userId, syntheticProfileId });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown background analysis error';
+      console.error('[PMLevelsService] Background analysis failed:', errorMessage);
+      dispatchPMLevelEvent('pm-levels:error', {
+        userId,
+        syntheticProfileId,
+        reason,
+        error: errorMessage,
+      });
+    }
+  }, delayMs);
+
+  backgroundRunTimers.set(profileKey, timer);
 }
 
 export class PMLevelsService {
@@ -127,6 +207,8 @@ export class PMLevelsService {
       // Identify top artifacts used
       const topArtifacts = this.selectTopArtifacts(content.artifacts, signals);
 
+      const analysisTimestamp = new Date().toISOString();
+
       // Build initial inference object (needed for collectLevelEvidence)
       inference = {
         inferredLevel: levelCode,
@@ -140,7 +222,8 @@ export class PMLevelsService {
         deltaSummary,
         recommendations,
         signals,
-        topArtifacts
+        topArtifacts,
+        lastAnalyzedAt: analysisTimestamp
       };
 
       // Collect detailed evidence for modals
@@ -157,6 +240,10 @@ export class PMLevelsService {
 
       // Store results in database
       await this.saveLevelAssessment(userId, inference);
+
+      GapDetectionService.syncPmLevelExpectationGaps(userId, inference).catch((gapError) => {
+        console.error('[PMLevelsService] Failed to sync PM level expectation gaps:', gapError);
+      });
 
       const latency = Math.round(performance.now() - startTime);
 
@@ -1064,7 +1151,9 @@ export class PMLevelsService {
         timesUsed: 1,
         confidence: 'high', // All stories are relevant for level assessment
         outcomeMetrics: storyMetrics,
-        levelAssessment
+        levelAssessment,
+        workItemId: workItem?.id,
+        workItemTitle: workItem?.title
       });
     }
 
@@ -1441,11 +1530,15 @@ export class PMLevelsService {
   ): Promise<void> {
     try {
       // Build upsert payload - exclude deprecated maturity_modifier
+      const runTimestamp = inference.lastAnalyzedAt ?? new Date().toISOString();
+
+      const sanitizedScopeScore = Number.isFinite(inference.scopeScore) ? inference.scopeScore : 0;
+
       const upsertPayload: any = {
         user_id: userId,
         inferred_level: inference.inferredLevel,
         confidence: inference.confidence,
-        scope_score: inference.scopeScore,
+        scope_score: sanitizedScopeScore,
         maturity_info: inference.maturityInfo, // Store maturity for display, not used as modifier
         role_type: inference.roleType,
         delta_summary: inference.deltaSummary,
@@ -1455,7 +1548,7 @@ export class PMLevelsService {
         evidence_by_competency: inference.evidenceByCompetency || {},
         level_evidence: inference.levelEvidence || {},
         role_archetype_evidence: inference.roleArchetypeEvidence || {},
-        last_run_timestamp: new Date().toISOString()
+        last_run_timestamp: runTimestamp
       };
       
       const { error } = await supabase
@@ -1579,7 +1672,8 @@ export class PMLevelsService {
         topArtifacts: [], // Not stored in DB, only used during analysis
         evidenceByCompetency: data.evidence_by_competency || {},
         levelEvidence: data.level_evidence || {},
-        roleArchetypeEvidence: data.role_archetype_evidence || {}
+        roleArchetypeEvidence: data.role_archetype_evidence || {},
+        lastAnalyzedAt: data.last_run_timestamp || undefined
       };
     } catch (error) {
       console.error('[PMLevelsService] Error fetching user level:', error);

@@ -16,7 +16,8 @@ import {
   Info,
   FileText,
   Link,
-  RotateCw
+  RotateCw,
+  Clock
 } from "lucide-react";
 import EvidenceModal from "@/components/assessment/EvidenceModal";
 import LevelEvidenceModal from "@/components/assessment/LevelEvidenceModal";
@@ -27,10 +28,12 @@ import { CareerLadder } from "@/components/assessment/CareerLadder";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { usePMLevel } from "@/hooks/usePMLevel";
 import { Loader2 } from "lucide-react";
-import { toast } from "sonner";
 import { calculateEvidenceBasedConfidence } from "@/utils/confidenceCalculation";
 import { getConfidenceProgressColor, getConfidenceBadgeColor, textConfidenceToPercentage } from "@/utils/confidenceBadge";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { formatDistanceToNow, format } from "date-fns";
+import type { PMLevelInference, RoleType } from "@/types/content";
 
 // Helper function to map PM level code to display text
 const getLevelDisplay = (levelCode: string): string => {
@@ -78,6 +81,81 @@ function formatRoleTypeName(key: string): string {
   };
   return nameMap[key] || key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ');
 }
+
+const SNAPSHOT_STORAGE_PREFIX = 'pm-level-snapshot';
+
+type LevelSnapshot = {
+  lastAnalyzedAt: string;
+  displayLevel: string;
+  confidence: number;
+  roleType: RoleType[];
+  deltaSummary?: string;
+};
+
+type ChangeSummary = {
+  analyzedAt: string;
+  headline: string;
+  items: string[];
+};
+
+const buildSnapshot = (data: PMLevelInference): LevelSnapshot => ({
+  lastAnalyzedAt: data.lastAnalyzedAt ?? new Date().toISOString(),
+  displayLevel: data.displayLevel,
+  confidence: data.confidence ?? 0,
+  roleType: Array.isArray(data.roleType) ? [...data.roleType] : [],
+  deltaSummary: data.deltaSummary,
+});
+
+const buildChangeSummary = (previous: LevelSnapshot, current: PMLevelInference): ChangeSummary => {
+  const items: string[] = [];
+
+  if (previous.displayLevel !== current.displayLevel) {
+    items.push(`Level changed from ${previous.displayLevel} to ${current.displayLevel}.`);
+  }
+
+  const previousConfidence = Math.round((previous.confidence ?? 0) * 100);
+  const currentConfidence = Math.round((current.confidence ?? 0) * 100);
+  if (previousConfidence !== currentConfidence) {
+    const direction = currentConfidence > previousConfidence ? 'increased' : 'decreased';
+    items.push(`Confidence ${direction} from ${previousConfidence}% to ${currentConfidence}%.`);
+  }
+
+  const previousRoles = previous.roleType || [];
+  const currentRoles = Array.isArray(current.roleType) ? current.roleType : [];
+  const addedRoles = currentRoles.filter((role) => !previousRoles.includes(role));
+  const removedRoles = previousRoles.filter((role) => !currentRoles.includes(role));
+
+  if (addedRoles.length > 0) {
+    items.push(`New specialization matches: ${addedRoles.map(formatRoleTypeName).join(', ')}.`);
+  }
+
+  if (removedRoles.length > 0) {
+    items.push(`No longer detecting: ${removedRoles.map(formatRoleTypeName).join(', ')}.`);
+  }
+
+  if (current.deltaSummary && current.deltaSummary.trim().length > 0) {
+    items.push(current.deltaSummary.trim());
+  }
+
+  if (items.length === 0) {
+    items.push('Analysis refreshed. No major changes detected.');
+  }
+
+  const uniqueItems = Array.from(new Set(items));
+
+  const headline =
+    previous.displayLevel !== current.displayLevel
+      ? 'Your PM level changed'
+      : uniqueItems.length > 1
+        ? 'Updates to your PM assessment'
+        : 'PM assessment refreshed';
+
+  return {
+    analyzedAt: current.lastAnalyzedAt ?? new Date().toISOString(),
+    headline,
+    items: uniqueItems,
+  };
+};
 
 // Transform PMLevelInference to the expected format
 const transformLevelData = (levelData: any) => {
@@ -256,7 +334,18 @@ interface AssessmentProps {
 }
 
 function Assessment({ initialSection = 'overview' }: AssessmentProps) {
-  const { levelData, isLoading, error, recalculate, isRecalculating } = usePMLevel();
+  const { user } = useAuth();
+  const {
+    levelData,
+    isLoading,
+    error,
+    recalculate,
+    isRecalculating,
+    isBackgroundAnalyzing,
+    backgroundError,
+    activeProfileId
+  } = usePMLevel();
+  const profileKey = `${user?.id ?? 'anon'}::${activeProfileId ?? 'default'}`;
   const [assessmentData, setAssessmentData] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [activeTab, setActiveTab] = useState<string>(initialSection);
@@ -266,9 +355,16 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
   const [selectedEvidence, setSelectedEvidence] = useState<any>(null);
   const [levelEvidenceModalOpen, setLevelEvidenceModalOpen] = useState(false);
   const [roleEvidenceModalOpen, setRoleEvidenceModalOpen] = useState(false);
+  const [changeSummary, setChangeSummary] = useState<ChangeSummary | null>(null);
+  const [isSummaryDismissed, setIsSummaryDismissed] = useState(false);
 
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const lastAnalyzedAt = levelData?.lastAnalyzedAt;
+  const lastAnalyzedRelative = lastAnalyzedAt
+    ? formatDistanceToNow(new Date(lastAnalyzedAt), { addSuffix: true })
+    : null;
+  const lastAnalyzedExact = lastAnalyzedAt ? format(new Date(lastAnalyzedAt), 'PPpp') : null;
 
   // Transform level data when it changes
   useEffect(() => {
@@ -283,6 +379,49 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
       setAssessmentData(null);
     }
   }, [levelData, isLoading]);
+
+  useEffect(() => {
+    if (!levelData?.lastAnalyzedAt || typeof window === 'undefined') {
+      return;
+    }
+
+    const snapshotKey = `${SNAPSHOT_STORAGE_PREFIX}:${profileKey}`;
+    let previousSnapshot: LevelSnapshot | null = null;
+
+    try {
+      const storedValue = window.localStorage.getItem(snapshotKey);
+      if (storedValue) {
+        previousSnapshot = JSON.parse(storedValue) as LevelSnapshot;
+      }
+    } catch (error) {
+      console.warn('[Assessment] Unable to read stored PM level snapshot:', error);
+    }
+
+    if (!previousSnapshot) {
+      try {
+        window.localStorage.setItem(snapshotKey, JSON.stringify(buildSnapshot(levelData)));
+      } catch (error) {
+        console.warn('[Assessment] Unable to persist PM level snapshot:', error);
+      }
+      setChangeSummary(null);
+      setIsSummaryDismissed(false);
+      return;
+    }
+
+    if (previousSnapshot.lastAnalyzedAt === levelData.lastAnalyzedAt) {
+      return;
+    }
+
+    const summary = buildChangeSummary(previousSnapshot, levelData);
+    setChangeSummary(summary);
+    setIsSummaryDismissed(false);
+
+    try {
+      window.localStorage.setItem(snapshotKey, JSON.stringify(buildSnapshot(levelData)));
+    } catch (error) {
+      console.warn('[Assessment] Unable to persist PM level snapshot:', error);
+    }
+  }, [levelData, profileKey]);
 
   // Handle initial section from URL
   useEffect(() => {
@@ -325,7 +464,7 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
 
   // Handle run analysis
   const handleRunAnalysis = async () => {
-    setIsAnalyzing(true);
+      setIsAnalyzing(true);
     // Use mutation callback - toast will be shown in usePMLevel hook after completion
     recalculate();
   };
@@ -365,7 +504,7 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
   };
 
   // Show loading state
-  if (isLoading || isRecalculating) {
+  if ((isLoading || isRecalculating || (isBackgroundAnalyzing && !levelData))) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center p-6 max-w-md mx-auto">
@@ -397,51 +536,51 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
       <div className="min-h-screen bg-background">
         <main className="container mx-auto px-4 py-6">
           <div className="max-w-3xl mx-auto">
-            <div className="p-6 border rounded-lg bg-destructive/5 border-destructive/30">
-              <div className="flex items-start">
-                <div className="flex-shrink-0">
-                  <AlertCircle className="w-6 h-6 text-destructive mt-0.5" />
+        <div className="p-6 border rounded-lg bg-destructive/5 border-destructive/30">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <AlertCircle className="w-6 h-6 text-destructive mt-0.5" />
+            </div>
+            <div className="ml-3">
+              <h3 className="text-lg font-medium text-destructive">Error Loading Assessment</h3>
+              <div className="mt-2 text-sm text-muted-foreground">
+                <p>We encountered an issue while loading your PM level assessment:</p>
+                <div className="mt-2 p-3 bg-background rounded-md border border-border">
+                  <code className="text-sm break-all">
+                    {error instanceof Error ? error.message : String(error)}
+                  </code>
                 </div>
-                <div className="ml-3">
-                  <h3 className="text-lg font-medium text-destructive">Error Loading Assessment</h3>
-                  <div className="mt-2 text-sm text-muted-foreground">
-                    <p>We encountered an issue while loading your PM level assessment:</p>
-                    <div className="mt-2 p-3 bg-background rounded-md border border-border">
-                      <code className="text-sm break-all">
-                        {error instanceof Error ? error.message : String(error)}
-                      </code>
-                    </div>
-                    <p className="mt-3">This might be due to a temporary issue. Please try again or contact support if the problem persists.</p>
-                  </div>
-                  <div className="mt-4 space-x-3">
-                    <Button
-                      variant="default"
-                      onClick={() => window.location.reload()}
-                    >
-                      <RotateCw className="w-4 h-4 mr-2" />
-                      Try Again
-                    </Button>
-                    <Button
+                <p className="mt-3">This might be due to a temporary issue. Please try again or contact support if the problem persists.</p>
+              </div>
+              <div className="mt-4 space-x-3">
+                <Button 
+                  variant="default" 
+                  onClick={() => window.location.reload()}
+                >
+                  <RotateCw className="w-4 h-4 mr-2" />
+                  Try Again
+                </Button>
+                <Button 
                       variant="secondary"
-                      onClick={() => recalculate()}
-                      disabled={isRecalculating}
-                    >
-                      {isRecalculating ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Recalculating...
-                        </>
-                      ) : (
-                        <>
+                  onClick={() => recalculate()}
+                  disabled={isRecalculating}
+                >
+                  {isRecalculating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Recalculating...
+                    </>
+                  ) : (
+                    <>
                           <RotateCw className="w-4 h-4 mr-2" />
-                          Recalculate PM Level
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </div>
+                      Recalculate PM Level
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
+          </div>
+        </div>
           </div>
         </main>
       </div>
@@ -458,75 +597,119 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
       <div className="min-h-screen bg-background">
         <main className="container mx-auto px-4 py-6">
           <div className="max-w-4xl mx-auto">
-            <div className="bg-background rounded-xl border shadow-sm overflow-hidden">
-              <div className="p-8 text-center">
-                <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 mb-4">
-                  <BarChart3 className="h-8 w-8 text-primary" />
-                </div>
-                <h2 className="text-2xl font-bold tracking-tight mb-2">PM Level Assessment</h2>
-                <p className="text-muted-foreground max-w-2xl mx-auto mb-8">
+        <div className="bg-background rounded-xl border shadow-sm overflow-hidden">
+          <div className="p-8 text-center">
+            <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 mb-4">
+              <BarChart3 className="h-8 w-8 text-primary" />
+            </div>
+            <h2 className="text-2xl font-bold tracking-tight mb-2">PM Level Assessment</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto mb-8">
                   {isSpecializationSection
                     ? "Run an analysis to see your specialization matches. Add work history and stories to get detailed insights."
                     : "Get a detailed analysis of your product management level based on your experience, skills, and achievements. Understand your strengths and areas for growth with personalized recommendations."}
-                </p>
-
-                <div className="bg-muted/30 border rounded-lg p-6 mb-8 text-left max-w-2xl mx-auto">
-                  <h3 className="font-medium mb-3 flex items-center">
-                    <Info className="w-4 h-4 mr-2 text-amber-500" />
-                    How it works
-                  </h3>
-                  <ul className="space-y-3 text-sm text-muted-foreground">
-                    <li className="flex items-start">
-                      <CheckCircle className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                      <span>We'll analyze your work history, achievements, and skills</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                      <span>Compare against industry benchmarks for different PM levels</span>
-                    </li>
-                    <li className="flex items-start">
-                      <CheckCircle className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                      <span>Provide personalized recommendations for growth</span>
-                    </li>
-                  </ul>
-                </div>
-
-                <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
-                  <Button
-                    onClick={handleRunAnalysis}
-                    disabled={isAnalyzing || isRecalculating}
-                    size="lg"
-                    className="px-8 py-6 text-base"
-                  >
-                    {isAnalyzing || isRecalculating ? (
-                      <>
-                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                        Analyzing Your Profile...
-                      </>
-                    ) : (
-                      <>
-                        <BarChart3 className="w-5 h-5 mr-2" />
-                        Run PM Level Analysis
-                      </>
-                    )}
-                  </Button>
-
-                  <Button
-                    variant="secondary"
-                    size="lg"
-                    className="px-8 py-6 text-base"
-                    onClick={() => setActiveTab('how-it-works')}
-                  >
-                    <Info className="w-5 h-5 mr-2" />
-                    Learn More
-                  </Button>
-                </div>
-
-                <p className="text-xs text-muted-foreground mt-4">
-                  This may take a few minutes. You'll receive a notification when it's ready.
-                </p>
-              </div>
+            </p>
+            
+                {backgroundError ? (
+                  <div className="max-w-2xl mx-auto mb-8">
+                    <div className="p-6 border border-destructive/40 bg-destructive/10 rounded-lg text-left">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className="w-5 h-5 text-destructive mt-0.5" />
+                        <div>
+                          <h3 className="text-lg font-semibold text-destructive mb-1">
+                            We couldn't finish the analysis
+                          </h3>
+                          <p className="text-sm text-muted-foreground">
+                            {backgroundError}
+                          </p>
+                          <div className="flex flex-wrap gap-3 mt-4">
+                            <Button
+                              onClick={handleRunAnalysis}
+                              disabled={isAnalyzing || isRecalculating}
+                            >
+                              {isAnalyzing || isRecalculating ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  Retrying...
+                                </>
+                              ) : (
+                                <>
+                                  <RotateCw className="w-4 h-4 mr-2" />
+                                  Try Again
+                                </>
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              onClick={() => setActiveTab('how-it-works')}
+                            >
+                              Learn More
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+            <div className="bg-muted/30 border rounded-lg p-6 mb-8 text-left max-w-2xl mx-auto">
+              <h3 className="font-medium mb-3 flex items-center">
+                <Info className="w-4 h-4 mr-2 text-amber-500" />
+                How it works
+              </h3>
+              <ul className="space-y-3 text-sm text-muted-foreground">
+                <li className="flex items-start">
+                  <CheckCircle className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                  <span>We'll analyze your work history, achievements, and skills</span>
+                </li>
+                <li className="flex items-start">
+                  <CheckCircle className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                  <span>Compare against industry benchmarks for different PM levels</span>
+                </li>
+                <li className="flex items-start">
+                  <CheckCircle className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                  <span>Provide personalized recommendations for growth</span>
+                </li>
+              </ul>
             </div>
+            
+            <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
+              <Button 
+                onClick={handleRunAnalysis}
+                disabled={isAnalyzing || isRecalculating}
+                size="lg"
+                className="px-8 py-6 text-base"
+              >
+                {isAnalyzing || isRecalculating ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Analyzing Your Profile...
+                  </>
+                ) : (
+                  <>
+                    <BarChart3 className="w-5 h-5 mr-2" />
+                    Run PM Level Analysis
+                  </>
+                )}
+              </Button>
+              
+              <Button 
+                        variant="secondary"
+                size="lg"
+                className="px-8 py-6 text-base"
+                onClick={() => setActiveTab('how-it-works')}
+              >
+                <Info className="w-5 h-5 mr-2" />
+                Learn More
+              </Button>
+            </div>
+            
+            <p className="text-xs text-muted-foreground mt-4">
+              This may take a few minutes. You'll receive a notification when it's ready.
+            </p>
+                  </>
+                )}
+          </div>
+        </div>
           </div>
         </main>
       </div>
@@ -552,35 +735,64 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
   return (
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-4 py-6">
-        <div className="space-y-6">
-          {/* Header Section */}
-          <div className="flex flex-col justify-between space-y-4 md:flex-row md:items-center md:space-y-0">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">PM Level Assessment</h1>
-              <p className="text-muted-foreground">
-                {inferenceSource}
-              </p>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="secondary"
-                onClick={handleRunAnalysis}
-                disabled={isAnalyzing || isRecalculating}
-              >
-                {isAnalyzing || isRecalculating ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Recalculating...
-                  </>
-                ) : (
-                  <>
-                    <RotateCw className="w-4 h-4 mr-2" />
-                    Recalculate
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
+    <div className="space-y-6">
+      {/* Header Section */}
+      <div className="flex flex-col justify-between space-y-4 md:flex-row md:items-center md:space-y-0">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">PM Level Assessment</h1>
+              <p className="text-muted-foreground">{inferenceSource}</p>
+        </div>
+            <div className="flex flex-col items-start gap-2 text-sm text-muted-foreground sm:flex-row sm:items-center">
+              {lastAnalyzedRelative && (
+                <Badge
+                  variant="outline"
+                  className="flex items-center gap-1"
+                  title={lastAnalyzedExact ?? undefined}
+                >
+                  <Clock className="h-3 w-3" />
+                  {`Last analyzed ${lastAnalyzedRelative}`}
+                </Badge>
+              )}
+              {(isBackgroundAnalyzing || isRecalculating) && (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Updating assessment...</span>
+                </div>
+            )}
+        </div>
+      </div>
+
+          {changeSummary && !isSummaryDismissed && (
+            <Card className="border-primary/30 bg-primary/5">
+              <CardContent className="p-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                    <div className="flex items-center gap-2 text-primary">
+                      <AlertCircle className="h-4 w-4" />
+                      <span className="font-semibold">{changeSummary.headline}</span>
+                    </div>
+                    <ul className="mt-2 space-y-1 text-sm text-muted-foreground list-disc pl-5">
+                      {changeSummary.items.map((item, index) => (
+                        <li key={index}>{item}</li>
+                      ))}
+                    </ul>
+                    <div className="mt-3 text-xs text-muted-foreground">
+                      Updated {formatDistanceToNow(new Date(changeSummary.analyzedAt), { addSuffix: true })} (
+                      {format(new Date(changeSummary.analyzedAt), 'PPpp')})
+                    </div>
+                </div>
+                <Button 
+                    variant="ghost"
+                  size="sm"
+                    onClick={() => setIsSummaryDismissed(true)}
+                    className="self-start md:self-start"
+                >
+                    Dismiss
+                </Button>
+              </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Main Content */}
           {/* Level Assessment Summary Card */}
@@ -601,7 +813,7 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
 
                   return (
                     <div className="flex items-center justify-center gap-2">
-                      <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                         {inferenceSource}
                       </p>
                       <Badge className={getConfidenceBadgeColor(confidencePercentage)}>
@@ -613,7 +825,7 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
 
                 {/* Primary CTA */}
                 <div className="pt-2">
-                  <Button
+                  <Button 
                     size="lg"
                     onClick={() => setLevelEvidenceModalOpen(true)}
                     className="px-6"
@@ -622,7 +834,7 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
                     <TrendingUp className="w-4 h-4 ml-2" />
                   </Button>
                 </div>
-              </div>
+            </div>
             </CardContent>
           </Card>
 
@@ -678,7 +890,7 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
           </CardHeader>
           <CardContent>
             {roleArchetypes.length > 0 ? (
-              <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2">
                 {roleArchetypes.map((archetype: any) => {
                   // Get evidence data using the typeKey (original roleType enum value)
                   const evidence = roleArchetypeEvidence[archetype.typeKey] || roleArchetypeEvidence[archetype.type];
@@ -686,7 +898,7 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
 
                   return (
                     <SpecializationCard
-                      key={archetype.type}
+                  key={archetype.type}
                       type={archetype.type}
                       match={archetype.match}
                       description={archetype.description || archetype.typicalProfile || ''}
@@ -696,7 +908,7 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
                         if (hasEvidence) {
                           // Store both display name and key for modal lookup
                           setSelectedRole(archetype.typeKey || archetype.type);
-                          setRoleEvidenceModalOpen(true);
+                    setRoleEvidenceModalOpen(true);
                         } else {
                           // Navigate to specialization section to show empty state
                           const sectionMap: Record<string, string> = {
@@ -713,13 +925,13 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
                     />
                   );
                 })}
-              </div>
+                      </div>
             ) : (
               <div className="text-center py-8">
                 <p className="text-muted-foreground">
                   No specializations detected: add stories to see new matches
-                </p>
-              </div>
+                    </p>
+                  </div>
             )}
           </CardContent>
         </Card>
@@ -758,9 +970,9 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
                     <Card key={rec.id || index}>
                       <CardContent className="p-4">
                         <h4 className="font-medium mb-2">{rec.title}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          {rec.description}
-                        </p>
+                      <p className="text-sm text-muted-foreground">
+                        {rec.description}
+                      </p>
                       </CardContent>
                     </Card>
                   ));
@@ -769,7 +981,7 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
             </CardContent>
           </Card>
         )}
-        </div>
+      </div>
       </main>
 
       {/* Modals */}

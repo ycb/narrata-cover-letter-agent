@@ -347,6 +347,8 @@ export interface EvidenceStory {
   confidence: 'high' | 'medium' | 'low';
   outcomeMetrics?: string[];
   levelAssessment?: 'exceeds' | 'meets' | 'below'; // Added for level expectations
+  workItemId?: string;
+  workItemTitle?: string;
 }
 
 // Evidence by competency (for EvidenceModal)
@@ -451,6 +453,7 @@ export interface PMLevelInference {
   recommendations: LevelRecommendation[];
   signals: LevelSignal;
   topArtifacts: string[]; // IDs of top 6 artifacts used
+  lastAnalyzedAt?: string;
 
   // NEW: Evidence structures for modals
   evidenceByCompetency?: Record<PMDimension, CompetencyEvidence>;

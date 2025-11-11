@@ -1,14 +1,13 @@
-import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
 import { calculateEvidenceBasedConfidence } from "@/utils/confidenceCalculation";
 import { getConfidenceBadgeColor } from "@/utils/confidenceBadge";
 import { EvidenceSummaryStats } from "./EvidenceSummaryStats";
 import { CriteriaDisplay } from "./CriteriaDisplay";
 import { StoryCard } from "./StoryCard";
+import { DisputeFeedbackDialog } from "./DisputeFeedbackDialog";
 
 interface EvidenceStory {
   id: string;
@@ -146,6 +145,17 @@ const EvidenceModal = ({
 
   const competencyCriteria = getCompetencyCriteria(competency);
 
+  const locationHref = typeof window !== 'undefined' ? window.location.href : '';
+  const disputeMetadata = {
+    competency,
+    currentLevel,
+    overallConfidence,
+    storyIds: evidence?.map((story) => story.id),
+    storyTitles: evidence?.map((story) => story.title),
+    matchedTags,
+    location: locationHref,
+  };
+
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => {
@@ -154,7 +164,8 @@ const EvidenceModal = ({
       }}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="pb-4">
-          <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-start justify-between gap-3">
             <div>
               <DialogTitle className="text-2xl font-bold">
                 Evidence for {competency}
@@ -162,21 +173,28 @@ const EvidenceModal = ({
               <DialogDescription className="text-base">
                 Supporting examples from your work history and stories
               </DialogDescription>
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <DisputeFeedbackDialog
+                  subject={`PM Level competency dispute: ${competency}`}
+                  metadata={disputeMetadata}
+                />
             </div>
           </div>
         </DialogHeader>
 
         <div>
           {/* Summary Stats */}
-          <EvidenceSummaryStats
-            stats={[
-              { label: "Stories", value: storyCount },
-              { label: "Tags", value: tagCount },
-              { label: "Metrics", value: metricsCount }
-            ]}
-            confidence={getConfidencePercentage()}
-            confidenceLabel="confidence"
-          />
+            <EvidenceSummaryStats
+              stats={[
+                { label: "Stories", value: storyCount },
+                { label: "Tags", value: tagCount },
+                { label: "Metrics", value: metricsCount }
+              ]}
+              confidence={getConfidencePercentage()}
+              confidenceLabel="confidence"
+            />
 
           {/* How This Was Scored */}
           <Card className="section-spacing">
@@ -248,9 +266,9 @@ const EvidenceModal = ({
 
           {/* Stories */}
           <Card className="section-spacing">
-            <CardHeader className="pb-3">
+                <CardHeader className="pb-3">
               <CardTitle className="text-lg">Stories</CardTitle>
-            </CardHeader>
+                </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {(evidence || []).map((story) => (
@@ -268,10 +286,10 @@ const EvidenceModal = ({
                     getLevelAssessmentText={getLevelAssessmentText}
                     getStoryConfidenceColor={getStoryConfidenceColor}
                   />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
 
 
         </div>

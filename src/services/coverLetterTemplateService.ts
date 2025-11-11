@@ -927,10 +927,13 @@ export class CoverLetterTemplateService {
   }
 
   private static mapRowToTemplate(row: CoverLetterTemplatesRow): DomainCoverLetterTemplate {
+    const parsedSections = this.parseSections(row.sections);
+    const mergedSections = this.mergeSignatureTemplateSections(parsedSections);
+
     return {
       id: row.id,
       name: row.name,
-      sections: this.parseSections(row.sections),
+      sections: mergedSections,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
@@ -1002,6 +1005,68 @@ export class CoverLetterTemplateService {
     }
 
     return lines.join('\n');
+  }
+
+  private static mergeSignatureTemplateSections(sections: TemplateSection[]): TemplateSection[] {
+    if (!Array.isArray(sections) || sections.length === 0) {
+      return sections ?? [];
+    }
+
+    const ordered = sections
+      .map((section) => ({ ...section }))
+      .sort((a, b) => {
+        const aOrder = typeof a.order === 'number' ? a.order : Number.MAX_SAFE_INTEGER;
+        const bOrder = typeof b.order === 'number' ? b.order : Number.MAX_SAFE_INTEGER;
+        if (aOrder !== bOrder) {
+          return aOrder - bOrder;
+        }
+
+        const aId = a.id ?? '';
+        const bId = b.id ?? '';
+        return aId.localeCompare(bId);
+      });
+
+    const normalized: TemplateSection[] = [];
+
+    ordered.forEach((section) => {
+      if (section.type !== 'signature') {
+        normalized.push({ ...section });
+        return;
+      }
+
+      const signatureContent = section.staticContent?.trim();
+      if (!signatureContent) {
+        return;
+      }
+
+      for (let i = normalized.length - 1; i >= 0; i -= 1) {
+        const candidate = normalized[i];
+        if (candidate.type === 'closer') {
+          const existingContent = candidate.staticContent ?? '';
+          const alreadyIncluded = existingContent
+            .toLowerCase()
+            .includes(signatureContent.toLowerCase());
+
+          if (!alreadyIncluded) {
+            const combinedContent = existingContent
+              ? `${existingContent.trim()}\n\n${signatureContent}`
+              : signatureContent;
+            normalized[i] = {
+              ...candidate,
+              staticContent: combinedContent.trim()
+            };
+          }
+          return;
+        }
+      }
+
+      normalized.push({
+        ...section,
+        type: 'closer'
+      });
+    });
+
+    return normalized;
   }
 
   private static async getClient(accessToken?: string): Promise<any> {

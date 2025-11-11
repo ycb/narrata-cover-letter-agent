@@ -15,6 +15,7 @@
 
 import { supabase } from '@/lib/supabase';
 import { UserPreferencesService } from './userPreferencesService';
+import type { PMLevelInference } from '@/types/content';
 
 export interface Gap {
   id?: string;
@@ -284,6 +285,201 @@ export class GapDetectionService {
       }
     }
     return gaps;
+  }
+
+  /**
+   * Sync PM Level expectation gaps for work history and stories
+   * Creates or resolves gaps based on PM Level analysis results
+   */
+  static async syncPmLevelExpectationGaps(
+    userId: string,
+    inference: PMLevelInference | null,
+    accessToken?: string
+  ): Promise<void> {
+    if (!userId) return;
+
+    const stories = inference?.levelEvidence?.storyEvidence?.stories || [];
+
+    if (!stories || stories.length === 0) {
+      await this.resolveAllPmLevelGaps(userId, accessToken);
+      return;
+    }
+
+    const currentLevelLabel =
+      inference?.levelEvidence?.currentLevel ||
+      inference?.displayLevel ||
+      inference?.inferredLevel ||
+      'your current level';
+
+    const storyIdsAll = stories.map(story => story.id).filter(Boolean) as string[];
+    const storyIdsBelow = stories
+      .filter(story => story.levelAssessment === 'below')
+      .map(story => story.id)
+      .filter(Boolean) as string[];
+
+    const workItemIdsAll = Array.from(
+      new Set(
+        stories
+          .map(story => story.workItemId)
+          .filter((id): id is string => Boolean(id))
+      )
+    );
+
+    const workItemBelowMap = new Map<string, typeof stories>();
+    for (const story of stories) {
+      if (story.levelAssessment !== 'below' || !story.workItemId) continue;
+      const existing = workItemBelowMap.get(story.workItemId) || [];
+      existing.push(story);
+      workItemBelowMap.set(story.workItemId, existing);
+    }
+
+    const workItemIdsBelow = Array.from(workItemBelowMap.keys());
+
+    // Resolve story-level gaps that are no longer below expectations
+    const storiesToResolve = storyIdsAll.filter(id => !storyIdsBelow.includes(id));
+    if (storiesToResolve.length > 0) {
+      await this.resolvePmLevelGaps(
+        userId,
+        'approved_content',
+        storiesToResolve,
+        'pm_level_expectation_story',
+        accessToken
+      );
+    }
+
+    // Resolve work-item-level gaps that now meet expectations
+    const workItemsToResolve = workItemIdsAll.filter(id => !workItemIdsBelow.includes(id));
+    if (workItemsToResolve.length > 0) {
+      await this.resolvePmLevelGaps(
+        userId,
+        'work_item',
+        workItemsToResolve,
+        'pm_level_expectation_work_item',
+        accessToken
+      );
+    }
+
+    if (storyIdsBelow.length === 0 && workItemIdsBelow.length === 0) {
+      return;
+    }
+
+    const gaps: Gap[] = [];
+
+    for (const story of stories) {
+      if (story.levelAssessment !== 'below' || !story.id) continue;
+      gaps.push({
+        user_id: userId,
+        entity_type: 'approved_content',
+        entity_id: story.id,
+        gap_type: 'role_expectation',
+        gap_category: 'pm_level_expectation_story',
+        severity: 'medium',
+        description: `This story is below expectations for ${currentLevelLabel}.`,
+        suggestions: [
+          {
+            type: 'pm_level_alignment',
+            description: 'Expand scope, quantify impact, or highlight higher-level leadership to align with your current level.',
+          }
+        ],
+      });
+    }
+
+    for (const [workItemId, storiesForRole] of workItemBelowMap.entries()) {
+      if (!workItemId) continue;
+      const uniqueTitles = Array.from(
+        new Set(storiesForRole.map(story => story.title).filter(Boolean))
+      );
+      gaps.push({
+        user_id: userId,
+        entity_type: 'work_item',
+        entity_id: workItemId,
+        gap_type: 'role_expectation',
+        gap_category: 'pm_level_expectation_work_item',
+        severity: 'medium',
+        description: `Some stories for this role fall below expectations for ${currentLevelLabel}.`,
+        suggestions: [
+          {
+            type: 'pm_level_alignment',
+            description: uniqueTitles.length > 0
+              ? `Strengthen these stories: ${uniqueTitles.slice(0, 3).join(', ')}${uniqueTitles.length > 3 ? '…' : ''}`
+              : 'Strengthen associated stories to showcase higher-scope impact.',
+          }
+        ],
+        addressing_content_ids: storiesForRole
+          .map(story => story.id)
+          .filter(Boolean),
+      });
+    }
+
+    if (gaps.length > 0) {
+      await this.saveGaps(gaps, accessToken);
+    }
+  }
+
+  private static async resolvePmLevelGaps(
+    userId: string,
+    entityType: 'work_item' | 'approved_content',
+    entityIds: string[],
+    category: 'pm_level_expectation_story' | 'pm_level_expectation_work_item',
+    accessToken?: string
+  ): Promise<void> {
+    if (!userId || entityIds.length === 0) return;
+
+    try {
+      const dbClient = accessToken
+        ? await this.getAuthenticatedClient(accessToken)
+        : supabase;
+
+      await dbClient
+        .from('gaps')
+        .update({
+          resolved: true,
+          resolved_at: new Date().toISOString(),
+          resolved_reason: 'content_added',
+        })
+        .eq('user_id', userId)
+        .eq('entity_type', entityType)
+        .eq('gap_category', category)
+        .in('entity_id', entityIds);
+    } catch (error) {
+      console.error('[GapDetectionService] Failed to resolve PM level gaps:', error);
+    }
+  }
+
+  private static async resolveAllPmLevelGaps(userId: string, accessToken?: string): Promise<void> {
+    if (!userId) return;
+
+    try {
+      const dbClient = accessToken
+        ? await this.getAuthenticatedClient(accessToken)
+        : supabase;
+
+      const { data, error } = await dbClient
+        .from('gaps')
+        .select('entity_id, entity_type, gap_category')
+        .eq('user_id', userId)
+        .in('gap_category', ['pm_level_expectation_story', 'pm_level_expectation_work_item']);
+
+      if (error || !data || data.length === 0) return;
+
+      const storyIds = data
+        .filter((gap: any) => gap.gap_category === 'pm_level_expectation_story' && gap.entity_type === 'approved_content')
+        .map((gap: any) => gap.entity_id);
+
+      const workItemIds = data
+        .filter((gap: any) => gap.gap_category === 'pm_level_expectation_work_item' && gap.entity_type === 'work_item')
+        .map((gap: any) => gap.entity_id);
+
+      if (storyIds.length > 0) {
+        await this.resolvePmLevelGaps(userId, 'approved_content', storyIds, 'pm_level_expectation_story', accessToken);
+      }
+
+      if (workItemIds.length > 0) {
+        await this.resolvePmLevelGaps(userId, 'work_item', workItemIds, 'pm_level_expectation_work_item', accessToken);
+      }
+    } catch (error) {
+      console.error('[GapDetectionService] Failed to resolve all PM level gaps:', error);
+    }
   }
 
   /**
@@ -1468,11 +1664,11 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
         gaps = await this.getUserGaps(userId, profileId, accessToken);
       } else {
         const { data, error } = await db
-          .from('gaps')
-          .select('*')
-          .eq('user_id', userId)
-          .or('resolved.is.null,resolved.eq.false');
-        if (error) throw error;
+        .from('gaps')
+        .select('*')
+        .eq('user_id', userId)
+        .or('resolved.is.null,resolved.eq.false');
+      if (error) throw error;
         gaps = data || [];
       }
 

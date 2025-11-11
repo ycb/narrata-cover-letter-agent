@@ -44,8 +44,8 @@ export const CompetencyCard = ({
   return (
     <Card
       className={cn(
-        "assessment-card group",
-        className
+      "assessment-card group",
+      className
       )}
     >
       <CardContent className="assessment-card-content">
@@ -65,10 +65,10 @@ export const CompetencyCard = ({
             <span>Confidence</span>
             <span>{score}%</span>
           </div>
-          <Progress
-            value={score}
+        <Progress 
+          value={score} 
             className={cn("h-2", getConfidenceProgressColor(score))}
-          />
+        />
         </div>
 
         {/* Description */}

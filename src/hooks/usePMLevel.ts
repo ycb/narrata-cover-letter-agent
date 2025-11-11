@@ -6,6 +6,13 @@ import type { PMLevelInference, PMLevelCode, RoleType } from '@/types/content';
 import { toast } from 'sonner';
 import { useState, useEffect, useRef } from 'react';
 
+interface PMLevelEventDetail {
+  userId: string;
+  syntheticProfileId?: string;
+  reason?: string;
+  error?: string;
+}
+
 export function usePMLevel() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -13,6 +20,8 @@ export function usePMLevel() {
   const [syntheticProfileId, setSyntheticProfileId] = useState<string | undefined | null>(null); // null = not determined yet, undefined = no profile
   const [isDeterminingProfile, setIsDeterminingProfile] = useState(true);
   const profileIdRef = useRef<string | undefined | null>(null);
+  const [isBackgroundAnalyzing, setIsBackgroundAnalyzing] = useState(false);
+  const [backgroundError, setBackgroundError] = useState<string | null>(null);
 
   // Get active synthetic profile ID
   useEffect(() => {
@@ -137,6 +146,64 @@ export function usePMLevel() {
     placeholderData: (previousData) => previousData, // Keep previous data while key changes
   });
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || !user) {
+      return;
+    }
+
+    const matchesDetail = (detail: PMLevelEventDetail | undefined) => {
+      if (!detail) return false;
+      const eventProfileId = detail.syntheticProfileId ?? undefined;
+      return detail.userId === user.id && eventProfileId === stableProfileId;
+    };
+
+    const handleScheduled = (event: Event) => {
+      const customEvent = event as CustomEvent<PMLevelEventDetail>;
+      if (!matchesDetail(customEvent.detail)) return;
+
+      setIsBackgroundAnalyzing(true);
+      setBackgroundError(null);
+
+      if (customEvent.detail?.reason) {
+        console.log('[usePMLevel] Background analysis scheduled:', customEvent.detail.reason);
+      }
+    };
+
+    const handleUpdated = (event: Event) => {
+      const customEvent = event as CustomEvent<PMLevelEventDetail>;
+      if (!matchesDetail(customEvent.detail)) return;
+
+      setIsBackgroundAnalyzing(false);
+      setBackgroundError(null);
+
+      queryClient.invalidateQueries({
+        queryKey: ['pmLevel', user.id, stableProfileId],
+      });
+
+      if (!isDeterminingProfile) {
+        refetch();
+      }
+    };
+
+    const handleError = (event: Event) => {
+      const customEvent = event as CustomEvent<PMLevelEventDetail>;
+      if (!matchesDetail(customEvent.detail)) return;
+
+      setIsBackgroundAnalyzing(false);
+      setBackgroundError(customEvent.detail?.error || 'Analysis failed. Please try again.');
+    };
+
+    window.addEventListener('pm-levels:scheduled', handleScheduled as EventListener);
+    window.addEventListener('pm-levels:updated', handleUpdated as EventListener);
+    window.addEventListener('pm-levels:error', handleError as EventListener);
+
+    return () => {
+      window.removeEventListener('pm-levels:scheduled', handleScheduled as EventListener);
+      window.removeEventListener('pm-levels:updated', handleUpdated as EventListener);
+      window.removeEventListener('pm-levels:error', handleError as EventListener);
+    };
+  }, [user?.id, stableProfileId, queryClient, refetch, isDeterminingProfile]);
+
   // Recalculate level mutation
   const { mutate: recalculate, isPending: isRecalculating } = useMutation({
     mutationFn: async (params?: { targetLevel?: PMLevelCode; roleType?: RoleType[] }) => {
@@ -149,17 +216,63 @@ export function usePMLevel() {
         syntheticProfileId // Pass synthetic profile ID
       );
     },
+    onMutate: () => {
+      setIsBackgroundAnalyzing(true);
+      setBackgroundError(null);
+
+      if (user && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent<PMLevelEventDetail>('pm-levels:scheduled', {
+          detail: {
+            userId: user.id,
+            syntheticProfileId: syntheticProfileId ?? undefined,
+            reason: 'User initiated manual recalc',
+          },
+        }));
+      }
+    },
     onSuccess: (data) => {
       // Update the query cache with the new data (include synthetic profile ID in key)
       queryClient.setQueryData(['pmLevel', user?.id, syntheticProfileId], data);
       // Show success toast only after analysis actually completes
       toast.success('Analysis completed successfully');
+      setIsBackgroundAnalyzing(false);
+      setBackgroundError(null);
+
+      if (user && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent<PMLevelEventDetail>('pm-levels:updated', {
+          detail: {
+            userId: user.id,
+            syntheticProfileId: syntheticProfileId ?? undefined,
+            reason: 'Manual recalc complete',
+          },
+        }));
+      }
     },
     onError: (error) => {
       console.error('Error recalculating PM level:', error);
       toast.error('Failed to run analysis. Please try again.');
+      setIsBackgroundAnalyzing(false);
+      setBackgroundError(error instanceof Error ? error.message : 'Failed to run analysis');
+
+      if (user && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent<PMLevelEventDetail>('pm-levels:error', {
+          detail: {
+            userId: user.id,
+            syntheticProfileId: syntheticProfileId ?? undefined,
+            error: error instanceof Error ? error.message : String(error),
+            reason: 'Manual recalc failed',
+          },
+        }));
+      }
     },
   });
+
+  useEffect(() => {
+    if (levelData && !isRecalculating) {
+      setIsBackgroundAnalyzing(false);
+      setBackgroundError(null);
+    }
+  }, [levelData, isRecalculating]);
 
   return {
     levelData,
@@ -169,6 +282,9 @@ export function usePMLevel() {
     refetch,
     recalculate: (targetLevel?: PMLevelCode, roleType?: RoleType[]) => 
       recalculate({ targetLevel, roleType }),
+    isBackgroundAnalyzing,
+    backgroundError,
+    activeProfileId: stableProfileId,
   };
 }
 

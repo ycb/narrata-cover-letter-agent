@@ -1,15 +1,18 @@
+import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
 import { 
-  Building,
+  Building, 
   CheckCircle2,
   HelpCircle
 } from "lucide-react";
 import { getConfidenceBadgeColor } from "@/utils/confidenceBadge";
 import { EvidenceSummaryStats } from "./EvidenceSummaryStats";
 import { CriteriaDisplay } from "./CriteriaDisplay";
+import { DisputeFeedbackDialog } from "./DisputeFeedbackDialog";
 
 interface RoleEvidence {
   roleType: string;
@@ -64,6 +67,18 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
   if (!evidence) {
     return null;
   }
+
+  const locationHref = typeof window !== "undefined" ? window.location.href : "";
+  const disputeMetadata = {
+    roleType: evidence.roleType,
+    matchScore: evidence.matchScore,
+    workHistory: evidence.workHistory,
+    tagAnalysis: evidence.tagAnalysis,
+    industryPatterns: evidence.industryPatterns,
+    gaps: evidence.gaps,
+    outcomeMetrics: evidence.outcomeMetrics,
+    location: locationHref,
+  };
 
   const getRelevanceColor = (relevance: string) => {
     if (relevance.includes("High")) return "bg-success text-success-foreground";
@@ -140,7 +155,8 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         {/* Sticky Header */}
         <DialogHeader className="pb-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-start justify-between gap-3">
             <div>
               <DialogTitle className="text-2xl font-bold">
                 Evidence for {evidence.roleType} Match
@@ -148,6 +164,13 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
               <DialogDescription className="text-base">
                 How we determined your fit for this specialization
               </DialogDescription>
+            </div>
+          </div>
+            <div className="flex justify-end">
+              <DisputeFeedbackDialog
+                subject={`PM Level specialization dispute: ${evidence.roleType}`}
+                metadata={disputeMetadata}
+              />
             </div>
           </div>
         </DialogHeader>
@@ -186,13 +209,13 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
                 <div className="mt-4 pt-4 border-t">
                   <p className="font-medium mb-2 text-foreground">Industry Patterns:</p>
                   <div className="space-y-2">
-                    {(evidence.industryPatterns || []).map((pattern, index) => (
+              {(evidence.industryPatterns || []).map((pattern, index) => (
                       <div key={index} className="flex items-center gap-2">
-                        {pattern.match ? (
+                    {pattern.match ? (
                           <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
-                        ) : (
+                    ) : (
                           <HelpCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        )}
+                    )}
                         <span>{pattern.pattern}</span>
                       </div>
                     ))}
@@ -237,10 +260,10 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
               <div className="flex flex-wrap gap-2">
                 {matchedTags.map((tag) => (
                   <Badge key={tag} variant="secondary" className="text-sm">
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
             </CardContent>
           </Card>
 
@@ -322,6 +345,16 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
               </CardContent>
             </Card>
           )}
+        </div>
+
+        <div className="mt-6 flex justify-end">
+          <Button
+            variant="ghost"
+            onClick={() => onClose()}
+            className="gap-2 text-muted-foreground hover:text-foreground"
+          >
+            Close
+          </Button>
         </div>
       </DialogContent>
       </Dialog>

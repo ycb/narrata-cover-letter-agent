@@ -30,6 +30,7 @@ import { UnifiedProfileService } from './unifiedProfileService';
 import { HumanReviewService } from './humanReviewService';
 import { AppifyService } from './appifyService';
 import { getSyntheticLocalOnlyFlag, syntheticStorage } from '@/utils/storage';
+import { schedulePMLevelBackgroundRun } from './pmLevelsService';
 
 export class FileUploadService {
   private textExtractionService: TextExtractionService;
@@ -1213,6 +1214,13 @@ source_type: dbSourceType,
       });
 
       console.log('✅ Structured data processed successfully');
+
+      schedulePMLevelBackgroundRun({
+        userId,
+        syntheticProfileId: activeProfileId || undefined,
+        delayMs: 6000,
+        reason: `[FileUploadService] Structured data processed from ${sourceData.file_name || sourceId}`,
+      });
       
       // Emit progress update
       window.dispatchEvent(new CustomEvent('upload:progress', {

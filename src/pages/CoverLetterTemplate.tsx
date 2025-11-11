@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -59,6 +59,7 @@ export default function CoverLetterTemplate() {
   const [showAddReusableContentModal, setShowAddReusableContentModal] = useState(false);
   const [newReusableContent, setNewReusableContent] = useState({ title: '', content: '', tags: '', contentType: '' });
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewCoverLetter, setPreviewCoverLetter] = useState<any>(null);
   const [userContentTypes, setUserContentTypes] = useState<Array<{
     type: string;
     label: string;
@@ -69,6 +70,8 @@ export default function CoverLetterTemplate() {
   const [workHistoryLibrary, setWorkHistoryLibrary] = useState<WorkHistoryCompany[]>([]);
   const [isLibraryLoading, setIsLibraryLoading] = useState(false);
   const [libraryError, setLibraryError] = useState<string | null>(null);
+const dragIndexRef = useRef<number | null>(null);
+const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   // Add Section Modal State
   const [showAddSectionModal, setShowAddSectionModal] = useState(false);
@@ -130,33 +133,158 @@ export default function CoverLetterTemplate() {
         await fetchWorkHistoryLibrary(user.id, profileId);
 
         // Convert SavedSection to TemplateBlurb format
+        const normalizeContentKey = (text: string | undefined | null) =>
+          (text ?? '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .toLowerCase();
+
+        const extractSignoffParts = (text: string | undefined | null) => {
+          if (!text) {
+            return null;
+          }
+
+          const lines = text
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter((line) => line.length > 0);
+
+          if (lines.length < 2) {
+            return null;
+          }
+
+          const signoffKeywords = ['regards', 'sincerely', 'best', 'thanks', 'thank you', 'cheers'];
+          let signoffIndex = -1;
+
+          for (let idx = 0; idx < lines.length; idx += 1) {
+            const lower = lines[idx].toLowerCase();
+            if (signoffKeywords.some((keyword) => lower.startsWith(keyword))) {
+              signoffIndex = idx;
+              break;
+            }
+          }
+
+          if (signoffIndex <= 0) {
+            return null;
+          }
+
+          const body = lines.slice(0, signoffIndex).join('\n').trim();
+          const signature = lines.slice(signoffIndex).join('\n').trim();
+
+          if (!body || !signature) {
+            return null;
+          }
+
+          return { body, signature };
+        };
+
+        console.log('[Template] Saved sections payload:', sections);
+
+        const savedSectionMap = new Map<string, SavedSection>();
+        const savedSectionContentMap = new Map<string, string>();
+
         const blurbs: TemplateBlurb[] = sections.map((section) => {
           const allowedTypes: TemplateBlurb['type'][] = ['intro', 'paragraph', 'closer', 'signature'];
           const sectionType = allowedTypes.includes(section.type as TemplateBlurb['type'])
             ? section.type as TemplateBlurb['type']
             : 'intro';
 
+          if (section.type === 'closer') {
+            console.log('[Template] Saved closer content:', section.content);
+          }
+
+          if (section.id) {
+            savedSectionMap.set(section.id, section);
+          }
+          const normalizedKey = normalizeContentKey(section.content);
+          if (normalizedKey && !savedSectionContentMap.has(normalizedKey)) {
+            savedSectionContentMap.set(normalizedKey, section.content);
+          }
+
+          const signoffParts = extractSignoffParts(section.content);
+          if (signoffParts) {
+            const baseKey = normalizeContentKey(signoffParts.body);
+            if (baseKey && !savedSectionContentMap.has(baseKey)) {
+              savedSectionContentMap.set(baseKey, section.content);
+            }
+            console.log('[Template] Detected signoff', {
+              id: section.id,
+              baseKey,
+              body: signoffParts.body,
+              signature: signoffParts.signature
+            });
+          }
+
           return {
-          id: section.id!,
+            id: section.id!,
             type: sectionType,
-          title: section.title,
-          content: section.content,
-          tags: Array.from(new Set([...(section.tags ?? []), ...(section.purpose_tags ?? [])])),
-          isDefault: (section.type as string) === 'intro',
-          status: 'approved' as const,
-          confidence: 'high' as const,
-          timesUsed: section.times_used || 0,
-          lastUsed: section.last_used,
-          createdAt: section.created_at!,
-          updatedAt: section.updated_at!
-        };
+            title: section.title,
+            content: section.content,
+            tags: Array.from(new Set([...(section.tags ?? []), ...(section.purpose_tags ?? [])])),
+            isDefault: (section.type as string) === 'intro',
+            status: 'approved' as const,
+            confidence: 'high' as const,
+            timesUsed: section.times_used || 0,
+            lastUsed: section.last_used,
+            createdAt: section.created_at!,
+            updatedAt: section.updated_at!
+          };
         });
 
         const templateToUse = templates.length > 0
           ? templates[0]
           : buildTemplateFromSections(sections);
 
-        setTemplate(templateToUse);
+        console.log('[Template] Loaded template sections:', templateToUse.sections);
+
+        const templateWithSignatures = {
+          ...templateToUse,
+          sections: (templateToUse.sections || []).map((section) => {
+            if (section.type !== 'closer') {
+              return section;
+            }
+
+            console.log('[Template] Template closer raw:', section);
+
+            let replacementContent: string | undefined;
+
+            const savedSectionId = (section as any).savedSectionId as string | undefined;
+            if (savedSectionId) {
+              const saved = savedSectionMap.get(savedSectionId);
+              if (saved?.content) {
+                replacementContent = saved.content;
+              }
+            }
+
+            if (!replacementContent && section.staticContent) {
+              const normalized = normalizeContentKey(section.staticContent);
+              const matched = normalized ? savedSectionContentMap.get(normalized) : undefined;
+              if (matched) {
+                replacementContent = matched;
+              }
+            }
+
+            if (replacementContent && replacementContent !== section.staticContent) {
+              return {
+                ...section,
+                staticContent: replacementContent
+              };
+            }
+
+            return section;
+          })
+        };
+
+        console.log(
+          '[Template] Closing section after signature merge:',
+          JSON.stringify(
+            templateWithSignatures.sections?.filter((section) => section.type === 'closer'),
+            null,
+            2
+          )
+        );
+
+        setTemplate(templateWithSignatures);
 
         if (blurbs.length > 0) {
           setTemplateBlurbs(blurbs);
@@ -669,6 +797,125 @@ export default function CoverLetterTemplate() {
     };
   };
 
+  const buildPreviewSections = () => {
+    const sections = [...(template.sections ?? [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    if (sections.length === 0) {
+      return [{
+        content: 'Your template does not have any sections yet. Add introductions, body paragraphs, and a closing to preview the final letter.'
+      }];
+    }
+
+    return sections.map((section, index) => {
+      const typeLabel = getSectionTypeLabel(section.type);
+      let content = '';
+
+      if (section.isStatic && section.staticContent?.trim()) {
+        content = section.staticContent.trim();
+      } else {
+        const goals = section.blurbCriteria?.goals;
+        const goalsText = goals && goals.length > 0 ? ` focused on ${goals.join(', ')}` : '';
+
+        if (section.contentType === 'work-history') {
+          content = `[Dynamic ${typeLabel} story will be selected from your work history${goalsText}.]`;
+        } else if (section.contentType === 'saved') {
+          content = `[Dynamic ${typeLabel} from your saved sections will be inserted${goalsText}.]`;
+        } else {
+          content = `[Dynamic ${typeLabel} content will be generated when drafting the cover letter.]`;
+        }
+      }
+
+      if (!content.trim()) {
+        content = `[${typeLabel} content not provided yet.]`;
+      }
+
+      return { content };
+    });
+  };
+
+  const handlePreviewTemplate = () => {
+    const sections = buildPreviewSections();
+    const preview = {
+      id: 'template-preview',
+      title: template.name || 'Template Preview',
+      content: { sections },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    setPreviewCoverLetter(preview);
+    setShowPreviewModal(true);
+  };
+
+const reorderSections = (fromIndex: number, toIndex: number) => {
+  setTemplate((prev) => {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= prev.sections.length) {
+      return prev;
+    }
+
+    const sections = [...prev.sections];
+    const [moved] = sections.splice(fromIndex, 1);
+    let insertIndex = toIndex;
+
+    if (fromIndex < toIndex) {
+      insertIndex = insertIndex - 1;
+    }
+
+    if (insertIndex < 0) insertIndex = 0;
+    if (insertIndex > sections.length) insertIndex = sections.length;
+
+    sections.splice(insertIndex, 0, moved);
+
+    const updatedSections = sections.map((section, idx) => ({
+      ...section,
+      order: idx + 1
+    }));
+
+    return {
+      ...prev,
+      sections: updatedSections
+    };
+  });
+};
+
+const handleDragStart = (event: React.DragEvent<HTMLDivElement>, index: number, sectionId: string) => {
+  dragIndexRef.current = index;
+  setDragOverIndex(index);
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('text/plain', sectionId);
+};
+
+const handleDragOver = (event: React.DragEvent<HTMLDivElement>, index: number) => {
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  if (dragOverIndex !== index) {
+    setDragOverIndex(index);
+  }
+};
+
+const handleDrop = (event: React.DragEvent<HTMLDivElement>, index: number) => {
+  event.preventDefault();
+  const fromIndex = dragIndexRef.current;
+  if (fromIndex === null) return;
+  reorderSections(fromIndex, index);
+  dragIndexRef.current = null;
+  setDragOverIndex(null);
+};
+
+const handleDropAtEnd = (event: React.DragEvent<HTMLDivElement>) => {
+  event.preventDefault();
+  const fromIndex = dragIndexRef.current;
+  if (fromIndex === null) return;
+  reorderSections(fromIndex, template.sections.length);
+  dragIndexRef.current = null;
+  setDragOverIndex(null);
+};
+
+const handleDragEnd = () => {
+  dragIndexRef.current = null;
+  setDragOverIndex(null);
+};
+
   return (
     <div className="min-h-screen bg-background">
       <TemplateBanner
@@ -677,7 +924,7 @@ export default function CoverLetterTemplate() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => setShowPreviewModal(true)}
+            onClick={handlePreviewTemplate}
             className="flex items-center gap-2 hover:text-[#E32D9A] hover:border-[#E32D9A]"
           >
             <Eye className="h-4 w-4" />
@@ -793,8 +1040,15 @@ export default function CoverLetterTemplate() {
                   {/* Sections */}
                   <div>
                     {template.sections.map((section, index) => (
-                      <div key={section.id}>
-                        <Card className="relative">
+                      <div
+                        key={section.id}
+                        draggable
+                        onDragStart={(event) => handleDragStart(event, index, section.id)}
+                        onDragOver={(event) => handleDragOver(event, index)}
+                        onDrop={(event) => handleDrop(event, index)}
+                        onDragEnd={handleDragEnd}
+                      >
+                        <Card className={`relative ${dragOverIndex === index ? 'ring-2 ring-primary/40' : ''}`}>
                           <CardHeader>
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
@@ -928,6 +1182,23 @@ export default function CoverLetterTemplate() {
                         )}
                       </div>
                     ))}
+
+                    {template.sections.length > 0 && (
+                      <div
+                        className={`mt-4 h-10 rounded-lg border-2 border-dashed transition-colors ${dragOverIndex === template.sections.length ? 'border-primary/60 bg-primary/5' : 'border-muted'}`}
+                        onDragOver={(event) => {
+                          event.preventDefault();
+                          setDragOverIndex(template.sections.length);
+                        }}
+                        onDrop={handleDropAtEnd}
+                        onDragLeave={(event) => {
+                          event.preventDefault();
+                          if (dragOverIndex === template.sections.length) {
+                            setDragOverIndex(null);
+                          }
+                        }}
+                      />
+                    )}
                   </div>
                   
                   {/* Bottom Add Section Button - Only show if no sections exist */}
@@ -1588,30 +1859,7 @@ export default function CoverLetterTemplate() {
       <CoverLetterViewModal
         isOpen={showPreviewModal}
         onClose={() => setShowPreviewModal(false)}
-        coverLetter={{
-          id: "preview-template",
-          title: "Template Preview",
-          content: {
-            sections: [
-              {
-                content: `Dear Hiring Manager,
-
-I am writing to express my strong interest in the [Position] role at [Company]. With my background in [Industry/Field], I am excited about the opportunity to contribute to your team's success.
-
-[Your personalized content will appear here based on your template settings and selected work history stories.]
-
-I am particularly excited about this opportunity because your focus on [Company Value/Goal] aligns perfectly with my passion for [Relevant Area]. I am confident that my experience in [Key Skill/Area] and my track record of [Achievement/Result] would make me a valuable addition to your team.
-
-Thank you for considering my application. I look forward to the opportunity to discuss how I can contribute to [Company]'s continued success.
-
-Sincerely,
-[Your Name]`
-              }
-            ]
-          },
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }}
+        coverLetter={previewCoverLetter}
       />
       </div>
     </div>

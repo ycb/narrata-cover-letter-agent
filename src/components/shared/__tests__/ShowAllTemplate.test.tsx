@@ -56,10 +56,10 @@ describe('ShowAllTemplate', () => {
     expect(screen.getByText('Add New Item')).toBeInTheDocument();
   });
 
-  it('renders filters when provided', () => {
-    const filters = [
-      { label: 'Filter 1', value: 'filter1', count: 5 },
-      { label: 'Filter 2', value: 'filter2', count: 3 },
+  it('renders filter controls when sort options are provided', () => {
+    const sortOptions = [
+      { label: 'Acme Corp', value: 'acme', category: 'company' as const },
+      { label: 'Product Manager', value: 'pm-role', category: 'role' as const },
     ];
 
     render(
@@ -70,11 +70,11 @@ describe('ShowAllTemplate', () => {
         searchPlaceholder="Search..."
         renderHeader={mockRenderHeader}
         renderRow={mockRenderRow}
-        filters={filters}
+        sortOptions={sortOptions}
       />
     );
 
-    expect(screen.getByText('Filter')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Filter/ })).toBeInTheDocument();
   });
 
   it('displays correct item count', () => {

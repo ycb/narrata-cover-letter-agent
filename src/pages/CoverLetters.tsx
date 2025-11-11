@@ -272,7 +272,7 @@ export default function CoverLetters() {
           <div className="flex items-center justify-between mb-8">
             <div>
               <h1 className="text-3xl font-bold text-foreground mb-2">All Cover Letters</h1>
-              <p className="text-muted-foreground description-spacing">Manage and track your cover letter applications</p>
+            <p className="text-muted-foreground description-spacing">Manage and track your cover letter applications</p>
             </div>
             <div className="flex gap-3">
               <Button variant="secondary" asChild>

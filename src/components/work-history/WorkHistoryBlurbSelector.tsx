@@ -16,13 +16,13 @@ interface WorkHistoryBlurbSelectorProps {
   selectedBlurbId?: string;
 }
 
-export const WorkHistoryBlurbSelector = ({
+export const WorkHistoryBlurbSelector = ({ 
   companies,
   isLoading = false,
   error = null,
-  onSelectBlurb,
-  onCancel,
-  selectedBlurbId
+  onSelectBlurb, 
+  onCancel, 
+  selectedBlurbId 
 }: WorkHistoryBlurbSelectorProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>("");
