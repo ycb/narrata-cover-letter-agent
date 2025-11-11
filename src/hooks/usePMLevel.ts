@@ -4,36 +4,56 @@ import { PMLevelsService } from '@/services/pmLevelsService';
 import { SyntheticUserService } from '@/services/syntheticUserService';
 import type { PMLevelInference, PMLevelCode, RoleType } from '@/types/content';
 import { toast } from 'sonner';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export function usePMLevel() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const pmLevelsService = new PMLevelsService();
-  const [syntheticProfileId, setSyntheticProfileId] = useState<string | undefined>(undefined);
+  const [syntheticProfileId, setSyntheticProfileId] = useState<string | undefined | null>(null); // null = not determined yet, undefined = no profile
+  const [isDeterminingProfile, setIsDeterminingProfile] = useState(true);
+  const profileIdRef = useRef<string | undefined | null>(null);
 
   // Get active synthetic profile ID
   useEffect(() => {
     const getSyntheticProfile = async () => {
       if (!user) {
         setSyntheticProfileId(undefined);
+        profileIdRef.current = undefined;
+        setIsDeterminingProfile(false);
         return;
       }
       
       try {
         const syntheticService = new SyntheticUserService();
-        const context = await syntheticService.getSyntheticUserContext();
-        if (context.isSyntheticTestingEnabled && context.currentUser) {
-          setSyntheticProfileId(context.currentUser.profileId);
-        } else {
-          setSyntheticProfileId(undefined);
-        }
+        
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Synthetic profile check timeout')), 3000);
+        });
+        
+        const context = await Promise.race([
+          syntheticService.getSyntheticUserContext(),
+          timeoutPromise
+        ]) as any;
+        
+        const newProfileId = context?.isSyntheticTestingEnabled && context?.currentUser
+          ? context.currentUser.profileId
+          : undefined;
+        
+        setSyntheticProfileId(newProfileId);
+        profileIdRef.current = newProfileId;
       } catch (error) {
-        console.error('[usePMLevel] Error getting synthetic profile:', error);
+        console.warn('[usePMLevel] Error getting synthetic profile (non-blocking):', error);
+        // Default to undefined (no synthetic profile) on error
         setSyntheticProfileId(undefined);
+        profileIdRef.current = undefined;
+      } finally {
+        setIsDeterminingProfile(false);
       }
     };
     
+    setIsDeterminingProfile(true);
     getSyntheticProfile();
     
     // Listen for storage changes (when user switches synthetic profiles)
@@ -46,28 +66,41 @@ export function usePMLevel() {
     window.addEventListener('storage', handleStorageChange);
     
     // Also poll for changes (in case storage event doesn't fire for same-window changes)
-    const interval = setInterval(() => {
+    // Check localStorage directly for changes (lighter weight than full context check)
+    const pollInterval = setInterval(() => {
       if (user) {
-        getSyntheticProfile();
+        try {
+          const stored = localStorage.getItem('synthetic_active_profile_id');
+          const storedProfileId = stored || undefined;
+          // Only trigger full check if localStorage value differs from current ref value
+          // This prevents unnecessary API calls and avoids stale closure issues
+          if (storedProfileId !== profileIdRef.current) {
+            getSyntheticProfile();
+          }
+        } catch (e) {
+          // Ignore localStorage errors
+        }
       }
-    }, 1000); // Check every second
+    }, 5000); // Check every 5 seconds (less aggressive than before)
     
     return () => {
       window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
+      clearInterval(pollInterval);
     };
   }, [user?.id]);
 
   // Fetch user level
   // For synthetic profiles, check cache first, then run fresh analysis if needed
   // For regular users, fetch from database
+  // Use a stable query key that doesn't change when syntheticProfileId goes from null to undefined
+  const stableProfileId = syntheticProfileId ?? undefined; // null becomes undefined for stable key
   const {
     data: levelData,
     isLoading,
     error,
     refetch,
   } = useQuery<PMLevelInference | null, Error>({
-    queryKey: ['pmLevel', user?.id, syntheticProfileId],
+    queryKey: ['pmLevel', user?.id, stableProfileId],
     queryFn: async () => {
       if (!user) return null;
       try {
@@ -91,10 +124,17 @@ export function usePMLevel() {
         throw error;
       }
     },
-    enabled: !!user,
+    // Wait until we've determined the synthetic profile status before running the query
+    // This prevents the query key from changing mid-execution
+    enabled: !!user && !isDeterminingProfile,
     refetchOnWindowFocus: false,
+    refetchOnMount: false, // Don't refetch when component mounts if data is fresh
+    refetchOnReconnect: false, // Don't refetch on reconnect if data is fresh
     staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
     gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes (formerly cacheTime)
+    // Only refetch if the query key actually changes (e.g., switching synthetic profiles)
+    // This prevents refetching when syntheticProfileId goes from null to undefined (same key)
+    placeholderData: (previousData) => previousData, // Keep previous data while key changes
   });
 
   // Recalculate level mutation
@@ -123,7 +163,7 @@ export function usePMLevel() {
 
   return {
     levelData,
-    isLoading,
+    isLoading: isLoading || isDeterminingProfile, // Include profile determination in loading state
     error: error || null,
     isRecalculating,
     refetch,
