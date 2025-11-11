@@ -3,11 +3,13 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
 import { 
+  Building,
   CheckCircle2,
-  HelpCircle,
-  Building
+  HelpCircle
 } from "lucide-react";
 import { getConfidenceBadgeColor } from "@/utils/confidenceBadge";
+import { EvidenceSummaryStats } from "./EvidenceSummaryStats";
+import { CriteriaDisplay } from "./CriteriaDisplay";
 
 interface RoleEvidence {
   roleType: string;
@@ -152,32 +154,15 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
 
         <div>
           {/* Summary Stats */}
-          <Card className="section-spacing">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Summary</CardTitle>
-                <Badge className={getConfidenceBadgeColor(evidence.matchScore || 0)}>
-                  {evidence.matchScore || 0}% Match
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                <div className="text-center p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-foreground">{evidence.workHistory?.length || 0}</div>
-                  <div className="text-muted-foreground">Supporting Examples</div>
-                </div>
-                <div className="text-center p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-foreground">{matchedTags.length}</div>
-                  <div className="text-muted-foreground">Matched Tags</div>
-                </div>
-                <div className="text-center p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-foreground">{(evidence.industryPatterns || []).filter(p => p.match).length}</div>
-                  <div className="text-muted-foreground">Patterns Matched</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <EvidenceSummaryStats
+            stats={[
+              { label: "Stories", value: evidence.workHistory?.length || 0 },
+              { label: "Matched Tags", value: matchedTags.length },
+              { label: "Patterns Matched", value: (evidence.industryPatterns || []).filter(p => p.match).length }
+            ]}
+            confidence={evidence.matchScore || 0}
+            confidenceLabel="Match"
+          />
 
           {/* How This Was Scored */}
           <Card className="section-spacing">
@@ -237,71 +222,11 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {(() => {
-                const metCount = specializationCriteria.filter(c => c.met).length;
-                const unmetCount = specializationCriteria.filter(c => !c.met).length;
-                const allMet = unmetCount === 0;
-                const noneMet = metCount === 0;
-
-                // Single column layout when all met or none met
-                if (allMet || noneMet) {
-                  return (
-                    <div>
-                      {allMet && (
-                        <div className="text-sm text-muted-foreground mb-2 font-semibold">All criteria met 😊</div>
-                      )}
-                      {noneMet && (
-                        <div className="text-sm text-muted-foreground mb-2 font-semibold">No criteria met 😢</div>
-                      )}
-                      <ul className="space-y-2">
-                        {specializationCriteria.map((item, index) => (
-                          <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
-                            {item.met ? (
-                              <CheckCircle2 className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
-                            ) : (
-                              <HelpCircle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                            )}
-                            <span>{item.criterion}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  );
-                }
-
-                // Two column layout when mixed (met and unmet)
-                return (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Met Criteria - Left Column */}
-                    <div>
-                      <ul className="space-y-2">
-                        {specializationCriteria.filter(c => c.met).map((item, index) => (
-                          <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
-                            <CheckCircle2 className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
-                            <span>{item.criterion}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    {/* Unmet/TBD Criteria - Right Column */}
-                    <div>
-                      <ul className="space-y-2">
-                        {specializationCriteria.filter(c => !c.met).map((item, index) => (
-                          <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
-                            <HelpCircle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                            <span>{item.criterion}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                );
-              })()}
+              <CriteriaDisplay criteria={specializationCriteria} />
             </CardContent>
           </Card>
 
-          {/* Tags That Contributed */}
+          {/* Tags */}
           <Card className="section-spacing">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg">
@@ -319,7 +244,7 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
             </CardContent>
           </Card>
 
-          {/* Outcome Metrics */}
+          {/* Metrics */}
           <Card className="section-spacing">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg">
@@ -336,41 +261,45 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
             </CardContent>
           </Card>
 
-          {/* Supporting Examples */}
-          <div className="section-spacing">
-            <h3 className="text-lg font-semibold mb-4">Supporting Examples</h3>
-            <div className="space-y-4">
-              {(evidence.workHistory || []).map((work, index) => (
-                <Card key={index}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <CardTitle className="text-base mb-2">{work.role}</CardTitle>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <Building className="h-4 w-4" />
-                            {work.company}
+          {/* Stories */}
+          <Card className="section-spacing">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Stories</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {(evidence.workHistory || []).map((work, index) => (
+                  <Card key={index}>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <CardTitle className="text-base mb-2">{work.role}</CardTitle>
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <Building className="h-4 w-4" />
+                              {work.company}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <Badge className={getRelevanceColor(work.relevance)}>
-                        {work.relevance}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="flex flex-wrap gap-1">
-                      {(work.tags || []).map((tag) => (
-                        <Badge key={tag} variant="outline" className="text-xs">
-                          {tag}
+                        <Badge className={getRelevanceColor(work.relevance)}>
+                          {work.relevance}
                         </Badge>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="flex flex-wrap gap-1">
+                        {(work.tags || []).map((tag) => (
+                          <Badge key={tag} variant="outline" className="text-xs">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Areas for Improvement */}
           {(evidence.gaps?.length || 0) > 0 && (

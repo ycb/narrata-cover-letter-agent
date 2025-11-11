@@ -242,20 +242,27 @@ export class PMLevelsService {
       }
       console.log(`[PMLevelsService] Fetched ${workItems?.length || 0} work items for user ${userId}`);
 
-      // Fetch approved content (stories) - filtered by work_item_id if synthetic profile provided
+      // Fetch approved content (stories) - filtered by work_item_id or source_id if synthetic profile provided
       // NOTE: Include both 'approved' and 'draft' stories for PM Level assessment
       // The 'approved' status is for cover letter workflow, but we want to analyze all available content
       let storiesQuery = supabase
         .from('approved_content')
-        .select('id, title, content, work_item_id, metrics, tags')
+        .select('id, title, content, work_item_id, source_id, metrics, tags')
         .eq('user_id', userId)
         .in('status', ['approved', 'draft']);
       
-      if (syntheticProfileId && workItems && workItems.length > 0) {
-        // Filter stories by work_item_id matching the profile's work items
-        const workItemIds = workItems.map(wi => wi.id);
-        storiesQuery = storiesQuery.in('work_item_id', workItemIds);
-        console.log(`[PMLevelsService] Filtering stories by ${workItemIds.length} work_item IDs`);
+      if (syntheticProfileId) {
+        if (workItems && workItems.length > 0) {
+          // Filter stories by work_item_id matching the profile's work items
+          const workItemIds = workItems.map(wi => wi.id);
+          storiesQuery = storiesQuery.in('work_item_id', workItemIds);
+          console.log(`[PMLevelsService] Filtering stories by ${workItemIds.length} work_item IDs`);
+        } else if (sources && sources.length > 0) {
+          // Fallback: filter by source_id if work items not available
+          const sourceIds = sources.map(s => s.id);
+          storiesQuery = storiesQuery.in('source_id', sourceIds);
+          console.log(`[PMLevelsService] Filtering stories by ${sourceIds.length} source IDs (fallback)`);
+        }
       }
       
       const { data: stories, error: storiesError } = await storiesQuery.order('created_at', { ascending: false }).limit(50);
@@ -857,6 +864,10 @@ export class PMLevelsService {
     };
 
     let totalPMDuration = 0; // PM-specific experience
+    
+    // Track unique roles to avoid double-counting duplicates
+    const seenRoles = new Set<string>();
+    
     for (const workItem of content.workItems) {
       if (workItem.title) {
         roleTitlesWithDates.push({
@@ -885,9 +896,26 @@ export class PMLevelsService {
       
       // Calculate duration if dates available (handle current roles where end_date is null)
       if (workItem.start_date) {
+        // Create unique key for deduplication (title + company + start_date)
+        const roleKey = `${workItem.title || ''}_${workItem.companies?.name || ''}_${workItem.start_date}`;
+        
+        // Skip if we've already counted this exact role
+        if (seenRoles.has(roleKey)) {
+          continue;
+        }
+        seenRoles.add(roleKey);
+        
         const start = new Date(workItem.start_date);
         const end = workItem.end_date ? new Date(workItem.end_date) : new Date(); // Use current date if end_date is null
+        
+        // Validate dates (prevent negative or unrealistic durations)
+        if (end < start) {
+          console.warn(`[collectLevelEvidence] Invalid date range for ${workItem.title} at ${workItem.companies?.name}: ${workItem.start_date} to ${workItem.end_date}`);
+          continue;
+        }
+        
         const durationYears = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 365);
+        
         totalDuration += durationYears;
         
         // Calculate PM-specific experience

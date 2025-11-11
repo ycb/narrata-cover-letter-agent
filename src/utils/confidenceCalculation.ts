@@ -40,7 +40,12 @@ export function calculateEvidenceBasedConfidence({
     }
   }
 
-  const criteriaMet = competencyScore !== undefined && competencyScore >= 2.5;
+  // Criteria are met ONLY if BOTH score >= 2.5 AND evidence exists
+  // Without evidence, criteria cannot be met regardless of score
+  const hasEvidence = (evidence?.length || 0) > 0 || (matchedTags?.length || 0) > 0;
+  const hasSufficientScore = competencyScore !== undefined && competencyScore >= 2.5;
+  const criteriaMet = hasSufficientScore && hasEvidence;
+  
   const evidenceCount = evidence?.length || 0;
   const tagCount = matchedTags?.length || 0;
   
@@ -107,8 +112,12 @@ export function calculateEvidenceBasedConfidence({
     if (evidenceCount >= 3 && storiesWithMetrics >= 2) {
       // Good evidence but criteria not met = significant uncertainty
       baseConfidence = Math.min(baseConfidence, 55);
+    } else if (evidenceCount === 0 && tagCount === 0) {
+      // No evidence AND no tags AND criteria not met = very low confidence
+      // Cap at 25% maximum (will be further reduced by adjustments)
+      baseConfidence = Math.min(baseConfidence, 25);
     } else if (evidenceCount === 0) {
-      // No evidence AND criteria not met = very low confidence
+      // No evidence but has tags = still very low confidence
       baseConfidence = Math.min(baseConfidence, 30);
     } else {
       // Some evidence but criteria not met = moderate penalty
@@ -121,6 +130,20 @@ export function calculateEvidenceBasedConfidence({
 
   // Apply all adjustments
   let finalConfidence = baseConfidence + evidenceAdjustment + tagAdjustment + metricsAdjustment + qualityAdjustment;
+
+  // CAP CONFIDENCE BASED ON EVIDENCE QUANTITY
+  // With minimal evidence, cap confidence regardless of quality
+  if (evidenceCount === 0) {
+    // No evidence: cap at 30% maximum
+    finalConfidence = Math.min(finalConfidence, 30);
+  } else if (evidenceCount === 1) {
+    // Single story: cap at 70% maximum (even if perfect quality)
+    finalConfidence = Math.min(finalConfidence, 70);
+  } else if (evidenceCount === 2) {
+    // Two stories: cap at 85% maximum
+    finalConfidence = Math.min(finalConfidence, 85);
+  }
+  // 3+ stories: no cap (can reach 100% with strong evidence)
 
   // Clamp between 0 and 100
   finalConfidence = Math.max(0, Math.min(100, finalConfidence));

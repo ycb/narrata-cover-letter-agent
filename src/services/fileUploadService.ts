@@ -29,6 +29,7 @@ import { TemplateService } from './templateService';
 import { UnifiedProfileService } from './unifiedProfileService';
 import { HumanReviewService } from './humanReviewService';
 import { AppifyService } from './appifyService';
+import { getSyntheticLocalOnlyFlag, syntheticStorage } from '@/utils/storage';
 
 export class FileUploadService {
   private textExtractionService: TextExtractionService;
@@ -51,6 +52,45 @@ export class FileUploadService {
     this.unifiedProfileService = new UnifiedProfileService();
     this.humanReviewService = new HumanReviewService();
     this.appifyService = new AppifyService();
+  }
+
+  /**
+   * Determine the active synthetic profile for a user, respecting local-only overrides.
+   */
+  private async getActiveSyntheticProfileId(dbClient: any, userId: string): Promise<string | null> {
+    const localOnly = getSyntheticLocalOnlyFlag();
+    if (localOnly) {
+      const overrideProfileId = syntheticStorage.getActiveProfileId();
+      if (overrideProfileId) {
+        return overrideProfileId;
+      }
+    }
+
+    try {
+      const { data, error } = await dbClient
+        .from('synthetic_users')
+        .select('profile_id, is_active')
+        .eq('parent_user_id', userId);
+
+      if (error) {
+        console.warn('[FileUploadService] Unable to load synthetic user profiles:', error);
+        return null;
+      }
+
+      const activeProfileId =
+        (data || []).find((entry: any) => entry.is_active)?.profile_id ||
+        (data || [])[0]?.profile_id ||
+        null;
+
+      if (localOnly && activeProfileId) {
+        syntheticStorage.setActiveProfileId(activeProfileId);
+      }
+
+      return activeProfileId;
+    } catch (err) {
+      console.warn('[FileUploadService] Error determining synthetic profile:', err);
+      return null;
+    }
   }
 
   /**
@@ -753,18 +793,7 @@ source_type: dbSourceType,
       const userId = sourceData.user_id;
 
       // Determine active synthetic profile for this user (if any)
-      let activeProfileId: string | null = null;
-      try {
-        const { data: syntheticUsers } = await dbClient
-          .from('synthetic_users')
-          .select('profile_id')
-          .eq('parent_user_id', userId)
-          .eq('is_active', true)
-          .maybeSingle();
-        activeProfileId = syntheticUsers?.profile_id ?? null;
-      } catch (e) {
-        console.warn('[processStructuredData] Unable to read active synthetic profile:', e);
-      }
+      const activeProfileId = await this.getActiveSyntheticProfileId(dbClient, userId);
       
       // Track insertion stats
       let companiesCreated = 0;
@@ -2594,19 +2623,13 @@ source_type: dbSourceType,
         console.log('🧪 Synthetic mode detected - loading LinkedIn fixture data...');
         
         // Get active synthetic user profile
-        const { data: syntheticUsers } = await authSupabase
-          .from('synthetic_users')
-          .select('profile_id')
-          .eq('parent_user_id', user.id)
-          .eq('is_active', true)
-          .single();
-        
-        if (!syntheticUsers?.profile_id) {
+        activeProfileId = await this.getActiveSyntheticProfileId(authSupabase, user.id);
+
+        if (!activeProfileId) {
           console.warn('⚠️ No active synthetic user for LinkedIn enrichment');
           return;
         }
 
-        activeProfileId = syntheticUsers.profile_id; // e.g., "P01"
         const fixturePath = `/fixtures/synthetic/v1/raw_uploads/${activeProfileId}_linkedin.json`;
         
         try {

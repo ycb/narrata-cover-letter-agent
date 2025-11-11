@@ -54,6 +54,7 @@ process.env.VITE_SUPABASE_URL = SUPABASE_URL;
 process.env.VITE_SUPABASE_ANON_KEY = SUPABASE_ANON_KEY;
 process.env.VITE_OPENAI_KEY = envVars['VITE_OPENAI_KEY'] || process.env.VITE_OPENAI_KEY!;
 process.env.VITE_OPENAI_MODEL = envVars['VITE_OPENAI_MODEL'] || process.env.VITE_OPENAI_MODEL || 'gpt-4o-mini';
+process.env.VITE_SYNTHETIC_LOCAL_ONLY = envVars['VITE_SYNTHETIC_LOCAL_ONLY'] || process.env.VITE_SYNTHETIC_LOCAL_ONLY || 'true';
 
 // Patch import.meta.env using a Proxy to intercept access
 // This must happen before any module imports that use import.meta.env
@@ -62,7 +63,8 @@ const envValues = {
   VITE_SUPABASE_ANON_KEY: SUPABASE_ANON_KEY,
   VITE_OPENAI_KEY: envVars['VITE_OPENAI_KEY'] || process.env.VITE_OPENAI_KEY!,
   VITE_OPENAI_MODEL: envVars['VITE_OPENAI_MODEL'] || process.env.VITE_OPENAI_MODEL || 'gpt-4o-mini',
-  VITE_APPIFY_API_KEY: envVars['VITE_APPIFY_API_KEY'] || process.env.VITE_APPIFY_API_KEY || '' // Optional, for synthetic mode not needed
+  VITE_APPIFY_API_KEY: envVars['VITE_APPIFY_API_KEY'] || process.env.VITE_APPIFY_API_KEY || '', // Optional, for synthetic mode not needed
+  VITE_SYNTHETIC_LOCAL_ONLY: process.env.VITE_SYNTHETIC_LOCAL_ONLY
 };
 
 // Use a Proxy to intercept import.meta.env access
@@ -79,6 +81,35 @@ if (typeof globalThis.window === 'undefined') {
     addEventListener: () => {},
     removeEventListener: () => {}
   };
+}
+
+if (typeof (globalThis as any).localStorage === 'undefined') {
+  const storageMap = new Map<string, string>();
+  const memoryStorage = {
+    get length() {
+      return storageMap.size;
+    },
+    key(index: number) {
+      return Array.from(storageMap.keys())[index] ?? null;
+    },
+    getItem(key: string) {
+      return storageMap.has(key) ? storageMap.get(key)! : null;
+    },
+    setItem(key: string, value: string) {
+      storageMap.set(key, String(value));
+    },
+    removeItem(key: string) {
+      storageMap.delete(key);
+    },
+    clear() {
+      storageMap.clear();
+    },
+  };
+
+  (globalThis as any).localStorage = memoryStorage;
+  if (typeof (globalThis as any).window !== 'undefined') {
+    (globalThis as any).window.localStorage = memoryStorage;
+  }
 }
 
 // Mock Blob and File if needed
@@ -109,6 +140,7 @@ if (typeof globalThis.File === 'undefined') {
 
 // Now import services AFTER environment is set up
 const { FileUploadService } = await import('../src/services/fileUploadService.ts');
+const { syntheticStorage, getSyntheticLocalOnlyFlag } = await import('../src/utils/storage.ts');
 
 /**
  * Authenticate with Supabase and get access token
@@ -229,6 +261,7 @@ async function uploadProfile(
     evaluationRunIds: [],
     uploadDurationMs: 0
   };
+  const localOnly = getSyntheticLocalOnlyFlag();
   
   // Load fixture files
   const resumePath = path.join(FIXTURES_PATH, `${profileId}_resume.txt`);
@@ -248,26 +281,30 @@ async function uploadProfile(
   
   // CRITICAL: Set active synthetic user to this profile BEFORE uploading
   // This ensures LinkedIn data processing uses the correct profile
-  const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: {
-      headers: {
-        Authorization: `Bearer ${accessToken}`
-      }
-    }
-  });
-  
-  // Switch to the profile we're uploading
-  // The RPC function expects: p_parent_user_id and p_profile_id
-  const { error: switchError } = await supabaseAuth.rpc('switch_synthetic_user', {
-    p_parent_user_id: userId,
-    p_profile_id: profileId
-  });
-  
-  if (switchError) {
-    console.warn(`  ⚠️ Could not switch to synthetic user ${profileId}:`, switchError.message);
-    // Continue anyway - might work if user doesn't exist yet
+  if (localOnly) {
+    syntheticStorage.setActiveProfileId(profileId);
   } else {
-    console.log(`  ✅ Switched active synthetic user to ${profileId}`);
+    const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }
+    });
+
+    // Switch to the profile we're uploading
+    const { error: switchError } = await supabaseAuth.rpc('switch_synthetic_user', {
+      p_parent_user_id: userId,
+      p_profile_id: profileId
+    });
+    
+    if (switchError) {
+      console.warn(`  ⚠️ Could not switch to synthetic user ${profileId}:`, switchError.message);
+      // Continue anyway - might work if user doesn't exist yet
+    } else {
+      syntheticStorage.setActiveProfileId(profileId);
+      console.log(`  ✅ Switched active synthetic user to ${profileId}`);
+    }
   }
   
   // Convert to File objects

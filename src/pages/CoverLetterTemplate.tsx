@@ -462,7 +462,9 @@ export default function CoverLetterTemplate() {
     setLibraryError(null);
 
     try {
-      const { data: sourceRows, error: sourceError } = await supabase
+      const client = supabase as any;
+
+      const { data: sourceRows, error: sourceError } = await client
         .from('sources')
         .select('id, file_name')
         .eq('user_id', currentUserId);
@@ -486,7 +488,7 @@ export default function CoverLetterTemplate() {
       }
 
       const buildWorkItemsQuery = () => {
-        let query = supabase
+        let query = client
           .from('work_items')
           .select('id, title, description, company_id, source_id, created_at, updated_at, start_date, end_date, tags, metrics')
           .eq('user_id', currentUserId);
@@ -499,7 +501,7 @@ export default function CoverLetterTemplate() {
       };
 
       const buildStoriesQuery = () => {
-        let query = supabase
+        let query = client
           .from('approved_content')
           .select('id, title, content, status, confidence, tags, times_used, last_used, work_item_id, source_id, created_at, updated_at')
           .eq('user_id', currentUserId);
@@ -512,7 +514,7 @@ export default function CoverLetterTemplate() {
       };
 
       const buildCompaniesQuery = () =>
-        supabase
+        client
           .from('companies')
           .select('id, name, description, created_at, updated_at')
           .eq('user_id', currentUserId);
@@ -904,7 +906,7 @@ export default function CoverLetterTemplate() {
                                   <Badge variant="secondary" className="mb-2">
                                     {getBlurbTitleByContent(section.staticContent || '', section.type)}
                                   </Badge>
-                                  <div className="text-sm text-muted-foreground">
+                                  <div className="text-sm text-muted-foreground whitespace-pre-line">
                                     {section.staticContent}
                                   </div>
                                 </div>

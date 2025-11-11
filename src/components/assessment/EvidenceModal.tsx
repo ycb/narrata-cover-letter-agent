@@ -4,9 +4,11 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
-import { Building, User, CheckCircle2, HelpCircle } from "lucide-react";
 import { calculateEvidenceBasedConfidence } from "@/utils/confidenceCalculation";
 import { getConfidenceBadgeColor } from "@/utils/confidenceBadge";
+import { EvidenceSummaryStats } from "./EvidenceSummaryStats";
+import { CriteriaDisplay } from "./CriteriaDisplay";
+import { StoryCard } from "./StoryCard";
 
 interface EvidenceStory {
   id: string;
@@ -86,6 +88,19 @@ const EvidenceModal = ({
     story.levelAssessment === 'meets' || story.levelAssessment === 'exceeds'
   ).length || 0;
 
+  // Calculate all evidence counts
+  const storyCount = evidence?.length || 0;
+  const tagCount = matchedTags?.length || 0;
+  
+  // Count total metrics across all stories
+  const metricsCount = evidence?.reduce((total, story) => {
+    return total + (story.outcomeMetrics?.length || 0);
+  }, 0) || 0;
+  
+  // Count unique roles
+  const uniqueRoles = new Set(evidence?.map(story => story.sourceRole).filter(Boolean) || []);
+  const roleCount = uniqueRoles.size;
+
   // Map competency to criteria with met/unmet status
   const getCompetencyCriteria = (competencyName: string): Array<{ criterion: string; met: boolean }> => {
     const criteriaMap: Record<string, string[]> = {
@@ -116,8 +131,12 @@ const EvidenceModal = ({
     };
     
     const criteria = criteriaMap[competencyName] || [];
-    // Determine if criteria are met based on competency score (>= 2.5 is met)
-    const isMet = (competencyScore !== undefined && competencyScore >= 2.5);
+    
+    // Determine if criteria are met: requires BOTH score >= 2.5 AND evidence exists
+    // If there's no evidence (0 stories, 0 tags), criteria cannot be met regardless of score
+    const hasEvidence = (evidence?.length || 0) > 0 || (matchedTags?.length || 0) > 0;
+    const hasSufficientScore = competencyScore !== undefined && competencyScore >= 2.5;
+    const isMet = hasSufficientScore && hasEvidence;
     
     return criteria.map(criterion => ({
       criterion,
@@ -149,32 +168,15 @@ const EvidenceModal = ({
 
         <div>
           {/* Summary Stats */}
-          <Card className="section-spacing">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Summary</CardTitle>
-                <Badge className={getConfidenceBadgeColor(getConfidencePercentage())}>
-                  {getConfidencePercentage()}% confidence
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                <div className="text-center p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-foreground">{evidence?.length || 0}</div>
-                  <div className="text-muted-foreground">Supporting Examples</div>
-                </div>
-                <div className="text-center p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-foreground">{matchedTags?.length || 0}</div>
-                  <div className="text-muted-foreground">Matched Tags</div>
-                </div>
-                <div className="text-center p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-foreground">{storiesMeetingLevel}</div>
-                  <div className="text-muted-foreground">Stories Meeting Level</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <EvidenceSummaryStats
+            stats={[
+              { label: "Stories", value: storyCount },
+              { label: "Tags", value: tagCount },
+              { label: "Metrics", value: metricsCount }
+            ]}
+            confidence={getConfidencePercentage()}
+            confidenceLabel="confidence"
+          />
 
           {/* How This Was Scored */}
           <Card className="section-spacing">
@@ -205,72 +207,11 @@ const EvidenceModal = ({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {(() => {
-                const metCount = competencyCriteria.filter(c => c.met).length;
-                const unmetCount = competencyCriteria.filter(c => !c.met).length;
-                const allMet = unmetCount === 0;
-                const noneMet = metCount === 0;
-                const hasBoth = metCount > 0 && unmetCount > 0;
-
-                // Single column layout when all met or none met
-                if (allMet || noneMet) {
-                  return (
-                    <div>
-                      {allMet && (
-                        <div className="text-sm text-muted-foreground mb-2 font-semibold">All criteria met 😊</div>
-                      )}
-                      {noneMet && (
-                        <div className="text-sm text-muted-foreground mb-2 font-semibold">No criteria met 😢</div>
-                      )}
-                      <ul className="space-y-2">
-                        {competencyCriteria.map((item, index) => (
-                          <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
-                            {item.met ? (
-                              <CheckCircle2 className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
-                            ) : (
-                              <HelpCircle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                            )}
-                            <span>{item.criterion}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  );
-                }
-
-                // Two column layout when mixed (met and unmet)
-                return (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Met Criteria - Left Column */}
-                    <div>
-                      <ul className="space-y-2">
-                        {competencyCriteria.filter(c => c.met).map((item, index) => (
-                          <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
-                            <CheckCircle2 className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
-                            <span>{item.criterion}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    {/* Unmet/TBD Criteria - Right Column */}
-                    <div>
-                      <ul className="space-y-2">
-                        {competencyCriteria.filter(c => !c.met).map((item, index) => (
-                          <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
-                            <HelpCircle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                            <span>{item.criterion}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                );
-              })()}
+              <CriteriaDisplay criteria={competencyCriteria} />
             </CardContent>
           </Card>
 
-          {/* Matched Tags */}
+          {/* Tags */}
           <Card className="section-spacing">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg">
@@ -288,7 +229,7 @@ const EvidenceModal = ({
             </CardContent>
           </Card>
 
-          {/* Outcome Metrics */}
+          {/* Metrics */}
           <Card className="section-spacing">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg">
@@ -305,55 +246,32 @@ const EvidenceModal = ({
             </CardContent>
           </Card>
 
-          {/* Evidence Stories */}
-          <div className="section-spacing">
-            <h3 className="text-lg font-semibold mb-4">Supporting Examples</h3>
-            <div className="space-y-4">
-              {(evidence || []).map((story) => (
-                <Card key={story.id}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-base mb-2">{story.title}</CardTitle>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Building className="h-4 w-4" />
-                          {story.sourceCompany}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <User className="h-4 w-4" />
-                          {story.sourceRole}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-2 items-end">
-                      {story.levelAssessment && (
-                        <Badge className={getLevelAssessmentColor(story.levelAssessment)}>
-                          {getLevelAssessmentText(story.levelAssessment)}
-                        </Badge>
-                      )}
-                      <Badge className={getStoryConfidenceColor(story.confidence)}>
-                        {story.confidence} relevance
-                      </Badge>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <p className="text-sm text-muted-foreground mb-3 line-clamp-3">
-                    {story.content}
-                  </p>
-                  <div className="flex flex-wrap gap-1">
-                    {story.tags.map((tag) => (
-                      <Badge key={tag} variant="outline" className="text-xs">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-              ))}
-            </div>
-          </div>
+          {/* Stories */}
+          <Card className="section-spacing">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Stories</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {(evidence || []).map((story) => (
+                  <StoryCard
+                    key={story.id}
+                    id={story.id}
+                    title={story.title}
+                    content={story.content}
+                    sourceCompany={story.sourceCompany}
+                    sourceRole={story.sourceRole}
+                    tags={story.tags}
+                    levelAssessment={story.levelAssessment}
+                    confidence={story.confidence}
+                    getLevelAssessmentColor={getLevelAssessmentColor}
+                    getLevelAssessmentText={getLevelAssessmentText}
+                    getStoryConfidenceColor={getStoryConfidenceColor}
+                  />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
 
         </div>

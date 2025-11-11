@@ -1,5 +1,6 @@
 // Synthetic user service for admin testing
 import { supabase } from '../lib/supabase';
+import { syntheticStorage, getSyntheticLocalOnlyFlag } from '../utils/storage';
 
 export interface SyntheticUser {
   id: string;
@@ -107,19 +108,41 @@ export class SyntheticUserService {
       }
 
       // Map database fields to component interface
+      const localOnly = getSyntheticLocalOnlyFlag();
+      const overrideProfileId = localOnly ? syntheticStorage.getActiveProfileId() : null;
+      const dbActiveProfileId =
+        (syntheticUsers || []).find((entry: any) => entry.is_active)?.profile_id || null;
+
+      let effectiveProfileId = overrideProfileId || dbActiveProfileId;
+      if (!effectiveProfileId && (syntheticUsers || []).length > 0) {
+        effectiveProfileId = (syntheticUsers || [])[0].profile_id;
+      }
+
+      if (localOnly && effectiveProfileId) {
+        syntheticStorage.setActiveProfileId(effectiveProfileId);
+      } else if (!localOnly && effectiveProfileId) {
+        // Keep local storage in sync for convenience when not in local-only mode
+        syntheticStorage.setActiveProfileId(effectiveProfileId);
+      }
+
       const mappedUsers = (syntheticUsers || []).map((user: any) => ({
         id: user.id,
         parentUserId: user.parent_user_id,
         profileId: user.profile_id,
         profileName: user.profile_name,
         email: user.email,
-        isActive: user.is_active,
+        isActive: localOnly
+          ? user.profile_id === effectiveProfileId
+          : Boolean(user.is_active),
         profileData: user.profile_data,
         createdAt: user.created_at,
         updatedAt: user.updated_at
       }));
 
-      const currentUser = mappedUsers.find(u => u.isActive) || null;
+      const currentUser =
+        mappedUsers.find(u => u.profileId === effectiveProfileId) ||
+        mappedUsers.find(u => u.isActive) ||
+        null;
       const availableUsers = mappedUsers;
 
       return {
@@ -152,6 +175,32 @@ export class SyntheticUserService {
         return { success: false, error: 'Synthetic testing not enabled' };
       }
 
+      const localOnly = getSyntheticLocalOnlyFlag();
+
+      if (localOnly) {
+        // Validate profile exists before setting override
+        const { data: syntheticUsers, error: usersError } = await (supabase
+          .from('synthetic_users') as any)
+          .select('profile_id')
+          .eq('parent_user_id', user.id);
+
+        if (usersError) {
+          console.error('Error fetching synthetic users for local override:', usersError);
+          return { success: false, error: usersError.message };
+        }
+
+        const profileExists = (syntheticUsers || []).some(
+          (syntheticUser: any) => syntheticUser.profile_id === profileId
+        );
+
+        if (!profileExists) {
+          return { success: false, error: `Profile ${profileId} not found` };
+        }
+
+        syntheticStorage.setActiveProfileId(profileId);
+        return { success: true };
+      }
+
       // Call the database function to switch users
       const { error } = await (supabase.rpc as any)('switch_synthetic_user', {
         p_parent_user_id: user.id,
@@ -165,6 +214,7 @@ export class SyntheticUserService {
 
       // Clear any cached data
       this.clearSyntheticUserCache();
+      syntheticStorage.setActiveProfileId(profileId);
 
       return { success: true };
     } catch (error) {
@@ -327,8 +377,16 @@ export class SyntheticUserService {
     // Clear any cached data related to synthetic users
     // This could include localStorage, session storage, etc.
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('synthetic_user_context');
-      sessionStorage.removeItem('synthetic_user_context');
+      try {
+        localStorage.removeItem('synthetic_user_context');
+        sessionStorage.removeItem('synthetic_user_context');
+      } catch (error) {
+        console.warn('[Synthetic] Unable to clear synthetic user caches:', error);
+      }
+
+      if (!getSyntheticLocalOnlyFlag()) {
+        syntheticStorage.clearActiveProfileId();
+      }
     }
   }
 

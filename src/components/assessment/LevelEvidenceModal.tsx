@@ -5,11 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
 import { 
-  ArrowRight,
-  CheckCircle2,
-  HelpCircle
+  ArrowRight
 } from "lucide-react";
 import { getConfidenceBadgeColor, textConfidenceToPercentage } from "@/utils/confidenceBadge";
+import { CriteriaDisplay } from "./CriteriaDisplay";
 
 interface LevelEvidence {
   currentLevel: string;
@@ -110,7 +109,7 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div className="text-center p-3 bg-muted/20 rounded-lg">
                   <div className="text-2xl font-bold text-foreground">{evidence.currentLevel}</div>
                   <div className="text-muted-foreground">Current Level</div>
@@ -118,10 +117,6 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
                 <div className="text-center p-3 bg-muted/20 rounded-lg">
                   <div className="text-2xl font-bold text-foreground">{evidence.nextLevel}</div>
                   <div className="text-muted-foreground">Next Level</div>
-                </div>
-                <div className="text-center p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-foreground">{evidence.storyEvidence.totalStories}</div>
-                  <div className="text-muted-foreground">Total Stories</div>
                 </div>
               </div>
             </CardContent>
@@ -169,38 +164,6 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
             </CardContent>
           </Card>
 
-          {/* Story Evidence */}
-          <Card className="section-spacing">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">
-                Cover Letter Content & Story Evidence
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-foreground">{evidence.storyEvidence?.relevantStories || 0}</div>
-                  <div className="text-sm text-muted-foreground">Relevant to {evidence.currentLevel}</div>
-                </div>
-                <div className="p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-foreground">{evidence.storyEvidence?.totalStories || 0}</div>
-                  <div className="text-sm text-muted-foreground">Total Stories</div>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-medium mb-2">Tag Density Analysis</h4>
-                <div className="flex flex-wrap gap-2">
-                  {(evidence.storyEvidence?.tagDensity || []).map((tag) => (
-                    <Badge key={tag.tag} variant="outline">
-                      {tag.tag} ({tag.count})
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Leveling Framework */}
           <Card className="section-spacing">
             <CardHeader className="pb-3">
@@ -209,76 +172,29 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <h4 className="font-medium mb-3">Criteria</h4>
-                {(() => {
-                  const metCriteria = evidence.levelingFramework?.metCriteria || [];
-                  const metCount = metCriteria.filter(c => c.met).length;
-                  const unmetCount = metCriteria.filter(c => !c.met).length;
-                  const allMet = unmetCount === 0 && metCount > 0;
-                  const noneMet = metCount === 0 && unmetCount > 0;
-                  const hasBoth = metCount > 0 && unmetCount > 0;
+              <CriteriaDisplay criteria={evidence.levelingFramework?.metCriteria || []} />
+            </CardContent>
+          </Card>
 
-                  // Single column layout when all met or none met
-                  if (allMet || noneMet) {
-                    return (
-                      <div>
-                        {allMet && (
-                          <div className="text-sm text-muted-foreground mb-2 font-semibold">All criteria met 😊</div>
-                        )}
-                        {noneMet && (
-                          <div className="text-sm text-muted-foreground mb-2 font-semibold">No criteria met 😢</div>
-                        )}
-                        <ul className="space-y-2">
-                          {metCriteria.map((item, index) => (
-                            <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
-                              {item.met ? (
-                                <CheckCircle2 className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
-                              ) : (
-                                <HelpCircle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                              )}
-                              <span>{item.criterion}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    );
-                  }
-
-                  // Two column layout when mixed (met and unmet)
-                  return (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Met Criteria - Left Column */}
-                      <div>
-                        <ul className="space-y-2">
-                          {metCriteria.filter(c => c.met).map((item, index) => (
-                            <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
-                              <CheckCircle2 className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
-                              <span>{item.criterion}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      {/* Unmet/TBD Criteria - Right Column */}
-                      <div>
-                        <ul className="space-y-2">
-                          {metCriteria.filter(c => !c.met).map((item, index) => (
-                            <li key={index} className="text-sm text-muted-foreground flex items-start gap-2">
-                              <HelpCircle className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                              <span>{item.criterion}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  );
-                })()}
+          {/* Tags */}
+          <Card className="section-spacing">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">
+                Tags That Contributed
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {(evidence.storyEvidence?.tagDensity || []).map((tag) => (
+                  <Badge key={tag.tag} variant="outline">
+                    {tag.tag} ({tag.count})
+                  </Badge>
+                ))}
               </div>
             </CardContent>
           </Card>
 
-          {/* Outcome Metrics */}
+          {/* Metrics */}
           <Card className="section-spacing">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg">
@@ -298,6 +214,22 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
                          arr.indexOf(metric) === index; // Remove duplicates
                 })}
               />
+            </CardContent>
+          </Card>
+
+          {/* Stories */}
+          <Card className="section-spacing">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Stories</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-4 p-3 bg-muted/20 rounded-lg">
+                <div className="text-2xl font-bold text-foreground">{evidence.storyEvidence?.relevantStories || 0}</div>
+                <div className="text-sm text-muted-foreground">
+                  {evidence.storyEvidence?.relevantStories === 1 ? 'Story' : 'Stories'} relevant to {evidence.currentLevel}
+                </div>
+              </div>
+              {/* TODO: Add list of individual stories when story data is available in LevelEvidence */}
             </CardContent>
           </Card>
 

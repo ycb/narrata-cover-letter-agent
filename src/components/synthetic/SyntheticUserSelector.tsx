@@ -10,6 +10,7 @@ import {
   DropdownMenuSeparator 
 } from '../ui/dropdown-menu';
 import { ChevronDown, User, Users } from 'lucide-react';
+import { getSyntheticLocalOnlyFlag } from '../../utils/storage';
 
 interface SyntheticUserSelectorProps {
   className?: string;
@@ -21,6 +22,7 @@ export const SyntheticUserSelector: React.FC<SyntheticUserSelectorProps> = ({ cl
     availableUsers: [],
     isSyntheticTestingEnabled: false
   });
+  const [isLocalOnly] = useState<boolean>(getSyntheticLocalOnlyFlag());
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
@@ -53,11 +55,10 @@ export const SyntheticUserSelector: React.FC<SyntheticUserSelectorProps> = ({ cl
       if (result.success) {
         // Reload context to get updated current user
         await loadSyntheticUserContext();
-        try {
-          localStorage.setItem('synthetic_active_profile_id', profileId);
-        } catch {}
-        // Trigger a page refresh to clear any cached data
-        window.location.reload();
+        if (!isLocalOnly) {
+          // Trigger a page refresh to clear any cached data when using shared RPC mode
+          window.location.reload();
+        }
       } else {
         console.error('Failed to switch synthetic user:', result.error);
       }
@@ -99,7 +100,7 @@ export const SyntheticUserSelector: React.FC<SyntheticUserSelectorProps> = ({ cl
           <div className="px-2 py-1.5">
             <p className="text-sm font-medium">Synthetic Testing</p>
             <p className="text-xs text-muted-foreground">
-              Switch between test personas
+              {isLocalOnly ? 'Switch personas (local to this browser)' : 'Switch between test personas'}
             </p>
           </div>
           <DropdownMenuSeparator />
