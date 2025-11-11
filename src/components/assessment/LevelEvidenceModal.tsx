@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { getConfidenceBadgeColor, textConfidenceToPercentage } from "@/utils/confidenceBadge";
 import { CriteriaDisplay } from "./CriteriaDisplay";
+import { StoryCard } from "./StoryCard";
 
 interface LevelEvidence {
   currentLevel: string;
@@ -23,6 +24,19 @@ interface LevelEvidence {
     totalStories: number;
     relevantStories: number;
     tagDensity: { tag: string; count: number }[];
+    stories?: Array<{
+      id: string;
+      title: string;
+      content: string;
+      tags: string[];
+      sourceRole: string;
+      sourceCompany: string;
+      lastUsed: string;
+      timesUsed: number;
+      confidence: 'high' | 'medium' | 'low';
+      outcomeMetrics?: string[];
+      levelAssessment?: 'exceeds' | 'meets' | 'below';
+    }>;
   };
   levelingFramework: {
     framework: string;
@@ -70,6 +84,34 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
     
     // Fallback to text-based confidence conversion
     return textConfidenceToPercentage(evidence.confidence as 'high' | 'medium' | 'low');
+  };
+
+  // Helper functions for story display (similar to EvidenceModal)
+  const getLevelAssessmentColor = (assessment?: string) => {
+    switch (assessment) {
+      case 'exceeds': return 'bg-success text-success-foreground';
+      case 'meets': return 'bg-warning text-warning-foreground';
+      case 'below': return 'bg-muted text-muted-foreground';
+      default: return 'bg-muted text-muted-foreground';
+    }
+  };
+
+  const getLevelAssessmentText = (assessment?: string) => {
+    switch (assessment) {
+      case 'exceeds': return 'exceeds expectations';
+      case 'meets': return 'meets level';
+      case 'below': return 'below level';
+      default: return 'Unknown';
+    }
+  };
+
+  const getStoryConfidenceColor = (confidence: string) => {
+    switch (confidence) {
+      case 'high': return 'bg-success text-success-foreground';
+      case 'medium': return 'bg-blue-600 text-white';
+      case 'low': return 'bg-muted text-muted-foreground';
+      default: return 'bg-muted text-muted-foreground';
+    }
   };
 
   // Provide default values if evidence is undefined
@@ -218,20 +260,29 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
           </Card>
 
           {/* Stories */}
-          <Card className="section-spacing">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Stories</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="mb-4 p-3 bg-muted/20 rounded-lg">
-                <div className="text-2xl font-bold text-foreground">{evidence.storyEvidence?.relevantStories || 0}</div>
-                <div className="text-sm text-muted-foreground">
-                  {evidence.storyEvidence?.relevantStories === 1 ? 'Story' : 'Stories'} relevant to {evidence.currentLevel}
-                </div>
-              </div>
-              {/* TODO: Add list of individual stories when story data is available in LevelEvidence */}
-            </CardContent>
-          </Card>
+          <div className="section-spacing">
+            <h3 className="text-lg font-semibold mb-4">
+              {evidence.storyEvidence?.relevantStories || 0} {evidence.storyEvidence?.relevantStories === 1 ? 'Relevant Story' : 'Relevant Stories'}
+            </h3>
+            <div className="space-y-4">
+              {(evidence.storyEvidence?.stories || []).map((story) => (
+                <StoryCard
+                  key={story.id}
+                  id={story.id}
+                  title={story.title}
+                  content={story.content}
+                  sourceCompany={story.sourceCompany}
+                  sourceRole={story.sourceRole}
+                  tags={story.tags}
+                  levelAssessment={story.levelAssessment}
+                  confidence={story.confidence}
+                  getLevelAssessmentColor={getLevelAssessmentColor}
+                  getLevelAssessmentText={getLevelAssessmentText}
+                  getStoryConfidenceColor={getStoryConfidenceColor}
+                />
+              ))}
+            </div>
+          </div>
 
 
         </div>

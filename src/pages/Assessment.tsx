@@ -414,15 +414,15 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
                     <p className="mt-3">This might be due to a temporary issue. Please try again or contact support if the problem persists.</p>
                   </div>
                   <div className="mt-4 space-x-3">
-                    <Button 
-                      variant="default" 
+                    <Button
+                      variant="default"
                       onClick={() => window.location.reload()}
                     >
                       <RotateCw className="w-4 h-4 mr-2" />
                       Try Again
                     </Button>
-                    <Button 
-                      variant="secondary" 
+                    <Button
+                      variant="secondary"
                       onClick={() => recalculate()}
                       disabled={isRecalculating}
                     >
@@ -458,75 +458,75 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
       <div className="min-h-screen bg-background">
         <main className="container mx-auto px-4 py-6">
           <div className="max-w-4xl mx-auto">
-        <div className="bg-background rounded-xl border shadow-sm overflow-hidden">
-          <div className="p-8 text-center">
-            <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 mb-4">
-              <BarChart3 className="h-8 w-8 text-primary" />
+            <div className="bg-background rounded-xl border shadow-sm overflow-hidden">
+              <div className="p-8 text-center">
+                <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 mb-4">
+                  <BarChart3 className="h-8 w-8 text-primary" />
+                </div>
+                <h2 className="text-2xl font-bold tracking-tight mb-2">PM Level Assessment</h2>
+                <p className="text-muted-foreground max-w-2xl mx-auto mb-8">
+                  {isSpecializationSection
+                    ? "Run an analysis to see your specialization matches. Add work history and stories to get detailed insights."
+                    : "Get a detailed analysis of your product management level based on your experience, skills, and achievements. Understand your strengths and areas for growth with personalized recommendations."}
+                </p>
+
+                <div className="bg-muted/30 border rounded-lg p-6 mb-8 text-left max-w-2xl mx-auto">
+                  <h3 className="font-medium mb-3 flex items-center">
+                    <Info className="w-4 h-4 mr-2 text-amber-500" />
+                    How it works
+                  </h3>
+                  <ul className="space-y-3 text-sm text-muted-foreground">
+                    <li className="flex items-start">
+                      <CheckCircle className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                      <span>We'll analyze your work history, achievements, and skills</span>
+                    </li>
+                    <li className="flex items-start">
+                      <CheckCircle className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                      <span>Compare against industry benchmarks for different PM levels</span>
+                    </li>
+                    <li className="flex items-start">
+                      <CheckCircle className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                      <span>Provide personalized recommendations for growth</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
+                  <Button
+                    onClick={handleRunAnalysis}
+                    disabled={isAnalyzing || isRecalculating}
+                    size="lg"
+                    className="px-8 py-6 text-base"
+                  >
+                    {isAnalyzing || isRecalculating ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Analyzing Your Profile...
+                      </>
+                    ) : (
+                      <>
+                        <BarChart3 className="w-5 h-5 mr-2" />
+                        Run PM Level Analysis
+                      </>
+                    )}
+                  </Button>
+
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    className="px-8 py-6 text-base"
+                    onClick={() => setActiveTab('how-it-works')}
+                  >
+                    <Info className="w-5 h-5 mr-2" />
+                    Learn More
+                  </Button>
+                </div>
+
+                <p className="text-xs text-muted-foreground mt-4">
+                  This may take a few minutes. You'll receive a notification when it's ready.
+                </p>
+              </div>
             </div>
-            <h2 className="text-2xl font-bold tracking-tight mb-2">PM Level Assessment</h2>
-            <p className="text-muted-foreground max-w-2xl mx-auto mb-8">
-              {isSpecializationSection 
-                ? "Run an analysis to see your specialization matches. Add work history and stories to get detailed insights."
-                : "Get a detailed analysis of your product management level based on your experience, skills, and achievements. Understand your strengths and areas for growth with personalized recommendations."}
-            </p>
-            
-            <div className="bg-muted/30 border rounded-lg p-6 mb-8 text-left max-w-2xl mx-auto">
-              <h3 className="font-medium mb-3 flex items-center">
-                <Info className="w-4 h-4 mr-2 text-amber-500" />
-                How it works
-              </h3>
-              <ul className="space-y-3 text-sm text-muted-foreground">
-                <li className="flex items-start">
-                  <CheckCircle className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                  <span>We'll analyze your work history, achievements, and skills</span>
-                </li>
-                <li className="flex items-start">
-                  <CheckCircle className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                  <span>Compare against industry benchmarks for different PM levels</span>
-                </li>
-                <li className="flex items-start">
-                  <CheckCircle className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                  <span>Provide personalized recommendations for growth</span>
-                </li>
-              </ul>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
-              <Button 
-                onClick={handleRunAnalysis}
-                disabled={isAnalyzing || isRecalculating}
-                size="lg"
-                className="px-8 py-6 text-base"
-              >
-                {isAnalyzing || isRecalculating ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Analyzing Your Profile...
-                  </>
-                ) : (
-                  <>
-                    <BarChart3 className="w-5 h-5 mr-2" />
-                    Run PM Level Analysis
-                  </>
-                )}
-              </Button>
-              
-              <Button 
-                variant="secondary" 
-                size="lg"
-                className="px-8 py-6 text-base"
-                onClick={() => setActiveTab('how-it-works')}
-              >
-                <Info className="w-5 h-5 mr-2" />
-                Learn More
-              </Button>
-            </div>
-            
-            <p className="text-xs text-muted-foreground mt-4">
-              This may take a few minutes. You'll receive a notification when it's ready.
-            </p>
-          </div>
-        </div>
           </div>
         </main>
       </div>
@@ -562,8 +562,8 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
               </p>
             </div>
             <div className="flex items-center space-x-2">
-              <Button 
-                variant="secondary" 
+              <Button
+                variant="secondary"
                 onClick={handleRunAnalysis}
                 disabled={isAnalyzing || isRecalculating}
               >
@@ -584,47 +584,47 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
 
           {/* Main Content */}
           {/* Level Assessment Summary Card */}
-        <Card>
-          <CardContent className="p-6">
-            <div className="text-center space-y-4">
-              {/* Level Header Section */}
-              <h2 className="text-3xl font-bold tracking-tight">
-                You are a {currentLevel}
-              </h2>
-              
-              {/* Basis and Confidence on single line */}
-              {(() => {
-                // Get confidence percentage from levelEvidence or convert from text
-                const confidencePercentage = levelEvidence?.levelingFramework?.confidencePercentage !== undefined
-                  ? levelEvidence.levelingFramework.confidencePercentage
-                  : textConfidenceToPercentage(confidence as 'high' | 'medium' | 'low');
-                
-                return (
-                  <div className="flex items-center justify-center gap-2">
-                    <p className="text-sm text-muted-foreground">
-                      {inferenceSource}
-                    </p>
-                    <Badge className={getConfidenceBadgeColor(confidencePercentage)}>
-                      {confidencePercentage}% confidence
-                    </Badge>
-                  </div>
-                );
-              })()}
-              
-              {/* Primary CTA */}
-              <div className="pt-2">
-                <Button 
-                  size="lg"
-                  onClick={() => setLevelEvidenceModalOpen(true)}
-                  className="px-6"
-                >
-                  View Evidence for Overall Level
-                  <TrendingUp className="w-4 h-4 ml-2" />
-                </Button>
+          <Card>
+            <CardContent className="p-6">
+              <div className="text-center space-y-4">
+                {/* Level Header Section */}
+                <h2 className="text-3xl font-bold tracking-tight">
+                  You are a {currentLevel}
+                </h2>
+
+                {/* Basis and Confidence on single line */}
+                {(() => {
+                  // Get confidence percentage from levelEvidence or convert from text
+                  const confidencePercentage = levelEvidence?.levelingFramework?.confidencePercentage !== undefined
+                    ? levelEvidence.levelingFramework.confidencePercentage
+                    : textConfidenceToPercentage(confidence as 'high' | 'medium' | 'low');
+
+                  return (
+                    <div className="flex items-center justify-center gap-2">
+                      <p className="text-sm text-muted-foreground">
+                        {inferenceSource}
+                      </p>
+                      <Badge className={getConfidenceBadgeColor(confidencePercentage)}>
+                        {confidencePercentage}% confidence
+                      </Badge>
+                    </div>
+                  );
+                })()}
+
+                {/* Primary CTA */}
+                <div className="pt-2">
+                  <Button
+                    size="lg"
+                    onClick={() => setLevelEvidenceModalOpen(true)}
+                    className="px-6"
+                  >
+                    View Evidence for Overall Level
+                    <TrendingUp className="w-4 h-4 ml-2" />
+                  </Button>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
         {/* Career Ladder Card */}
         <Card>
@@ -683,7 +683,7 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
                   // Get evidence data using the typeKey (original roleType enum value)
                   const evidence = roleArchetypeEvidence[archetype.typeKey] || roleArchetypeEvidence[archetype.type];
                   const hasEvidence = evidence && evidence.matchScore > 0;
-                  
+
                   return (
                     <SpecializationCard
                       key={archetype.type}
@@ -700,10 +700,10 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
                         } else {
                           // Navigate to specialization section to show empty state
                           const sectionMap: Record<string, string> = {
-                            'growth': 'specialization-growth',
-                            'platform': 'specialization-platform',
-                            'ai_ml': 'specialization-ai_ml',
-                            'founding': 'specialization-founding'
+                            growth: 'specialization-growth',
+                            platform: 'specialization-platform',
+                            ai_ml: 'specialization-ai_ml',
+                            founding: 'specialization-founding'
                           };
                           const section = sectionMap[archetype.typeKey] || 'overview';
                           setActiveTab(section);

@@ -42,10 +42,12 @@ export const CompetencyCard = ({
   // This ensures consistency with confidence badge colors
 
   return (
-    <Card className={cn(
-      "assessment-card group",
-      className
-    )}>
+    <Card
+      className={cn(
+        "assessment-card group",
+        className
+      )}
+    >
       <CardContent className="assessment-card-content">
         {/* Header: Domain and Level Badge */}
         <div className="flex items-start justify-between">
@@ -63,8 +65,8 @@ export const CompetencyCard = ({
             <span>Confidence</span>
             <span>{score}%</span>
           </div>
-          <Progress 
-            value={score} 
+          <Progress
+            value={score}
             className={cn("h-2", getConfidenceProgressColor(score))}
           />
         </div>

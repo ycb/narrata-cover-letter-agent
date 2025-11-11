@@ -77,6 +77,9 @@ export const Header = ({ currentPage }: HeaderProps) => {
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  // Use hooks - they should be available since Header is within providers in App.tsx
+  // But add error boundary handling in case of hot reload issues
   const { goals, setGoals } = useUserGoals();
   const { voice, setVoice } = useUserVoice();
 

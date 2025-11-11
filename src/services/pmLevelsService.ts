@@ -1014,6 +1014,60 @@ export class PMLevelsService {
       .map(item => item.name)
       .slice(0, 5);
 
+    // Process all stories for display (similar to collectCompetencyEvidence but without competency filtering)
+    const stories: EvidenceStory[] = [];
+    for (const story of content.stories) {
+      // Find work item and company info
+      const workItem = content.workItems.find(wi => wi.id === story.work_item_id);
+      const companyName = workItem?.companies?.name || 'Unknown Company';
+      const roleTitle = workItem?.title || 'Unknown Role';
+
+      // Extract tags from story
+      const tags: string[] = story.tags || [];
+
+      // Extract story-level metrics
+      const storyMetrics: string[] = [];
+      if (story.metrics && Array.isArray(story.metrics)) {
+        for (const metric of story.metrics) {
+          // Only include story-level metrics
+          if (!metric.parentType || metric.parentType === 'story') {
+            const metricText = this.formatMetric(metric);
+            if (metricText) storyMetrics.push(metricText);
+          }
+        }
+      }
+
+      // Assess level expectation based on overall competency scores
+      // Use average of all competency scores to determine level assessment
+      const avgCompetencyScore = (
+        inference.competencyScores.execution +
+        inference.competencyScores.customer_insight +
+        inference.competencyScores.strategy +
+        inference.competencyScores.influence
+      ) / 4;
+
+      const levelAssessment = this.assessStoryLevelExpectation(
+        story,
+        inference.inferredLevel,
+        'execution', // Use execution as default dimension
+        avgCompetencyScore
+      );
+
+      stories.push({
+        id: story.id,
+        title: story.title,
+        content: story.content,
+        tags,
+        sourceRole: roleTitle,
+        sourceCompany: companyName,
+        lastUsed: story.updated_at || story.created_at,
+        timesUsed: 1,
+        confidence: 'high', // All stories are relevant for level assessment
+        outcomeMetrics: storyMetrics,
+        levelAssessment
+      });
+    }
+
     const levelEvidence = {
       currentLevel: inference.displayLevel,
       nextLevel: this.mapLevelCodeToDisplay(nextLevel),
@@ -1026,7 +1080,8 @@ export class PMLevelsService {
       storyEvidence: {
         totalStories: content.stories.length,
         relevantStories: content.stories.length, // All stories are relevant for PM Level assessment
-        tagDensity
+        tagDensity,
+        stories: stories.slice(0, 20) // Top 20 stories for display
       },
       levelingFramework: {
         framework: 'PM Level Assessment',

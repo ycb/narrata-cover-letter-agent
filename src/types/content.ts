@@ -371,6 +371,7 @@ export interface LevelEvidence {
     totalStories: number;
     relevantStories: number;
     tagDensity: { tag: string; count: number }[];
+    stories?: EvidenceStory[]; // Individual stories for display
   };
   levelingFramework: {
     framework: string;

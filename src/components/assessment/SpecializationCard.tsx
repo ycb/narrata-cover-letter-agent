@@ -34,7 +34,7 @@ export const SpecializationCard = ({
   };
 
   return (
-    <Card 
+    <Card
       className={cn(
         "assessment-card group cursor-pointer hover:shadow-md transition-all",
         className

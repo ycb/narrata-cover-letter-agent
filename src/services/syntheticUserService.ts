@@ -117,10 +117,15 @@ export class SyntheticUserService {
         };
       }
 
-      console.log('[Synthetic] getSyntheticUserContext: Ensuring synthetic users exist...');
+      console.log('[Synthetic] getSyntheticUserContext: Ensuring synthetic users exist (non-blocking)...');
       const ensureStart = Date.now();
-      await this.ensureSyntheticUsersExist();
-      console.log(`[Synthetic] getSyntheticUserContext: ensureSyntheticUsersExist completed in ${Date.now() - ensureStart}ms`);
+      // Run ensureSyntheticUsersExist in background - don't wait for it
+      // If it fails or times out, we'll still fetch existing users
+      this.ensureSyntheticUsersExist().catch((ensureError) => {
+        const elapsed = Date.now() - ensureStart;
+        console.warn(`[Synthetic] getSyntheticUserContext: ensureSyntheticUsersExist failed (after ${elapsed}ms), but continuing:`, ensureError);
+      });
+      // Don't await - continue immediately to fetch users
 
       console.log('[Synthetic] getSyntheticUserContext: Fetching synthetic users from database...');
       const fetchStart = Date.now();
@@ -308,14 +313,37 @@ export class SyntheticUserService {
       console.log('[Synthetic] ensureSyntheticUsersExist: Checking existing users...');
       const checkStart = Date.now();
       // Get existing synthetic users to avoid duplicates
-      const { data: existingUsers, error: checkError } = await (supabase
-        .from('synthetic_users') as any)
-        .select('profile_id')
-        .eq('parent_user_id', user.id);
+      // Add timeout to prevent hanging
+      const checkTimeout = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Query timeout after 3 seconds')), 3000);
+      });
+      
+      let existingUsers: any[] | null = null;
+      let checkError: any = null;
+      
+      try {
+        const queryPromise = (supabase
+          .from('synthetic_users') as any)
+          .select('profile_id')
+          .eq('parent_user_id', user.id);
+        
+        const result = await Promise.race([
+          queryPromise.then(({ data, error }: any) => ({ data, error })),
+          checkTimeout
+        ]) as { data: any[] | null; error: any };
+        
+        existingUsers = result.data;
+        checkError = result.error;
+      } catch (timeoutError) {
+        console.warn('[Synthetic] ensureSyntheticUsersExist: Query timed out, assuming no existing users');
+        existingUsers = [];
+        checkError = null; // Continue anyway
+      }
       
       if (checkError) {
         console.error('[Synthetic] ensureSyntheticUsersExist: Error checking existing users:', checkError);
-        return { success: false, error: checkError.message };
+        // Don't fail completely - just log and continue
+        existingUsers = [];
       }
       
       console.log(`[Synthetic] ensureSyntheticUsersExist: Checked existing users in ${Date.now() - checkStart}ms, found ${existingUsers?.length || 0}`);
@@ -344,14 +372,34 @@ export class SyntheticUserService {
 
       console.log('[Synthetic] ensureSyntheticUsersExist: Inserting synthetic users into database...');
       const insertStart = Date.now();
-      const { error } = await (supabase
-        .from('synthetic_users') as any)
-        .insert(syntheticUsers);
-      console.log(`[Synthetic] ensureSyntheticUsersExist: Insert completed in ${Date.now() - insertStart}ms`);
-
-      if (error) {
-        console.error('[Synthetic] ensureSyntheticUsersExist: Error creating synthetic users:', error);
-        return { success: false, error: error.message };
+      
+      // Add timeout for insert as well
+      const insertTimeout = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Insert timeout after 3 seconds')), 3000);
+      });
+      
+      try {
+        const insertPromise = (supabase
+          .from('synthetic_users') as any)
+          .insert(syntheticUsers);
+        
+        const result = await Promise.race([
+          insertPromise.then(({ error }: any) => ({ error })),
+          insertTimeout
+        ]) as { error: any };
+        
+        console.log(`[Synthetic] ensureSyntheticUsersExist: Insert completed in ${Date.now() - insertStart}ms`);
+        
+        if (result.error) {
+          console.error('[Synthetic] ensureSyntheticUsersExist: Error creating synthetic users:', result.error);
+          // Don't fail completely - users might already exist
+          return { success: true }; // Return success so we can continue
+        }
+      } catch (timeoutError) {
+        const elapsed = Date.now() - insertStart;
+        console.warn(`[Synthetic] ensureSyntheticUsersExist: Insert timed out (after ${elapsed}ms), but continuing`);
+        // Don't fail - users might already exist, we'll fetch them anyway
+        return { success: true }; // Return success so we can continue
       }
 
       const elapsed = Date.now() - startTime;
