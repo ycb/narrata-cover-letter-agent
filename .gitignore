@@ -35,6 +35,7 @@ SUPABASE_SETUP.md
 HIL_QA_Guide.md
 RLS_TESTING_GUIDE.md
 NEW_FILE_REQUESTS.md
+notion-mcp-server/
 
 # Editor directories and files
 .vscode/*
