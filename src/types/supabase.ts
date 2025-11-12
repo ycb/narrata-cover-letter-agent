@@ -231,6 +231,13 @@ export type Database = {
           company: string
           role: string
           extracted_requirements: string[]
+          structured_data: Json
+          standard_requirements: Json
+          differentiator_requirements: Json
+          preferred_requirements: Json
+          keywords: string[]
+          analysis: Json
+          differentiator_notes: string | null
           created_at: string
           updated_at: string
         }
@@ -242,6 +249,13 @@ export type Database = {
           company: string
           role: string
           extracted_requirements?: string[]
+          structured_data?: Json
+          standard_requirements?: Json
+          differentiator_requirements?: Json
+          preferred_requirements?: Json
+          keywords?: string[]
+          analysis?: Json
+          differentiator_notes?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -253,6 +267,13 @@ export type Database = {
           company?: string
           role?: string
           extracted_requirements?: string[]
+          structured_data?: Json
+          standard_requirements?: Json
+          differentiator_requirements?: Json
+          preferred_requirements?: Json
+          keywords?: string[]
+          analysis?: Json
+          differentiator_notes?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -291,9 +312,13 @@ export type Database = {
           job_description_id: string
           sections: Json
           llm_feedback: Json
+          differentiator_summary: Json
+          metrics: Json
+          analytics: Json
           status: 'draft' | 'reviewed' | 'finalized'
           created_at: string
           updated_at: string
+          finalized_at: string | null
         }
         Insert: {
           id?: string
@@ -302,9 +327,13 @@ export type Database = {
           job_description_id: string
           sections: Json
           llm_feedback: Json
+          differentiator_summary?: Json
+          metrics?: Json
+          analytics?: Json
           status?: 'draft' | 'reviewed' | 'finalized'
           created_at?: string
           updated_at?: string
+          finalized_at?: string | null
         }
         Update: {
           id?: string
@@ -313,7 +342,43 @@ export type Database = {
           job_description_id?: string
           sections?: Json
           llm_feedback?: Json
+          differentiator_summary?: Json
+          metrics?: Json
+          analytics?: Json
           status?: 'draft' | 'reviewed' | 'finalized'
+          created_at?: string
+          updated_at?: string
+          finalized_at?: string | null
+        }
+      }
+      cover_letter_workpads: {
+        Row: {
+          id: string
+          user_id: string
+          draft_id: string | null
+          job_description_id: string
+          phase: string | null
+          payload: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          draft_id?: string | null
+          job_description_id: string
+          phase?: string | null
+          payload?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          draft_id?: string | null
+          job_description_id?: string
+          phase?: string | null
+          payload?: Json
           created_at?: string
           updated_at?: string
         }
