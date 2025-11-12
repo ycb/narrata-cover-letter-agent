@@ -22,14 +22,17 @@ import CoverLetterCreateModal from "@/components/cover-letters/CoverLetterCreate
 import { CoverageMapSimplified } from "@/components/dashboard/CoverageMapSimplified";
 import { StoryGapsAndStrength } from "@/components/dashboard/StoryGapsAndStrength";
 import { TopActionNeeded } from "@/components/dashboard/TopActionNeeded";
+import { LevelCard } from "@/components/dashboard/LevelCard";
 
 // Import real data hook
 import { useDashboardData } from "@/hooks/useDashboardData";
+import { usePMLevel } from "@/hooks/usePMLevel";
 
 const Dashboard = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [showProfileCompletion, setShowProfileCompletion] = useState(false);
   const { data: dashboardData, isLoading, error, refetch } = useDashboardData();
+  const { levelData, isLoading: isLevelLoading, recalculate } = usePMLevel();
   const { user, profile, getOAuthData, needsProfileCompletion } = useAuth();
 
   // Check if user needs profile completion (e.g., magic link users)
@@ -184,10 +187,17 @@ const Dashboard = () => {
           />
         </div>
 
-        {/* 3 Small Modules - Top Action + Top Roles + Content Health */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* 4 Small Modules - Top Action + Top Roles + Content Health + Level Card */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
           {/* Top Action Needed */}
           <TopActionNeeded actions={topActions} />
+
+          {/* PM Level Card */}
+          <LevelCard 
+            levelData={levelData} 
+            isLoading={isLevelLoading}
+            onRecalculate={() => recalculate()}
+          />
 
           {/* Top Roles Targeted */}
           <Card className="shadow-soft">
