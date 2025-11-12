@@ -41,9 +41,17 @@ interface UserContent {
   stories: Array<any>;
 }
 
+type PMLevelTriggerReason = 'initial-load' | 'content-update' | 'manual' | 'manual-recalc' | 'background' | string;
+
 interface EvaluationTracking {
   sourceId?: string;
   sessionId?: string;
+  runType?: 'first-run' | 'rerun' | 'diff';
+  triggerReason?: PMLevelTriggerReason;
+  previousLevel?: PMLevelCode | null;
+  previousConfidence?: number | null;
+  syntheticProfileId?: string;
+  previousSnapshot?: Record<string, unknown> | null;
 }
 
 type BackgroundRunOptions = {
@@ -53,12 +61,16 @@ type BackgroundRunOptions = {
   reason?: string;
   targetLevel?: PMLevelCode;
   roleType?: RoleType[];
+  triggerReason?: PMLevelTriggerReason;
+  runType?: EvaluationTracking['runType'];
 };
 
 type PMLevelEventDetail = {
   userId: string;
   syntheticProfileId?: string;
   reason?: string;
+  triggerReason?: PMLevelTriggerReason;
+  runType?: EvaluationTracking['runType'];
   error?: string;
 };
 
@@ -77,6 +89,8 @@ export function schedulePMLevelBackgroundRun({
   reason,
   targetLevel,
   roleType,
+  triggerReason,
+  runType,
 }: BackgroundRunOptions): void {
   if (!userId) {
     console.warn('[PMLevelsService] schedulePMLevelBackgroundRun called without userId');
@@ -89,7 +103,13 @@ export function schedulePMLevelBackgroundRun({
     clearTimeout(existingTimer);
   }
 
-  dispatchPMLevelEvent('pm-levels:scheduled', { userId, syntheticProfileId, reason });
+  dispatchPMLevelEvent('pm-levels:scheduled', {
+    userId,
+    syntheticProfileId,
+    reason,
+    triggerReason,
+    runType,
+  });
 
   const timer = setTimeout(async () => {
     backgroundRunTimers.delete(profileKey);
@@ -101,11 +121,23 @@ export function schedulePMLevelBackgroundRun({
       );
 
       const pmLevelsService = new PMLevelsService();
+      const trackingTrigger: PMLevelTriggerReason = triggerReason ?? 'background';
+      const baselineRunType: EvaluationTracking['runType'] =
+        runType ??
+        (trackingTrigger === 'initial-load'
+          ? 'first-run'
+          : 'rerun');
+
       await pmLevelsService.analyzeUserLevel(
         userId,
         targetLevel,
         roleType,
-        undefined,
+        {
+          sessionId: `pm-level-bg-${Date.now()}${syntheticProfileId ? `-${syntheticProfileId}` : ''}`,
+          triggerReason: trackingTrigger,
+          runType: baselineRunType,
+          syntheticProfileId,
+        },
         syntheticProfileId
       );
 
@@ -117,6 +149,7 @@ export function schedulePMLevelBackgroundRun({
         userId,
         syntheticProfileId,
         reason,
+        triggerReason,
         error: errorMessage,
       });
     }
@@ -146,7 +179,25 @@ export class PMLevelsService {
     let inference: PMLevelInference | null = null;
     let error: Error | null = null;
 
+    const tracking: EvaluationTracking = {
+      ...evaluationTracking,
+      sessionId: evaluationTracking?.sessionId ?? `pm-level-${Date.now()}`,
+      syntheticProfileId,
+    };
+
     try {
+      const previousSnapshot = await this.getLatestUserLevelSnapshot(userId);
+      if (!tracking.previousLevel && previousSnapshot?.level) {
+        tracking.previousLevel = previousSnapshot.level;
+      }
+      if (tracking.previousConfidence == null && previousSnapshot?.confidence != null) {
+        tracking.previousConfidence = previousSnapshot.confidence;
+      }
+      if (tracking.previousSnapshot == null && previousSnapshot?.snapshot) {
+        tracking.previousSnapshot = previousSnapshot.snapshot;
+      }
+      const baselineRunType: EvaluationTracking['runType'] = tracking.runType ?? (tracking.previousLevel ? 'rerun' : 'first-run');
+
       console.log(`[PMLevelsService] Starting analysis for user: ${userId}${syntheticProfileId ? ` (profile: ${syntheticProfileId})` : ''}`);
 
       // Fetch user content (filtered by synthetic profile if provided)
@@ -170,7 +221,8 @@ export class PMLevelsService {
       );
 
       // Compute scope score
-      const scopeScore = this.computeScopeScore(signals, content.artifacts);
+      const rawScopeScore = this.computeScopeScore(signals, content.artifacts);
+      const scopeScore = Number.isFinite(rawScopeScore) ? rawScopeScore : 0;
 
       // Compute level score using formula (maturity modifier removed - no penalty/reward for company stage)
       const levelScore = this.computeLevelScore(
@@ -236,7 +288,10 @@ export class PMLevelsService {
       inference.evidenceByCompetency = evidenceByCompetency;
       inference.levelEvidence = levelEvidence;
       inference.roleArchetypeEvidence = roleArchetypeEvidence;
+      inference.scopeScore = scopeScore;
       console.log('[PMLevelsService] Evidence collection complete');
+
+      const pmLevelSnapshot = this.buildEvaluationSnapshotFromInference(inference);
 
       // Store results in database
       await this.saveLevelAssessment(userId, inference);
@@ -245,38 +300,81 @@ export class PMLevelsService {
         console.error('[PMLevelsService] Failed to sync PM level expectation gaps:', gapError);
       });
 
-      const latency = Math.round(performance.now() - startTime);
+      const levelChanged = !!tracking.previousLevel && tracking.previousLevel !== levelCode;
+      const confidenceDelta = tracking.previousConfidence != null ? confidence - tracking.previousConfidence : null;
+      const snapshotDelta = this.deriveSnapshotDelta(
+        pmLevelSnapshot,
+        tracking.previousSnapshot ?? null,
+        confidenceDelta,
+        levelChanged
+      );
 
-      // Log to evaluation_runs if tracking info provided
-      if (evaluationTracking?.sourceId) {
-        await this.logPMLevelsResult({
-          userId,
-          sourceId: evaluationTracking.sourceId,
-          sessionId: evaluationTracking.sessionId,
-          inference,
-          latency,
-          status: 'success'
-        });
-      }
+      const latency = Math.round(performance.now() - startTime);
+      const triggerReason =
+        tracking.triggerReason ??
+        (baselineRunType === 'first-run'
+          ? 'initial-load'
+          : tracking.sourceId
+            ? 'content-update'
+            : 'manual');
+      const finalRunType: EvaluationTracking['runType'] = levelChanged ? 'diff' : baselineRunType;
+
+      tracking.runType = finalRunType;
+      tracking.triggerReason = triggerReason;
+
+      await this.logPMLevelsResult({
+        userId,
+        sourceId: tracking.sourceId,
+        sessionId: tracking.sessionId,
+        inference,
+        latency,
+        status: 'success',
+        syntheticProfileId,
+        triggerReason,
+        runType: finalRunType,
+        previousLevel: tracking.previousLevel ?? null,
+        previousConfidence: tracking.previousConfidence ?? null,
+        levelChanged,
+        confidenceDelta,
+        snapshot: pmLevelSnapshot,
+        previousSnapshot: tracking.previousSnapshot ?? null,
+        deltaDetails: snapshotDelta,
+      });
 
       console.log(`[PMLevelsService] Analysis complete: ${displayLevel} (${levelCode}) in ${latency}ms`);
       return inference;
     } catch (err) {
       error = err instanceof Error ? err : new Error('Unknown error');
       const latency = Math.round(performance.now() - startTime);
+      const fallbackRunType: EvaluationTracking['runType'] =
+        tracking.runType ?? (tracking.previousLevel ? 'rerun' : 'first-run');
+      const triggerReason =
+        tracking.triggerReason ??
+        (fallbackRunType === 'first-run'
+          ? 'initial-load'
+          : tracking.sourceId
+            ? 'content-update'
+            : 'manual');
 
-      // Log failure to evaluation_runs if tracking info provided
-      if (evaluationTracking?.sourceId) {
-        await this.logPMLevelsResult({
-          userId,
-          sourceId: evaluationTracking.sourceId,
-          sessionId: evaluationTracking.sessionId,
-          inference: null,
-          latency,
-          status: 'failed',
-          error: error.message
-        });
-      }
+      await this.logPMLevelsResult({
+        userId,
+        sourceId: tracking.sourceId,
+        sessionId: tracking.sessionId,
+        inference: null,
+        latency,
+        status: 'failed',
+        error: error.message,
+        syntheticProfileId,
+        triggerReason,
+        runType: fallbackRunType,
+        previousLevel: tracking.previousLevel ?? null,
+        previousConfidence: tracking.previousConfidence ?? null,
+        levelChanged: false,
+        confidenceDelta: null,
+        snapshot: null,
+        previousSnapshot: tracking.previousSnapshot ?? null,
+        deltaDetails: null,
+      });
 
       console.error('[PMLevelsService] Analysis error:', error);
       throw error;
@@ -308,7 +406,8 @@ export class PMLevelsService {
       if (sourcesError) {
         console.error('[PMLevelsService] Error fetching sources:', sourcesError);
       }
-      console.log(`[PMLevelsService] Fetched ${sources?.length || 0} sources for user ${userId}`);
+      const sourceRows = Array.isArray(sources) ? (sources as any[]) : [];
+      console.log(`[PMLevelsService] Fetched ${sourceRows.length} sources for user ${userId}`);
 
       // Fetch work items (filtered by source_id if synthetic profile provided)
       let workItemsQuery = supabase
@@ -316,9 +415,9 @@ export class PMLevelsService {
         .select('id, title, description, achievements, metrics, source_id, start_date, end_date, companies(name, company_stage, maturity)')
         .eq('user_id', userId);
       
-      if (syntheticProfileId && sources && sources.length > 0) {
+      if (syntheticProfileId && sourceRows.length > 0) {
         // Filter work items by source_id matching the profile's sources
-        const sourceIds = sources.map(s => s.id);
+        const sourceIds = sourceRows.map(s => s.id);
         workItemsQuery = workItemsQuery.in('source_id', sourceIds);
         console.log(`[PMLevelsService] Filtering work_items by ${sourceIds.length} source IDs`);
       }
@@ -327,7 +426,8 @@ export class PMLevelsService {
       if (workItemsError) {
         console.error('[PMLevelsService] Error fetching work items:', workItemsError);
       }
-      console.log(`[PMLevelsService] Fetched ${workItems?.length || 0} work items for user ${userId}`);
+      const workItemRows = Array.isArray(workItems) ? (workItems as any[]) : [];
+      console.log(`[PMLevelsService] Fetched ${workItemRows.length} work items for user ${userId}`);
 
       // Fetch approved content (stories) - filtered by work_item_id or source_id if synthetic profile provided
       // NOTE: Include both 'approved' and 'draft' stories for PM Level assessment
@@ -339,14 +439,14 @@ export class PMLevelsService {
         .in('status', ['approved', 'draft']);
       
       if (syntheticProfileId) {
-        if (workItems && workItems.length > 0) {
+        if (workItemRows.length > 0) {
           // Filter stories by work_item_id matching the profile's work items
-          const workItemIds = workItems.map(wi => wi.id);
+          const workItemIds = workItemRows.map(wi => wi.id);
           storiesQuery = storiesQuery.in('work_item_id', workItemIds);
           console.log(`[PMLevelsService] Filtering stories by ${workItemIds.length} work_item IDs`);
-        } else if (sources && sources.length > 0) {
+        } else if (sourceRows.length > 0) {
           // Fallback: filter by source_id if work items not available
-          const sourceIds = sources.map(s => s.id);
+          const sourceIds = sourceRows.map(s => s.id);
           storiesQuery = storiesQuery.in('source_id', sourceIds);
           console.log(`[PMLevelsService] Filtering stories by ${sourceIds.length} source IDs (fallback)`);
         }
@@ -356,7 +456,8 @@ export class PMLevelsService {
       if (storiesError) {
         console.error('[PMLevelsService] Error fetching stories:', storiesError);
       }
-      console.log(`[PMLevelsService] Fetched ${stories?.length || 0} stories for user ${userId}`);
+      const storyRows = Array.isArray(stories) ? (stories as any[]) : [];
+      console.log(`[PMLevelsService] Fetched ${storyRows.length} stories for user ${userId}`);
 
       // Fetch companies for maturity calculation (include researched stage/maturity)
       const { data: companies } = await supabase
@@ -364,15 +465,16 @@ export class PMLevelsService {
         .select('id, name, description, company_stage, maturity')
         .eq('user_id', userId);
       
-      console.log(`[PMLevelsService] Fetched ${companies?.length || 0} companies for user ${userId}`);
-      if (companies && companies.length > 0) {
+      const companyRows = Array.isArray(companies) ? (companies as any[]) : [];
+      console.log(`[PMLevelsService] Fetched ${companyRows.length} companies for user ${userId}`);
+      if (companyRows.length > 0) {
         console.log('[PMLevelsService] Company maturity data:');
-        companies.forEach(c => {
+        companyRows.forEach(c => {
           console.log(`  - ${c.name}: stage=${c.company_stage || 'NULL'}, maturity=${c.maturity || 'NULL'}`);
         });
       }
 
-      if (!sources || sources.length === 0) {
+      if (sourceRows.length === 0) {
         return null;
       }
 
@@ -381,7 +483,7 @@ export class PMLevelsService {
       const artifacts: Array<{ id: string; type: string; content: string }> = [];
 
       // Add sources
-      sources.forEach(source => {
+      sourceRows.forEach(source => {
         const text = source.raw_text || JSON.stringify(source.structured_data || {});
         textParts.push(`[${source.file_name}]\n${text}`);
         artifacts.push({
@@ -392,7 +494,7 @@ export class PMLevelsService {
       });
 
       // Add work items
-      workItems?.forEach(workItem => {
+      workItemRows.forEach(workItem => {
         const content = [
           workItem.title,
           workItem.description,
@@ -409,7 +511,7 @@ export class PMLevelsService {
       });
 
       // Add stories
-      stories?.forEach(story => {
+      storyRows.forEach(story => {
         const content = `${story.title}\n${story.content}`;
         textParts.push(`[Story: ${story.title}]\n${content}`);
         artifacts.push({
@@ -420,7 +522,7 @@ export class PMLevelsService {
       });
 
       // Build company metadata (include researched stage/maturity if available)
-      const companyMetadata: CompanyMetadata[] = (companies || []).map(company => ({
+      const companyMetadata: CompanyMetadata[] = (companyRows || []).map(company => ({
         name: company.name,
         description: company.description || undefined,
         companyStage: company.company_stage || undefined,
@@ -431,9 +533,9 @@ export class PMLevelsService {
         combinedText: textParts.join('\n\n'),
         artifacts,
         companies: companyMetadata,
-        sources: sources || [],
-        workItems: workItems || [],
-        stories: stories || []
+        sources: sourceRows || [],
+        workItems: workItemRows || [],
+        stories: storyRows || []
       };
     } catch (error) {
       console.error('[PMLevelsService] Error fetching user content:', error);
@@ -453,7 +555,7 @@ export class PMLevelsService {
         throw new Error(response.error || 'Failed to extract signals');
       }
 
-      return response.data as LevelSignal;
+      return response.data as unknown as LevelSignal;
     } catch (error) {
       console.error('[PMLevelsService] Error extracting signals:', error);
       // Return default signals on error
@@ -482,7 +584,7 @@ export class PMLevelsService {
         throw new Error(response.error || 'Failed to compute competency scores');
       }
 
-      return response.data as CompetencyScore;
+      return response.data as unknown as CompetencyScore;
     } catch (error) {
       console.error('[PMLevelsService] Error computing competency scores:', error);
       // Return default scores on error
@@ -1521,6 +1623,266 @@ export class PMLevelsService {
     return sorted.slice(0, 6).map(a => a.id);
   }
 
+  private buildEvaluationSnapshotFromInference(inference: PMLevelInference): Record<string, unknown> {
+    const levelEvidence = inference.levelEvidence ?? {};
+    const storyEvidence = levelEvidence.storyEvidence ?? {};
+    const storyHighlights = Array.isArray(storyEvidence.stories)
+      ? storyEvidence.stories.slice(0, 5).map((story) => ({
+          id: story.id,
+          title: story.title,
+          levelAssessment: story.levelAssessment ?? null,
+          confidence: story.confidence ?? null,
+          sourceCompany: story.sourceCompany ?? null,
+          sourceRole: story.sourceRole ?? null,
+        }))
+      : [];
+
+    return {
+      level: inference.inferredLevel,
+      displayLevel: inference.displayLevel,
+      confidence: inference.confidence,
+      scopeScore: Number.isFinite(inference.scopeScore) ? inference.scopeScore : null,
+      roleType: inference.roleType ?? [],
+      competencyScores: inference.competencyScores ?? {},
+      recommendations: inference.recommendations ?? [],
+      levelEvidence: {
+        currentLevel: levelEvidence.currentLevel ?? null,
+        nextLevel: levelEvidence.nextLevel ?? null,
+        resume: {
+          roleTitles: levelEvidence.resumeEvidence?.roleTitles ?? [],
+          duration: levelEvidence.resumeEvidence?.duration ?? null,
+          companyScale: levelEvidence.resumeEvidence?.companyScale ?? [],
+        },
+        stories: {
+          total: storyEvidence.totalStories ?? null,
+          relevant: storyEvidence.relevantStories ?? null,
+          highlights: storyHighlights,
+        },
+        levelingFramework: {
+          confidencePercentage: levelEvidence.levelingFramework?.confidencePercentage ?? null,
+          criteria: levelEvidence.levelingFramework?.metCriteria ?? [],
+        },
+        metrics: levelEvidence.outcomeMetrics?.analysis ?? null,
+        gaps: levelEvidence.gaps ?? [],
+      },
+      signals: inference.signals ?? {},
+      generatedAt: inference.lastAnalyzedAt ?? new Date().toISOString(),
+    };
+  }
+
+  private deriveSnapshotDelta(
+    currentSnapshot: Record<string, unknown>,
+    previousSnapshot: Record<string, unknown> | null | undefined,
+    confidenceDelta: number | null,
+    levelChanged: boolean
+  ) {
+    const currentLevelEvidence: any = currentSnapshot?.levelEvidence ?? {};
+    const previousLevelEvidence: any = previousSnapshot?.levelEvidence ?? {};
+
+    const currentStories = currentLevelEvidence?.stories ?? {};
+    const previousStories = previousLevelEvidence?.stories ?? {};
+    const currentHighlights: Array<any> = Array.isArray(currentStories?.highlights) ? currentStories.highlights : [];
+    const previousHighlights: Array<any> = Array.isArray(previousStories?.highlights) ? previousStories.highlights : [];
+
+    const currentStoryKeySet = new Set(currentHighlights.map((story) => story?.id ?? story?.title ?? JSON.stringify(story)));
+    const previousStoryKeySet = new Set(previousHighlights.map((story) => story?.id ?? story?.title ?? JSON.stringify(story)));
+
+    const storiesAdded = currentHighlights.filter((story) => {
+      const key = story?.id ?? story?.title ?? JSON.stringify(story);
+      return !previousStoryKeySet.has(key);
+    });
+
+    const storiesRemoved = previousHighlights.filter((story) => {
+      const key = story?.id ?? story?.title ?? JSON.stringify(story);
+      return !currentStoryKeySet.has(key);
+    });
+
+    const currentRelevantCount =
+      typeof currentStories?.relevant === 'number' ? currentStories.relevant : currentHighlights.length;
+    const previousRelevantCount =
+      typeof previousStories?.relevant === 'number' ? previousStories.relevant : previousHighlights.length;
+
+    const currentMetrics = currentLevelEvidence?.metrics ?? {};
+    const previousMetrics = previousLevelEvidence?.metrics ?? {};
+    const currentMetricsTotal =
+      typeof currentMetrics?.totalMetrics === 'number' ? currentMetrics.totalMetrics : 0;
+    const previousMetricsTotal =
+      typeof previousMetrics?.totalMetrics === 'number' ? previousMetrics.totalMetrics : 0;
+    const metricsDelta = currentMetricsTotal - previousMetricsTotal;
+
+    const extractMetCriteria = (snapshot: any): { met: string[]; total: number } => {
+      const criteria = snapshot?.levelEvidence?.levelingFramework?.criteria ?? snapshot?.levelingFramework?.criteria;
+      if (!Array.isArray(criteria)) {
+        return { met: [], total: 0 };
+      }
+
+      const met: string[] = [];
+      criteria.forEach((item: any) => {
+        if (item == null) return;
+        let label: string;
+        if (typeof item === 'string') {
+          label = item;
+          met.push(label);
+          return;
+        }
+
+        label = item?.criterion ?? JSON.stringify(item);
+        if (!label) return;
+        if (item?.met === undefined || item.met === true) {
+          met.push(label);
+        }
+      });
+
+      return { met, total: criteria.length };
+    };
+
+    const currentCriteria = extractMetCriteria(currentLevelEvidence);
+    const previousCriteria = extractMetCriteria(previousLevelEvidence);
+    const previousCriteriaSet = new Set(previousCriteria.met);
+
+    const criteriaAdded = currentCriteria.met.filter((criterion) => !previousCriteriaSet.has(criterion));
+    const currentCriteriaSet = new Set(currentCriteria.met);
+    const criteriaRemoved = previousCriteria.met.filter((criterion) => !currentCriteriaSet.has(criterion));
+
+    const smallConfidenceChange = confidenceDelta == null ? true : Math.abs(confidenceDelta) < 0.05;
+    const noStoryChange = storiesAdded.length === 0 && storiesRemoved.length === 0;
+    const noMetricsChange = metricsDelta === 0;
+    const noCriteriaChange = criteriaAdded.length === 0 && criteriaRemoved.length === 0;
+
+    let stability: 'initial' | 'expected' | 'attention';
+    if (!previousSnapshot) {
+      stability = 'initial';
+    } else if (!levelChanged && smallConfidenceChange && noStoryChange && noMetricsChange && noCriteriaChange) {
+      stability = 'expected';
+    } else {
+      stability = 'attention';
+    }
+
+    return {
+      stability,
+      confidenceDelta,
+      stories: {
+        currentRelevant: currentRelevantCount,
+        previousRelevant: previousRelevantCount,
+        added: storiesAdded,
+        removed: storiesRemoved,
+      },
+      metrics: {
+        currentTotal: currentMetricsTotal,
+        previousTotal: previousMetricsTotal,
+        delta: metricsDelta,
+      },
+      criteria: {
+        currentMet: currentCriteria.met,
+        previousMet: previousCriteria.met,
+        added: criteriaAdded,
+        removed: criteriaRemoved,
+        totalCurrent: currentCriteria.total,
+        totalPrevious: previousCriteria.total,
+      },
+    };
+  }
+
+  private buildEvaluationSnapshotFromRecord(record: any): Record<string, unknown> | null {
+    if (!record) {
+      return null;
+    }
+
+    const levelEvidence = record.level_evidence || null;
+    const storyEvidence = levelEvidence?.storyEvidence || {};
+    const stories = Array.isArray(storyEvidence?.stories)
+      ? storyEvidence.stories.slice(0, 5).map((story: any) => ({
+          id: story?.id ?? null,
+          title: story?.title ?? null,
+          levelAssessment: story?.levelAssessment ?? null,
+          confidence: story?.confidence ?? null,
+          sourceCompany: story?.sourceCompany ?? null,
+          sourceRole: story?.sourceRole ?? null,
+        }))
+      : [];
+
+    const inferredLevel = record.inferred_level ?? null;
+
+    return {
+      level: inferredLevel as PMLevelCode | null,
+      displayLevel: inferredLevel ? this.mapLevelCodeToDisplay(inferredLevel) : null,
+      confidence:
+        typeof record.confidence === 'number' && Number.isFinite(record.confidence)
+          ? record.confidence
+          : null,
+      scopeScore:
+        typeof record.scope_score === 'number' && Number.isFinite(record.scope_score)
+          ? record.scope_score
+          : null,
+      roleType: Array.isArray(record.role_type) ? record.role_type : [],
+      competencyScores: record.competency_scores || {},
+      recommendations: record.recommendations || [],
+      levelEvidence: levelEvidence
+        ? {
+            currentLevel: levelEvidence.currentLevel ?? null,
+            nextLevel: levelEvidence.nextLevel ?? null,
+            resume: {
+              roleTitles: levelEvidence.resumeEvidence?.roleTitles ?? [],
+              duration: levelEvidence.resumeEvidence?.duration ?? null,
+              companyScale: levelEvidence.resumeEvidence?.companyScale ?? [],
+            },
+            stories: {
+              total: storyEvidence?.totalStories ?? null,
+              relevant: storyEvidence?.relevantStories ?? null,
+              highlights: stories,
+            },
+            levelingFramework: {
+              confidencePercentage: levelEvidence.levelingFramework?.confidencePercentage ?? null,
+              criteria: levelEvidence.levelingFramework?.metCriteria ?? [],
+            },
+            metrics: levelEvidence.outcomeMetrics?.analysis ?? null,
+            gaps: levelEvidence.gaps ?? [],
+          }
+        : null,
+      signals: record.signals || {},
+      generatedAt: record.last_run_timestamp ?? record.updated_at ?? null,
+    };
+  }
+
+  private async getLatestUserLevelSnapshot(userId: string): Promise<{
+    level: PMLevelCode | null;
+    confidence: number | null;
+    snapshot: Record<string, unknown> | null;
+  } | null> {
+    try {
+      const supabaseAny = supabase as any;
+      const userLevelsTable: any = supabaseAny.from('user_levels');
+      const { data: rows, error } = await (userLevelsTable as any)
+        .select('inferred_level, confidence, scope_score, level_evidence, evidence_by_competency, recommendations, role_type, maturity_info, competency_scores, signals, last_run_timestamp, updated_at')
+        .eq('user_id', userId)
+        .order('last_run_timestamp', { ascending: false })
+        .limit(1);
+
+      if (error) {
+        console.warn('[PMLevelsService] Unable to load previous level snapshot:', error);
+        return null;
+      }
+
+      const rowsData: any = rows;
+      const record: any = Array.isArray(rowsData) ? rowsData[0] : undefined;
+      if (!record) {
+        return null;
+      }
+
+      return {
+        level: (record.inferred_level ?? null) as PMLevelCode | null,
+        confidence:
+          typeof record.confidence === 'number' && Number.isFinite(record.confidence)
+            ? record.confidence
+            : null,
+        snapshot: this.buildEvaluationSnapshotFromRecord(record),
+      };
+    } catch (err) {
+      console.warn('[PMLevelsService] Exception loading previous level snapshot:', err);
+      return null;
+    }
+  }
+
   /**
    * Save level assessment to database
    */
@@ -1551,7 +1913,7 @@ export class PMLevelsService {
         last_run_timestamp: runTimestamp
       };
       
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('user_levels')
         .upsert(upsertPayload, {
           onConflict: 'user_id'
@@ -1573,57 +1935,163 @@ export class PMLevelsService {
    */
   private async logPMLevelsResult(data: {
     userId: string;
-    sourceId: string;
+    sourceId?: string;
     sessionId?: string;
     inference: PMLevelInference | null;
     latency: number;
     status: 'success' | 'failed';
     error?: string;
+    syntheticProfileId?: string;
+    triggerReason?: string;
+    runType?: 'first-run' | 'rerun' | 'diff';
+    previousLevel?: PMLevelCode | null;
+    previousConfidence?: number | null;
+    levelChanged?: boolean;
+    confidenceDelta?: number | null;
+    snapshot?: Record<string, unknown> | null;
+    previousSnapshot?: Record<string, unknown> | null;
+    deltaDetails?: Record<string, any> | null;
   }): Promise<void> {
     try {
-      // Find the most recent evaluation_run for this source_id
-      const { data: evaluationRun, error: findError } = await supabase
+      const sessionId = data.sessionId ?? `pm-level-${Date.now()}`;
+
+      let query = (supabase as any)
         .from('evaluation_runs')
         .select('id')
-        .eq('source_id', data.sourceId)
-        .eq('user_id', data.userId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+        .eq('user_id', data.userId);
 
-      if (findError || !evaluationRun) {
-        console.warn('[PMLevelsService] No evaluation_run found for source:', data.sourceId);
+      if (sessionId) {
+        query = query.eq('session_id', sessionId);
+      } else if (data.sourceId) {
+        query = query.eq('source_id', data.sourceId);
+      }
+
+      const { data: evaluationRunRows, error: findError } = await (query as any)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      const evaluationRunData: any = evaluationRunRows;
+      const evaluationRun = Array.isArray(evaluationRunData) ? evaluationRunData[0] : undefined;
+      let evaluationRunId = evaluationRun?.id as string | undefined;
+
+      if (findError) {
+        console.warn('[PMLevelsService] Unable to locate evaluation_run for PM Levels logging:', findError);
+      }
+
+      if (!evaluationRunId) {
+        const insertPayload: Record<string, any> = {
+          user_id: data.userId,
+          session_id: sessionId,
+          source_id: data.sourceId ?? null,
+          file_type: 'pm_level',
+          user_type: data.syntheticProfileId ? 'synthetic' : 'real',
+          synthetic_profile_id: data.syntheticProfileId ?? null,
+          text_extraction_latency_ms: 0,
+          llm_analysis_latency_ms: Math.round(data.latency),
+          database_save_latency_ms: 0,
+          total_latency_ms: Math.round(data.latency),
+          input_tokens: 0,
+          output_tokens: 0,
+          model: 'pm-levels',
+          accuracy_score: '✅ Accurate',
+          relevance_score: '✅ Relevant',
+          personalization_score: '✅ Personalized',
+          clarity_tone_score: '✅ Clear',
+          framework_score: '✅ Structured',
+          go_nogo_decision: data.status === 'success' ? '✅ Go' : '❌ No-Go',
+          evaluation_rationale:
+            data.status === 'success'
+              ? 'PM Levels analysis processed.'
+              : data.error
+                ? `PM Levels failed: ${data.error}`
+                : 'PM Levels analysis failed.',
+          heuristics: null,
+          gap_total: 0,
+          gap_summary: null,
+          pm_levels_snapshot: data.snapshot ?? null,
+          pm_levels_prev_snapshot: data.previousSnapshot ?? null,
+        };
+
+        const { data: insertedRows, error: insertError } = await (supabase as any)
+          .from('evaluation_runs')
+          .insert([insertPayload] as any[])
+          .select('id');
+
+        if (insertError) {
+          console.error('[PMLevelsService] Failed to create evaluation_run for PM Levels logging:', insertError);
+          return;
+        }
+
+        const insertedData: any = insertedRows;
+        const inserted = Array.isArray(insertedData) ? insertedData[0] : null;
+        evaluationRunId = inserted?.id as string | undefined;
+      }
+
+      if (!evaluationRunId) {
+        console.warn('[PMLevelsService] PM Levels logging aborted: evaluation_run id unresolved');
         return;
       }
 
-      // Update the evaluation_run with PM Levels results
-      const updateData: any = {
+      const pmLevelsDelta = data.inference
+        ? {
+            levelChanged: data.levelChanged ?? false,
+            previousLevel: data.previousLevel ?? null,
+            currentLevel: data.inference.inferredLevel,
+            previousConfidence: data.previousConfidence ?? null,
+            currentConfidence: data.inference.confidence ?? null,
+            confidenceDelta: data.confidenceDelta ?? null,
+            stability:
+              data.deltaDetails?.stability ??
+              (data.previousSnapshot ? (data.levelChanged ? 'attention' : 'expected') : 'initial'),
+            stories: data.deltaDetails?.stories ?? null,
+            metrics: data.deltaDetails?.metrics ?? null,
+            criteria: data.deltaDetails?.criteria ?? null,
+            details: data.deltaDetails ?? null,
+          }
+        : null;
+
+      const updatePayload: Record<string, any> = {
         pm_levels_status: data.status,
-        pm_levels_latency_ms: data.latency
+        pm_levels_latency_ms: Math.round(data.latency),
+        pm_levels_inferred_level: data.inference?.inferredLevel ?? null,
+        pm_levels_confidence: data.inference?.confidence ?? null,
+        pm_levels_previous_level: data.previousLevel ?? null,
+        pm_levels_previous_confidence: data.previousConfidence ?? null,
+        pm_levels_trigger_reason: data.triggerReason ?? null,
+        pm_levels_run_type: data.runType ?? null,
+        pm_levels_session_id: sessionId,
+        pm_levels_error: data.error ?? null,
+        pm_levels_level_changed: data.levelChanged ?? null,
+        pm_levels_delta: pmLevelsDelta,
+        pm_levels_snapshot: data.snapshot ?? null,
+        pm_levels_prev_snapshot: data.previousSnapshot ?? null,
+        synthetic_profile_id: data.syntheticProfileId ?? null,
+        llm_analysis_latency_ms: Math.round(data.latency),
+        total_latency_ms: Math.round(data.latency),
       };
 
-      if (data.inference) {
-        updateData.pm_levels_inferred_level = data.inference.inferredLevel;
-        updateData.pm_levels_confidence = data.inference.confidence;
+      if (data.status === 'failed') {
+        updatePayload.go_nogo_decision = '❌ No-Go';
+        updatePayload.evaluation_rationale = data.error
+          ? `PM Levels failed: ${data.error}`
+          : 'PM Levels analysis failed.';
+      } else if (data.status === 'success') {
+        updatePayload.go_nogo_decision = '✅ Go';
+        updatePayload.evaluation_rationale = 'PM Levels analysis processed.';
       }
 
-      if (data.error) {
-        updateData.pm_levels_error = data.error;
-      }
-
-      const { error: updateError } = await supabase
+      const { error: updateError } = await (supabase as any)
         .from('evaluation_runs')
-        .update(updateData)
-        .eq('id', evaluationRun.id);
+        .update(updatePayload as any)
+        .eq('id', evaluationRunId);
 
       if (updateError) {
-        console.error('[PMLevelsService] Failed to log PM Levels result:', updateError);
+        console.error('[PMLevelsService] Failed to update evaluation_run with PM Levels data:', updateError);
       } else {
         console.log('[PMLevelsService] Logged PM Levels result to evaluation_runs');
       }
-    } catch (error) {
-      console.error('[PMLevelsService] Error logging PM Levels result:', error);
-      // Don't throw - logging failure shouldn't break the analysis
+    } catch (logError) {
+      console.error('[PMLevelsService] Failed to log PM Levels result:', logError);
     }
   }
 
@@ -1632,7 +2100,7 @@ export class PMLevelsService {
    */
   async getUserLevel(userId: string): Promise<PMLevelInference | null> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('user_levels')
         .select('*')
         .eq('user_id', userId)

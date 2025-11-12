@@ -120,7 +120,11 @@ export function usePMLevel() {
             user.id,
             undefined, // targetLevel
             undefined, // roleType
-            undefined, // evaluationTracking
+            {
+              sessionId: `pm-level-ui-${Date.now()}-${syntheticProfileId}`,
+              triggerReason: 'manual',
+              syntheticProfileId,
+            },
             syntheticProfileId
           );
           return data;
@@ -212,7 +216,11 @@ export function usePMLevel() {
         user.id,
         params?.targetLevel,
         params?.roleType,
-        undefined, // evaluationTracking
+        {
+          sessionId: `pm-level-recalc-${Date.now()}${syntheticProfileId ? `-${syntheticProfileId}` : ''}`,
+          triggerReason: 'manual-recalc',
+          syntheticProfileId,
+        },
         syntheticProfileId // Pass synthetic profile ID
       );
     },

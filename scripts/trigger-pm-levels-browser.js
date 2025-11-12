@@ -50,7 +50,16 @@
 
     // Create service instance and run analysis
     const pmLevelsService = new PMLevelsService();
-    const result = await pmLevelsService.analyzeUserLevel(userId);
+    const result = await pmLevelsService.analyzeUserLevel(
+      userId,
+      undefined,
+      undefined,
+      {
+        sessionId: `pm-level-browser-${Date.now()}`,
+        triggerReason: 'manual',
+        runType: 'rerun',
+      }
+    );
 
     if (!result) {
       console.error('[PM Levels] ERROR: Analysis returned null. Check console for errors.');

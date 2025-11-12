@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +34,8 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow, format } from "date-fns";
 import type { PMLevelInference, RoleType } from "@/types/content";
+import { StreamingProgress } from "@/components/shared/StreamingProgress";
+import type { StreamingStepState, StreamingTimelineEvent, StreamingLifecycleStatus } from "@/hooks/useStreamingProgress";
 
 // Helper function to map PM level code to display text
 const getLevelDisplay = (levelCode: string): string => {
@@ -366,16 +368,99 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
     : null;
   const lastAnalyzedExact = lastAnalyzedAt ? format(new Date(lastAnalyzedAt), 'PPpp') : null;
 
+  const analysisSteps = useMemo<StreamingStepState[]>(() => {
+    const competencyCount = Object.keys(levelData?.evidenceByCompetency ?? {}).length;
+    const currentLevelLabel =
+      levelData?.levelEvidence?.currentLevel ||
+      levelData?.displayLevel ||
+      assessmentData?.currentLevel ||
+      "Product Manager";
+
+    const fetchStatus: StreamingStepState["status"] = error
+      ? "error"
+      : (isLoading || isRecalculating || (isBackgroundAnalyzing && !levelData))
+        ? "running"
+        : levelData
+          ? "success"
+          : "pending";
+
+    const steps: StreamingStepState[] = [
+      {
+        id: "fetch-level",
+        label: "Fetch PM level",
+        status: fetchStatus,
+        detail: error
+          ? (error instanceof Error ? error.message : String(error))
+          : levelData
+            ? `Current level: ${currentLevelLabel}`
+            : "Retrieving latest assessment data"
+      },
+      {
+        id: "aggregate-evidence",
+        label: "Aggregate evidence",
+        status: levelData ? "success" : fetchStatus === "running" ? "pending" : "pending",
+        detail: levelData
+          ? `${competencyCount} competency areas evaluated`
+          : "Waiting for assessment results"
+      },
+      {
+        id: "prepare-insights",
+        label: "Prepare insights",
+        status: levelData ? "success" : fetchStatus === "running" ? "pending" : "pending",
+        detail: levelData ? "Insights ready to review" : "Preparing personalized recommendations"
+      }
+    ];
+
+    if (isBackgroundAnalyzing && levelData) {
+      steps[0] = {
+        ...steps[0],
+        status: "running",
+        detail: "Refreshing analysis with latest profile updates"
+      };
+    }
+
+    return steps;
+  }, [assessmentData?.currentLevel, error, isBackgroundAnalyzing, isLoading, isRecalculating, levelData]);
+
+  const analysisStatus: StreamingLifecycleStatus = error
+    ? "error"
+    : (isLoading || isRecalculating || (isBackgroundAnalyzing && !levelData))
+      ? "streaming"
+      : "complete";
+
+  const analysisEvents = useMemo<StreamingTimelineEvent[]>(() => {
+    if (backgroundError) {
+      return [
+        {
+          id: "analysis-error",
+          message: backgroundError,
+          tone: "error",
+          timestamp: Date.now()
+        }
+      ];
+    }
+
+    if (isBackgroundAnalyzing) {
+      return [
+        {
+          id: "analysis-background",
+          message: "Background analysis in progress",
+          tone: "info",
+          timestamp: Date.now()
+        }
+      ];
+    }
+
+    return [];
+  }, [backgroundError, isBackgroundAnalyzing]);
+
   // Transform level data when it changes
   useEffect(() => {
     if (levelData) {
-      console.log('Level data received:', levelData);
       const transformedData = transformLevelData(levelData);
-      console.log('Transformed data:', transformedData);
       setAssessmentData(transformedData);
     } else if (!isLoading) {
       // No level data available
-      console.log('No level data available');
       setAssessmentData(null);
     }
   }, [levelData, isLoading]);
@@ -504,28 +589,22 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
   };
 
   // Show loading state
-  if ((isLoading || isRecalculating || (isBackgroundAnalyzing && !levelData))) {
+  if (!assessmentData && (isLoading || isRecalculating || (isBackgroundAnalyzing && !levelData))) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center p-6 max-w-md mx-auto">
-          <Loader2 className="w-12 h-12 mx-auto mb-4 text-primary animate-spin" />
-          <h2 className="text-2xl font-bold mb-2">Analyzing Your PM Level</h2>
-          <p className="text-muted-foreground mb-6">We're evaluating your experience and skills to determine your product management level.</p>
-          <div className="space-y-2 text-sm text-muted-foreground text-left">
-            <div className="flex items-center">
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              <span>Reviewing your work history and achievements</span>
+      <div className="min-h-screen bg-background">
+        <main className="container mx-auto px-4 py-6">
+          <div className="max-w-3xl mx-auto">
+            <StreamingProgress
+              steps={analysisSteps}
+              status={analysisStatus}
+              events={analysisEvents}
+              showTimeline
+            />
+            <p className="mt-4 text-sm text-muted-foreground">
+              We're evaluating your experience to refresh the assessment. Add more approved stories or update your work history to improve accuracy.
+            </p>
             </div>
-            <div className="flex items-center">
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              <span>Analyzing your impact and influence</span>
-            </div>
-            <div className="flex items-center">
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              <span>Comparing with industry benchmarks</span>
-            </div>
-          </div>
-        </div>
+        </main>
       </div>
     );
   }
@@ -753,14 +832,21 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
                   {`Last analyzed ${lastAnalyzedRelative}`}
                 </Badge>
               )}
-              {(isBackgroundAnalyzing || isRecalculating) && (
-                <div className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Updating assessment...</span>
-                </div>
-            )}
         </div>
       </div>
+
+      {(analysisStatus !== "complete" || analysisEvents.length > 0) && (
+        <Card>
+          <CardContent className="p-4">
+            <StreamingProgress
+              steps={analysisSteps}
+              status={analysisStatus}
+              events={analysisEvents}
+              showTimeline={analysisEvents.length > 0}
+            />
+          </CardContent>
+        </Card>
+      )}
 
           {changeSummary && !isSummaryDismissed && (
             <Card className="border-primary/30 bg-primary/5">
@@ -776,10 +862,6 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
                         <li key={index}>{item}</li>
                       ))}
                     </ul>
-                    <div className="mt-3 text-xs text-muted-foreground">
-                      Updated {formatDistanceToNow(new Date(changeSummary.analyzedAt), { addSuffix: true })} (
-                      {format(new Date(changeSummary.analyzedAt), 'PPpp')})
-                    </div>
                 </div>
                 <Button 
                     variant="ghost"

@@ -5,7 +5,11 @@
  */
 
 import { supabase } from '@/lib/supabase';
-import type { CoverLetterTemplate as DomainCoverLetterTemplate } from '@/types/workHistory';
+import type {
+  CoverLetterGeneratedSection,
+  CoverLetterSection,
+  CoverLetterTemplate as DomainCoverLetterTemplate
+} from '@/types/workHistory';
 
 // Types matching the LLM parsing output
 export interface CoverLetterParagraph {
@@ -77,6 +81,26 @@ type SavedSectionsRow = SavedSectionsInsert & {
   created_at: string;
   updated_at: string;
 };
+
+export interface CoverLetterSummary {
+  id: string;
+  templateId: string;
+  templateName: string | null;
+  templateSections: CoverLetterSection[];
+  jobDescriptionId: string;
+  jobDescription: {
+    id: string;
+    company: string;
+    role: string;
+    url: string | null;
+    content: string;
+  } | null;
+  status: 'draft' | 'reviewed' | 'finalized';
+  sections: CoverLetterGeneratedSection[];
+  llmFeedback: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 type SavedSectionsUpdate = Partial<SavedSectionsInsert> & { updated_at?: string };
 
@@ -459,6 +483,114 @@ export class CoverLetterTemplateService {
 
     const rows = (data ?? []) as CoverLetterTemplatesRow[];
     return rows.map((row) => this.mapRowToTemplate(row));
+  }
+
+  /**
+   * Load the user's generated cover letters with job description & template context
+   */
+  static async getUserCoverLetters(userId: string, accessToken?: string): Promise<CoverLetterSummary[]> {
+    const client = await this.getClient(accessToken);
+    const { data, error } = await client
+      .from('cover_letters')
+      .select(`
+        id,
+        template_id,
+        job_description_id,
+        status,
+        sections,
+        llm_feedback,
+        created_at,
+        updated_at,
+        job_descriptions:job_description_id (
+          id,
+          company,
+          role,
+          url,
+          content
+        ),
+        cover_letter_templates:template_id (
+          id,
+          name,
+          sections
+        )
+      `)
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false });
+
+    if (error) {
+      console.error('[CoverLetterTemplateService] Error loading cover letters:', error);
+      throw error;
+    }
+
+    const rows =
+      (data ?? []) as Array<{
+        id: string;
+        template_id: string;
+        job_description_id: string;
+        status: 'draft' | 'reviewed' | 'finalized';
+        sections: unknown;
+        llm_feedback: unknown;
+        created_at: string;
+        updated_at: string;
+        job_descriptions: {
+          id: string;
+          company: string;
+          role: string;
+          url: string | null;
+          content: string;
+        } | null;
+        cover_letter_templates: {
+          id: string;
+          name: string | null;
+          sections: unknown;
+        } | null;
+      }>;
+
+    return rows.map((row) => {
+      const templateSectionsRaw = row.cover_letter_templates?.sections;
+      const templateSections: CoverLetterSection[] = Array.isArray(templateSectionsRaw)
+        ? (templateSectionsRaw as CoverLetterSection[])
+        : Array.isArray((templateSectionsRaw as any)?.sections)
+          ? ((templateSectionsRaw as any).sections as CoverLetterSection[])
+          : [];
+
+      const sectionsRaw = row.sections;
+      let sections: CoverLetterGeneratedSection[] = [];
+      if (Array.isArray(sectionsRaw)) {
+        sections = sectionsRaw as CoverLetterGeneratedSection[];
+      } else if (Array.isArray((sectionsRaw as any)?.sections)) {
+        sections = ((sectionsRaw as any).sections as CoverLetterGeneratedSection[]).map((section) => ({
+          ...section
+        }));
+      }
+
+      const llmFeedback =
+        row.llm_feedback && typeof row.llm_feedback === 'object'
+          ? (row.llm_feedback as Record<string, unknown>)
+          : null;
+
+      return {
+        id: row.id,
+        templateId: row.template_id,
+        templateName: row.cover_letter_templates?.name ?? null,
+        templateSections,
+        jobDescriptionId: row.job_description_id,
+        jobDescription: row.job_descriptions
+          ? {
+              id: row.job_descriptions.id,
+              company: row.job_descriptions.company,
+              role: row.job_descriptions.role,
+              url: row.job_descriptions.url,
+              content: row.job_descriptions.content
+            }
+          : null,
+        status: row.status,
+        sections,
+        llmFeedback,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      } satisfies CoverLetterSummary;
+    });
   }
 
   /**

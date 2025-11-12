@@ -17,6 +17,21 @@ import { supabase } from '@/lib/supabase';
 import { UserPreferencesService } from './userPreferencesService';
 import type { PMLevelInference } from '@/types/content';
 
+interface ContentQualityProgressDetail {
+  stage: string;
+  message?: string;
+  progress?: number;
+  tone?: 'info' | 'success' | 'warning' | 'error';
+}
+
+const emitContentQualityProgress = (detail: ContentQualityProgressDetail) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.dispatchEvent(new CustomEvent('content-quality:progress', { detail }));
+};
+
 export interface Gap {
   id?: string;
   user_id: string;
@@ -490,6 +505,13 @@ export class GapDetectionService {
   static async getUserGaps(userId: string, profileId?: string, accessToken?: string): Promise<Gap[]> {
     try {
       const db = accessToken ? await this.getAuthenticatedClient(accessToken) : supabase;
+      emitContentQualityProgress({
+        stage: 'initialize',
+        progress: 0.05,
+        message: profileId
+          ? `Resolving content quality for profile ${profileId.toUpperCase()}...`
+          : 'Resolving content quality context...'
+      });
       const { data: gaps, error } = await db
         .from('gaps')
         .select('*')
@@ -1674,6 +1696,12 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
 
       const items: ContentItemWithGaps[] = [];
 
+      emitContentQualityProgress({
+        stage: 'collect-gaps',
+        progress: 0.2,
+        message: `Identified ${gaps.length} open gap${gaps.length === 1 ? '' : 's'} to review`
+      });
+
       // Process gaps and group by entity
       const entityMap = new Map<string, {
         gaps: typeof gaps;
@@ -1708,6 +1736,13 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
       }
 
       const workItemMap = new Map<string, any>();
+      emitContentQualityProgress({
+        stage: 'hydrate-content',
+        progress: 0.35,
+        message: workItemIds.size > 0
+          ? `Enriching ${workItemIds.size} work history record${workItemIds.size === 1 ? '' : 's'}...`
+          : 'No work history gaps detected'
+      });
       if (workItemIds.size > 0) {
         const { data: workItemsData, error: workItemsError } = await db
           .from('work_items')
@@ -1738,6 +1773,18 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
           });
         }
       }
+
+      emitContentQualityProgress({
+        stage: 'hydrate-content',
+        progress: storyMap.size > 0 || workItemMap.size > 0 ? 0.5 : 0.45,
+        message: [
+          storyMap.size > 0 ? `Linked ${storyMap.size} stor${storyMap.size === 1 ? 'y' : 'ies'}` : null,
+          workItemMap.size > 0 ? `with detailed roles` : null
+        ]
+          .filter(Boolean)
+          .join(' ')
+          || 'No stories with gaps to hydrate'
+      });
 
       const savedSectionMap = new Map<string, any>();
       if (savedSectionIds.size > 0) {
@@ -1808,6 +1855,14 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
         }
       }
 
+      emitContentQualityProgress({
+        stage: 'hydrate-content',
+        progress: savedSectionMap.size > 0 ? 0.65 : 0.6,
+        message: savedSectionMap.size > 0
+          ? `Merged ${savedSectionMap.size} cover letter section${savedSectionMap.size === 1 ? '' : 's'}`
+          : 'No cover letter gaps detected'
+      });
+
       const sourceMap = new Map<string, string>();
       if (profileId) {
         const sourceIdsToFetch = new Set<string>();
@@ -1857,6 +1912,12 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
         }
       }
 
+      emitContentQualityProgress({
+        stage: 'hydrate-content',
+        progress: 0.8,
+        message: 'Resolved source metadata for profile filtering'
+      });
+
       const matchesProfileByFilename = (sourceId?: string | null) => {
         if (!profileId || !sourceId) return false;
         const fileName = sourceMap.get(sourceId);
@@ -1871,6 +1932,11 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
       };
 
       // Fetch content metadata for each entity
+      emitContentQualityProgress({
+        stage: 'summarize',
+        progress: 0.85,
+        message: 'Ranking content by severity and priority...'
+      });
       for (const [key, entityData] of entityMap.entries()) {
         const [entityType, entityId] = key.split(':');
         const entityGaps: any[] = entityData.gaps as any[];
@@ -2087,15 +2153,32 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
       const workHistory = items.filter(item => item.content_type_label === 'Work History');
       const coverLetterSavedSections = items.filter(item => item.content_type_label === 'Cover Letter Saved Sections');
 
-      return {
+      const result = {
         total: items.length,
         byContentType: {
           workHistory,
           coverLetterSavedSections,
         },
       };
+
+      emitContentQualityProgress({
+        stage: 'complete',
+        progress: 1,
+        message: items.length > 0
+          ? `Content quality ready: ${items.length} item${items.length === 1 ? '' : 's'} need attention`
+          : 'Content quality ready: no gaps detected',
+        tone: 'success'
+      });
+
+      return result;
     } catch (error) {
       console.error('Error in getContentItemsWithGaps:', error);
+      emitContentQualityProgress({
+        stage: 'error',
+        progress: 1,
+        message: error instanceof Error ? error.message : 'Failed to load content quality',
+        tone: 'error'
+      });
       return {
         total: 0,
         byContentType: {

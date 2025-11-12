@@ -49,6 +49,7 @@ export function useWorkHistory() {
       syntheticProfileId: getActiveSyntheticProfileId(),
       delayMs: 2500,
       reason,
+      triggerReason: 'content-update',
     })
   }
 

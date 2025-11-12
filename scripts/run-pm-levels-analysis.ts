@@ -15,7 +15,16 @@ async function main() {
   try {
     const startTime = Date.now();
 
-    const result = await pmLevelsService.analyzeUserLevel(TEST_USER_ID);
+    const result = await pmLevelsService.analyzeUserLevel(
+      TEST_USER_ID,
+      undefined,
+      undefined,
+      {
+        sessionId: `pm-level-script-${Date.now()}`,
+        triggerReason: 'manual',
+        runType: 'rerun',
+      }
+    );
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 

@@ -18,20 +18,20 @@ import { FlagsSummaryPanel } from './FlagsSummaryPanel';
 interface EvaluationRun {
   id: string;
   user_id: string;
-  session_id: string;
-  source_id: string;
+  session_id: string | null;
+  source_id: string | null;
   file_type: string;
   user_type: 'synthetic' | 'real';
   
   // Performance Metrics
-  text_extraction_latency_ms: number;
-  llm_analysis_latency_ms: number;
-  database_save_latency_ms: number;
-  total_latency_ms: number;
+  text_extraction_latency_ms: number | null;
+  llm_analysis_latency_ms: number | null;
+  database_save_latency_ms: number | null;
+  total_latency_ms: number | null;
   
   // Token Usage
-  input_tokens: number;
-  output_tokens: number;
+  input_tokens: number | null;
+  output_tokens: number | null;
   model: string;
   
   // Evaluation Results
@@ -46,9 +46,26 @@ interface EvaluationRun {
   // Heuristics Data
   heuristics: any;
   
+  // PM Level Evaluation
+  pm_levels_status?: string | null;
+  pm_levels_latency_ms?: number | null;
+  pm_levels_inferred_level?: string | null;
+  pm_levels_confidence?: number | null;
+  pm_levels_previous_level?: string | null;
+  pm_levels_previous_confidence?: number | null;
+  pm_levels_trigger_reason?: string | null;
+  pm_levels_run_type?: 'first-run' | 'rerun' | 'diff' | null;
+  pm_levels_session_id?: string | null;
+  pm_levels_error?: string | null;
+  pm_levels_level_changed?: boolean | null;
+  pm_levels_delta?: Record<string, unknown> | null;
+  pm_levels_snapshot?: Record<string, unknown> | null;
+  pm_levels_prev_snapshot?: Record<string, unknown> | null;
+  
   // Metadata
   created_at: string;
   updated_at: string;
+  synthetic_profile_id?: string | null;
 }
 
 interface SourceData {
@@ -110,18 +127,27 @@ export const EvaluationDashboard: React.FC = () => {
 
         // Fetch corresponding sources
         if (runs && runs.length > 0) {
-          const sourceIds = (runs as EvaluationRun[]).map((run: EvaluationRun) => run.source_id);
-          const { data: sourcesData, error: sourcesError } = await supabase
-            .from('sources')
-            .select('id, file_name, file_type, raw_text, structured_data, created_at, storage_path')
-            .in('id', sourceIds);
+          const sourceIds = (runs as EvaluationRun[])
+            .map((run: EvaluationRun) => run.source_id)
+            .filter((id): id is string => Boolean(id));
 
-          if (sourcesError) {
-            console.error('Failed to fetch sources:', sourcesError);
-            return;
+          if (sourceIds.length > 0) {
+            const { data: sourcesData, error: sourcesError } = await supabase
+              .from('sources')
+              .select('id, file_name, file_type, raw_text, structured_data, created_at, storage_path')
+              .in('id', sourceIds);
+
+            if (sourcesError) {
+              console.error('Failed to fetch sources:', sourcesError);
+              return;
+            }
+
+            setSources(sourcesData || []);
+          } else {
+            setSources([]);
           }
-
-          setSources(sourcesData || []);
+        } else {
+          setSources([]);
         }
 
         setEvaluationRuns(runs || []);
@@ -137,7 +163,7 @@ export const EvaluationDashboard: React.FC = () => {
   }, [user?.id, userTypeFilter]);
 
   const handleRowClick = async (run: EvaluationRun) => {
-    const source = sources.find(s => s.id === run.source_id);
+    const source = run.source_id ? sources.find(s => s.id === run.source_id) : undefined;
     setSelectedRun(run);
     setSelectedSource(source || null);
     setExpandedCategories(new Set()); // Reset expanded categories when opening a new run
@@ -254,9 +280,99 @@ export const EvaluationDashboard: React.FC = () => {
   const getEvaluationBadgeColor = (value: string | undefined): string => {
     if (!value) return 'bg-gray-100 text-gray-800';
     if (value.includes('✅')) return 'bg-green-100 text-green-800';
-    if (value.includes('⚠')) return 'bg-yellow-100 text-yellow-800';
+    if (value.includes('⚠')) return 'bg-amber-100 text-amber-800';
     if (value.includes('❌')) return 'bg-red-100 text-red-800';
     return 'bg-gray-100 text-gray-800';
+  };
+
+  const getPmLevelStatusColor = (status?: string | null): string => {
+    switch (status?.toLowerCase()) {
+      case 'success':
+        return 'bg-emerald-100 text-emerald-800';
+      case 'failed':
+        return 'bg-red-100 text-red-800';
+      case 'pending':
+        return 'bg-amber-100 text-amber-800';
+      default:
+        return 'bg-gray-100 text-gray-600';
+    }
+  };
+
+  const getRunTypeBadgeColor = (runType?: EvaluationRun['pm_levels_run_type']): string => {
+    switch (runType) {
+      case 'diff':
+        return 'bg-purple-100 text-purple-800';
+      case 'first-run':
+        return 'bg-blue-100 text-blue-800';
+      case 'rerun':
+        return 'bg-gray-200 text-gray-700';
+      default:
+        return 'bg-gray-100 text-gray-600';
+    }
+  };
+
+  const formatRunTypeLabel = (runType?: EvaluationRun['pm_levels_run_type']): string => {
+    switch (runType) {
+      case 'diff':
+        return 'Diff';
+      case 'first-run':
+        return 'First Run';
+      case 'rerun':
+        return 'Rerun';
+      default:
+        return '—';
+    }
+  };
+
+  const formatConfidencePercent = (value?: number | null): string => {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return `${Math.round(value * 100)}%`;
+    }
+    return '—';
+  };
+
+  const getStabilityBadgeColor = (stability?: string | null): string => {
+    switch (stability) {
+      case 'expected':
+        return 'bg-emerald-100 text-emerald-800';
+      case 'attention':
+        return 'bg-amber-100 text-amber-800';
+      case 'initial':
+        return 'bg-blue-100 text-blue-800';
+      default:
+        return 'bg-gray-200 text-gray-700';
+    }
+  };
+
+  const formatStabilityLabel = (stability?: string | null): string => {
+    switch (stability) {
+      case 'expected':
+        return 'Expected change';
+      case 'attention':
+        return 'Needs review';
+      case 'initial':
+        return 'Baseline run';
+      default:
+        return 'Unknown stability';
+    }
+  };
+
+  const renderDeltaPill = (value: number | null | undefined): React.ReactNode => {
+    if (value == null || !Number.isFinite(value) || value === 0) {
+      return null;
+    }
+    const positive = value > 0;
+    return (
+      <span
+        className={cn(
+          'ml-2 text-xs font-medium',
+          positive ? 'text-emerald-600' : 'text-rose-600'
+        )}
+      >
+        {positive ? '+' : ''}
+        {Math.abs(Math.round(value))}
+      </span>
+    );
   };
 
   const toggleCategory = (category: string) => {
@@ -273,6 +389,9 @@ export const EvaluationDashboard: React.FC = () => {
 
   // Compute available categories and expand/collapse all
   const getAvailableCategories = (): string[] => {
+    if (selectedRun?.file_type === 'pm_level') {
+      return [];
+    }
     const categories: string[] = [];
     const sd: any = selectedSource?.structured_data || {};
     const workHistory = sd.workHistory || sd.work_history || [];
@@ -716,7 +835,13 @@ export const EvaluationDashboard: React.FC = () => {
         avgLLM: '0.00',
         avgPipeline: '0.00',
         goRate: '0.0',
-        accuracyRate: '0.0'
+        accuracyRate: '0.0',
+        pmLevelRuns: 0,
+        pmLevelSuccessRate: '0.0',
+        pmLevelChangeRate: '0.0',
+        pmLevelLatestLevel: null as string | null,
+        pmLevelLatestConfidence: null as number | null,
+        pmLevelLatestStatus: '—',
       } as const;
     }
 
@@ -737,23 +862,38 @@ export const EvaluationDashboard: React.FC = () => {
     const accurateCount = runs.filter(run => run.accuracy_score?.includes('✅')).length;
     const accuracyRate = (accurateCount / totalEvaluations) * 100;
 
+    const pmRuns = runs.filter(run => !!run.pm_levels_status);
+    const pmLevelRuns = pmRuns.length;
+    const pmSuccessCount = pmRuns.filter(run => run.pm_levels_status === 'success').length;
+    const pmChangeCount = pmRuns.filter(run => run.pm_levels_level_changed).length;
+    const pmLevelSuccessRate = pmLevelRuns > 0 ? (pmSuccessCount / pmLevelRuns) * 100 : 0;
+    const pmLevelChangeRate = pmLevelRuns > 0 ? (pmChangeCount / pmLevelRuns) * 100 : 0;
+    const latestPmRun = pmRuns[0];
+
     return {
       totalEvaluations,
       avgLLM: avgLLM.toFixed(2),
       avgPipeline: avgPipeline.toFixed(2),
       goRate: goRate.toFixed(1),
-      accuracyRate: accuracyRate.toFixed(1)
+      accuracyRate: accuracyRate.toFixed(1),
+      pmLevelRuns,
+      pmLevelSuccessRate: pmLevelSuccessRate.toFixed(1),
+      pmLevelChangeRate: pmLevelChangeRate.toFixed(1),
+      pmLevelLatestLevel: latestPmRun?.pm_levels_inferred_level ?? null,
+      pmLevelLatestConfidence: latestPmRun?.pm_levels_confidence ?? null,
+      pmLevelLatestStatus: latestPmRun?.pm_levels_status ?? '—',
     } as const;
   };
 
   const handleExport = () => {
     // Convert evaluation runs to CSV format
     const csvData = evaluationRuns.map(run => {
-      const source = sources.find(s => s.id === run.source_id);
+      const source = run.source_id ? sources.find(s => s.id === run.source_id) : undefined;
+      const displayFileName = source?.file_name || (run.file_type === 'pm_level' ? 'pm-level-run' : 'Unknown');
       return {
         timestamp: run.created_at,
         session_id: run.session_id,
-        file_name: source?.file_name || 'Unknown',
+        file_name: displayFileName,
         file_type: run.file_type,
         model: run.model,
         total_latency_ms: run.total_latency_ms,
@@ -762,7 +902,13 @@ export const EvaluationDashboard: React.FC = () => {
         accuracy_score: run.accuracy_score,
         relevance_score: run.relevance_score,
         go_nogo_decision: run.go_nogo_decision,
-        evaluation_rationale: run.evaluation_rationale
+        evaluation_rationale: run.evaluation_rationale,
+        pm_levels_status: run.pm_levels_status ?? '',
+        pm_levels_inferred_level: run.pm_levels_inferred_level ?? '',
+        pm_levels_confidence: run.pm_levels_confidence != null ? formatConfidencePercent(run.pm_levels_confidence) : '',
+        pm_levels_run_type: run.pm_levels_run_type ?? '',
+        pm_levels_trigger_reason: run.pm_levels_trigger_reason ?? '',
+        pm_levels_level_changed: run.pm_levels_level_changed ?? '',
       };
     });
     
@@ -804,6 +950,357 @@ export const EvaluationDashboard: React.FC = () => {
       return `${logged} / ${synthetic}`;
     }
     return logged;
+  };
+
+  const renderPmLevelDetail = (run: EvaluationRun) => {
+    const snapshot = (run.pm_levels_snapshot ?? null) as any;
+    const previousSnapshot = (run.pm_levels_prev_snapshot ?? null) as any;
+    const delta = (run.pm_levels_delta ?? null) as any;
+
+    const currentConfidenceValue = typeof snapshot?.confidence === 'number'
+      ? snapshot.confidence
+      : run.pm_levels_confidence ?? null;
+    const previousConfidenceValue = typeof previousSnapshot?.confidence === 'number'
+      ? previousSnapshot.confidence
+      : run.pm_levels_previous_confidence ?? null;
+    const confidenceDeltaValue = typeof delta?.confidenceDelta === 'number'
+      ? delta.confidenceDelta
+      : null;
+
+    const confidenceDeltaLabel = confidenceDeltaValue != null
+      ? `${confidenceDeltaValue > 0 ? '+' : ''}${Math.round(confidenceDeltaValue * 100)}%`
+      : '—';
+
+    const storySummary = snapshot?.levelEvidence?.stories ?? {};
+    const previousStorySummary = previousSnapshot?.levelEvidence?.stories ?? {};
+    const resumeSummary = snapshot?.levelEvidence?.resume ?? {};
+    const frameworkSummary = snapshot?.levelEvidence?.levelingFramework ?? {};
+    const previousFrameworkSummary = previousSnapshot?.levelEvidence?.levelingFramework ?? {};
+    const metricsSummary = snapshot?.levelEvidence?.metrics ?? {};
+    const previousMetricsSummary = previousSnapshot?.levelEvidence?.metrics ?? {};
+    const storyHighlights: Array<any> = Array.isArray(storySummary?.highlights) ? storySummary.highlights : [];
+    const recommendations: Array<any> = Array.isArray(snapshot?.recommendations) ? snapshot.recommendations : [];
+    const stabilityStatus = delta?.stability ?? (previousSnapshot ? 'attention' : 'initial');
+    const deltaStories = (delta?.stories ?? null) as any;
+    const deltaMetrics = (delta?.metrics ?? null) as any;
+    const deltaCriteria = (delta?.criteria ?? null) as any;
+    const storyAdditions: Array<any> = Array.isArray(deltaStories?.added) ? deltaStories.added : [];
+    const storyRemovals: Array<any> = Array.isArray(deltaStories?.removed) ? deltaStories.removed : [];
+    const currentRelevantStories =
+      typeof deltaStories?.currentRelevant === 'number'
+        ? deltaStories.currentRelevant
+        : storySummary?.relevant ?? null;
+    const previousRelevantStories =
+      typeof deltaStories?.previousRelevant === 'number'
+        ? deltaStories.previousRelevant
+        : previousStorySummary?.relevant ?? null;
+    const relevantDelta =
+      currentRelevantStories != null && previousRelevantStories != null
+        ? currentRelevantStories - previousRelevantStories
+        : null;
+    const currentMetricsTotal =
+      typeof deltaMetrics?.currentTotal === 'number'
+        ? deltaMetrics.currentTotal
+        : metricsSummary?.totalMetrics ?? null;
+    const previousMetricsTotal =
+      typeof deltaMetrics?.previousTotal === 'number'
+        ? deltaMetrics.previousTotal
+        : previousMetricsSummary?.totalMetrics ?? null;
+    const metricsDeltaValue =
+      typeof deltaMetrics?.delta === 'number'
+        ? deltaMetrics.delta
+        : currentMetricsTotal != null && previousMetricsTotal != null
+          ? currentMetricsTotal - previousMetricsTotal
+          : null;
+    const currentMetCriteria: string[] = Array.isArray(deltaCriteria?.currentMet) ? deltaCriteria.currentMet : [];
+    const previousMetCriteria: string[] = Array.isArray(deltaCriteria?.previousMet) ? deltaCriteria.previousMet : [];
+    const criteriaAdded: string[] = Array.isArray(deltaCriteria?.added) ? deltaCriteria.added : [];
+    const criteriaRemoved: string[] = Array.isArray(deltaCriteria?.removed) ? deltaCriteria.removed : [];
+    const criteriaDeltaValue =
+      previousSnapshot || previousMetCriteria.length > 0
+        ? currentMetCriteria.length - previousMetCriteria.length
+        : currentMetCriteria.length;
+
+    return (
+      <div className="space-y-8 pt-6 pb-12">
+        <section className="bg-indigo-50 border border-indigo-100 rounded-lg p-4 space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge className={getPmLevelStatusColor(run.pm_levels_status)}>
+              {run.pm_levels_status || 'unknown'}
+            </Badge>
+            {run.pm_levels_run_type && (
+              <Badge variant="outline" className={getRunTypeBadgeColor(run.pm_levels_run_type)}>
+                {formatRunTypeLabel(run.pm_levels_run_type)}
+              </Badge>
+            )}
+            {run.pm_levels_level_changed && (
+              <Badge variant="outline" className="bg-amber-100 text-amber-800">Level change</Badge>
+            )}
+            {run.pm_levels_trigger_reason && (
+              <span className="text-xs text-gray-600">Trigger: {run.pm_levels_trigger_reason}</span>
+            )}
+            <span className="text-xs text-gray-600">
+              Latency: {((run.pm_levels_latency_ms ?? run.llm_analysis_latency_ms ?? 0) / 1000).toFixed(2)}s
+            </span>
+          </div>
+          <div className="text-xs text-gray-500">
+            Session: {run.pm_levels_session_id || run.session_id || '—'}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+            <div className="rounded-lg border border-indigo-100 bg-white p-4 space-y-1">
+              <div className="text-xs text-gray-500 uppercase tracking-wide">Current Level</div>
+              <div className="text-xl font-semibold">{snapshot?.displayLevel || run.pm_levels_inferred_level || '—'}</div>
+              <div className="text-xs text-gray-600">Confidence {formatConfidencePercent(currentConfidenceValue)}</div>
+              {typeof snapshot?.scopeScore === 'number' && (
+                <div className="text-xs text-gray-500">Scope score {snapshot.scopeScore.toFixed(2)}</div>
+              )}
+            </div>
+            <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-1">
+              <div className="text-xs text-gray-500 uppercase tracking-wide">Previous Level</div>
+              <div className="text-xl font-semibold">{previousSnapshot?.displayLevel || run.pm_levels_previous_level || '—'}</div>
+              <div className="text-xs text-gray-600">Confidence {formatConfidencePercent(previousConfidenceValue)}</div>
+              <div className="text-xs text-gray-500">Confidence Δ {confidenceDeltaLabel}</div>
+            </div>
+          </div>
+        </section>
+
+        <section className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-lg font-semibold">Since Last Run</h3>
+            <Badge className={cn('text-xs', getStabilityBadgeColor(stabilityStatus))}>
+              {formatStabilityLabel(stabilityStatus)}
+            </Badge>
+          </div>
+
+          {previousSnapshot ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="border rounded-lg p-4 bg-white space-y-1">
+                  <div className="text-xs text-gray-500 uppercase tracking-wide">Stories</div>
+                  <div className="text-lg font-semibold">
+                    {currentRelevantStories ?? '—'}
+                    {renderDeltaPill(relevantDelta)}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Previously: {previousRelevantStories ?? '—'}
+                  </div>
+                  {storyAdditions.length > 0 && (
+                    <div className="text-xs text-emerald-600">
+                      +{storyAdditions.length} new stor{storyAdditions.length === 1 ? 'y' : 'ies'}
+                    </div>
+                  )}
+                  {storyRemovals.length > 0 && (
+                    <div className="text-xs text-rose-600">
+                      -{storyRemovals.length} stor{storyRemovals.length === 1 ? 'y' : 'ies'} removed
+                    </div>
+                  )}
+                </div>
+                <div className="border rounded-lg p-4 bg-white space-y-1">
+                  <div className="text-xs text-gray-500 uppercase tracking-wide">Metrics</div>
+                  <div className="text-lg font-semibold">
+                    {currentMetricsTotal ?? '—'}
+                    {renderDeltaPill(metricsDeltaValue)}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Previously: {previousMetricsTotal ?? '—'}
+                  </div>
+                </div>
+                <div className="border rounded-lg p-4 bg-white space-y-1">
+                  <div className="text-xs text-gray-500 uppercase tracking-wide">Criteria Met</div>
+                  <div className="text-lg font-semibold">
+                    {currentMetCriteria.length}
+                    {renderDeltaPill(criteriaDeltaValue)}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Total Criteria: {deltaCriteria?.totalCurrent ?? previousFrameworkSummary?.criteria?.length ?? frameworkSummary?.criteria?.length ?? '—'}
+                  </div>
+                </div>
+              </div>
+
+              {(storyAdditions.length > 0 || storyRemovals.length > 0) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {storyAdditions.length > 0 && (
+                    <div className="border rounded-lg bg-emerald-50 border-emerald-100 p-4 space-y-2">
+                      <h4 className="text-sm font-semibold text-emerald-800">
+                        New Stories ({storyAdditions.length})
+                      </h4>
+                      <ul className="space-y-1 text-sm text-emerald-900">
+                        {storyAdditions.map((story: any, idx: number) => (
+                          <li key={`added-${story?.id ?? idx}`}>
+                            <span className="font-medium">{story?.title || 'Untitled story'}</span>
+                            {story?.sourceRole && (
+                              <span className="ml-1 text-xs text-emerald-700"> - {story.sourceRole}</span>
+                            )}
+                            {story?.sourceCompany && (
+                              <span className="ml-1 text-xs text-emerald-700"> - {story.sourceCompany}</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {storyRemovals.length > 0 && (
+                    <div className="border rounded-lg bg-rose-50 border-rose-100 p-4 space-y-2">
+                      <h4 className="text-sm font-semibold text-rose-800">
+                        Stories No Longer Highlighted ({storyRemovals.length})
+                      </h4>
+                      <ul className="space-y-1 text-sm text-rose-900">
+                        {storyRemovals.map((story: any, idx: number) => (
+                          <li key={`removed-${story?.id ?? idx}`}>
+                            <span className="font-medium">{story?.title || 'Untitled story'}</span>
+                            {story?.sourceRole && (
+                              <span className="ml-1 text-xs text-rose-700"> - {story.sourceRole}</span>
+                            )}
+                            {story?.sourceCompany && (
+                              <span className="ml-1 text-xs text-rose-700"> - {story.sourceCompany}</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {(criteriaAdded.length > 0 || criteriaRemoved.length > 0) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {criteriaAdded.length > 0 && (
+                    <div className="border rounded-lg bg-emerald-50 border-emerald-100 p-4 space-y-2">
+                      <h4 className="text-sm font-semibold text-emerald-800">
+                        Newly Met Criteria ({criteriaAdded.length})
+                      </h4>
+                      <ul className="space-y-1 text-sm text-emerald-900">
+                        {criteriaAdded.map((criterion, idx) => (
+                          <li key={`criterion-added-${idx}`}>{criterion}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {criteriaRemoved.length > 0 && (
+                    <div className="border rounded-lg bg-rose-50 border-rose-100 p-4 space-y-2">
+                      <h4 className="text-sm font-semibold text-rose-800">
+                        Criteria Requiring Attention ({criteriaRemoved.length})
+                      </h4>
+                      <ul className="space-y-1 text-sm text-rose-900">
+                        {criteriaRemoved.map((criterion, idx) => (
+                          <li key={`criterion-removed-${idx}`}>{criterion}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-gray-600">
+              Baseline run captured. Future analyses will highlight evidence changes.
+            </p>
+          )}
+        </section>
+
+        {run.pm_levels_error && (
+          <section className="border border-red-200 bg-red-50 rounded-lg p-4">
+            <h3 className="text-sm font-semibold text-red-800 mb-2">Run Error</h3>
+            <p className="text-sm text-red-700">{run.pm_levels_error}</p>
+          </section>
+        )}
+
+        <section className="space-y-4">
+          <h3 className="text-lg font-semibold">Evidence Summary</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="border rounded-lg p-4 bg-gray-50">
+              <div className="text-xs text-gray-500 uppercase tracking-wide">Stories</div>
+              <div className="text-2xl font-semibold">
+                {storySummary?.relevant ?? '—'} <span className="text-sm text-gray-500">relevant</span>
+              </div>
+              <div className="text-xs text-gray-500">
+                Total stories: {storySummary?.total ?? '—'}
+              </div>
+            </div>
+            <div className="border rounded-lg p-4 bg-gray-50">
+              <div className="text-xs text-gray-500 uppercase tracking-wide">Experience</div>
+              <div className="text-sm text-gray-700">
+                {Array.isArray(resumeSummary?.roleTitles) && resumeSummary.roleTitles.length > 0
+                  ? resumeSummary.roleTitles.join(', ')
+                  : '—'}
+              </div>
+              <div className="text-xs text-gray-500">Duration: {resumeSummary?.duration || '—'}</div>
+            </div>
+            <div className="border rounded-lg p-4 bg-gray-50 space-y-1">
+              <div className="text-xs text-gray-500 uppercase tracking-wide">Framework</div>
+              <div className="text-sm text-gray-700">
+                Confidence %: {frameworkSummary?.confidencePercentage != null
+                  ? `${Math.round(frameworkSummary.confidencePercentage)}%`
+                  : '—'}
+              </div>
+              <div className="text-xs text-gray-500">
+                Criteria met: {Array.isArray(frameworkSummary?.criteria) ? frameworkSummary.criteria.length : '—'}
+              </div>
+            </div>
+            <div className="border rounded-lg p-4 bg-gray-50">
+              <div className="text-xs text-gray-500 uppercase tracking-wide">Metrics</div>
+              <div className="text-sm text-gray-700">
+                Total metrics: {metricsSummary?.totalMetrics ?? '—'}
+              </div>
+              <div className="text-xs text-gray-500">
+                Impact level: {metricsSummary?.impactLevel || '—'}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {storyHighlights.length > 0 && (
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Story Highlights</h3>
+              <span className="text-xs text-gray-500">Showing up to 5 stories</span>
+            </div>
+            <div className="space-y-2">
+              {storyHighlights.map((story, idx) => (
+                <div key={`${story.id ?? idx}`} className="border rounded-lg p-3 bg-white">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-medium text-gray-800">{story.title || 'Untitled story'}</div>
+                    {story.levelAssessment && (
+                      <Badge variant="outline">{story.levelAssessment}</Badge>
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {story.sourceRole && <span>{story.sourceRole}</span>}
+                    {story.sourceCompany && story.sourceRole && <span className="mx-1">•</span>}
+                    {story.sourceCompany && <span>{story.sourceCompany}</span>}
+                  </div>
+                  {story.confidence && (
+                    <div className="text-xs text-gray-500">Confidence: {story.confidence}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {Array.isArray(frameworkSummary?.criteria) && frameworkSummary.criteria.length > 0 && (
+          <section className="space-y-3">
+            <h3 className="text-lg font-semibold">Leveling Framework Criteria</h3>
+            <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+              {frameworkSummary.criteria.map((item: any, idx: number) => (
+                <li key={idx}>{typeof item === 'string' ? item : JSON.stringify(item)}</li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {recommendations.length > 0 && (
+          <section className="space-y-3">
+            <h3 className="text-lg font-semibold">Recommendations</h3>
+            <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+              {recommendations.slice(0, 5).map((rec: any, idx: number) => (
+                <li key={idx}>{typeof rec === 'string' ? rec : rec?.title || JSON.stringify(rec)}</li>
+              ))}
+            </ul>
+          </section>
+        )}
+      </div>
+    );
   };
 
   if (loading) {
@@ -863,7 +1360,7 @@ export const EvaluationDashboard: React.FC = () => {
       </div>
 
       {/* Summary Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-gray-600">Total Evaluations</CardTitle>
@@ -904,6 +1401,23 @@ export const EvaluationDashboard: React.FC = () => {
             <div className="text-2xl font-bold">{metrics.accuracyRate}%</div>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-600">PM Level Runs</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{metrics.pmLevelRuns}</div>
+            <div className="text-xs text-gray-500 mt-1">Success: {metrics.pmLevelSuccessRate}% · Change: {metrics.pmLevelChangeRate}%</div>
+            {metrics.pmLevelLatestLevel && (
+              <div className="text-xs text-gray-600 mt-1">
+                Last: {metrics.pmLevelLatestLevel}
+                {typeof metrics.pmLevelLatestConfidence === 'number' && (
+                  <> · {(metrics.pmLevelLatestConfidence * 100).toFixed(0)}% confidence</>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Table View */}
@@ -931,12 +1445,18 @@ export const EvaluationDashboard: React.FC = () => {
                   <TableHead>Go/No-Go</TableHead>
                   <TableHead>Accuracy</TableHead>
                   <TableHead>Relevance</TableHead>
+                  <TableHead>PM Level</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {evaluationRuns.map((run, index) => {
-                  const source = sources.find(s => s.id === run.source_id);
+                  const source = run.source_id ? sources.find(s => s.id === run.source_id) : undefined;
+                  const isPmLevel = run.file_type === 'pm_level';
+                  const displayFileName = isPmLevel
+                    ? `PM Level${run.synthetic_profile_id ? ` (${run.synthetic_profile_id})` : ''}`
+                    : source?.file_name || 'Unknown';
+                  const modelLabel = isPmLevel ? 'pm-levels' : (run.model || '—');
                   return (
                     <TableRow 
                       key={run.id}
@@ -944,9 +1464,9 @@ export const EvaluationDashboard: React.FC = () => {
                       onClick={() => handleRowClick(run)}
                     >
                       <TableCell className="font-medium">#{evaluationRuns.length - index}</TableCell>
-                      <TableCell className="text-sm">{source?.file_name || 'Unknown'}</TableCell>
+                      <TableCell className="text-sm">{displayFileName}</TableCell>
                       <TableCell>
-                        <Badge variant="outline">{run.file_type}</Badge>
+                        <Badge variant="outline">{isPmLevel ? 'pm_level' : run.file_type}</Badge>
                       </TableCell>
                       <TableCell>
                         <Badge 
@@ -959,11 +1479,11 @@ export const EvaluationDashboard: React.FC = () => {
                       <TableCell className="text-sm text-gray-600">
                         {new Date(run.created_at).toLocaleString()}
                       </TableCell>
-                      <TableCell className="text-sm">{run.model}</TableCell>
+                      <TableCell className="text-sm">{modelLabel}</TableCell>
                       <TableCell className="text-sm">
                         <div className="text-xs leading-tight">
                           <div>LLM: {((run.llm_analysis_latency_ms || 0) / 1000).toFixed(2)}s</div>
-                          <div>Pipeline: {run.file_type === 'coverLetter' && (run.total_latency_ms || 0) > 0 ? ((run.total_latency_ms || 0) / 1000).toFixed(2) + 's' : '—'}</div>
+                          <div>Pipeline: {(!isPmLevel && run.file_type === 'coverLetter' && (run.total_latency_ms || 0) > 0) ? ((run.total_latency_ms || 0) / 1000).toFixed(2) + 's' : '—'}</div>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -972,14 +1492,51 @@ export const EvaluationDashboard: React.FC = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={getEvaluationBadgeColor(run.accuracy_score)}>
-                          {run.accuracy_score}
-                        </Badge>
+                        {isPmLevel ? (
+                          <span className="text-xs text-gray-500">—</span>
+                        ) : (
+                          <Badge variant="outline" className={getEvaluationBadgeColor(run.accuracy_score)}>
+                            {run.accuracy_score}
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={getEvaluationBadgeColor(run.relevance_score)}>
-                          {run.relevance_score}
-                        </Badge>
+                        {isPmLevel ? (
+                          <span className="text-xs text-gray-500">—</span>
+                        ) : (
+                          <Badge variant="outline" className={getEvaluationBadgeColor(run.relevance_score)}>
+                            {run.relevance_score}
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs text-gray-600">
+                        {run.pm_levels_status ? (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge className={getPmLevelStatusColor(run.pm_levels_status)}>
+                                {run.pm_levels_inferred_level || '—'}
+                              </Badge>
+                              <Badge variant="outline">
+                                {formatConfidencePercent(run.pm_levels_confidence)}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {run.pm_levels_run_type && (
+                                <Badge variant="outline" className={getRunTypeBadgeColor(run.pm_levels_run_type)}>
+                                  {formatRunTypeLabel(run.pm_levels_run_type)}
+                                </Badge>
+                              )}
+                              {run.pm_levels_level_changed ? (
+                                <Badge variant="outline" className="bg-amber-100 text-amber-800">Level change</Badge>
+                              ) : null}
+                              {run.pm_levels_trigger_reason && (
+                                <span className="text-[11px] text-gray-500">{run.pm_levels_trigger_reason}</span>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Button 
@@ -1009,7 +1566,9 @@ export const EvaluationDashboard: React.FC = () => {
           <section className="p-6 pb-0">
             <div className="grid grid-cols-3 items-center gap-4 pr-10">
               <h2 className="text-lg font-semibold leading-tight tracking-tight truncate">
-                {selectedSource?.file_name || `Evaluation Details`}
+                {selectedRun?.file_type === 'pm_level'
+                  ? `PM Level${selectedRun?.synthetic_profile_id ? ` (${selectedRun.synthetic_profile_id})` : ''}`
+                  : selectedSource?.file_name || `Evaluation Details`}
               </h2>
               <div className="text-lg font-semibold leading-tight tracking-tight text-center truncate">{getHeaderUserText()}</div>
           {selectedRun && (
@@ -1026,6 +1585,11 @@ export const EvaluationDashboard: React.FC = () => {
             <div className={cn('relative', flagModalOpen ? 'flex min-h-0 h-full' : '')}>
               {/* Left content */}
               <div className={cn('px-6 space-y-8', flagModalOpen ? 'flex-1 overflow-y-auto min-w-0' : '')}>
+                {selectedRun.file_type === 'pm_level' ? (
+                  renderPmLevelDetail(selectedRun)
+                ) : (
+                  <>
+
               {/* Meta Data */}
               <div className="grid grid-cols-3 gap-4 pt-6 pb-6">
                 <div className="text-center space-y-0.5">
@@ -1038,14 +1602,79 @@ export const EvaluationDashboard: React.FC = () => {
                 </div>
                 <div className="text-center space-y-0.5">
                   <div className="text-sm text-gray-600">Processing Speed</div>
-                  <div className="text-2xl font-bold">{(selectedRun.total_latency_ms / 1000).toFixed(2)}s</div>
+                  <div className="text-2xl font-bold">{(((selectedRun.total_latency_ms ?? 0)) / 1000).toFixed(2)}s</div>
                 </div>
               </div>
 
               <hr className="border-gray-200" />
 
+              {selectedRun.pm_levels_status && (
+                <>
+                  <div className="bg-white border rounded-lg p-4 space-y-3">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="text-sm text-gray-600">PM Level Status</div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge className={getPmLevelStatusColor(selectedRun.pm_levels_status)}>
+                            {selectedRun.pm_levels_status}
+                          </Badge>
+                          {selectedRun.pm_levels_run_type && (
+                            <Badge variant="outline" className={getRunTypeBadgeColor(selectedRun.pm_levels_run_type)}>
+                              {formatRunTypeLabel(selectedRun.pm_levels_run_type)}
+                            </Badge>
+                          )}
+                          {selectedRun.pm_levels_level_changed ? (
+                            <Badge variant="outline" className="bg-amber-100 text-amber-800">Level change</Badge>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div className="text-right space-y-1">
+                        <div className="text-sm text-gray-600">Current Level</div>
+                        <div className="text-2xl font-semibold">{selectedRun.pm_levels_inferred_level || '—'}</div>
+                        <div className="text-xs text-gray-500">Confidence {formatConfidencePercent(selectedRun.pm_levels_confidence)}</div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600">
+                      <div>
+                        <span className="font-medium text-gray-700">Previous:</span>{' '}
+                        {selectedRun.pm_levels_previous_level || '—'}{' '}
+                        {selectedRun.pm_levels_previous_confidence != null && (
+                          <span className="text-gray-500">({formatConfidencePercent(selectedRun.pm_levels_previous_confidence)})</span>
+                        )}
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700">Trigger:</span>{' '}
+                        {selectedRun.pm_levels_trigger_reason || '—'}
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700">Latency:</span>{' '}
+                        {selectedRun.pm_levels_latency_ms != null ? `${(selectedRun.pm_levels_latency_ms / 1000).toFixed(2)}s` : '—'}
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700">Session:</span>{' '}
+                        {selectedRun.pm_levels_session_id || selectedRun.session_id || '—'}
+                      </div>
+                    </div>
+                    {selectedRun.pm_levels_error && (
+                      <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md p-2">
+                        {selectedRun.pm_levels_error}
+                      </div>
+                    )}
+                    {selectedRun.pm_levels_delta && typeof selectedRun.pm_levels_delta === 'object' && (
+                      <div className="text-xs text-gray-500">
+                        <div>
+                          Confidence Δ: {formatConfidencePercent((selectedRun.pm_levels_delta as any)?.confidenceDelta ?? null)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <hr className="border-gray-200" />
+                </>
+              )}
+
               {/* LLM Judge Evaluation */}
-                <div>
+              <div>
                 <div className="flex items-center gap-2 mb-3">
                   <h3 className="text-lg font-semibold">
                     LLM Judge Evaluation
@@ -1929,7 +2558,10 @@ export const EvaluationDashboard: React.FC = () => {
               {/* Performance Metrics removed as redundant */}
 
               {/* Heuristics removed; combined above */}
+                  </>
+                )}
               </div>
+
               {/* Right drawer */}
               {flagModalOpen && flaggingItem && (
                 <FlagModal

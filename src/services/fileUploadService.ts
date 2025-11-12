@@ -190,7 +190,7 @@ type SourceEntry = { id: string; processing_status: string; structured_data?: un
   /**
    * Upload file to Supabase Storage
    */
-  async uploadToStorage(file: File, userId: string, skipAuthCheck: boolean = false, accessToken?: string): Promise<StorageUploadResult> {
+  async uploadToStorage(file: File, userId: string, fileType: FileType, skipAuthCheck: boolean = false, accessToken?: string): Promise<StorageUploadResult> {
     try {
       const storagePath = this.generateStoragePath(userId, file.name);
       console.log('Uploading file:', { name: file.name, size: file.size, type: file.type });
@@ -202,7 +202,7 @@ type SourceEntry = { id: string; processing_status: string; structured_data?: un
       
       // Use direct fetch instead of Supabase client since it's not working
       console.log('Uploading to storage...');
-      window.dispatchEvent(new CustomEvent('file-upload-progress', { detail: { sourceId: '', stage: 'uploading', progress: 15, message: 'Uploading file...' } }));
+      window.dispatchEvent(new CustomEvent('file-upload-progress', { detail: { sourceId: '', stage: 'uploading', progress: 15, message: 'Uploading file...', fileType } }));
       
       const { url: supabaseUrl, key: supabaseKey } = getSupabaseConfig();
       
@@ -478,7 +478,7 @@ source_type: dbSourceType,
         storagePath = `manual/${userId}/${type}/${Date.now()}.txt`;
       } else {
         // Upload to storage for real files
-        const uploadResult = await this.uploadToStorage(file, userId, true, accessToken);
+        const uploadResult = await this.uploadToStorage(file, userId, type, true, accessToken);
         if (!uploadResult.success) {
           console.error('Storage upload failed:', uploadResult.error);
           return {
@@ -1220,6 +1220,7 @@ source_type: dbSourceType,
         syntheticProfileId: activeProfileId || undefined,
         delayMs: 6000,
         reason: `[FileUploadService] Structured data processed from ${sourceData.file_name || sourceId}`,
+        triggerReason: 'content-update',
       });
       
       // Emit progress update

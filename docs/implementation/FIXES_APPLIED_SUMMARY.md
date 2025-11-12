@@ -1,10 +1,21 @@
 # Fixes Applied - Synthetic Mode & Data Processing
 
 ## Summary
-Fixed three critical issues in the upload processing pipeline:
-1. **Cover letter workHistory not processed** - Now processes workHistory from cover letters
-2. **LinkedIn data fetching missing** - Added Appify API integration (replaces PDL)
-3. **Unified profile creation missing** - Added automatic unified profile creation from all sources
+Latest updates include:
+- **Streaming progress experience** across cover letter editor, onboarding, and PM-level assessment. Each screen now surfaces step-by-step status with the shared `useStreamingProgress` hook and `StreamingProgress` component. Empty states provide clear guidance on next actions.
+- Fixed three critical issues in the upload processing pipeline:
+  1. **Cover letter workHistory not processed** - Now processes workHistory from cover letters
+  2. **LinkedIn data fetching missing** - Added Appify API integration (replaces PDL)
+  3. **Unified profile creation missing** - Added automatic unified profile creation from all sources
+
+### UI Streaming Pattern
+- **Hook:** `useStreamingProgress` wraps AI SDK streams or async jobs and exposes `steps`, `events`, and lifecycle helpers (`setStepStatus`, `setStepDetail`, `setStepProgress`, `startTextStream`).
+- **Component:** `StreamingProgress` renders step timelines, optional event feed, and live output. Callers pass the hook output to surface streaming diagnostics.
+- **Adoption:**
+  - `src/pages/CoverLetterTemplate.tsx`, `SavedSections.tsx`, `CoverLetters.tsx` now map Supabase fetches and gap detection into streaming steps.
+  - `src/pages/NewUserOnboarding.tsx` shows resume/LinkedIn/cover letter completion with actionable details.
+  - `src/pages/Assessment.tsx` narrates PM-level analysis progress and background refreshes.
+- **Empty States:** Enhanced onboarding and assessment empty states explain what data is missing and provide CTA buttons to run analysis or add content.
 
 ## Changes Made
 

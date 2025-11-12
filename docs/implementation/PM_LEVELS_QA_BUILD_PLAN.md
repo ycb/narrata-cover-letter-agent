@@ -3,6 +3,27 @@
 ## Overview
 This plan covers QA testing and follow-on development for the PM Levels Service feature. The service automatically infers a user's product management level (L3-L6 IC, M1-M2 Manager) based on their résumé and content.
 
+## PM Level Evaluation Logging
+
+The evaluation dashboard now captures each PM Level run alongside resume and cover letter evaluations.
+
+**Logging pipeline**
+- `PMLevelsService.analyzeUserLevel` computes the inference and forwards latency, run type, trigger reason, prior level, and errors to `evaluation_runs`.
+- Background triggers (`schedulePMLevelBackgroundRun`) stamp session IDs and mark the run reason so diffs triggered by new data are distinguishable from manual reruns.
+- When no prior evaluation row exists, `logPMLevelsResult` creates a dedicated `pm_level` row so background jobs surface in the dashboard with synthetic vs. real user attribution.
+
+**New `evaluation_runs` columns**
+- `pm_levels_status`, `pm_levels_latency_ms` — success/failure + timing.
+- `pm_levels_inferred_level`, `pm_levels_confidence` — latest inference details.
+- `pm_levels_previous_level`, `pm_levels_previous_confidence`, `pm_levels_level_changed` — diff awareness.
+- `pm_levels_trigger_reason`, `pm_levels_run_type`, `pm_levels_session_id`, `pm_levels_error`, `pm_levels_delta` — context for data quality triage.
+
+**QA checkpoints**
+1. Trigger a PM Level run (upload, manual recalc, background) and confirm an evaluation row is inserted/updated with the new columns populated.
+2. Verify the Evaluation Dashboard table badges show level, confidence, run type, and change status.
+3. Export CSV and confirm PM Level fields are present.
+4. For failures, ensure `pm_levels_error` and status badges surface the issue for follow-up.
+
 ## Current State Assessment
 
 ### ✅ Completed

@@ -1,280 +1,453 @@
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { 
-  FileText, 
-  Mail, 
-  Plus, 
-  Search, 
-  Edit, 
-  Eye, 
-  Trash2, 
-  Copy,
-  Download,
-  Share2,
-  Calendar,
   Building2,
-  User,
+  Calendar,
   CheckCircle,
   Clock,
-  TrendingUp,
-  MoreHorizontal,
+  Eye,
   LayoutTemplate,
-  Trophy
+  Mail,
+  Plus,
+  Search,
+  User
 } from "lucide-react";
-import { Link } from "react-router-dom";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import CoverLetterCreateModal from "@/components/cover-letters/CoverLetterCreateModal";
 import { CoverLetterViewModal } from "@/components/cover-letters/CoverLetterViewModal";
 import { CoverLetterEditModal } from "@/components/cover-letters/CoverLetterEditModal";
 import { useTour } from "@/contexts/TourContext";
 import { TourBannerFull } from "@/components/onboarding/TourBannerFull";
+import { useAuth } from "@/contexts/AuthContext";
+import { useStreamingProgress } from "@/hooks/useStreamingProgress";
+import { StreamingProgress } from "@/components/shared/StreamingProgress";
+import { EmptyState } from "@/components/shared/EmptyState";
+import {
+  CoverLetterTemplateService,
+  type CoverLetterSummary
+} from "@/services/coverLetterTemplateService";
+import type {
+  CoverLetterGeneratedSection,
+  CoverLetterSection
+} from "@/types/workHistory";
 
-// Mock data for cover letters
-const mockCoverLetters = [
-  {
-    id: "cl-1",
-    title: "Senior Product Manager - TechCorp",
-    company: "TechCorp Inc.",
-    position: "Senior Product Manager",
-    status: "draft",
-    createdAt: "2024-01-15T10:30:00Z",
-    updatedAt: "2024-01-15T14:45:00Z",
-    atsScore: 92,
-    overallRating: "strong",
+type CoverLetterStatus = "draft" | "reviewed" | "finalized";
+
+interface CoverLetterAnalytics {
+  atsScore?: number | null;
+  rating?: string | null;
+  summary?: string | null;
+}
+
+interface CoverLetterListItem {
+  id: string;
+  templateId: string;
+  templateName: string | null;
+  jobDescriptionId: string;
+  title: string;
+  company: string;
+  position: string;
+  status: CoverLetterStatus;
+  createdAt: string;
+  updatedAt: string;
+  jobDescriptionContent: string;
+  jobDescriptionUrl: string | null;
+  sections: CoverLetterGeneratedSection[];
+  templateSections: CoverLetterSection[];
+  llmFeedback: Record<string, unknown> | null;
+  analytics: CoverLetterAnalytics;
+}
+
+interface ModalCoverLetterPayload extends CoverLetterListItem {
     content: {
-      sections: [
-        {
-          id: 'intro',
-          type: 'intro',
-          content: "I am writing to express my strong interest in the Senior Product Manager position at TechCorp. With over 5 years of experience in product management and a passion for data-driven decision making, I have consistently delivered measurable results that demonstrate my value.",
-          isEnhanced: true
-        },
-        {
-          id: 'experience',
-          type: 'experience',
-          content: "In my previous role as a Senior Product Manager at InnovateTech, I successfully led cross-functional teams of 8-12 engineers, designers, and analysts to deliver products that met both user needs and business objectives.",
-          isEnhanced: true
-        },
-        {
-          id: 'closing',
-          type: 'closing',
-          content: "I am particularly excited about this opportunity at TechCorp because your focus on sustainable technology solutions and commitment to innovation aligns perfectly with my values and experience.",
-          isEnhanced: true
-        },
-        {
-          id: 'signature',
-          type: 'signature',
-          content: "I look forward to discussing how my background aligns with your needs and how I can contribute to TechCorp's continued success.\n\nBest regards,\nJohn Smith\n(555) 123-4567\njohn.smith@email.com\nlinkedin.com/in/johnsmith",
-          isEnhanced: false
-        }
-      ]
-    },
-    metrics: {
-      goalsMatch: "strong",
-      experienceMatch: "strong", 
-      coverLetterRating: "strong",
-      atsScore: 92,
-      coreRequirementsMet: { met: 4, total: 4 },
-      preferredRequirementsMet: { met: 3, total: 4 }
-    }
-  },
-  {
-    id: "cl-2",
-    title: "Lead Product Manager - StartupXYZ",
-    company: "StartupXYZ",
-    position: "Lead Product Manager",
-    status: "finalized",
-    createdAt: "2024-01-10T09:15:00Z",
-    updatedAt: "2024-01-12T16:20:00Z",
-    atsScore: 88,
-    overallRating: "strong",
-    content: {
-      sections: [
-        {
-          id: 'intro',
-          type: 'intro',
-          content: "I am writing to express my strong interest in the Lead Product Manager position at StartupXYZ. With over 6 years of experience in product management and a track record of scaling products from 0 to millions of users.",
-          isEnhanced: true
-        },
-        {
-          id: 'experience',
-          type: 'experience',
-          content: "In my previous role as a Product Manager at ScaleTech, I successfully scaled a SaaS product from 10,000 to 500,000 users, leading a team of 15 engineers and designers.",
-          isEnhanced: true
-        },
-        {
-          id: 'closing',
-          type: 'closing',
-          content: "I am particularly excited about this opportunity at StartupXYZ because your mission to democratize technology aligns perfectly with my passion for building products that make a difference.",
-          isEnhanced: true
-        },
-        {
-          id: 'signature',
-          type: 'signature',
-          content: "I look forward to discussing how my background aligns with your needs and how I can contribute to StartupXYZ's continued success.\n\nBest regards,\nJohn Smith\n(555) 123-4567\njohn.smith@email.com\nlinkedin.com/in/johnsmith",
-          isEnhanced: false
-        }
-      ]
-    },
-    metrics: {
-      goalsMatch: "strong",
-      experienceMatch: "strong",
-      coverLetterRating: "strong", 
-      atsScore: 88,
-      coreRequirementsMet: { met: 4, total: 4 },
-      preferredRequirementsMet: { met: 2, total: 4 }
-    }
-  },
-  {
-    id: "cl-3",
-    title: "Product Director - EnterpriseCorp",
-    company: "EnterpriseCorp",
-    position: "Product Director",
-    status: "draft",
-    createdAt: "2024-01-08T11:00:00Z",
-    updatedAt: "2024-01-08T11:00:00Z",
-    atsScore: 85,
-    overallRating: "average",
-    content: {
-      sections: [
-        {
-          id: 'intro',
-          type: 'intro',
-          content: "I am writing to express my interest in the Product Director position at EnterpriseCorp. With over 7 years of experience in product management and leadership.",
-          isEnhanced: false
-        },
-        {
-          id: 'experience',
-          type: 'experience',
-          content: "In my previous role as a Senior Product Manager, I led product strategy and execution for enterprise software solutions.",
-          isEnhanced: false
-        },
-        {
-          id: 'closing',
-          type: 'closing',
-          content: "I am excited about the opportunity to contribute to EnterpriseCorp's mission of transforming enterprise software.",
-          isEnhanced: false
-        },
-        {
-          id: 'signature',
-          type: 'signature',
-          content: "I look forward to discussing how my background aligns with your needs.\n\nBest regards,\nJohn Smith\n(555) 123-4567\njohn.smith@email.com\nlinkedin.com/in/johnsmith",
-          isEnhanced: false
-        }
-      ]
-    },
-    metrics: {
-      goalsMatch: "average",
-      experienceMatch: "average",
-      coverLetterRating: "average",
-      atsScore: 85,
-      coreRequirementsMet: { met: 3, total: 4 },
-      preferredRequirementsMet: { met: 1, total: 4 }
-    }
+    sections: Array<{
+      id: string;
+      type: string;
+      content: string;
+      isEnhanced: boolean;
+    }>;
+  };
+  jobDescription: string;
+}
+
+const parseAtsScore = (feedback: Record<string, unknown> | null): number | null => {
+  if (!feedback) {
+    return null;
   }
-];
+
+  const candidate =
+    feedback.atsScore ??
+    feedback.ats_score ??
+    feedback.score ??
+    feedback.ats ??
+    null;
+
+  if (typeof candidate === "number") {
+    return candidate;
+  }
+
+  if (typeof candidate === "string") {
+    const parsed = Number.parseFloat(candidate);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+};
+
+const parseRating = (feedback: Record<string, unknown> | null): string | null => {
+  if (!feedback) {
+    return null;
+  }
+
+  const candidate =
+    feedback.coverLetterRating ??
+    feedback.rating ??
+    feedback.verdict ??
+    feedback.status ??
+    null;
+
+  return typeof candidate === "string" && candidate.trim().length > 0
+    ? candidate
+    : null;
+};
+
+const parseSummary = (feedback: Record<string, unknown> | null): string | null => {
+  if (!feedback) {
+    return null;
+  }
+  const candidate = feedback.summary ?? feedback.notes ?? null;
+  return typeof candidate === "string" && candidate.trim().length > 0 ? candidate : null;
+};
+
+const transformSummary = (summary: CoverLetterSummary): CoverLetterListItem => {
+  const company = summary.jobDescription?.company ?? "Unknown company";
+  const position = summary.jobDescription?.role ?? "Role";
+  const title = [position, company].filter(Boolean).join(" • ") || "Cover Letter";
+
+  return {
+    id: summary.id,
+    templateId: summary.templateId,
+    templateName: summary.templateName,
+    jobDescriptionId: summary.jobDescriptionId,
+    title,
+    company,
+    position,
+    status: summary.status,
+    createdAt: summary.createdAt,
+    updatedAt: summary.updatedAt,
+    jobDescriptionContent: summary.jobDescription?.content ?? "",
+    jobDescriptionUrl: summary.jobDescription?.url ?? null,
+    sections: summary.sections,
+    templateSections: summary.templateSections,
+    llmFeedback: summary.llmFeedback,
+    analytics: {
+      atsScore: parseAtsScore(summary.llmFeedback),
+      rating: parseRating(summary.llmFeedback),
+      summary: parseSummary(summary.llmFeedback)
+    }
+  };
+};
+
+const toModalPayload = (coverLetter: CoverLetterListItem): ModalCoverLetterPayload => {
+  const sectionsSource =
+    coverLetter.sections.length > 0
+      ? coverLetter.sections
+      : coverLetter.templateSections.map((section) => ({
+          id: section.id,
+          sectionId: section.id,
+          content: section.staticContent ?? "",
+          isModified: false
+        }));
+
+  const sections = sectionsSource.map((section, index) => {
+    const templateSection = coverLetter.templateSections.find(
+      (candidate) => candidate.id === section.sectionId
+    );
+    const fallbackType =
+      index === 0
+        ? "intro"
+        : index === sectionsSource.length - 1
+          ? "closing"
+          : "paragraph";
+
+    return {
+      id: section.id ?? section.sectionId ?? `section-${index}`,
+      type: templateSection?.type ?? fallbackType,
+      content:
+        (section as CoverLetterGeneratedSection).content ??
+        templateSection?.staticContent ??
+        "",
+      isEnhanced: templateSection?.isStatic === false
+    };
+  });
+
+  return {
+    ...coverLetter,
+    content: { sections },
+    jobDescription: coverLetter.jobDescriptionContent
+  };
+};
+
+const getStatusTone = (status: CoverLetterStatus): string => {
+  switch (status) {
+    case "finalized":
+      return "bg-success text-success-foreground";
+    case "reviewed":
+      return "bg-primary/10 text-primary";
+    default:
+      return "bg-warning text-warning-foreground";
+  }
+};
+
+const getStatusLabel = (status: CoverLetterStatus): string => {
+  switch (status) {
+    case "finalized":
+      return "Finalized";
+    case "reviewed":
+      return "Reviewed";
+    default:
+      return "Draft";
+  }
+};
+
+const formatShortDate = (value: string): string =>
+  new Date(value).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 
 export default function CoverLetters() {
+  const { user } = useAuth();
+  const {
+    isActive: isTourActive,
+    currentStep: tourStep,
+    tourSteps,
+    currentTourStep,
+    nextStep,
+    previousStep,
+    cancelTour
+  } = useTour();
+
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "finalized">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | CoverLetterStatus>("all");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedCoverLetter, setSelectedCoverLetter] = useState<any>(null);
-  const [coverLetters, setCoverLetters] = useState(mockCoverLetters);
-  
-  // Tour integration
-  const { isActive: isTourActive, currentStep: tourStep, tourSteps, currentTourStep, nextStep, previousStep, cancelTour } = useTour();
+  const [selectedCoverLetter, setSelectedCoverLetter] = useState<CoverLetterListItem | null>(null);
+  const [coverLetters, setCoverLetters] = useState<CoverLetterListItem[]>([]);
+  const [activeProfileId, setActiveProfileId] = useState<string | undefined>();
+  const mountedRef = useRef(true);
 
-  // Filter cover letters based on search and status
-  const filteredCoverLetters = coverLetters.filter(letter => {
-    const matchesSearch = letter.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         letter.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         letter.position.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || letter.status === statusFilter;
-    return matchesSearch && matchesStatus;
+  const {
+    steps: loadSteps,
+    events: loadEvents,
+    status: loadStatus,
+    output: loadOutput,
+    error: loadError,
+    isStreaming: isStreamingLoad,
+    startStream,
+    reset: resetLoad,
+    cancel: cancelLoad,
+    setStepStatus,
+    setStepDetail,
+    setStepProgress,
+    appendEvent
+  } = useStreamingProgress({
+    steps: [
+      { id: "profile", label: "Resolve persona context" },
+      { id: "coverLetters", label: "Fetch cover letters" }
+    ],
+    autoResolveSteps: false
   });
 
-  const handleCreateNew = () => {
-    setIsCreateModalOpen(true);
+  const fetchCoverLetters = useCallback(async () => {
+    if (!user?.id) {
+      setCoverLetters([]);
+      setActiveProfileId(undefined);
+      resetLoad();
+      return;
+    }
+
+    await startStream({
+      steps: [
+        { id: "profile", label: "Resolve persona context" },
+        { id: "coverLetters", label: "Fetch cover letters" }
+      ],
+      autoResolveSteps: false,
+      streamFactory: async () =>
+        (async function* streamLoader() {
+          try {
+            setStepStatus("profile", "running");
+            setStepDetail("profile", "Checking synthetic persona overrides");
+            const { SyntheticUserService } = await import("@/services/syntheticUserService");
+            const syntheticService = new SyntheticUserService();
+            const syntheticContext = await syntheticService.getSyntheticUserContext();
+            const profileId = syntheticContext.isSyntheticTestingEnabled
+              ? syntheticContext.currentUser?.profileId
+              : undefined;
+
+            if (!mountedRef.current) {
+              return;
+            }
+
+            setActiveProfileId(profileId ?? undefined);
+            appendEvent(
+              profileId ? `Persona ${profileId} active for this session` : "Using live user data",
+              "info"
+            );
+            setStepStatus("profile", "success");
+            setStepDetail("profile", profileId ? `Persona ${profileId}` : "Live profile");
+
+            setStepStatus("coverLetters", "running");
+            setStepDetail("coverLetters", "Fetching cover letter summaries");
+            setStepProgress("coverLetters", 0.3);
+            const summaries = await CoverLetterTemplateService.getUserCoverLetters(user.id);
+            if (!mountedRef.current) {
+              return;
+            }
+
+            const mapped = summaries.map(transformSummary);
+            setCoverLetters(mapped);
+
+            const loadedMessage =
+              mapped.length === 0
+                ? "No cover letters found yet."
+                : `Loaded ${mapped.length} cover letters.`;
+            appendEvent(
+              mapped.length === 0 ? "Library is currently empty" : `Loaded ${mapped.length} cover letters`,
+              mapped.length === 0 ? "warning" : "success"
+            );
+            yield { type: "text", text: loadedMessage } as any;
+            setStepStatus("coverLetters", "success");
+            setStepDetail(
+              "coverLetters",
+              mapped.length === 0 ? "No cover letters yet" : `Loaded ${mapped.length} cover letters`
+            );
+            setStepProgress("coverLetters", 1);
+          } catch (err) {
+            if (!mountedRef.current) {
+              return;
+            }
+            const message =
+              err instanceof Error ? err.message : "Failed to load cover letters";
+            setStepStatus("coverLetters", "error", message);
+            setStepDetail("coverLetters", message);
+            throw err;
+          }
+        })()
+    });
+  }, [appendEvent, resetLoad, setStepStatus, setStepDetail, setStepProgress, startStream, user?.id]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    fetchCoverLetters();
+    return () => {
+      mountedRef.current = false;
+      cancelLoad();
+    };
+  }, [fetchCoverLetters, cancelLoad]);
+
+  const filteredCoverLetters = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return coverLetters.filter((letter) => {
+      const matchesSearch =
+        term.length === 0 ||
+        letter.title.toLowerCase().includes(term) ||
+        letter.company.toLowerCase().includes(term) ||
+        letter.position.toLowerCase().includes(term);
+
+      const matchesStatus =
+        statusFilter === "all" ? true : letter.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [coverLetters, searchTerm, statusFilter]);
+
+  const stats = useMemo(() => {
+    if (coverLetters.length === 0) {
+      return {
+        total: 0,
+        finalized: 0,
+        drafts: 0,
+        templatesUsed: 0,
+        averageAts: null as number | null,
+        lastUpdated: null as string | null
+      };
+    }
+
+    const finalized = coverLetters.filter((item) => item.status === "finalized").length;
+    const drafts = coverLetters.filter((item) => item.status === "draft").length;
+    const templateIds = new Set(coverLetters.map((item) => item.templateId));
+
+    const atsScores = coverLetters
+      .map((item) => item.analytics.atsScore)
+      .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+    const averageAts =
+      atsScores.length > 0
+        ? Math.round(atsScores.reduce((acc, value) => acc + value, 0) / atsScores.length)
+        : null;
+
+    const lastUpdated = coverLetters
+      .map((item) => item.updatedAt)
+      .sort()
+      .reverse()[0];
+
+    return {
+      total: coverLetters.length,
+      finalized,
+      drafts,
+      templatesUsed: templateIds.size,
+      averageAts,
+      lastUpdated
+    };
+  }, [coverLetters]);
+
+  const handleCreateNew = () => setIsCreateModalOpen(true);
+
+  const handleCoverLetterCreated = async () => {
+    setIsCreateModalOpen(false);
+    await fetchCoverLetters();
   };
 
-  const handleCoverLetterCreated = (newCoverLetter: any) => {
-    setCoverLetters(prev => [newCoverLetter, ...prev]);
-  };
-
-  const handleView = (coverLetter: any) => {
+  const handleView = (coverLetter: CoverLetterListItem) => {
     setSelectedCoverLetter(coverLetter);
     setIsViewModalOpen(true);
   };
 
-  const handleEdit = (coverLetter: any) => {
+  const handleEdit = (coverLetter: CoverLetterListItem) => {
     setSelectedCoverLetter(coverLetter);
     setIsEditModalOpen(true);
   };
 
-  const handleDelete = (coverLetter: any) => {
-    // TODO: Implement delete functionality
-    console.log("Delete cover letter:", coverLetter.id);
-  };
-
-  const handleCopy = (coverLetter: any) => {
-    // TODO: Implement copy functionality
-    console.log("Copy cover letter:", coverLetter.id);
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "finalized":
-        return "bg-success text-success-foreground";
-      case "draft":
-        return "bg-warning text-warning-foreground";
-      default:
-        return "bg-muted text-muted-foreground";
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "finalized":
-        return <CheckCircle className="h-4 w-4" />;
-      case "draft":
-        return <Clock className="h-4 w-4" />;
-      default:
-        return <FileText className="h-4 w-4" />;
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  const modalPayload = selectedCoverLetter ? toModalPayload(selectedCoverLetter) : null;
 
   return (
     <div className="min-h-screen bg-background">
-      <main className={`container mx-auto px-4 py-6 ${isTourActive ? 'pt-24' : ''}`}>
-        <div className="max-w-7xl mx-auto">
-          
-          {/* Page Header */}
-          <div className="flex items-center justify-between mb-8">
+      <main className={`container mx-auto px-4 py-6 ${isTourActive ? "pt-24" : ""}`}>
+        <div className="max-w-7xl mx-auto space-y-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h1 className="text-3xl font-bold text-foreground mb-2">All Cover Letters</h1>
-            <p className="text-muted-foreground description-spacing">Manage and track your cover letter applications</p>
+              <p className="text-muted-foreground">
+                Manage drafts, monitor AI feedback, and prepare tailored outreach.
+              </p>
+              {activeProfileId && (
+                <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
+                  Persona • {activeProfileId}
+                </div>
+              )}
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <Button variant="secondary" asChild>
                 <Link to="/cover-letter-template">
                   <LayoutTemplate className="h-4 w-4 mr-2" />
@@ -288,200 +461,203 @@ export default function CoverLetters() {
             </div>
           </div>
 
+          {(isStreamingLoad || loadStatus === "error") && (
+            <Card>
+              <CardContent className="p-4">
+                <StreamingProgress
+                  steps={loadSteps}
+                  status={loadStatus}
+                  events={loadEvents}
+                  output={loadOutput}
+                  showTimeline
+                  showOutput
+                />
+                {loadError && (
+                  <p className="mt-4 text-sm text-destructive">{loadError}</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
-
-          {/* Stats Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card className="shadow-soft">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Total Letters</p>
-                    <p className="text-2xl font-bold">{coverLetters.length}</p>
+                    <p className="text-2xl font-bold">{stats.total}</p>
                   </div>
                   <Mail className="h-8 w-8 text-muted-foreground" />
                 </div>
               </CardContent>
             </Card>
-            
             <Card className="shadow-soft">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Finalized</p>
-                    <p className="text-2xl font-bold">{coverLetters.filter(cl => cl.status === 'finalized').length}</p>
+                    <p className="text-2xl font-bold">{stats.finalized}</p>
                   </div>
                   <CheckCircle className="h-8 w-8 text-success" />
                 </div>
               </CardContent>
             </Card>
-            
             <Card className="shadow-soft">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Drafts</p>
-                    <p className="text-2xl font-bold">{coverLetters.filter(cl => cl.status === 'draft').length}</p>
+                    <p className="text-2xl font-bold">{stats.drafts}</p>
                   </div>
                   <Clock className="h-8 w-8 text-warning" />
                 </div>
               </CardContent>
             </Card>
-            
             <Card className="shadow-soft">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Avg ATS Score</p>
-                    <p className="text-2xl font-bold">
-                      {coverLetters.length > 0 ? Math.round(coverLetters.reduce((sum, cl) => sum + cl.atsScore, 0) / coverLetters.length) : 0}%
-                    </p>
+                    <p className="text-sm text-muted-foreground">Templates Used</p>
+                    <p className="text-2xl font-bold">{stats.templatesUsed}</p>
                   </div>
-                  <Trophy className="h-8 w-8 text-muted-foreground" />
+                  <LayoutTemplate className="h-8 w-8 text-muted-foreground" />
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Controls */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="flex-1">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-[2fr_1fr]">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search cover letters..."
+                placeholder="Search by company, role, or title"
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(event) => setSearchTerm(event.target.value)}
                   className="pl-10"
                 />
-              </div>
             </div>
-            
             <div className="flex gap-2">
               <Button
-                variant={statusFilter === "all" ? "default" : "outline"}
+                variant={statusFilter === "all" ? "default" : "secondary"}
                 size="sm"
                 onClick={() => setStatusFilter("all")}
               >
                 All
               </Button>
               <Button
-                variant={statusFilter === "draft" ? "default" : "outline"}
+                variant={statusFilter === "draft" ? "default" : "secondary"}
                 size="sm"
                 onClick={() => setStatusFilter("draft")}
-                className="hover:text-[#E32D9A] hover:border-[#E32D9A]"
               >
                 Drafts
               </Button>
               <Button
-                variant={statusFilter === "finalized" ? "default" : "outline"}
+                variant={statusFilter === "reviewed" ? "default" : "secondary"}
+                size="sm"
+                onClick={() => setStatusFilter("reviewed")}
+              >
+                Reviewed
+              </Button>
+              <Button
+                variant={statusFilter === "finalized" ? "default" : "secondary"}
                 size="sm"
                 onClick={() => setStatusFilter("finalized")}
-                className="hover:text-[#E32D9A] hover:border-[#E32D9A]"
               >
                 Finalized
               </Button>
             </div>
-            
-
           </div>
 
-          {/* Cover Letters Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          {filteredCoverLetters.length === 0 && !isStreamingLoad ? (
+            <EmptyState
+              title="No cover letters yet"
+              description="Generate your first cover letter to populate this workspace."
+              action={{
+                label: "Create cover letter",
+                onClick: handleCreateNew
+              }}
+            />
+          ) : (
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             {filteredCoverLetters.map((coverLetter) => (
-              <Card key={coverLetter.id} className="shadow-soft hover:shadow-medium transition-all duration-200">
+                <Card
+                  key={coverLetter.id}
+                  className="shadow-soft transition-all duration-200 hover:shadow-medium"
+                >
                 <CardHeader className="pb-3">
-                  {/* Header: Title + Status + Menu */}
-                  <div className="flex items-center justify-between mb-4">
-                    <CardTitle className="text-lg truncate">{coverLetter.title}</CardTitle>
-                    <div className="flex items-center gap-2">
-                      <Badge className={getStatusColor(coverLetter.status)}>
-                        {getStatusIcon(coverLetter.status)}
-                        <span className="ml-1 capitalize">{coverLetter.status}</span>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <CardTitle className="text-lg">{coverLetter.title}</CardTitle>
+                        <CardDescription className="text-sm">
+                          Template • {coverLetter.templateName ?? "Untitled template"}
+                        </CardDescription>
+                      </div>
+                      <Badge className={getStatusTone(coverLetter.status)}>
+                        {getStatusLabel(coverLetter.status)}
                       </Badge>
-                      
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleCopy(coverLetter)}>
-                            <Copy className="mr-2 h-4 w-4" />
-                            Copy
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDelete(coverLetter)}>
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
                     </div>
-                  </div>
-                  
-                  {/* 2-Column Region: Company/Role | Created/Updated */}
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Left Column: Company + Role */}
-                    <div className="space-y-2">
+                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Building2 className="h-3 w-3" />
-                        {coverLetter.company}
+                        <Building2 className="h-4 w-4" />
+                        <span>{coverLetter.company}</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <User className="h-3 w-3" />
-                        {coverLetter.position}
+                        <User className="h-4 w-4" />
+                        <span>{coverLetter.position}</span>
                       </div>
-                    </div>
-                    
-                    {/* Right Column: Created + Updated */}
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Calendar className="h-3 w-3" />
-                        Created {formatDate(coverLetter.createdAt)}
+                        <span>Created {formatShortDate(coverLetter.createdAt)}</span>
                       </div>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Calendar className="h-3 w-3" />
-                        Updated {formatDate(coverLetter.updatedAt)}
+                        <span>Updated {formatShortDate(coverLetter.updatedAt)}</span>
                       </div>
                     </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="rounded-lg border border-muted/40 bg-muted/10 p-3">
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                          ATS score
+                        </p>
+                        <p className="text-lg font-semibold text-foreground">
+                          {typeof coverLetter.analytics.atsScore === "number"
+                            ? `${coverLetter.analytics.atsScore}%`
+                            : "Pending"}
+                        </p>
                   </div>
-                </CardHeader>
-                
-                <CardContent className="pt-0">
-                  {/* Metrics */}
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div className="text-center p-2 bg-muted/20 rounded">
-                      <div className="text-lg font-bold text-primary">{coverLetter.atsScore}%</div>
-                      <div className="text-xs text-muted-foreground">ATS Score</div>
+                      <div className="rounded-lg border border-muted/40 bg-muted/10 p-3">
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                          LLM rating
+                        </p>
+                        <p className="text-lg font-semibold text-foreground capitalize">
+                          {coverLetter.analytics.rating ?? "Awaiting review"}
+                        </p>
                     </div>
-                    <div className="text-center p-2 bg-muted/20 rounded">
-                      <div className="text-lg font-bold text-success capitalize">{coverLetter.overallRating}</div>
-                      <div className="text-xs text-muted-foreground">Rating</div>
                     </div>
+                    {coverLetter.analytics.summary && (
+                      <div className="rounded-lg border border-muted/40 bg-muted/5 p-3 text-sm text-muted-foreground">
+                        {coverLetter.analytics.summary}
                   </div>
-                  
-
-                  
-                  {/* Actions */}
+                    )}
                   <div className="flex gap-2">
                     <Button
-                      variant="outline"
+                      variant="secondary"
                       size="sm"
                       onClick={() => handleView(coverLetter)}
-                      className="flex-1 hover:text-[#E32D9A] hover:border-[#E32D9A]"
+                        className="flex-1"
                     >
                       <Eye className="h-4 w-4 mr-1" />
                       View
                     </Button>
                     <Button
-                      variant="outline"
+                      variant="secondary"
                       size="sm"
                       onClick={() => handleEdit(coverLetter)}
-                      className="flex-1 hover:text-[#E32D9A] hover:border-[#E32D9A]"
+                        className="flex-1"
                     >
-                      <Edit className="h-4 w-4 mr-1" />
+                        <CheckCircle className="h-4 w-4 mr-1" />
                       Edit
                     </Button>
                   </div>
@@ -489,32 +665,10 @@ export default function CoverLetters() {
               </Card>
             ))}
           </div>
-
-          {/* Empty State */}
-          {filteredCoverLetters.length === 0 && (
-            <Card className="shadow-soft">
-              <CardContent className="text-center py-12">
-                <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">No cover letters found</h3>
-                <p className="text-muted-foreground mb-4">
-                  {searchTerm || statusFilter !== "all" 
-                    ? "Try adjusting your search or filters"
-                    : "Create your first cover letter to get started"
-                  }
-                </p>
-                {!searchTerm && statusFilter === "all" && (
-                  <Button onClick={handleCreateNew}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Your First Cover Letter
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
           )}
         </div>
       </main>
 
-      {/* Modals */}
       <CoverLetterCreateModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
@@ -524,28 +678,27 @@ export default function CoverLetters() {
       <CoverLetterViewModal
         isOpen={isViewModalOpen}
         onClose={() => setIsViewModalOpen(false)}
-        coverLetter={selectedCoverLetter}
+        coverLetter={modalPayload}
       />
       
       <CoverLetterEditModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
-        coverLetter={selectedCoverLetter}
+        coverLetter={modalPayload}
       />
       
-      {/* Tour Banner */}
-      {isTourActive && currentTourStep && (
+      {isTourActive && (
         <TourBannerFull
           currentStep={tourStep}
           totalSteps={tourSteps.length}
-          title={currentTourStep.title}
-          description={currentTourStep.description}
+          title={currentTourStep?.title ?? "Cover letter workspace tour"}
+          description={currentTourStep?.description ?? ""}
           onNext={nextStep}
           onPrevious={previousStep}
           onCancel={cancelTour}
           canGoNext={tourStep < tourSteps.length - 1}
           canGoPrevious={tourStep > 0}
-          isLastStep={tourStep === tourSteps.length - 1}
+          isLastStep={tourStep >= tourSteps.length - 1}
         />
       )}
     </div>

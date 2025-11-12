@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { ComponentProps } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Plus, FileText, CheckCircle, Edit, X, Loader2, BookOpen } from "lucide-react";
+import { Plus, FileText, CheckCircle, Edit, X, BookOpen } from "lucide-react";
 import { TemplateBlurbHierarchical } from "@/components/template-blurbs/TemplateBlurbHierarchical";
 import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
 import { CoverLetterTemplateService, type SavedSection } from "@/services/coverLetterTemplateService";
@@ -13,6 +13,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { TagSuggestionService } from "@/services/tagSuggestionService";
 import { TagService } from "@/services/tagService";
 import { GapDetectionService } from "@/services/gapDetectionService";
+import { useStreamingProgress } from "@/hooks/useStreamingProgress";
+import { StreamingProgress } from "@/components/shared/StreamingProgress";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { useToast } from "@/hooks/use-toast";
 
 type SavedSectionBlurb = {
   id: string;
@@ -35,13 +39,16 @@ type SavedSectionBlurb = {
   externalLinks?: string[];
 };
 
-type HierarchicalBlurb = ComponentProps<typeof TemplateBlurbHierarchical>['blurbs'][number];
+type HierarchicalBlurb = ComponentProps<typeof TemplateBlurbHierarchical>['blurbs'][number] & {
+  gapCategories?: string[];
+  maxGapSeverity?: 'high' | 'medium' | 'low';
+};
 
 export default function SavedSections() {
   const { user } = useAuth();
   const { goals } = useUserGoals();
+  const { toast } = useToast();
   const [templateBlurbs, setTemplateBlurbs] = useState<SavedSectionBlurb[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddReusableContentModal, setShowAddReusableContentModal] = useState(false);
   const [newReusableContent, setNewReusableContent] = useState({ title: '', content: '', tags: '', contentType: '' });
@@ -65,105 +72,206 @@ export default function SavedSections() {
   const [tagEntityId, setTagEntityId] = useState<string | undefined>();
   const [existingTags, setExistingTags] = useState<string[]>([]);
 
+  const mountedRef = useRef(true);
+  const {
+    steps: loadSteps,
+    events: loadEvents,
+    status: loadStatus,
+    output: loadOutput,
+    error: loadError,
+    isStreaming: isStreamingLoad,
+    startStream,
+    reset: resetLoad,
+    cancel: cancelLoad,
+    setStepStatus,
+    setStepDetail,
+    setStepProgress,
+    appendEvent
+  } = useStreamingProgress({
+    steps: [
+      { id: "profile", label: "Resolve persona context" },
+      { id: "savedSections", label: "Load saved sections" },
+      { id: "gapData", label: "Analyze gap signals" }
+    ],
+    autoResolveSteps: false
+  });
+
   // Load saved sections from database
   useEffect(() => {
+    mountedRef.current = true;
+
     const loadSavedSections = async () => {
       if (!user?.id) {
-        setIsLoading(false);
         setTemplateBlurbs([]);
+        setUserContentTypes([]);
+        resetLoad();
         return;
       }
 
-      try {
-        setIsLoading(true);
+      await startStream({
+        steps: [
+          { id: "profile", label: "Resolve persona context" },
+          { id: "savedSections", label: "Load saved sections" },
+          { id: "gapData", label: "Analyze gap signals" }
+        ],
+        autoResolveSteps: false,
+        streamFactory: async () =>
+          (async function* streamLoader() {
+            try {
         setError(null);
+              setStepStatus("profile", "running");
+              setStepDetail("profile", "Checking synthetic persona overrides");
 
-        // Check if synthetic testing is enabled and get active profile
-        const { SyntheticUserService } = await import('../services/syntheticUserService');
-        const syntheticUserService = new SyntheticUserService();
-        const syntheticContext = await syntheticUserService.getSyntheticUserContext();
-        console.log('[SavedSections] Synthetic context:', {
-          enabled: syntheticContext.isSyntheticTestingEnabled,
-          currentProfile: syntheticContext.currentUser?.profileId,
-        });
-        
-        // Get profile ID if synthetic testing is enabled
-        const profileId = syntheticContext.isSyntheticTestingEnabled 
-          ? syntheticContext.currentUser?.profileId 
-          : undefined;
+              const { SyntheticUserService } = await import("../services/syntheticUserService");
+              const syntheticUserService = new SyntheticUserService();
+              const syntheticContext = await syntheticUserService.getSyntheticUserContext();
 
-        const sections = await CoverLetterTemplateService.getUserSavedSections(user.id, profileId);
-        console.log('[SavedSections] Loaded sections:', sections.map(section => ({ id: section.id, title: section.title, type: section.type })));
+              const profileId = syntheticContext.isSyntheticTestingEnabled
+                ? syntheticContext.currentUser?.profileId
+                : undefined;
 
-        // Load gap data for saved sections so we can surface gap badges/banners
-        let savedSectionGapIndex = new Map<string, { gapCount: number; categories: string[]; maxSeverity: 'high' | 'medium' | 'low'; }>();
-        try {
-          const gapSummary = await GapDetectionService.getContentItemsWithGaps(user.id, profileId);
-          const savedSectionGaps = gapSummary.byContentType.coverLetterSavedSections || [];
-          savedSectionGapIndex = new Map(
-            savedSectionGaps.map((item) => [
-              item.entity_id,
-              {
-                gapCount: item.gap_categories?.length ?? 0,
-                categories: item.gap_categories ?? [],
-                maxSeverity: item.max_severity ?? 'low'
+              if (!mountedRef.current) {
+                return;
               }
-            ])
-          );
-        } catch (gapError) {
-          console.error('[SavedSections] Failed to load gap data for saved sections:', gapError);
-        }
 
-        // Convert SavedSection to TemplateBlurb format
-        const blurbs: SavedSectionBlurb[] = sections.map((section) => ({
+              appendEvent(
+                profileId
+                  ? `Persona ${profileId} active for saved sections`
+                  : "Using live profile data",
+                "info"
+              );
+              setStepStatus("profile", "success");
+              setStepDetail("profile", profileId ? `Persona ${profileId}` : "Live profile");
+
+              setStepStatus("savedSections", "running");
+              setStepDetail("savedSections", "Loading saved sections from Supabase");
+              setStepProgress("savedSections", 0.2);
+              const sections = await CoverLetterTemplateService.getUserSavedSections(user.id, profileId);
+              if (!mountedRef.current) {
+                return;
+              }
+
+              appendEvent(
+                sections.length === 0
+                  ? "No saved sections found yet."
+                  : `Loaded ${sections.length} saved sections`,
+                sections.length === 0 ? "warning" : "success"
+              );
+              setStepStatus("savedSections", "success");
+              setStepDetail(
+                "savedSections",
+                sections.length === 0 ? "No saved sections yet" : `Loaded ${sections.length} saved sections`
+              );
+              setStepProgress("savedSections", sections.length > 0 ? 0.6 : 0.4);
+
+              setStepStatus("gapData", "running");
+              setStepDetail("gapData", "Analyzing gap signals");
+              let savedSectionGapIndex = new Map<
+                string,
+                { gapCount: number; categories: string[]; maxSeverity: "high" | "medium" | "low" }
+              >();
+
+              try {
+                const gapSummary = await GapDetectionService.getContentItemsWithGaps(user.id, profileId);
+                const savedSectionGaps = gapSummary.byContentType.coverLetterSavedSections || [];
+                savedSectionGapIndex = new Map(
+                  savedSectionGaps.map((item) => [
+                    item.entity_id,
+                    {
+                      gapCount: item.gap_categories?.length ?? 0,
+                      categories: item.gap_categories ?? [],
+                      maxSeverity: item.max_severity ?? "low"
+                    }
+                  ])
+                );
+              } catch (gapError) {
+                appendEvent(
+                  "Gap summary unavailable (using defaults).",
+                  "warning",
+                  {
+                    error: gapError instanceof Error ? gapError.message : String(gapError)
+                  }
+                );
+                setStepDetail(
+                  "gapData",
+                  gapError instanceof Error ? gapError.message : "Gap summary unavailable (using defaults)"
+                );
+              }
+
+              if (!mountedRef.current) {
+                return;
+              }
+
+              const blurbs: SavedSectionBlurb[] = sections.map((section) => ({
           id: section.id!,
-          type: section.type as SavedSectionBlurb['type'],
+                type: section.type as SavedSectionBlurb["type"],
           title: section.title,
           content: section.content,
-          tags: Array.from(new Set([...(section.tags ?? []), ...(section.purpose_tags ?? [])])),
-          isDefault: (section.type as string) === 'intro',
-          status: 'approved' as const,
-          confidence: 'high' as const,
+                tags: Array.from(new Set([...(section.tags ?? []), ...(section.purpose_tags ?? [])])),
+                isDefault: (section.type as string) === "intro",
+                status: "approved" as const,
+                confidence: "high" as const,
           timesUsed: section.times_used || 0,
           lastUsed: section.last_used,
           createdAt: section.created_at!,
           updatedAt: section.updated_at!,
-          hasGaps: (savedSectionGapIndex.get(section.id!)?.gapCount ?? 0) > 0,
-          gapCount: savedSectionGapIndex.get(section.id!)?.gapCount ?? 0,
-          gapCategories: savedSectionGapIndex.get(section.id!)?.categories ?? [],
-          maxGapSeverity: savedSectionGapIndex.get(section.id!)?.maxSeverity,
+                hasGaps: (savedSectionGapIndex.get(section.id!)?.gapCount ?? 0) > 0,
+                gapCount: savedSectionGapIndex.get(section.id!)?.gapCount ?? 0,
+                gapCategories: savedSectionGapIndex.get(section.id!)?.categories ?? [],
+                maxGapSeverity: savedSectionGapIndex.get(section.id!)?.maxSeverity,
           linkedExternalLinks: [],
           externalLinks: []
         }));
 
-        // Only show mock data if we have no real data AND no error occurred
-        // Empty array is valid - means no saved sections yet for this profile
-        if (blurbs.length > 0) {
-          setTemplateBlurbs(blurbs);
-        } else {
-          // No saved sections found - show empty state, not mock data
-          setTemplateBlurbs([]);
-        }
+              setTemplateBlurbs(blurbs);
+              appendEvent("Saved sections ready", "success");
+              setStepStatus("gapData", "success");
+              setStepDetail(
+                "gapData",
+                blurbs.some((blurb) => (blurb.gapCount ?? 0) > 0)
+                  ? "Gap insights ready"
+                  : "No gaps detected"
+              );
+              setStepProgress("savedSections", 1);
+
+              yield { type: "text", text: `${sections.length} saved sections ready.` } as any;
       } catch (err) {
-        console.error('Error loading saved sections:', err);
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-        console.error('Full error details:', err);
-        setError(`Failed to load saved sections: ${errorMessage}`);
-        setTemplateBlurbs([]);
-      } finally {
-        setIsLoading(false);
-      }
+              if (!mountedRef.current) {
+                return;
+              }
+              const message =
+                err instanceof Error ? err.message : "Failed to load saved sections";
+              setError(`Failed to load saved sections: ${message}`);
+              setTemplateBlurbs([]);
+              appendEvent(message, "error");
+              setStepStatus("savedSections", "error", message);
+              setStepDetail("savedSections", message);
+              throw err;
+            }
+          })()
+      });
     };
 
     loadSavedSections();
-  }, [user?.id]); // Note: This will reload when user changes, but synthetic profile changes trigger page reload
 
-  const handleSelectBlurbFromLibrary = (blurb: HierarchicalBlurb) => {
-    console.log('Selected blurb from library:', blurb);
+    return () => {
+      mountedRef.current = false;
+      cancelLoad();
+    };
+  }, [user?.id, startStream, resetLoad, cancelLoad, setStepStatus, setStepDetail, setStepProgress, appendEvent]);
+
+  const handleSelectBlurbFromLibrary = (_blurb: HierarchicalBlurb) => {
+    // Reserved for future interactions when selecting a saved section from the library.
   };
 
   const handleEditBlurb = (blurb: HierarchicalBlurb) => {
-    console.log('Edit blurb:', blurb);
+    setNewReusableContent({
+      title: blurb.title,
+      content: blurb.content,
+      tags: (blurb.tags || []).join(', '),
+      contentType: blurb.type
+    });
+    setShowAddReusableContentModal(true);
   };
 
   const handleCreateBlurb = (type?: 'intro' | 'paragraph' | 'closer' | 'signature' | string) => {
@@ -181,31 +289,50 @@ export default function SavedSections() {
       setTemplateBlurbs(prev => prev.filter(blurb => blurb.id !== id));
     } catch (err) {
       console.error('Error deleting saved section:', err);
-      alert('Failed to delete saved section');
+      toast({
+        title: 'Unable to delete saved section',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive'
+      });
     }
   };
 
+  const formatGapCategory = (category: string) =>
+    category
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+
   const handleGenerateContent = (blurb: HierarchicalBlurb) => {
-    const mockGapData = {
+    const categories = (blurb.gapCategories ?? []) as string[];
+    const formattedCategories = categories.map(formatGapCategory);
+    const severity = (blurb.maxGapSeverity ?? "medium") as "high" | "medium" | "low";
+
+    const description =
+      formattedCategories.length > 0
+        ? `This section can be improved by addressing: ${formattedCategories.join(', ')}.`
+        : "This section can be strengthened with more specific, outcome-driven language.";
+
+    const suggestion =
+      formattedCategories.length > 0
+        ? `Add detail that directly speaks to ${formattedCategories.join(', ').toLowerCase()}.`
+        : "Include quantifiable results and tailor the copy to the target role or company.";
+
+    setSelectedGap({
       id: `blurb-gap-${blurb.id}`,
-      type: 'content-enhancement' as const,
-      severity: 'medium' as const,
-      description: 'Content could be more compelling and specific',
-      suggestion: 'Add quantifiable results and specific achievements to make this section more impactful',
+      type: 'content-enhancement',
+      severity,
+      description,
+      suggestion,
       paragraphId: blurb.type,
-      origin: 'saved-section' as const,
+      origin: 'library',
       existingContent: blurb.content
-    };
-    
-    setSelectedGap(mockGapData);
+    });
     setIsContentModalOpen(true);
   };
 
   const handleApplyContent = (content: string) => {
-    console.log('Applied generated content:', content);
-    console.log('Selected gap:', selectedGap);
     
-    if (selectedGap && selectedGap.origin === 'saved-section') {
+    if (selectedGap && selectedGap.origin === 'library') {
       // Update the blurb content
       setTemplateBlurbs(prev => prev.map(blurb => 
         blurb.id === selectedGap.id.replace('blurb-gap-', '') 
@@ -291,26 +418,36 @@ export default function SavedSections() {
           </div>
         )}
 
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            <span className="ml-3 text-muted-foreground">Loading saved sections...</span>
+        {(isStreamingLoad || loadStatus === "error") && (
+          <div className="mb-6 rounded-lg border border-muted/40 bg-muted/10 p-4">
+            <StreamingProgress
+              steps={loadSteps}
+              status={loadStatus}
+              events={loadEvents}
+              output={loadOutput}
+              showTimeline
+            />
+            {loadError && (
+              <p className="mt-3 text-sm text-destructive">{loadError}</p>
+            )}
           </div>
+        )}
+
+        {templateBlurbs.length === 0 ? (
+          <EmptyState
+            title="No saved sections found for this profile."
+            description="Upload a cover letter for this persona (e.g. P01) or create a new section manually to populate your library."
+            action={{
+              label: "Create New Section",
+              onClick: () => {
+                setNewReusableContent({ title: '', content: '', tags: '', contentType: '' });
+                setShowAddReusableContentModal(true);
+              }
+            }}
+          />
         ) : (
-        <div className="bg-background">
-          <div className="container mx-auto px-4">
-            <div className="max-w-4xl mx-auto">
-              <div className="template-content-spacing mt-2">
-                {templateBlurbs.length === 0 ? (
-                  <div className="border border-dashed border-muted-foreground/40 rounded-lg p-8 text-center text-muted-foreground">
-                    <p className="font-medium text-foreground mb-2">No saved sections found for this profile.</p>
-                    <p>
-                      Upload a cover letter for this persona (e.g. P01) or create a new section manually to populate your library.
-                    </p>
-                  </div>
-                ) : (
                 <TemplateBlurbHierarchical
-                    blurbs={hierarchicalBlurbs}
+            blurbs={hierarchicalBlurbs}
                   selectedBlurbId={undefined}
                   onSelectBlurb={handleSelectBlurbFromLibrary}
                   onCreateBlurb={handleCreateBlurb}
@@ -325,27 +462,22 @@ export default function SavedSections() {
                       type: 'intro',
                       label: 'Introduction',
                       description: 'Opening paragraphs that grab attention and introduce you',
-                      icon: FileText
-                    },
-                    {
-                      type: 'paragraph',
-                      label: 'Body Paragraph',
-                      description: 'Static supporting paragraphs kept verbatim from uploads',
-                      icon: BookOpen
+                icon: FileText
+              },
+              {
+                type: 'paragraph',
+                label: 'Body Paragraph',
+                description: 'Static supporting paragraphs kept verbatim from uploads',
+                icon: BookOpen
                     },
                     {
                       type: 'closer',
                       label: 'Closing',
-                      description: 'Professional closing paragraphs that reinforce your interest',
-                      icon: CheckCircle
+                description: 'Professional closing paragraphs that reinforce your interest',
+                icon: CheckCircle
                     }
                   ]}
                 />
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
         )}
       </div>
 

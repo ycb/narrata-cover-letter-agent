@@ -184,7 +184,16 @@ async function testPMLevels(userId: string, accessToken: string): Promise<void> 
   
   try {
     const startTime = Date.now();
-    const inference = await pmLevelsService.analyzeUserLevel(userId);
+    const inference = await pmLevelsService.analyzeUserLevel(
+      userId,
+      undefined,
+      undefined,
+      {
+        sessionId: `pm-level-cli-${Date.now()}`,
+        triggerReason: 'manual',
+        runType: 'rerun',
+      }
+    );
     const duration = Date.now() - startTime;
     
     if (!inference) {

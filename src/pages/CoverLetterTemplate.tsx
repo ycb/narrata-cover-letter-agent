@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Upload, Save, ArrowLeft, Plus, GripVertical, Trash2, Edit, FileText, Library, MoreHorizontal, Copy, Clock, LayoutTemplate, CheckCircle, X, ChevronRight, BookOpen, Eye, Loader2 } from "lucide-react";
+import { Upload, Save, ArrowLeft, Plus, GripVertical, Trash2, Edit, FileText, Library, MoreHorizontal, Copy, Clock, LayoutTemplate, CheckCircle, X, ChevronRight, BookOpen, Eye } from "lucide-react";
 import { TemplateBanner } from "@/components/layout/TemplateBanner";
 import { Link, useNavigate } from "react-router-dom";
 import { TemplateBlurbHierarchical } from "@/components/template-blurbs/TemplateBlurbHierarchical";
@@ -25,6 +25,9 @@ import { TourBannerFull } from "@/components/onboarding/TourBannerFull";
 import { FormModal } from "@/components/shared/FormModal";
 import { CoverLetterTemplateService, type SavedSection } from "@/services/coverLetterTemplateService";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { useStreamingProgress } from "@/hooks/useStreamingProgress";
+import { StreamingProgress } from "@/components/shared/StreamingProgress";
 
 const DEFAULT_TEMPLATE_NAME = "Professional Template";
 
@@ -40,6 +43,7 @@ export default function CoverLetterTemplate() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [template, setTemplate] = useState<CoverLetterTemplate>(createEmptyTemplate());
   const [templateBlurbs, setTemplateBlurbs] = useState<TemplateBlurb[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -60,6 +64,8 @@ export default function CoverLetterTemplate() {
   const [newReusableContent, setNewReusableContent] = useState({ title: '', content: '', tags: '', contentType: '' });
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewCoverLetter, setPreviewCoverLetter] = useState<any>(null);
+  const [isDirty, setIsDirty] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [userContentTypes, setUserContentTypes] = useState<Array<{
     type: string;
     label: string;
@@ -70,8 +76,8 @@ export default function CoverLetterTemplate() {
   const [workHistoryLibrary, setWorkHistoryLibrary] = useState<WorkHistoryCompany[]>([]);
   const [isLibraryLoading, setIsLibraryLoading] = useState(false);
   const [libraryError, setLibraryError] = useState<string | null>(null);
-const dragIndexRef = useRef<number | null>(null);
-const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const dragIndexRef = useRef<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   // Add Section Modal State
   const [showAddSectionModal, setShowAddSectionModal] = useState(false);
@@ -82,6 +88,31 @@ const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [selectedRole, setSelectedRole] = useState<string>('');
   const [selectedReusableType, setSelectedReusableType] = useState<string>('');
   const [selectedContent, setSelectedContent] = useState<any>(null);
+  const loadMountedRef = useRef(true);
+  const {
+    steps: loadSteps,
+    events: loadEvents,
+    status: loadStatus,
+    output: loadOutput,
+    error: loadError,
+    isStreaming: isStreamingLoad,
+    startStream,
+    startTextStream,
+    reset: resetLoad,
+    cancel: cancelLoad,
+    setStepStatus,
+    setStepDetail,
+    setStepProgress,
+    appendEvent
+  } = useStreamingProgress({
+    steps: [
+      { id: "profile", label: "Resolve persona context" },
+      { id: "template", label: "Fetch template" },
+      { id: "savedSections", label: "Merge saved sections" },
+      { id: "library", label: "Load work history library" }
+    ],
+    autoResolveSteps: false
+  });
   
   // Tour integration
   const { isActive: isTourActive, currentStep: tourStep, tourSteps, currentTourStep, nextStep, previousStep, cancelTour } = useTour();
@@ -109,13 +140,18 @@ const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
         setIsLoading(false);
         setTemplate(createEmptyTemplate());
         setTemplateBlurbs([]);
+        setIsDirty(false);
         return;
       }
 
+      let activeStep: "profile" | "template" | "savedSections" | "library" | null = null;
+
       try {
-        setIsLoading(true);
         setError(null);
 
+        activeStep = "profile";
+        setStepStatus("profile", "running");
+        setStepDetail("profile", "Checking synthetic persona overrides");
         const { SyntheticUserService } = await import('../services/syntheticUserService');
         const syntheticUserService = new SyntheticUserService();
         const syntheticContext = await syntheticUserService.getSyntheticUserContext();
@@ -124,15 +160,50 @@ const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
           ? syntheticContext.currentUser?.profileId
           : undefined;
 
-        // Load user's templates
+        appendEvent(
+          profileId ? `Persona ${profileId} active for template editing.` : "Using live profile data.",
+          profileId ? "success" : "info"
+        );
+        setStepStatus("profile", "success");
+        setStepDetail("profile", profileId ? `Persona ${profileId}` : "Live profile");
+
+        activeStep = "template";
+        setStepStatus("template", "running");
+        setStepDetail("template", "Fetching cover letter template from Supabase");
         const templates = await CoverLetterTemplateService.getUserTemplates(user.id);
+        setStepDetail(
+          "template",
+          templates.length > 0
+            ? `Loaded template “${templates[0]?.name ?? "Untitled"}”`
+            : "No saved template found – will derive from saved sections"
+        );
+        setStepStatus("template", "success");
 
-        // Load saved sections (with profile filtering if synthetic mode is active)
+        activeStep = "savedSections";
+        setStepStatus("savedSections", "running");
+        setStepDetail("savedSections", "Loading saved sections and merging signatures");
+        setStepProgress("savedSections", 0.2);
         const sections = await CoverLetterTemplateService.getUserSavedSections(user.id, profileId);
+        setStepProgress("savedSections", sections.length > 0 ? 0.6 : 0.3);
+        appendEvent(
+          sections.length === 0
+            ? "No saved sections found yet."
+            : `Loaded ${sections.length} saved sections.`,
+          sections.length === 0 ? "warning" : "success"
+        );
 
-        await fetchWorkHistoryLibrary(user.id, profileId);
+        activeStep = "library";
+        setStepStatus("library", "running");
+        setStepDetail("library", "Preparing work history library for dynamic sections");
+        const libraryCompanies = await fetchWorkHistoryLibrary(user.id, profileId);
+        setStepDetail(
+          "library",
+          libraryCompanies.length === 0
+            ? "No work history stories available yet"
+            : `Loaded ${libraryCompanies.length} companies with stories`
+        );
+        setStepStatus("library", "success");
 
-        // Convert SavedSection to TemplateBlurb format
         const normalizeContentKey = (text: string | undefined | null) =>
           (text ?? '')
             .replace(/\s+/g, ' ')
@@ -178,8 +249,6 @@ const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
           return { body, signature };
         };
 
-        console.log('[Template] Saved sections payload:', sections);
-
         const savedSectionMap = new Map<string, SavedSection>();
         const savedSectionContentMap = new Map<string, string>();
 
@@ -188,10 +257,6 @@ const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
           const sectionType = allowedTypes.includes(section.type as TemplateBlurb['type'])
             ? section.type as TemplateBlurb['type']
             : 'intro';
-
-          if (section.type === 'closer') {
-            console.log('[Template] Saved closer content:', section.content);
-          }
 
           if (section.id) {
             savedSectionMap.set(section.id, section);
@@ -207,27 +272,21 @@ const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
             if (baseKey && !savedSectionContentMap.has(baseKey)) {
               savedSectionContentMap.set(baseKey, section.content);
             }
-            console.log('[Template] Detected signoff', {
-              id: section.id,
-              baseKey,
-              body: signoffParts.body,
-              signature: signoffParts.signature
-            });
           }
 
           return {
-            id: section.id!,
+          id: section.id!,
             type: sectionType,
-            title: section.title,
-            content: section.content,
+          title: section.title,
+          content: section.content,
             tags: Array.from(new Set([...(section.tags ?? []), ...(section.purpose_tags ?? [])])),
             isDefault: (section.type as string) === 'intro',
-            status: 'approved' as const,
-            confidence: 'high' as const,
-            timesUsed: section.times_used || 0,
-            lastUsed: section.last_used,
-            createdAt: section.created_at!,
-            updatedAt: section.updated_at!
+          status: 'approved' as const,
+          confidence: 'high' as const,
+          timesUsed: section.times_used || 0,
+          lastUsed: section.last_used,
+          createdAt: section.created_at!,
+          updatedAt: section.updated_at!
           };
         });
 
@@ -235,16 +294,12 @@ const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
           ? templates[0]
           : buildTemplateFromSections(sections);
 
-        console.log('[Template] Loaded template sections:', templateToUse.sections);
-
         const templateWithSignatures = {
           ...templateToUse,
           sections: (templateToUse.sections || []).map((section) => {
             if (section.type !== 'closer') {
               return section;
             }
-
-            console.log('[Template] Template closer raw:', section);
 
             let replacementContent: string | undefined;
 
@@ -275,14 +330,14 @@ const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
           })
         };
 
-        console.log(
-          '[Template] Closing section after signature merge:',
-          JSON.stringify(
-            templateWithSignatures.sections?.filter((section) => section.type === 'closer'),
-            null,
-            2
-          )
+        setStepStatus("savedSections", "success");
+        setStepDetail(
+          "savedSections",
+          templateWithSignatures.sections?.length
+            ? `Ready with ${templateWithSignatures.sections.length} template sections`
+            : "Template has no sections yet"
         );
+        setStepProgress("savedSections", 1);
 
         setTemplate(templateWithSignatures);
 
@@ -291,19 +346,80 @@ const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
         } else {
           setTemplateBlurbs([]);
         }
+        setIsDirty(false);
       } catch (err) {
         console.error('Error loading template data:', err);
         setError('Failed to load template data');
         setTemplate(createEmptyTemplate());
         setTemplateBlurbs([]);
         setWorkHistoryLibrary([]);
-      } finally {
-        setIsLoading(false);
+        setIsDirty(false);
+        const message = err instanceof Error ? err.message : String(err);
+        if (activeStep) {
+          setStepStatus(activeStep, "error", message);
+          setStepDetail(activeStep, message);
+        }
       }
     };
 
-    loadData();
-  }, [user?.id]);
+    const run = async () => {
+      if (!user?.id) {
+        setIsLoading(false);
+        setTemplate(createEmptyTemplate());
+        setTemplateBlurbs([]);
+        setWorkHistoryLibrary([]);
+        setIsDirty(false);
+        resetLoad();
+        return;
+      }
+
+      loadMountedRef.current = true;
+      await startStream({
+        steps: [
+          { id: "profile", label: "Resolve persona context" },
+          { id: "template", label: "Fetch template" },
+          { id: "savedSections", label: "Merge saved sections" },
+          { id: "library", label: "Load work history library" }
+        ],
+        autoResolveSteps: false,
+        streamFactory: async () =>
+          (async function* streamLoader() {
+            try {
+              setIsLoading(true);
+              setError(null);
+              await loadData();
+              if (!loadMountedRef.current) {
+                return;
+              }
+              yield { type: "text", text: "Template ready." } as any;
+            } catch (err) {
+              if (!loadMountedRef.current) {
+                return;
+              }
+              const message = err instanceof Error ? err.message : "Failed to load template";
+              setError("Failed to load template data");
+              setTemplate(createEmptyTemplate());
+              setTemplateBlurbs([]);
+              setWorkHistoryLibrary([]);
+              setIsDirty(false);
+              appendEvent(message, "error");
+              throw err;
+      } finally {
+              if (loadMountedRef.current) {
+        setIsLoading(false);
+      }
+            }
+          })()
+      });
+    };
+
+    run();
+
+    return () => {
+      loadMountedRef.current = false;
+      cancelLoad();
+    };
+  }, [user?.id, startStream, resetLoad, cancelLoad, setStepStatus, setStepDetail, setStepProgress, appendEvent]);
 
   const getBlurbTitleByContent = (content: string, sectionType: string) => {
     const blurb = templateBlurbs.find(b => b.content === content && b.type === sectionType);
@@ -320,8 +436,18 @@ const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
     }
   };
 
+  const updateTemplateState = (updater: (prev: CoverLetterTemplate) => CoverLetterTemplate) => {
+    setTemplate((prev) => {
+      const next = updater(prev);
+      if (next !== prev) {
+        setIsDirty(true);
+      }
+      return next;
+    });
+  };
+
   const updateSection = (sectionId: string, updates: Partial<CoverLetterSection>) => {
-    setTemplate(prev => ({
+    updateTemplateState(prev => ({
       ...prev,
       sections: prev.sections.map(section =>
         section.id === sectionId ? { ...section, ...updates } : section
@@ -400,11 +526,8 @@ const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
       };
     }
     
-    console.log('Creating new section:', newSection);
-    
-    setTemplate(prev => {
+    updateTemplateState(prev => {
       const newSections = [...prev.sections, newSection];
-      console.log('Updated template sections:', newSections);
       return { ...prev, sections: newSections };
     });
     
@@ -536,14 +659,10 @@ const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   };
 
   const removeSection = (sectionId: string) => {
-    setTemplate(prev => ({
+    updateTemplateState(prev => ({
       ...prev,
       sections: prev.sections.filter(section => section.id !== sectionId)
     }));
-  };
-
-  const handleDone = () => {
-    navigate('/cover-letters');
   };
 
   const getConfidenceColor = (confidence: 'high' | 'medium' | 'low') => {
@@ -585,7 +704,7 @@ const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
     );
   };
 
-  const fetchWorkHistoryLibrary = async (currentUserId: string, currentProfileId?: string) => {
+  const fetchWorkHistoryLibrary = async (currentUserId: string, currentProfileId?: string): Promise<WorkHistoryCompany[]> => {
     setIsLibraryLoading(true);
     setLibraryError(null);
 
@@ -608,8 +727,7 @@ const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
         if (matchingSources.length === 0) {
           setWorkHistoryLibrary([]);
-          setIsLibraryLoading(false);
-          return;
+          return [];
         }
 
         allowedSourceIds = matchingSources.map((row) => row.id);
@@ -754,13 +872,17 @@ const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
         .filter((company) => company.roles.length > 0);
 
       setWorkHistoryLibrary(companiesWithStories);
+      return companiesWithStories;
     } catch (libraryErr: any) {
       console.error('Error loading work history library:', libraryErr);
       setLibraryError(libraryErr?.message || 'Failed to load work history blurbs');
       setWorkHistoryLibrary([]);
+      return [];
     } finally {
       setIsLibraryLoading(false);
     }
+
+    return [];
   };
 
   const buildTemplateFromSections = (sections: SavedSection[]): CoverLetterTemplate => {
@@ -848,7 +970,7 @@ const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   };
 
 const reorderSections = (fromIndex: number, toIndex: number) => {
-  setTemplate((prev) => {
+  updateTemplateState((prev) => {
     if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= prev.sections.length) {
       return prev;
     }
@@ -916,10 +1038,49 @@ const handleDragEnd = () => {
   setDragOverIndex(null);
 };
 
+const persistTemplate = async () => {
+  if (!template.id || template.id === 'draft-template') {
+    setIsDirty(false);
+    navigate('/cover-letters');
+    return;
+  }
+
+  if (!isDirty) {
+    navigate('/cover-letters');
+    return;
+  }
+
+  setIsSaving(true);
+  try {
+    await CoverLetterTemplateService.updateTemplate(template.id, {
+      name: template.name,
+      sections: template.sections
+    });
+    setIsDirty(false);
+    toast({
+      title: 'Template saved',
+      description: 'Your cover letter template is up to date.'
+    });
+    navigate('/cover-letters');
+  } catch (err) {
+    console.error('Error saving template:', err);
+    toast({
+      title: 'Unable to save template',
+      description: err instanceof Error ? err.message : 'Please try again.',
+      variant: 'destructive'
+    });
+  } finally {
+    setIsSaving(false);
+  }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <TemplateBanner
-        onDone={handleDone}
+        onDone={persistTemplate}
+        doneLabel={isDirty ? 'Save' : 'Done'}
+        isDoneDisabled={isSaving}
+        isDoneLoading={isSaving}
         previewButton={
           <Button
             variant="secondary"
@@ -946,27 +1107,36 @@ const handleDragEnd = () => {
                 </p>
               </div>
 
-              {isLoading ? (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm">Loading...</span>
-                </div>
-              ) : (
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={() => setShowUploadModal(true)}
                 className="flex items-center gap-2"
+                disabled={isStreamingLoad || isLoading}
               >
                 <Plus className="h-4 w-4" />
                 Add New Template
               </Button>
-              )}
             </div>
 
             {error && (
               <div className="mb-4 p-4 bg-destructive/10 border border-destructive rounded-lg text-destructive">
                 {error}
+              </div>
+            )}
+
+            {loadStatus !== "idle" && (
+              <div className="mb-6 rounded-lg border border-muted/40 bg-muted/10 p-4">
+                <StreamingProgress
+                  steps={loadSteps}
+                  status={loadStatus}
+                  events={loadEvents}
+                  output={loadOutput}
+                  showTimeline
+                />
+                {loadError && (
+                  <p className="mt-3 text-sm text-destructive">{loadError}</p>
+                )}
               </div>
             )}
 
@@ -988,23 +1158,20 @@ const handleDragEnd = () => {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem onClick={() => {
-                                // TODO: Implement duplicate template
-                                console.log('Duplicate template');
+                                console.info('Duplicate template action coming soon');
                               }}>
                                 <Copy className="mr-2 h-4 w-4" />
                                 Duplicate Template
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => {
-                                // TODO: Implement export template
-                                console.log('Export template');
+                                console.info('Export template action coming soon');
                               }}>
                                 <FileText className="mr-2 h-4 w-4" />
                                 Export Template
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem onClick={() => {
-                                // TODO: Implement template history
-                                console.log('View template history');
+                                console.info('Template history action coming soon');
                               }}>
                                 <Clock className="mr-2 h-4 w-4" />
                                 Template History
@@ -1021,7 +1188,10 @@ const handleDragEnd = () => {
                           <Input
                             id="template-name"
                             value={template.name}
-                            onChange={(e) => setTemplate(prev => ({ ...prev, name: e.target.value }))}
+                            onChange={(e) => {
+                              const { value } = e.target;
+                              updateTemplateState(prev => (prev.name === value ? prev : { ...prev, name: value }));
+                            }}
                             placeholder="Enter template name..."
                           />
                         </div>
@@ -1128,7 +1298,6 @@ const handleDragEnd = () => {
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => {
                                       // TODO: Implement duplicate section
-                                      console.log('Duplicate section:', section.id);
                                     }}>
                                       <Copy className="mr-2 h-4 w-4" />
                                       Duplicate Section
@@ -1137,7 +1306,7 @@ const handleDragEnd = () => {
                                       <>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem onClick={() => {
-                                          setTemplate(prev => ({
+                                          updateTemplateState(prev => ({
                                             ...prev,
                                             sections: prev.sections.filter(s => s.id !== section.id)
                                           }));
@@ -1354,7 +1523,6 @@ const handleDragEnd = () => {
                   className="flex-1"
                   onClick={() => {
                     // TODO: Add navigation to pricing page
-                    console.log('Navigate to paid plans');
                     setShowUploadModal(false);
                   }}
                 >
@@ -1648,40 +1816,40 @@ const handleDragEnd = () => {
                           </div>
                         ) : (
                           <div className="space-y-4">
-                            {!selectedCompany && (
-                              <div className="space-y-2">
+                        {!selectedCompany && (
+                          <div className="space-y-2">
                                 {workHistoryLibrary.map((company) => {
                                   const roleCount = company.roles.filter((role) => role.blurbs.length > 0).length;
                                   return (
-                                    <div
-                                      key={company.id}
-                                      className="p-3 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
+                              <div
+                                key={company.id}
+                                className="p-3 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
                                       onClick={() => {
                                         if (roleCount === 0) return;
                                         setSelectedCompany(company.id);
                                         setSelectedRole('');
                                       }}
-                                    >
-                                      <div className="flex items-center justify-between">
-                                        <div>
-                                          <h4 className="font-medium">{company.name}</h4>
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <h4 className="font-medium">{company.name}</h4>
                                           {company.description && (
-                                            <p className="text-sm text-muted-foreground">{company.description}</p>
+                                    <p className="text-sm text-muted-foreground">{company.description}</p>
                                           )}
-                                        </div>
-                                        <div className="flex items-center gap-2">
+                                  </div>
+                                  <div className="flex items-center gap-2">
                                           <Badge variant="secondary">{roleCount} role{roleCount === 1 ? '' : 's'}</Badge>
-                                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                                        </div>
-                                      </div>
-                                    </div>
+                                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                  </div>
+                                </div>
+                              </div>
                                   );
                                 })}
-                              </div>
-                            )}
+                          </div>
+                        )}
 
-                            {selectedCompany && !selectedRole && (
-                              <div className="space-y-2">
+                        {selectedCompany && !selectedRole && (
+                          <div className="space-y-2">
                                 <div className="flex items-center justify-between">
                                   <Button
                                     variant="ghost"
@@ -1699,30 +1867,30 @@ const handleDragEnd = () => {
                                   .find((company) => company.id === selectedCompany)
                                   ?.roles.filter((role) => role.blurbs.length > 0)
                                   .map((role) => (
-                                    <div
-                                      key={role.id}
-                                      className="p-3 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
-                                      onClick={() => setSelectedRole(role.id)}
-                                    >
-                                      <div className="flex items-center justify-between">
-                                        <div>
-                                          <h4 className="font-medium">{role.title}</h4>
+                                <div
+                                  key={role.id}
+                                  className="p-3 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
+                                  onClick={() => setSelectedRole(role.id)}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <h4 className="font-medium">{role.title}</h4>
                                           {role.description && (
-                                            <p className="text-sm text-muted-foreground">{role.description}</p>
+                                      <p className="text-sm text-muted-foreground">{role.description}</p>
                                           )}
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                          <Badge variant="secondary">{role.blurbs.length} story{role.blurbs.length === 1 ? '' : 's'}</Badge>
-                                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                                        </div>
-                                      </div>
                                     </div>
-                                  ))}
-                              </div>
-                            )}
+                                    <div className="flex items-center gap-2">
+                                          <Badge variant="secondary">{role.blurbs.length} story{role.blurbs.length === 1 ? '' : 's'}</Badge>
+                                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        )}
 
-                            {selectedRole && (
-                              <div className="space-y-3">
+                        {selectedRole && (
+                          <div className="space-y-3">
                                 <div className="flex items-center justify-between">
                                   <Button
                                     variant="ghost"
@@ -1736,20 +1904,20 @@ const handleDragEnd = () => {
                                 {workHistoryLibrary
                                   .find((company) => company.id === selectedCompany)
                                   ?.roles.find((role) => role.id === selectedRole)
-                                  ?.blurbs.map((blurb) => (
-                                    <div
-                                      key={blurb.id}
-                                      className="p-4 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
-                                      onClick={() => handleContentSelection(blurb)}
-                                    >
-                                      <div className="space-y-3">
-                                        <h4 className="font-medium">{blurb.title}</h4>
+                              ?.blurbs.map((blurb) => (
+                                <div
+                                  key={blurb.id}
+                                  className="p-4 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
+                                  onClick={() => handleContentSelection(blurb)}
+                                >
+                                  <div className="space-y-3">
+                                    <h4 className="font-medium">{blurb.title}</h4>
                                         <p className="text-sm text-muted-foreground whitespace-pre-line">
                                           {blurb.content || 'No story content captured yet.'}
                                         </p>
-                                      </div>
-                                    </div>
-                                  ))}
+                                  </div>
+                                </div>
+                              ))}
                               </div>
                             )}
                           </div>
@@ -1764,34 +1932,34 @@ const handleDragEnd = () => {
                             {savedSectionGroups.map((group) => {
                               const count = templateBlurbs.filter(blurb => blurb.type === group.value).length;
                               return (
-                                <div
+                              <div
                                   key={group.value}
-                                  className="p-3 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
+                                className="p-3 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
                                   onClick={() => {
                                     if (count === 0) return;
                                     setSelectedReusableType(group.value);
                                   }}
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <div>
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div>
                                       <h4 className="font-medium">{group.label}</h4>
                                       <p className="text-sm text-muted-foreground">{group.description}</p>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <Badge variant="secondary">
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="secondary">
                                         {count} item{count === 1 ? '' : 's'}
-                                      </Badge>
-                                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                                    </div>
+                                    </Badge>
+                                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
                                   </div>
                                 </div>
+                              </div>
                               );
                             })}
                             {templateBlurbs.length === 0 && (
                               <div className="p-3 border border-dashed rounded-lg text-sm text-muted-foreground text-center">
                                 Upload a cover letter or create a saved section to populate this library.
-                              </div>
-                            )}
+                          </div>
+                        )}
                           </div>
                         ) : (
                           <div className="space-y-3">
@@ -1815,17 +1983,17 @@ const handleDragEnd = () => {
                             ) : (
                               templateBlurbs
                                 .filter(blurb => blurb.type === selectedReusableType)
-                                .map((blurb) => (
-                                  <div
-                                    key={blurb.id}
-                                    className="p-4 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
-                                    onClick={() => handleContentSelection(blurb)}
-                                  >
-                                    <div className="space-y-3">
-                                      <h4 className="font-medium">{blurb.title}</h4>
+                              .map((blurb) => (
+                                <div
+                                  key={blurb.id}
+                                  className="p-4 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
+                                  onClick={() => handleContentSelection(blurb)}
+                                >
+                                  <div className="space-y-3">
+                                    <h4 className="font-medium">{blurb.title}</h4>
                                       <p className="text-sm text-muted-foreground whitespace-pre-line">{blurb.content}</p>
-                                    </div>
                                   </div>
+                                </div>
                                 ))
                             )}
                           </div>
