@@ -1,15 +1,15 @@
 import type { Json } from './supabase';
 
-export type RequirementCategory = 'standard' | 'differentiator' | 'preferred';
+export type RequirementCategory = 'standard' | 'preferred' | 'differentiator';
 
-export type RequirementPriority = 'critical' | 'high' | 'medium' | 'optional';
-
-export interface JobRequirement {
+export interface RequirementInsight {
   id: string;
-  description: string;
+  label: string;
+  detail?: string;
   category: RequirementCategory;
-  priority: RequirementPriority;
+  priority: 'critical' | 'high' | 'medium' | 'low' | 'optional';
   keywords: string[];
+  reasoning?: string;
   signals?: string[];
 }
 
@@ -17,26 +17,31 @@ export interface ParsedJobDescription {
   company: string;
   role: string;
   summary: string;
-  standardRequirements: JobRequirement[];
-  differentiatorRequirements: JobRequirement[];
-  preferredRequirements: JobRequirement[];
+  standardRequirements: RequirementInsight[];
+  preferredRequirements: RequirementInsight[];
+  differentiatorRequirements: RequirementInsight[];
+  boilerplateSignals: string[];
+  differentiatorSignals: string[];
   keywords: string[];
+  structuredInsights: Record<string, Json>;
+  analysis: Record<string, Json>;
+  structuredData?: Record<string, Json>;
   differentiatorNotes?: string;
-  structuredData: Record<string, unknown>;
-  rawSections: string[];
+  rawSections?: string[];
 }
 
-export interface JobDescriptionRecord extends ParsedJobDescription {
+export interface StoredJobDescription extends ParsedJobDescription {
   id: string;
   userId: string;
-  url: string | null;
   content: string;
-  analysis: Record<string, unknown>;
+  url?: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
-export type DraftSectionType = 'static' | 'dynamic-story' | 'dynamic-saved' | 'closing';
+export interface JobDescriptionRecord extends StoredJobDescription {
+  structuredData: Record<string, Json>;
+}
 
 export type DraftSectionSourceKind =
   | 'template_static'
@@ -44,34 +49,13 @@ export type DraftSectionSourceKind =
   | 'saved_section'
   | 'hil_generated';
 
-export interface DraftSectionSource {
-  kind: DraftSectionSourceKind;
-  entityId?: string | null;
-}
+export type DraftSectionType =
+  | 'static'
+  | 'dynamic-story'
+  | 'dynamic-saved'
+  | 'closing';
 
-export interface DraftSectionMetadata {
-  requirementsMatched: string[];
-  tags: string[];
-  wordCount: number;
-  differentiatorWeight?: number;
-}
-
-export interface DraftSectionStatus {
-  hasGaps: boolean;
-  gapIds: string[];
-  isModified: boolean;
-  lastUpdatedAt?: string;
-}
-
-export interface DraftSectionAnalytics {
-  matchScore?: number;
-  atsScore?: number;
-  standardCoverage?: number;
-  differentiatorCoverage?: number;
-  preferredCoverage?: number;
-}
-
-export interface DraftSection {
+export interface CoverLetterDraftSection {
   id: string;
   templateSectionId: string | null;
   slug: string;
@@ -79,33 +63,71 @@ export interface DraftSection {
   type: DraftSectionType;
   order: number;
   content: string;
-  source: DraftSectionSource;
-  metadata: DraftSectionMetadata;
-  status: DraftSectionStatus;
-  analytics: DraftSectionAnalytics;
+  source: {
+    kind: DraftSectionSourceKind;
+    entityId: string | null;
+  };
+  metadata: {
+    requirementsMatched: string[];
+    tags: string[];
+    wordCount: number;
+  };
+  status: {
+    hasGaps: boolean;
+    gapIds: string[];
+    isModified: boolean;
+    lastUpdatedAt: string;
+  };
+  analytics: {
+    matchScore?: number;
+    atsScore?: number;
+  };
 }
+
+export type MatchStrength = 'strong' | 'average' | 'weak';
+
+interface BaseMatchMetric {
+  key:
+    | 'goals'
+    | 'experience'
+    | 'rating'
+    | 'ats'
+    | 'coreRequirements'
+    | 'preferredRequirements';
+  label: string;
+  tooltip: string;
+  differentiatorHighlights?: string[];
+}
+
+export interface StrengthMatchMetric extends BaseMatchMetric {
+  type: 'strength';
+  strength: MatchStrength;
+  summary: string;
+}
+
+export interface ScoreMatchMetric extends BaseMatchMetric {
+  type: 'score';
+  value: number;
+  summary: string;
+}
+
+export interface RequirementMatchMetric extends BaseMatchMetric {
+  type: 'requirement';
+  met: number;
+  total: number;
+  summary: string;
+}
+
+export type CoverLetterMatchMetric =
+  | StrengthMatchMetric
+  | ScoreMatchMetric
+  | RequirementMatchMetric;
 
 export interface DifferentiatorInsight {
   requirementId: string;
-  description: string;
-  status: 'met' | 'partially_met' | 'missing';
-  supportingSectionIds: string[];
-}
-
-export interface MatchMetrics {
-  goalsAlignment: 'strong' | 'average' | 'weak';
-  experienceAlignment: 'strong' | 'average' | 'weak';
-  coverLetterRating: 'strong' | 'average' | 'weak';
-  atsScore: number;
-  coreRequirements: {
-    met: number;
-    total: number;
-    differentiatorFocus: DifferentiatorInsight[];
-  };
-  preferredRequirements: {
-    met: number;
-    total: number;
-  };
+  label: string;
+  status: 'addressed' | 'missing' | 'partial';
+  summary: string;
 }
 
 export interface CoverLetterAnalytics {
@@ -120,31 +142,66 @@ export interface CoverLetterDraft {
   userId: string;
   templateId: string;
   jobDescriptionId: string;
-  company: string;
-  role: string;
-  sections: DraftSection[];
+  company?: string;
+  role?: string;
   status: 'draft' | 'reviewed' | 'finalized';
-  llmFeedback: Record<string, unknown>;
-  analytics: CoverLetterAnalytics;
-  differentiatorSummary?: {
-    highlights: string[];
-    gaps: string[];
-    focusAreas: string[];
-  };
+  sections: CoverLetterDraftSection[];
+  metrics: CoverLetterMatchMetric[];
+  atsScore: number;
+  differentiatorSummary: DifferentiatorInsight[];
+  llmFeedback: Record<string, Json>;
+  analytics?: CoverLetterAnalytics;
   createdAt: string;
   updatedAt: string;
   finalizedAt?: string | null;
 }
 
+export interface DraftWorkpad {
+  id: string;
+  draftId: string;
+  userId: string;
+  matchState: Record<string, Json>;
+  sectionsSnapshot: CoverLetterDraftSection[];
+  lastPhase: DraftGenerationPhase | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type DraftGenerationPhase =
+  | 'idle'
+  | 'jd_parse'
+  | 'content_match'
+  | 'metrics'
+  | 'gap_detection';
+
+export interface DraftGenerationProgressUpdate {
+  phase: DraftGenerationPhase;
+  message: string;
+  timestamp: number;
+}
+
+export interface DraftGenerationOptions {
+  userId: string;
+  templateId: string;
+  jobDescriptionId: string;
+  onProgress?: (update: DraftGenerationProgressUpdate) => void;
+  signal?: AbortSignal;
+}
+
+export interface DraftGenerationResult {
+  draft: CoverLetterDraft;
+  workpad: DraftWorkpad | null;
+}
+
 export interface DraftWorkpadPayload {
   draftId: string;
   jobDescriptionId: string;
-  phase: 'idle' | 'jd_parse' | 'content_match' | 'metrics' | 'gap_detection';
-  sections: DraftSection[];
+  phase: DraftGenerationPhase;
+  sections: CoverLetterDraftSection[];
   sectionMatches: Record<string, string>;
-  standardRequirements: JobRequirement[];
-  differentiatorRequirements: JobRequirement[];
-  preferredRequirements: JobRequirement[];
+  standardRequirements: RequirementInsight[];
+  differentiatorRequirements: RequirementInsight[];
+  preferredRequirements: RequirementInsight[];
   keywords: string[];
 }
 
@@ -153,7 +210,7 @@ export type StreamingPhase = DraftWorkpadPayload['phase'];
 export interface StreamingCheckpoint {
   phase: StreamingPhase;
   message: string;
-  progress: number; // 0 - 1
+  progress: number;
   payload?: Json;
 }
 
@@ -164,9 +221,9 @@ export interface CreateJobDescriptionPayload {
   summary: string;
   url?: string | null;
   structuredData: Record<string, unknown>;
-  standardRequirements: JobRequirement[];
-  differentiatorRequirements: JobRequirement[];
-  preferredRequirements: JobRequirement[];
+  standardRequirements: RequirementInsight[];
+  differentiatorRequirements: RequirementInsight[];
+  preferredRequirements: RequirementInsight[];
   keywords: string[];
   analysis?: Record<string, unknown>;
   differentiatorNotes?: string;

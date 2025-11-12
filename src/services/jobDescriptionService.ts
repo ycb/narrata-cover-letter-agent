@@ -1,13 +1,12 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { streamText, type TextStreamPart } from 'ai';
-import type { Database } from '@/types/supabase';
+import type { Database, Json } from '@/types/supabase';
 import {
   type CreateJobDescriptionPayload,
   type DraftWorkpadPayload,
   type JobDescriptionRecord,
-  type JobRequirement,
   type ParsedJobDescription,
-  type RequirementPriority,
+  type RequirementInsight,
   type RequirementCategory,
 } from '@/types/coverLetters';
 import { supabase } from '@/lib/supabase';
@@ -71,9 +70,9 @@ Rules:
 - Respond with STRICT JSON (no commentary, no markdown fences).
 `;
 
-const DEFAULT_PRIORITY: RequirementPriority = 'high';
-
-const SUPPORTED_PRIORITIES: RequirementPriority[] = ['critical', 'high', 'medium', 'optional'];
+const SUPPORTED_PRIORITIES = ['critical', 'high', 'medium', 'low', 'optional'] as const;
+type NormalisedPriority = (typeof SUPPORTED_PRIORITIES)[number];
+const DEFAULT_PRIORITY: NormalisedPriority = 'high';
 
 const SUPPORTED_CATEGORIES: RequirementCategory[] = ['standard', 'differentiator', 'preferred'];
 
@@ -94,9 +93,9 @@ const createOpenAIClient = (apiKey?: string) => {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-const normaliseRequirementPriority = (value: unknown): RequirementPriority => {
+const normaliseRequirementPriority = (value: unknown): NormalisedPriority => {
   if (typeof value === 'string') {
-    const lowered = value.toLowerCase() as RequirementPriority;
+    const lowered = value.toLowerCase() as NormalisedPriority;
     if (SUPPORTED_PRIORITIES.includes(lowered)) {
       return lowered;
     }
@@ -107,20 +106,22 @@ const normaliseRequirementPriority = (value: unknown): RequirementPriority => {
 const normaliseRequirement = (
   requirement: unknown,
   fallbackCategory: RequirementCategory,
-): JobRequirement | null => {
+): RequirementInsight | null => {
   if (!isRecord(requirement)) return null;
 
-  const descriptionRaw =
-    typeof requirement.description === 'string'
+  const labelRaw =
+    typeof requirement.label === 'string'
+      ? requirement.label
+      : typeof requirement.title === 'string'
+      ? requirement.title
+      : typeof requirement.description === 'string'
       ? requirement.description
-      : typeof requirement.detail === 'string'
-      ? requirement.detail
       : typeof requirement.summary === 'string'
       ? requirement.summary
       : undefined;
 
-  const description = descriptionRaw?.trim();
-  if (!description) return null;
+  const label = labelRaw?.trim();
+  if (!label) return null;
 
   const id =
     typeof requirement.id === 'string' && requirement.id.trim().length > 0
@@ -144,12 +145,28 @@ const normaliseRequirement = (
     ? requirement.signals.filter((signal): signal is string => typeof signal === 'string' && signal.trim().length > 0)
     : [];
 
+  const detail =
+    typeof requirement.detail === 'string'
+      ? requirement.detail.trim()
+      : typeof requirement.description === 'string'
+      ? requirement.description.trim()
+      : undefined;
+
+  const reasoning =
+    typeof requirement.reasoning === 'string'
+      ? requirement.reasoning.trim()
+      : typeof requirement.notes === 'string'
+      ? requirement.notes.trim()
+      : undefined;
+
   return {
     id,
-    description,
+    label,
+    detail,
     category,
     priority,
     keywords,
+    reasoning,
     signals,
   };
 };
@@ -168,11 +185,11 @@ const cryptoRandomString = (): string => {
 const normaliseRequirementArray = (
   list: unknown,
   fallbackCategory: RequirementCategory,
-): JobRequirement[] => {
+): RequirementInsight[] => {
   if (!Array.isArray(list)) return [];
   return list
     .map(item => normaliseRequirement(item, fallbackCategory))
-    .filter((item): item is JobRequirement => Boolean(item));
+    .filter((item): item is RequirementInsight => Boolean(item));
 };
 
 const ensureStringArray = (value: unknown): string[] =>
@@ -180,7 +197,7 @@ const ensureStringArray = (value: unknown): string[] =>
     ? value.flatMap(item => (typeof item === 'string' ? item.trim() : [])).filter(Boolean)
     : [];
 
-const normaliseStructuredData = (value: unknown): ParsedJobDescription['structuredData'] => {
+const normaliseStructuredData = (value: unknown): Record<string, Json> => {
   if (!isRecord(value)) {
     return {
       responsibilities: [],
@@ -220,37 +237,53 @@ const cleanJsonResponse = (raw: string): string =>
     .replace(/```$/, '')
     .trim();
 
-const mapRowToRecord = (row: JobDescriptionRow): JobDescriptionRecord => ({
-  id: row.id,
-  userId: row.user_id,
-  url: row.url,
-  content: row.content,
-  company: row.company,
-  role: row.role,
-  summary: (row.analysis as Record<string, unknown> | null)?.summary as string | undefined ?? '',
-  structuredData: (row.structured_data as Record<string, unknown>) ?? {},
-  standardRequirements: normaliseRequirementArray(row.standard_requirements, 'standard'),
-  differentiatorRequirements: normaliseRequirementArray(row.differentiator_requirements, 'differentiator'),
-  preferredRequirements: normaliseRequirementArray(row.preferred_requirements, 'preferred'),
-  keywords: Array.isArray(row.keywords)
-    ? row.keywords.filter((keyword): keyword is string => typeof keyword === 'string')
-    : [],
-  differentiatorNotes: row.differentiator_notes ?? undefined,
-  analysis: (row.analysis as Record<string, unknown>) ?? {},
-  rawSections: Array.isArray((row.analysis as any)?.rawSections)
-    ? ((row.analysis as any).rawSections as string[])
-    : [],
-  createdAt: row.created_at ?? new Date().toISOString(),
-  updatedAt: row.updated_at ?? new Date().toISOString(),
-});
+const mapRowToRecord = (row: JobDescriptionRow): JobDescriptionRecord => {
+  const analysis = (row.analysis as Record<string, unknown>) ?? {};
+  const structuredInsights =
+    (analysis.structuredInsights as Record<string, Json> | undefined) ?? {};
+
+  const summary =
+    typeof analysis.summary === 'string' && analysis.summary.trim().length > 0
+      ? analysis.summary
+      : `${row.role} @ ${row.company}`;
+
+  return {
+    id: row.id,
+    userId: row.user_id,
+    url: row.url ?? null,
+    content: row.content,
+    company: row.company,
+    role: row.role,
+    summary,
+    standardRequirements: normaliseRequirementArray(row.standard_requirements, 'standard'),
+    preferredRequirements: normaliseRequirementArray(row.preferred_requirements, 'preferred'),
+    differentiatorRequirements: normaliseRequirementArray(row.differentiator_requirements, 'differentiator'),
+    boilerplateSignals: ensureStringArray((analysis as any).boilerplateSignals),
+    differentiatorSignals: ensureStringArray((analysis as any).differentiatorSignals),
+    keywords: Array.isArray(row.keywords)
+      ? row.keywords.filter((keyword): keyword is string => typeof keyword === 'string')
+      : [],
+    structuredInsights,
+    structuredData: normaliseStructuredData(row.structured_data),
+    analysis: analysis as Record<string, Json>,
+    differentiatorNotes: row.differentiator_notes ?? undefined,
+    rawSections: ensureStringArray((analysis as any).rawSections),
+    createdAt: row.created_at ?? new Date().toISOString(),
+    updatedAt: row.updated_at ?? new Date().toISOString(),
+  };
+};
 
 const defaultAnalysisEnvelope = (
-  data: { summary: string; differentiatorNotes?: string; rawSections?: string[] },
+  data: { summary: string; differentiatorNotes?: string; rawSections?: string[]; keywords?: string[] },
   raw: Record<string, unknown>,
 ): Record<string, unknown> => ({
   summary: data.summary,
   differentiatorNotes: data.differentiatorNotes,
   rawSections: data.rawSections ?? [],
+  keywords: data.keywords ?? [],
+  boilerplateSignals: Array.isArray(raw.boilerplateSignals) ? raw.boilerplateSignals : [],
+  differentiatorSignals: Array.isArray(raw.differentiatorSignals) ? raw.differentiatorSignals : [],
+  structuredInsights: raw.structuredData ?? {},
   llm: raw,
 });
 
@@ -343,7 +376,17 @@ export class JobDescriptionService {
       preferred_requirements: payload.preferredRequirements,
       keywords: payload.keywords,
       differentiator_notes: payload.differentiatorNotes ?? null,
-      analysis: payload.analysis ?? defaultAnalysisEnvelope(payload, {}),
+      analysis:
+        payload.analysis ??
+        defaultAnalysisEnvelope(
+          {
+            summary: payload.summary,
+            differentiatorNotes: payload.differentiatorNotes,
+            rawSections: payload.rawSections,
+            keywords: payload.keywords,
+          },
+          {},
+        ),
     };
 
     const { data, error } = await this.supabaseClient
@@ -449,6 +492,12 @@ export class JobDescriptionService {
     );
     const preferredRequirements = normaliseRequirementArray(payload.preferredRequirements, 'preferred');
     const keywords = ensureStringArray(payload.keywords);
+    const boilerplateSignals = ensureStringArray(payload.boilerplateSignals);
+    const differentiatorSignals = ensureStringArray(payload.differentiatorSignals);
+
+    const structuredData = normaliseStructuredData(
+      payload.structuredData ?? payload.structuredInsights ?? {},
+    );
 
     const rawSections = Array.isArray(payload.rawSections)
       ? payload.rawSections
@@ -462,16 +511,28 @@ export class JobDescriptionService {
           .filter((item): item is string => Boolean(item))
       : [];
 
+    const analysisPayload: Record<string, Json> = {
+      boilerplateSignals,
+      differentiatorSignals,
+      structuredInsights: structuredData,
+      keywords,
+      rawSections,
+    };
+
     return {
       company,
       role,
       summary,
       standardRequirements,
-      differentiatorRequirements,
       preferredRequirements,
+      differentiatorRequirements,
+      boilerplateSignals,
+      differentiatorSignals,
       keywords,
+      structuredInsights: structuredData,
+      structuredData,
+      analysis: analysisPayload,
       differentiatorNotes,
-      structuredData: normaliseStructuredData(payload.structuredData),
       rawSections,
     };
   }
