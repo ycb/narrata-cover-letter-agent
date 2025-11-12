@@ -48,7 +48,19 @@ export default function ShowAllStories() {
     try {
       setIsLoading(true);
       setError(null);
-      
+
+      let activeProfileId: string | undefined;
+      try {
+        const { SyntheticUserService } = await import("../services/syntheticUserService");
+        const syntheticUserService = new SyntheticUserService();
+        const syntheticContext = await syntheticUserService.getSyntheticUserContext();
+        if (syntheticContext.isSyntheticTestingEnabled) {
+          activeProfileId = syntheticContext.currentUser?.profileId ?? undefined;
+        }
+      } catch (syntheticError) {
+        console.warn('[ShowAllStories] Unable to load synthetic user context:', syntheticError);
+      }
+
       // Fetch approved content (stories/blurbs) with work item and company info
       const { data: blurbs, error: blurbsError } = await supabase
         .from('approved_content')
@@ -66,8 +78,31 @@ export default function ShowAllStories() {
 
       if (blurbsError) throw blurbsError;
 
+      let filteredBlurbs = (blurbs ?? []) as any[];
+
+      if (activeProfileId) {
+        const { data: sources, error: sourcesError } = await supabase
+          .from('sources')
+          .select('id')
+          .eq('user_id', user.id)
+          .ilike('file_name', `${activeProfileId}_%`);
+
+        if (sourcesError) {
+          console.warn('[ShowAllStories] Failed to load sources for profile', activeProfileId, sourcesError);
+        } else {
+          const sourceIds = (sources ?? []).map((src: any) => src.id);
+          if (sourceIds.length === 0) {
+            setStories([]);
+            setStoryGapsMap(new Map());
+            setIsLoading(false);
+            return;
+          }
+          filteredBlurbs = filteredBlurbs.filter((blurb: any) => sourceIds.includes(blurb.source_id));
+        }
+      }
+
       // Fetch gaps for stories first (before transforming, so we can add hasGaps property)
-      const blurbIds = (blurbs || []).map((b: any) => b.id);
+      const blurbIds = filteredBlurbs.map((b: any) => b.id);                                                        
       let gapsMap = new Map<string, boolean>();
       
       if (blurbIds.length > 0) {
@@ -89,7 +124,7 @@ export default function ShowAllStories() {
       setStoryGapsMap(gapsMap);
 
       // Transform to Story format
-      const transformedStories: Story[] = (blurbs || []).map((blurb: any) => {
+      const transformedStories: Story[] = filteredBlurbs.map((blurb: any) => {                                      
         const workItem = blurb.work_item || {};
         const company = workItem.company || {};
         
