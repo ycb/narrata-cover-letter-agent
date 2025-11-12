@@ -273,3 +273,88 @@ export interface TruthScore {
   suggestions: string[];
 }
 
+// PM Levels Service types
+export type PMLevelCode = 'L3' | 'L4' | 'L5' | 'L6' | 'M1' | 'M2';
+export type PMLevelDisplay = 
+  | 'Associate PM'
+  | 'PM'
+  | 'Senior PM'
+  | 'Staff PM'
+  | 'Principal PM'
+  | 'Lead PM'
+  | 'Manager'
+  | 'Senior Manager';
+
+export type RoleType = 'growth' | 'platform' | 'ai_ml' | 'founding' | 'technical' | 'general';
+export type BusinessMaturity = 'early' | 'growth' | 'late';
+
+// Core competency dimensions for PM leveling
+export type PMDimension = 'execution' | 'customer_insight' | 'strategy' | 'influence';
+
+// Extracted signals from content analysis
+export interface LevelSignal {
+  scope: {
+    teams: number;
+    revenueImpact?: number;
+    usersImpact?: number;
+    orgSize?: number;
+  };
+  impact: {
+    metrics: string[];
+    quantified: boolean;
+    scale: 'feature' | 'team' | 'org' | 'company';
+  };
+  influence: {
+    crossFunctional: boolean;
+    executive: boolean;
+    external: boolean;
+    teamSize?: number;
+  };
+  teamSize?: number;
+  metrics: string[];
+}
+
+// Competency score (0-3 scale)
+export interface CompetencyScore {
+  execution: number;
+  customer_insight: number;
+  strategy: number;
+  influence: number;
+}
+
+// Company metadata for maturity calculation
+export interface CompanyMetadata {
+  name: string;
+  size?: number; // employee count
+  fundingStage?: 'seed' | 'series_a' | 'series_b' | 'series_c' | 'series_d' | 'public' | 'late';
+  yearsActive?: number;
+}
+
+// PM Level inference result
+export interface PMLevelInference {
+  inferredLevel: PMLevelCode;
+  displayLevel: PMLevelDisplay;
+  confidence: number; // 0-1
+  scopeScore: number; // 0-1
+  maturityModifier: number; // 0.8-1.2
+  roleType: RoleType[];
+  competencyScores: CompetencyScore;
+  levelScore: number; // Calculated score
+  deltaSummary: string; // Human-readable gap description
+  recommendations: LevelRecommendation[];
+  signals: LevelSignal;
+  topArtifacts: string[]; // IDs of top 6 artifacts used
+}
+
+// Level recommendation
+export interface LevelRecommendation {
+  id: string;
+  type: 'add-story' | 'quantify-metrics' | 'strengthen-competency' | 'expand-scope';
+  priority: 'high' | 'medium' | 'low';
+  title: string;
+  description: string;
+  competency?: PMDimension;
+  suggestedAction: string;
+  relatedStories?: string[]; // Story IDs that could be improved
+}
+
