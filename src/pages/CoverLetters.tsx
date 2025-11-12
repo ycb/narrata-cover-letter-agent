@@ -28,13 +28,13 @@ import { CoverLetterEditModal } from "@/components/cover-letters/CoverLetterEdit
 import { useTour } from "@/contexts/TourContext";
 import { TourBannerFull } from "@/components/onboarding/TourBannerFull";
 import { useAuth } from "@/contexts/AuthContext";
-import { useStreamingProgress } from "@/hooks/useStreamingProgress";
-import { StreamingProgress } from "@/components/shared/StreamingProgress";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { LoadingState } from "@/components/shared/LoadingState";
 import {
   CoverLetterTemplateService,
   type CoverLetterSummary
 } from "@/services/coverLetterTemplateService";
+import { SyntheticUserService } from "@/services/syntheticUserService";
 import type {
   CoverLetterGeneratedSection,
   CoverLetterSection
@@ -247,116 +247,66 @@ export default function CoverLetters() {
   const [selectedCoverLetter, setSelectedCoverLetter] = useState<CoverLetterListItem | null>(null);
   const [coverLetters, setCoverLetters] = useState<CoverLetterListItem[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<string | undefined>();
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const mountedRef = useRef(true);
-
-  const {
-    steps: loadSteps,
-    events: loadEvents,
-    status: loadStatus,
-    output: loadOutput,
-    error: loadError,
-    isStreaming: isStreamingLoad,
-    startStream,
-    reset: resetLoad,
-    cancel: cancelLoad,
-    setStepStatus,
-    setStepDetail,
-    setStepProgress,
-    appendEvent
-  } = useStreamingProgress({
-    steps: [
-      { id: "profile", label: "Resolve persona context" },
-      { id: "coverLetters", label: "Fetch cover letters" }
-    ],
-    autoResolveSteps: false
-  });
 
   const fetchCoverLetters = useCallback(async () => {
     if (!user?.id) {
-      setCoverLetters([]);
-      setActiveProfileId(undefined);
-      resetLoad();
+      if (mountedRef.current) {
+        setCoverLetters([]);
+        setActiveProfileId(undefined);
+        setIsLoading(false);
+        setLoadError(null);
+      }
       return;
     }
 
-    await startStream({
-      steps: [
-        { id: "profile", label: "Resolve persona context" },
-        { id: "coverLetters", label: "Fetch cover letters" }
-      ],
-      autoResolveSteps: false,
-      streamFactory: async () =>
-        (async function* streamLoader() {
-          try {
-            setStepStatus("profile", "running");
-            setStepDetail("profile", "Checking synthetic persona overrides");
-            const { SyntheticUserService } = await import("@/services/syntheticUserService");
-            const syntheticService = new SyntheticUserService();
-            const syntheticContext = await syntheticService.getSyntheticUserContext();
-            const profileId = syntheticContext.isSyntheticTestingEnabled
-              ? syntheticContext.currentUser?.profileId
-              : undefined;
+    setIsLoading(true);
+    setLoadError(null);
 
-            if (!mountedRef.current) {
-              return;
-            }
+    try {
+      const syntheticService = new SyntheticUserService();
+      const syntheticContext = await syntheticService.getSyntheticUserContext();
+      const profileId = syntheticContext.isSyntheticTestingEnabled
+        ? syntheticContext.currentUser?.profileId
+        : undefined;
 
-            setActiveProfileId(profileId ?? undefined);
-            appendEvent(
-              profileId ? `Persona ${profileId} active for this session` : "Using live user data",
-              "info"
-            );
-            setStepStatus("profile", "success");
-            setStepDetail("profile", profileId ? `Persona ${profileId}` : "Live profile");
+      if (!mountedRef.current) {
+        return;
+      }
 
-            setStepStatus("coverLetters", "running");
-            setStepDetail("coverLetters", "Fetching cover letter summaries");
-            setStepProgress("coverLetters", 0.3);
-            const summaries = await CoverLetterTemplateService.getUserCoverLetters(user.id);
-            if (!mountedRef.current) {
-              return;
-            }
+      setActiveProfileId(profileId ?? undefined);
 
-            const mapped = summaries.map(transformSummary);
-            setCoverLetters(mapped);
+      const summaries = await CoverLetterTemplateService.getUserCoverLetters(user.id);
+      if (!mountedRef.current) {
+        return;
+      }
 
-            const loadedMessage =
-              mapped.length === 0
-                ? "No cover letters found yet."
-                : `Loaded ${mapped.length} cover letters.`;
-            appendEvent(
-              mapped.length === 0 ? "Library is currently empty" : `Loaded ${mapped.length} cover letters`,
-              mapped.length === 0 ? "warning" : "success"
-            );
-            yield { type: "text", text: loadedMessage } as any;
-            setStepStatus("coverLetters", "success");
-            setStepDetail(
-              "coverLetters",
-              mapped.length === 0 ? "No cover letters yet" : `Loaded ${mapped.length} cover letters`
-            );
-            setStepProgress("coverLetters", 1);
-          } catch (err) {
-            if (!mountedRef.current) {
-              return;
-            }
-            const message =
-              err instanceof Error ? err.message : "Failed to load cover letters";
-            setStepStatus("coverLetters", "error", message);
-            setStepDetail("coverLetters", message);
-            throw err;
-          }
-        })()
-    });
-  }, [appendEvent, resetLoad, setStepStatus, setStepDetail, setStepProgress, startStream, user?.id]);
+      const mapped = summaries.map(transformSummary);
+      setCoverLetters(mapped);
+    } catch (err) {
+      if (!mountedRef.current) {
+        return;
+      }
+      const message =
+        err instanceof Error ? err.message : "Failed to load cover letters";
+      setLoadError(message);
+      setCoverLetters([]);
+    } finally {
+      if (mountedRef.current) {
+        setIsLoading(false);
+      }
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     mountedRef.current = true;
     fetchCoverLetters();
     return () => {
       mountedRef.current = false;
-      cancelLoad();
     };
-  }, [fetchCoverLetters, cancelLoad]);
+  }, [fetchCoverLetters]);
 
   const filteredCoverLetters = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -461,20 +411,18 @@ export default function CoverLetters() {
             </div>
           </div>
 
-          {(isStreamingLoad || loadStatus === "error") && (
+          {isLoading && (
             <Card>
               <CardContent className="p-4">
-                <StreamingProgress
-                  steps={loadSteps}
-                  status={loadStatus}
-                  events={loadEvents}
-                  output={loadOutput}
-                  showTimeline
-                  showOutput
-                />
-                {loadError && (
-                  <p className="mt-4 text-sm text-destructive">{loadError}</p>
-                )}
+                <LoadingState isLoading loadingText="Loading cover letters..." />
+              </CardContent>
+            </Card>
+          )}
+
+          {loadError && !isLoading && (
+            <Card>
+              <CardContent className="p-4 text-sm text-destructive">
+                {loadError}
               </CardContent>
             </Card>
           )}
@@ -568,7 +516,7 @@ export default function CoverLetters() {
             </div>
           </div>
 
-          {filteredCoverLetters.length === 0 && !isStreamingLoad ? (
+          {filteredCoverLetters.length === 0 && !isLoading ? (
             <EmptyState
               title="No cover letters yet"
               description="Generate your first cover letter to populate this workspace."

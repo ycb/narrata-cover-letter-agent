@@ -12,7 +12,6 @@ import { TemplateBanner } from "@/components/layout/TemplateBanner";
 import { Link, useNavigate } from "react-router-dom";
 import { TemplateBlurbHierarchical } from "@/components/template-blurbs/TemplateBlurbHierarchical";
 import { type TemplateBlurb } from "@/components/template-blurbs/TemplateBlurbMaster";
-import { TemplateBlurbDetail } from "@/components/template-blurbs/TemplateBlurbDetail";
 import { WorkHistoryBlurbSelector } from "@/components/work-history/WorkHistoryBlurbSelector";
 import { SectionInsertButton } from "@/components/template-blurbs/SectionInsertButton";
 import { CoverLetterViewModal } from "@/components/cover-letters/CoverLetterViewModal";
@@ -24,10 +23,10 @@ import { useTour } from "@/contexts/TourContext";
 import { TourBannerFull } from "@/components/onboarding/TourBannerFull";
 import { FormModal } from "@/components/shared/FormModal";
 import { CoverLetterTemplateService, type SavedSection } from "@/services/coverLetterTemplateService";
+import { SyntheticUserService } from "@/services/syntheticUserService";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { useStreamingProgress } from "@/hooks/useStreamingProgress";
-import { StreamingProgress } from "@/components/shared/StreamingProgress";
+import { LoadingState } from "@/components/shared/LoadingState";
 
 const DEFAULT_TEMPLATE_NAME = "Professional Template";
 
@@ -51,12 +50,8 @@ export default function CoverLetterTemplate() {
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const [showBlurbSelector, setShowBlurbSelector] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showBlurbDetail, setShowBlurbDetail] = useState(false);
-  const [selectedBlurb, setSelectedBlurb] = useState<TemplateBlurb | null>(null);
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
-  const [editingBlurb, setEditingBlurb] = useState<TemplateBlurb | null>(null);
-  const [creatingBlurbType, setCreatingBlurbType] = useState<'intro' | 'paragraph' | 'closer' | 'signature' | null>(null);
   const [showWorkHistorySelector, setShowWorkHistorySelector] = useState(false);
   const [showAddContentTypeModal, setShowAddContentTypeModal] = useState(false);
   const [newContentType, setNewContentType] = useState({ label: '', description: '' });
@@ -89,30 +84,7 @@ export default function CoverLetterTemplate() {
   const [selectedReusableType, setSelectedReusableType] = useState<string>('');
   const [selectedContent, setSelectedContent] = useState<any>(null);
   const loadMountedRef = useRef(true);
-  const {
-    steps: loadSteps,
-    events: loadEvents,
-    status: loadStatus,
-    output: loadOutput,
-    error: loadError,
-    isStreaming: isStreamingLoad,
-    startStream,
-    startTextStream,
-    reset: resetLoad,
-    cancel: cancelLoad,
-    setStepStatus,
-    setStepDetail,
-    setStepProgress,
-    appendEvent
-  } = useStreamingProgress({
-    steps: [
-      { id: "profile", label: "Resolve persona context" },
-      { id: "template", label: "Fetch template" },
-      { id: "savedSections", label: "Merge saved sections" },
-      { id: "library", label: "Load work history library" }
-    ],
-    autoResolveSteps: false
-  });
+
   
   // Tour integration
   const { isActive: isTourActive, currentStep: tourStep, tourSteps, currentTourStep, nextStep, previousStep, cancelTour } = useTour();
@@ -133,80 +105,42 @@ export default function CoverLetterTemplate() {
     }
   }, [isTourActive]);
 
-  // Load template and saved sections from database
   useEffect(() => {
+    loadMountedRef.current = true;
+
     const loadData = async () => {
       if (!user?.id) {
-        setIsLoading(false);
-        setTemplate(createEmptyTemplate());
-        setTemplateBlurbs([]);
-        setIsDirty(false);
+        if (loadMountedRef.current) {
+          setIsLoading(false);
+          setTemplate(createEmptyTemplate());
+          setTemplateBlurbs([]);
+          setWorkHistoryLibrary([]);
+          setIsDirty(false);
+        }
         return;
       }
 
-      let activeStep: "profile" | "template" | "savedSections" | "library" | null = null;
+      setIsLoading(true);
+      setError(null);
 
       try {
-        setError(null);
-
-        activeStep = "profile";
-        setStepStatus("profile", "running");
-        setStepDetail("profile", "Checking synthetic persona overrides");
-        const { SyntheticUserService } = await import('../services/syntheticUserService');
         const syntheticUserService = new SyntheticUserService();
         const syntheticContext = await syntheticUserService.getSyntheticUserContext();
-
         const profileId = syntheticContext.isSyntheticTestingEnabled
           ? syntheticContext.currentUser?.profileId
           : undefined;
 
-        appendEvent(
-          profileId ? `Persona ${profileId} active for template editing.` : "Using live profile data.",
-          profileId ? "success" : "info"
-        );
-        setStepStatus("profile", "success");
-        setStepDetail("profile", profileId ? `Persona ${profileId}` : "Live profile");
-
-        activeStep = "template";
-        setStepStatus("template", "running");
-        setStepDetail("template", "Fetching cover letter template from Supabase");
         const templates = await CoverLetterTemplateService.getUserTemplates(user.id);
-        setStepDetail(
-          "template",
-          templates.length > 0
-            ? `Loaded template “${templates[0]?.name ?? "Untitled"}”`
-            : "No saved template found – will derive from saved sections"
-        );
-        setStepStatus("template", "success");
-
-        activeStep = "savedSections";
-        setStepStatus("savedSections", "running");
-        setStepDetail("savedSections", "Loading saved sections and merging signatures");
-        setStepProgress("savedSections", 0.2);
         const sections = await CoverLetterTemplateService.getUserSavedSections(user.id, profileId);
-        setStepProgress("savedSections", sections.length > 0 ? 0.6 : 0.3);
-        appendEvent(
-          sections.length === 0
-            ? "No saved sections found yet."
-            : `Loaded ${sections.length} saved sections.`,
-          sections.length === 0 ? "warning" : "success"
-        );
-
-        activeStep = "library";
-        setStepStatus("library", "running");
-        setStepDetail("library", "Preparing work history library for dynamic sections");
         const libraryCompanies = await fetchWorkHistoryLibrary(user.id, profileId);
-        setStepDetail(
-          "library",
-          libraryCompanies.length === 0
-            ? "No work history stories available yet"
-            : `Loaded ${libraryCompanies.length} companies with stories`
-        );
-        setStepStatus("library", "success");
+
+        if (!loadMountedRef.current) {
+          return;
+        }
 
         const normalizeContentKey = (text: string | undefined | null) =>
-          (text ?? '')
-            .replace(/\s+/g, ' ')
+          (text ?? "")
+            .replace(/\s+/g, " ")
             .trim()
             .toLowerCase();
 
@@ -224,7 +158,7 @@ export default function CoverLetterTemplate() {
             return null;
           }
 
-          const signoffKeywords = ['regards', 'sincerely', 'best', 'thanks', 'thank you', 'cheers'];
+          const signoffKeywords = ["regards", "sincerely", "best", "thanks", "thank you", "cheers"];
           let signoffIndex = -1;
 
           for (let idx = 0; idx < lines.length; idx += 1) {
@@ -239,8 +173,8 @@ export default function CoverLetterTemplate() {
             return null;
           }
 
-          const body = lines.slice(0, signoffIndex).join('\n').trim();
-          const signature = lines.slice(signoffIndex).join('\n').trim();
+          const body = lines.slice(0, signoffIndex).join("\n").trim();
+          const signature = lines.slice(signoffIndex).join("\n").trim();
 
           if (!body || !signature) {
             return null;
@@ -253,10 +187,10 @@ export default function CoverLetterTemplate() {
         const savedSectionContentMap = new Map<string, string>();
 
         const blurbs: TemplateBlurb[] = sections.map((section) => {
-          const allowedTypes: TemplateBlurb['type'][] = ['intro', 'paragraph', 'closer', 'signature'];
-          const sectionType = allowedTypes.includes(section.type as TemplateBlurb['type'])
-            ? section.type as TemplateBlurb['type']
-            : 'intro';
+          const allowedTypes: TemplateBlurb["type"][] = ["intro", "paragraph", "closer", "signature"];
+          const sectionType = allowedTypes.includes(section.type as TemplateBlurb["type"])
+            ? (section.type as TemplateBlurb["type"])
+            : "intro";
 
           if (section.id) {
             savedSectionMap.set(section.id, section);
@@ -275,29 +209,28 @@ export default function CoverLetterTemplate() {
           }
 
           return {
-          id: section.id!,
+            id: section.id!,
             type: sectionType,
-          title: section.title,
-          content: section.content,
+            title: section.title,
+            content: section.content,
             tags: Array.from(new Set([...(section.tags ?? []), ...(section.purpose_tags ?? [])])),
-            isDefault: (section.type as string) === 'intro',
-          status: 'approved' as const,
-          confidence: 'high' as const,
-          timesUsed: section.times_used || 0,
-          lastUsed: section.last_used,
-          createdAt: section.created_at!,
-          updatedAt: section.updated_at!
+            isDefault: (section.type as string) === "intro",
+            status: "approved" as const,
+            confidence: "high" as const,
+            timesUsed: section.times_used || 0,
+            lastUsed: section.last_used,
+            createdAt: section.created_at!,
+            updatedAt: section.updated_at!
           };
         });
 
-        const templateToUse = templates.length > 0
-          ? templates[0]
-          : buildTemplateFromSections(sections);
+        const templateToUse =
+          templates.length > 0 ? templates[0] : buildTemplateFromSections(sections);
 
         const templateWithSignatures = {
           ...templateToUse,
           sections: (templateToUse.sections || []).map((section) => {
-            if (section.type !== 'closer') {
+            if (section.type !== "closer") {
               return section;
             }
 
@@ -330,96 +263,34 @@ export default function CoverLetterTemplate() {
           })
         };
 
-        setStepStatus("savedSections", "success");
-        setStepDetail(
-          "savedSections",
-          templateWithSignatures.sections?.length
-            ? `Ready with ${templateWithSignatures.sections.length} template sections`
-            : "Template has no sections yet"
-        );
-        setStepProgress("savedSections", 1);
-
         setTemplate(templateWithSignatures);
-
-        if (blurbs.length > 0) {
-          setTemplateBlurbs(blurbs);
-        } else {
-          setTemplateBlurbs([]);
-        }
+        setTemplateBlurbs(blurbs);
         setIsDirty(false);
+        setWorkHistoryLibrary(libraryCompanies);
       } catch (err) {
-        console.error('Error loading template data:', err);
-        setError('Failed to load template data');
+        if (!loadMountedRef.current) {
+          return;
+        }
+        console.error("Error loading template data:", err);
+        const message = err instanceof Error ? err.message : "Failed to load template data";
+        setError(message);
         setTemplate(createEmptyTemplate());
         setTemplateBlurbs([]);
         setWorkHistoryLibrary([]);
         setIsDirty(false);
-        const message = err instanceof Error ? err.message : String(err);
-        if (activeStep) {
-          setStepStatus(activeStep, "error", message);
-          setStepDetail(activeStep, message);
+      } finally {
+        if (loadMountedRef.current) {
+          setIsLoading(false);
         }
       }
     };
 
-    const run = async () => {
-      if (!user?.id) {
-        setIsLoading(false);
-        setTemplate(createEmptyTemplate());
-        setTemplateBlurbs([]);
-        setWorkHistoryLibrary([]);
-        setIsDirty(false);
-        resetLoad();
-        return;
-      }
-
-      loadMountedRef.current = true;
-      await startStream({
-        steps: [
-          { id: "profile", label: "Resolve persona context" },
-          { id: "template", label: "Fetch template" },
-          { id: "savedSections", label: "Merge saved sections" },
-          { id: "library", label: "Load work history library" }
-        ],
-        autoResolveSteps: false,
-        streamFactory: async () =>
-          (async function* streamLoader() {
-            try {
-              setIsLoading(true);
-              setError(null);
-              await loadData();
-              if (!loadMountedRef.current) {
-                return;
-              }
-              yield { type: "text", text: "Template ready." } as any;
-            } catch (err) {
-              if (!loadMountedRef.current) {
-                return;
-              }
-              const message = err instanceof Error ? err.message : "Failed to load template";
-              setError("Failed to load template data");
-              setTemplate(createEmptyTemplate());
-              setTemplateBlurbs([]);
-              setWorkHistoryLibrary([]);
-              setIsDirty(false);
-              appendEvent(message, "error");
-              throw err;
-      } finally {
-              if (loadMountedRef.current) {
-        setIsLoading(false);
-      }
-            }
-          })()
-      });
-    };
-
-    run();
+    loadData();
 
     return () => {
       loadMountedRef.current = false;
-      cancelLoad();
     };
-  }, [user?.id, startStream, resetLoad, cancelLoad, setStepStatus, setStepDetail, setStepProgress, appendEvent]);
+  }, [user?.id]);
 
   const getBlurbTitleByContent = (content: string, sectionType: string) => {
     const blurb = templateBlurbs.find(b => b.content === content && b.type === sectionType);
@@ -560,50 +431,6 @@ export default function CoverLetterTemplate() {
   const getAvailableBlurbs = (sectionType: string) => {
     if (!sectionType) return templateBlurbs;
     return templateBlurbs.filter(blurb => blurb.type === sectionType);
-  };
-
-  const handleCreateBlurb = (type: 'intro' | 'paragraph' | 'closer' | 'signature') => {
-    setEditingBlurb(null);
-  };
-
-  const handleEditBlurb = (blurb: TemplateBlurb) => {
-    setEditingBlurb(blurb);
-    setCreatingBlurbType(null);
-  };
-
-  const handleSaveBlurb = (blurbData: Partial<TemplateBlurb>) => {
-    if (editingBlurb) {
-      // Update existing blurb
-      setTemplateBlurbs(prev => prev.map(blurb => 
-        blurb.id === editingBlurb.id ? { ...blurb, ...blurbData } : blurb
-      ));
-    } else {
-      // Create new blurb
-      const newBlurb: TemplateBlurb = {
-        ...blurbData,
-        id: `${blurbData.type}-${Date.now()}`,
-        type: blurbData.type!,
-        title: blurbData.title!,
-        content: blurbData.content!,
-        tags: blurbData.tags || [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      setTemplateBlurbs(prev => [...prev, newBlurb]);
-    }
-    
-    setEditingBlurb(null);
-    setCreatingBlurbType(null);
-  };
-
-  const handleDeleteBlurb = (blurbId: string) => {
-    setTemplateBlurbs(prev => prev.filter(blurb => blurb.id !== blurbId));
-  };
-
-  const handleSelectBlurbFromLibrary = (blurb: TemplateBlurb) => {
-    if (selectedSection) {
-      selectBlurbForSection(selectedSection, blurb);
-    }
   };
 
   const handleSelectWorkHistoryBlurb = (blurb: WorkHistoryBlurb) => {
@@ -1112,7 +939,7 @@ const persistTemplate = async () => {
                 size="sm"
                 onClick={() => setShowUploadModal(true)}
                 className="flex items-center gap-2"
-                disabled={isStreamingLoad || isLoading}
+                disabled={isLoading}
               >
                 <Plus className="h-4 w-4" />
                 Add New Template
@@ -1125,18 +952,9 @@ const persistTemplate = async () => {
               </div>
             )}
 
-            {loadStatus !== "idle" && (
-              <div className="mb-6 rounded-lg border border-muted/40 bg-muted/10 p-4">
-                <StreamingProgress
-                  steps={loadSteps}
-                  status={loadStatus}
-                  events={loadEvents}
-                  output={loadOutput}
-                  showTimeline
-                />
-                {loadError && (
-                  <p className="mt-3 text-sm text-destructive">{loadError}</p>
-                )}
+            {isLoading && (
+              <div className="mb-6">
+                <LoadingState isLoading loadingText="Loading template..." />
               </div>
             )}
 
@@ -1432,20 +1250,26 @@ const persistTemplate = async () => {
                 {/* Add New Button */}
                 <Card className="border-dashed">
                   <CardContent className="p-4 text-center">
-                    <Button 
-                      variant="secondary"
-                      onClick={() => {
-                        const allowedTypesForCreation: TemplateBlurb['type'][] = ['intro', 'paragraph', 'closer', 'signature'];
-                        const rawType = template.sections.find(s => s.id === selectedSection)?.type;
-                        const sectionType = allowedTypesForCreation.includes(rawType as TemplateBlurb['type'])
-                          ? rawType as TemplateBlurb['type']
-                          : 'intro';
-                        setShowBlurbSelector(false);
-                        setSelectedSection(null);
-                        handleCreateBlurb(sectionType);
-                      }}
-                      className="flex items-center gap-2"
-                    >
+                      <Button 
+                        variant="secondary"
+                        onClick={() => {
+                          const allowedTypesForCreation: TemplateBlurb['type'][] = ['intro', 'paragraph', 'closer', 'signature'];
+                          const rawType = template.sections.find(s => s.id === selectedSection)?.type;
+                          const sectionType = allowedTypesForCreation.includes(rawType as TemplateBlurb['type'])
+                            ? rawType as TemplateBlurb['type']
+                            : 'intro';
+                          setShowBlurbSelector(false);
+                          setSelectedSection(null);
+                          setNewReusableContent({
+                            title: '',
+                            content: '',
+                            tags: '',
+                            contentType: sectionType
+                          });
+                          setShowAddReusableContentModal(true);
+                        }}
+                        className="flex items-center gap-2"
+                      >
                       <Plus className="h-4 w-4" />
                       Create New {getSectionTypeLabel(template.sections.find(s => s.id === selectedSection)?.type || '')} Story
                     </Button>

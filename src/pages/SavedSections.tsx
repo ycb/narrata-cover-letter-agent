@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Plus, FileText, CheckCircle, Edit, X, BookOpen } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { FileText, CheckCircle, X, BookOpen } from "lucide-react";
 import { TemplateBlurbHierarchical } from "@/components/template-blurbs/TemplateBlurbHierarchical";
 import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
 import { CoverLetterTemplateService, type SavedSection } from "@/services/coverLetterTemplateService";
@@ -13,12 +15,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { TagSuggestionService } from "@/services/tagSuggestionService";
 import { TagService } from "@/services/tagService";
 import { GapDetectionService } from "@/services/gapDetectionService";
-import { useStreamingProgress } from "@/hooks/useStreamingProgress";
-import { StreamingProgress } from "@/components/shared/StreamingProgress";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { LoadingState } from "@/components/shared/LoadingState";
 import { useToast } from "@/hooks/use-toast";
+import { SyntheticUserService } from "@/services/syntheticUserService";
 
-type SavedSectionBlurb = {
+type SavedSectionItem = {
   id: string;
   type: 'intro' | 'paragraph' | 'closer' | 'signature';
   title: string;
@@ -40,6 +42,10 @@ type SavedSectionBlurb = {
 };
 
 type HierarchicalBlurb = ComponentProps<typeof TemplateBlurbHierarchical>['blurbs'][number] & {
+  hasGaps?: boolean;
+  gapCount?: number;
+  linkedExternalLinks?: string[];
+  externalLinks?: string[];
   gapCategories?: string[];
   maxGapSeverity?: 'high' | 'medium' | 'low';
 };
@@ -48,16 +54,14 @@ export default function SavedSections() {
   const { user } = useAuth();
   const { goals } = useUserGoals();
   const { toast } = useToast();
-  const [templateBlurbs, setTemplateBlurbs] = useState<SavedSectionBlurb[]>([]);
+  const [savedSections, setSavedSections] = useState<SavedSectionItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isEditingSection, setIsEditingSection] = useState(false);
+  const [editingSection, setEditingSection] = useState<SavedSectionItem | null>(null);
+  const [sectionTagInput, setSectionTagInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [showAddReusableContentModal, setShowAddReusableContentModal] = useState(false);
   const [newReusableContent, setNewReusableContent] = useState({ title: '', content: '', tags: '', contentType: '' });
-  const [userContentTypes, setUserContentTypes] = useState<Array<{
-    type: string;
-    label: string;
-    description: string;
-    icon: React.ComponentType<{ className?: string }>;
-  }>>([]);
 
   // HIL Content Generation state
   const [isContentModalOpen, setIsContentModalOpen] = useState(false);
@@ -73,28 +77,6 @@ export default function SavedSections() {
   const [existingTags, setExistingTags] = useState<string[]>([]);
 
   const mountedRef = useRef(true);
-  const {
-    steps: loadSteps,
-    events: loadEvents,
-    status: loadStatus,
-    output: loadOutput,
-    error: loadError,
-    isStreaming: isStreamingLoad,
-    startStream,
-    reset: resetLoad,
-    cancel: cancelLoad,
-    setStepStatus,
-    setStepDetail,
-    setStepProgress,
-    appendEvent
-  } = useStreamingProgress({
-    steps: [
-      { id: "profile", label: "Resolve persona context" },
-      { id: "savedSections", label: "Load saved sections" },
-      { id: "gapData", label: "Analyze gap signals" }
-    ],
-    autoResolveSteps: false
-  });
 
   // Load saved sections from database
   useEffect(() => {
@@ -102,191 +84,147 @@ export default function SavedSections() {
 
     const loadSavedSections = async () => {
       if (!user?.id) {
-        setTemplateBlurbs([]);
-        setUserContentTypes([]);
-        resetLoad();
+        if (mountedRef.current) {
+          setSavedSections([]);
+          setError(null);
+          setIsLoading(false);
+        }
         return;
       }
 
-      await startStream({
-        steps: [
-          { id: "profile", label: "Resolve persona context" },
-          { id: "savedSections", label: "Load saved sections" },
-          { id: "gapData", label: "Analyze gap signals" }
-        ],
-        autoResolveSteps: false,
-        streamFactory: async () =>
-          (async function* streamLoader() {
-            try {
-        setError(null);
-              setStepStatus("profile", "running");
-              setStepDetail("profile", "Checking synthetic persona overrides");
+      setIsLoading(true);
+      setError(null);
 
-              const { SyntheticUserService } = await import("../services/syntheticUserService");
-              const syntheticUserService = new SyntheticUserService();
-              const syntheticContext = await syntheticUserService.getSyntheticUserContext();
+      try {
+        const syntheticUserService = new SyntheticUserService();
+        const syntheticContext = await syntheticUserService.getSyntheticUserContext();
 
-              const profileId = syntheticContext.isSyntheticTestingEnabled
-                ? syntheticContext.currentUser?.profileId
-                : undefined;
+        const profileId = syntheticContext.isSyntheticTestingEnabled
+          ? syntheticContext.currentUser?.profileId
+          : undefined;
 
-              if (!mountedRef.current) {
-                return;
+        const sections = await CoverLetterTemplateService.getUserSavedSections(user.id, profileId);
+
+        let savedSectionGapIndex = new Map<
+          string,
+          { gapCount: number; categories: string[]; maxSeverity: "high" | "medium" | "low" }
+        >();
+
+        try {
+          const gapSummary = await GapDetectionService.getContentItemsWithGaps(user.id, profileId);
+          const savedSectionGaps = gapSummary.byContentType.coverLetterSavedSections || [];
+          savedSectionGapIndex = new Map(
+            savedSectionGaps.map((item) => [
+              item.entity_id,
+              {
+                gapCount: item.gap_categories?.length ?? 0,
+                categories: item.gap_categories ?? [],
+                maxSeverity: item.max_severity ?? "low"
               }
+            ])
+          );
+        } catch (gapError) {
+          console.warn(
+            "[SavedSections] Gap summary unavailable (using defaults).",
+            gapError
+          );
+        }
 
-              appendEvent(
-                profileId
-                  ? `Persona ${profileId} active for saved sections`
-                  : "Using live profile data",
-                "info"
-              );
-              setStepStatus("profile", "success");
-              setStepDetail("profile", profileId ? `Persona ${profileId}` : "Live profile");
+        if (!mountedRef.current) {
+          return;
+        }
 
-              setStepStatus("savedSections", "running");
-              setStepDetail("savedSections", "Loading saved sections from Supabase");
-              setStepProgress("savedSections", 0.2);
-              const sections = await CoverLetterTemplateService.getUserSavedSections(user.id, profileId);
-              if (!mountedRef.current) {
-                return;
-              }
-
-              appendEvent(
-                sections.length === 0
-                  ? "No saved sections found yet."
-                  : `Loaded ${sections.length} saved sections`,
-                sections.length === 0 ? "warning" : "success"
-              );
-              setStepStatus("savedSections", "success");
-              setStepDetail(
-                "savedSections",
-                sections.length === 0 ? "No saved sections yet" : `Loaded ${sections.length} saved sections`
-              );
-              setStepProgress("savedSections", sections.length > 0 ? 0.6 : 0.4);
-
-              setStepStatus("gapData", "running");
-              setStepDetail("gapData", "Analyzing gap signals");
-              let savedSectionGapIndex = new Map<
-                string,
-                { gapCount: number; categories: string[]; maxSeverity: "high" | "medium" | "low" }
-              >();
-
-              try {
-                const gapSummary = await GapDetectionService.getContentItemsWithGaps(user.id, profileId);
-                const savedSectionGaps = gapSummary.byContentType.coverLetterSavedSections || [];
-                savedSectionGapIndex = new Map(
-                  savedSectionGaps.map((item) => [
-                    item.entity_id,
-                    {
-                      gapCount: item.gap_categories?.length ?? 0,
-                      categories: item.gap_categories ?? [],
-                      maxSeverity: item.max_severity ?? "low"
-                    }
-                  ])
-                );
-              } catch (gapError) {
-                appendEvent(
-                  "Gap summary unavailable (using defaults).",
-                  "warning",
-                  {
-                    error: gapError instanceof Error ? gapError.message : String(gapError)
-                  }
-                );
-                setStepDetail(
-                  "gapData",
-                  gapError instanceof Error ? gapError.message : "Gap summary unavailable (using defaults)"
-                );
-              }
-
-              if (!mountedRef.current) {
-                return;
-              }
-
-              const blurbs: SavedSectionBlurb[] = sections.map((section) => ({
+        const sectionItems: SavedSectionItem[] = sections.map((section) => ({
           id: section.id!,
-                type: section.type as SavedSectionBlurb["type"],
+          type: section.type as SavedSectionItem["type"],
           title: section.title,
           content: section.content,
-                tags: Array.from(new Set([...(section.tags ?? []), ...(section.purpose_tags ?? [])])),
-                isDefault: (section.type as string) === "intro",
-                status: "approved" as const,
-                confidence: "high" as const,
+          tags: Array.from(new Set([...(section.tags ?? []), ...(section.purpose_tags ?? [])])),
+          isDefault: (section.type as string) === "intro",
+          status: "approved" as const,
+          confidence: "high" as const,
           timesUsed: section.times_used || 0,
           lastUsed: section.last_used,
           createdAt: section.created_at!,
           updatedAt: section.updated_at!,
-                hasGaps: (savedSectionGapIndex.get(section.id!)?.gapCount ?? 0) > 0,
-                gapCount: savedSectionGapIndex.get(section.id!)?.gapCount ?? 0,
-                gapCategories: savedSectionGapIndex.get(section.id!)?.categories ?? [],
-                maxGapSeverity: savedSectionGapIndex.get(section.id!)?.maxSeverity,
+          hasGaps: (savedSectionGapIndex.get(section.id!)?.gapCount ?? 0) > 0,
+          gapCount: savedSectionGapIndex.get(section.id!)?.gapCount ?? 0,
+          gapCategories: savedSectionGapIndex.get(section.id!)?.categories ?? [],
+          maxGapSeverity: savedSectionGapIndex.get(section.id!)?.maxSeverity,
           linkedExternalLinks: [],
           externalLinks: []
         }));
 
-              setTemplateBlurbs(blurbs);
-              appendEvent("Saved sections ready", "success");
-              setStepStatus("gapData", "success");
-              setStepDetail(
-                "gapData",
-                blurbs.some((blurb) => (blurb.gapCount ?? 0) > 0)
-                  ? "Gap insights ready"
-                  : "No gaps detected"
-              );
-              setStepProgress("savedSections", 1);
-
-              yield { type: "text", text: `${sections.length} saved sections ready.` } as any;
+        setSavedSections(sectionItems);
       } catch (err) {
-              if (!mountedRef.current) {
-                return;
-              }
-              const message =
-                err instanceof Error ? err.message : "Failed to load saved sections";
-              setError(`Failed to load saved sections: ${message}`);
-              setTemplateBlurbs([]);
-              appendEvent(message, "error");
-              setStepStatus("savedSections", "error", message);
-              setStepDetail("savedSections", message);
-              throw err;
-            }
-          })()
-      });
+        if (!mountedRef.current) {
+          return;
+        }
+        const message =
+          err instanceof Error ? err.message : "Failed to load saved sections";
+        setError(`Failed to load saved sections: ${message}`);
+        setSavedSections([]);
+      } finally {
+        if (mountedRef.current) {
+          setIsLoading(false);
+        }
+      }
     };
 
     loadSavedSections();
 
     return () => {
       mountedRef.current = false;
-      cancelLoad();
     };
-  }, [user?.id, startStream, resetLoad, cancelLoad, setStepStatus, setStepDetail, setStepProgress, appendEvent]);
+  }, [user?.id]);
 
-  const handleSelectBlurbFromLibrary = (_blurb: HierarchicalBlurb) => {
+  const handleSelectSectionFromLibrary = (_section: HierarchicalBlurb) => {
     // Reserved for future interactions when selecting a saved section from the library.
   };
 
-  const handleEditBlurb = (blurb: HierarchicalBlurb) => {
-    setNewReusableContent({
-      title: blurb.title,
-      content: blurb.content,
-      tags: (blurb.tags || []).join(', '),
-      contentType: blurb.type
-    });
-    setShowAddReusableContentModal(true);
+  const handleEditSection = (section: HierarchicalBlurb) => {
+    const existing = savedSections.find((item) => item.id === section.id);
+    const draft: SavedSectionItem = existing
+      ? { ...existing, tags: [...(existing.tags ?? [])] }
+      : {
+          id: section.id,
+          type: section.type as SavedSectionItem["type"],
+          title: section.title ?? "",
+          content: section.content ?? "",
+          tags: [...(section.tags ?? [])],
+          isDefault: false,
+          timesUsed: section.timesUsed ?? 0,
+          lastUsed: section.lastUsed,
+          createdAt: section.createdAt ?? new Date().toISOString(),
+          updatedAt: section.updatedAt ?? new Date().toISOString(),
+          hasGaps: section.hasGaps,
+          gapCount: section.gapCount,
+          gapCategories: section.gapCategories,
+          maxGapSeverity: section.maxGapSeverity,
+          status: section.status,
+          confidence: section.confidence,
+          linkedExternalLinks: section.linkedExternalLinks ?? [],
+          externalLinks: section.externalLinks ?? []
+        };
+
+    setEditingSection({ ...draft, tags: [...(draft.tags ?? [])] });
+    setSectionTagInput("");
+    setIsEditingSection(true);
   };
 
-  const handleCreateBlurb = (type?: 'intro' | 'paragraph' | 'closer' | 'signature' | string) => {
+  const handleCreateSection = (type?: 'intro' | 'paragraph' | 'closer' | 'signature' | string) => {
     if (type) {
       setNewReusableContent(prev => ({ ...prev, contentType: type }));
       setShowAddReusableContentModal(true);
     }
   };
 
-  const handleDeleteBlurb = async (id: string) => {
+  const handleDeleteSection = async (id: string) => {
     if (!user?.id) return;
 
     try {
       await CoverLetterTemplateService.deleteSavedSection(id);
-      setTemplateBlurbs(prev => prev.filter(blurb => blurb.id !== id));
+      setSavedSections(prev => prev.filter(section => section.id !== id));
     } catch (err) {
       console.error('Error deleting saved section:', err);
       toast({
@@ -297,15 +235,87 @@ export default function SavedSections() {
     }
   };
 
+  const handleAddSectionTag = () => {
+    if (!editingSection) return;
+    const newTag = sectionTagInput.trim();
+    if (!newTag || editingSection.tags?.includes(newTag)) {
+      setSectionTagInput('');
+      return;
+    }
+
+    setEditingSection({
+      ...editingSection,
+      tags: [...(editingSection.tags ?? []), newTag]
+    });
+    setSectionTagInput('');
+  };
+
+  const handleRemoveSectionTag = (tagToRemove: string) => {
+    if (!editingSection) return;
+    setEditingSection({
+      ...editingSection,
+      tags: (editingSection.tags ?? []).filter((tag) => tag !== tagToRemove)
+    });
+  };
+
+  const handleCancelEditSection = () => {
+    setIsEditingSection(false);
+    setEditingSection(null);
+    setSectionTagInput('');
+  };
+
+  const handleSaveSection = async () => {
+    if (!editingSection || !user?.id) return;
+
+    try {
+      const updated = await CoverLetterTemplateService.updateSavedSection(editingSection.id, {
+        title: editingSection.title,
+        content: editingSection.content,
+        tags: editingSection.tags ?? []
+      });
+
+      const updatedTimestamp = updated.updated_at ?? new Date().toISOString();
+      const updatedId = updated.id ?? editingSection.id;
+
+      setSavedSections((prev) =>
+        prev.map((section) =>
+          section.id === updatedId
+            ? {
+                ...section,
+                title: updated.title ?? editingSection.title,
+                content: updated.content ?? editingSection.content,
+                tags: updated.tags ?? editingSection.tags ?? [],
+                updatedAt: updatedTimestamp
+              }
+            : section
+        )
+      );
+
+      toast({
+        title: "Saved section updated",
+        description: "Your changes have been saved."
+      });
+
+      handleCancelEditSection();
+    } catch (err) {
+      console.error("Error updating saved section:", err);
+      toast({
+        title: "Unable to update saved section",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   const formatGapCategory = (category: string) =>
     category
       .replace(/_/g, ' ')
       .replace(/\b\w/g, (char) => char.toUpperCase());
 
-  const handleGenerateContent = (blurb: HierarchicalBlurb) => {
-    const categories = (blurb.gapCategories ?? []) as string[];
+  const handleGenerateContent = (section: HierarchicalBlurb) => {
+    const categories = (section.gapCategories ?? []) as string[];
     const formattedCategories = categories.map(formatGapCategory);
-    const severity = (blurb.maxGapSeverity ?? "medium") as "high" | "medium" | "low";
+    const severity = (section.maxGapSeverity ?? "medium") as "high" | "medium" | "low";
 
     const description =
       formattedCategories.length > 0
@@ -318,14 +328,14 @@ export default function SavedSections() {
         : "Include quantifiable results and tailor the copy to the target role or company.";
 
     setSelectedGap({
-      id: `blurb-gap-${blurb.id}`,
+      id: `saved-section-gap-${section.id}`,
       type: 'content-enhancement',
       severity,
       description,
       suggestion,
-      paragraphId: blurb.type,
+      paragraphId: section.type,
       origin: 'library',
-      existingContent: blurb.content
+      existingContent: section.content
     });
     setIsContentModalOpen(true);
   };
@@ -333,11 +343,11 @@ export default function SavedSections() {
   const handleApplyContent = (content: string) => {
     
     if (selectedGap && selectedGap.origin === 'library') {
-      // Update the blurb content
-      setTemplateBlurbs(prev => prev.map(blurb => 
-        blurb.id === selectedGap.id.replace('blurb-gap-', '') 
-          ? { ...blurb, content: content, updatedAt: new Date().toISOString() }
-          : blurb
+      // Update the saved section content
+      setSavedSections(prev => prev.map(section => 
+        section.id === selectedGap.id.replace('saved-section-gap-', '') 
+          ? { ...section, content: content, updatedAt: new Date().toISOString() }
+          : section
       ));
     }
     
@@ -369,10 +379,10 @@ export default function SavedSections() {
       await TagService.updateSavedSectionTags(tagEntityId, allTags, user.id);
       
       // Update local state
-      setTemplateBlurbs(prev => prev.map(blurb => 
-        blurb.id === tagEntityId 
-          ? { ...blurb, tags: allTags, updatedAt: new Date().toISOString() }
-          : blurb
+      setSavedSections(prev => prev.map(section => 
+        section.id === tagEntityId 
+          ? { ...section, tags: allTags, updatedAt: new Date().toISOString() }
+          : section
       ));
       
     setIsTagModalOpen(false);
@@ -386,22 +396,22 @@ export default function SavedSections() {
     }
   };
 
-  const hierarchicalBlurbs = templateBlurbs.map((blurb) => ({
-    id: blurb.id,
-    type: blurb.type,
-    title: blurb.title,
-    content: blurb.content,
+  const hierarchicalSections = savedSections.map((section) => ({
+    id: section.id,
+    type: section.type,
+    title: section.title,
+    content: section.content,
     status: 'approved' as const,
     confidence: 'high' as const,
-    tags: blurb.tags,
-    timesUsed: blurb.timesUsed,
-    lastUsed: blurb.lastUsed,
-    createdAt: blurb.createdAt,
-    updatedAt: blurb.updatedAt,
-    hasGaps: blurb.hasGaps,
-    gapCount: blurb.gapCount,
-    gapCategories: blurb.gapCategories,
-    maxGapSeverity: blurb.maxGapSeverity
+    tags: section.tags,
+    timesUsed: section.timesUsed,
+    lastUsed: section.lastUsed,
+    createdAt: section.createdAt,
+    updatedAt: section.updatedAt,
+    hasGaps: section.hasGaps,
+    gapCount: section.gapCount,
+    gapCategories: section.gapCategories,
+    maxGapSeverity: section.maxGapSeverity
   }));
 
   return (
@@ -418,22 +428,11 @@ export default function SavedSections() {
           </div>
         )}
 
-        {(isStreamingLoad || loadStatus === "error") && (
-          <div className="mb-6 rounded-lg border border-muted/40 bg-muted/10 p-4">
-            <StreamingProgress
-              steps={loadSteps}
-              status={loadStatus}
-              events={loadEvents}
-              output={loadOutput}
-              showTimeline
-            />
-            {loadError && (
-              <p className="mt-3 text-sm text-destructive">{loadError}</p>
-            )}
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <LoadingState isLoading loadingText="Loading saved sections..." />
           </div>
-        )}
-
-        {templateBlurbs.length === 0 ? (
+        ) : savedSections.length === 0 ? (
           <EmptyState
             title="No saved sections found for this profile."
             description="Upload a cover letter for this persona (e.g. P01) or create a new section manually to populate your library."
@@ -446,18 +445,18 @@ export default function SavedSections() {
             }}
           />
         ) : (
-                <TemplateBlurbHierarchical
-            blurbs={hierarchicalBlurbs}
-                  selectedBlurbId={undefined}
-                  onSelectBlurb={handleSelectBlurbFromLibrary}
-                  onCreateBlurb={handleCreateBlurb}
-                  onEditBlurb={handleEditBlurb}
-                  onDeleteBlurb={handleDeleteBlurb}
-                  onGenerateContent={handleGenerateContent}
-                  resolvedGaps={resolvedGaps}
-                  dismissedSuccessCards={dismissedSuccessCards}
-                  onDismissSuccessCard={handleDismissSuccessCard}
-                  contentTypes={[
+          <TemplateBlurbHierarchical
+            blurbs={hierarchicalSections}
+            selectedBlurbId={undefined}
+            onSelectBlurb={handleSelectSectionFromLibrary}
+            onCreateBlurb={handleCreateSection}
+            onEditBlurb={handleEditSection}
+            onDeleteBlurb={handleDeleteSection}
+            onGenerateContent={handleGenerateContent}
+            resolvedGaps={resolvedGaps}
+            dismissedSuccessCards={dismissedSuccessCards}
+            onDismissSuccessCard={handleDismissSuccessCard}
+            contentTypes={[
                     {
                       type: 'intro',
                       label: 'Introduction',
@@ -480,6 +479,109 @@ export default function SavedSections() {
                 />
         )}
       </div>
+
+      {/* Edit Saved Section Modal */}
+      {isEditingSection && editingSection && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <div>
+                <CardTitle>Edit Saved Section</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Update the title, content, and tags for this reusable section.
+                </p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={handleCancelEditSection}>
+                <X className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="saved-section-title">Title</Label>
+                <Input
+                  id="saved-section-title"
+                  value={editingSection.title}
+                  onChange={(event) =>
+                    setEditingSection((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            title: event.target.value
+                          }
+                        : prev
+                    )
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="saved-section-content">Content</Label>
+                <Textarea
+                  id="saved-section-content"
+                  value={editingSection.content}
+                  onChange={(event) =>
+                    setEditingSection((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            content: event.target.value
+                          }
+                        : prev
+                    )
+                  }
+                  placeholder="Enter the section content..."
+                  rows={8}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="saved-section-tags">Tags</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="saved-section-tags"
+                    value={sectionTagInput}
+                    onChange={(event) => setSectionTagInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        handleAddSectionTag();
+                      }
+                    }}
+                    placeholder="Add a tag and press Enter"
+                  />
+                  <Button type="button" variant="secondary" onClick={handleAddSectionTag}>
+                    Add
+                  </Button>
+                </div>
+
+                {editingSection.tags && editingSection.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {editingSection.tags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-xs">
+                        <span>{tag}</span>
+                        <button
+                          type="button"
+                          className="ml-1 text-muted-foreground transition hover:text-destructive"
+                          onClick={() => handleRemoveSectionTag(tag)}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="secondary" onClick={handleCancelEditSection}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveSection}>Save Changes</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* HIL Content Generation Modal */}
       {isContentModalOpen && selectedGap && (
@@ -596,10 +698,10 @@ export default function SavedSections() {
 
                       const createdSection = await CoverLetterTemplateService.createSavedSection(newSection);
 
-                      // Convert to TemplateBlurb for UI
-                      const newBlurb: SavedSectionBlurb = {
+                      // Convert to SavedSectionItem for UI
+                      const newSectionItem: SavedSectionItem = {
                         id: createdSection.id!,
-                        type: createdSection.type as SavedSectionBlurb['type'],
+                        type: createdSection.type as SavedSectionItem['type'],
                         title: createdSection.title,
                         content: createdSection.content,
                         tags: createdSection.tags ?? [],
@@ -613,7 +715,7 @@ export default function SavedSections() {
                         maxGapSeverity: 'low'
                       };
 
-                      setTemplateBlurbs(prev => [...prev, newBlurb]);
+                      setSavedSections(prev => [...prev, newSectionItem]);
                       setShowAddReusableContentModal(false);
                       setNewReusableContent({ title: '', content: '', tags: '', contentType: '' });
                     } catch (err) {
