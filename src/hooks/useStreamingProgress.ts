@@ -30,7 +30,7 @@ export type StreamingLifecycleStatus = "idle" | "streaming" | "complete" | "erro
 
 type StreamSource<T> = AsyncIterable<T> | ReadableStream<T>;
 
-export interface StartStreamOptions<TPart = TextStreamPart<unknown>> {
+export interface StartStreamOptions<TPart = TextStreamPart<any>> {                                              
   /**
    * Optional list of steps to replace the current timeline before streaming starts.
    */
@@ -60,7 +60,7 @@ export interface StartStreamOptions<TPart = TextStreamPart<unknown>> {
   autoResolveSteps?: boolean;
 }
 
-export interface StartTextStreamOptions<TPart = TextStreamPart<unknown>> {
+export interface StartTextStreamOptions<TPart = TextStreamPart<any>> {                                          
   steps?: StreamingStepDefinition[];
   autoResolveSteps?: boolean;
   /**
@@ -116,7 +116,7 @@ function initializeSteps(definitions: StreamingStepDefinition[]): StreamingStepS
   }));
 }
 
-async function* normalizeStream<T>(source: StreamSource<T>): AsyncIterable<T> {
+async function* normalizeStream<T = any>(source: StreamSource<T>): AsyncIterable<T> {                                     
   if (typeof (source as ReadableStream<T>)?.getReader === "function") {
     const reader = (source as ReadableStream<T>).getReader();
     try {
@@ -146,6 +146,7 @@ export function useStreamingProgress(options: UseStreamingProgressOptions = {}):
   const stepDefinitionsRef = useRef<StreamingStepDefinition[]>(initialSteps);
   const [steps, setSteps] = useState<StreamingStepState[]>(() => initializeSteps(stepDefinitionsRef.current));
   const [events, setEvents] = useState<StreamingTimelineEvent[]>([]);
+  const eventsRef = useRef<StreamingTimelineEvent[]>([]);
   const [status, setStatus] = useState<StreamingLifecycleStatus>("idle");
   const [output, setOutput] = useState("");
   const [reasoning, setReasoning] = useState("");
@@ -154,16 +155,20 @@ export function useStreamingProgress(options: UseStreamingProgressOptions = {}):
 
   const appendEvent = useCallback(
     (message: string, tone: StreamingTimelineTone = "info", meta?: Record<string, unknown>) => {
-      setEvents((prev) => [
-        ...prev,
-        {
-          id: `${Date.now()}-${prev.length}`,
-          message,
-          tone,
-          timestamp: Date.now(),
-          meta
-        }
-      ]);
+      setEvents((prev) => {
+        const next = [
+          ...prev,
+          {
+            id: `${Date.now()}-${prev.length}`,
+            message,
+            tone,
+            timestamp: Date.now(),
+            meta
+          }
+        ];
+        eventsRef.current = next;
+        return next;
+      });
     },
     []
   );
@@ -179,6 +184,7 @@ export function useStreamingProgress(options: UseStreamingProgressOptions = {}):
     setOutput("");
     setReasoning("");
     setEvents([]);
+    eventsRef.current = [];
     setSteps(initializeSteps(stepDefinitionsRef.current));
   }, []);
 
@@ -298,6 +304,7 @@ export function useStreamingProgress(options: UseStreamingProgressOptions = {}):
       setOutput("");
       setReasoning("");
       setEvents([]);
+      eventsRef.current = [];
 
       if ((overrideSteps ?? stepDefinitionsRef.current).length > 0 && shouldAutoResolve) {
         const firstStep = (overrideSteps ?? stepDefinitionsRef.current)[0];
@@ -318,23 +325,26 @@ export function useStreamingProgress(options: UseStreamingProgressOptions = {}):
 
           handleEvent?.(chunk);
 
-          const typedChunk = chunk as TextStreamPart<unknown>;
-          if (typedChunk && typeof typedChunk === "object" && "type" in typedChunk) {
-            switch (typedChunk.type) {
+          const typedChunk = chunk as TextStreamPart<any>;                                                      
+          if (typedChunk && typeof typedChunk === "object") {
+            const chunkType = (typedChunk as any).type as string | undefined;
+            switch (chunkType) {
               case "text":
               case "text-delta":
-                if ("text" in typedChunk && typeof typedChunk.text === "string") {
+                if (typeof (typedChunk as any)?.text === "string") {
+                  const textValue = (typedChunk as any).text as string;
                   setOutput((prev) => {
-                    const next = prev + typedChunk.text;
+                    const next = prev + textValue;
                     aggregatedText = next;
-                    onToken?.(typedChunk.text as string, next);
+                    onToken?.(textValue, next);                                                     
                     return next;
                   });
                 }
                 break;
               case "reasoning":
-                if ("text" in typedChunk && typeof typedChunk.text === "string") {
-                  setReasoning((prev) => `${prev}${typedChunk.text}`);
+                if (typeof (typedChunk as any)?.text === "string") {
+                  const reasoningText = (typedChunk as any).text as string;
+                  setReasoning((prev) => `${prev}${reasoningText}`);                                              
                 }
                 break;
               case "finish":
@@ -367,7 +377,7 @@ export function useStreamingProgress(options: UseStreamingProgressOptions = {}):
 
         setStatus("complete");
         appendEvent("Streaming complete", "success");
-        onFinish?.({ output: aggregatedText, events: events });
+        onFinish?.({ output: aggregatedText, events: eventsRef.current });
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") {
           setStatus("idle");
@@ -385,7 +395,7 @@ export function useStreamingProgress(options: UseStreamingProgressOptions = {}):
         abortControllerRef.current = null;
       }
     },
-    [appendEvent, autoResolveSteps, events, finalizeSteps, setStepStatus]
+    [appendEvent, autoResolveSteps, finalizeSteps, setStepStatus]
   );
 
   const startTextStream = useCallback(

@@ -52,7 +52,11 @@ export const getSyntheticLocalOnlyFlag = (): boolean => {
     const envValue =
       (import.meta.env?.VITE_SYNTHETIC_LOCAL_ONLY as string | undefined) ??
       (typeof process !== 'undefined' ? process.env?.VITE_SYNTHETIC_LOCAL_ONLY : undefined);
-    return envValue === 'true';
+    if (!envValue) {
+      return false;
+    }
+    const normalized = envValue.trim().toLowerCase();
+    return normalized === 'true' || normalized.startsWith('true');
   } catch {
     return false;
   }
