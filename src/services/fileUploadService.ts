@@ -17,10 +17,22 @@ interface SourceData {
 }
 
 // Helper function to get Supabase configuration
-const getSupabaseConfig = () => ({
-  url: (import.meta.env?.VITE_SUPABASE_URL) || (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_URL : undefined) || '',
-  key: (import.meta.env?.VITE_SUPABASE_ANON_KEY) || (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_ANON_KEY : undefined) || ''
-});
+const getSupabaseConfig = () => {
+  const env =
+    (typeof import.meta !== 'undefined' && (import.meta as any)?.env) || process.env;
+
+  const url = env?.VITE_SUPABASE_URL;
+  const key = env?.VITE_SUPABASE_ANON_KEY;
+
+  if (!url || !key) {
+    throw new Error(
+      'Supabase configuration is missing. Ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set.',
+    );
+  }
+
+  return { url, key };
+};
+
 // Import real services for text extraction and LLM analysis
 import { TextExtractionService } from './textExtractionService';
 import { LLMAnalysisService } from './openaiService';
