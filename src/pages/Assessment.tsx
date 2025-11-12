@@ -36,6 +36,7 @@ import { formatDistanceToNow, format } from "date-fns";
 import type { PMLevelInference, RoleType } from "@/types/content";
 import { StreamingProgress } from "@/components/shared/StreamingProgress";
 import type { StreamingStepState, StreamingTimelineEvent, StreamingLifecycleStatus } from "@/hooks/useStreamingProgress";
+import { LoadingState } from "@/components/shared/LoadingState";
 
 // Helper function to map PM level code to display text
 const getLevelDisplay = (levelCode: string): string => {
@@ -367,6 +368,8 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
     ? formatDistanceToNow(new Date(lastAnalyzedAt), { addSuffix: true })
     : null;
   const lastAnalyzedExact = lastAnalyzedAt ? format(new Date(lastAnalyzedAt), 'PPpp') : null;
+  const shouldShowStreaming = isAnalyzing || isRecalculating || isBackgroundAnalyzing;
+  const isInitialAnalysisStreaming = !assessmentData && shouldShowStreaming;
 
   const analysisSteps = useMemo<StreamingStepState[]>(() => {
     const competencyCount = Object.keys(levelData?.evidenceByCompetency ?? {}).length;
@@ -378,7 +381,7 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
 
     const fetchStatus: StreamingStepState["status"] = error
       ? "error"
-      : (isLoading || isRecalculating || (isBackgroundAnalyzing && !levelData))
+      : shouldShowStreaming
         ? "running"
         : levelData
           ? "success"
@@ -420,11 +423,11 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
     }
 
     return steps;
-  }, [assessmentData?.currentLevel, error, isBackgroundAnalyzing, isLoading, isRecalculating, levelData]);
+  }, [assessmentData?.currentLevel, error, isBackgroundAnalyzing, levelData, shouldShowStreaming]);
 
   const analysisStatus: StreamingLifecycleStatus = error
     ? "error"
-    : (isLoading || isRecalculating || (isBackgroundAnalyzing && !levelData))
+    : shouldShowStreaming
       ? "streaming"
       : "complete";
 
@@ -588,27 +591,6 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
     setEvidenceModalOpen(true);
   };
 
-  // Show loading state
-  if (!assessmentData && (isLoading || isRecalculating || (isBackgroundAnalyzing && !levelData))) {
-    return (
-      <div className="min-h-screen bg-background">
-        <main className="container mx-auto px-4 py-6">
-          <div className="max-w-3xl mx-auto">
-            <StreamingProgress
-              steps={analysisSteps}
-              status={analysisStatus}
-              events={analysisEvents}
-              showTimeline
-            />
-            <p className="mt-4 text-sm text-muted-foreground">
-              We're evaluating your experience to refresh the assessment. Add more approved stories or update your work history to improve accuracy.
-            </p>
-            </div>
-        </main>
-      </div>
-    );
-  }
-
   // Show error state
   if (error) {
     return (
@@ -660,6 +642,38 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
             </div>
           </div>
         </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (isInitialAnalysisStreaming) {
+    return (
+      <div className="min-h-screen bg-background">
+        <main className="container mx-auto px-4 py-6">
+          <div className="max-w-3xl mx-auto">
+            <StreamingProgress
+              steps={analysisSteps}
+              status={analysisStatus}
+              events={analysisEvents}
+              showTimeline
+            />
+            <p className="mt-4 text-sm text-muted-foreground">
+              We're evaluating your experience to refresh the assessment. Add more approved stories or update your work history to improve accuracy.
+            </p>
+            </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (!assessmentData && isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <main className="container mx-auto px-4 py-6">
+          <div className="max-w-3xl mx-auto">
+            <LoadingState isLoading loadingText="Loading PM level assessment..." />
           </div>
         </main>
       </div>
@@ -835,7 +849,7 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
         </div>
       </div>
 
-      {(analysisStatus !== "complete" || analysisEvents.length > 0) && (
+      {(shouldShowStreaming || analysisEvents.length > 0) && (
         <Card>
           <CardContent className="p-4">
             <StreamingProgress
