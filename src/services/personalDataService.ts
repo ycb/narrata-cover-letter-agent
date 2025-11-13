@@ -5,6 +5,8 @@
  */
 
 import { supabase } from '@/lib/supabase';
+import { syntheticStorage } from '@/utils/storage';
+import { SyntheticUserService } from './syntheticUserService';
 
 export type SourceType = 'resume' | 'cover_letter';
 export type ProcessingStatus = 'pending' | 'processing' | 'completed' | 'failed';
@@ -36,18 +38,45 @@ export interface DeleteAssetResult {
 
 export class PersonalDataService {
   /**
+   * Get active synthetic profile ID if synthetic mode is enabled
+   */
+  private static async getActiveSyntheticProfileId(userId: string): Promise<string | null> {
+    try {
+      const syntheticService = new SyntheticUserService();
+      const context = await syntheticService.getSyntheticUserContext();
+      
+      if (context.isSyntheticTestingEnabled && context.currentUser) {
+        return context.currentUser.profileId;
+      }
+      
+      return null;
+    } catch (error) {
+      console.warn('[PersonalDataService] Error checking synthetic mode:', error);
+      return null;
+    }
+  }
+
+  /**
    * Get all personal data assets for a user (excluding soft-deleted)
+   * Filters by synthetic profile if synthetic mode is enabled
    */
   static async getAssets(userId: string): Promise<PersonalDataAsset[]> {
     try {
-      // Check if is_deleted column exists by trying to query it
-      // If it doesn't exist, query without that filter
+      // Check if synthetic mode is enabled and get active profile
+      const activeProfileId = await this.getActiveSyntheticProfileId(userId);
+      
+      // Build query
       let query = supabase
         .from('sources')
         .select('*')
         .eq('user_id', userId)
         .in('source_type', ['resume', 'cover_letter'])
         .order('created_at', { ascending: false });
+
+      // If synthetic mode enabled, filter by active profile (file names start with profile ID)
+      if (activeProfileId) {
+        query = query.like('file_name', `${activeProfileId}_%`);
+      }
 
       // Try to filter by is_deleted if column exists
       // If column doesn't exist, the query will still work without the filter
@@ -56,12 +85,19 @@ export class PersonalDataService {
       if (error) {
         // If error is about missing column, retry without is_deleted filter
         if (error.message?.includes('is_deleted') || error.code === '42703') {
-          const { data: retryData, error: retryError } = await supabase
+          let retryQuery = supabase
             .from('sources')
             .select('*')
             .eq('user_id', userId)
             .in('source_type', ['resume', 'cover_letter'])
             .order('created_at', { ascending: false });
+
+          // Apply synthetic profile filter if enabled
+          if (activeProfileId) {
+            retryQuery = retryQuery.like('file_name', `${activeProfileId}_%`);
+          }
+
+          const { data: retryData, error: retryError } = await retryQuery;
 
           if (retryError) {
             console.error('[PersonalDataService] Error fetching assets:', retryError);
@@ -96,6 +132,10 @@ export class PersonalDataService {
     sourceType: SourceType
   ): Promise<PersonalDataAsset[]> {
     try {
+      // Check if synthetic mode is enabled and get active profile
+      const activeProfileId = await this.getActiveSyntheticProfileId(userId);
+      
+      // Build query
       let query = supabase
         .from('sources')
         .select('*')
@@ -103,17 +143,29 @@ export class PersonalDataService {
         .eq('source_type', sourceType)
         .order('created_at', { ascending: false });
 
+      // If synthetic mode enabled, filter by active profile (file names start with profile ID)
+      if (activeProfileId) {
+        query = query.like('file_name', `${activeProfileId}_%`);
+      }
+
       const { data, error } = await query;
 
       if (error) {
         // If error is about missing column, retry without is_deleted filter
         if (error.message?.includes('is_deleted') || error.code === '42703') {
-          const { data: retryData, error: retryError } = await supabase
+          let retryQuery = supabase
             .from('sources')
             .select('*')
             .eq('user_id', userId)
             .eq('source_type', sourceType)
             .order('created_at', { ascending: false });
+
+          // Apply synthetic profile filter if enabled
+          if (activeProfileId) {
+            retryQuery = retryQuery.like('file_name', `${activeProfileId}_%`);
+          }
+
+          const { data: retryData, error: retryError } = await retryQuery;
 
           if (retryError) {
             console.error('[PersonalDataService] Error fetching assets by type:', retryError);
