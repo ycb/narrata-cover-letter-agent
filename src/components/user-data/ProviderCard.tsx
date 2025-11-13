@@ -47,7 +47,8 @@ const LLM_PROVIDERS = {
     name: 'Anthropic (Claude)',
     baseUrl: 'https://api.anthropic.com/v1',
     models: [
-      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' },
+      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet (Latest)' },
+      { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku (Latest)' },
       { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus' },
       { id: 'claude-3-sonnet-20240229', name: 'Claude 3 Sonnet' },
       { id: 'claude-3-haiku-20240307', name: 'Claude 3 Haiku' },
