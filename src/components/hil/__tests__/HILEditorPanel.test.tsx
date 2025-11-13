@@ -44,7 +44,8 @@ const mockMetadata: HILContentMetadata = {
   originalContent: mockVariation.content,
   changeType: 'modification',
   linkedVariations: ['var-1'],
-  competencyMapping: {}
+  competencyMapping: {},
+  tags: [],
 };
 
 // Mock handlers
@@ -202,9 +203,9 @@ describe('HILEditorPanel', () => {
       expect(mockHandlers.onSave).toHaveBeenCalledWith(
         'Updated content',
         expect.objectContaining({
-          changeType: 'modification',
-          usageCount: 1
-        })
+          competencyTags: expect.arrayContaining(['team-leadership', 'execution']),
+          tags: expect.arrayContaining(['philosophy', 'team management', 'leadership']),
+        }),
       );
     });
   });

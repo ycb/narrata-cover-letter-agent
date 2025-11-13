@@ -156,46 +156,50 @@ export const StoryCard = ({
       {/* Variations */}
       {story.variations && story.variations.length > 0 && (
         <div className="mb-6 pt-4 border-t border-muted">
-          <div 
+          <div
             className="flex items-center gap-2 mb-3 cursor-pointer hover:bg-muted/30 rounded-lg p-2 transition-colors group"
             onClick={() => {
-              // Toggle all variations to expanded state
-              const allExpanded = Object.values(expandedVariations).every(Boolean);
-              const newState: Record<string, boolean> = {};
-              story.variations?.forEach(variation => {
-                newState[variation.id] = !allExpanded;
+              const variations = story.variations ?? [];
+              const allExpanded =
+                variations.length > 0 &&
+                variations.every(variation => expandedVariations[variation.id]);
+              const nextState: Record<string, boolean> = {};
+              variations.forEach(variation => {
+                nextState[variation.id] = !allExpanded;
               });
-              setExpandedVariations(newState);
+              setExpandedVariations(nextState);
             }}
           >
             <Layers className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
             <span className="text-sm font-medium group-hover:text-primary transition-colors">
               Variations ({story.variations.length})
             </span>
-            {Object.values(expandedVariations).every(Boolean) ? (
+            {story.variations.every(variation => expandedVariations[variation.id]) ? (
               <ChevronUp className="h-4 w-4 text-muted-foreground ml-auto group-hover:text-primary transition-colors" />
             ) : (
               <ChevronDown className="h-4 w-4 text-muted-foreground ml-auto group-hover:text-primary transition-colors" />
             )}
           </div>
-          
+
           {/* Variations content - only show when expanded */}
-          {Object.values(expandedVariations).some(Boolean) && (
+          {story.variations.some(variation => expandedVariations[variation.id]) && (
             <div className="space-y-2">
               {story.variations.map((variation, index) => (
                 <div key={variation.id} className="p-3 bg-muted/30 rounded-lg border-l-4 border-primary">
                   {/* Header */}
                   <div className="mb-3">
                     <div className="text-sm font-medium text-foreground mb-1">
-                      {variation.filledGap ? `Fills Gap: ${variation.filledGap}` : 
-                       variation.developedForJobTitle ? `For ${variation.developedForJobTitle}` : 
-                       `Variant #${index + 1}`}
+                      {variation.filledGap
+                        ? `Fills Gap: ${variation.filledGap}`
+                        : variation.developedForJobTitle
+                        ? `For ${variation.developedForJobTitle}`
+                        : `Variant #${index + 1}`}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {new Date(variation.createdAt).toLocaleDateString()}
                     </div>
                   </div>
-                  
+
                   {/* Content area */}
                   <div className="text-sm text-muted-foreground mb-3">
                     {highlightChanges(story.content, variation.content)}
@@ -207,7 +211,7 @@ export const StoryCard = ({
                         <span className="text-sm font-medium">Gap Tags</span>
                       </div>
                       <div className="flex flex-wrap gap-1">
-                        {variation.tags.map((tag) => (
+                        {variation.tags.map(tag => (
                           <Badge key={tag} variant="secondary" className="text-xs">
                             {tag}
                           </Badge>

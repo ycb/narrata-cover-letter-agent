@@ -92,6 +92,8 @@ export function StoryStrength({ storyStrength }: StoryStrengthProps) {
     }
   ];
 
+  const labelCounts = new Map<string, number>();
+
   return (
     <Card className="shadow-medium">
       <CardHeader>
@@ -133,7 +135,14 @@ export function StoryStrength({ storyStrength }: StoryStrengthProps) {
               const score = storyStrength.breakdown[category.key];
               const percentage = (score / category.max) * 100;
               const IconComponent = category.icon;
-              
+              const baseLabel = getScoreLabel(score, category.max);
+              const labelCount = labelCounts.get(baseLabel) ?? 0;
+              labelCounts.set(baseLabel, labelCount + 1);
+              const displayLabel =
+                labelCount === 0
+                  ? baseLabel
+                  : `${baseLabel} (${category.label.split('&')[0].trim()})`;
+
               return (
                 <div key={category.key} className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -146,7 +155,7 @@ export function StoryStrength({ storyStrength }: StoryStrengthProps) {
                         {score}/{category.max}
                       </span>
                       <Badge variant={getScoreVariant(score, category.max)} size="sm">
-                        {getScoreLabel(score, category.max)}
+                        {displayLabel}
                       </Badge>
                     </div>
                   </div>

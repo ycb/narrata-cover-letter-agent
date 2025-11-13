@@ -43,8 +43,6 @@ export interface HILContentMetadata {
   lastVerified: string;
   competencyTags: PMCompetency[];
   usageCount: number;
-  
-  // HIL-specific extensions
   variationId?: string;
   originalContent?: string;
   changeType: ChangeType;
@@ -56,6 +54,12 @@ export interface HILContentMetadata {
       evidence: string[];
     };
   };
+  notes?: string;
+  aiAssistanceLevel?: AIAssistanceLevel;
+  relevanceScore?: number;
+  impactScore?: number;
+  truthScore?: number;
+  tags?: string[];
 }
 
 // Variation metadata for HIL integration
@@ -118,6 +122,8 @@ export interface ContentRecommendation {
 }
 
 export interface GapAnalysis {
+  variationId: string;
+  generatedAt: string;
   overallScore: number; // Mock LLM match %
   paragraphGaps: ParagraphGap[];
   suggestions: ImprovementSuggestion[];
@@ -128,6 +134,13 @@ export interface GapAnalysis {
       gapsUncovered: string[];
       relevance: number;
     };
+  };
+  autoTags?: string[];
+  summary?: {
+    targetRole: string;
+    keywordEmphasis: string[];
+    matchedParagraphs: number;
+    totalParagraphs: number;
   };
 }
 
