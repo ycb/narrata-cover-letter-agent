@@ -23,7 +23,7 @@ import { CareerLadder } from "@/components/assessment/CareerLadder";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { usePMLevel } from "@/hooks/usePMLevel";
 import { calculateEvidenceBasedConfidence } from "@/utils/confidenceCalculation";
-import { getConfidenceBadgeColor, textConfidenceToPercentage } from "@/utils/confidenceBadge";
+import { getConfidenceProgressColor, getConfidenceBadgeColor, textConfidenceToPercentage } from "@/utils/confidenceBadge";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow, format } from "date-fns";
 import type { PMLevelInference, RoleType } from "@/types/content";
