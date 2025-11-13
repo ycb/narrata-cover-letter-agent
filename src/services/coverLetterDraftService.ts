@@ -4,6 +4,7 @@ import { OPENAI_CONFIG } from '@/lib/config/fileUpload';
 import { supabase } from '@/lib/supabase';
 import type { Database, Json } from '@/types/supabase';
 import type {
+  CoverLetterAnalytics,
   CoverLetterDraft,
   CoverLetterDraftSection,
   CoverLetterMatchMetric,
@@ -570,6 +571,136 @@ export class CoverLetterDraftService {
     };
   }
 
+  async finalizeDraft(options: {
+    draftId: string;
+    sections: CoverLetterDraftSection[];
+  }): Promise<{ draft: CoverLetterDraft; workpad: DraftWorkpad }> {
+    const { draftId, sections } = options;
+
+    const { data: draftRow, error } = await this.supabaseClient
+      .from('cover_letters')
+      .select('*')
+      .eq('id', draftId)
+      .single();
+
+    if (error || !draftRow) {
+      throw new Error('Cover letter draft not found.');
+    }
+
+    const jobDescription = await this.fetchJobDescription(
+      draftRow.user_id,
+      draftRow.job_description_id,
+    );
+
+    const normalizedSections = this.normaliseFinalSections(sections, jobDescription);
+    const differentiatorSummary = this.buildDifferentiatorSummary(jobDescription, normalizedSections);
+
+    const differentiatorWeights = new Map(
+      jobDescription.differentiatorRequirements.map(req => [req.id, req]),
+    );
+
+    const matchState = this.buildMatchState(normalizedSections, differentiatorWeights);
+
+    const metrics = this.normaliseMatchMetrics(draftRow.metrics);
+    const atsMetric = metrics.find(metric => metric.key === 'ats');
+    const ratingMetric = metrics.find(metric => metric.key === 'rating');
+
+    const atsScore =
+      atsMetric && atsMetric.type === 'score'
+        ? Math.round(atsMetric.value)
+        : atsMetric && atsMetric.type === 'strength'
+        ? strengthToScore(atsMetric.strength)
+        : 0;
+
+    const finalizedAt = this.now().toISOString();
+    const totalWordCount = normalizedSections.reduce(
+      (acc, section) => acc + (section.metadata?.wordCount ?? 0),
+      0,
+    );
+    const differentiatorCoverage = {
+      addressed: differentiatorSummary.filter(item => item.status === 'addressed').length,
+      missing: differentiatorSummary.filter(item => item.status !== 'addressed').length,
+      total: differentiatorSummary.length,
+    };
+
+    const existingAnalytics =
+      draftRow.analytics && typeof draftRow.analytics === 'object'
+        ? (draftRow.analytics as CoverLetterAnalytics)
+        : {};
+
+    const analyticsPayload: CoverLetterAnalytics & {
+      finalizedAt: string;
+      wordCount: number;
+      sections: number;
+      differentiatorCoverage: typeof differentiatorCoverage;
+    } = {
+      ...existingAnalytics,
+      atsScore,
+      finalizedAt,
+      wordCount: totalWordCount,
+      sections: normalizedSections.length,
+      differentiatorCoverage,
+    };
+
+    if (ratingMetric) {
+      if (ratingMetric.type === 'score') {
+        analyticsPayload.overallScore = Math.round(ratingMetric.value);
+      } else if (ratingMetric.type === 'strength') {
+        analyticsPayload.metricSummary = {
+          ...(existingAnalytics.metricSummary ?? {}),
+          ratingStrength: ratingMetric.strength,
+        };
+      }
+    }
+
+    const { data: updatedRow, error: updateError } = await this.supabaseClient
+      .from('cover_letters')
+      .update({
+        sections: normalizedSections as unknown as Record<string, unknown>,
+        differentiator_summary: differentiatorSummary as unknown as Record<string, unknown>,
+        analytics: analyticsPayload as unknown as Record<string, unknown>,
+        status: 'finalized',
+        finalized_at: finalizedAt,
+        updated_at: finalizedAt,
+      })
+      .eq('id', draftId)
+      .select()
+      .single();
+
+    if (updateError || !updatedRow) {
+      throw new Error('Unable to finalize cover letter draft.');
+    }
+
+    const workpadRow = await this.upsertWorkpad({
+      draftId,
+      userId: updatedRow.user_id,
+      jobDescriptionId: updatedRow.job_description_id,
+      matchState,
+      sections: normalizedSections,
+      phase: 'finalized',
+    });
+
+    const updatedMetrics = this.normaliseMatchMetrics(updatedRow.metrics);
+    const updatedAtsMetric = updatedMetrics.find(metric => metric.key === 'ats');
+    const updatedAtsScore =
+      updatedAtsMetric && updatedAtsMetric.type === 'score'
+        ? Math.round(updatedAtsMetric.value)
+        : updatedAtsMetric && updatedAtsMetric.type === 'strength'
+        ? strengthToScore(updatedAtsMetric.strength)
+        : atsScore;
+
+    const draft = {
+      ...this.mapCoverLetterRow(updatedRow, updatedMetrics, updatedAtsScore),
+      sections: this.normaliseDraftSections(updatedRow.sections),
+      differentiatorSummary,
+    };
+
+    return {
+      draft,
+      workpad: workpadRow,
+    };
+  }
+
   private emitProgress(
     onProgress: DraftGenerationOptions['onProgress'],
     phase: DraftGenerationPhase,
@@ -594,44 +725,26 @@ export class CoverLetterDraftService {
     userId: string,
     jobDescriptionId: string,
   ): Promise<ParsedJobDescription> {
-    const { data, error } = await this.supabaseClient
-      .from('job_descriptions')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('id', jobDescriptionId)
-      .single();
-
-    if (error || !data) {
+    const record = await this.jobDescriptionService.getJobDescription(userId, jobDescriptionId);
+    if (!record) {
       throw new Error('Job description not found.');
     }
 
-    const structuredData =
-      (data.structured_data as Record<string, unknown> | null) ?? {};
-
     return {
-      company: data.company,
-      role: data.role,
-      summary:
-        typeof structuredData.summary === 'string' && structuredData.summary.trim().length > 0
-          ? structuredData.summary.trim()
-          : `${data.company} is hiring for ${data.role}.`,
-      standardRequirements: coerceRequirementArrayFromRow(
-        data.standard_requirements as unknown,
-        'standard',
-      ),
-      preferredRequirements: coerceRequirementArrayFromRow(
-        data.preferred_requirements as unknown,
-        'preferred',
-      ),
-      differentiatorRequirements: coerceRequirementArrayFromRow(
-        data.differentiator_requirements as unknown,
-        'differentiator',
-      ),
-      boilerplateSignals: normaliseArray(structuredData.boilerplateSignals),
-      differentiatorSignals: normaliseArray(structuredData.differentiatorSignals),
-      keywords: normaliseArray(data.keywords),
-      structuredInsights: structuredData,
-      analysis: (data.analysis as Record<string, unknown>) ?? {},
+      company: record.company,
+      role: record.role,
+      summary: record.summary,
+      standardRequirements: record.standardRequirements,
+      preferredRequirements: record.preferredRequirements,
+      differentiatorRequirements: record.differentiatorRequirements,
+      boilerplateSignals: record.boilerplateSignals ?? [],
+      differentiatorSignals: record.differentiatorSignals ?? [],
+      keywords: record.keywords,
+      structuredInsights: record.structuredInsights ?? {},
+      structuredData: record.structuredData ?? {},
+      analysis: record.analysis ?? {},
+      differentiatorNotes: record.differentiatorNotes,
+      rawSections: record.rawSections ?? [],
     };
   }
 
@@ -1107,6 +1220,37 @@ export class CoverLetterDraftService {
     }
 
     return [];
+  }
+
+  private normaliseFinalSections(
+    sections: CoverLetterDraftSection[],
+    jobDescription: ParsedJobDescription,
+  ): CoverLetterDraftSection[] {
+    const nowIso = this.now().toISOString();
+
+    return [...sections]
+      .sort((a, b) => a.order - b.order)
+      .map(section => {
+        const content = section.content ?? '';
+        const requirementsMatched = this.matchRequirements(content, jobDescription);
+        const wordCount = countWords(content);
+
+        return {
+          ...section,
+          content,
+          metadata: {
+            requirementsMatched,
+            tags: section.metadata?.tags ?? [],
+            wordCount,
+          },
+          status: {
+            hasGaps: section.status?.hasGaps ?? false,
+            gapIds: section.status?.gapIds ?? [],
+            isModified: section.status?.isModified ?? false,
+            lastUpdatedAt: section.status?.lastUpdatedAt ?? nowIso,
+          },
+        };
+      });
   }
 }
 

@@ -135,6 +135,14 @@ export interface CoverLetterAnalytics {
   overallScore?: number;
   differentiatorHighlights?: string[];
   metricSummary?: Record<string, unknown>;
+  finalizedAt?: string;
+  wordCount?: number;
+  sections?: number;
+  differentiatorCoverage?: {
+    addressed: number;
+    missing: number;
+    total: number;
+  };
 }
 
 export interface CoverLetterDraft {
@@ -172,7 +180,8 @@ export type DraftGenerationPhase =
   | 'jd_parse'
   | 'content_match'
   | 'metrics'
-  | 'gap_detection';
+  | 'gap_detection'
+  | 'finalized';
 
 export interface DraftGenerationProgressUpdate {
   phase: DraftGenerationPhase;
