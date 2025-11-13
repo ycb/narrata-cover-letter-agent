@@ -1,22 +1,22 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { streamText, type TextStreamPart } from 'ai';
+import { OPENAI_CONFIG } from '@/lib/config/fileUpload';
+import { supabase } from '@/lib/supabase';
 import type { Database, Json } from '@/types/supabase';
 import {
   type CreateJobDescriptionPayload,
   type DraftWorkpadPayload,
   type JobDescriptionRecord,
   type ParsedJobDescription,
-  type RequirementInsight,
   type RequirementCategory,
+  type RequirementInsight,
 } from '@/types/coverLetters';
-import { supabase } from '@/lib/supabase';
-import { OPENAI_CONFIG } from '@/lib/config/fileUpload';
 
 type SupabaseClient = typeof supabase;
 
 export interface ParseJobDescriptionOptions {
   signal?: AbortSignal;
-  onToken?: (token: string, aggregated: string) => void;
+  onToken?: (token: string, aggregate: string) => void;
 }
 
 export interface JobDescriptionServiceOptions {
@@ -36,6 +36,8 @@ Analyse the job description and return JSON with this schema:
   "standardRequirements": Requirement[],
   "differentiatorRequirements": Requirement[],
   "preferredRequirements": Requirement[],
+  "boilerplateSignals": string[],
+  "differentiatorSignals": string[],
   "keywords": string[],
   "differentiatorNotes": string,
   "structuredData": {
@@ -52,27 +54,30 @@ Analyse the job description and return JSON with this schema:
 
 Requirement shape:
 {
-  "id": string (stable hash if supplied, else generate),
-  "description": string,
-  "priority": "critical" | "high" | "medium" | "optional",
+  "id": string,
+  "label": string,
+  "detail": string,
+  "category": "standard" | "differentiator" | "preferred",
+  "priority": "critical" | "high" | "medium" | "low" | "optional",
   "keywords": string[],
-  "signals": string[]
+  "signals": string[],
+  "reasoning": string
 }
 
 Rules:
 - Classify requirements as:
-  * standardRequirements: boilerplate expectations for most Product Manager roles.
-  * differentiatorRequirements: unique priorities or outliers that signal this company's context or challenges.
+  * standardRequirements: boilerplate expectations for Product Managers.
+  * differentiatorRequirements: unique priorities hinting at this company's context.
   * preferredRequirements: nice-to-haves explicitly called out.
-- Provide differentiatorNotes summarising why the differentiator items matter.
-- Include at least 5 keywords spanning responsibilities, tools, and outcomes.
-- rawSections should capture major headings detected in the JD.
+- Highlight differentiatorNotes summarising why the differentiator items matter.
+- Include 5-8 keywords spanning responsibilities, tools, and outcomes.
+- rawSections should capture major headings detected in the JD with cleaned content.
 - Respond with STRICT JSON (no commentary, no markdown fences).
 `;
 
 const SUPPORTED_PRIORITIES = ['critical', 'high', 'medium', 'low', 'optional'] as const;
-type NormalisedPriority = (typeof SUPPORTED_PRIORITIES)[number];
-const DEFAULT_PRIORITY: NormalisedPriority = 'high';
+type PriorityValue = (typeof SUPPORTED_PRIORITIES)[number];
+const DEFAULT_PRIORITY: PriorityValue = 'high';
 
 const SUPPORTED_CATEGORIES: RequirementCategory[] = ['standard', 'differentiator', 'preferred'];
 
@@ -93,71 +98,78 @@ const createOpenAIClient = (apiKey?: string) => {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-const normaliseRequirementPriority = (value: unknown): NormalisedPriority => {
+const randomId = (): string => {
+  const cryptoObj: Crypto | undefined =
+    typeof globalThis !== 'undefined' ? (globalThis as { crypto?: Crypto }).crypto : undefined;
+  if (cryptoObj?.randomUUID) {
+    return cryptoObj.randomUUID();
+  }
+  return `req_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`;
+};
+
+const normalisePriority = (value: unknown): PriorityValue => {
   if (typeof value === 'string') {
-    const lowered = value.toLowerCase() as NormalisedPriority;
-    if (SUPPORTED_PRIORITIES.includes(lowered)) {
-      return lowered;
+    const lower = value.toLowerCase() as PriorityValue;
+    if (SUPPORTED_PRIORITIES.includes(lower)) {
+      return lower;
     }
   }
   return DEFAULT_PRIORITY;
 };
 
+const ensureStringArray = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value
+        .map(item => (typeof item === 'string' ? item.trim() : null))
+        .filter((item): item is string => Boolean(item))
+    : [];
+
 const normaliseRequirement = (
-  requirement: unknown,
+  input: unknown,
   fallbackCategory: RequirementCategory,
 ): RequirementInsight | null => {
-  if (!isRecord(requirement)) return null;
+  if (!isRecord(input)) return null;
 
   const labelRaw =
-    typeof requirement.label === 'string'
-      ? requirement.label
-      : typeof requirement.title === 'string'
-      ? requirement.title
-      : typeof requirement.description === 'string'
-      ? requirement.description
-      : typeof requirement.summary === 'string'
-      ? requirement.summary
+    typeof input.label === 'string'
+      ? input.label
+      : typeof input.title === 'string'
+      ? input.title
+      : typeof input.description === 'string'
+      ? input.description
+      : typeof input.summary === 'string'
+      ? input.summary
       : undefined;
-
   const label = labelRaw?.trim();
   if (!label) return null;
 
   const id =
-    typeof requirement.id === 'string' && requirement.id.trim().length > 0
-      ? requirement.id.trim()
-      : `req_${cryptoRandomString()}`;
+    typeof input.id === 'string' && input.id.trim().length > 0
+      ? input.id.trim()
+      : randomId();
 
   const category =
-    typeof requirement.category === 'string' && (SUPPORTED_CATEGORIES as string[]).includes(requirement.category)
-      ? (requirement.category as RequirementCategory)
+    typeof input.category === 'string' && (SUPPORTED_CATEGORIES as string[]).includes(input.category)
+      ? (input.category as RequirementCategory)
       : fallbackCategory;
 
-  const priority = normaliseRequirementPriority(requirement.priority);
-
-  const keywords = Array.isArray(requirement.keywords)
-    ? requirement.keywords.filter(
-        (keyword): keyword is string => typeof keyword === 'string' && keyword.trim().length > 0,
-      )
-    : [];
-
-  const signals = Array.isArray(requirement.signals)
-    ? requirement.signals.filter((signal): signal is string => typeof signal === 'string' && signal.trim().length > 0)
-    : [];
-
   const detail =
-    typeof requirement.detail === 'string'
-      ? requirement.detail.trim()
-      : typeof requirement.description === 'string'
-      ? requirement.description.trim()
+    typeof input.detail === 'string'
+      ? input.detail.trim()
+      : typeof input.description === 'string'
+      ? input.description.trim()
       : undefined;
 
   const reasoning =
-    typeof requirement.reasoning === 'string'
-      ? requirement.reasoning.trim()
-      : typeof requirement.notes === 'string'
-      ? requirement.notes.trim()
+    typeof input.reasoning === 'string'
+      ? input.reasoning.trim()
+      : typeof input.notes === 'string'
+      ? input.notes.trim()
       : undefined;
+
+  const keywords = ensureStringArray(input.keywords);
+  const signals = ensureStringArray(input.signals);
+  const priority = normalisePriority(input.priority);
 
   return {
     id,
@@ -171,17 +183,6 @@ const normaliseRequirement = (
   };
 };
 
-const cryptoRandomString = (): string => {
-  const globalCrypto: Crypto | undefined =
-    typeof globalThis !== 'undefined' ? (globalThis as { crypto?: Crypto }).crypto : undefined;
-
-  if (globalCrypto?.randomUUID) {
-    return globalCrypto.randomUUID();
-  }
-
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
-};
-
 const normaliseRequirementArray = (
   list: unknown,
   fallbackCategory: RequirementCategory,
@@ -191,11 +192,6 @@ const normaliseRequirementArray = (
     .map(item => normaliseRequirement(item, fallbackCategory))
     .filter((item): item is RequirementInsight => Boolean(item));
 };
-
-const ensureStringArray = (value: unknown): string[] =>
-  Array.isArray(value)
-    ? value.flatMap(item => (typeof item === 'string' ? item.trim() : [])).filter(Boolean)
-    : [];
 
 const normaliseStructuredData = (value: unknown): Record<string, Json> => {
   if (!isRecord(value)) {
@@ -237,6 +233,25 @@ const cleanJsonResponse = (raw: string): string =>
     .replace(/```$/, '')
     .trim();
 
+const defaultAnalysisEnvelope = (
+  summary: string,
+  differentiatorNotes: string | undefined,
+  rawSections: string[],
+  keywords: string[],
+  signals: { boilerplate?: string[]; differentiator?: string[] },
+  structuredInsights: Record<string, Json>,
+  rawPayload: Record<string, unknown>,
+): Record<string, Json> => ({
+  summary,
+  differentiatorNotes,
+  rawSections,
+  keywords,
+  boilerplateSignals: signals.boilerplate ?? [],
+  differentiatorSignals: signals.differentiator ?? [],
+  structuredInsights,
+  llm: rawPayload,
+});
+
 const mapRowToRecord = (row: JobDescriptionRow): JobDescriptionRecord => {
   const analysis = (row.analysis as Record<string, unknown>) ?? {};
   const structuredInsights =
@@ -256,12 +271,12 @@ const mapRowToRecord = (row: JobDescriptionRow): JobDescriptionRecord => {
     role: row.role,
     summary,
     standardRequirements: normaliseRequirementArray(row.standard_requirements, 'standard'),
-    preferredRequirements: normaliseRequirementArray(row.preferred_requirements, 'preferred'),
     differentiatorRequirements: normaliseRequirementArray(row.differentiator_requirements, 'differentiator'),
+    preferredRequirements: normaliseRequirementArray(row.preferred_requirements, 'preferred'),
     boilerplateSignals: ensureStringArray((analysis as any).boilerplateSignals),
     differentiatorSignals: ensureStringArray((analysis as any).differentiatorSignals),
     keywords: Array.isArray(row.keywords)
-      ? row.keywords.filter((keyword): keyword is string => typeof keyword === 'string')
+      ? row.keywords.filter((kw): kw is string => typeof kw === 'string')
       : [],
     structuredInsights,
     structuredData: normaliseStructuredData(row.structured_data),
@@ -272,20 +287,6 @@ const mapRowToRecord = (row: JobDescriptionRow): JobDescriptionRecord => {
     updatedAt: row.updated_at ?? new Date().toISOString(),
   };
 };
-
-const defaultAnalysisEnvelope = (
-  data: { summary: string; differentiatorNotes?: string; rawSections?: string[]; keywords?: string[] },
-  raw: Record<string, unknown>,
-): Record<string, unknown> => ({
-  summary: data.summary,
-  differentiatorNotes: data.differentiatorNotes,
-  rawSections: data.rawSections ?? [],
-  keywords: data.keywords ?? [],
-  boilerplateSignals: Array.isArray(raw.boilerplateSignals) ? raw.boilerplateSignals : [],
-  differentiatorSignals: Array.isArray(raw.differentiatorSignals) ? raw.differentiatorSignals : [],
-  structuredInsights: raw.structuredData ?? {},
-  llm: raw,
-});
 
 export class JobDescriptionService {
   private readonly supabaseClient: SupabaseClient;
@@ -314,7 +315,7 @@ export class JobDescriptionService {
         },
       ],
       temperature: 0.2,
-      maxTokens: 1400,
+      maxTokens: 1500,
       signal: options.signal,
     } as any);
 
@@ -379,12 +380,15 @@ export class JobDescriptionService {
       analysis:
         payload.analysis ??
         defaultAnalysisEnvelope(
+          payload.summary,
+          payload.differentiatorNotes,
+          payload.rawSections ?? [],
+          payload.keywords,
           {
-            summary: payload.summary,
-            differentiatorNotes: payload.differentiatorNotes,
-            rawSections: payload.rawSections,
-            keywords: payload.keywords,
+            boilerplate: [],
+            differentiator: [],
           },
+          payload.structuredData,
           {},
         ),
     };
@@ -403,10 +407,44 @@ export class JobDescriptionService {
     return mapRowToRecord(data);
   }
 
-  async updateAnalysis(
-    jobDescriptionId: string,
-    analysis: Record<string, unknown>,
-  ): Promise<void> {
+  async parseAndCreate(
+    userId: string,
+    content: string,
+    options: ParseJobDescriptionOptions & { url?: string | null } = {},
+  ): Promise<JobDescriptionRecord> {
+    const { parsed, raw } = await this.parseJobDescription(content, options);
+
+    const analysis = defaultAnalysisEnvelope(
+      parsed.summary,
+      parsed.differentiatorNotes,
+      parsed.rawSections ?? [],
+      parsed.keywords,
+      {
+        boilerplate: parsed.boilerplateSignals,
+        differentiator: parsed.differentiatorSignals,
+      },
+      parsed.structuredInsights,
+      raw,
+    );
+
+    return this.createJobDescription(userId, {
+      content,
+      url: options.url ?? null,
+      company: parsed.company,
+      role: parsed.role,
+      summary: parsed.summary,
+      structuredData: parsed.structuredInsights,
+      standardRequirements: parsed.standardRequirements,
+      differentiatorRequirements: parsed.differentiatorRequirements,
+      preferredRequirements: parsed.preferredRequirements,
+      keywords: parsed.keywords,
+      differentiatorNotes: parsed.differentiatorNotes,
+      rawSections: parsed.rawSections,
+      analysis,
+    });
+  }
+
+  async updateAnalysis(jobDescriptionId: string, analysis: Record<string, unknown>): Promise<void> {
     const { error } = await this.supabaseClient
       .from('job_descriptions')
       .update({ analysis })
@@ -491,6 +529,7 @@ export class JobDescriptionService {
       'differentiator',
     );
     const preferredRequirements = normaliseRequirementArray(payload.preferredRequirements, 'preferred');
+
     const keywords = ensureStringArray(payload.keywords);
     const boilerplateSignals = ensureStringArray(payload.boilerplateSignals);
     const differentiatorSignals = ensureStringArray(payload.differentiatorSignals);
@@ -511,7 +550,7 @@ export class JobDescriptionService {
           .filter((item): item is string => Boolean(item))
       : [];
 
-    const analysisPayload: Record<string, Json> = {
+    const analysis: Record<string, Json> = {
       boilerplateSignals,
       differentiatorSignals,
       structuredInsights: structuredData,
@@ -524,17 +563,20 @@ export class JobDescriptionService {
       role,
       summary,
       standardRequirements,
-      preferredRequirements,
       differentiatorRequirements,
+      preferredRequirements,
       boilerplateSignals,
       differentiatorSignals,
       keywords,
       structuredInsights: structuredData,
       structuredData,
-      analysis: analysisPayload,
+      analysis,
       differentiatorNotes,
       rawSections,
     };
   }
 }
+
+export const jobDescriptionService = new JobDescriptionService();
+
 
