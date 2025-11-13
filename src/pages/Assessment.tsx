@@ -1055,19 +1055,14 @@ import {
   Info,
   FileText,
   Link,
-<<<<<<< HEAD
   RotateCw,
   Clock
-=======
-  RotateCw
->>>>>>> origin/main
 } from "lucide-react";
 import EvidenceModal from "@/components/assessment/EvidenceModal";
 import LevelEvidenceModal from "@/components/assessment/LevelEvidenceModal";
 import RoleEvidenceModal from "@/components/assessment/RoleEvidenceModal";
 import { SpecializationCard } from "@/components/assessment/SpecializationCard";
 import { CompetencyCard } from "@/components/assessment/CompetencyCard";
-<<<<<<< HEAD
 import { CareerLadder } from "@/components/assessment/CareerLadder";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { usePMLevel } from "@/hooks/usePMLevel";
@@ -1081,32 +1076,17 @@ import type { PMLevelInference, RoleType } from "@/types/content";
 import { StreamingProgress } from "@/components/shared/StreamingProgress";
 import type { StreamingStepState, StreamingTimelineEvent, StreamingLifecycleStatus } from "@/hooks/useStreamingProgress";
 import { LoadingState } from "@/components/shared/LoadingState";
-=======
-import { usePrototype } from "@/contexts/PrototypeContext";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { usePMLevel } from "@/hooks/usePMLevel";
-import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
->>>>>>> origin/main
 
 // Helper function to map PM level code to display text
 const getLevelDisplay = (levelCode: string): string => {
   const levelMap: Record<string, string> = {
-<<<<<<< HEAD
     'l3': 'Associate Product Manager',
     'l4': 'Product Manager',
     'l5': 'Senior Product Manager',
     'l6': 'Staff/Principal Product Manager',
     'm1': 'Group Product Manager',
     'm2': 'Director of Product',
-=======
-    'l3': 'Product Manager',
-    'l4': 'Senior PM',
-    'l5': 'Staff PM',
-    'l6': 'Principal PM',
-    'm1': 'Group PM',
-    'm2': 'Director of PM',
->>>>>>> origin/main
   };
   return levelMap[levelCode.toLowerCase()] || levelCode;
 };
@@ -1118,32 +1098,20 @@ const getConfidenceText = (score: number): string => {
   return 'low';
 };
 
-<<<<<<< HEAD
 // Helper function to map percentage score to level text
 const getCompetencyLevel = (percentage: number): string => {
   if (percentage >= 90) return 'Advanced';
   if (percentage >= 70) return 'Proficient';
   if (percentage >= 50) return 'Needs Work';
-=======
-// Helper function to map score to level text
-const getCompetencyLevel = (score: number): string => {
-  if (score >= 2.5) return 'Strong';
-  if (score >= 1.5) return 'Solid';
-  if (score >= 0.5) return 'Emerging';
->>>>>>> origin/main
   return 'Developing';
 };
 
 // Helper function to map score to percentage (0-100)
-<<<<<<< HEAD
 // NOTE: For evidence-based confidence, use calculateEvidenceBasedConfidence instead
-=======
->>>>>>> origin/main
 const scoreToPercentage = (score: number, max: number = 3): number => {
   return Math.round((score / max) * 100);
 };
 
-<<<<<<< HEAD
 // Helper to format role type key to display name
 function formatRoleTypeName(key: string): string {
   const nameMap: Record<string, string> = {
@@ -1232,8 +1200,6 @@ const buildChangeSummary = (previous: LevelSnapshot, current: PMLevelInference):
   };
 };
 
-=======
->>>>>>> origin/main
 // Transform PMLevelInference to the expected format
 const transformLevelData = (levelData: any) => {
   if (!levelData) return null;
@@ -1249,7 +1215,6 @@ const transformLevelData = (levelData: any) => {
     displayLevel = 'PM', 
     confidence = 0.5,
     signals = {},
-<<<<<<< HEAD
     roleType = [],
     evidenceByCompetency = {},
     roleArchetypeEvidence = {}
@@ -1281,23 +1246,13 @@ const transformLevelData = (levelData: any) => {
     return scoreToPercentage(rawScore);
   };
   
-=======
-    roleType = []
-  } = levelData;
-  
->>>>>>> origin/main
   // Map competency scores to the expected format
   const competencies = [
     {
       domain: "Product Execution",
-<<<<<<< HEAD
       score: getEvidenceBasedScore("Product Execution", competencyScores.execution || 0),
       level: getCompetencyLevel(getEvidenceBasedScore("Product Execution", competencyScores.execution || 0)),
       rawScore: competencyScores.execution || 0, // 0-3 scale for percentage calculation
-=======
-      level: getCompetencyLevel(competencyScores.execution || 0),
-      score: scoreToPercentage(competencyScores.execution || 0),
->>>>>>> origin/main
       evidence: signals?.execution_evidence || "Based on your work history and achievements",
       tags: ["Execution", "Delivery", "Technical"],
       description: "Measures your ability to deliver products effectively",
@@ -1305,14 +1260,9 @@ const transformLevelData = (levelData: any) => {
     },
     {
       domain: "Customer Insight",
-<<<<<<< HEAD
       score: getEvidenceBasedScore("Customer Insight", competencyScores.customer_insight || 0),
       level: getCompetencyLevel(getEvidenceBasedScore("Customer Insight", competencyScores.customer_insight || 0)),
       rawScore: competencyScores.customer_insight || 0,
-=======
-      level: getCompetencyLevel(competencyScores.customer_insight || 0),
-      score: scoreToPercentage(competencyScores.customer_insight || 0),
->>>>>>> origin/main
       evidence: signals?.customer_evidence || "Based on your user research and customer focus",
       tags: ["Research", "User Experience", "Customer"],
       description: "Assesses your understanding of user needs",
@@ -1320,14 +1270,9 @@ const transformLevelData = (levelData: any) => {
     },
     {
       domain: "Product Strategy",
-<<<<<<< HEAD
       score: getEvidenceBasedScore("Product Strategy", competencyScores.strategy || 0),
       level: getCompetencyLevel(getEvidenceBasedScore("Product Strategy", competencyScores.strategy || 0)),
       rawScore: competencyScores.strategy || 0,
-=======
-      level: getCompetencyLevel(competencyScores.strategy || 0),
-      score: scoreToPercentage(competencyScores.strategy || 0),
->>>>>>> origin/main
       evidence: signals?.strategy_evidence || "Based on your strategic initiatives",
       tags: ["Strategy", "Vision", "Roadmap"],
       description: "Evaluates your strategic thinking and planning",
@@ -1335,14 +1280,9 @@ const transformLevelData = (levelData: any) => {
     },
     {
       domain: "Influencing People",
-<<<<<<< HEAD
       score: getEvidenceBasedScore("Influencing People", competencyScores.influence || 0),
       level: getCompetencyLevel(getEvidenceBasedScore("Influencing People", competencyScores.influence || 0)),
       rawScore: competencyScores.influence || 0,
-=======
-      level: getCompetencyLevel(competencyScores.influence || 0),
-      score: scoreToPercentage(competencyScores.influence || 0),
->>>>>>> origin/main
       evidence: signals?.influence_evidence || "Based on your leadership examples",
       tags: ["Leadership", "Collaboration", "Stakeholder"],
       description: "Measures your ability to lead and influence",
@@ -1350,7 +1290,6 @@ const transformLevelData = (levelData: any) => {
     }
   ];
 
-<<<<<<< HEAD
   // Map role archetypes from roleType - filter out 'general' and 'technical'
   // Only show the 4 main specializations: growth, platform, ai_ml, founding
   const validSpecializations = ['growth', 'platform', 'ai_ml', 'founding'];
@@ -1373,26 +1312,6 @@ const transformLevelData = (levelData: any) => {
           };
         })
     : [];
-=======
-  // Map role archetypes from roleType or use defaults
-  const roleArchetypes = Array.isArray(roleType) && roleType.length > 0 
-    ? roleType.map((role: string) => ({
-        type: role,
-        match: 80, // Default match percentage
-        description: `${role} product management focus`,
-        evidence: `Based on your ${role.toLowerCase()} experience`,
-        typicalProfile: `Experience with ${role.toLowerCase()} products and initiatives`
-      }))
-    : [
-        {
-          type: "General PM",
-          match: 100,
-          description: "Versatile product management skills",
-          evidence: "Based on your diverse experience",
-          typicalProfile: "Experience across multiple product areas and business functions"
-        }
-      ];
->>>>>>> origin/main
 
   // Level progression based on displayLevel
   const levelProgression = [
@@ -1428,7 +1347,6 @@ const transformLevelData = (levelData: any) => {
     }
   ];
 
-<<<<<<< HEAD
   // Find current level for next level calculation (fallback only)
   const currentLevelIndex = levelProgression.findIndex(l => l.current);
   const fallbackNextLevel = currentLevelIndex < levelProgression.length - 1 
@@ -1442,18 +1360,6 @@ const transformLevelData = (levelData: any) => {
     currentLevel: levelData?.levelEvidence?.currentLevel || displayLevel || 'Product Manager',
     confidence: getConfidenceText(confidence),
     nextLevel: nextLevel,
-=======
-  // Find current level for next level calculation
-  const currentLevelIndex = levelProgression.findIndex(l => l.current);
-  const nextLevel = currentLevelIndex < levelProgression.length - 1 
-    ? levelProgression[currentLevelIndex + 1]?.level 
-    : levelProgression[levelProgression.length - 1]?.level;
-
-  return {
-    currentLevel: displayLevel || 'PM',
-    confidence: getConfidenceText(confidence),
-    nextLevel: nextLevel || 'Senior PM',
->>>>>>> origin/main
     levelDescription: levelData?.levelDescription || `Product manager with a focus on ${roleType?.[0] || 'general product management'}`,
     inferenceSource: levelData?.inferenceSource || "Based on your profile and work history",
     competencies,
@@ -1461,10 +1367,7 @@ const transformLevelData = (levelData: any) => {
     levelProgression,
     roleArchetypeEvidence: levelData?.roleArchetypeEvidence || {},
     levelEvidence: levelData?.levelEvidence || {},
-<<<<<<< HEAD
     evidenceByCompetency: levelData?.evidenceByCompetency || {},
-=======
->>>>>>> origin/main
     recommendations: Array.isArray(recommendations) ? recommendations : []
   };
 };
@@ -1474,7 +1377,6 @@ interface AssessmentProps {
 }
 
 function Assessment({ initialSection = 'overview' }: AssessmentProps) {
-<<<<<<< HEAD
   const { user } = useAuth();
   const {
     levelData,
@@ -1487,23 +1389,15 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
     activeProfileId
   } = usePMLevel();
   const profileKey = `${user?.id ?? 'anon'}::${activeProfileId ?? 'default'}`;
-=======
-  const { levelData, isLoading, error, recalculate, isRecalculating } = usePMLevel();
->>>>>>> origin/main
   const [assessmentData, setAssessmentData] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [activeTab, setActiveTab] = useState<string>(initialSection);
   const [selectedCompetency, setSelectedCompetency] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
-<<<<<<< HEAD
-=======
-  const [showLeadershipTrack, setShowLeadershipTrack] = useState(false);
->>>>>>> origin/main
   const [evidenceModalOpen, setEvidenceModalOpen] = useState(false);
   const [selectedEvidence, setSelectedEvidence] = useState<any>(null);
   const [levelEvidenceModalOpen, setLevelEvidenceModalOpen] = useState(false);
   const [roleEvidenceModalOpen, setRoleEvidenceModalOpen] = useState(false);
-<<<<<<< HEAD
   const [changeSummary, setChangeSummary] = useState<ChangeSummary | null>(null);
   const [isSummaryDismissed, setIsSummaryDismissed] = useState(false);
 
@@ -1683,32 +1577,6 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
       }
     }
   }, [searchParams, initialSection, assessmentData]);
-=======
-  
-  const { setPrototypeState } = usePrototype();
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-
-  // Transform level data when it changes
-  useEffect(() => {
-    if (levelData) {
-      console.log('Level data received:', levelData);
-      const transformedData = transformLevelData(levelData);
-      console.log('Transformed data:', transformedData);
-      setAssessmentData(transformedData);
-    } else if (!isLoading) {
-      // No level data available
-      console.log('No level data available');
-      setAssessmentData(null);
-    }
-  }, [levelData, isLoading]);
-
-  // Handle initial section from URL
-  useEffect(() => {
-    const section = searchParams.get('section') || initialSection;
-    setActiveTab(section);
-  }, [searchParams, initialSection]);
->>>>>>> origin/main
 
   // Update URL when tab changes
   useEffect(() => {
@@ -1724,7 +1592,6 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
 
   // Handle run analysis
   const handleRunAnalysis = async () => {
-<<<<<<< HEAD
       setIsAnalyzing(true);
     // Use mutation callback - toast will be shown in usePMLevel hook after completion
     recalculate();
@@ -1736,24 +1603,10 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
       setIsAnalyzing(false);
     }
   }, [isRecalculating, isAnalyzing]);
-=======
-    try {
-      setIsAnalyzing(true);
-      await recalculate();
-      toast.success('Analysis completed successfully');
-    } catch (err) {
-      console.error('Error running analysis:', err);
-      toast.error('Failed to run analysis. Please try again.');
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
->>>>>>> origin/main
 
   // Handle showing evidence for a competency
   const handleShowEvidence = (competency: any) => {
     setSelectedCompetency(competency.domain);
-<<<<<<< HEAD
 
     // Map competency domain to PMDimension key
     const dimensionMap: Record<string, string> = {
@@ -1784,43 +1637,6 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
       <div className="min-h-screen bg-background">
         <main className="container mx-auto px-4 py-6">
           <div className="max-w-3xl mx-auto">
-=======
-    setSelectedEvidence(competency.evidenceStories?.[0] || null);
-    setEvidenceModalOpen(true);
-  };
-
-  // Show loading state
-  if (isLoading || isRecalculating) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center p-6 max-w-md mx-auto">
-          <Loader2 className="w-12 h-12 mx-auto mb-4 text-primary animate-spin" />
-          <h2 className="text-2xl font-bold mb-2">Analyzing Your PM Level</h2>
-          <p className="text-muted-foreground mb-6">We're evaluating your experience and skills to determine your product management level.</p>
-          <div className="space-y-2 text-sm text-muted-foreground text-left">
-            <div className="flex items-center">
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              <span>Reviewing your work history and achievements</span>
-            </div>
-            <div className="flex items-center">
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              <span>Analyzing your impact and influence</span>
-            </div>
-            <div className="flex items-center">
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              <span>Comparing with industry benchmarks</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Show error state
-  if (error) {
-    return (
-      <div className="p-6 max-w-3xl mx-auto">
->>>>>>> origin/main
         <div className="p-6 border rounded-lg bg-destructive/5 border-destructive/30">
           <div className="flex items-start">
             <div className="flex-shrink-0">
@@ -1846,11 +1662,7 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
                   Try Again
                 </Button>
                 <Button 
-<<<<<<< HEAD
                       variant="secondary"
-=======
-                  variant="outline" 
->>>>>>> origin/main
                   onClick={() => recalculate()}
                   disabled={isRecalculating}
                 >
@@ -1861,11 +1673,7 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
                     </>
                   ) : (
                     <>
-<<<<<<< HEAD
                           <RotateCw className="w-4 h-4 mr-2" />
-=======
-                      <RefreshCw className="w-4 h-4 mr-2" />
->>>>>>> origin/main
                       Recalculate PM Level
                     </>
                   )}
@@ -1874,7 +1682,6 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
             </div>
           </div>
         </div>
-<<<<<<< HEAD
           </div>
         </main>
       </div>
@@ -1909,15 +1716,12 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
             <LoadingState isLoading loadingText="Loading PM level assessment..." />
           </div>
         </main>
-=======
->>>>>>> origin/main
       </div>
     );
   }
 
   // Show empty state - no data available
   if (!assessmentData) {
-<<<<<<< HEAD
     // Check if user is trying to view a specialization section
     const isSpecializationSection = initialSection?.startsWith('specialization-') || 
                                     searchParams.get('section')?.startsWith('specialization-');
@@ -1926,10 +1730,6 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
       <div className="min-h-screen bg-background">
         <main className="container mx-auto px-4 py-6">
           <div className="max-w-4xl mx-auto">
-=======
-    return (
-      <div className="p-6 max-w-4xl mx-auto">
->>>>>>> origin/main
         <div className="bg-background rounded-xl border shadow-sm overflow-hidden">
           <div className="p-8 text-center">
             <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 mb-4">
@@ -1937,7 +1737,6 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
             </div>
             <h2 className="text-2xl font-bold tracking-tight mb-2">PM Level Assessment</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto mb-8">
-<<<<<<< HEAD
                   {isSpecializationSection
                     ? "Run an analysis to see your specialization matches. Add work history and stories to get detailed insights."
                     : "Get a detailed analysis of your product management level based on your experience, skills, and achievements. Understand your strengths and areas for growth with personalized recommendations."}
@@ -1985,12 +1784,6 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
                   </div>
                 ) : (
                   <>
-=======
-              Get a detailed analysis of your product management level based on your experience, skills, and achievements.
-              Understand your strengths and areas for growth with personalized recommendations.
-            </p>
-            
->>>>>>> origin/main
             <div className="bg-muted/30 border rounded-lg p-6 mb-8 text-left max-w-2xl mx-auto">
               <h3 className="font-medium mb-3 flex items-center">
                 <Info className="w-4 h-4 mr-2 text-amber-500" />
@@ -2033,11 +1826,7 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
               </Button>
               
               <Button 
-<<<<<<< HEAD
                         variant="secondary"
-=======
-                variant="outline" 
->>>>>>> origin/main
                 size="lg"
                 className="px-8 py-6 text-base"
                 onClick={() => setActiveTab('how-it-works')}
@@ -2050,17 +1839,12 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
             <p className="text-xs text-muted-foreground mt-4">
               This may take a few minutes. You'll receive a notification when it's ready.
             </p>
-<<<<<<< HEAD
                   </>
                 )}
           </div>
         </div>
           </div>
         </main>
-=======
-          </div>
-        </div>
->>>>>>> origin/main
       </div>
     );
   }
@@ -2074,31 +1858,21 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
     inferenceSource,
     competencies,
     roleArchetypes,
-<<<<<<< HEAD
     roleArchetypeEvidence,
     levelEvidence,
     evidenceByCompetency,
-=======
-    levelProgression,
-    roleArchetypeEvidence,
-    levelEvidence,
->>>>>>> origin/main
     recommendations
   } = assessmentData;
 
   // Render the assessment UI with the dynamic data
   return (
-<<<<<<< HEAD
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-4 py-6">
-=======
->>>>>>> origin/main
     <div className="space-y-6">
       {/* Header Section */}
       <div className="flex flex-col justify-between space-y-4 md:flex-row md:items-center md:space-y-0">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">PM Level Assessment</h1>
-<<<<<<< HEAD
               <p className="text-muted-foreground">{inferenceSource}</p>
         </div>
             <div className="flex flex-col items-start gap-2 text-sm text-muted-foreground sm:flex-row sm:items-center">
@@ -2209,126 +1983,6 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
               currentLevelDisplay={currentLevel}
               onViewEvidence={() => setLevelEvidenceModalOpen(true)}
             />
-=======
-          <p className="text-muted-foreground">
-            {levelDescription} • {inferenceSource}
-          </p>
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button 
-            variant="secondary" 
-            onClick={handleRunAnalysis}
-            disabled={isAnalyzing || isRecalculating}
-          >
-            {isAnalyzing || isRecalculating ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Recalculating...
-              </>
-            ) : (
-              <>
-                <RotateCw className="w-4 h-4 mr-2" />
-                Recalculate
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="space-y-6">
-        {/* Level Overview Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
-              Your PM Level
-            </CardTitle>
-            <CardDescription>
-              Based on your experience, skills, and impact
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-2xl font-bold">{currentLevel}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Confidence: <span className="capitalize">{confidence}</span>
-                  </p>
-                </div>
-                <Button 
-                  variant="secondary" 
-                  size="sm"
-                  onClick={() => setLevelEvidenceModalOpen(true)}
-                >
-                  <Info className="w-4 h-4 mr-2" />
-                  View Evidence
-                </Button>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Level Progression</span>
-                  <button 
-                    className="text-primary hover:underline text-sm"
-                    onClick={() => setShowLeadershipTrack(!showLeadershipTrack)}
-                  >
-                    {showLeadershipTrack ? 'Hide' : 'Show'} Leadership Track
-                  </button>
-                </div>
-                
-                <div className="relative pt-1">
-                  <div className="flex items-center justify-between">
-                    {levelProgression.map((level: any, index: number) => (
-                      <div 
-                        key={level.level} 
-                        className={`relative flex-1 ${index < levelProgression.length - 1 ? 'mr-2' : ''}`}
-                      >
-                        <div 
-                          className={`text-xs text-center ${level.current ? 'font-bold text-primary' : 'text-muted-foreground'}`}
-                        >
-                          {level.level}
-                        </div>
-                        {level.current && (
-                          <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                            <div className="w-2 h-2 bg-primary rounded-full"></div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="relative h-2 mt-2 overflow-hidden bg-gray-100 rounded-full">
-                    <div 
-                      className="absolute top-0 left-0 h-full bg-primary rounded-full"
-                      style={{
-                        width: `${(levelProgression.findIndex((l: any) => l.current) + 1) / levelProgression.length * 100}%`
-                      }}
-                    ></div>
-                  </div>
-                </div>
-              </div>
-
-              {showLeadershipTrack && (
-                <div className="p-4 mt-4 border rounded-md bg-muted/20">
-                  <h4 className="mb-2 font-medium">Leadership Track</h4>
-                  <p className="text-sm text-muted-foreground">
-                    As you progress in your career, you'll take on more strategic responsibilities and leadership roles.
-                    The next step after {currentLevel} is typically {nextLevel}.
-                  </p>
-                  <Button 
-                    variant="secondary" 
-                    size="sm" 
-                    className="mt-3"
-                    onClick={() => setLevelEvidenceModalOpen(true)}
-                  >
-                    <Info className="w-4 h-4 mr-2" />
-                    View Leadership Track Details
-                  </Button>
-                </div>
-              )}
-            </div>
->>>>>>> origin/main
           </CardContent>
         </Card>
 
@@ -2346,7 +2000,6 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
           <CardContent>
             <div className="grid gap-4 md:grid-cols-2">
               {competencies.map((competency: any) => (
-<<<<<<< HEAD
                 <CompetencyCard
                   key={competency.domain}
                   domain={competency.domain}
@@ -2355,60 +2008,19 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
                   description={competency.description}
                   onViewEvidence={() => handleShowEvidence(competency)}
                 />
-=======
-                <div 
-                  key={competency.domain}
-                  className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                  onClick={() => handleShowEvidence(competency)}
-                >
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium">{competency.domain}</h4>
-                    <span className={`text-sm px-2 py-1 rounded-full ${
-                      competency.level === 'Strong' ? 'bg-green-100 text-green-800' :
-                      competency.level === 'Solid' ? 'bg-blue-100 text-blue-800' :
-                      competency.level === 'Emerging' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {competency.level}
-                    </span>
-                  </div>
-                  <div className="mt-2">
-                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                      <span>Progress</span>
-                      <span>{competency.score}%</span>
-                    </div>
-                    <Progress value={competency.score} className="h-2" />
-                  </div>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {competency.description}
-                  </p>
-                  <div className="flex flex-wrap gap-1 mt-3">
-                    {competency.tags.map((tag: string) => (
-                      <Badge key={tag} variant="secondary" className="text-xs">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
->>>>>>> origin/main
               ))}
             </div>
           </CardContent>
         </Card>
 
         {/* Role Archetypes Section */}
-<<<<<<< HEAD
         <Card id="role-specializations">
-=======
-        <Card>
->>>>>>> origin/main
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
               Role Specializations
             </CardTitle>
             <CardDescription>
-<<<<<<< HEAD
               How your profile matches PM specializations
             </CardDescription>
           </CardHeader>
@@ -2457,46 +2069,6 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
                     </p>
                   </div>
             )}
-=======
-              How your profile matches different PM specializations
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-2">
-              {roleArchetypes.map((archetype: any) => (
-                <div 
-                  key={archetype.type}
-                  className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                  onClick={() => {
-                    setSelectedRole(archetype.type);
-                    setRoleEvidenceModalOpen(true);
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium">{archetype.type}</h4>
-                    <div className="flex items-center">
-                      <span className="text-sm font-medium mr-2">{archetype.match}%</span>
-                      <div className="w-16 bg-gray-200 rounded-full h-2.5">
-                        <div 
-                          className="bg-primary h-2.5 rounded-full" 
-                          style={{ width: `${archetype.match}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  </div>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {archetype.description}
-                  </p>
-                  <div className="mt-3">
-                    <span className="text-xs font-medium">Typical Profile:</span>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {archetype.typicalProfile}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
->>>>>>> origin/main
           </CardContent>
         </Card>
 
@@ -2513,7 +2085,6 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-<<<<<<< HEAD
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {(() => {
                   // Sort recommendations: Narrata-specific types first, then general
@@ -2542,45 +2113,11 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
                     </Card>
                   ));
                 })()}
-=======
-              <div className="space-y-4">
-                {recommendations.map((rec: any, index: number) => (
-                  <div key={index} className="flex items-start gap-3">
-                    <div className="flex-shrink-0 mt-1">
-                      {rec.priority === 'high' ? (
-                        <AlertCircle className="w-5 h-5 text-yellow-500" />
-                      ) : rec.priority === 'medium' ? (
-                        <Info className="w-5 h-5 text-blue-500" />
-                      ) : (
-                        <Lightbulb className="w-5 h-5 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div>
-                      <h4 className="font-medium">{rec.title}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {rec.description}
-                      </p>
-                      {rec.suggestedAction && (
-                        <div className="mt-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            className="text-sm"
-                          >
-                            {rec.suggestedAction}
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
->>>>>>> origin/main
               </div>
             </CardContent>
           </Card>
         )}
       </div>
-<<<<<<< HEAD
       </main>
 
       {/* Modals */}
@@ -2645,31 +2182,6 @@ function Assessment({ initialSection = 'overview' }: AssessmentProps) {
           outcomeMetrics: { roleLevel: [], storyLevel: [], analysis: { totalMetrics: 0, impactLevel: 'feature', keyAchievements: [] } }
         }}
       />
-=======
-
-      {/* Modals */}
-      <EvidenceModal
-        open={evidenceModalOpen}
-        onOpenChange={setEvidenceModalOpen}
-        evidence={selectedEvidence}
-        competency={selectedCompetency}
-      />
-      
-      <LevelEvidenceModal
-        open={levelEvidenceModalOpen}
-        onOpenChange={setLevelEvidenceModalOpen}
-        levelData={levelEvidence}
-        currentLevel={currentLevel}
-        nextLevel={nextLevel}
-      />
-      
-      <RoleEvidenceModal
-        open={roleEvidenceModalOpen}
-        onOpenChange={setRoleEvidenceModalOpen}
-        role={selectedRole}
-        evidence={roleArchetypeEvidence[selectedRole || '']}
-      />
->>>>>>> origin/main
     </div>
   );
 }
