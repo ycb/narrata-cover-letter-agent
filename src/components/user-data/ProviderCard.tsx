@@ -47,8 +47,17 @@ const LLM_PROVIDERS = {
     name: 'Anthropic (Claude)',
     baseUrl: 'https://api.anthropic.com/v1',
     models: [
-      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet (Latest)' },
-      { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku (Latest)' },
+      // Claude 4 Family (Latest Generation)
+      { id: 'claude-opus-4-1', name: 'Claude Opus 4.1 (Flagship)' },
+      { id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5 (Latest)' },
+      { id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5 (Latest)' },
+      // Claude 4.0 Models
+      { id: 'claude-opus-4-0', name: 'Claude Opus 4.0' },
+      { id: 'claude-sonnet-4-0', name: 'Claude Sonnet 4.0' },
+      // Claude 3.5 Family
+      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' },
+      { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku' },
+      // Claude 3 Family
       { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus' },
       { id: 'claude-3-sonnet-20240229', name: 'Claude 3 Sonnet' },
       { id: 'claude-3-haiku-20240307', name: 'Claude 3 Haiku' },
