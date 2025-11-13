@@ -35,6 +35,13 @@ const LLM_PROVIDERS = {
     name: 'OpenAI',
     baseUrl: 'https://api.openai.com/v1',
     models: [
+      // GPT-5 Family (Latest Generation)
+      { id: 'gpt-5', name: 'GPT-5' },
+      { id: 'gpt-5-mini', name: 'GPT-5 Mini' },
+      { id: 'gpt-5-nano', name: 'GPT-5 Nano' },
+      { id: 'gpt-5-codex', name: 'GPT-5 Codex' },
+      { id: 'gpt-5-chat-latest', name: 'GPT-5 Chat (Latest)' },
+      // GPT-4 Family
       { id: 'gpt-4o', name: 'GPT-4o' },
       { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
       { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' },
@@ -68,8 +75,12 @@ const LLM_PROVIDERS = {
     name: 'Google (Gemini)',
     baseUrl: 'https://generativelanguage.googleapis.com/v1',
     models: [
+      // Gemini 2.0 Family (Latest Generation)
+      { id: 'gemini-2.0-flash-exp', name: 'Gemini 2.0 Flash (Experimental)' },
+      // Gemini 1.5 Family
       { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
       { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
+      // Gemini 1.0 Family
       { id: 'gemini-pro', name: 'Gemini Pro' },
     ],
     requiresBaseUrl: false,
@@ -78,9 +89,14 @@ const LLM_PROVIDERS = {
     name: 'Mistral AI',
     baseUrl: 'https://api.mistral.ai/v1',
     models: [
-      { id: 'mistral-large-latest', name: 'Mistral Large' },
-      { id: 'mistral-medium-latest', name: 'Mistral Medium' },
-      { id: 'mistral-small-latest', name: 'Mistral Small' },
+      // Pixtral Family (Latest Generation)
+      { id: 'pixtral-large-latest', name: 'Pixtral Large (Latest)' },
+      { id: 'pixtral-12b-2409', name: 'Pixtral 12B' },
+      // Mistral Family
+      { id: 'mistral-large-latest', name: 'Mistral Large (Latest)' },
+      { id: 'mistral-medium-latest', name: 'Mistral Medium (Latest)' },
+      { id: 'mistral-medium-2505', name: 'Mistral Medium 2505' },
+      { id: 'mistral-small-latest', name: 'Mistral Small (Latest)' },
     ],
     requiresBaseUrl: false,
   },
