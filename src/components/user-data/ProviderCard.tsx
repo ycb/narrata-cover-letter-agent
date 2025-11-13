@@ -116,7 +116,6 @@ export function ProviderCard() {
   const [baseUrl, setBaseUrl] = useState('');
   const [selectedModel, setSelectedModel] = useState<string>(LLM_PROVIDERS.openai.models[0].id);
   const [validationError, setValidationError] = useState<string | null>(null);
-  const [isValidated, setIsValidated] = useState(false);
 
   // Initialize form when dialog opens with existing settings
   React.useEffect(() => {
@@ -144,6 +143,7 @@ export function ProviderCard() {
       // Reset to defaults for new configuration
       resetForm();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showBYOMDialog, settings]);
 
   // Get available models for selected provider
@@ -168,7 +168,6 @@ export function ProviderCard() {
     }
     
     // Reset validation state
-    setIsValidated(false);
     setValidationError(null);
   };
 
@@ -240,7 +239,6 @@ export function ProviderCard() {
     setBaseUrl('');
     setSelectedModel(LLM_PROVIDERS.openai.models[0].id);
     setValidationError(null);
-    setIsValidated(false);
   };
 
   const getStatusBadge = () => {
