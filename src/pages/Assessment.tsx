@@ -1063,7 +1063,6 @@ import { CompetencyCard } from "@/components/assessment/CompetencyCard";
 import { CareerLadder } from "@/components/assessment/CareerLadder";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { usePMLevel } from "@/hooks/usePMLevel";
-import { Loader2 } from "lucide-react";
 import { calculateEvidenceBasedConfidence } from "@/utils/confidenceCalculation";
 import { getConfidenceProgressColor, getConfidenceBadgeColor, textConfidenceToPercentage } from "@/utils/confidenceBadge";
 import { cn } from "@/lib/utils";
