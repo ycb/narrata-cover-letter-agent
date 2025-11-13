@@ -1058,9 +1058,6 @@ import {
   RotateCw,
   Clock
 } from "lucide-react";
-import EvidenceModal from "@/components/assessment/EvidenceModal";
-import LevelEvidenceModal from "@/components/assessment/LevelEvidenceModal";
-import RoleEvidenceModal from "@/components/assessment/RoleEvidenceModal";
 import { SpecializationCard } from "@/components/assessment/SpecializationCard";
 import { CompetencyCard } from "@/components/assessment/CompetencyCard";
 import { CareerLadder } from "@/components/assessment/CareerLadder";
