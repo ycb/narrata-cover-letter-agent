@@ -1088,13 +1088,6 @@ const getLevelDisplay = (levelCode: string): string => {
   return levelMap[levelCode.toLowerCase()] || levelCode;
 };
 
-// Helper function to map confidence score to text
-const getConfidenceText = (score: number): string => {
-  if (score >= 0.8) return 'high';
-  if (score >= 0.5) return 'medium';
-  return 'low';
-};
-
 // Helper function to map percentage score to level text
 const getCompetencyLevel = (percentage: number): string => {
   if (percentage >= 90) return 'Advanced';
