@@ -5,7 +5,6 @@
  */
 
 import { supabase } from '@/lib/supabase';
-import { syntheticStorage } from '@/utils/storage';
 import { SyntheticUserService } from './syntheticUserService';
 
 export type SourceType = 'resume' | 'cover_letter';
