@@ -1087,57 +1087,6 @@ const getLevelDisplay = (levelCode: string): string => {
   return levelMap[levelCode.toLowerCase()] || levelCode;
 };
 
-// Helper function to map percentage score to level text
-const getCompetencyLevel = (percentage: number): string => {
-  if (percentage >= 90) return 'Advanced';
-  if (percentage >= 70) return 'Proficient';
-  if (percentage >= 50) return 'Needs Work';
-  return 'Developing';
-};
-
-// Helper function to map score to percentage (0-100)
-// NOTE: For evidence-based confidence, use calculateEvidenceBasedConfidence instead
-const scoreToPercentage = (score: number, max: number = 3): number => {
-  return Math.round((score / max) * 100);
-};
-
-// Helper to format role type key to display name
-function formatRoleTypeName(key: string): string {
-  const nameMap: Record<string, string> = {
-    'growth': 'Growth PM',
-    'platform': 'Platform PM',
-    'ai_ml': 'AI/ML PM',
-    'founding': 'Founding PM',
-    'technical': 'Technical PM',
-    'general': 'General PM'
-  };
-  return nameMap[key] || key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ');
-}
-
-const SNAPSHOT_STORAGE_PREFIX = 'pm-level-snapshot';
-
-type LevelSnapshot = {
-  lastAnalyzedAt: string;
-  displayLevel: string;
-  confidence: number;
-  roleType: RoleType[];
-  deltaSummary?: string;
-};
-
-type ChangeSummary = {
-  analyzedAt: string;
-  headline: string;
-  items: string[];
-};
-
-const buildSnapshot = (data: PMLevelInference): LevelSnapshot => ({
-  lastAnalyzedAt: data.lastAnalyzedAt ?? new Date().toISOString(),
-  displayLevel: data.displayLevel,
-  confidence: data.confidence ?? 0,
-  roleType: Array.isArray(data.roleType) ? [...data.roleType] : [],
-  deltaSummary: data.deltaSummary,
-});
-
 const buildChangeSummary = (previous: LevelSnapshot, current: PMLevelInference): ChangeSummary => {
   const items: string[] = [];
 
