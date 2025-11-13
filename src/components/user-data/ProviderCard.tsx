@@ -61,8 +61,10 @@ const LLM_PROVIDERS = {
       // Claude 4.0 Models
       { id: 'claude-opus-4-0', name: 'Claude Opus 4.0' },
       { id: 'claude-sonnet-4-0', name: 'Claude Sonnet 4.0' },
-      // Claude 3.5 Family
+      // Claude 3.7 & 3.5 Family
+      { id: 'claude-3-7-sonnet-latest', name: 'Claude 3.7 Sonnet (Latest)' },
       { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' },
+      { id: 'claude-3-5-haiku-latest', name: 'Claude 3.5 Haiku (Latest)' },
       { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku' },
       // Claude 3 Family
       { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus' },
