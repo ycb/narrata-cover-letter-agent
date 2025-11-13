@@ -106,9 +106,9 @@ export function PrivacySection() {
         <div className="pt-4 border-t">
           <div className="space-y-3">
             <div>
-              <p className="text-sm font-medium mb-2">Data Export & Deletion</p>
+              <p className="text-sm font-medium mb-2">Account Management</p>
               <p className="text-xs text-muted-foreground mb-3">
-                You can request a copy of your data or delete your account. Account deletion is permanent and cannot be undone.
+                Need help or want to delete your account? Contact our support team.
               </p>
             </div>
             <div className="flex gap-2">
@@ -119,7 +119,7 @@ export function PrivacySection() {
                 className="flex-1"
               >
                 <Mail className="h-4 w-4 mr-2" />
-                Request Data Export
+                Contact Support
               </Button>
               <Button
                 variant="destructive"

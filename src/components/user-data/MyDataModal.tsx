@@ -10,6 +10,7 @@ import { ProviderCard } from './ProviderCard';
 import { PersonalDataCard } from './PersonalDataCard';
 import { PrivacySection } from './PrivacySection';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { SyntheticUserSelector } from '@/components/synthetic/SyntheticUserSelector';
 import { useEffect } from 'react';
 import LogRocket from 'logrocket';
 
@@ -37,6 +38,19 @@ export function MyDataModal({ isOpen, onClose }: MyDataModalProps) {
 
         <ScrollArea className="flex-1 pr-4 overflow-y-auto">
           <div className="space-y-6 pb-4 pr-4">
+            {/* Synthetic Profile Selector (Internal QA Tool) */}
+            <div className="border rounded-lg p-4 bg-muted/50">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <h3 className="text-sm font-medium">Internal QA Tool</h3>
+                  <p className="text-xs text-muted-foreground">Switch between synthetic profiles for testing</p>
+                </div>
+              </div>
+              <SyntheticUserSelector />
+            </div>
+
+            <Separator />
+
             {/* AI Provider Section */}
             <ProviderCard />
 
