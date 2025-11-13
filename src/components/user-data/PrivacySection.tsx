@@ -3,18 +3,60 @@
  * Displays privacy summary and contact information for preference changes
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Shield, Mail, ExternalLink } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Shield, Mail, ExternalLink, Trash2, AlertTriangle } from 'lucide-react';
 import LogRocket from 'logrocket';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 export function PrivacySection() {
+  const { user } = useAuth();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const handleContactSupport = () => {
     LogRocket.track('Privacy Preferences Update Requested');
-    // TODO: Replace with actual support email or contact form
     const supportEmail = 'support@narrata.ai';
     window.location.href = `mailto:${supportEmail}?subject=Privacy Preferences Update Request`;
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!user?.id) return;
+
+    setIsDeleting(true);
+    try {
+      // TODO: Implement account deletion API endpoint
+      // For now, this will contact support
+      LogRocket.track('Account Deletion Requested', { userId: user.id });
+      
+      const supportEmail = 'support@narrata.ai';
+      const subject = encodeURIComponent('Account Deletion Request');
+      const body = encodeURIComponent(
+        `I would like to delete my account and all associated data.\n\nUser ID: ${user.id}\nEmail: ${user.email || 'N/A'}`
+      );
+      
+      window.location.href = `mailto:${supportEmail}?subject=${subject}&body=${body}`;
+      
+      toast.success('Please check your email to complete account deletion');
+      setDeleteDialogOpen(false);
+    } catch (error) {
+      console.error('Error requesting account deletion:', error);
+      toast.error('Failed to request account deletion. Please contact support directly.');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -50,7 +92,7 @@ export function PrivacySection() {
               </p>
             </div>
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={handleContactSupport}
               className="ml-4"
@@ -58,6 +100,37 @@ export function PrivacySection() {
               <Mail className="h-4 w-4 mr-2" />
               Contact Support
             </Button>
+          </div>
+        </div>
+
+        <div className="pt-4 border-t">
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-medium mb-2">Data Export & Deletion</p>
+              <p className="text-xs text-muted-foreground mb-3">
+                You can request a copy of your data or delete your account. Account deletion is permanent and cannot be undone.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleContactSupport}
+                className="flex-1"
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                Request Data Export
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setDeleteDialogOpen(true)}
+                className="flex-1"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Account
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -81,18 +154,49 @@ export function PrivacySection() {
               Data Handling FAQ
               <ExternalLink className="h-3 w-3" />
             </a>
-            <a
-              href="/account-deletion"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary hover:underline flex items-center gap-1"
-            >
-              Account Deletion
-              <ExternalLink className="h-3 w-3" />
-            </a>
           </div>
         </div>
       </CardContent>
+
+      {/* Account Deletion Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Delete Your Account?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                This action cannot be undone. This will permanently delete your account and remove all of your data from our servers.
+              </p>
+              <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3 mt-3">
+                <p className="text-sm font-medium text-destructive mb-1">What will be deleted:</p>
+                <ul className="text-xs text-muted-foreground list-disc list-inside space-y-1">
+                  <li>Your profile and account information</li>
+                  <li>All uploaded resumes and cover letters</li>
+                  <li>Your work history and stories</li>
+                  <li>Cover letter templates and saved sections</li>
+                  <li>All AI provider settings</li>
+                </ul>
+              </div>
+              <p className="text-xs text-muted-foreground mt-3">
+                To proceed, you'll be redirected to email our support team to confirm your request.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteAccount}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? 'Processing...' : 'Delete Account'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

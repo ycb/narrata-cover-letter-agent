@@ -170,7 +170,7 @@ export function PersonalDataCard({ sourceType, title, description, dependencyMes
                     </div>
                     <div className="flex gap-2 ml-4">
                       <Button
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         onClick={() => handleDownload(asset)}
                         disabled={asset.processingStatus !== 'completed'}
@@ -179,7 +179,7 @@ export function PersonalDataCard({ sourceType, title, description, dependencyMes
                         Download
                       </Button>
                       <Button
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         onClick={() => handleDeleteClick(asset)}
                         disabled={isDeleting}

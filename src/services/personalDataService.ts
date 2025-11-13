@@ -40,19 +40,48 @@ export class PersonalDataService {
    */
   static async getAssets(userId: string): Promise<PersonalDataAsset[]> {
     try {
-      const { data, error } = await supabase
+      // Check if is_deleted column exists by trying to query it
+      // If it doesn't exist, query without that filter
+      let query = supabase
         .from('sources')
         .select('*')
         .eq('user_id', userId)
-        .eq('is_deleted', false)
+        .in('source_type', ['resume', 'cover_letter'])
         .order('created_at', { ascending: false });
 
+      // Try to filter by is_deleted if column exists
+      // If column doesn't exist, the query will still work without the filter
+      const { data, error } = await query;
+
       if (error) {
+        // If error is about missing column, retry without is_deleted filter
+        if (error.message?.includes('is_deleted') || error.code === '42703') {
+          const { data: retryData, error: retryError } = await supabase
+            .from('sources')
+            .select('*')
+            .eq('user_id', userId)
+            .in('source_type', ['resume', 'cover_letter'])
+            .order('created_at', { ascending: false });
+
+          if (retryError) {
+            console.error('[PersonalDataService] Error fetching assets:', retryError);
+            throw retryError;
+          }
+
+          return (retryData || []).map(this.mapDbToAsset);
+        }
+
         console.error('[PersonalDataService] Error fetching assets:', error);
         throw error;
       }
 
-      return (data || []).map(this.mapDbToAsset);
+      // Filter out soft-deleted items if is_deleted column exists
+      const filteredData = (data || []).filter((item: any) => {
+        // If is_deleted column exists and is true, exclude it
+        return item.is_deleted === undefined || item.is_deleted === false;
+      });
+
+      return filteredData.map(this.mapDbToAsset);
     } catch (error) {
       console.error('[PersonalDataService] Error in getAssets:', error);
       throw error;
@@ -67,20 +96,43 @@ export class PersonalDataService {
     sourceType: SourceType
   ): Promise<PersonalDataAsset[]> {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('sources')
         .select('*')
         .eq('user_id', userId)
         .eq('source_type', sourceType)
-        .eq('is_deleted', false)
         .order('created_at', { ascending: false });
 
+      const { data, error } = await query;
+
       if (error) {
+        // If error is about missing column, retry without is_deleted filter
+        if (error.message?.includes('is_deleted') || error.code === '42703') {
+          const { data: retryData, error: retryError } = await supabase
+            .from('sources')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('source_type', sourceType)
+            .order('created_at', { ascending: false });
+
+          if (retryError) {
+            console.error('[PersonalDataService] Error fetching assets by type:', retryError);
+            throw retryError;
+          }
+
+          return (retryData || []).map(this.mapDbToAsset);
+        }
+
         console.error('[PersonalDataService] Error fetching assets by type:', error);
         throw error;
       }
 
-      return (data || []).map(this.mapDbToAsset);
+      // Filter out soft-deleted items if is_deleted column exists
+      const filteredData = (data || []).filter((item: any) => {
+        return item.is_deleted === undefined || item.is_deleted === false;
+      });
+
+      return filteredData.map(this.mapDbToAsset);
     } catch (error) {
       console.error('[PersonalDataService] Error in getAssetsByType:', error);
       throw error;

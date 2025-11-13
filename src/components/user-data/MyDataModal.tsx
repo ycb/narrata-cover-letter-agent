@@ -35,8 +35,8 @@ export function MyDataModal({ isOpen, onClose }: MyDataModalProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 pr-4">
-          <div className="space-y-6 pb-4">
+        <ScrollArea className="flex-1 pr-4 overflow-y-auto">
+          <div className="space-y-6 pb-4 pr-4">
             {/* AI Provider Section */}
             <ProviderCard />
 
