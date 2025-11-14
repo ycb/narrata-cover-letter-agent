@@ -1227,19 +1227,24 @@ export class CoverLetterTemplateService {
     parsedData: ParsedCoverLetter,
     sourceFileId: string,
     templateName: string = 'Professional Template',
-    rawCoverLetterText?: string,
+    rawCoverLetterContext?: CoverLetterSourceContext | string,
     accessToken?: string
   ): Promise<{
     template: DomainCoverLetterTemplate;
     savedSections: SavedSection[];
   }> {
     try {
+      const sourceContext: CoverLetterSourceContext | undefined =
+        typeof rawCoverLetterContext === 'string'
+          ? { rawText: rawCoverLetterContext }
+          : rawCoverLetterContext;
+
       // 1. Decompose cover letter into saved sections and template structure
       const { savedSections, templateStructure } = await this.decomposeCoverLetter(
         userId,
         parsedData,
         sourceFileId,
-        { rawText: rawCoverLetterText, fileName: undefined, createdAt: undefined }
+        sourceContext
       );
 
       // 2. Create saved sections in database
