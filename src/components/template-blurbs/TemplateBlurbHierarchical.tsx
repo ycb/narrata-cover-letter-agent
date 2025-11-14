@@ -1,21 +1,21 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
-import { Search, Plus, Edit, Trash2, FileText, Clock, CheckCircle, AlertCircle, MoreHorizontal, Copy, Tags, Sparkles, X } from "lucide-react";
+import { Search, Plus, Edit, Trash2, FileText, Clock, CheckCircle, AlertCircle, MoreHorizontal, Copy, Tags, Sparkles, X, BookOpen } from "lucide-react";
 import { IntelligentAlertBadge } from "@/components/ui/IntelligentAlertBadge";
 import { TagSuggestionButton } from "@/components/ui/TagSuggestionButton";
 import { ContentGapBanner } from "@/components/shared/ContentGapBanner";
 import { ContentCard } from "@/components/shared/ContentCard";
-import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 interface TemplateBlurb {
   id: string;
-  type: 'intro' | 'closer' | 'signature';
+  type: 'intro' | 'paragraph' | 'closer' | 'signature' | string;
   title: string;
   content: string;
   status: 'approved' | 'draft' | 'needs-review';
@@ -28,7 +28,7 @@ interface TemplateBlurb {
 }
 
 interface BlurbTypeGroup {
-  type: 'intro' | 'closer' | 'signature';
+  type: 'intro' | 'paragraph' | 'closer' | 'signature' | string;
   label: string;
   description: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -39,7 +39,7 @@ interface TemplateBlurbHierarchicalProps {
   blurbs: TemplateBlurb[];
   selectedBlurbId?: string;
   onSelectBlurb: (blurb: TemplateBlurb) => void;
-  onCreateBlurb: (type?: 'intro' | 'closer' | 'signature' | string) => void;
+  onCreateBlurb: (type?: 'intro' | 'paragraph' | 'closer' | 'signature' | string) => void;
   onEditBlurb: (blurb: TemplateBlurb) => void;
   onDeleteBlurb: (blurbId: string) => void;
   onGenerateContent?: (blurb: TemplateBlurb) => void;
@@ -84,17 +84,17 @@ export const TemplateBlurbHierarchical = ({
       isDefault: true
     },
     {
+      type: 'paragraph',
+      label: 'Body Paragraph',
+      description: 'Static supporting paragraphs you want to reuse verbatim',
+      icon: BookOpen,
+      isDefault: true
+    },
+    {
       type: 'closer',
       label: 'Closing',
       description: 'Concluding paragraphs that reinforce your interest',
       icon: CheckCircle,
-      isDefault: true
-    },
-    {
-      type: 'signature',
-      label: 'Signature',
-      description: 'Professional sign-offs and contact information',
-      icon: Edit,
       isDefault: true
     }
   ];
@@ -102,8 +102,21 @@ export const TemplateBlurbHierarchical = ({
   // Use provided content types or fall back to defaults
   const allContentTypes = contentTypes.length > 0 ? contentTypes : defaultContentTypes;
 
+  const uniqueBlurbTypes = Array.from(new Set(blurbs.map((blurb) => blurb.type)));
+  const missingConfigs = uniqueBlurbTypes
+    .filter((type) => !allContentTypes.some((config) => config.type === type))
+    .map((type) => ({
+      type,
+      label: type.charAt(0).toUpperCase() + type.slice(1),
+      description: 'Custom content type',
+      icon: FileText,
+      isDefault: false,
+    }));
+
+  const contentTypeConfigs = [...allContentTypes, ...missingConfigs];
+
   const getTypeConfig = (type: string) => {
-    const config = allContentTypes.find(ct => ct.type === type);
+    const config = contentTypeConfigs.find(ct => ct.type === type);
     if (config) {
       return config;
     }
@@ -152,7 +165,7 @@ export const TemplateBlurbHierarchical = ({
   };
 
   // Group blurbs by type and filter by search
-  const groupedBlurbs: BlurbTypeGroup[] = allContentTypes.map((contentType) => {
+  const groupedBlurbs: BlurbTypeGroup[] = contentTypeConfigs.map((contentType) => {
     let typeBlurbs = blurbs.filter(blurb => {
       const matchesType = blurb.type === contentType.type;
       const matchesSearch = searchTerm === '' || 
@@ -176,6 +189,30 @@ export const TemplateBlurbHierarchical = ({
 
   const totalBlurbs = groupedBlurbs.reduce((total, group) => total + group.blurbs.length, 0);
   const hasResults = totalBlurbs > 0;
+
+  const handleKeyActivate = (event: React.KeyboardEvent, callback: () => void) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      callback();
+    }
+  };
+
+  const formatGapCategory = (category: string) =>
+    category
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+
+  const hasInitializedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!hasInitializedRef.current) {
+      const firstGroupWithContent = groupedBlurbs.find((group) => group.blurbs.length > 0);
+      if (firstGroupWithContent) {
+        setExpandedType(firstGroupWithContent.type);
+      }
+      hasInitializedRef.current = true;
+    }
+  }, [groupedBlurbs]);
 
   return (
     <div className="space-y-6">
@@ -214,84 +251,92 @@ export const TemplateBlurbHierarchical = ({
 
       {/* Blurb Groups */}
       {hasResults ? (
-        <Accordion type="single" collapsible value={expandedType} onValueChange={setExpandedType} className="accordion-item-spacing">
-          {groupedBlurbs.map((group) => (
-            <AccordionItem key={group.type} value={group.type} className="border rounded-lg">
-              <AccordionTrigger className="px-6 py-4 hover:no-underline">
-                <div className="flex items-center justify-between w-full pr-4">
-                  <div className="flex items-center gap-4">
-                    {(() => {
-                      // Calculate remaining gap count (original - resolved)
-                      const originalGapCount = group.blurbs.reduce((total, blurb) => {
-                        return total + ((blurb as any).gapCount || 0);
+        <Accordion
+          type="single"
+          collapsible
+          value={expandedType}
+          onValueChange={(value) => setExpandedType(value || undefined)}
+          className="accordion-item-spacing"
+        >
+          {groupedBlurbs.map((group) => {
+            const isDefaultType = allContentTypes.find(ct => ct.type === group.type)?.isDefault;
+            const firstBlurb = group.blurbs[0];
+            const originalGapCount = group.blurbs.reduce((total, blurb) => total + ((blurb as any).gapCount || 0), 0);
+            const resolvedCount = group.blurbs.reduce((total, blurb) => {
+              return total + (resolvedGaps.has(`blurb-gap-${blurb.id}`) ? (blurb as any).gapCount || 0 : 0);
                       }, 0);
-                      
-                      // Count resolved gaps for this group
-                      let resolvedCount = 0;
-                      group.blurbs.forEach(blurb => {
-                        if (resolvedGaps.has(`blurb-gap-${blurb.id}`)) {
-                          resolvedCount += ((blurb as any).gapCount || 0);
-                        }
-                      });
-                      
                       const remainingGapCount = Math.max(0, originalGapCount - resolvedCount);
                       
-                      // Debug logging
-                      console.log(`Group ${group.type}: original=${originalGapCount}, resolved=${resolvedCount}, remaining=${remainingGapCount}`);
-                      console.log('Resolved gaps:', resolvedGaps);
-                      
-                      return remainingGapCount > 0 ? (
+            return (
+              <AccordionItem key={group.type} value={group.type} className="border rounded-lg">
+                <AccordionTrigger className="px-6 py-4 hover:no-underline focus:outline-none focus-visible:ring-0">
+                  <div className="flex w-full items-center justify-between gap-4">
+                    <div className="flex items-center gap-4 pr-2 text-left">
+                      {remainingGapCount > 0 ? (
                         <IntelligentAlertBadge
                           gapCount={remainingGapCount}
                           onAnalyze={() => {
-                            console.log('Analyze gaps for group:', group.type);
-                            // TODO: Implement gap analysis
+                            if (onGenerateContent && firstBlurb) {
+                              onGenerateContent(firstBlurb);
+                            }
                           }}
                         />
                       ) : (
                         <group.icon className="h-6 w-6 text-muted-foreground" />
-                      );
-                    })()}
-                    <div className="text-left">
-                      <h3 className="font-semibold text-lg mb-1">{group.label}</h3>
+                      )}
+                      <div className="space-y-1">
+                        <h3 className="font-semibold text-lg leading-none">{group.label}</h3>
                       <p className="text-sm text-muted-foreground leading-relaxed">{group.description}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <Button
-                      variant="tertiary"
-                      size="sm"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
+                    <div className="flex items-center gap-2">
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        className={buttonVariants({ variant: "tertiary", size: "sm" })}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
                         onCreateBlurb(group.type);
                       }}
+                        onKeyDown={(event) => handleKeyActivate(event, () => onCreateBlurb(group.type))}
                     >
                       Add {group.label}
-                    </Button>
-                    
-                    {/* Overflow menu for user-created sections */}
-                    {!allContentTypes.find(ct => ct.type === group.type)?.isDefault && (
+                      </span>
+                      {expandedType === group.type && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              className={cn(
+                                buttonVariants({ variant: "ghost", size: "sm" }),
+                                "h-8 w-8 p-0 flex items-center justify-center"
+                              )}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.stopPropagation();
+                                }
+                              }}
+                            >
                             <span className="sr-only">Open menu</span>
                             <MoreHorizontal className="h-4 w-4" />
-                          </Button>
+                            </span>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => {
-                            // TODO: Implement edit section
-                            console.log('Edit section:', group.type);
-                          }}>
+                          <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
+                            <DropdownMenuItem
+                              disabled={isDefaultType || !firstBlurb}
+                              onClick={() => firstBlurb && onEditBlurb(firstBlurb)}
+                            >
                             <Edit className="mr-2 h-4 w-4" />
                             Edit Section
                           </DropdownMenuItem>
                           <DropdownMenuItem 
-                            onClick={() => {
-                              // TODO: Implement delete section
-                              console.log('Delete section:', group.type);
-                            }}
+                              disabled={isDefaultType || !firstBlurb}
+                              onClick={() => firstBlurb && onDeleteBlurb(firstBlurb.id)}
                             className="text-destructive"
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
@@ -310,11 +355,14 @@ export const TemplateBlurbHierarchical = ({
                     const StatusIcon = statusConfig.icon;
                     
                     // Map gaps for ContentGapBanner
-                    const blurbHasGaps = (blurb as any).hasGaps && !resolvedGaps.has(`blurb-gap-${blurb.id}`);
-                    const gaps = blurbHasGaps ? [{
-                      id: `blurb-gap-${blurb.id}`,
-                      description: "Content needs improvement based on cover letter best practices."
-                    }] : [];
+                      const blurbGapCategories: string[] = ((blurb as any).gapCategories ?? []) as string[];
+                      const blurbHasGaps = (blurb as any).hasGaps && !resolvedGaps.has(`blurb-gap-${blurb.id}`) && blurbGapCategories.length > 0;
+                      const gaps = blurbHasGaps
+                        ? blurbGapCategories.map((category, index) => ({
+                            id: `blurb-gap-${blurb.id}-${index}`,
+                            description: formatGapCategory(category)
+                          }))
+                        : [];
 
                     return (
                       <React.Fragment key={blurb.id}>
@@ -329,7 +377,7 @@ export const TemplateBlurbHierarchical = ({
                           isGapResolved={resolvedGaps.has(`blurb-gap-${blurb.id}`)}
                           onGenerateContent={onGenerateContent ? () => onGenerateContent(blurb) : undefined}
                           onDismissGap={blurbHasGaps ? () => {
-                            setResolvedGaps(prev => new Set([...prev, `blurb-gap-${blurb.id}`]));
+                              // setResolvedGaps(prev => new Set([...prev, `blurb-gap-${blurb.id}`])); // This line was removed
                           } : undefined}
                           onEdit={() => onEditBlurb(blurb)}
                           onDuplicate={() => {
@@ -375,7 +423,8 @@ export const TemplateBlurbHierarchical = ({
                 </div>
               </AccordionContent>
             </AccordionItem>
-          ))}
+            );
+          })}
         </Accordion>
       ) : (
         <div className="text-center py-12">

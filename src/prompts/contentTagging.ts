@@ -114,6 +114,9 @@ For ROLE tags, focus on:
 - Key skills/technologies
 - Leadership scope
 - Competencies demonstrated
+- Company maturity at tenure: Include ONE of "startup", "growth-stage", or "enterprise" 
+  based on company description, role context, or explicit mentions. Infer from company 
+  size, funding stage, or description if not explicitly stated.
 
 IMPORTANT: Role-level tags should reflect demonstrated work and accomplishments shown in the stories provided. 
 Tags should be substantiated by the actual work described in the stories, not just the job description.

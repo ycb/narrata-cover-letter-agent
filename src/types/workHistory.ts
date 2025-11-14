@@ -113,6 +113,7 @@ export interface CoverLetterSection {
   id: string;
   type: 'intro' | 'paragraph' | 'closer' | 'signature';
   contentType?: 'work-history' | 'saved'; // Story from Work History or Saved Cover Letter Section
+  savedSectionId?: string;
   isStatic: boolean; // true = static text, false = uses blurb matching
   staticContent?: string; // for static sections
   blurbCriteria?: {

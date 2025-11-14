@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,9 @@ import type { FileType } from "@/types/fileUpload";
 import { TextExtractionService } from "@/services/textExtractionService";
 import { UploadProgressBar } from "./UploadProgressBar";
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { StreamingProgress } from "@/components/shared/StreamingProgress";
+import { useStreamingProgress } from "@/hooks/useStreamingProgress";
+import type { StreamingLifecycleStatus } from "@/hooks/useStreamingProgress";
 
 interface FileUploadCardProps {
   type: 'resume' | 'linkedin' | 'coverLetter' | 'caseStudies';
@@ -62,6 +65,58 @@ export function FileUploadCard({
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [processingStatus, setProcessingStatus] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const manualTextHashRef = useRef<string | null>(null);
+  const manualTextProcessingRef = useRef(false);
+
+  const streamingStepDefinitions = useMemo(() => {
+    if (type === 'resume') {
+      return [
+        { id: 'upload', label: 'Upload resume' },
+        { id: 'extract', label: 'Extract resume text' },
+        { id: 'analyze', label: 'Analyze resume' },
+        { id: 'finalize', label: 'Organize results' }
+      ];
+    }
+
+    if (type === 'coverLetter') {
+      return [
+        { id: 'upload', label: 'Upload cover letter' },
+        { id: 'extract', label: 'Extract letter text' },
+        { id: 'analyze', label: 'Analyze with AI' },
+        { id: 'finalize', label: 'Save reusable sections' }
+      ];
+    }
+
+    return [];
+  }, [type]);
+
+  const {
+    steps: streamingSteps,
+    status: _streamingStatus,
+    reset: resetStreaming,
+    setStepStatus: setStreamingStepStatus,
+    setStepProgress: setStreamingStepProgress
+  } = useStreamingProgress({ steps: streamingStepDefinitions, autoResolveSteps: false });
+
+  const streamingActiveRef = useRef(false);
+
+  const streamingLifecycleStatus = useMemo<StreamingLifecycleStatus>(() => {
+    if (streamingSteps.some(step => step.status === "error")) {
+      return "error";
+    }
+    if (streamingSteps.some(step => step.status === "running")) {
+      return "streaming";
+    }
+    if (streamingSteps.some(step => step.status === "success")) {
+      return "complete";
+    }
+    return "idle";
+  }, [streamingSteps]);
+
+  const shouldShowStreaming =
+    streamingStepDefinitions.length > 0 &&
+    streamingSteps.some(step => step.status !== "pending");
 
   // Update local state when currentValue prop changes
   useEffect(() => {
@@ -74,17 +129,116 @@ export function FileUploadCard({
     }
   }, [currentValue, type]);
 
-  // Listen for file upload progress events
+  // Listen for file upload progress events and update streaming timeline
   useEffect(() => {
     const handleProgress = (event: Event) => {
       const customEvent = event as CustomEvent;
-      const { message } = customEvent.detail;
-      setProcessingStatus(message);
+      const detail = customEvent.detail ?? {};
+      const { stage, progress, message, fileType } = detail as {
+        stage?: string;
+        progress?: number;
+        message?: string;
+        fileType?: string;
+      };
+
+      if (fileType && fileType !== type) {
+        return;
+      }
+
+      if (message) {
+        setProcessingStatus(message);
+      }
+
+      if (!streamingStepDefinitions.length || !stage) {
+        return;
+      }
+
+      const normalizedProgress =
+        typeof progress === "number" ? Math.max(0, Math.min(1, progress / 100)) : undefined;
+
+      switch (stage) {
+        case "uploading": {
+          if (!streamingActiveRef.current) {
+            resetStreaming();
+            streamingActiveRef.current = true;
+          }
+          setStreamingStepStatus("upload", "running", message);
+          if (normalizedProgress !== undefined) {
+            setStreamingStepProgress("upload", normalizedProgress);
+          }
+          break;
+        }
+        case "extracting": {
+          setStreamingStepStatus("upload", "success");
+          setStreamingStepProgress("upload", 1);
+          setStreamingStepStatus("extract", "running", message);
+          if (normalizedProgress !== undefined) {
+            setStreamingStepProgress("extract", normalizedProgress);
+          }
+          break;
+        }
+        case "extracted": {
+          setStreamingStepStatus("extract", "success", message);
+          setStreamingStepProgress("extract", 1);
+          break;
+        }
+        case "analyzing": {
+          setStreamingStepStatus("extract", "success");
+          setStreamingStepProgress("extract", 1);
+          setStreamingStepStatus("analyze", "running", message);
+          if (normalizedProgress !== undefined) {
+            setStreamingStepProgress("analyze", normalizedProgress);
+          }
+          break;
+        }
+        case "structuring": {
+          setStreamingStepStatus("analyze", "success");
+          setStreamingStepProgress("analyze", 1);
+          setStreamingStepStatus("finalize", "running", message);
+          if (normalizedProgress !== undefined) {
+            setStreamingStepProgress("finalize", normalizedProgress);
+          }
+          break;
+        }
+        case "complete": {
+          setStreamingStepStatus("finalize", "success", message ?? "Complete!");
+          setStreamingStepProgress("finalize", 1);
+          streamingActiveRef.current = false;
+          break;
+        }
+        case "duplicate": {
+          resetStreaming();
+          setStreamingStepStatus("upload", "success", message);
+          setStreamingStepProgress("upload", 1);
+          setStreamingStepStatus("extract", "success");
+          setStreamingStepProgress("extract", 1);
+          setStreamingStepStatus("analyze", "success");
+          setStreamingStepProgress("analyze", 1);
+          setStreamingStepStatus("finalize", "success");
+          setStreamingStepProgress("finalize", 1);
+          streamingActiveRef.current = false;
+          break;
+        }
+        case "error": {
+          setStreamingStepStatus("finalize", "error", message ?? "Processing failed");
+          streamingActiveRef.current = false;
+          break;
+        }
+        default: {
+          break;
+        }
+      }
     };
 
-    window.addEventListener('file-upload-progress', handleProgress);
-    return () => window.removeEventListener('file-upload-progress', handleProgress);
-  }, []);
+    window.addEventListener("file-upload-progress", handleProgress);
+    return () => window.removeEventListener("file-upload-progress", handleProgress);
+  }, [
+    resetStreaming,
+    setStreamingStepProgress,
+    setStreamingStepStatus,
+    streamingStepDefinitions.length,
+    type,
+  ]);
 
   // Use file upload hooks
   const fileUpload = useFileUpload({
@@ -168,6 +322,10 @@ export function FileUploadCard({
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const triggerFileDialog = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
   // Clear errors when user starts typing or interacting
   const handleLinkedInUrlChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setLinkedInUrl(e.target.value);
@@ -182,16 +340,51 @@ export function FileUploadCard({
 
   // Auto-process text when it's pasted (debounced)
   useEffect(() => {
-    if (coverLetterText && coverLetterText.length > 100 && onTextInput) {
-      setProcessingStatus('Processing pasted text...');
-      const timer = setTimeout(() => {
-        onTextInput(coverLetterText.trim());
-        setProcessingStatus('');
-      }, 1000); // Increased delay to 1 second
-      
-      return () => clearTimeout(timer);
+    const trimmed = typeof coverLetterText === 'string' ? coverLetterText.trim() : '';
+    if (!trimmed || trimmed.length < 40) {
+      return;
     }
-  }, [coverLetterText, onTextInput]);
+
+    const hash = `${type}:${trimmed.length}:${trimmed.slice(0, 32)}`;
+    if (manualTextProcessingRef.current || manualTextHashRef.current === hash) {
+      return;
+    }
+
+    manualTextProcessingRef.current = true;
+    setProcessingStatus('Processing pasted text...');
+
+    const timer = setTimeout(async () => {
+      try {
+        const result = await fileUpload.saveManualText(trimmed, type);
+        if (result.success && result.fileId) {
+          manualTextHashRef.current = hash;
+          setUploadedFileId(result.fileId);
+          setUploadedFileContent(trimmed);
+          setUploadedFileName(`Manual ${type}`);
+          setProcessingStatus('Complete!');
+          onTextInput?.(trimmed);
+          onUploadComplete?.(result.fileId, type);
+        } else {
+          const message = result.error || 'Processing failed';
+          setProcessingStatus('');
+          setError(message);
+          onUploadError?.(message);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Processing failed';
+        setProcessingStatus('');
+        setError(message);
+        onUploadError?.(message);
+      } finally {
+        manualTextProcessingRef.current = false;
+      }
+    }, 800);
+
+    return () => {
+      clearTimeout(timer);
+      manualTextProcessingRef.current = false;
+    };
+  }, [coverLetterText, type, fileUpload, onTextInput, onUploadComplete, onUploadError]);
 
   /**
    * Handle file upload - ACTUALLY uploads and processes the file
@@ -330,18 +523,21 @@ export function FileUploadCard({
         </p>
         <div className="mb-6">
           <input
+            ref={fileInputRef}
             type="file"
             className="hidden"
             accept=".pdf,.docx,.txt,.md"
             onChange={handleFileSelect}
             id={`${type}-file`}
           />
-          <label
-            htmlFor={`${type}-file`}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
+          <Button
+            type="button"
+            variant="outline"
+            className="px-4 py-2 text-sm font-medium text-gray-700 border-gray-300 bg-white hover:bg-gray-50"
+            onClick={triggerFileDialog}
           >
             Choose File
-          </label>
+          </Button>
         </div>
         <p className="text-sm text-gray-500">
           PDF, DOCX, TXT, MD (max 5MB)
@@ -390,6 +586,8 @@ export function FileUploadCard({
         uploadingText={processingStatus || "Processing..."}
         connectingText="Connecting to LinkedIn..."
       />
+
+      {renderStreamingPanel()}
     </div>
   );
 
@@ -450,6 +648,22 @@ export function FileUploadCard({
     </div>
   );
 
+  const renderStreamingPanel = () => {
+    if (!shouldShowStreaming) {
+      return null;
+    }
+
+    return (
+      <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-4">
+        <StreamingProgress
+          steps={streamingSteps}
+          status={streamingLifecycleStatus}
+          showTimeline={false}
+        />
+      </div>
+    );
+  };
+
   const renderCoverLetterInput = () => (
     <div className="space-y-4">
       {/* File Upload Section - Use unified component */}
@@ -499,6 +713,8 @@ export function FileUploadCard({
           uploadingText={processingStatus || "Processing..."}
         />
       )}
+
+      {renderStreamingPanel()}
 
       {/* Divider */}
       <div className="relative">

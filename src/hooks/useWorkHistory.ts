@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/types/supabase'
+import { schedulePMLevelBackgroundRun } from '@/services/pmLevelsService'
 
 type Company = Database['public']['Tables']['companies']['Row']
 type WorkItem = Database['public']['Tables']['work_items']['Row']
@@ -25,6 +26,32 @@ export function useWorkHistory() {
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const getActiveSyntheticProfileId = () => {
+    if (typeof window === 'undefined') {
+      return undefined
+    }
+
+    try {
+      const syntheticProfile = window.localStorage.getItem('synthetic_active_profile_id')
+      return syntheticProfile || undefined
+    } catch (err) {
+      console.warn('[useWorkHistory] Failed to read synthetic profile id from localStorage', err)
+      return undefined
+    }
+  }
+
+  const scheduleLevelRefresh = (reason: string) => {
+    if (!user) return
+
+    schedulePMLevelBackgroundRun({
+      userId: user.id,
+      syntheticProfileId: getActiveSyntheticProfileId(),
+      delayMs: 2500,
+      reason,
+      triggerReason: 'content-update',
+    })
+  }
 
   // Fetch all work history data for the current user
   const fetchWorkHistory = async () => {
@@ -104,6 +131,8 @@ export function useWorkHistory() {
         companies: [newCompany, ...prev.companies]
       }))
 
+      scheduleLevelRefresh('Company added')
+
       return newCompany
     } catch (err: any) {
       throw new Error(err.message || 'Failed to add company')
@@ -130,6 +159,8 @@ export function useWorkHistory() {
         ...prev,
         workItems: [newWorkItem, ...prev.workItems]
       }))
+
+      scheduleLevelRefresh('Work item added')
 
       return newWorkItem
     } catch (err: any) {
@@ -158,6 +189,8 @@ export function useWorkHistory() {
         approvedContent: [newContent, ...prev.approvedContent]
       }))
 
+      scheduleLevelRefresh('Story added to work history')
+
       return newContent
     } catch (err: any) {
       throw new Error(err.message || 'Failed to add approved content')
@@ -183,6 +216,8 @@ export function useWorkHistory() {
         )
       }))
 
+      scheduleLevelRefresh('Story updated')
+
       return updatedContent
     } catch (err: any) {
       throw new Error(err.message || 'Failed to update approved content')
@@ -203,6 +238,8 @@ export function useWorkHistory() {
         ...prev,
         approvedContent: prev.approvedContent.filter(content => content.id !== id)
       }))
+
+      scheduleLevelRefresh('Story deleted')
     } catch (err: any) {
       throw new Error(err.message || 'Failed to delete approved content')
     }

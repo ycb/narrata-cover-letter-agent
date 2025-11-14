@@ -204,14 +204,14 @@ export function ShowAllTemplate<T>({
 
   return (
     <div className="min-h-screen bg-background">
-      <main className="container mx-auto px-4 pb-8">
+      <main className="container mx-auto px-4 py-6">
         <div className="max-w-7xl mx-auto">
           
           {/* Page Header */}
           <div className="flex items-center justify-between mb-8">
             <div>
+              <h1 className="text-3xl font-bold text-foreground mb-2">{title}</h1>
               <p className="text-muted-foreground description-spacing">{description}</p>
-              <h1 className="text-3xl font-bold text-foreground">{title}</h1>
             </div>
             {onAddNew && (
               <Button onClick={onAddNew}>

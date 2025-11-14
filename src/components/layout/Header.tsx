@@ -52,6 +52,20 @@ interface HeaderProps {
   currentPage?: string;
 }
 
+// Wrapper component that renders the SyntheticUserSelector section
+// The SyntheticUserSelector component handles its own visibility check
+const SyntheticUserSelectorWrapper = () => {
+  return (
+    <>
+      <DropdownMenuSeparator />
+      <div className="px-3 py-2" data-testid="synthetic-selector-wrapper">
+        <SyntheticUserSelector className="w-full" />
+      </div>
+      <DropdownMenuSeparator />
+    </>
+  );
+};
+
 export const Header = ({ currentPage }: HeaderProps) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -63,6 +77,9 @@ export const Header = ({ currentPage }: HeaderProps) => {
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  // Use hooks - they should be available since Header is within providers in App.tsx
+  // But add error boundary handling in case of hot reload issues
   const { goals, setGoals } = useUserGoals();
   const { voice, setVoice } = useUserVoice();
 
@@ -393,22 +410,22 @@ export const Header = ({ currentPage }: HeaderProps) => {
                              Growth
                            </button>
                            <button 
-                             onClick={() => window.location.href = "/assessment/specializations/technical"}
+                             onClick={() => window.location.href = "/assessment/specializations/platform"}
                              className="block px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors hover:bg-[#E32D9A] text-white w-full text-left"
                            >
-                             Technical
+                             Platform
+                           </button>
+                           <button 
+                             onClick={() => window.location.href = "/assessment/specializations/ai-ml"}
+                             className="block px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors hover:bg-[#E32D9A] text-white w-full text-left"
+                           >
+                             AI/ML
                            </button>
                            <button 
                              onClick={() => window.location.href = "/assessment/specializations/founding"}
                              className="block px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors hover:bg-[#E32D9A] text-white w-full text-left"
                            >
                              Founding
-                           </button>
-                           <button 
-                             onClick={() => window.location.href = "/assessment/specializations/platform"}
-                             className="block px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-colors hover:bg-[#E32D9A] text-white w-full text-left"
-                           >
-                             Platform
                            </button>
                          </div>
                       </div>
@@ -516,11 +533,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                   </Badge>
                 </DropdownMenuItem>
               )}
-              <DropdownMenuSeparator />
-              <div className="px-3 py-2">
-                <SyntheticUserSelector className="w-full" />
-              </div>
-              <DropdownMenuSeparator />
+              <SyntheticUserSelectorWrapper />
               <DropdownMenuItem 
                 onClick={handleSignOut}
                 disabled={isSigningOut}
@@ -734,12 +747,21 @@ export const Header = ({ currentPage }: HeaderProps) => {
                   </button>
                   <button
                     onClick={() => {
-                      window.location.href = "/assessment/specializations/technical";
+                      window.location.href = "/assessment/specializations/platform";
                       setIsMobileMenuOpen(false);
                     }}
                     className="block px-4 py-2 text-sm text-white opacity-75 hover:opacity-100 transition-opacity w-full text-left"
                   >
-                    Technical
+                    Platform
+                  </button>
+                  <button
+                    onClick={() => {
+                      window.location.href = "/assessment/specializations/ai-ml";
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="block px-4 py-2 text-sm text-white opacity-75 hover:opacity-100 transition-opacity w-full text-left"
+                  >
+                    AI/ML
                   </button>
                   <button
                     onClick={() => {
@@ -749,15 +771,6 @@ export const Header = ({ currentPage }: HeaderProps) => {
                     className="block px-4 py-2 text-sm text-white opacity-75 hover:opacity-100 transition-opacity w-full text-left"
                   >
                     Founding
-                  </button>
-                  <button
-                    onClick={() => {
-                      window.location.href = "/assessment/specializations/platform";
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className="block px-4 py-2 text-sm text-white opacity-75 hover:opacity-100 transition-opacity w-full text-left"
-                  >
-                    Platform
                   </button>
                 </div>
               </div>

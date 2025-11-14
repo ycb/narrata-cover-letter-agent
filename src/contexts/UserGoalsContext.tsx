@@ -67,7 +67,9 @@ export function UserGoalsProvider({ children }: UserGoalsProviderProps) {
   });
 
   // Track synthetic profile ID changes - verify against service and update if needed
+  // Run this in background - don't block provider initialization
   useEffect(() => {
+    // Don't block on this - run async in background
     const checkSyntheticProfile = async () => {
       if (!user) {
         setSyntheticProfileId(null);
@@ -77,19 +79,31 @@ export function UserGoalsProvider({ children }: UserGoalsProviderProps) {
       try {
         const { SyntheticUserService } = await import('@/services/syntheticUserService');
         const syntheticService = new SyntheticUserService();
-        const syntheticContext = await syntheticService.getSyntheticUserContext();
-        if (syntheticContext.isSyntheticTestingEnabled && syntheticContext.currentUser) {
+        
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Synthetic context check timeout')), 3000);
+        });
+        
+        const syntheticContext = await Promise.race([
+          syntheticService.getSyntheticUserContext(),
+          timeoutPromise
+        ]) as any;
+        
+        if (syntheticContext?.isSyntheticTestingEnabled && syntheticContext?.currentUser) {
           const profileId = syntheticContext.currentUser.profileId;
           setSyntheticProfileId(profileId);
         } else {
           setSyntheticProfileId(null);
         }
       } catch (e) {
-        console.error('[UserGoalsContext] Error checking synthetic mode:', e);
+        console.warn('[UserGoalsContext] Error checking synthetic mode (non-blocking):', e);
         // Don't clear on error - keep localStorage value as fallback
+        // This is non-critical, so we continue with localStorage value
       }
     };
     
+    // Run in background - don't await
     checkSyntheticProfile();
   }, [user?.id]);
 
