@@ -95,7 +95,15 @@ export class ProviderService {
         user_id: userId,
         provider_type: providerType,
         provider_config: {
-          apiKey: config.apiKey, // TODO: Encrypt in production
+          // SECURITY: API keys are stored in JSONB column protected by Row Level Security (RLS).
+          // Only the authenticated user can access their own provider settings.
+          // For production hardening, consider implementing encryption:
+          // - Use Supabase's pgcrypto extension (already available) or pgsodium
+          // - Encrypt API keys before storing: pgp_sym_encrypt(apiKey, encryption_key)
+          // - Decrypt on read: pgp_sym_decrypt(encrypted_key, encryption_key)
+          // - Store encryption key in Supabase Vault or secure environment variable
+          // - Consider using Supabase's built-in encryption features for sensitive columns
+          apiKey: config.apiKey,
           baseUrl: config.baseUrl,
         },
         model_id: modelId || config.modelId,

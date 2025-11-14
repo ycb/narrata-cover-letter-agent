@@ -408,7 +408,7 @@ export function ProviderCard() {
           <DialogHeader>
             <DialogTitle>Bring Your Own Model</DialogTitle>
             <DialogDescription>
-              Configure your own AI provider. Your credentials are encrypted and stored securely.
+              Configure your own AI provider. Your credentials are stored securely and protected by Row Level Security.
             </DialogDescription>
           </DialogHeader>
 
