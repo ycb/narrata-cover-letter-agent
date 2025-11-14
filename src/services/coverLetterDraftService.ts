@@ -12,6 +12,7 @@
 import { supabase } from '@/lib/supabase';
 import { JobDescriptionService } from './jobDescriptionService';
 import { GapDetectionService } from './gapDetectionService';
+import { CoverLetterTemplateService, type TemplateSection } from './coverLetterTemplateService';
 import type { Database } from '@/types/supabase';
 
 type CoverLetterRow = Database['public']['Tables']['cover_letters']['Row'];
@@ -433,44 +434,63 @@ Best regards,
 
   /**
    * Get or create a default template for the user
+   * Uses CoverLetterTemplateService to properly manage templates
    */
-  private async getOrCreateDefaultTemplate(userId: string): Promise<string> {
+  private async ensureDefaultTemplate(userId: string): Promise<string> {
+    console.log('[ensureDefaultTemplate] Called with userId:', userId);
+
     try {
-      // Try to find existing default template
-      const { data: existingTemplate, error: fetchError } = await supabase
-        .from('cover_letter_templates')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('is_default', true)
-        .limit(1)
-        .maybeSingle();
+      // Try to find any existing template for this user
+      console.log('[ensureDefaultTemplate] Searching for existing templates...');
+      const existingTemplates = await CoverLetterTemplateService.getUserTemplates(userId);
 
-      if (!fetchError && existingTemplate) {
-        return existingTemplate.id;
+      console.log('[ensureDefaultTemplate] Found', existingTemplates.length, 'existing templates');
+
+      if (existingTemplates.length > 0) {
+        const templateId = existingTemplates[0].id;
+        console.log('[ensureDefaultTemplate] Using existing template:', templateId);
+        return templateId!;
       }
 
-      // Create a new default template
-      const { data: newTemplate, error: createError } = await supabase
-        .from('cover_letter_templates')
-        .insert({
-          user_id: userId,
-          name: 'Default Template',
-          is_default: true,
-          sections: [] as any,
-        })
-        .select('id')
-        .single();
+      // Create a minimal default template using the proper service
+      console.log('[ensureDefaultTemplate] Creating new minimal template for user:', userId);
 
-      if (createError || !newTemplate) {
-        throw new Error('Failed to create default template');
-      }
+      const defaultSections: TemplateSection[] = [
+        {
+          id: 'intro-default',
+          type: 'intro',
+          isStatic: false,
+          order: 1
+        },
+        {
+          id: 'paragraph-default',
+          type: 'paragraph',
+          isStatic: false,
+          blurbCriteria: {
+            goals: ['showcase relevant experience']
+          },
+          order: 2
+        },
+        {
+          id: 'closer-default',
+          type: 'closer',
+          isStatic: false,
+          order: 3
+        }
+      ];
 
-      return newTemplate.id;
+      const newTemplate = await CoverLetterTemplateService.createDefaultTemplate(
+        userId,
+        'Default Template',
+        defaultSections,
+        [] // No saved sections yet
+      );
+
+      console.log('[ensureDefaultTemplate] Successfully created template:', newTemplate.id);
+      return newTemplate.id!;
     } catch (error) {
-      console.error('Error getting/creating default template:', error);
-      // Fallback: use a fixed UUID for "no template"
-      // This is a workaround if template creation fails
-      return '00000000-0000-0000-0000-000000000000';
+      console.error('[ensureDefaultTemplate] Error:', error);
+      throw error;
     }
   }
 
@@ -484,9 +504,13 @@ Best regards,
     gaps: Gap[],
     metrics: HILProgressMetrics
   ): Promise<string> {
+    console.log('[saveDraft] Called with userId:', userId, 'jobDescriptionId:', jobDescriptionId);
+
     try {
-      // Get or create default template
-      const templateId = await this.getOrCreateDefaultTemplate(userId);
+      // Ensure we have a valid template_id
+      console.log('[saveDraft] Getting template_id...');
+      const templateId = await this.ensureDefaultTemplate(userId);
+      console.log('[saveDraft] Got template_id:', templateId);
 
       // Prepare insert data
       const insertData: CoverLetterInsert = {
@@ -501,23 +525,29 @@ Best regards,
         status: 'draft',
       };
 
+      console.log('[saveDraft] Inserting cover letter with template_id:', templateId);
       const { data, error } = await supabase
         .from('cover_letters')
         .insert(insertData)
         .select()
         .single();
 
+      console.log('[saveDraft] Insert result:', { data: data?.id, error });
+
       if (error) {
+        console.error('[saveDraft] Insert failed:', error);
         throw new Error(`Failed to save draft: ${error.message}`);
       }
 
       if (!data) {
+        console.error('[saveDraft] No data returned from insert');
         throw new Error('Failed to save draft: no data returned');
       }
 
+      console.log('[saveDraft] Successfully saved draft:', data.id);
       return data.id;
     } catch (error) {
-      console.error('Error saving draft:', error);
+      console.error('[saveDraft] Error:', error);
       throw error;
     }
   }
