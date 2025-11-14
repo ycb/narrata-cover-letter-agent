@@ -367,169 +367,77 @@ export const CoverLetterCreateModal = ({
     );
   };
 
-  const renderJobDescriptionTab = () => (
-    <div className="space-y-6">
-      <Card className="border-muted-foreground/20 shadow-sm">
-        <CardHeader className="pb-3">
-          <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-            <div>
-              <CardTitle className="text-lg font-semibold">Job description</CardTitle>
-              <CardDescription className="text-sm text-muted-foreground mt-1">
-                Paste the full job description so we can analyze responsibilities and
-                requirement signals.
-              </CardDescription>
+  const renderJobDescriptionTab = () => {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold">Job description</CardTitle>
+            <CardDescription>
+              Paste the full role description so we can analyze requirements and tailor your draft.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* TODO: Re-enable job description URL ingestion once MVP supports remote fetching. Tracked in docs/backlog/HIDDEN_FEATURES.md */}
+            <Textarea
+              placeholder="Paste the full job description here..."
+              rows={16}
+              value={jobContent}
+              onChange={event => setJobContent(event.target.value)}
+              disabled={isBusy}
+            />
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>{jobContent.trim().length} characters</span>
+              <span>Minimum {MIN_JOB_DESCRIPTION_LENGTH} characters required</span>
             </div>
-            <Badge variant="outline" className="gap-1">
-              <AlertTriangle className="h-3 w-3 text-warning" />
-              Keep it under 5,000 characters
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <p className="text-sm font-semibold">Template</p>
-            <div className="flex flex-col gap-2 md:flex-row md:items-center">
-              <Select
-                value={selectedTemplateId ?? undefined}
-                onValueChange={handleTemplateChange}
-                disabled={templatesLoading || isBusy || !templates.length}
-              >
-                <SelectTrigger className="w-full md:w-72">
-                  <SelectValue placeholder="Select template" />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates.map(template => (
-                    <SelectItem key={template.id} value={template.id}>
-                      {template.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {templatesLoading && (
-                <Badge variant="outline" className="gap-1">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Loading templates…
-                </Badge>
-              )}
-            </div>
-            {templateError && (
-              <Alert variant="destructive">
-                <AlertTitle>Unable to load templates</AlertTitle>
-                <AlertDescription>{templateError}</AlertDescription>
-              </Alert>
-            )}
-            {!templateError && !templatesLoading && templates.length === 0 && (
-              <Alert variant="default">
-                <AlertTitle>No templates found</AlertTitle>
-                <AlertDescription>
-                  Create a cover letter template first so we know how to structure the draft.
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
 
-          <div className="space-y-2">
-            <p className="text-sm font-semibold">Input method</p>
-            <div className="flex items-center gap-2">
+            {jobInputError && (
+              <Alert variant="destructive">
+                <AlertTitle>Unable to process job description</AlertTitle>
+                <AlertDescription>{jobInputError}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="flex flex-wrap items-center gap-3">
               <Button
                 type="button"
-                variant={jobDescriptionMethod === 'paste' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setJobDescriptionMethod('paste')}
+                className="gap-2"
+                onClick={handleGenerateDraft}
+                disabled={
+                  isBusy ||
+                  !user?.id ||
+                  !selectedTemplateId ||
+                  templates.length === 0
+                }
               >
-                Paste description
+                {isParsingJobDescription ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Analyzing job description…
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="h-4 w-4" />
+                    Generate cover letter
+                  </>
+                )}
               </Button>
-              <TooltipProvider delayDuration={200}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button type="button" variant="outline" size="sm" disabled>
-                      Import from URL
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="max-w-xs text-sm text-muted-foreground">
-                      Coming soon — automatically fetch and parse job descriptions from URLs.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-          </div>
-
-          {jobDescriptionMethod === 'paste' ? (
-            <div className="space-y-2">
-              <Textarea
-                placeholder="Paste the full job description here..."
-                rows={16}
-                value={jobContent}
-                onChange={event => setJobContent(event.target.value)}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setJobContent('')}
                 disabled={isBusy}
-              />
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>{jobContent.trim().length} characters</span>
-                <span>Minimum {MIN_JOB_DESCRIPTION_LENGTH} characters required</span>
-              </div>
+              >
+                Clear
+              </Button>
             </div>
-          ) : (
-            <div className="space-y-2">
-              <Input
-                placeholder="https://company.com/careers/job-posting"
-                value={jobUrl}
-                disabled
-                onChange={event => setJobUrl(event.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                URL ingestion is not yet available. Please paste the job description above instead.
-              </p>
-            </div>
-          )}
+          </CardContent>
+        </Card>
 
-          {jobInputError && (
-            <Alert variant="destructive">
-              <AlertTitle>Unable to process job description</AlertTitle>
-              <AlertDescription>{jobInputError}</AlertDescription>
-            </Alert>
-          )}
-
-          <div className="flex flex-wrap items-center gap-3">
-            <Button
-              type="button"
-              className="gap-2"
-              onClick={handleGenerateDraft}
-              disabled={
-                isBusy ||
-                !user?.id ||
-                !selectedTemplateId ||
-                templates.length === 0
-              }
-            >
-              {isParsingJobDescription ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Analyzing job description…
-                </>
-              ) : (
-                <>
-                  <Wand2 className="h-4 w-4" />
-                  Generate cover letter
-                </>
-              )}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setJobContent('')}
-              disabled={isBusy}
-            >
-              Clear
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {renderProgress()}
-    </div>
-  );
+        {renderProgress()}
+      </div>
+    );
+  };
 
   const renderDraftTab = () => {
     if (!draft) {
