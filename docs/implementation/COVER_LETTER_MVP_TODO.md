@@ -15,11 +15,11 @@
 ## Phase 1: Critical Path (Core Services)
 
 ### 1. Go/No-Go Service
-- ⬜ Create `src/services/goNoGoService.ts`
-- ⬜ Implement `analyzeJobFit()` with OpenAI
-- ⬜ Add prompts to `src/prompts/goNoGo.ts`
-- ⬜ Write basic tests
-- ⬜ Commit: "feat: add Go/No-Go job fit analysis service"
+- ✅ Create `src/services/goNoGoService.ts`
+- ✅ Implement `analyzeJobFit()` with OpenAI
+- ✅ Add prompts to `src/prompts/goNoGo.ts`
+- ✅ Write basic tests (4 tests passing)
+- ✅ Commit: "feat: add Go/No-Go job fit analysis service"
 
 ### 2. Cover Letter Draft Service
 - ⬜ Create `src/services/coverLetterDraftService.ts`
@@ -156,3 +156,5 @@
 - Created branch `feat/draft-cover-letter-claude`
 - Created TODO tracking document
 - Starting Phase 1: Critical Path implementation
+- ✅ Completed Go/No-Go Service (goNoGoService.ts + prompts + tests)
+- ⏳ Working on CoverLetterDraftService
