@@ -382,22 +382,7 @@ export class CoverLetterDraftService {
   async generateDraft(options: DraftGenerationOptions): Promise<DraftGenerationResult> {
     const { userId, templateId, jobDescriptionId, onProgress, signal } = options;
 
-    const sessionId = `draft-generate-${Date.now()}-${templateId.slice(0, 8)}`;
-    const startTimestamp = this.now().getTime();
-    let evaluationRunId: string | undefined;
-
-    try {
-      evaluationRunId = await this.evaluationLogger.createRun({
-        userId,
-        sessionId,
-        fileType: 'cover_letter_draft_generate',
-        metadata: {
-          templateId,
-          jobDescriptionId,
-        },
-      });
-
-      this.emitProgress(onProgress, 'jd_parse', 'Loading job description…');
+    this.emitProgress(onProgress, 'jd_parse', 'Loading job description…');
       const jobDescription = await this.fetchJobDescription(userId, jobDescriptionId);
 
       this.emitProgress(onProgress, 'content_match', 'Loading content libraries…');
@@ -432,18 +417,13 @@ export class CoverLetterDraftService {
             await sleep(delay);
           }
 
-          let tokenSequence = 0;
           metricResult = await this.metricsStreamer({
             draft: sections,
             jobDescription,
             userGoals,
             signal,
-            onToken: async (token) => {
+            onToken: (token) => {
               this.emitProgress(onProgress, 'metrics', `Analyzing… ${token.slice(0, 20)}…`, true);
-              if (evaluationRunId) {
-                await this.evaluationLogger.appendTokenSample(evaluationRunId, token, tokenSequence);
-                tokenSequence++;
-              }
             },
           });
           break; // Success, exit retry loop
@@ -502,35 +482,8 @@ export class CoverLetterDraftService {
 
       const draft = this.mapCoverLetterRow(draftRow, metricResult.metrics, metricResult.atsScore);
 
-      const finishTimestamp = this.now().getTime();
-      const totalLatencyMs = finishTimestamp - startTimestamp;
-
-      if (evaluationRunId) {
-        await this.evaluationLogger.updateRun(evaluationRunId, {
-          structuredData: {
-            event: 'cover_letter.generate.completed',
-            draftId: draftRow.id,
-            templateId,
-            jobDescriptionId,
-            atsScore: metricResult.atsScore,
-            metrics: {
-              goals: metricResult.metrics.find(m => m.key === 'goals')?.type === 'strength' ? 'strong' : 'average',
-              experience: metricResult.metrics.find(m => m.key === 'experience')?.type === 'strength' ? 'strong' : 'average',
-              rating: metricResult.metrics.find(m => m.key === 'rating')?.type === 'score' ? metricResult.metrics.find(m => m.key === 'rating')?.value : 0,
-            },
-            differentiatorCoverage: {
-              addressed: differentiatorSummary.filter(d => d.status === 'addressed').length,
-              total: differentiatorSummary.length,
-            },
-            sectionsCount: sections.length,
-          },
-          totalLatencyMs,
-          llmAnalysisLatencyMs: totalLatencyMs,
-          model: OPENAI_CONFIG.MODEL,
-          evaluationRationale: `Draft generated successfully with ATS score ${metricResult.atsScore}`,
-          goNogoDecision: '✅ Go',
-        });
-      }
+      // TODO: Add draft generation logging when HILDraftEvent is implemented
+      // For now, draft generation logging is deferred per merged evaluation logging work
 
       this.emitProgress(onProgress, 'gap_detection', 'Draft ready for refinement.');
 
@@ -542,16 +495,6 @@ export class CoverLetterDraftService {
         workpad: workpadRow,
       };
     } catch (error) {
-      const finishTimestamp = this.now().getTime();
-      const totalLatencyMs = finishTimestamp - startTimestamp;
-
-      if (evaluationRunId) {
-        await this.evaluationLogger.markFailure(evaluationRunId, {
-          error: error instanceof Error ? error.message : 'Unknown error',
-          stage: 'draft_generation',
-        });
-      }
-
       throw error;
     }
   }
