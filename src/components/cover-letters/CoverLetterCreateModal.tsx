@@ -92,6 +92,7 @@ const CoverLetterCreateModal = ({ isOpen, onClose, onCoverLetterCreated }: Cover
   const [mainTabValue, setMainTabValue] = useState<'job-description' | 'cover-letter'>('cover-letter');
   const [showFinalizationModal, setShowFinalizationModal] = useState(false);
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
+  const [currentJobDescription, setCurrentJobDescription] = useState<{ id: string; role?: string; company?: string; location?: string; salary?: string; } | null>(null);
 
 
 
@@ -175,6 +176,7 @@ const CoverLetterCreateModal = ({ isOpen, onClose, onCoverLetterCreated }: Cover
 
       // Step 3: Update state with draft data
       setCurrentDraftId(draft.draftId);
+      setCurrentJobDescription(draft.jobDescription);
       setGeneratedLetter({ sections: draft.sections });
       setHilProgressMetrics(draft.metrics);
       setGaps(draft.gaps);
@@ -219,6 +221,7 @@ const CoverLetterCreateModal = ({ isOpen, onClose, onCoverLetterCreated }: Cover
       );
 
       setCurrentDraftId(draft.draftId);
+      setCurrentJobDescription(draft.jobDescription);
       setGeneratedLetter({ sections: draft.sections });
       setHilProgressMetrics(draft.metrics);
       setGaps(draft.gaps);
@@ -431,21 +434,30 @@ const CoverLetterCreateModal = ({ isOpen, onClose, onCoverLetterCreated }: Cover
   };
 
   const handleClose = () => {
+    // Allow closing at any time - user can re-open and start fresh
     // Reset form state when closing
     setJobUrl('');
-    // Don't reset jobContent - keep the pre-filled Senior PM content
+    setJobContent('');
     setCoverLetterGenerated(false);
     setIsGenerating(false);
     setGoNoGoAnalysis(null);
     setUserOverrideDecision(false);
     setHilProgressMetrics(null);
     setGaps([]);
+    setCurrentDraftId(null);
+    setCurrentJobDescription(null);
     onClose();
   };
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={handleClose}>
+      <Dialog open={isOpen} onOpenChange={(open) => {
+        // Only close via explicit user action (X button, ESC)
+        // Prevents losing work when user switches tabs to copy job description
+        if (!open) {
+          handleClose();
+        }
+      }} modal={true}>
         <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="pb-2">
             <DialogTitle className="text-2xl font-bold">Create Cover Letter</DialogTitle>
@@ -456,10 +468,12 @@ const CoverLetterCreateModal = ({ isOpen, onClose, onCoverLetterCreated }: Cover
 
           {/* Top Progress Bar with Tooltips - Show when draft is ready */}
           {hilProgressMetrics && coverLetterGenerated && (
-            <ProgressIndicatorWithTooltips 
+            <ProgressIndicatorWithTooltips
               metrics={hilProgressMetrics}
               className="mb-4"
               isPostHIL={hilCompleted} // Show post-HIL tooltips after HIL completion
+              goNoGoAnalysis={goNoGoAnalysis || undefined}
+              jobDescription={currentJobDescription || undefined}
             />
           )}
 

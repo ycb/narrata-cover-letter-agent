@@ -15,16 +15,38 @@ interface HILProgressMetrics {
   preferredRequirementsMet: { met: number; total: number };
 }
 
+interface GoNoGoMismatch {
+  type: 'geography' | 'pay' | 'core-requirements' | 'work-history';
+  severity: 'high' | 'medium' | 'low';
+  description: string;
+  userOverride?: boolean;
+}
+
+interface GoNoGoAnalysis {
+  decision: 'go' | 'no-go';
+  confidence: number;
+  mismatches: GoNoGoMismatch[];
+}
+
 interface ProgressIndicatorWithTooltipsProps {
   metrics: HILProgressMetrics;
   className?: string;
   isPostHIL?: boolean; // New prop to determine which mock data to use
+  goNoGoAnalysis?: GoNoGoAnalysis; // Actual Go/No-Go analysis data
+  jobDescription?: {
+    role?: string;
+    company?: string;
+    location?: string;
+    salary?: string;
+  };
 }
 
-export function ProgressIndicatorWithTooltips({ 
-  metrics, 
+export function ProgressIndicatorWithTooltips({
+  metrics,
   className,
-  isPostHIL = false
+  isPostHIL = false,
+  goNoGoAnalysis,
+  jobDescription
 }: ProgressIndicatorWithTooltipsProps) {
   const getRatingColor = (rating: string) => {
     switch (rating.toLowerCase()) {
@@ -41,6 +63,9 @@ export function ProgressIndicatorWithTooltips({
     return 'bg-destructive/10 text-destructive border-destructive/20';
   };
 
+  // Build real goal matches from Go/No-Go analysis if available
+  const goalMatches = goNoGoAnalysis ? buildGoalMatchesFromAnalysis(goNoGoAnalysis, jobDescription) : createMockGoalMatches();
+
   // Use different mock data based on HIL state
   const coreReqs = isPostHIL ? createPostHILRequirements('core') : createMockRequirements('core');
   const preferredReqs = isPostHIL ? createPostHILRequirements('preferred') : createMockRequirements('preferred');
@@ -50,7 +75,7 @@ export function ProgressIndicatorWithTooltips({
     <div className={`w-full bg-card border rounded-lg p-4 ${className}`}>
       <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-center">
         {/* Match with Goals */}
-        <MatchGoalsTooltip goalMatches={createMockGoalMatches()} isPostHIL={isPostHIL}>
+        <MatchGoalsTooltip goalMatches={goalMatches} isPostHIL={isPostHIL}>
           <div className="flex flex-col items-center justify-center">
             <div className="text-xs text-muted-foreground mb-2 underline underline-offset-2">MATCH WITH GOALS</div>
             <Badge variant="outline" className={getRatingColor(metrics.goalsMatch)}>
@@ -219,4 +244,97 @@ function createPostHILExperienceMatches(): any[] {
       confidence: 'high'
     }
   ];
+}
+
+/**
+ * Build goal matches from Go/No-Go analysis and job description
+ * Shows all criteria (both matches and mismatches) with checkmarks
+ */
+function buildGoalMatchesFromAnalysis(
+  analysis: GoNoGoAnalysis,
+  jobDescription?: { role?: string; company?: string; location?: string; salary?: string; }
+): any[] {
+  const matches: any[] = [];
+
+  // Helper to check if a criterion is a mismatch
+  const isMismatch = (type: string) => {
+    return analysis.mismatches.some(m => m.type === type || m.description.toLowerCase().includes(type.toLowerCase()));
+  };
+
+  // Target Title - from job description
+  if (jobDescription?.role) {
+    matches.push({
+      id: 'goal-title',
+      goal: `Target Title: ${jobDescription.role}`,
+      reflected: true, // If job was analyzed, title matches
+      evidence: 'Job title matches target role'
+    });
+  }
+
+  // Salary - check for pay mismatch
+  const salaryMismatch = analysis.mismatches.find(m => m.type === 'pay');
+  if (jobDescription?.salary || salaryMismatch) {
+    matches.push({
+      id: 'goal-salary',
+      goal: salaryMismatch
+        ? `Minimum Salary: ${salaryMismatch.description.match(/\$[\d,]+/)?.[0] || 'Not specified'}`
+        : `Salary: ${jobDescription?.salary || 'Competitive'}`,
+      reflected: !salaryMismatch,
+      evidence: salaryMismatch?.description || 'Salary meets expectations'
+    });
+  }
+
+  // Geography/Work Type - check for geography mismatch
+  const geoMismatch = analysis.mismatches.find(m => m.type === 'geography');
+  if (jobDescription?.location || geoMismatch) {
+    matches.push({
+      id: 'goal-location',
+      goal: `Work Type: ${jobDescription?.location || 'Remote'}`,
+      reflected: !geoMismatch,
+      evidence: geoMismatch?.description || 'Location matches preferences'
+    });
+  }
+
+  // Core Requirements - check for requirements mismatch
+  const reqMismatch = analysis.mismatches.find(m => m.type === 'core-requirements');
+  if (reqMismatch) {
+    matches.push({
+      id: 'goal-requirements',
+      goal: 'Core Requirements',
+      reflected: false,
+      evidence: reqMismatch.description
+    });
+  } else if (jobDescription) {
+    matches.push({
+      id: 'goal-requirements',
+      goal: 'Core Requirements',
+      reflected: true,
+      evidence: 'All core requirements met'
+    });
+  }
+
+  // Work History/Experience
+  const expMismatch = analysis.mismatches.find(m => m.type === 'work-history');
+  if (expMismatch) {
+    matches.push({
+      id: 'goal-experience',
+      goal: 'Experience Level',
+      reflected: false,
+      evidence: expMismatch.description
+    });
+  } else if (jobDescription) {
+    matches.push({
+      id: 'goal-experience',
+      reflected: true,
+      goal: 'Experience Level',
+      evidence: 'Experience matches requirements'
+    });
+  }
+
+  // If no job description data, show placeholder
+  if (matches.length === 0) {
+    return createMockGoalMatches();
+  }
+
+  return matches;
 }

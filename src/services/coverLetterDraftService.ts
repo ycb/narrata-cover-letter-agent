@@ -58,6 +58,13 @@ export interface CoverLetterDraft {
   sections: CoverLetterSection[];
   gaps: Gap[];
   metrics: HILProgressMetrics;
+  jobDescription: {
+    id: string;
+    role?: string;
+    company?: string;
+    location?: string;
+    salary?: string;
+  };
 }
 
 export class CoverLetterDraftService {
@@ -103,6 +110,13 @@ export class CoverLetterDraftService {
         sections,
         gaps,
         metrics,
+        jobDescription: {
+          id: jd.id,
+          role: jd.role || undefined,
+          company: jd.company || undefined,
+          location: jd.extracted_requirements?.find((r: string) => r.toLowerCase().includes('location') || r.toLowerCase().includes('remote')) || undefined,
+          salary: jd.extracted_requirements?.find((r: string) => r.includes('$')) || undefined,
+        },
       };
     } catch (error) {
       console.error('Error creating cover letter draft:', error);
