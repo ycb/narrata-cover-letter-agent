@@ -6,6 +6,7 @@
 | P0 | Refresh gap detection after edits | Service should diff current draft vs JD and surface unresolved requirements. Requires JD parser output + section comparison. |
 | P0 | Stream generation progress | Remove artificial delay, hook LLM streaming tokens into `useCoverLetterDraft`, update UI progress states. |
 | P0 | Instrument JD parse + draft generation logging | Implement events defined in `docs/implementation/EVAL_LOGGING_EXTENSION.md`. Can proceed in parallel with metric work. |
+| P0 | Auto-tag finalized HIL content/variations | When a HIL flow saves new story/saved-section content, derive tags from resolved gaps and persist for future matching. Depends on updated gap detection + logging. |
 | P1 | Persist HIL action telemetry | Log story/saved/paragraph edits with metadata (also in logging spec). Depends on instrumentation infra. |
 | P1 | Surface real differentiator coverage in finalization modal | Final modal should show live differentiator stats (once metric refresh lands). |
 | P1 | Improve error handling & user messaging | Handle LLM failures, Supabase errors, retry flows. |
