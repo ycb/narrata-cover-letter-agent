@@ -29,7 +29,17 @@ export function PrivacySection() {
   const handleContactSupport = () => {
     LogRocket.track('Privacy Preferences Update Requested');
     const supportEmail = 'support@narrata.ai';
-    window.location.href = `mailto:${supportEmail}?subject=Privacy Preferences Update Request`;
+    const subject = encodeURIComponent('Privacy Preferences Update Request');
+    const mailtoLink = `mailto:${supportEmail}?subject=${subject}`;
+    
+    // Create a temporary anchor element and click it to avoid redirect loops
+    const link = document.createElement('a');
+    link.href = mailtoLink;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleDeleteAccount = async () => {
@@ -47,7 +57,16 @@ export function PrivacySection() {
         `I would like to delete my account and all associated data.\n\nUser ID: ${user.id}\nEmail: ${user.email || 'N/A'}`
       );
       
-      window.location.href = `mailto:${supportEmail}?subject=${subject}&body=${body}`;
+      const mailtoLink = `mailto:${supportEmail}?subject=${subject}&body=${body}`;
+      
+      // Create a temporary anchor element and click it to avoid redirect loops
+      const link = document.createElement('a');
+      link.href = mailtoLink;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       
       toast.success('Please check your email to complete account deletion');
       setDeleteDialogOpen(false);
@@ -86,9 +105,9 @@ export function PrivacySection() {
         <div className="pt-4 border-t">
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <p className="text-sm font-medium mb-1">Need to update your preferences?</p>
+              <p className="text-sm font-medium mb-1">Any questions?</p>
               <p className="text-xs text-muted-foreground">
-                Contact our support team to adjust your privacy settings
+                We'd be happy to assist you
               </p>
             </div>
             <Button
@@ -107,30 +126,16 @@ export function PrivacySection() {
           <div className="space-y-3">
             <div>
               <p className="text-sm font-medium mb-2">Account Management</p>
-              <p className="text-xs text-muted-foreground mb-3">
-                Need help or want to delete your account? Contact our support team.
-              </p>
             </div>
-            <div className="flex gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleContactSupport}
-                className="flex-1"
-              >
-                <Mail className="h-4 w-4 mr-2" />
-                Contact Support
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => setDeleteDialogOpen(true)}
-                className="flex-1"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete Account
-              </Button>
-            </div>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setDeleteDialogOpen(true)}
+              className="w-full"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Account
+            </Button>
           </div>
         </div>
 
@@ -146,12 +151,12 @@ export function PrivacySection() {
               <ExternalLink className="h-3 w-3" />
             </a>
             <a
-              href="/data-handling-faq"
+              href="/terms-of-service"
               target="_blank"
               rel="noopener noreferrer"
               className="text-primary hover:underline flex items-center gap-1"
             >
-              Data Handling FAQ
+              Terms of Service
               <ExternalLink className="h-3 w-3" />
             </a>
           </div>

@@ -6,7 +6,6 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,11 +29,13 @@ interface PersonalDataCardProps {
   title: string;
   description: string;
   dependencyMessage: string;
+  isLinkedIn?: boolean;
 }
 
-export function PersonalDataCard({ sourceType, title, description, dependencyMessage }: PersonalDataCardProps) {
+export function PersonalDataCard({ sourceType, title, description, dependencyMessage, isLinkedIn = false }: PersonalDataCardProps) {
   const { assets, isLoading, isDeleting, deleteAsset, downloadAsset, checkDependencies } = usePersonalData();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [confirmDeleteDialogOpen, setConfirmDeleteDialogOpen] = useState(false);
   const [assetToDelete, setAssetToDelete] = useState<PersonalDataAsset | null>(null);
   const [dependencies, setDependencies] = useState<{
     workHistory: boolean;
@@ -42,7 +43,15 @@ export function PersonalDataCard({ sourceType, title, description, dependencyMes
     savedSections: boolean;
   } | null>(null);
 
-  const filteredAssets = assets.filter((asset) => asset.sourceType === sourceType);
+  // Filter assets by type and LinkedIn status
+  const filteredAssets = assets.filter((asset) => {
+    if (asset.sourceType !== sourceType) return false;
+    if (isLinkedIn) {
+      return asset.fileName.toLowerCase().includes('linkedin');
+    } else {
+      return !asset.fileName.toLowerCase().includes('linkedin');
+    }
+  });
 
   const handleDeleteClick = async (asset: PersonalDataAsset) => {
     setAssetToDelete(asset);
@@ -51,7 +60,13 @@ export function PersonalDataCard({ sourceType, title, description, dependencyMes
     setDeleteDialogOpen(true);
   };
 
-  const handleDeleteConfirm = async () => {
+  const handleDeleteConfirm = () => {
+    // First confirmation - show warning dialog
+    setDeleteDialogOpen(false);
+    setConfirmDeleteDialogOpen(true);
+  };
+
+  const handleFinalDeleteConfirm = async () => {
     if (!assetToDelete) return;
 
     const result = await deleteAsset(assetToDelete.id);
@@ -65,7 +80,7 @@ export function PersonalDataCard({ sourceType, title, description, dependencyMes
           dependencies?.savedSections
         ),
       });
-      setDeleteDialogOpen(false);
+      setConfirmDeleteDialogOpen(false);
       setAssetToDelete(null);
       setDependencies(null);
     }
@@ -102,21 +117,6 @@ export function PersonalDataCard({ sourceType, title, description, dependencyMes
     return warnings;
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <Badge className="bg-green-100 text-green-800">Ready</Badge>;
-      case 'processing':
-        return <Badge className="bg-yellow-100 text-yellow-800">Processing</Badge>;
-      case 'failed':
-        return <Badge variant="destructive">Failed</Badge>;
-      case 'pending':
-        return <Badge variant="outline">Pending</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
-
   if (isLoading) {
     return (
       <Card>
@@ -142,7 +142,7 @@ export function PersonalDataCard({ sourceType, title, description, dependencyMes
           {filteredAssets.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No {sourceType === 'resume' ? 'resume' : 'cover letter'} uploaded yet</p>
+              <p>No {isLinkedIn ? 'LinkedIn data' : sourceType === 'resume' ? 'resume' : 'cover letter'} uploaded yet</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -153,7 +153,6 @@ export function PersonalDataCard({ sourceType, title, description, dependencyMes
                       <div className="flex items-center gap-2">
                         <FileText className="h-5 w-5 text-muted-foreground" />
                         <span className="font-medium">{asset.fileName}</span>
-                        {getStatusBadge(asset.processingStatus)}
                       </div>
                       <div className="text-sm text-muted-foreground space-y-1">
                         <div>
@@ -163,7 +162,9 @@ export function PersonalDataCard({ sourceType, title, description, dependencyMes
                         {index === 0 && (
                           <div className="flex items-start gap-1 mt-2">
                             <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5" />
-                            <span className="text-xs">{dependencyMessage}</span>
+                            <span className="text-xs">
+                              <span className="font-medium">Required:</span> {dependencyMessage}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -203,7 +204,7 @@ export function PersonalDataCard({ sourceType, title, description, dependencyMes
         </CardContent>
       </Card>
 
-      {/* Delete Confirmation Dialog */}
+      {/* First Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -218,9 +219,6 @@ export function PersonalDataCard({ sourceType, title, description, dependencyMes
                       {getDependencyWarnings()!.map((warning, idx) => (
                         <div key={idx}>{warning}</div>
                       ))}
-                      <div className="mt-2 font-medium">
-                        Deleting this file will reset your account to onboarding state.
-                      </div>
                     </div>
                   </AlertDescription>
                 </Alert>
@@ -228,12 +226,82 @@ export function PersonalDataCard({ sourceType, title, description, dependencyMes
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setDeleteDialogOpen(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => {
+              setDeleteDialogOpen(false);
+              setAssetToDelete(null);
+              setDependencies(null);
+            }}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteConfirm}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Final Delete Confirmation Dialog */}
+      <AlertDialog open={confirmDeleteDialogOpen} onOpenChange={setConfirmDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Final Confirmation Required
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p className="font-medium">
+                Your account will not be accessible until you provide a new {isLinkedIn ? 'LinkedIn data' : sourceType === 'resume' ? 'resume' : 'cover letter'} to replace the one you're deleting.
+              </p>
+              <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3">
+                <p className="text-sm font-medium text-destructive mb-2">What happens next:</p>
+                <ul className="text-xs text-muted-foreground list-disc list-inside space-y-1">
+                  <li>This file will be deleted immediately</li>
+                  <li>Your account will return to onboarding phase</li>
+                  <li>You'll need to upload a new {isLinkedIn ? 'LinkedIn data' : sourceType === 'resume' ? 'resume' : 'cover letter'} to continue using Narrata</li>
+                  <li>Existing items will be preserved and filled in during onboarding</li>
+                </ul>
+              </div>
+              {getDependencyWarnings() && getDependencyWarnings()!.length > 0 && (
+                <Alert className="mt-3">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    <div className="space-y-1">
+                      {getDependencyWarnings()!.map((warning, idx) => (
+                        <div key={idx}>{warning}</div>
+                      ))}
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
+              <p className="text-xs text-muted-foreground mt-3">
+                Are you sure you want to proceed?
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={() => {
+                setConfirmDeleteDialogOpen(false);
+                setDeleteDialogOpen(true);
+              }}
+              disabled={isDeleting}
+            >
+              Go Back
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleFinalDeleteConfirm}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Yes, Delete Permanently'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
