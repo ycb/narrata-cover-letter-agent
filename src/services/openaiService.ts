@@ -19,6 +19,7 @@ import {
   JSON_EXTRACTION_SYSTEM_PROMPT,
   SIMPLE_JSON_EXTRACTION_PROMPT
 } from '../prompts';
+import { buildJobDescriptionAnalysisPrompt } from '../prompts/jobDescriptionAnalysis';
 
 export class LLMAnalysisService {
   private apiKey: string;
@@ -72,6 +73,40 @@ export class LLMAnalysisService {
         success: false,
         error: error instanceof Error ? error.message : 'LLM analysis failed',
         retryable: true
+      };
+    }
+  }
+
+  /**
+   * Analyze job description text and extract structured data
+   */
+  async analyzeJobDescription(text: string): Promise<{
+    success: boolean;
+    data?: Record<string, unknown>;
+    error?: string;
+    retryable?: boolean;
+    inputTokens?: number;
+    outputTokens?: number;
+  }> {
+    try {
+      const prompt = buildJobDescriptionAnalysisPrompt(text);
+      const optimalTokens = this.calculateOptimalTokens(text, 'resume'); // Use resume as proxy for JD complexity
+      
+      const response = await this.callOpenAI(prompt, optimalTokens);
+      
+      // Extract token usage from response if available
+      // Note: OpenAI API returns usage in response, but we're not capturing it yet
+      return {
+        ...response,
+        inputTokens: 0, // TODO: Extract from response.usage.prompt_tokens
+        outputTokens: 0, // TODO: Extract from response.usage.completion_tokens
+      };
+    } catch (error) {
+      console.error('Job description analysis error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Job description analysis failed',
+        retryable: true,
       };
     }
   }
