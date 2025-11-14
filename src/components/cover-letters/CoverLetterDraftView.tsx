@@ -54,6 +54,9 @@ interface CoverLetterDraftViewProps {
   onSectionDelete?: (sectionId: string) => void;
   onSectionDuplicate?: (sectionId: string) => void;
   onEditGoals?: () => void;
+  onAddStory?: (requirement?: string, severity?: string) => void; // Agent C: add story CTA
+  onEnhanceSection?: (sectionId: string, requirement?: string) => void; // Agent C: enhance section CTA
+  onAddMetrics?: (sectionId?: string) => void; // Agent C: add metrics CTA
   className?: string;
 }
 
@@ -73,6 +76,9 @@ export function CoverLetterDraftView({
   onSectionDelete,
   onSectionDuplicate,
   onEditGoals,
+  onAddStory,
+  onEnhanceSection,
+  onAddMetrics,
   className,
 }: CoverLetterDraftViewProps) {
   const getSectionTitle = (type: string) => {
@@ -134,6 +140,9 @@ export function CoverLetterDraftView({
           jobDescription={jobDescription || undefined}
           enhancedMatchData={enhancedMatchData || undefined}
           onEditGoals={onEditGoals}
+          onAddStory={onAddStory}
+          onEnhanceSection={onEnhanceSection}
+          onAddMetrics={onAddMetrics}
         />
       )}
 

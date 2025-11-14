@@ -17,9 +17,12 @@ interface CoverLetterEditModalProps {
   onClose: () => void;
   coverLetter: any;
   onEditGoals?: () => void; // Agent C: goals CTA handler
+  onAddStory?: (requirement?: string, severity?: string) => void; // Agent C: add story CTA
+  onEnhanceSection?: (sectionId: string, requirement?: string) => void; // Agent C: enhance section CTA
+  onAddMetrics?: (sectionId?: string) => void; // Agent C: add metrics CTA
 }
 
-export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals }: CoverLetterEditModalProps) {
+export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals, onAddStory, onEnhanceSection, onAddMetrics }: CoverLetterEditModalProps) {
   const { goals, saveGoals } = useUserGoals();
   const { toast } = useToast();
   const [editedContent, setEditedContent] = useState<any>(null);
@@ -174,6 +177,9 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
                 goNoGoAnalysis={editedContent.llmFeedback?.goNoGoAnalysis || null}
                 jobDescription={editedContent.jobDescription || null}
                 onEditGoals={onEditGoals}
+                onAddStory={onAddStory}
+                onEnhanceSection={onEnhanceSection}
+                onAddMetrics={onAddMetrics}
                 isEditable={true}
                 hilCompleted={false}
                 onSectionChange={handleSectionChange}

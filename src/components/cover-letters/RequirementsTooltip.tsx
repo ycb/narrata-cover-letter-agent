@@ -1,12 +1,14 @@
 import React from 'react';
 import { FullWidthTooltip } from '@/components/ui/full-width-tooltip';
-import { Check, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Check, X, Wand2, TrendingUp } from 'lucide-react';
 
 interface Requirement {
   id: string;
   requirement: string; // Changed from 'text' to match RequirementsMatchService
   demonstrated: boolean;
   evidence?: string;
+  section?: string; // Which section mentions this requirement
 }
 
 interface RequirementsTooltipProps {
@@ -15,6 +17,8 @@ interface RequirementsTooltipProps {
   title: string;
   requirements: Requirement[];
   description?: string;
+  onEnhanceSection?: (sectionId: string, requirement?: string) => void; // Agent C: enhance section CTA
+  onAddMetrics?: (sectionId?: string) => void; // Agent C: add metrics CTA
 }
 
 export function RequirementsTooltip({
@@ -22,7 +26,9 @@ export function RequirementsTooltip({
   className,
   title,
   requirements,
-  description
+  description,
+  onEnhanceSection,
+  onAddMetrics
 }: RequirementsTooltipProps) {
   const content = (
     <div className="space-y-3">
@@ -46,10 +52,38 @@ export function RequirementsTooltip({
           </div>
 
           {/* Evidence as body */}
-          <div className="ml-6">
+          <div className="ml-6 space-y-2">
             <p className={`text-xs ${req.demonstrated ? 'text-foreground/80' : 'text-muted-foreground'}`}>
               {req.evidence || (req.demonstrated ? 'Mentioned in draft' : 'Not mentioned in current draft')}
             </p>
+            
+            {/* CTAs for demonstrated requirements */}
+            {req.demonstrated && (
+              <div className="flex gap-2">
+                {onEnhanceSection && req.section && (
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    className="h-7 text-xs"
+                    onClick={() => onEnhanceSection(req.section!, req.requirement)}
+                  >
+                    <Wand2 className="h-3 w-3 mr-1" />
+                    Enhance This Section
+                  </Button>
+                )}
+                {onAddMetrics && req.section && (
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    className="h-7 text-xs"
+                    onClick={() => onAddMetrics(req.section)}
+                  >
+                    <TrendingUp className="h-3 w-3 mr-1" />
+                    Add Metrics
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       ))}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { FullWidthTooltip } from '@/components/ui/full-width-tooltip';
-import { Check, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Check, X, Plus } from 'lucide-react';
 
 interface ExperienceMatch {
   requirement: string;
@@ -15,12 +16,14 @@ interface MatchExperienceTooltipProps {
   children: React.ReactNode;
   className?: string;
   matches: ExperienceMatch[];
+  onAddStory?: (requirement?: string, severity?: string) => void; // Agent C: add story CTA
 }
 
 export function MatchExperienceTooltip({
   children,
   className,
-  matches
+  matches,
+  onAddStory
 }: MatchExperienceTooltipProps) {
   const getConfidenceColor = (confidence: string) => {
     switch (confidence) {
@@ -55,10 +58,23 @@ export function MatchExperienceTooltip({
             </div>
 
             {/* Evidence as body */}
-            <div className="ml-6">
+            <div className="ml-6 space-y-2">
               <p className={`text-xs ${hasMatch ? 'text-foreground/80' : 'text-muted-foreground'}`}>
                 {match.evidence || 'No matching experience found'}
               </p>
+              
+              {/* Add Story CTA for low confidence matches */}
+              {match.confidence === 'low' && onAddStory && (
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => onAddStory(match.requirement, 'medium')}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add Story Covering This
+                </Button>
+              )}
             </div>
           </div>
         );

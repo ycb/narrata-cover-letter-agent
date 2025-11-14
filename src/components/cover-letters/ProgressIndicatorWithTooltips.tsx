@@ -42,6 +42,9 @@ interface ProgressIndicatorWithTooltipsProps {
   };
   enhancedMatchData?: EnhancedMatchData; // Agent C: detailed match data
   onEditGoals?: () => void; // Callback to open goals modal
+  onAddStory?: (requirement?: string, severity?: string) => void; // Agent C: add story CTA
+  onEnhanceSection?: (sectionId: string, requirement?: string) => void; // Agent C: enhance section CTA
+  onAddMetrics?: (sectionId?: string) => void; // Agent C: add metrics CTA
 }
 
 export function ProgressIndicatorWithTooltips({
@@ -51,7 +54,10 @@ export function ProgressIndicatorWithTooltips({
   goNoGoAnalysis,
   jobDescription,
   enhancedMatchData,
-  onEditGoals
+  onEditGoals,
+  onAddStory,
+  onEnhanceSection,
+  onAddMetrics
 }: ProgressIndicatorWithTooltipsProps) {
   const getRatingColor = (rating: string) => {
     switch (rating.toLowerCase()) {
@@ -94,7 +100,10 @@ export function ProgressIndicatorWithTooltips({
         </MatchGoalsTooltip>
 
         {/* Match with Experience - Combined view of all requirements */}
-        <MatchExperienceTooltip matches={[...coreExperienceMatches, ...preferredExperienceMatches]}>
+        <MatchExperienceTooltip 
+          matches={[...coreExperienceMatches, ...preferredExperienceMatches]}
+          onAddStory={onAddStory}
+        >
           <div className="flex flex-col items-center justify-center">
             <div className="text-xs text-muted-foreground mb-2 underline underline-offset-2">MATCH WITH EXPERIENCE</div>
             <Badge variant="outline" className={getRatingColor(metrics.experienceMatch)}>
@@ -108,6 +117,8 @@ export function ProgressIndicatorWithTooltips({
           title={`Core Reqs: ${metrics.coreRequirementsMet.met}/${metrics.coreRequirementsMet.total}`}
           requirements={coreReqs}
           description="Essential requirements addressed in your draft"
+          onEnhanceSection={onEnhanceSection}
+          onAddMetrics={onAddMetrics}
         >
           <div className="flex flex-col items-center justify-center">
             <div className="text-xs text-muted-foreground mb-2 underline underline-offset-2">CORE REQS</div>
@@ -122,6 +133,8 @@ export function ProgressIndicatorWithTooltips({
           title={`Preferred Reqs: ${metrics.preferredRequirementsMet.met}/${metrics.preferredRequirementsMet.total}`}
           requirements={preferredReqs}
           description="Nice-to-have requirements addressed in your draft"
+          onEnhanceSection={onEnhanceSection}
+          onAddMetrics={onAddMetrics}
         >
           <div className="flex flex-col items-center justify-center">
             <div className="text-xs text-muted-foreground mb-2 underline underline-offset-2">PREFERRED REQS</div>
