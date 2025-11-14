@@ -75,11 +75,10 @@ export const CoverLetterCreateModal = ({
   onCoverLetterCreated,
 }: CoverLetterCreateModalProps) => {
   const { user } = useAuth();
-  const [jobDescriptionMethod, setJobDescriptionMethod] = useState<'paste' | 'url'>('paste');
   const [jobContent, setJobContent] = useState('');
-  const [jobUrl, setJobUrl] = useState('');
   const [jobInputError, setJobInputError] = useState<string | null>(null);
   const [isParsingJobDescription, setIsParsingJobDescription] = useState(false);
+  const [jdStreamingMessages, setJdStreamingMessages] = useState<string[]>([]);
   const [templates, setTemplates] = useState<TemplateSummary[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [templateError, setTemplateError] = useState<string | null>(null);
@@ -192,11 +191,11 @@ export const CoverLetterCreateModal = ({
 
   const resetViewState = () => {
     setJobContent('');
-    setJobUrl('');
     setJobInputError(null);
     setJobDescriptionRecord(null);
     setSectionDrafts({});
     setSavingSections({});
+    setJdStreamingMessages([]);
     clearError();
     resetProgress();
     setDraft(null);
@@ -231,14 +230,32 @@ export const CoverLetterCreateModal = ({
     clearError();
     resetProgress();
     setFinalizationError(null);
+    setJdStreamingMessages([]);
     setIsParsingJobDescription(true);
 
     try {
       const record = await jobDescriptionService.parseAndCreate(user.id, jobContent.trim(), {
-        url: jobDescriptionMethod === 'url' ? jobUrl || null : null,
+        url: null, // URL ingestion hidden for MVP (see TODO in renderJobDescriptionTab)
+        onProgress: (message) => {
+          setJdStreamingMessages(prev => {
+            const last = prev[prev.length - 1];
+            // Dedupe consecutive identical messages
+            if (last === message) return prev;
+            return [...prev, message];
+          });
+        },
+        onToken: (token, aggregate) => {
+          // Update last message with token preview for live feedback
+          setJdStreamingMessages(prev => {
+            const base = prev.slice(0, -1);
+            const preview = aggregate.slice(-50); // Last 50 chars for preview
+            return [...base, `Parsing… ${preview}${preview.length < aggregate.length ? '…' : ''}`];
+          });
+        },
       });
       setJobDescriptionRecord(record);
       setJobDescriptionId(record.id);
+      setJdStreamingMessages(prev => [...prev, 'Job description analysis complete.']);
       await generateDraft({
         templateId: selectedTemplateId,
         jobDescriptionId: record.id,
@@ -248,6 +265,7 @@ export const CoverLetterCreateModal = ({
       const message =
         error instanceof Error ? error.message : 'Unable to generate cover letter draft.';
       setJobInputError(message);
+      setJdStreamingMessages(prev => [...prev, `Error: ${message}`]);
     } finally {
       setIsParsingJobDescription(false);
     }
@@ -336,7 +354,9 @@ export const CoverLetterCreateModal = ({
   const isBusy = isGenerating || isParsingJobDescription;
 
   const renderProgress = () => {
-    if (!progress.length) return null;
+    const hasProgress = progress.length > 0 || jdStreamingMessages.length > 0;
+    if (!hasProgress) return null;
+
     return (
       <Card className="border-muted-foreground/20 bg-muted/20">
         <CardHeader className="pb-3">
@@ -345,23 +365,44 @@ export const CoverLetterCreateModal = ({
             Follow each stage as we parse the job description and assemble your cover letter.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-2">
-          <ul className="space-y-1 text-sm">
-            {progress.map(update => (
-              <li
-                key={`${update.phase}-${update.timestamp}`}
-                className="flex items-start gap-2"
-              >
-                <Badge
-                  variant="outline"
-                  className="mt-0.5 text-[11px] uppercase tracking-wide"
-                >
-                  {update.phase.replace(/-/g, ' ')}
-                </Badge>
-                <span className="text-muted-foreground">{update.message}</span>
-              </li>
-            ))}
-          </ul>
+        <CardContent className="space-y-3">
+          {jdStreamingMessages.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Job Description Analysis
+              </p>
+              <ul className="space-y-1 text-sm">
+                {jdStreamingMessages.map((msg, idx) => (
+                  <li key={idx} className="text-muted-foreground">
+                    {msg}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {progress.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Draft Generation
+              </p>
+              <ul className="space-y-1 text-sm">
+                {progress.map(update => (
+                  <li
+                    key={`${update.phase}-${update.timestamp}`}
+                    className="flex items-start gap-2"
+                  >
+                    <Badge
+                      variant="outline"
+                      className="mt-0.5 text-[11px] uppercase tracking-wide"
+                    >
+                      {update.phase.replace(/-/g, ' ')}
+                    </Badge>
+                    <span className="text-muted-foreground">{update.message}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </CardContent>
       </Card>
     );
@@ -380,7 +421,7 @@ export const CoverLetterCreateModal = ({
           <CardContent className="space-y-4">
             {/* TODO: Re-enable job description URL ingestion once MVP supports remote fetching. Tracked in docs/backlog/HIDDEN_FEATURES.md */}
             <Textarea
-              placeholder="Paste the full job description here..."
+              placeholder="Paste job description here..."
               rows={16}
               value={jobContent}
               onChange={event => setJobContent(event.target.value)}
