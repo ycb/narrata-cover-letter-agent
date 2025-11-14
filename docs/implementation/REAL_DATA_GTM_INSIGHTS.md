@@ -47,3 +47,4 @@ _*Based on synthetic-to-real transition targets; adjust after first 10 real prof
 - Compare evaluation satisfaction by persona to refine messaging.
 - Roll insights into CRM tagging for future nurture campaigns.
 
+

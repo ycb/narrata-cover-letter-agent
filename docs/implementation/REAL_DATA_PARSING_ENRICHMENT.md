@@ -116,3 +116,4 @@ Each anonymized resume exported to Supabase or disk follows the structure below:
 - Document new source adapters (or configuration overrides) alongside licensing notes in the compliance log.
 - Coordinate with legal before enabling sources flagged as `enabled: false` by default (Common Crawl, Lever).
 
+

@@ -20,6 +20,7 @@ import {
   SIMPLE_JSON_EXTRACTION_PROMPT
 } from '../prompts';
 import { buildJobDescriptionAnalysisPrompt } from '../prompts/jobDescriptionAnalysis';
+import { buildGoNoGoAnalysisPrompt, type UserProfileContext } from '../prompts/goNoGo';
 
 export class LLMAnalysisService {
   private apiKey: string;
@@ -106,6 +107,42 @@ export class LLMAnalysisService {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Job description analysis failed',
+        retryable: true,
+      };
+    }
+  }
+
+  /**
+   * Analyze job fit using Go/No-Go criteria
+   */
+  async analyzeGoNoGo(
+    jobDescription: string,
+    userProfile: UserProfileContext
+  ): Promise<{
+    success: boolean;
+    data?: Record<string, unknown>;
+    error?: string;
+    retryable?: boolean;
+    inputTokens?: number;
+    outputTokens?: number;
+  }> {
+    try {
+      const prompt = buildGoNoGoAnalysisPrompt(jobDescription, userProfile);
+      const optimalTokens = 1000; // Go/No-Go analysis is lightweight
+
+      const response = await this.callOpenAI(prompt, optimalTokens);
+
+      // Extract token usage from response if available
+      return {
+        ...response,
+        inputTokens: 0, // TODO: Extract from response.usage.prompt_tokens
+        outputTokens: 0, // TODO: Extract from response.usage.completion_tokens
+      };
+    } catch (error) {
+      console.error('Go/No-Go analysis error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Go/No-Go analysis failed',
         retryable: true,
       };
     }
