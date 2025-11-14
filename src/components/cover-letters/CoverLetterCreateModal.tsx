@@ -17,6 +17,10 @@ import { CoverLetterFinalization } from "./CoverLetterFinalization";
 import { ProgressIndicatorWithTooltips } from "./ProgressIndicatorWithTooltips";
 import { ContentCard } from "@/components/shared/ContentCard";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { GoNoGoService } from "@/services/goNoGoService";
+import { CoverLetterDraftService } from "@/services/coverLetterDraftService";
+import { useToast } from "@/hooks/use-toast";
 
 interface CoverLetterCreateModalProps {
   isOpen: boolean;
@@ -60,6 +64,15 @@ interface GapAnalysis {
 }
 
 const CoverLetterCreateModal = ({ isOpen, onClose, onCoverLetterCreated }: CoverLetterCreateModalProps) => {
+  // Hooks
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  // Services
+  const [goNoGoService] = useState(() => new GoNoGoService());
+  const [draftService] = useState(() => new CoverLetterDraftService());
+
+  // State
   const [jobDescriptionMethod, setJobDescriptionMethod] = useState<'url' | 'paste'>('paste');
   const [jobUrl, setJobUrl] = useState('');
   const [jobContent, setJobContent] = useState(`Senior Product Manager - Growth & SaaS Platform
@@ -83,6 +96,7 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
   const [selectedGap, setSelectedGap] = useState<GapAnalysis | null>(null);
   const [mainTabValue, setMainTabValue] = useState<'job-description' | 'cover-letter'>('cover-letter');
   const [showFinalizationModal, setShowFinalizationModal] = useState(false);
+  const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
 
 
 
@@ -132,155 +146,104 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
     }
   });
 
-  // Enhanced Go/No-Go analysis function
-  const analyzeGoNoGo = (jobDescription: string): GoNoGoAnalysis => {
-    // Mock analysis - in real implementation, this would call AI service
-    const hasGeographyMismatch = jobDescription.toLowerCase().includes('remote') && jobDescription.toLowerCase().includes('new york');
-    const hasPayMismatch = jobDescription.toLowerCase().includes('$50,000') || jobDescription.toLowerCase().includes('50k');
-    const hasCoreRequirementsGap = jobDescription.toLowerCase().includes('python') && !jobDescription.toLowerCase().includes('javascript');
-    const hasWorkHistoryGap = jobDescription.toLowerCase().includes('10+ years') && jobDescription.toLowerCase().includes('senior');
-
-    const mismatches = [];
-    
-    if (hasGeographyMismatch) {
-      mismatches.push({
-        type: 'geography',
-        severity: 'high',
-        description: 'Job requires on-site work in New York, but you prefer remote positions'
-      });
-    }
-    
-    if (hasPayMismatch) {
-      mismatches.push({
-        type: 'pay',
-        severity: 'high',
-        description: 'Salary range ($50,000) is below your minimum requirements'
-      });
-    }
-    
-    if (hasCoreRequirementsGap) {
-      mismatches.push({
-        type: 'core-requirements',
-        severity: 'medium',
-        description: 'Job requires Python expertise, but your primary experience is in JavaScript'
-      });
-    }
-    
-    if (hasWorkHistoryGap) {
-      mismatches.push({
-        type: 'work-history',
-        severity: 'medium',
-        description: 'Job requires 10+ years experience for senior role, but you have 5 years'
-      });
-    }
-
-    // Binary decision: if any high-severity mismatches, it's a no-go
-    const decision = mismatches.some(m => m.severity === 'high') ? 'no-go' : 'go';
-    const confidence = Math.max(50, 100 - (mismatches.length * 15));
-
-    return {
-      decision,
-      confidence,
-      mismatches
-    };
-  };
-
-  // HIL Progress Analysis function
-  const analyzeHILProgress = (jobDescription: string): { metrics: HILProgressMetrics; gaps: GapAnalysis[] } => {
-    // Mock HIL analysis - in real implementation, this would call AI service
-    const hasPython = jobDescription.toLowerCase().includes('python');
-    const hasReact = jobDescription.toLowerCase().includes('react');
-    const hasLeadership = jobDescription.toLowerCase().includes('lead') || jobDescription.toLowerCase().includes('team');
-    const hasMetrics = jobDescription.toLowerCase().includes('metrics') || jobDescription.toLowerCase().includes('kpi');
-    
-    // Calculate metrics based on job description analysis
-    const coreRequirements = ['javascript', 'react', 'node.js', 'api'];
-    const preferredRequirements = ['python', 'leadership', 'metrics', 'agile'];
-    
-    const coreMet = coreRequirements.filter(req => 
-      jobDescription.toLowerCase().includes(req)
-    ).length;
-    const preferredMet = preferredRequirements.filter(req => 
-      jobDescription.toLowerCase().includes(req)
-    ).length;
-    
-    const metrics: HILProgressMetrics = {
-      goalsMatch: hasLeadership ? 'strong' : hasReact ? 'average' : 'weak',
-      experienceMatch: hasReact ? 'strong' : hasPython ? 'average' : 'weak',
-      coverLetterRating: 'weak', // Start with weak rating
-      atsScore: 65, // Start with 65% ATS score
-      coreRequirementsMet: { met: 2, total: 4 }, // 2/4 for demo purposes
-      preferredRequirementsMet: { met: 1, total: 4 } // 1/4 for demo purposes
-    };
-    
-    // Generate initial gaps for intro and closing paragraphs
-    const gaps: GapAnalysis[] = [
-      {
-        id: 'intro-gap',
-        type: 'best-practice',
-        severity: 'medium',
-        description: 'Quantifiable achievements not prominently featured',
-        suggestion: 'Include specific metrics and KPIs from past projects',
-        paragraphId: 'intro',
-        origin: 'ai',
-        addresses: []
-      },
-      {
-        id: 'closing-gap',
-        type: 'preferred-requirement',
-        severity: 'medium',
-        description: 'Closing statement lacks enthusiasm and specific interest',
-        suggestion: 'Add more enthusiasm and specific reasons for interest in the role',
-        paragraphId: 'closing',
-        origin: 'ai',
-        addresses: []
-      }
-    ];
-    
-    return { metrics, gaps };
-  };
-
+  // Generate cover letter draft using real services
   const handleGenerate = async () => {
-    setIsGenerating(true);
-    
-    // First, analyze Go/No-Go
-    const analysis = analyzeGoNoGo(jobContent || jobUrl);
-    setGoNoGoAnalysis(analysis);
-    
-    // If no-go, show modal for user decision
-    if (analysis.decision === 'no-go') {
-      setIsGenerating(false);
-      setShowGoNoGoModal(true);
+    if (!user) {
+      toast({
+        title: 'Error',
+        description: 'You must be logged in to create a cover letter',
+        variant: 'destructive',
+      });
       return;
     }
-    
-    // If go, proceed with generation and HIL analysis
-    // After 3 seconds, show initial analysis (not post-HIL)
-    setTimeout(() => {
-      const initialAnalysis = analyzeHILProgress(jobContent || jobUrl);
-      setHilProgressMetrics(initialAnalysis.metrics);
-      setGaps(initialAnalysis.gaps);
+
+    setIsGenerating(true);
+
+    try {
+      // Step 1: Analyze Go/No-Go
+      const analysis = await goNoGoService.analyzeJobFit(user.id, jobContent || jobUrl);
+      setGoNoGoAnalysis(analysis);
+
+      // If no-go, show modal for user decision
+      if (analysis.decision === 'no-go') {
+        setIsGenerating(false);
+        setShowGoNoGoModal(true);
+        return;
+      }
+
+      // Step 2: Create draft using DraftService
+      const draft = await draftService.createDraft(
+        user.id,
+        jobContent || jobUrl,
+        jobDescriptionMethod === 'url' ? jobUrl : undefined
+      );
+
+      // Step 3: Update state with draft data
+      setCurrentDraftId(draft.draftId);
+      setGeneratedLetter({ sections: draft.sections });
+      setHilProgressMetrics(draft.metrics);
+      setGaps(draft.gaps);
+      setCoverLetterGenerated(true);
       setIsGenerating(false);
-      setCoverLetterGenerated(true); // This just means "draft is ready for HIL"
-    }, 3000);
+
+      toast({
+        title: 'Draft created',
+        description: 'Your cover letter draft is ready for review',
+      });
+    } catch (error) {
+      console.error('Error generating cover letter:', error);
+      setIsGenerating(false);
+
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to generate cover letter',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleGoNoGoOverride = () => {
+  const handleGoNoGoOverride = async () => {
+    if (!user) return;
+
     setUserOverrideDecision(true);
     setShowGoNoGoModal(false);
-    // Proceed with generation despite no-go
     setIsGenerating(true);
-    
-    // First, show initial analysis
-    const initialAnalysis = analyzeHILProgress(jobContent || jobUrl);
-    setHilProgressMetrics(initialAnalysis.metrics);
-    setGaps(initialAnalysis.gaps);
-    
-    // Then after 3 seconds, show post-HIL analysis
-    setTimeout(() => {
-      setIsGenerating(false);
+
+    try {
+      // Mark user override in analysis
+      if (goNoGoAnalysis) {
+        const overriddenAnalysis = goNoGoService.markUserOverride(goNoGoAnalysis);
+        setGoNoGoAnalysis(overriddenAnalysis);
+      }
+
+      // Proceed with draft creation despite no-go
+      const draft = await draftService.createDraft(
+        user.id,
+        jobContent || jobUrl,
+        jobDescriptionMethod === 'url' ? jobUrl : undefined
+      );
+
+      setCurrentDraftId(draft.draftId);
+      setGeneratedLetter({ sections: draft.sections });
+      setHilProgressMetrics(draft.metrics);
+      setGaps(draft.gaps);
       setCoverLetterGenerated(true);
-    }, 3000);
+      setIsGenerating(false);
+
+      toast({
+        title: 'Draft created',
+        description: 'Your cover letter draft is ready for review (user override)',
+      });
+    } catch (error) {
+      console.error('Error generating cover letter:', error);
+      setIsGenerating(false);
+
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to generate cover letter',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleGoNoGoReturn = () => {
@@ -308,29 +271,65 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
     setShowFinalizationModal(true);
   };
 
-  const handleSaveCoverLetter = () => {
-    // Create the cover letter object to save
-    const coverLetterToSave = {
-      id: `cl-${Date.now()}`,
-      title: `${jobContent.split('\n')[0]} - ${jobContent.split('\n')[1]?.split(':')[0] || 'Unknown Company'}`,
-      company: jobContent.split('\n')[1]?.split(':')[0] || 'Unknown Company',
-      position: jobContent.split('\n')[0] || 'Unknown Position',
-      status: 'finalized',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      atsScore: hilProgressMetrics?.atsScore || 85,
-      overallRating: hilProgressMetrics?.coverLetterRating || 'average',
-      content: generatedLetter,
-      metrics: hilProgressMetrics
-    };
-
-    // Call the callback to save the cover letter
-    if (onCoverLetterCreated) {
-      onCoverLetterCreated(coverLetterToSave);
+  const handleSaveCoverLetter = async () => {
+    if (!currentDraftId || !user) {
+      toast({
+        title: 'Error',
+        description: 'No draft found to save',
+        variant: 'destructive',
+      });
+      return;
     }
 
-    // Close the modal
-    onClose();
+    try {
+      // Import supabase
+      const { supabase } = await import('@/lib/supabase');
+
+      // Update draft status to 'finalized' in database
+      await draftService.updateDraft(
+        currentDraftId,
+        generatedLetter.sections,
+        gaps,
+        hilProgressMetrics || undefined
+      );
+
+      // Also update status field
+      const { error } = await supabase
+        .from('cover_letters')
+        .update({ status: 'finalized' })
+        .eq('id', currentDraftId);
+
+      if (error) {
+        throw new Error(`Failed to finalize draft: ${error.message}`);
+      }
+
+      toast({
+        title: 'Success',
+        description: 'Cover letter saved successfully',
+      });
+
+      // Call parent callback if provided
+      if (onCoverLetterCreated) {
+        onCoverLetterCreated({
+          id: currentDraftId,
+          status: 'finalized',
+          sections: generatedLetter.sections,
+          metrics: hilProgressMetrics,
+        });
+      }
+
+      // Close modals
+      setShowFinalizationModal(false);
+      onClose();
+    } catch (error) {
+      console.error('Error saving cover letter:', error);
+
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to save cover letter',
+        variant: 'destructive',
+      });
+    }
   };
 
 
