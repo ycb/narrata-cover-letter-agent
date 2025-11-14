@@ -22,3 +22,5 @@
 
 - `src/types/coverLetters.ts`: Checked `src/types` for cover letter domain models (`coverLetters`, `coverLetter`, `draftSections`) and found only resume/work history structures. Adding shared interfaces for draft sections, metrics, and job description parsing results.
 
+- `src/services/evaluationLoggingService.ts`: Searched `src/services` and `src/utils` for centralized evaluation logging (`evaluationLogging`, `evalLogging`, `logEvaluation`) and found only direct Supabase inserts in FileUploadService and PMLevelsService. New service required for composition-friendly evaluation run creation, updates, token sampling, and failure tracking to support cover letter draft logging.
+

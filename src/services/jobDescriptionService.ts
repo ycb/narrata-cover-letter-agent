@@ -11,17 +11,24 @@ import {
   type RequirementCategory,
   type RequirementInsight,
 } from '@/types/coverLetters';
+import {
+  EvaluationLoggingService,
+  type EvaluationLoggingServiceOptions as EvalLoggingOptions,
+} from './evaluationLoggingService';
 
 type SupabaseClient = typeof supabase;
 
 export interface ParseJobDescriptionOptions {
   signal?: AbortSignal;
   onToken?: (token: string, aggregate: string) => void;
+  onProgress?: (message: string) => void;
 }
 
 export interface JobDescriptionServiceOptions {
   supabaseClient?: SupabaseClient;
   openAIKey?: string;
+  evaluationLogger?: EvaluationLoggingService;
+  now?: () => Date;
 }
 
 interface JobDescriptionRow extends Database['public']['Tables']['job_descriptions']['Row'] {}
@@ -80,6 +87,24 @@ type PriorityValue = (typeof SUPPORTED_PRIORITIES)[number];
 const DEFAULT_PRIORITY: PriorityValue = 'high';
 
 const SUPPORTED_CATEGORIES: RequirementCategory[] = ['standard', 'differentiator', 'preferred'];
+
+const MAX_RETRIES = 2;
+const RETRY_DELAYS_MS = [750, 1500];
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * Simple hash function for JD text checksum (not cryptographically secure, just for deduplication).
+ */
+const computeTextChecksum = (text: string): string => {
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    const char = text.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return Math.abs(hash).toString(36);
+};
 
 const createOpenAIClient = (apiKey?: string) => {
   const key =
@@ -291,10 +316,19 @@ const mapRowToRecord = (row: JobDescriptionRow): JobDescriptionRecord => {
 export class JobDescriptionService {
   private readonly supabaseClient: SupabaseClient;
   private readonly openAIClient: ReturnType<typeof createOpenAI>;
+  private readonly evaluationLogger: EvaluationLoggingService;
+  private readonly now: () => Date;
 
   constructor(options: JobDescriptionServiceOptions = {}) {
     this.supabaseClient = options.supabaseClient ?? supabase;
     this.openAIClient = createOpenAIClient(options.openAIKey);
+    this.evaluationLogger =
+      options.evaluationLogger ??
+      new EvaluationLoggingService({
+        supabaseClient: options.supabaseClient,
+        now: options.now,
+      });
+    this.now = options.now ?? (() => new Date());
   }
 
   async parseJobDescription(
@@ -305,60 +339,82 @@ export class JobDescriptionService {
       throw new Error('Job description content must be at least 50 characters.');
     }
 
-    const result: any = await streamText({
-      model: this.openAIClient.chat(OPENAI_CONFIG.MODEL),
-      system: JOB_DESCRIPTION_PROMPT,
-      messages: [
-        {
-          role: 'user',
-          content: content.trim(),
-        },
-      ],
-      temperature: 0.2,
-      maxTokens: 1500,
-      signal: options.signal,
-    } as any);
+    let lastError: Error | null = null;
 
-    let aggregated = '';
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        if (attempt > 0) {
+          const delay = RETRY_DELAYS_MS[attempt - 1] ?? RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
+          options.onProgress?.(`Retrying JD parse (attempt ${attempt + 1}/${MAX_RETRIES + 1})…`);
+          await sleep(delay);
+        }
 
-    const handleToken = (token: string) => {
-      aggregated += token;
-      options.onToken?.(token, aggregated);
-    };
+        const result: any = await streamText({
+          model: this.openAIClient.chat(OPENAI_CONFIG.MODEL),
+          system: JOB_DESCRIPTION_PROMPT,
+          messages: [
+            {
+              role: 'user',
+              content: content.trim(),
+            },
+          ],
+          temperature: 0.2,
+          maxTokens: 1500,
+          signal: options.signal,
+        } as any);
 
-    if (result?.textStream) {
-      for await (const chunk of result.textStream as AsyncIterable<TextStreamPart<string>>) {
-        const token =
-          typeof chunk === 'string'
-            ? chunk
-            : chunk && typeof chunk === 'object' && 'text' in chunk && typeof chunk.text === 'string'
-            ? chunk.text
-            : '';
-        if (!token) continue;
-        handleToken(token);
+        let aggregated = '';
+        let tokenSequence = 0;
+
+        const handleToken = (token: string) => {
+          aggregated += token;
+          tokenSequence++;
+          options.onToken?.(token, aggregated);
+        };
+
+        if (result?.textStream) {
+          for await (const chunk of result.textStream as AsyncIterable<TextStreamPart<string>>) {
+            const token =
+              typeof chunk === 'string'
+                ? chunk
+                : chunk && typeof chunk === 'object' && 'text' in chunk && typeof chunk.text === 'string'
+                ? chunk.text
+                : '';
+            if (!token) continue;
+            handleToken(token);
+          }
+        }
+
+        if (!aggregated && typeof result?.text === 'string') {
+          aggregated = result.text;
+          options.onToken?.(aggregated, aggregated);
+        }
+
+        if (!aggregated.trim()) {
+          throw new Error('Job description analysis returned empty response.');
+        }
+
+        const cleaned = cleanJsonResponse(aggregated);
+        let parsedJson: Record<string, unknown>;
+        try {
+          parsedJson = JSON.parse(cleaned);
+        } catch (error) {
+          console.error('[JobDescriptionService] Failed to parse JD JSON', error, { cleaned });
+          throw new Error('Failed to parse job description analysis. Please try again.');
+        }
+
+        const parsed = this.transformParsedResponse(parsedJson);
+        return { parsed, raw: parsedJson };
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error('Unknown error during JD parse');
+        if (attempt === MAX_RETRIES) {
+          throw lastError;
+        }
+        console.warn(`[JobDescriptionService] Parse attempt ${attempt + 1} failed, retrying…`, lastError);
       }
     }
 
-    if (!aggregated && typeof result?.text === 'string') {
-      aggregated = result.text;
-      options.onToken?.(aggregated, aggregated);
-    }
-
-    if (!aggregated.trim()) {
-      throw new Error('Job description analysis returned empty response.');
-    }
-
-    const cleaned = cleanJsonResponse(aggregated);
-    let parsedJson: Record<string, unknown>;
-    try {
-      parsedJson = JSON.parse(cleaned);
-    } catch (error) {
-      console.error('[JobDescriptionService] Failed to parse JD JSON', error, { cleaned });
-      throw new Error('Failed to parse job description analysis. Please try again.');
-    }
-
-    const parsed = this.transformParsedResponse(parsedJson);
-    return { parsed, raw: parsedJson };
+    throw lastError ?? new Error('JD parse failed after retries');
   }
 
   async createJobDescription(
@@ -411,37 +467,128 @@ export class JobDescriptionService {
     userId: string,
     content: string,
     options: ParseJobDescriptionOptions & { url?: string | null } = {},
-  ): Promise<JobDescriptionRecord> {
-    const { parsed, raw } = await this.parseJobDescription(content, options);
+  ): Promise<JobDescriptionRecord & { evaluationRunId?: string; sessionId?: string }> {
+    const trimmedContent = content.trim();
+    const checksum = computeTextChecksum(trimmedContent);
+    const sessionId = `jd-parse-${Date.now()}-${checksum.slice(0, 8)}`;
 
-    const analysis = defaultAnalysisEnvelope(
-      parsed.summary,
-      parsed.differentiatorNotes,
-      parsed.rawSections ?? [],
-      parsed.keywords,
-      {
-        boilerplate: parsed.boilerplateSignals,
-        differentiator: parsed.differentiatorSignals,
-      },
-      parsed.structuredInsights,
-      raw,
-    );
+    options.onProgress?.('Starting job description analysis…');
 
-    return this.createJobDescription(userId, {
-      content,
-      url: options.url ?? null,
-      company: parsed.company,
-      role: parsed.role,
-      summary: parsed.summary,
-      structuredData: parsed.structuredInsights,
-      standardRequirements: parsed.standardRequirements,
-      differentiatorRequirements: parsed.differentiatorRequirements,
-      preferredRequirements: parsed.preferredRequirements,
-      keywords: parsed.keywords,
-      differentiatorNotes: parsed.differentiatorNotes,
-      rawSections: parsed.rawSections,
-      analysis,
-    });
+    let evaluationRunId: string | undefined;
+    const startTimestamp = this.now().getTime();
+
+    try {
+      evaluationRunId = await this.evaluationLogger.createRun({
+        userId,
+        sessionId,
+        fileType: 'cover_letter_jd_parse',
+        rawText: trimmedContent,
+        metadata: {
+          textLength: trimmedContent.length,
+          checksum,
+          url: options.url ?? null,
+        },
+      });
+
+      const parseOptions: ParseJobDescriptionOptions = {
+        ...options,
+        onProgress: (message) => {
+          options.onProgress?.(message);
+        },
+        onToken: async (token, aggregate) => {
+          options.onToken?.(token, aggregate);
+          // Token sampling handled in parseJobDescription if we track sequence there
+          // For now, we'll sample in the streaming loop
+        },
+      };
+
+      // Track token sequence for sampling
+      let tokenSequence = 0;
+      const originalOnToken = parseOptions.onToken;
+      parseOptions.onToken = async (token, aggregate) => {
+        if (originalOnToken) {
+          await originalOnToken(token, aggregate);
+        }
+        if (evaluationRunId) {
+          await this.evaluationLogger.appendTokenSample(evaluationRunId, token, tokenSequence);
+          tokenSequence++;
+        }
+      };
+
+      const { parsed, raw } = await this.parseJobDescription(trimmedContent, parseOptions);
+
+      const finishTimestamp = this.now().getTime();
+      const totalLatencyMs = finishTimestamp - startTimestamp;
+
+      const analysis = defaultAnalysisEnvelope(
+        parsed.summary,
+        parsed.differentiatorNotes,
+        parsed.rawSections ?? [],
+        parsed.keywords,
+        {
+          boilerplate: parsed.boilerplateSignals,
+          differentiator: parsed.differentiatorSignals,
+        },
+        parsed.structuredInsights,
+        raw,
+      );
+
+      const record = await this.createJobDescription(userId, {
+        content: trimmedContent,
+        url: options.url ?? null,
+        company: parsed.company,
+        role: parsed.role,
+        summary: parsed.summary,
+        structuredData: parsed.structuredInsights,
+        standardRequirements: parsed.standardRequirements,
+        differentiatorRequirements: parsed.differentiatorRequirements,
+        preferredRequirements: parsed.preferredRequirements,
+        keywords: parsed.keywords,
+        differentiatorNotes: parsed.differentiatorNotes,
+        rawSections: parsed.rawSections,
+        analysis,
+      });
+
+      if (evaluationRunId) {
+        await this.evaluationLogger.updateRun(evaluationRunId, {
+          structuredData: {
+            event: 'jd.parse.completed',
+            jobDescriptionId: record.id,
+            company: parsed.company,
+            role: parsed.role,
+            differentiators: parsed.differentiatorRequirements.length,
+            keywords: parsed.keywords.length,
+            standardRequirements: parsed.standardRequirements.length,
+            preferredRequirements: parsed.preferredRequirements.length,
+          },
+          totalLatencyMs,
+          llmAnalysisLatencyMs: totalLatencyMs,
+          model: OPENAI_CONFIG.MODEL,
+          evaluationRationale: `JD parse completed: ${parsed.company} - ${parsed.role}`,
+          goNogoDecision: '✅ Go',
+        });
+      }
+
+      options.onProgress?.('Job description analysis complete.');
+
+      return {
+        ...record,
+        evaluationRunId,
+        sessionId,
+      };
+    } catch (error) {
+      const finishTimestamp = this.now().getTime();
+      const totalLatencyMs = finishTimestamp - startTimestamp;
+
+      if (evaluationRunId) {
+        await this.evaluationLogger.markFailure(evaluationRunId, {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          stage: 'jd_parse',
+        });
+      }
+
+      throw error;
+    }
   }
 
   async updateAnalysis(jobDescriptionId: string, analysis: Record<string, unknown>): Promise<void> {
