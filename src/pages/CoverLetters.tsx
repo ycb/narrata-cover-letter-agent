@@ -25,6 +25,7 @@ import {
 import CoverLetterCreateModal from "@/components/cover-letters/CoverLetterCreateModal";
 import { CoverLetterViewModal } from "@/components/cover-letters/CoverLetterViewModal";
 import { CoverLetterEditModal } from "@/components/cover-letters/CoverLetterEditModal";
+import { UserGoalsModal } from "@/components/user-goals/UserGoalsModal";
 import { useTour } from "@/contexts/TourContext";
 import { TourBannerFull } from "@/components/onboarding/TourBannerFull";
 import { useAuth } from "@/contexts/AuthContext";
@@ -77,6 +78,7 @@ interface ModalCoverLetterPayload extends CoverLetterListItem {
     }>;
   };
   jobDescription: string;
+  enhancedMatchData?: import('@/types/coverLetters').EnhancedMatchData; // Agent C: detailed match data
 }
 
 const parseAtsScore = (feedback: Record<string, unknown> | null): number | null => {
@@ -190,10 +192,15 @@ const toModalPayload = (coverLetter: CoverLetterListItem): ModalCoverLetterPaylo
     };
   });
 
+  // Agent C: Extract enhancedMatchData from llmFeedback
+  const enhancedMatchData = coverLetter.llmFeedback?.enhancedMatchData as 
+    import('@/types/coverLetters').EnhancedMatchData | undefined;
+
   return {
     ...coverLetter,
     content: { sections },
-    jobDescription: coverLetter.jobDescriptionContent
+    jobDescription: coverLetter.jobDescriptionContent,
+    enhancedMatchData, // Agent C: pass through to modals
   };
 };
 
@@ -250,6 +257,7 @@ export default function CoverLetters() {
 
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isGoalsModalOpen, setIsGoalsModalOpen] = useState(false); // Agent C: goals CTA
   const [selectedCoverLetter, setSelectedCoverLetter] = useState<CoverLetterListItem | null>(null);
   const [coverLetters, setCoverLetters] = useState<CoverLetterListItem[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<string | undefined>();
@@ -388,6 +396,17 @@ export default function CoverLetters() {
   const handleEdit = (coverLetter: CoverLetterListItem) => {
     setSelectedCoverLetter(coverLetter);
     setIsEditModalOpen(true);
+  };
+
+  // Agent C: Handler for "Edit Goals" CTA
+  const handleEditGoals = () => {
+    setIsGoalsModalOpen(true);
+  };
+
+  const handleGoalsSaved = async () => {
+    setIsGoalsModalOpen(false);
+    // Optionally refresh data to show updated goals
+    await fetchCoverLetters();
   };
 
   const modalPayload = selectedCoverLetter ? toModalPayload(selectedCoverLetter) : null;
@@ -638,12 +657,20 @@ export default function CoverLetters() {
         isOpen={isViewModalOpen}
         onClose={() => setIsViewModalOpen(false)}
         coverLetter={modalPayload}
+        onEditGoals={handleEditGoals}
       />
       
       <CoverLetterEditModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         coverLetter={modalPayload}
+        onEditGoals={handleEditGoals}
+      />
+
+      <UserGoalsModal
+        isOpen={isGoalsModalOpen}
+        onClose={() => setIsGoalsModalOpen(false)}
+        onSave={handleGoalsSaved}
       />
       
       {isTourActive && (

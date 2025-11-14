@@ -16,9 +16,10 @@ interface CoverLetterEditModalProps {
   isOpen: boolean;
   onClose: () => void;
   coverLetter: any;
+  onEditGoals?: () => void; // Agent C: goals CTA handler
 }
 
-export function CoverLetterEditModal({ isOpen, onClose, coverLetter }: CoverLetterEditModalProps) {
+export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals }: CoverLetterEditModalProps) {
   const { goals, saveGoals } = useUserGoals();
   const { toast } = useToast();
   const [editedContent, setEditedContent] = useState<any>(null);
@@ -169,9 +170,10 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter }: CoverLett
               <CoverLetterDraftView
                 sections={editedContent.content?.sections || []}
                 hilProgressMetrics={editedContent.llmFeedback?.metrics || null}
-                detailedAnalysis={editedContent.llmFeedback?.detailedAnalysis || null}
+                enhancedMatchData={editedContent.enhancedMatchData || null}
                 goNoGoAnalysis={editedContent.llmFeedback?.goNoGoAnalysis || null}
                 jobDescription={editedContent.jobDescription || null}
+                onEditGoals={onEditGoals}
                 isEditable={true}
                 hilCompleted={false}
                 onSectionChange={handleSectionChange}

@@ -4,7 +4,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ContentCard } from '@/components/shared/ContentCard';
 import { ProgressIndicatorWithTooltips } from './ProgressIndicatorWithTooltips';
 import { cn } from '@/lib/utils';
-import type { DetailedMatchAnalysis } from '@/services/coverLetterDraftService';
+import type { EnhancedMatchData } from '@/types/coverLetters';
 
 interface HILProgressMetrics {
   goalsMatch: 'strong' | 'average' | 'weak';
@@ -45,7 +45,7 @@ interface JobDescription {
 interface CoverLetterDraftViewProps {
   sections: CoverLetterSection[];
   hilProgressMetrics?: HILProgressMetrics | null;
-  detailedAnalysis?: DetailedMatchAnalysis | null;
+  enhancedMatchData?: EnhancedMatchData | null; // Agent C: detailed match data
   goNoGoAnalysis?: GoNoGoAnalysis | null;
   jobDescription?: JobDescription | null;
   isEditable?: boolean;
