@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 import { LinkIcon, Upload, Wand2, RefreshCw, Save, Send, AlertTriangle, CheckCircle, X, Target, Pencil, Sparkles } from "lucide-react";
 import { HILProgressPanel } from "@/components/hil/HILProgressPanel";
 import { GapAnalysisPanel } from "@/components/hil/GapAnalysisPanel";
@@ -702,9 +703,11 @@ const CoverLetterCreateModal = ({ isOpen, onClose, onCoverLetterCreated }: Cover
             <AlertDialogCancel onClick={handleGoNoGoReturn}>
               Return to Job Description
             </AlertDialogCancel>
-            <AlertDialogAction onClick={handleGoNoGoOverride} className="bg-warning hover:bg-warning/90">
-              Override & Continue
-            </AlertDialogAction>
+            <Button variant="warning" onClick={handleGoNoGoOverride} asChild>
+              <AlertDialogPrimitive.Action>
+                Override & Continue
+              </AlertDialogPrimitive.Action>
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

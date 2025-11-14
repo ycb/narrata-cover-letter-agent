@@ -432,6 +432,49 @@ Best regards,
   }
 
   /**
+   * Get or create a default template for the user
+   */
+  private async getOrCreateDefaultTemplate(userId: string): Promise<string> {
+    try {
+      // Try to find existing default template
+      const { data: existingTemplate, error: fetchError } = await supabase
+        .from('cover_letter_templates')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('is_default', true)
+        .limit(1)
+        .maybeSingle();
+
+      if (!fetchError && existingTemplate) {
+        return existingTemplate.id;
+      }
+
+      // Create a new default template
+      const { data: newTemplate, error: createError } = await supabase
+        .from('cover_letter_templates')
+        .insert({
+          user_id: userId,
+          name: 'Default Template',
+          is_default: true,
+          sections: [] as any,
+        })
+        .select('id')
+        .single();
+
+      if (createError || !newTemplate) {
+        throw new Error('Failed to create default template');
+      }
+
+      return newTemplate.id;
+    } catch (error) {
+      console.error('Error getting/creating default template:', error);
+      // Fallback: use a fixed UUID for "no template"
+      // This is a workaround if template creation fails
+      return '00000000-0000-0000-0000-000000000000';
+    }
+  }
+
+  /**
    * Save draft to database
    */
   async saveDraft(
@@ -442,11 +485,14 @@ Best regards,
     metrics: HILProgressMetrics
   ): Promise<string> {
     try {
+      // Get or create default template
+      const templateId = await this.getOrCreateDefaultTemplate(userId);
+
       // Prepare insert data
       const insertData: CoverLetterInsert = {
         user_id: userId,
         job_description_id: jobDescriptionId,
-        template_id: null, // No template for now
+        template_id: templateId,
         sections: sections as any, // Store as JSON
         llm_feedback: {
           metrics,
