@@ -1293,6 +1293,13 @@ export class CoverLetterDraftService {
       sections: input.sections,
     };
 
+    // Check if workpad already exists for this draft
+    const { data: existing } = await this.supabaseClient
+      .from('cover_letter_workpads')
+      .select('id')
+      .eq('draft_id', input.draftId)
+      .maybeSingle();
+
     const payload: Database['public']['Tables']['cover_letter_workpads']['Insert'] = {
       draft_id: input.draftId,
       user_id: input.userId,
@@ -1302,11 +1309,29 @@ export class CoverLetterDraftService {
       updated_at: this.now().toISOString(),
     };
 
-    const { data, error } = await this.supabaseClient
-      .from('cover_letter_workpads')
-      .upsert(payload, { onConflict: 'draft_id' })
-      .select()
-      .single();
+    let data;
+    let error;
+
+    if (existing?.id) {
+      // Update existing workpad
+      const { data: updated, error: updateError } = await this.supabaseClient
+        .from('cover_letter_workpads')
+        .update(payload)
+        .eq('id', existing.id)
+        .select()
+        .single();
+      data = updated;
+      error = updateError;
+    } else {
+      // Insert new workpad
+      const { data: inserted, error: insertError } = await this.supabaseClient
+        .from('cover_letter_workpads')
+        .insert(payload)
+        .select()
+        .single();
+      data = inserted;
+      error = insertError;
+    }
 
     if (error || !data) {
       console.error('[CoverLetterDraftService] Workpad upsert failed:', error);
