@@ -10,10 +10,20 @@
  */
 
 import { supabase } from '@/lib/supabase';
-import { JobDescriptionService } from './jobDescriptionService';
+import { JobDescriptionService, type ParsedJobDescription } from './jobDescriptionService';
 import { GapDetectionService } from './gapDetectionService';
 import { CoverLetterTemplateService, type TemplateSection } from './coverLetterTemplateService';
+import { GoalsMatchService, type GoalsMatchResult } from './goalsMatchService';
+import { RequirementsMatchService, type RequirementsMatchResult } from './requirementsMatchService';
+import { ExperienceMatchService, type ExperienceMatchResult } from './experienceMatchService';
+import { CoverLetterRatingService, type CoverLetterRatingResult } from './coverLetterRatingService';
+import { ATSAnalysisService, type ATSEvalResponse } from './atsAnalysisService';
+
+// Progress callback type for streaming updates
+export type DraftProgressCallback = (step: string, progress: number, detail?: string) => void;
 import type { Database } from '@/types/supabase';
+import type { UserGoals } from '@/types/userGoals';
+import type { UserVoice } from '@/types/userVoice';
 
 type CoverLetterRow = Database['public']['Tables']['cover_letters']['Row'];
 type CoverLetterInsert = Database['public']['Tables']['cover_letters']['Insert'];
@@ -52,6 +62,16 @@ export interface Gap {
   addresses?: string[];
 }
 
+// Detailed analysis results from all services
+export interface DetailedMatchAnalysis {
+  goalsMatch: GoalsMatchResult;
+  requirementsMatch: RequirementsMatchResult;
+  coreExperienceMatch: ExperienceMatchResult;
+  preferredExperienceMatch: ExperienceMatchResult;
+  coverLetterRating: CoverLetterRatingResult;
+  atsAnalysis: ATSEvalResponse;
+}
+
 // Draft creation result
 export interface CoverLetterDraft {
   draftId: string;
@@ -64,16 +84,31 @@ export interface CoverLetterDraft {
     company?: string;
     location?: string;
     salary?: string;
+    extracted_requirements?: string[];
+    coreRequirements?: string[];
+    preferredRequirements?: string[];
   };
+  parsedJobDescription?: ParsedJobDescription;
+  detailedAnalysis?: DetailedMatchAnalysis;
 }
 
 export class CoverLetterDraftService {
   private jobDescriptionService: JobDescriptionService;
   private gapDetectionService: GapDetectionService;
+  private goalsMatchService: GoalsMatchService;
+  private requirementsMatchService: RequirementsMatchService;
+  private experienceMatchService: ExperienceMatchService;
+  private coverLetterRatingService: CoverLetterRatingService;
+  private atsAnalysisService: ATSAnalysisService;
 
   constructor() {
     this.jobDescriptionService = new JobDescriptionService();
     this.gapDetectionService = new GapDetectionService();
+    this.goalsMatchService = new GoalsMatchService();
+    this.requirementsMatchService = new RequirementsMatchService();
+    this.experienceMatchService = new ExperienceMatchService();
+    this.coverLetterRatingService = new CoverLetterRatingService();
+    this.atsAnalysisService = new ATSAnalysisService();
   }
 
   /**
@@ -83,11 +118,15 @@ export class CoverLetterDraftService {
   async createDraft(
     userId: string,
     jobDescription: string,
-    jobUrl?: string
+    jobUrl?: string,
+    userGoals?: UserGoals | null,
+    userVoice?: UserVoice | null,
+    pmLevel?: string,
+    goNoGoAnalysis?: any
   ): Promise<CoverLetterDraft> {
     try {
       // Step 1: Parse job description and create DB record
-      const jd = await this.jobDescriptionService.parseAndCreate({
+      const { dbRecord: jd, parsed } = await this.jobDescriptionService.parseAndCreate({
         userId,
         content: jobDescription,
         url: jobUrl,
@@ -99,10 +138,22 @@ export class CoverLetterDraftService {
       // Step 3: Detect gaps in generated sections
       const gaps = await this.detectSectionGaps(userId, sections);
 
-      // Step 4: Calculate HIL progress metrics
-      const metrics = await this.calculateMetrics(sections, gaps, jd);
+      // Step 4: Run detailed analysis (Goals, Requirements, Experience, Rating, ATS)
+      const detailedAnalysis = await this.runDetailedAnalysis(
+        userId,
+        parsed,
+        sections,
+        jobDescription,
+        userGoals,
+        userVoice,
+        pmLevel,
+        goNoGoAnalysis
+      );
 
-      // Step 5: Save draft to database
+      // Step 5: Calculate HIL progress metrics from detailed analysis
+      const metrics = this.calculateMetricsFromAnalysis(detailedAnalysis);
+
+      // Step 6: Save draft to database
       const draftId = await this.saveDraft(userId, jd.id, sections, gaps, metrics);
 
       return {
@@ -116,10 +167,325 @@ export class CoverLetterDraftService {
           company: jd.company || undefined,
           location: jd.extracted_requirements?.find((r: string) => r.toLowerCase().includes('location') || r.toLowerCase().includes('remote')) || undefined,
           salary: jd.extracted_requirements?.find((r: string) => r.includes('$')) || undefined,
+          extracted_requirements: jd.extracted_requirements || [],
+          coreRequirements: parsed.coreRequirements,
+          preferredRequirements: parsed.preferredRequirements,
         },
+        parsedJobDescription: parsed,
+        detailedAnalysis,
       };
     } catch (error) {
       console.error('Error creating cover letter draft:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create draft with streaming progress updates
+   * Reports progress as each step completes
+   */
+  async createDraftWithProgress(
+    userId: string,
+    jobDescription: string,
+    onProgress: DraftProgressCallback,
+    jobUrl?: string,
+    userGoals?: UserGoals | null,
+    userVoice?: UserVoice | null,
+    pmLevel?: string,
+    goNoGoAnalysis?: any
+  ): Promise<CoverLetterDraft> {
+    try {
+      // Step 1: Parse job description
+      onProgress('Analyzing job description...', 10, 'Extracting requirements and key details');
+      const { dbRecord: jd, parsed } = await this.jobDescriptionService.parseAndCreate({
+        userId,
+        content: jobDescription,
+        url: jobUrl,
+      });
+
+      // Step 2: Generate sections
+      onProgress('Generating cover letter draft...', 30, 'Matching your work history to job requirements');
+      const sections = await this.generateSections(userId, jd);
+
+      // Step 3: Detect gaps
+      onProgress('Detecting content gaps...', 50, 'Identifying areas for improvement');
+      const gaps = await this.detectSectionGaps(userId, sections);
+
+      // Step 4: Run detailed analysis with sub-progress updates
+      onProgress('Analyzing match with goals...', 60, 'Checking alignment with your career goals');
+
+      const detailedAnalysis = await this.runDetailedAnalysisWithProgress(
+        userId,
+        parsed,
+        sections,
+        jobDescription,
+        userGoals,
+        userVoice,
+        pmLevel,
+        goNoGoAnalysis,
+        onProgress
+      );
+
+      // Step 5: Calculate metrics
+      onProgress('Calculating metrics...', 90, 'Computing match scores and ATS compatibility');
+      const metrics = this.calculateMetricsFromAnalysis(detailedAnalysis);
+
+      // Step 6: Save draft
+      onProgress('Saving draft...', 95, 'Persisting to database');
+      const draftId = await this.saveDraft(userId, jd.id, sections, gaps, metrics);
+
+      onProgress('Complete!', 100, 'Your cover letter draft is ready');
+
+      return {
+        draftId,
+        sections,
+        gaps,
+        metrics,
+        jobDescription: {
+          id: jd.id,
+          role: jd.role || undefined,
+          company: jd.company || undefined,
+          location: jd.extracted_requirements?.find((r: string) => r.toLowerCase().includes('location') || r.toLowerCase().includes('remote')) || undefined,
+          salary: jd.extracted_requirements?.find((r: string) => r.includes('$')) || undefined,
+          extracted_requirements: jd.extracted_requirements || [],
+          coreRequirements: parsed.coreRequirements,
+          preferredRequirements: parsed.preferredRequirements,
+        },
+        parsedJobDescription: parsed,
+        detailedAnalysis,
+      };
+    } catch (error) {
+      console.error('Error creating cover letter draft:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Run detailed analysis with progress updates for each sub-step
+   */
+  private async runDetailedAnalysisWithProgress(
+    userId: string,
+    parsed: ParsedJobDescription,
+    sections: CoverLetterSection[],
+    jobDescriptionText: string,
+    userGoals?: UserGoals | null,
+    userVoice?: UserVoice | null,
+    pmLevel?: string,
+    goNoGoAnalysis?: any,
+    onProgress?: DraftProgressCallback
+  ): Promise<DetailedMatchAnalysis> {
+    try {
+      // Fetch work history for experience matching
+      const { data: workItems } = await supabase
+        .from('work_items')
+        .select('id, company:companies(name), title, description, achievements, start_date, end_date')
+        .eq('user_id', userId);
+
+      const { data: approvedContent } = await supabase
+        .from('approved_content')
+        .select('id, title, content, company:work_items(company_id), role:work_items(title)')
+        .eq('user_id', userId);
+
+      // Format work items for analysis
+      const formattedWorkItems = (workItems || []).map(item => ({
+        id: item.id,
+        company: (item.company as any)?.name || 'Unknown',
+        title: item.title,
+        description: item.description,
+        achievements: item.achievements || [],
+        startDate: item.start_date,
+        endDate: item.end_date,
+      }));
+
+      const formattedStories = (approvedContent || []).map(story => ({
+        id: story.id,
+        title: story.title,
+        content: story.content,
+        company: (story.company as any)?.name,
+        role: (story.role as any)?.title,
+      }));
+
+      // Combine all section content into single draft text
+      const fullDraftText = sections.map(s => s.content).join('\n\n');
+
+      // Run analyses sequentially with progress updates for better UX feedback
+      onProgress?.('Analyzing match with goals...', 62, 'Checking alignment with career goals');
+      const goalsMatch = await this.goalsMatchService.analyzeGoalsMatch(
+        userGoals,
+        {
+          role: parsed.role,
+          company: parsed.company,
+          location: undefined,
+          salary: undefined,
+        },
+        goNoGoAnalysis
+      );
+
+      onProgress?.('Analyzing requirements match...', 65, 'Checking coverage of job requirements');
+      const requirementsMatch = this.requirementsMatchService.analyzeRequirementsMatch(
+        parsed.coreRequirements,
+        parsed.preferredRequirements,
+        sections
+      );
+
+      onProgress?.('Matching core requirements to experience...', 70, 'AI analyzing work history for core skills');
+      const coreExperienceMatch = await this.experienceMatchService.analyzeExperienceMatch(
+        parsed.coreRequirements,
+        formattedWorkItems,
+        formattedStories
+      );
+
+      onProgress?.('Matching preferred requirements to experience...', 75, 'AI analyzing work history for additional skills');
+      const preferredExperienceMatch = await this.experienceMatchService.analyzeExperienceMatch(
+        parsed.preferredRequirements,
+        formattedWorkItems,
+        formattedStories
+      );
+
+      onProgress?.('Evaluating cover letter quality...', 80, 'AI rating draft against best practices');
+      const coverLetterRating = await this.coverLetterRatingService.evaluateCoverLetter(
+        fullDraftText,
+        jobDescriptionText,
+        userVoice?.prompt,
+        pmLevel
+      );
+
+      onProgress?.('Running ATS compatibility check...', 85, 'AI analyzing keyword optimization');
+      const atsAnalysis = await this.atsAnalysisService.evaluateATS(
+        fullDraftText,
+        jobDescriptionText
+      );
+
+      return {
+        goalsMatch,
+        requirementsMatch,
+        coreExperienceMatch,
+        preferredExperienceMatch,
+        coverLetterRating,
+        atsAnalysis,
+      };
+    } catch (error) {
+      console.error('Error running detailed analysis:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Run detailed analysis on generated cover letter
+   * Calls all 5 analysis services: Goals, Requirements, Experience, Rating, ATS
+   */
+  private async runDetailedAnalysis(
+    userId: string,
+    parsed: ParsedJobDescription,
+    sections: CoverLetterSection[],
+    jobDescriptionText: string,
+    userGoals?: UserGoals | null,
+    userVoice?: UserVoice | null,
+    pmLevel?: string,
+    goNoGoAnalysis?: any
+  ): Promise<DetailedMatchAnalysis> {
+    try {
+      // Fetch work history for experience matching
+      const { data: workItems } = await supabase
+        .from('work_items')
+        .select('id, company:companies(name), title, description, achievements, start_date, end_date')
+        .eq('user_id', userId);
+
+      const { data: approvedContent } = await supabase
+        .from('approved_content')
+        .select('id, title, content, company:work_items(company_id), role:work_items(title)')
+        .eq('user_id', userId);
+
+      // Format work items for analysis
+      const formattedWorkItems = (workItems || []).map(item => ({
+        id: item.id,
+        company: (item.company as any)?.name || 'Unknown',
+        title: item.title,
+        description: item.description,
+        achievements: item.achievements || [],
+        startDate: item.start_date,
+        endDate: item.end_date,
+      }));
+
+      const formattedStories = (approvedContent || []).map(story => ({
+        id: story.id,
+        title: story.title,
+        content: story.content,
+        company: (story.company as any)?.name,
+        role: (story.role as any)?.title,
+      }));
+
+      // Combine all section content into single draft text
+      const fullDraftText = sections.map(s => s.content).join('\n\n');
+
+      // Run all analyses in parallel for speed
+      const [
+        goalsMatch,
+        requirementsMatch,
+        coreExperienceMatch,
+        preferredExperienceMatch,
+        coverLetterRating,
+        atsAnalysis
+      ] = await Promise.all([
+        // 1. Goals Match
+        Promise.resolve(this.goalsMatchService.analyzeGoalsMatch(
+          userGoals,
+          {
+            role: parsed.role,
+            company: parsed.company,
+            location: undefined, // TODO: Extract from requirements
+            salary: undefined, // TODO: Extract from requirements
+          },
+          goNoGoAnalysis
+        )),
+
+        // 2. Requirements Match
+        Promise.resolve(this.requirementsMatchService.analyzeRequirementsMatch(
+          parsed.coreRequirements,
+          parsed.preferredRequirements,
+          sections
+        )),
+
+        // 3a. Core Experience Match (LLM call)
+        this.experienceMatchService.analyzeExperienceMatch(
+          parsed.coreRequirements,
+          formattedWorkItems,
+          formattedStories
+        ),
+
+        // 3b. Preferred Experience Match (LLM call)
+        this.experienceMatchService.analyzeExperienceMatch(
+          parsed.preferredRequirements,
+          formattedWorkItems,
+          formattedStories
+        ),
+
+        // 4. Cover Letter Rating (LLM call)
+        this.coverLetterRatingService.evaluateCoverLetter(
+          fullDraftText,
+          jobDescriptionText,
+          userVoice?.prompt,
+          pmLevel
+        ),
+
+        // 5. ATS Analysis (LLM call)
+        this.atsAnalysisService.evaluateATS(
+          fullDraftText,
+          jobDescriptionText
+        )
+      ]);
+
+      return {
+        goalsMatch,
+        requirementsMatch,
+        coreExperienceMatch,
+        preferredExperienceMatch,
+        coverLetterRating,
+        atsAnalysis,
+      };
+    } catch (error) {
+      console.error('Error running detailed analysis:', error);
+      // Return empty/default results on error
       throw error;
     }
   }
@@ -444,6 +810,58 @@ Best regards,
         preferredRequirementsMet: { met: 1, total: 4 },
       };
     }
+  }
+
+  /**
+   * Calculate HIL progress metrics from detailed analysis results
+   * Uses real analysis data instead of heuristics
+   */
+  private calculateMetricsFromAnalysis(analysis: DetailedMatchAnalysis): HILProgressMetrics {
+    // Goals match
+    const goalsMatch = analysis.goalsMatch.overallMatch;
+
+    // Experience match - combine core + preferred for overall rating
+    const totalHighConfidence = analysis.coreExperienceMatch.highConfidenceCount + analysis.preferredExperienceMatch.highConfidenceCount;
+    const totalRequirements = analysis.coreExperienceMatch.totalCount + analysis.preferredExperienceMatch.totalCount;
+    const experienceMatchPercentage = totalRequirements > 0 ? (totalHighConfidence / totalRequirements) * 100 : 0;
+
+    let experienceMatch: 'strong' | 'average' | 'weak';
+    if (experienceMatchPercentage >= 70) {
+      experienceMatch = 'strong';
+    } else if (experienceMatchPercentage >= 40) {
+      experienceMatch = 'average';
+    } else {
+      experienceMatch = 'weak';
+    }
+
+    // Cover letter rating
+    const coverLetterRating = analysis.coverLetterRating.overallRating;
+
+    // ATS score
+    const atsScore = analysis.atsAnalysis.overall_score;
+
+    // Core requirements - from requirementsMatch (what's in the DRAFT)
+    const coreMetCount = analysis.requirementsMatch.coreMetCount;
+    const coreTotalCount = analysis.requirementsMatch.coreTotalCount;
+
+    // Preferred requirements - from requirementsMatch (what's in the DRAFT)
+    const preferredMetCount = analysis.requirementsMatch.preferredMetCount;
+    const preferredTotalCount = analysis.requirementsMatch.preferredTotalCount;
+
+    return {
+      goalsMatch,
+      experienceMatch,
+      coverLetterRating,
+      atsScore,
+      coreRequirementsMet: {
+        met: coreMetCount,
+        total: coreTotalCount
+      },
+      preferredRequirementsMet: {
+        met: preferredMetCount,
+        total: preferredTotalCount
+      },
+    };
   }
 
   /**

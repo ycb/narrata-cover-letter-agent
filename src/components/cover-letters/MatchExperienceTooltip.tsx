@@ -3,10 +3,12 @@ import { FullWidthTooltip } from '@/components/ui/full-width-tooltip';
 import { Check, X } from 'lucide-react';
 
 interface ExperienceMatch {
-  id: string;
   requirement: string;
-  match: string | null;
   confidence: 'high' | 'medium' | 'low';
+  matchedWorkItemIds: string[];
+  matchedStoryIds: string[];
+  evidence: string;
+  missingDetails?: string;
 }
 
 interface MatchExperienceTooltipProps {
@@ -15,8 +17,8 @@ interface MatchExperienceTooltipProps {
   matches: ExperienceMatch[];
 }
 
-export function MatchExperienceTooltip({ 
-  children, 
+export function MatchExperienceTooltip({
+  children,
   className,
   matches
 }: MatchExperienceTooltipProps) {
@@ -31,53 +33,36 @@ export function MatchExperienceTooltip({
 
   const content = (
     <div className="space-y-3">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Left side - Job Requirements */}
-          <div className="space-y-2">
-            {matches.map((match) => (
-              <div key={match.id} className={`flex items-center gap-2 p-2 rounded ${match.match ? 'bg-success/10' : 'bg-destructive/10'}`}>
-                <div className="flex-shrink-0">
-                  {match.match ? (
-                    <Check className="h-3 w-3 text-success" />
-                  ) : (
-                    <X className="h-3 w-3 text-destructive" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <span className="text-sm text-foreground">
-                    {match.requirement}
-                  </span>
-                </div>
+      {matches.map((match, idx) => {
+        const hasMatch = match.confidence === 'high' || (match.matchedWorkItemIds.length > 0 || match.matchedStoryIds.length > 0);
+        return (
+          <div
+            key={idx}
+            className={`border rounded-lg p-3 ${hasMatch ? 'bg-success/10 border-success/20' : 'bg-destructive/10 border-destructive/20'}`}
+          >
+            {/* Requirement as title */}
+            <div className="flex items-start gap-2 mb-2">
+              <div className="flex-shrink-0 mt-0.5">
+                {hasMatch ? (
+                  <Check className="h-4 w-4 text-success" />
+                ) : (
+                  <X className="h-4 w-4 text-destructive" />
+                )}
               </div>
-            ))}
-          </div>
+              <h4 className="text-sm font-medium text-foreground flex-1">
+                {match.requirement}
+              </h4>
+            </div>
 
-          {/* Right side - Work History Matches */}
-          <div className="space-y-2">
-            {matches.map((match) => (
-              <div key={match.id} className={`flex items-center gap-2 p-2 rounded ${match.match ? 'bg-success/10' : 'bg-destructive/10'}`}>
-                <div className="flex-shrink-0">
-                  {match.match ? (
-                    <Check className="h-3 w-3 text-success" />
-                  ) : (
-                    <X className="h-3 w-3 text-destructive" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  {match.match ? (
-                    <span className="text-sm text-foreground">
-                      {match.match}
-                    </span>
-                  ) : (
-                    <span className="text-sm text-muted-foreground">
-                      No matching experience found
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
+            {/* Evidence as body */}
+            <div className="ml-6">
+              <p className={`text-xs ${hasMatch ? 'text-foreground/80' : 'text-muted-foreground'}`}>
+                {match.evidence || 'No matching experience found'}
+              </p>
+            </div>
           </div>
-        </div>
+        );
+      })}
     </div>
   );
 
@@ -89,46 +74,4 @@ export function MatchExperienceTooltip({
       {children}
     </FullWidthTooltip>
   );
-}
-
-// Helper function to create mock experience matches
-export function createMockExperienceMatches(): ExperienceMatch[] {
-  return [
-    {
-      id: 'exp-1',
-      requirement: 'JavaScript and frontend development',
-      match: null,
-      confidence: 'low'
-    },
-    {
-      id: 'exp-2',
-      requirement: 'React and modern frontend frameworks',
-      match: null,
-      confidence: 'low'
-    },
-    {
-      id: 'exp-3',
-      requirement: 'API integration and backend communication',
-      match: 'Basic API integration experience with REST endpoints',
-      confidence: 'medium'
-    },
-    {
-      id: 'exp-4',
-      requirement: 'Node.js server-side development',
-      match: null,
-      confidence: 'low'
-    },
-    {
-      id: 'exp-5',
-      requirement: 'Team collaboration and agile practices',
-      match: 'Worked in agile teams with standard practices',
-      confidence: 'medium'
-    },
-    {
-      id: 'exp-6',
-      requirement: 'Leadership and mentoring experience',
-      match: 'Led small team projects and mentored junior developers',
-      confidence: 'high'
-    }
-  ];
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,10 +17,14 @@ import { UnifiedGapCard } from "@/components/hil/UnifiedGapCard";
 import { CoverLetterFinalization } from "./CoverLetterFinalization";
 import { ProgressIndicatorWithTooltips } from "./ProgressIndicatorWithTooltips";
 import { ContentCard } from "@/components/shared/ContentCard";
+import { UserGoalsModal } from "@/components/user-goals/UserGoalsModal";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserGoals } from "@/contexts/UserGoalsContext";
+import { useUserVoice } from "@/contexts/UserVoiceContext";
+import { usePMLevel } from "@/hooks/usePMLevel";
 import { GoNoGoService } from "@/services/goNoGoService";
-import { CoverLetterDraftService } from "@/services/coverLetterDraftService";
+import { CoverLetterDraftService, type DetailedMatchAnalysis } from "@/services/coverLetterDraftService";
 import { useToast } from "@/hooks/use-toast";
 
 interface CoverLetterCreateModalProps {
@@ -68,23 +72,40 @@ const CoverLetterCreateModal = ({ isOpen, onClose, onCoverLetterCreated }: Cover
   // Hooks
   const { user } = useAuth();
   const { toast } = useToast();
+  const { goals } = useUserGoals();
+  const { voice } = useUserVoice();
+  const { levelData } = usePMLevel();
 
   // Services
   const [goNoGoService] = useState(() => new GoNoGoService());
   const [draftService] = useState(() => new CoverLetterDraftService());
 
-  // State
-  const [jobDescriptionMethod, setJobDescriptionMethod] = useState<'url' | 'paste'>('paste');
-  const [jobUrl, setJobUrl] = useState('');
-  const [jobContent, setJobContent] = useState('');
+  // State - with sessionStorage persistence to prevent loss on tab switch
+  const [jobDescriptionMethod, setJobDescriptionMethod] = useState<'url' | 'paste'>(() => {
+    const saved = sessionStorage.getItem('coverLetterModal_jobMethod');
+    return (saved as 'url' | 'paste') || 'paste';
+  });
 
+  const [jobUrl, setJobUrl] = useState(() => {
+    return sessionStorage.getItem('coverLetterModal_jobUrl') || '';
+  });
+
+  const [jobContent, setJobContent] = useState(() => {
+    return sessionStorage.getItem('coverLetterModal_jobContent') || '';
+  });
 
   const [isGenerating, setIsGenerating] = useState(false);
-  const [coverLetterGenerated, setCoverLetterGenerated] = useState(false);
+  const [generatingProgress, setGeneratingProgress] = useState(0);
+  const [generatingStep, setGeneratingStep] = useState('');
+  const [generatingDetail, setGeneratingDetail] = useState('');
+  const [coverLetterGenerated, setCoverLetterGenerated] = useState(() => {
+    return sessionStorage.getItem('coverLetterModal_generated') === 'true';
+  });
   const [goNoGoAnalysis, setGoNoGoAnalysis] = useState<GoNoGoAnalysis | null>(null);
   const [showGoNoGoModal, setShowGoNoGoModal] = useState(false);
   const [userOverrideDecision, setUserOverrideDecision] = useState(false);
   const [hilProgressMetrics, setHilProgressMetrics] = useState<HILProgressMetrics | null>(null);
+  const [detailedAnalysis, setDetailedAnalysis] = useState<DetailedMatchAnalysis | null>(null);
   const [gaps, setGaps] = useState<GapAnalysis[]>([]);
   const [hilCompleted, setHilCompleted] = useState(false);
   const [showContentGenerationModal, setShowContentGenerationModal] = useState(false);
@@ -92,11 +113,43 @@ const CoverLetterCreateModal = ({ isOpen, onClose, onCoverLetterCreated }: Cover
   const [mainTabValue, setMainTabValue] = useState<'job-description' | 'cover-letter'>('cover-letter');
   const [showFinalizationModal, setShowFinalizationModal] = useState(false);
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
-  const [currentJobDescription, setCurrentJobDescription] = useState<{ id: string; role?: string; company?: string; location?: string; salary?: string; } | null>(null);
+  const [currentJobDescription, setCurrentJobDescription] = useState<{ id: string; role?: string; company?: string; location?: string; salary?: string; extracted_requirements?: string[]; } | null>(null);
+  const [showGoalsModal, setShowGoalsModal] = useState(false);
 
 
 
 
+
+  // Persist state to sessionStorage to survive tab switches
+  useEffect(() => {
+    sessionStorage.setItem('coverLetterModal_jobMethod', jobDescriptionMethod);
+  }, [jobDescriptionMethod]);
+
+  useEffect(() => {
+    sessionStorage.setItem('coverLetterModal_jobUrl', jobUrl);
+  }, [jobUrl]);
+
+  useEffect(() => {
+    sessionStorage.setItem('coverLetterModal_jobContent', jobContent);
+  }, [jobContent]);
+
+  useEffect(() => {
+    sessionStorage.setItem('coverLetterModal_generated', String(coverLetterGenerated));
+  }, [coverLetterGenerated]);
+
+  // Clear sessionStorage when modal is explicitly closed
+  // Track previous isOpen state to only clear on transitions from true -> false
+  const prevIsOpenRef = useRef(isOpen);
+  useEffect(() => {
+    if (prevIsOpenRef.current && !isOpen) {
+      // Only clear when modal was open and now is closed (explicit user action)
+      sessionStorage.removeItem('coverLetterModal_jobMethod');
+      sessionStorage.removeItem('coverLetterModal_jobUrl');
+      sessionStorage.removeItem('coverLetterModal_jobContent');
+      sessionStorage.removeItem('coverLetterModal_generated');
+    }
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen]);
 
   // Enhanced mock data for generated cover letter
   const [generatedLetter, setGeneratedLetter] = useState({
@@ -154,39 +207,55 @@ const CoverLetterCreateModal = ({ isOpen, onClose, onCoverLetterCreated }: Cover
     }
 
     setIsGenerating(true);
+    setGeneratingStep('Starting analysis...');
+    setGeneratingProgress(0);
 
     try {
-      // Step 1: Analyze Go/No-Go
+      // Step 1: Analyze Go/No-Go (integrated into progress flow)
+      setGeneratingStep('Analyzing job fit...');
+      setGeneratingProgress(5);
+      setGeneratingDetail('Checking if this role matches your profile');
+
       const analysis = await goNoGoService.analyzeJobFit(user.id, jobContent || jobUrl);
       setGoNoGoAnalysis(analysis);
 
-      // If no-go, show modal for user decision
+      // If no-go, show inline warning and let user decide to continue
       if (analysis.decision === 'no-go') {
         setIsGenerating(false);
         setShowGoNoGoModal(true);
         return;
       }
 
-      // Step 2: Create draft using DraftService
-      const draft = await draftService.createDraft(
+      // Step 2: Create draft using DraftService with streaming progress
+      const draft = await draftService.createDraftWithProgress(
         user.id,
         jobContent || jobUrl,
-        jobDescriptionMethod === 'url' ? jobUrl : undefined
+        (step, progress, detail) => {
+          setGeneratingStep(step);
+          setGeneratingProgress(progress);
+          setGeneratingDetail(detail || '');
+        },
+        jobDescriptionMethod === 'url' ? jobUrl : undefined,
+        goals,
+        voice,
+        levelData?.levelCode,
+        goNoGoAnalysis
       );
 
-      // Step 3: Update state with draft data
+      // Step 3: Update state with draft data and show result (no toast)
       setCurrentDraftId(draft.draftId);
       setCurrentJobDescription(draft.jobDescription);
       setGeneratedLetter({ sections: draft.sections });
       setHilProgressMetrics(draft.metrics);
+      setDetailedAnalysis(draft.detailedAnalysis || null);
       setGaps(draft.gaps);
       setCoverLetterGenerated(true);
       setIsGenerating(false);
 
-      toast({
-        title: 'Draft created',
-        description: 'Your cover letter draft is ready for review',
-      });
+      // Clear progress state
+      setGeneratingStep('');
+      setGeneratingProgress(0);
+      setGeneratingDetail('');
     } catch (error) {
       console.error('Error generating cover letter:', error);
       setIsGenerating(false);
@@ -205,6 +274,8 @@ const CoverLetterCreateModal = ({ isOpen, onClose, onCoverLetterCreated }: Cover
     setUserOverrideDecision(true);
     setShowGoNoGoModal(false);
     setIsGenerating(true);
+    setGeneratingStep('Continuing with draft...');
+    setGeneratingProgress(5);
 
     try {
       // Mark user override in analysis
@@ -214,24 +285,34 @@ const CoverLetterCreateModal = ({ isOpen, onClose, onCoverLetterCreated }: Cover
       }
 
       // Proceed with draft creation despite no-go
-      const draft = await draftService.createDraft(
+      const draft = await draftService.createDraftWithProgress(
         user.id,
         jobContent || jobUrl,
-        jobDescriptionMethod === 'url' ? jobUrl : undefined
+        (step, progress, detail) => {
+          setGeneratingStep(step);
+          setGeneratingProgress(progress);
+          setGeneratingDetail(detail || '');
+        },
+        jobDescriptionMethod === 'url' ? jobUrl : undefined,
+        goals,
+        voice,
+        levelData?.levelCode,
+        goNoGoAnalysis
       );
 
       setCurrentDraftId(draft.draftId);
       setCurrentJobDescription(draft.jobDescription);
       setGeneratedLetter({ sections: draft.sections });
       setHilProgressMetrics(draft.metrics);
+      setDetailedAnalysis(draft.detailedAnalysis || null);
       setGaps(draft.gaps);
       setCoverLetterGenerated(true);
       setIsGenerating(false);
 
-      toast({
-        title: 'Draft created',
-        description: 'Your cover letter draft is ready for review (user override)',
-      });
+      // Clear progress state
+      setGeneratingStep('');
+      setGeneratingProgress(0);
+      setGeneratingDetail('');
     } catch (error) {
       console.error('Error generating cover letter:', error);
       setIsGenerating(false);
@@ -417,20 +498,9 @@ const CoverLetterCreateModal = ({ isOpen, onClose, onCoverLetterCreated }: Cover
     }
   };
 
-  // Function to get specific requirements addressed for each paragraph type
-  const getRequirementsForParagraph = (paragraphType: string): string[] => {
-    switch (paragraphType) {
-      case 'intro':
-        return ['growth metrics', 'KPIs', 'quantifiable achievements'];
-      case 'experience':
-        return ['SQL/Python experience', 'technical leadership', 'cross-functional collaboration'];
-      case 'closing':
-        return ['SaaS background', 'sustainability focus', 'innovation commitment'];
-      case 'signature':
-        return ['professional closing', 'contact information', 'call to action'];
-      default:
-        return ['job requirements'];
-    }
+  // Get requirements from real job description data
+  const getRequirementsForSection = (): string[] => {
+    return currentJobDescription?.extracted_requirements || [];
   };
 
   const handleClose = () => {
@@ -451,13 +521,10 @@ const CoverLetterCreateModal = ({ isOpen, onClose, onCoverLetterCreated }: Cover
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={(open) => {
-        // Only close via explicit user action (X button, ESC)
-        // Prevents losing work when user switches tabs to copy job description
-        if (!open) {
-          handleClose();
-        }
-      }} modal={true}>
+      <Dialog open={isOpen} onOpenChange={() => {
+        // DO NOT close on blur/tab switch
+        // Only close via explicit X button or Cancel actions
+      }} modal={false}>
         <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="pb-2">
             <DialogTitle className="text-2xl font-bold">Create Cover Letter</DialogTitle>
@@ -474,6 +541,8 @@ const CoverLetterCreateModal = ({ isOpen, onClose, onCoverLetterCreated }: Cover
               isPostHIL={hilCompleted} // Show post-HIL tooltips after HIL completion
               goNoGoAnalysis={goNoGoAnalysis || undefined}
               jobDescription={currentJobDescription || undefined}
+              detailedAnalysis={detailedAnalysis || undefined}
+              onEditGoals={() => setShowGoalsModal(true)}
             />
           )}
 
@@ -525,24 +594,37 @@ const CoverLetterCreateModal = ({ isOpen, onClose, onCoverLetterCreated }: Cover
                   </TabsContent>
                 </Tabs>
 
+                {/* Progress Display - Show above button when generating */}
+                {isGenerating && (
+                  <div className="mt-4 space-y-2 p-4 bg-muted/30 rounded-lg border border-muted">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <RefreshCw className="h-4 w-4 animate-spin text-primary" />
+                        <span className="font-medium">{generatingStep || 'Processing...'}</span>
+                      </div>
+                      <span className="text-muted-foreground tabular-nums">{generatingProgress}%</span>
+                    </div>
+                    {generatingDetail && (
+                      <p className="text-xs text-muted-foreground pl-6">{generatingDetail}</p>
+                    )}
+                    <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-primary h-full rounded-full transition-all duration-300 ease-out"
+                        style={{ width: `${generatingProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {/* Generate Button */}
-                <Button 
+                <Button
                   onClick={handleGenerate}
                   disabled={isGenerating || (!jobUrl && !jobContent)}
-                  className="w-full flex items-center gap-2 mt-4"
+                  className="w-full mt-4"
                   size="lg"
                 >
-                  {isGenerating ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                      Generating Cover Letter...
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="h-4 w-4" />
-                      Generate Cover Letter
-                    </>
-                  )}
+                  <Wand2 className="h-4 w-4 mr-2" />
+                  Generate Cover Letter
                 </Button>
               </CardContent>
             </Card>
@@ -600,18 +682,18 @@ const CoverLetterCreateModal = ({ isOpen, onClose, onCoverLetterCreated }: Cover
                   {generatedLetter.sections.map((section, index) => {
                     const sectionGaps = gaps.filter(gap => gap.paragraphId === section.type);
                     const hasGaps = sectionGaps.length > 0;
-                    const sectionTitle = section.type === 'intro' ? 'Introduction' : 
-                           section.type === 'experience' ? 'Experience' : 
-                           section.type === 'closing' ? 'Closing' : 
+                    const sectionTitle = section.type === 'intro' ? 'Introduction' :
+                           section.type === 'experience' ? 'Experience' :
+                           section.type === 'closing' ? 'Closing' :
                                         section.type === 'signature' ? 'Signature' : section.type;
-                    const mockJDTags = getRequirementsForParagraph(section.type);
-                    
+                    const realRequirements = getRequirementsForSection();
+
                     return (
                       <ContentCard
                         key={section.id}
                         title={sectionTitle}
                         content={section.content}
-                        tags={mockJDTags}
+                        tags={realRequirements}
                         hasGaps={hasGaps}
                         gaps={sectionGaps.map(g => ({ id: g.id, description: g.description }))}
                         isGapResolved={!hasGaps}
@@ -741,6 +823,22 @@ const CoverLetterCreateModal = ({ isOpen, onClose, onCoverLetterCreated }: Cover
         coverLetter={generatedLetter}
         onBackToDraft={() => setShowFinalizationModal(false)}
         onSave={handleSaveCoverLetter}
+      />
+
+      {/* User Goals Modal */}
+      <UserGoalsModal
+        isOpen={showGoalsModal}
+        onClose={() => setShowGoalsModal(false)}
+        onSave={async (updatedGoals) => {
+          await saveGoals(updatedGoals);
+          setShowGoalsModal(false);
+          // Optionally: Re-run analysis with new goals
+          toast({
+            title: 'Goals Updated',
+            description: 'Your career goals have been updated successfully',
+          });
+        }}
+        initialGoals={goals || undefined}
       />
     </>
   );

@@ -6,8 +6,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CheckCircle, Copy, Download, Share2, Star, X, Wand2, Upload, Send, Save } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { UnifiedGapCard } from '@/components/hil/UnifiedGapCard';
-import { ContentCard } from '@/components/shared/ContentCard';
+import { CoverLetterDraftView } from './CoverLetterDraftView';
+import { UserGoalsModal } from '@/components/user-goals/UserGoalsModal';
+import { useUserGoals } from '@/contexts/UserGoalsContext';
+import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 interface CoverLetterEditModalProps {
@@ -17,9 +19,12 @@ interface CoverLetterEditModalProps {
 }
 
 export function CoverLetterEditModal({ isOpen, onClose, coverLetter }: CoverLetterEditModalProps) {
+  const { goals, saveGoals } = useUserGoals();
+  const { toast } = useToast();
   const [editedContent, setEditedContent] = useState<any>(null);
   const [mainTabValue, setMainTabValue] = useState<'cover-letter' | 'job-description'>('cover-letter');
   const [isSaving, setIsSaving] = useState(false);
+  const [showGoalsModal, setShowGoalsModal] = useState(false);
 
   // Initialize edited content when cover letter changes
   useEffect(() => {
@@ -65,35 +70,6 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter }: CoverLett
     }
   };
 
-  const getRequirementsForParagraph = (paragraphType: string) => {
-    switch (paragraphType) {
-      case 'intro':
-        return ['quantifiable achievements', 'specific metrics', 'KPIs from past projects'];
-      case 'experience':
-        return ['SQL/Python experience', 'technical leadership', 'cross-functional collaboration'];
-      case 'closing':
-        return ['enthusiasm', 'specific interest in role', 'company alignment'];
-      case 'signature':
-        return ['professional closing', 'contact information', 'call to action'];
-      default:
-        return ['requirements met'];
-    }
-  };
-
-  const getSectionTitle = (type: string) => {
-    switch (type) {
-      case 'intro':
-        return 'Introduction';
-      case 'experience':
-        return 'Experience';
-      case 'closing':
-        return 'Closing';
-      case 'signature':
-        return 'Signature';
-      default:
-        return type;
-    }
-  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -189,69 +165,34 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter }: CoverLett
 
             {/* Cover Letter Tab - Shows draft with content cards */}
             <TabsContent value="cover-letter" className="space-y-6">
-              {/* Single Column Layout - Content Cards */}
-              {editedContent.content?.sections?.map((section: any, index: number) => {
-                const sectionTitle = getSectionTitle(section.type);
-                const mockJDTags = getRequirementsForParagraph(section.type);
-                
-                return (
-                  <ContentCard
-                    key={section.id}
-                    title={sectionTitle}
-                    content={section.content}
-                    tags={mockJDTags}
-                    hasGaps={false}
-                    gaps={[]}
-                    isGapResolved={true}
-                    onEdit={() => {
-                      // Handle inline editing - will be handled by Textarea in children
-                    }}
-                    onDuplicate={() => {
-                      // TODO: Implement duplicate section
-                      console.log('Duplicate section:', section.id);
-                    }}
-                    onDelete={() => {
-                      // TODO: Implement delete section
-                      console.log('Delete section:', section.id);
-                    }}
-                    tagsLabel="Job Requirements"
-                    showUsage={false}
-                    renderChildrenBeforeTags={true}
-                    className={cn(section.isEnhanced && 'border-success/30')}
-                  >
-                    {/* Inline editable Textarea - renders before tags */}
-                    <div className="mb-6">
-                    <Textarea
-                      value={section.content}
-                        ref={(textarea) => {
-                          if (textarea) {
-                            // Set initial height based on content
-                            textarea.style.height = 'auto';
-                            textarea.style.height = `${textarea.scrollHeight}px`;
-                          }
-                        }}
-                        onChange={(e) => {
-                          handleSectionChange(section.id, e.target.value);
-                          // Auto-resize textarea
-                          e.target.style.height = 'auto';
-                          e.target.style.height = `${e.target.scrollHeight}px`;
-                        }}
-                        className="resize-none overflow-hidden"
-                        placeholder="Enter cover letter content..."
-                        rows={1}
-                      />
-                    </div>
-                  </ContentCard>
-                );
-              })}
+              {/* Use shared CoverLetterDraftView component */}
+              <CoverLetterDraftView
+                sections={editedContent.content?.sections || []}
+                hilProgressMetrics={editedContent.llmFeedback?.metrics || null}
+                detailedAnalysis={editedContent.llmFeedback?.detailedAnalysis || null}
+                goNoGoAnalysis={editedContent.llmFeedback?.goNoGoAnalysis || null}
+                jobDescription={editedContent.jobDescription || null}
+                isEditable={true}
+                hilCompleted={false}
+                onSectionChange={handleSectionChange}
+                onSectionDelete={(sectionId) => {
+                  console.log('Delete section:', sectionId);
+                  // TODO: Implement delete section
+                }}
+                onSectionDuplicate={(sectionId) => {
+                  console.log('Duplicate section:', sectionId);
+                  // TODO: Implement duplicate section
+                }}
+                onEditGoals={() => setShowGoalsModal(true)}
+              />
 
               {/* Action Buttons */}
               <div className="flex gap-3 pt-4">
                 <Button variant="link" className="flex-1 text-muted-foreground hover:text-foreground">
                   Save Draft
                 </Button>
-                <Button 
-                  className="flex-1 flex items-center gap-2" 
+                <Button
+                  className="flex-1 flex items-center gap-2"
                   onClick={handleSave}
                   disabled={isSaving}
                 >
@@ -263,6 +204,21 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter }: CoverLett
           </Tabs>
         </div>
       </DialogContent>
+
+      {/* User Goals Modal */}
+      <UserGoalsModal
+        isOpen={showGoalsModal}
+        onClose={() => setShowGoalsModal(false)}
+        onSave={async (updatedGoals) => {
+          await saveGoals(updatedGoals);
+          setShowGoalsModal(false);
+          toast({
+            title: 'Goals Updated',
+            description: 'Your career goals have been updated successfully',
+          });
+        }}
+        initialGoals={goals || undefined}
+      />
     </Dialog>
   );
 }

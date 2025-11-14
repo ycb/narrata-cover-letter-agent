@@ -1,0 +1,32 @@
+---
+alwaysApply: true
+---
+
+You are generating code that should be clean, simple, and free of unnecessary duplication.
+
+Follow these principles:
+
+1) GENERAL BEST PRACTICES
+- Use clear, consistent naming for variables, functions, and classes.
+- Keep functions/methods short and focused on a single task.
+- Handle errors and edge cases explicitly.
+- Write tests for non-trivial logic and important flows.
+- Document public APIs and any non-obvious logic.
+
+2) KISS (KEEP IT SIMPLE)
+- Prefer the simplest solution that meets the requirements.
+- Avoid clever constructs that hurt readability.
+- Use standard libraries and well-known patterns before inventing new ones.
+- Break complex operations into small, easy-to-follow steps.
+
+3) DRY (DON’T REPEAT YOURSELF)
+- Avoid copy-pasting code across files or modules.
+- Extract repeated logic into shared functions or modules.
+- Centralize configuration values and constants.
+- Apply the “Rule of Three”: abstract only after similar code has appeared 3+ times.
+
+Validation checklist before you finish:
+- Is any logic duplicated in more than one place?
+- Would a new team member understand this code quickly?
+- Are edge cases and error paths handled, not ignored?
+- Can behavior be changed in one place instead of many?

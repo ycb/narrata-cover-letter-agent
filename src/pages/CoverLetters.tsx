@@ -241,7 +241,13 @@ export default function CoverLetters() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | CoverLetterStatus>("all");
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  // Persist modal state in sessionStorage to prevent loss on tab switch
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(() => {
+    const saved = sessionStorage.getItem('coverLetterCreateModalOpen');
+    return saved === 'true';
+  });
+
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedCoverLetter, setSelectedCoverLetter] = useState<CoverLetterListItem | null>(null);
@@ -250,6 +256,11 @@ export default function CoverLetters() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const mountedRef = useRef(true);
+
+  // Persist create modal state to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem('coverLetterCreateModalOpen', String(isCreateModalOpen));
+  }, [isCreateModalOpen]);
 
   const fetchCoverLetters = useCallback(async () => {
     if (!user?.id) {
