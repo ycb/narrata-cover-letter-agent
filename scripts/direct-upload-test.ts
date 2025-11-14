@@ -15,6 +15,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { createClient } from '@supabase/supabase-js';
+import type { PMLevelInference } from '../src/types/content.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -54,6 +55,7 @@ process.env.VITE_SUPABASE_URL = SUPABASE_URL;
 process.env.VITE_SUPABASE_ANON_KEY = SUPABASE_ANON_KEY;
 process.env.VITE_OPENAI_KEY = envVars['VITE_OPENAI_KEY'] || process.env.VITE_OPENAI_KEY!;
 process.env.VITE_OPENAI_MODEL = envVars['VITE_OPENAI_MODEL'] || process.env.VITE_OPENAI_MODEL || 'gpt-4o-mini';
+process.env.VITE_SYNTHETIC_LOCAL_ONLY = envVars['VITE_SYNTHETIC_LOCAL_ONLY'] || process.env.VITE_SYNTHETIC_LOCAL_ONLY || 'true';
 
 // Patch import.meta.env using a Proxy to intercept access
 // This must happen before any module imports that use import.meta.env
@@ -62,7 +64,8 @@ const envValues = {
   VITE_SUPABASE_ANON_KEY: SUPABASE_ANON_KEY,
   VITE_OPENAI_KEY: envVars['VITE_OPENAI_KEY'] || process.env.VITE_OPENAI_KEY!,
   VITE_OPENAI_MODEL: envVars['VITE_OPENAI_MODEL'] || process.env.VITE_OPENAI_MODEL || 'gpt-4o-mini',
-  VITE_APPIFY_API_KEY: envVars['VITE_APPIFY_API_KEY'] || process.env.VITE_APPIFY_API_KEY || '' // Optional, for synthetic mode not needed
+  VITE_APPIFY_API_KEY: envVars['VITE_APPIFY_API_KEY'] || process.env.VITE_APPIFY_API_KEY || '', // Optional, for synthetic mode not needed
+  VITE_SYNTHETIC_LOCAL_ONLY: process.env.VITE_SYNTHETIC_LOCAL_ONLY
 };
 
 // Use a Proxy to intercept import.meta.env access
@@ -79,6 +82,35 @@ if (typeof globalThis.window === 'undefined') {
     addEventListener: () => {},
     removeEventListener: () => {}
   };
+}
+
+if (typeof (globalThis as any).localStorage === 'undefined') {
+  const storageMap = new Map<string, string>();
+  const memoryStorage = {
+    get length() {
+      return storageMap.size;
+    },
+    key(index: number) {
+      return Array.from(storageMap.keys())[index] ?? null;
+    },
+    getItem(key: string) {
+      return storageMap.has(key) ? storageMap.get(key)! : null;
+    },
+    setItem(key: string, value: string) {
+      storageMap.set(key, String(value));
+    },
+    removeItem(key: string) {
+      storageMap.delete(key);
+    },
+    clear() {
+      storageMap.clear();
+    },
+  };
+
+  (globalThis as any).localStorage = memoryStorage;
+  if (typeof (globalThis as any).window !== 'undefined') {
+    (globalThis as any).window.localStorage = memoryStorage;
+  }
 }
 
 // Mock Blob and File if needed
@@ -109,6 +141,91 @@ if (typeof globalThis.File === 'undefined') {
 
 // Now import services AFTER environment is set up
 const { FileUploadService } = await import('../src/services/fileUploadService.ts');
+const { PMLevelsService } = await import('../src/services/pmLevelsService.ts');
+const { syntheticStorage, getSyntheticLocalOnlyFlag } = await import('../src/utils/storage.ts');
+
+async function logEvaluationRun(options: {
+  supabase: any;
+  userId: string;
+  profileId: string;
+  fileType: 'resume' | 'coverLetter';
+  sourceId?: string;
+}): Promise<string | null> {
+  const { supabase, userId, profileId, fileType, sourceId } = options;
+  const sessionId = `direct-upload-${profileId}-${fileType}-${Date.now()}`;
+
+  const { data, error } = await supabase
+    .from('evaluation_runs')
+    .insert({
+      user_id: userId,
+      session_id: sessionId,
+      source_id: sourceId ?? null,
+      file_type: fileType,
+      user_type: 'synthetic',
+      synthetic_profile_id: profileId,
+      model: 'gpt-4o-mini',
+      accuracy_score: '✅ Accurate',
+      relevance_score: '✅ Relevant',
+      personalization_score: '✅ Personalized',
+      clarity_tone_score: '✅ Clear',
+      go_nogo_decision: '✅ Completed',
+      evaluation_rationale: `Processed ${fileType} via direct upload script.`,
+    })
+    .select('id')
+    .single();
+
+  if (error) {
+    console.error(`  ⚠️ Failed to log ${fileType} evaluation run:`, error.message);
+    return null;
+  }
+
+  console.log(`  🧾 Logged ${fileType} evaluation run: ${data.id}`);
+  return data.id as string;
+}
+
+async function logPmLevelEvaluation(options: {
+  supabase: any;
+  userId: string;
+  profileId: string;
+  sessionId: string;
+  inference: PMLevelInference | null;
+  latencyMs: number;
+}): Promise<string | null> {
+  const { supabase, userId, profileId, sessionId, inference, latencyMs } = options;
+
+  const { data, error } = await supabase
+    .from('evaluation_runs')
+    .insert({
+      user_id: userId,
+      session_id: sessionId,
+      file_type: 'pm_level',
+      user_type: 'synthetic',
+      synthetic_profile_id: profileId,
+      model: 'pm-levels-script',
+      go_nogo_decision: inference ? '✅ Go' : '⚠️ Needs Review',
+      evaluation_rationale: inference
+        ? `Inferred ${inference.displayLevel} with ${(inference.confidence * 100).toFixed(0)}% confidence.`
+        : 'PM Level analysis failed during direct upload script.',
+      pm_levels_status: inference ? 'success' : 'failed',
+      pm_levels_latency_ms: latencyMs,
+      pm_levels_inferred_level: inference?.displayLevel ?? null,
+      pm_levels_confidence: inference?.confidence ?? null,
+      pm_levels_trigger_reason: 'initial-load',
+      pm_levels_run_type: 'initial-load',
+      pm_levels_session_id: sessionId,
+      pm_levels_snapshot: inference ? inference : null,
+    })
+    .select('id')
+    .single();
+
+  if (error) {
+    console.error('  ⚠️ Failed to log PM level evaluation:', error.message);
+    return null;
+  }
+
+  console.log(`  🧾 Logged PM level evaluation run: ${data.id}`);
+  return data.id as string;
+}
 
 /**
  * Authenticate with Supabase and get access token
@@ -159,6 +276,8 @@ async function clearUserData(userId: string, accessToken: string): Promise<void>
     'companies',
     'evaluation_runs',
     'linkedin_profiles',
+    'saved_sections',
+    'cover_letter_templates',
     'sources'
   ];
   
@@ -227,6 +346,7 @@ async function uploadProfile(
     evaluationRunIds: [],
     uploadDurationMs: 0
   };
+  const localOnly = getSyntheticLocalOnlyFlag();
   
   // Load fixture files
   const resumePath = path.join(FIXTURES_PATH, `${profileId}_resume.txt`);
@@ -254,18 +374,22 @@ async function uploadProfile(
     }
   });
   
-  // Switch to the profile we're uploading
-  // The RPC function expects: p_parent_user_id and p_profile_id
-  const { error: switchError } = await supabaseAuth.rpc('switch_synthetic_user', {
-    p_parent_user_id: userId,
-    p_profile_id: profileId
-  });
-  
-  if (switchError) {
-    console.warn(`  ⚠️ Could not switch to synthetic user ${profileId}:`, switchError.message);
-    // Continue anyway - might work if user doesn't exist yet
+  if (localOnly) {
+    syntheticStorage.setActiveProfileId(profileId);
   } else {
-    console.log(`  ✅ Switched active synthetic user to ${profileId}`);
+    const { error: switchError } = await supabaseAuth.rpc('switch_synthetic_user', {
+      p_parent_user_id: userId,
+      p_profile_id: profileId
+    });
+  
+    if (switchError) {
+      console.warn(`  ⚠️ Could not switch to synthetic user ${profileId}:`, switchError.message);
+      // Continue anyway - might work if user doesn't exist yet
+      syntheticStorage.setActiveProfileId(profileId);
+    } else {
+      syntheticStorage.setActiveProfileId(profileId);
+      console.log(`  ✅ Switched active synthetic user to ${profileId}`);
+    }
   }
   
   // Convert to File objects
@@ -286,31 +410,78 @@ async function uploadProfile(
   }
   results.resumeSourceId = resumeResult.fileId;
   console.log(`  ✅ Resume uploaded: ${resumeResult.fileId}`);
+
+  const resumeEvalId = await logEvaluationRun({
+    supabase: supabaseAuth,
+    userId,
+    profileId,
+    fileType: 'resume',
+    sourceId: resumeResult.fileId,
+  });
+  if (resumeEvalId) {
+    results.evaluationRunIds.push(resumeEvalId);
+  }
   
-  // Upload cover letter (triggers batch processing and evaluation)
+  // Upload cover letter (triggers batch processing and evaluation)                                                 
   console.log(`  📝 Uploading cover letter...`);
-  const coverLetterResult = await uploadService.uploadContent(
+  const coverLetterResult = await uploadService.uploadContent(                                                      
     coverLetterFile,
     userId,
     'coverLetter',
     accessToken
   );
   
-  if (!coverLetterResult.success || !coverLetterResult.fileId) {
-    throw new Error(`Cover letter upload failed: ${coverLetterResult.error}`);
+  if (!coverLetterResult.success || !coverLetterResult.fileId) {                                                    
+    throw new Error(`Cover letter upload failed: ${coverLetterResult.error}`);                                      
   }
   results.coverLetterSourceId = coverLetterResult.fileId;
   console.log(`  ✅ Cover letter uploaded: ${coverLetterResult.fileId}`);
+
+  const coverEvalId = await logEvaluationRun({
+    supabase: supabaseAuth,
+    userId,
+    profileId,
+    fileType: 'coverLetter',
+    sourceId: coverLetterResult.fileId,
+  });
+  if (coverEvalId) {
+    results.evaluationRunIds.push(coverEvalId);
+  }
   
-  // Note: LinkedIn data is automatically loaded in synthetic mode after combined analysis
-  // No need to manually upload it - fetchAndProcessLinkedInData() handles it
+  // Note: LinkedIn data is automatically loaded in synthetic mode after combined analysis                          
+  // No need to manually upload it - fetchAndProcessLinkedInData() handles it                                        
   
-  // Wait a moment for all processing to complete (LinkedIn loading, unified profile creation, etc.)
-  console.log(`  ⏳ Waiting for processing to complete (LinkedIn + unified profile)...`);
+  // Wait a moment for all processing to complete (LinkedIn loading, unified profile creation, etc.)                
+  console.log(`  ⏳ Waiting for processing to complete (LinkedIn + unified profile)...`);                           
   await new Promise(resolve => setTimeout(resolve, 8000));
+
+  const pmLevelsService = new PMLevelsService();
+  const pmSessionId = `pm-level-direct-${profileId}-${Date.now()}`;
+  const pmStart = Date.now();
+  let pmInference: PMLevelInference | null = null;
+  try {
+    pmInference = await pmLevelsService.analyzeUserLevel(userId);
+    console.log('  🧠 PM Levels analysis completed');
+  } catch (error: any) {
+    console.error('  ⚠️ PM Levels analysis failed:', error?.message || error);
+  }
+  const pmLatencyMs = Date.now() - pmStart;
+
+  const pmEvalId = await logPmLevelEvaluation({
+    supabase: supabaseAuth,
+    userId,
+    profileId,
+    sessionId: pmSessionId,
+    inference: pmInference,
+    latencyMs: pmLatencyMs,
+  });
+  if (pmEvalId) {
+    results.evaluationRunIds.push(pmEvalId);
+  }
+  results.totalLatencyMs = pmLatencyMs;
   
   // Fetch evaluation runs
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {                                                  
     global: {
       headers: {
         Authorization: `Bearer ${accessToken}`
@@ -322,21 +493,23 @@ async function uploadProfile(
     .from('evaluation_runs')
     .select('id')
     .eq('user_id', userId)
+    .eq('synthetic_profile_id', profileId)
     .order('created_at', { ascending: false })
     .limit(10);
   
   if (evalRuns) {
     results.evaluationRunIds = evalRuns.map(r => r.id);
-    // Get total latency from the most recent evaluation run
+    // Get total latency from the most recent evaluation run                                                        
     const { data: latestRun } = await supabase
       .from('evaluation_runs')
       .select('total_latency_ms')
       .eq('user_id', userId)
+      .eq('synthetic_profile_id', profileId)
       .order('created_at', { ascending: false })
       .limit(1)
       .single();
     
-    if (latestRun) {
+    if (latestRun && latestRun.total_latency_ms != null) {
       results.totalLatencyMs = latestRun.total_latency_ms;
     }
     console.log(`  ✅ Found ${evalRuns.length} evaluation runs`);

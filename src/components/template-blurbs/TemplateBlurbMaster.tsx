@@ -7,7 +7,7 @@ import { Search, Plus, FileText, Edit, Trash2, Check } from "lucide-react";
 
 export interface TemplateBlurb {
   id: string;
-  type: 'intro' | 'closer' | 'signature';
+  type: 'intro' | 'paragraph' | 'closer' | 'signature';
   title: string;
   content: string;
   tags: string[];
@@ -23,10 +23,10 @@ interface TemplateBlurbMasterProps {
   blurbs: TemplateBlurb[];
   selectedBlurbId?: string;
   onSelectBlurb: (blurb: TemplateBlurb) => void;
-  onCreateBlurb: (type: 'intro' | 'closer' | 'signature') => void;
+  onCreateBlurb: (type: 'intro' | 'paragraph' | 'closer' | 'signature') => void;
   onEditBlurb: (blurb: TemplateBlurb) => void;
   onDeleteBlurb: (blurbId: string) => void;
-  filterType?: 'intro' | 'closer' | 'signature';
+  filterType?: 'intro' | 'paragraph' | 'closer' | 'signature';
 }
 
 export const TemplateBlurbMaster = ({
@@ -181,15 +181,23 @@ export const TemplateBlurbMaster = ({
                           {blurb.content}
                         </p>
                         
-                        {blurb.tags && blurb.tags.length > 0 && (
                           <div className="flex flex-wrap gap-1 mb-2">
-                            {blurb.tags.map((tag, index) => (
+                          {blurb.tags && blurb.tags.length > 0 && blurb.tags.map((tag, index) => (
                               <Badge key={index} variant="secondary" className="text-xs">
                                 {tag}
                               </Badge>
                             ))}
+                          {(!blurb.tags || blurb.tags.length === 0) && (
+                            <Badge 
+                              variant="outline" 
+                              className="text-xs cursor-pointer hover:bg-muted border-dashed"
+                              onClick={() => onEditBlurb(blurb)}
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              Add tag
+                            </Badge>
+                          )}
                           </div>
-                        )}
                         
                         <p className="text-xs text-muted-foreground">
                           Updated {new Date(blurb.updatedAt).toLocaleDateString()}

@@ -1,11 +1,27 @@
 // Resume analysis prompt with robust story, metric, and tag extraction
-export const buildResumeAnalysisPrompt = (text: string): string => {
+// Now supports cover letter context for enhanced tag extraction
+export const buildResumeAnalysisPrompt = (resumeText: string, coverLetterText?: string): string => {
+  const coverLetterSection = coverLetterText 
+    ? `\n\nCover Letter Text:
+${coverLetterText}
+
+IMPORTANT: Use cover letter content to enhance role tag extraction.
+Cover letters often expand on resume achievements with more detail and context.
+When extracting roleTags, consider both:
+1. Resume bullets (concise, metric-focused)
+2. Cover letter stories that reference each role (narrative, detailed)
+
+If a cover letter story references a specific role (company + title), use that story's context to enhance the roleTags for that role.
+Cover letter stories provide richer context about competencies, skills, and impact demonstrated in each role.
+` 
+    : '';
+
   return `
-You are analyzing a resume to extract structured data for a job application platform.
+You are analyzing a resume${coverLetterText ? ' and cover letter' : ''} to extract structured data for a job application platform.
 Your goal is to create a rich, searchable profile with stories, metrics, and thematic tags.
 
 Resume Text:
-${text}
+${resumeText}${coverLetterSection}
 
 Return ONLY valid JSON with this exact structure. ALL FIELDS ARE REQUIRED:
 
@@ -31,7 +47,7 @@ Return ONLY valid JSON with this exact structure. ALL FIELDS ARE REQUIRED:
       "current": true,  // CRITICAL: Set true if endDate is null or position shows "Present" or "Current"
       "location": "City, State or null",
       "companyTags": ["SaaS", "B2B", "PLG"],  // REQUIRED: Always include tags
-      "roleTags": ["growth", "activation", "experimentation"],  // REQUIRED: Always include tags
+      "roleTags": ["growth", "activation", "experimentation", "startup"],  // REQUIRED: Always include tags. Include ONE maturity tag: "startup", "growth-stage", or "enterprise" based on company stage during tenure.
       "roleSummary": "1-2 sentence overview of focus and impact in this role",  // REQUIRED: Never leave empty if role has bullets
       "roleMetrics": [  // Extract metrics WITHOUT story context (standalone metrics, no narrative). DO NOT duplicate metrics that appear in stories.
         {
@@ -157,6 +173,10 @@ CRITICAL EXTRACTION RULES:
    - Core competencies demonstrated in this role
    - Options: growth, activation, retention, experimentation, analytics, strategy, 
      execution, plg, process, onboarding, ux, lifecycle, alignment, enablement, adoption
+   - Company maturity at tenure: Include ONE of "startup", "growth-stage", or "enterprise" 
+     based on company description, role context, or explicit mentions (e.g., "Series A startup", 
+     "enterprise software", "growth-stage company"). Infer from company size, funding stage, 
+     or description if not explicitly stated.
    
    Story Tags (2-3 tags per story):
    - Specific themes of that achievement
@@ -201,7 +221,7 @@ Expected JSON:
   "current": true,  // REQUIRED: Set true for "Present" or current positions
   "location": "San Francisco, CA",
   "companyTags": ["SaaS", "B2B", "PLG"],
-  "roleTags": ["growth", "activation", "experimentation", "analytics", "process"],
+  "roleTags": ["growth", "activation", "experimentation", "analytics", "process", "growth-stage"],
   "roleSummary": "Owned onboarding optimization and experimentation cadence for PLG SaaS platform, driving activation and trial conversion across SMB segment.",
   "roleMetrics": [  // CRITICAL: Extract ALL 3 metrics from the bullets above
     {"value": "+22%", "context": "Week-2 activation", "type": "increase", "parentType": "role"},

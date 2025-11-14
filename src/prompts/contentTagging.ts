@@ -1,19 +1,38 @@
 // Content tagging prompt for automatic story and metrics categorization
-// TODO: Add userGoals parameter to personalize tag suggestions based on:
-// - User's industries (from career goals)
-// - User's businessModels (from career goals)
-// - Map these to role level tags, areas, verticals, and buyers
+// TODO: As this grows, consider:
+// - Parameterizing weighting (e.g., industries vs. business models)
+// - Breaking into smaller functions (e.g., buildCompanyTagPrompt, buildRoleTagPrompt)
+// - Adding configurable tag categories
+import type { CompanyResearchResult } from '@/services/browserSearchService';
+
+export interface GapContext {
+  gapCategory?: string;
+  gapType?: string;
+  gapDescription?: string;
+  suggestions?: any[];
+}
+
 export const buildContentTaggingPrompt = (
   content: string, 
-  contentType: 'story' | 'metrics' | 'workHistory',
-  userGoals?: { industries?: string[]; businessModels?: string[] }
+  contentType: 'company' | 'role' | 'saved_section',
+  userGoals?: { industries?: string[]; businessModels?: string[] },
+  companyResearch?: CompanyResearchResult | null,
+  gapContext?: GapContext | null
 ): string => {
   const userContext = userGoals 
-    ? `\nUser Preferences:\n- Industries of interest: ${userGoals.industries?.join(', ') || 'none'}\n- Business models of interest: ${userGoals.businessModels?.join(', ') || 'none'}\n\nWhen suggesting tags, prioritize tags that align with these preferences and map to relevant areas, verticals, and buyers.`
+    ? `\n\nUSER PREFERENCES (HIGH PRIORITY - PRIORITIZE THESE):\n- Industries of interest: ${userGoals.industries?.join(', ') || 'none'}\n- Business models of interest: ${userGoals.businessModels?.join(', ') || 'none'}\n\nCRITICAL: When suggesting tags, prioritize tags that align with these preferences. If the content relates to these industries/business models, include them as high-confidence tags in the primaryTags array. Map industries to relevant role tags (e.g., "Fintech" → "financial products", "B2B SaaS" → "enterprise", "Healthcare" → "health tech").`
+    : '';
+
+  const companyContext = companyResearch
+    ? `\n\nCOMPANY RESEARCH (FROM WEB SEARCH):\n- Industry: ${companyResearch.industry || 'unknown'}\n- Business Model: ${companyResearch.businessModel || 'unknown'}\n- Company Stage: ${companyResearch.companyStage || 'unknown'}\n- Company Size: ${companyResearch.companySize || 'unknown'}\n- Description: ${companyResearch.description || 'N/A'}\n- Key Products: ${companyResearch.keyProducts?.join(', ') || 'N/A'}\n\nUse this research data to enhance tag suggestions. Prioritize tags that match the researched industry and business model.`
+    : '';
+
+  const gapContextSection = gapContext
+    ? `\n\nGAP CONTEXT (This content addresses a specific gap):\n- Gap Category: ${gapContext.gapCategory || 'unknown'}\n- Gap Type: ${gapContext.gapType || 'unknown'}\n- Gap Description: ${gapContext.gapDescription || 'N/A'}\n- Suggestions: ${gapContext.suggestions?.map((s: any) => typeof s === 'string' ? s : s?.suggestion || s?.description || JSON.stringify(s)).join(', ') || 'N/A'}\n\nUse this gap context to inform tag suggestions. Tags should reflect what gap this content addresses and what competencies/skills it demonstrates.`
     : '';
   
   return `You are an expert at analyzing professional content and generating relevant tags for matching and categorization.
-${userContext}
+${userContext}${companyContext}${gapContextSection}
 
 Content to analyze:
 ${content}
@@ -39,23 +58,86 @@ For METRICS, focus on:
 - Timeframe
 - Impact level
 
-For WORK HISTORY, focus on:
-- Industry
-- Company type/size
-- Role level
-- Function (engineering, sales, marketing, etc.)
+For COMPANY tags, focus ONLY on:
+- Business Model/Buyers (see examples below)
+- Industry/Vertical (see examples below)
+
+DO NOT include:
+- Skills or competencies (those are for roles/stories)
+- Role levels (entry, mid, senior, executive)
+- Company stage or size (not needed for matching)
+
+BUSINESS MODEL / BUYERS EXAMPLES:
+B2B, B2C, D2C, B2B2C, Enterprise, SMB, Marketplace, Platform, Developer Tools, SaaS
+
+VERTICAL / INDUSTRY EXAMPLES:
+
+*Technology & Infrastructure*
+- Software / SaaS
+- AI / Machine Learning
+- Cloud / DevOps
+- Cybersecurity
+- Data / Analytics
+- Fintech / Payments / Crypto
+- Telecommunications / Connectivity
+- IoT / Edge Computing
+
+*Health & Life Sciences*
+- Healthcare / MedTech
+- HealthTech / Digital Health
+- Biotech / Pharma
+- Wellness / Fitness
+
+*Consumer & Commerce*
+- E-commerce / Retail
+- Consumer Goods / D2C
+- FoodTech / AgTech
+- Travel / Hospitality
+- Media / Entertainment / Gaming
+
+*Education & Work*
+- EdTech / Learning Platforms
+- HRTech / Future of Work
+- Productivity / Collaboration
+- Recruiting / Talent Platforms
+
+*Financial & Professional Services*
+- Banking / Insurance / Lending
+- LegalTech / Compliance
+- Accounting / ERP / Back Office
+- Consulting / Services
+
+For ROLE tags, focus on:
+- Industry/domain
+- Role level (entry, mid, senior, executive)
+- Function (product management, engineering, sales, marketing, etc.)
 - Key skills/technologies
 - Leadership scope
+- Competencies demonstrated
+- Company maturity at tenure: Include ONE of "startup", "growth-stage", or "enterprise" 
+  based on company description, role context, or explicit mentions. Infer from company 
+  size, funding stage, or description if not explicitly stated.
+
+IMPORTANT: Role-level tags should reflect demonstrated work and accomplishments shown in the stories provided. 
+Tags should be substantiated by the actual work described in the stories, not just the job description.
+If stories are provided, prioritize tags that align with the demonstrated achievements and impact.
+
+For SAVED SECTIONS, focus on:
+- Content theme (professional, passionate, technical, etc.)
+- Use case (introduction, closer, signature, custom)
+- Tone/style
+- Key messaging
 
 Return ONLY valid JSON with this structure:
 
 {
   "primaryTags": ["tag1", "tag2", "tag3"],
-  "skillTags": ["skill1", "skill2"],
-  "industryTags": ["industry1", "industry2"],
-  "roleLevelTags": ["senior", "leadership"],
-  "scopeTags": ["team-management", "cross-functional"],
-  "contextTags": ["startup", "enterprise", "remote"],
+  "businessModelTags": ["B2B", "SaaS"], // For company tags only - use examples: B2B, B2C, D2C, B2B2C, Enterprise, SMB, Marketplace, Platform, Developer Tools, SaaS
+  "industryTags": ["industry1", "industry2"], // Use vertical examples provided (e.g., "Software / SaaS", "Fintech / Payments / Crypto")
+  "skillTags": ["skill1", "skill2"], // For role/story/saved_section only - DO NOT include for company tags
+  "roleLevelTags": ["senior", "leadership"], // For role/story/saved_section only - DO NOT include for company tags
+  "scopeTags": ["team-management", "cross-functional"], // For role/story/saved_section only - DO NOT include for company tags
+  "contextTags": ["startup", "enterprise", "remote"], // For role/story/saved_section only - DO NOT include for company tags
   "matchingKeywords": ["keyword1", "keyword2", "keyword3"],
   "confidence": "high|medium|low"
 }
@@ -67,6 +149,49 @@ TAGGING RULES:
 - Consider industry and company context
 - Generate 3-5 primary tags, 2-3 of each category
 - Confidence should reflect how clear the content is for tagging
+- Use the provided business model and vertical examples as reference for consistency
+- Map industries to relevant role tags (e.g., "Fintech" → "financial products", "B2B SaaS" → "enterprise", "Healthcare" → "health tech")
+- CRITICAL: Do NOT include duplicate tags. Each tag should appear only once across all arrays (primaryTags, industryTags, skillTags, etc.)
+- Use consistent capitalization (e.g., "SaaS" not "Saas", "B2B" not "b2b")
+
+TAGGING EXAMPLES:
+
+Example 1 - Company Tags (Stripe):
+{
+  "primaryTags": ["B2B", "Platform"],
+  "industryTags": ["Fintech / Payments / Crypto"],
+  "businessModelTags": ["B2B", "Platform"],
+  "skillTags": [],
+  "roleLevelTags": [],
+  "scopeTags": [],
+  "contextTags": [],
+  "matchingKeywords": ["payment processing", "economic infrastructure", "API"],
+  "confidence": "high"
+}
+
+Example 2 - Role Tags (Product Manager at SaaS company):
+{
+  "primaryTags": ["Product Management", "B2B SaaS", "Enterprise"],
+  "industryTags": ["Software / SaaS"],
+  "skillTags": ["product strategy", "roadmap planning", "stakeholder management"],
+  "roleLevelTags": ["senior", "leadership"],
+  "scopeTags": ["cross-functional", "team-management"],
+  "contextTags": ["enterprise", "growth-stage"],
+  "matchingKeywords": ["product", "SaaS", "B2B", "enterprise software"],
+  "confidence": "high"
+}
+
+Example 3 - Saved Section Tags (Cover letter intro):
+{
+  "primaryTags": ["Professional", "Introduction", "Mission-aligned"],
+  "industryTags": [],
+  "skillTags": [],
+  "roleLevelTags": [],
+  "scopeTags": [],
+  "contextTags": ["professional", "formal"],
+  "matchingKeywords": ["introduction", "mission", "passion"],
+  "confidence": "medium"
+}
 
 Return valid JSON only, no markdown formatting.`;
 };

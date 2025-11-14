@@ -1,139 +1,73 @@
-import { useState } from 'react';
-import { useToast } from '@/hooks/use-toast';
-import { ContentGenerationService } from '@/services/contentGenerationService';
-import type { Gap } from '@/services/gapDetectionService';
-import type { WorkHistoryContext, JobContext } from '@/prompts/contentGeneration';
+import { useCallback, useMemo, useState } from "react";
 
-export interface UseContentGenerationProps {
+type EntityType = "work_item" | "approved_content" | "saved_section" | "company";
+
+interface UseContentGenerationOptions {
   onContentApplied?: () => void;
 }
 
-export interface ContentGenerationModalProps {
-  gap: Gap;
-  entityType: 'work_item' | 'approved_content' | 'saved_section';
-  entityId: string;
-  existingContent: string;
-  workHistoryContext: WorkHistoryContext;
-  jobContext?: JobContext;
-  sectionType?: 'introduction' | 'closer' | 'signature' | 'custom';
-  onContentApplied?: () => void;
-}
+type OpenModalConfig = {
+  gap?: any;
+  entityType?: EntityType;
+  entityId?: string;
+  existingContent?: string;
+  mode?: "gap-detection" | "tag-suggestion";
+  content?: string;
+  onApplyTags?: (tags: string[]) => void;
+  onApplyContent?: (value: string) => void;
+};
 
-/**
- * Hook for managing content generation modal state and context fetching
- *
- * @param onContentApplied - Callback invoked after content is successfully applied
- * @returns Modal state and control functions
- *
- * @example
- * ```tsx
- * const { isModalOpen, modalProps, isLoadingContext, openModal, closeModal } = useContentGeneration({
- *   onContentApplied: () => refetch()
- * });
- *
- * // Open modal with gap and entity context
- * const handleGenerate = (gap: Gap, story: ApprovedContent) => {
- *   openModal(gap, 'approved_content', story.id, story.content);
- * };
- *
- * // Render modal
- * {isModalOpen && modalProps && (
- *   <ContentGenerationModal
- *     isOpen={isModalOpen}
- *     onClose={closeModal}
- *     {...modalProps}
- *   />
- * )}
- * ```
- */
-export function useContentGeneration({ onContentApplied }: UseContentGenerationProps = {}) {
-  const { toast } = useToast();
+type OpenModalArgs =
+  | [OpenModalConfig]
+  | [any, EntityType?, string?, string?];
 
+export function useContentGeneration(options: UseContentGenerationOptions = {}) {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalProps, setModalProps] = useState<ContentGenerationModalProps | null>(null);
-  const [isLoadingContext, setIsLoadingContext] = useState(false);
+  const [modalConfig, setModalConfig] = useState<OpenModalConfig>({});
 
-  // Service instance
-  const [service] = useState(() => new ContentGenerationService());
+  const openModal = useCallback((...args: OpenModalArgs) => {
+    setModalConfig((prev) => {
+      if (args.length === 1 && args[0] && typeof args[0] === "object" && ("gap" in args[0] || "mode" in args[0])) {
+        return {
+          ...prev,
+          ...args[0],
+        };
+      }
 
-  /**
-   * Open content generation modal with context fetching
-   *
-   * @param gap - The gap to address
-   * @param entityType - Type of content entity
-   * @param entityId - ID of the entity
-   * @param existingContent - Current content text
-   * @param jobContext - Optional job context for variations
-   * @param sectionType - Optional section type for saved sections
-   */
-  const openModal = async (
-    gap: Gap,
-    entityType: 'work_item' | 'approved_content' | 'saved_section',
-    entityId: string,
-    existingContent: string,
-    jobContext?: JobContext,
-    sectionType?: 'introduction' | 'closer' | 'signature' | 'custom'
-  ) => {
-    try {
-      setIsLoadingContext(true);
-
-      // Fetch work history context for LLM
-      const workHistoryContext = await service.fetchWorkHistoryContext(
-        gap.user_id,
-        entityType,
-        entityId
-      );
-
-      // Set modal props with all required data
-      setModalProps({
+      const [gap, entityType, entityId, existingContent] = args as [any, EntityType?, string?, string?];
+      return {
+        ...prev,
         gap,
         entityType,
         entityId,
         existingContent,
-        workHistoryContext,
-        jobContext,
-        sectionType,
-        onContentApplied: () => {
-          // Call parent callback
-          onContentApplied?.();
-          // Close modal
-          setIsModalOpen(false);
-        }
-      });
+      };
+    });
 
-      // Open modal
-      setIsModalOpen(true);
+    setIsModalOpen(true);
+  }, []);
 
-    } catch (error) {
-      console.error('Error loading content generation context:', error);
-      toast({
-        title: 'Failed to Load Context',
-        description: error instanceof Error ? error.message : 'Could not fetch work history context. Please try again.',
-        variant: 'destructive'
-      });
-    } finally {
-      setIsLoadingContext(false);
-    }
-  };
-
-  /**
-   * Close content generation modal and reset state
-   */
-  const closeModal = () => {
+  const closeModal = useCallback(() => {
     setIsModalOpen(false);
-    setModalProps(null);
-  };
+    options.onContentApplied?.();
+  }, [options]);
+
+  const openGapModal = useCallback(
+    (gap: any, entityType?: EntityType, entityId?: string, existingContent?: string) => {
+      openModal(gap, entityType, entityId, existingContent);
+    },
+    [openModal]
+  );
+
+  const modalProps = useMemo(() => modalConfig, [modalConfig]);
 
   return {
-    /** Whether the modal is currently open */
     isModalOpen,
-    /** Props to pass to ContentGenerationModal */
     modalProps,
-    /** Whether context is currently loading */
-    isLoadingContext,
-    /** Open modal with gap and entity context */
+    isLoadingContext: false,
     openModal,
-    /** Close modal and reset state */
-    closeModal
+    closeModal,
+    openGapModal,
   };
 }
+

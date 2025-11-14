@@ -1,143 +1,90 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Search, ChevronRight, Building, User, FileText, Check } from "lucide-react";
 import { ConfidenceIndicator } from "@/components/confidence/ConfidenceIndicator";
-import type { WorkHistoryCompany, WorkHistoryRole, WorkHistoryBlurb } from "@/types/workHistory";
-
-// Mock work history data
-const mockWorkHistory: WorkHistoryCompany[] = [
-  {
-    id: "company-1",
-    name: "TechCorp Solutions",
-    logo: "https://placeholder.com/40x40",
-    description: "Enterprise software solutions",
-    tags: ["enterprise", "saas", "b2b"],
-    roles: [
-      {
-        id: "role-1",
-        companyId: "company-1",
-        title: "Senior Software Engineer",
-        startDate: "2021-03-01",
-        endDate: "2023-12-31",
-        description: "Led development of core platform features",
-        tags: ["react", "typescript", "node.js"],
-        achievements: ["Improved performance by 40%", "Led team of 5 developers"],
-        blurbs: [
-          {
-            id: "blurb-1",
-            roleId: "role-1",
-            title: "React Performance Optimization",
-            content: "Spearheaded the optimization of our React-based dashboard, implementing code splitting and lazy loading that reduced initial load times by 40% and improved user engagement metrics across 50,000+ daily active users.",
-            status: "approved",
-            confidence: "high",
-            tags: ["react", "performance", "optimization"],
-            timesUsed: 12,
-            lastUsed: "2024-01-15"
-          },
-          {
-            id: "blurb-2",
-            roleId: "role-1", 
-            title: "Team Leadership",
-            content: "Led a cross-functional team of 5 developers to deliver a critical enterprise feature 2 weeks ahead of schedule, mentoring junior developers and implementing agile best practices that increased team velocity by 25%.",
-            status: "approved",
-            confidence: "high",
-            tags: ["leadership", "agile", "mentoring"],
-            timesUsed: 8,
-            lastUsed: "2024-01-10"
-          }
-        ],
-        externalLinks: []
-      },
-      {
-        id: "role-2",
-        companyId: "company-1",
-        title: "Full Stack Developer",
-        startDate: "2019-06-01",
-        endDate: "2021-02-28",
-        description: "Developed and maintained web applications",
-        tags: ["full stack", "javascript", "python"],
-        achievements: ["Built 3 major features", "Reduced bugs by 30%"],
-        blurbs: [
-          {
-            id: "blurb-3",
-            roleId: "role-2",
-            title: "Full Stack Feature Development",
-            content: "Designed and implemented 3 major user-facing features using React and Node.js, serving over 10,000 users and contributing to a 15% increase in user retention through improved user experience.",
-            status: "approved",
-            confidence: "medium",
-            tags: ["full stack", "react", "node.js"],
-            timesUsed: 6,
-            lastUsed: "2024-01-05"
-          }
-        ],
-        externalLinks: []
-      }
-    ]
-  },
-  {
-    id: "company-2",
-    name: "StartupXYZ",
-    logo: "https://placeholder.com/40x40",
-    description: "Fast-growing fintech startup",
-    tags: ["fintech", "startup", "payments"],
-    roles: [
-      {
-        id: "role-3",
-        companyId: "company-2",
-        title: "Frontend Developer",
-        startDate: "2018-01-01",
-        endDate: "2019-05-31",
-        description: "Built user interfaces for financial products",
-        tags: ["frontend", "vue.js", "fintech"],
-        achievements: ["Launched mobile app", "Improved UX metrics"],
-        blurbs: [
-          {
-            id: "blurb-4",
-            roleId: "role-3",
-            title: "Mobile App Launch",
-            content: "Led the frontend development of a Vue.js-based mobile web app for financial transactions, achieving 99.9% uptime and processing over $2M in transactions within the first 6 months of launch.",
-            status: "approved",
-            confidence: "high",
-            tags: ["vue.js", "mobile", "fintech"],
-            timesUsed: 4,
-            lastUsed: "2023-12-20"
-          }
-        ],
-        externalLinks: []
-      }
-    ]
-  }
-];
+import type { WorkHistoryCompany, WorkHistoryBlurb } from "@/types/workHistory";
 
 interface WorkHistoryBlurbSelectorProps {
+  companies: WorkHistoryCompany[];
+  isLoading?: boolean;
+  error?: string | null;
   onSelectBlurb: (blurb: WorkHistoryBlurb) => void;
   onCancel: () => void;
   selectedBlurbId?: string;
 }
 
 export const WorkHistoryBlurbSelector = ({ 
+  companies,
+  isLoading = false,
+  error = null,
   onSelectBlurb, 
   onCancel, 
   selectedBlurbId 
 }: WorkHistoryBlurbSelectorProps) => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCompany, setSelectedCompany] = useState<WorkHistoryCompany | null>(null);
-  const [selectedRole, setSelectedRole] = useState<WorkHistoryRole | null>(null);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>("");
+  const [selectedRoleId, setSelectedRoleId] = useState<string>("");
 
-  const filteredCompanies = mockWorkHistory.filter(company =>
-    company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    company.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    company.roles.some(role => 
-      role.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      role.blurbs.some(blurb =>
-        blurb.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        blurb.content.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    )
+  const selectedCompany = useMemo(
+    () => companies.find((company) => company.id === selectedCompanyId) || null,
+    [companies, selectedCompanyId]
   );
+
+  const selectedRole = useMemo(
+    () => selectedCompany?.roles.find((role) => role.id === selectedRoleId) || null,
+    [selectedCompany, selectedRoleId]
+  );
+
+  useEffect(() => {
+    if (companies.length === 0) {
+      setSelectedCompanyId("");
+      setSelectedRoleId("");
+    }
+  }, [companies.length]);
+
+  useEffect(() => {
+    if (!selectedCompany) {
+      setSelectedRoleId("");
+    } else if (selectedRoleId) {
+      const roleExists = selectedCompany.roles.some(
+        (role) => role.id === selectedRoleId && role.blurbs.length > 0
+      );
+      if (!roleExists) {
+        setSelectedRoleId("");
+      }
+    }
+  }, [selectedCompany, selectedRoleId]);
+
+  const filteredCompanies = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+
+    return companies.filter((company) => {
+      const rolesWithStories = company.roles.filter((role) => role.blurbs.length > 0);
+      if (rolesWithStories.length === 0) return false;
+
+      if (!normalizedSearch) return true;
+
+      if (
+        company.name.toLowerCase().includes(normalizedSearch) ||
+        (company.description ?? "").toLowerCase().includes(normalizedSearch)
+      ) {
+        return true;
+      }
+
+      return rolesWithStories.some((role) =>
+        role.title.toLowerCase().includes(normalizedSearch) ||
+        (role.description ?? "").toLowerCase().includes(normalizedSearch) ||
+        role.blurbs.some(
+          (blurb) =>
+            blurb.title.toLowerCase().includes(normalizedSearch) ||
+            (blurb.content ?? "").toLowerCase().includes(normalizedSearch)
+        )
+      );
+    });
+  }, [companies, searchTerm]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -191,14 +138,29 @@ export const WorkHistoryBlurbSelector = ({
           </div>
 
           <div className="flex-1 overflow-y-auto">
-            {!selectedCompany ? (
+            {isLoading ? (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                Loading work history...
+              </div>
+            ) : error ? (
+              <div className="p-4 border border-destructive/30 bg-destructive/10 rounded-lg text-sm text-destructive">
+                {error}
+              </div>
+            ) : !selectedCompany && filteredCompanies.length === 0 ? (
+              <div className="p-4 border border-dashed rounded-lg text-sm text-muted-foreground text-center">
+                No stories found. Try adjusting your search or upload work history content first.
+              </div>
+            ) : !selectedCompany ? (
               /* Company List */
               <div className="space-y-3">
                 {filteredCompanies.map((company) => (
                   <Card 
                     key={company.id} 
                     className="cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => setSelectedCompany(company)}
+                    onClick={() => {
+                      setSelectedCompanyId(company.id);
+                      setSelectedRoleId("");
+                    }}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
@@ -218,7 +180,7 @@ export const WorkHistoryBlurbSelector = ({
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge variant="secondary" className="text-xs">
-                            {company.roles.length} role{company.roles.length !== 1 ? 's' : ''}
+                            {company.roles.filter(role => role.blurbs.length > 0).length} role{company.roles.filter(role => role.blurbs.length > 0).length !== 1 ? 's' : ''}
                           </Badge>
                           <ChevronRight className="h-4 w-4 text-muted-foreground" />
                         </div>
@@ -232,17 +194,22 @@ export const WorkHistoryBlurbSelector = ({
               <div className="space-y-3">
                 <Button 
                   variant="outline" 
-                  onClick={() => setSelectedCompany(null)}
+                  onClick={() => {
+                    setSelectedCompanyId("");
+                    setSelectedRoleId("");
+                  }}
                   className="mb-4"
                 >
                   ← Back to Companies
                 </Button>
                 
-                {selectedCompany.roles.map((role) => (
+                {selectedCompany.roles
+                  .filter((role) => role.blurbs.length > 0)
+                  .map((role) => (
                   <Card 
                     key={role.id}
                     className="cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => setSelectedRole(role)}
+                    onClick={() => setSelectedRoleId(role.id)}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
@@ -259,7 +226,9 @@ export const WorkHistoryBlurbSelector = ({
                               ))}
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">
-                              {new Date(role.startDate).toLocaleDateString()} - {role.endDate ? new Date(role.endDate).toLocaleDateString() : 'Present'}
+                              {role.startDate ? new Date(role.startDate).toLocaleDateString() : 'Start date unavailable'}
+                              {' '}–{' '}
+                              {role.endDate ? new Date(role.endDate).toLocaleDateString() : 'Present'}
                             </p>
                           </div>
                         </div>
@@ -279,7 +248,7 @@ export const WorkHistoryBlurbSelector = ({
               <div className="space-y-3">
                 <Button 
                   variant="outline" 
-                  onClick={() => setSelectedRole(null)}
+                  onClick={() => setSelectedRoleId("")}
                   className="mb-4"
                 >
                   ← Back to Roles
@@ -309,11 +278,11 @@ export const WorkHistoryBlurbSelector = ({
                           </div>
                           
                           <p className="text-sm text-muted-foreground line-clamp-3 mb-2">
-                            {blurb.content}
+                            {blurb.content?.length ? blurb.content : 'No story content captured yet.'}
                           </p>
                           
                           <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <span>Used {blurb.timesUsed} times</span>
+                            <span>Used {blurb.timesUsed ?? 0} times</span>
                             {blurb.lastUsed && (
                               <span>Last used {new Date(blurb.lastUsed).toLocaleDateString()}</span>
                             )}

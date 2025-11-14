@@ -17,10 +17,22 @@ interface SourceData {
 }
 
 // Helper function to get Supabase configuration
-const getSupabaseConfig = () => ({
-  url: (import.meta.env?.VITE_SUPABASE_URL) || (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_URL : undefined) || '',
-  key: (import.meta.env?.VITE_SUPABASE_ANON_KEY) || (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_ANON_KEY : undefined) || ''
-});
+const getSupabaseConfig = () => {
+  const env =
+    (typeof import.meta !== 'undefined' && (import.meta as any)?.env) || process.env;
+
+  const url = env?.VITE_SUPABASE_URL;
+  const key = env?.VITE_SUPABASE_ANON_KEY;
+
+  if (!url || !key) {
+    throw new Error(
+      'Supabase configuration is missing. Ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set.',
+    );
+  }
+
+  return { url, key };
+};
+
 // Import real services for text extraction and LLM analysis
 import { TextExtractionService } from './textExtractionService';
 import { LLMAnalysisService } from './openaiService';
@@ -29,6 +41,8 @@ import { TemplateService } from './templateService';
 import { UnifiedProfileService } from './unifiedProfileService';
 import { HumanReviewService } from './humanReviewService';
 import { AppifyService } from './appifyService';
+import { getSyntheticLocalOnlyFlag, syntheticStorage } from '@/utils/storage';
+import { schedulePMLevelBackgroundRun } from './pmLevelsService';
 
 export class FileUploadService {
   private textExtractionService: TextExtractionService;
@@ -51,6 +65,45 @@ export class FileUploadService {
     this.unifiedProfileService = new UnifiedProfileService();
     this.humanReviewService = new HumanReviewService();
     this.appifyService = new AppifyService();
+  }
+
+  /**
+   * Determine the active synthetic profile for a user, respecting local-only overrides.
+   */
+  private async getActiveSyntheticProfileId(dbClient: any, userId: string): Promise<string | null> {
+    const localOnly = getSyntheticLocalOnlyFlag();
+    if (localOnly) {
+      const overrideProfileId = syntheticStorage.getActiveProfileId();
+      if (overrideProfileId) {
+        return overrideProfileId;
+      }
+    }
+
+    try {
+      const { data, error } = await dbClient
+        .from('synthetic_users')
+        .select('profile_id, is_active')
+        .eq('parent_user_id', userId);
+
+      if (error) {
+        console.warn('[FileUploadService] Unable to load synthetic user profiles:', error);
+        return null;
+      }
+
+      const activeProfileId =
+        (data || []).find((entry: any) => entry.is_active)?.profile_id ||
+        (data || [])[0]?.profile_id ||
+        null;
+
+      if (localOnly && activeProfileId) {
+        syntheticStorage.setActiveProfileId(activeProfileId);
+      }
+
+      return activeProfileId;
+    } catch (err) {
+      console.warn('[FileUploadService] Error determining synthetic profile:', err);
+      return null;
+    }
   }
 
   /**
@@ -149,7 +202,7 @@ type SourceEntry = { id: string; processing_status: string; structured_data?: un
   /**
    * Upload file to Supabase Storage
    */
-  async uploadToStorage(file: File, userId: string, skipAuthCheck: boolean = false, accessToken?: string): Promise<StorageUploadResult> {
+  async uploadToStorage(file: File, userId: string, fileType: FileType, skipAuthCheck: boolean = false, accessToken?: string): Promise<StorageUploadResult> {
     try {
       const storagePath = this.generateStoragePath(userId, file.name);
       console.log('Uploading file:', { name: file.name, size: file.size, type: file.type });
@@ -161,7 +214,7 @@ type SourceEntry = { id: string; processing_status: string; structured_data?: un
       
       // Use direct fetch instead of Supabase client since it's not working
       console.log('Uploading to storage...');
-      window.dispatchEvent(new CustomEvent('file-upload-progress', { detail: { sourceId: '', stage: 'uploading', progress: 15, message: 'Uploading file...' } }));
+      window.dispatchEvent(new CustomEvent('file-upload-progress', { detail: { sourceId: '', stage: 'uploading', progress: 15, message: 'Uploading file...', fileType } }));
       
       const { url: supabaseUrl, key: supabaseKey } = getSupabaseConfig();
       
@@ -437,7 +490,7 @@ source_type: dbSourceType,
         storagePath = `manual/${userId}/${type}/${Date.now()}.txt`;
       } else {
         // Upload to storage for real files
-        const uploadResult = await this.uploadToStorage(file, userId, true, accessToken);
+        const uploadResult = await this.uploadToStorage(file, userId, type, true, accessToken);
         if (!uploadResult.success) {
           console.error('Storage upload failed:', uploadResult.error);
           return {
@@ -583,7 +636,10 @@ source_type: dbSourceType,
         analysisResult = await this.llmAnalysisService.analyzeCaseStudy(extractedText);
       } else {
         console.log('→ Using RESUME analysis');
-        analysisResult = await this.llmAnalysisService.analyzeResume(extractedText);
+        // Check if we have a pending cover letter to include in resume analysis
+        // This allows tag extraction from both resume AND cover letter in one call
+        const coverLetterText = this.pendingCoverLetter?.text;
+        analysisResult = await this.llmAnalysisService.analyzeResume(extractedText, coverLetterText);
       }
       const llmEndTime = performance.now();
       const llmDuration = (llmEndTime - llmStartTime).toFixed(2);
@@ -733,7 +789,7 @@ source_type: dbSourceType,
       // Get the user_id from the source record
       const { data: sourceData, error: sourceError } = await dbClient
         .from('sources')
-        .select('user_id')
+        .select('user_id, raw_text, file_name, created_at')
         .eq('id', sourceId)
         .single();
       
@@ -750,18 +806,7 @@ source_type: dbSourceType,
       const userId = sourceData.user_id;
 
       // Determine active synthetic profile for this user (if any)
-      let activeProfileId: string | null = null;
-      try {
-        const { data: syntheticUsers } = await dbClient
-          .from('synthetic_users')
-          .select('profile_id')
-          .eq('parent_user_id', userId)
-          .eq('is_active', true)
-          .maybeSingle();
-        activeProfileId = syntheticUsers?.profile_id ?? null;
-      } catch (e) {
-        console.warn('[processStructuredData] Unable to read active synthetic profile:', e);
-      }
+      const activeProfileId = await this.getActiveSyntheticProfileId(dbClient, userId);
       
       // Track insertion stats
       let companiesCreated = 0;
@@ -1181,6 +1226,14 @@ source_type: dbSourceType,
       });
 
       console.log('✅ Structured data processed successfully');
+
+      schedulePMLevelBackgroundRun({
+        userId,
+        syntheticProfileId: activeProfileId || undefined,
+        delayMs: 6000,
+        reason: `[FileUploadService] Structured data processed from ${sourceData.file_name || sourceId}`,
+        triggerReason: 'content-update',
+      });
       
       // Emit progress update
       window.dispatchEvent(new CustomEvent('upload:progress', {
@@ -1227,7 +1280,7 @@ source_type: dbSourceType,
       // Get the user_id from the source record
       const { data: sourceData, error: sourceError } = await dbClient
         .from('sources')
-        .select('user_id')
+        .select('user_id, raw_text')
         .eq('id', sourceId)
         .single();
       
@@ -1362,6 +1415,35 @@ source_type: dbSourceType,
       // 3. Extract role-level metrics (not stories - update existing work_items)
       if (structuredData.roleLevelMetrics && Array.isArray(structuredData.roleLevelMetrics)) {
         await this.updateRoleLevelMetrics(structuredData.roleLevelMetrics, userId, dbClient, sourceId);
+      }
+
+      // 4. Create saved sections and default template from cover letter paragraphs
+      if (structuredData.paragraphs && Array.isArray(structuredData.paragraphs)) {
+        try {
+          console.log(`📝 Creating saved sections and template from ${structuredData.paragraphs.length} paragraphs...`);
+
+          // Import the service
+          const { CoverLetterTemplateService } = await import('./coverLetterTemplateService');
+
+          // Process the cover letter and create template + saved sections
+          const result = await CoverLetterTemplateService.processUploadedCoverLetter(
+            userId,
+            structuredData,
+            sourceId,
+            'Professional Template',
+            {
+              rawText: sourceData.raw_text || undefined,
+              fileName: sourceData.file_name || undefined,
+              createdAt: sourceData.created_at || undefined
+            },
+            accessToken
+          );
+
+          console.log(`✅ Created template with ${result.savedSections.length} saved sections`);
+        } catch (templateError) {
+          // Don't fail the upload if template creation fails
+          console.error('⚠️ Error creating cover letter template and saved sections:', templateError);
+        }
       }
 
       console.log(`📊 Cover letter processing summary: ${storiesMatched} stories matched, ${storiesSkipped} skipped (likely profile data)`);
@@ -2562,19 +2644,13 @@ source_type: dbSourceType,
         console.log('🧪 Synthetic mode detected - loading LinkedIn fixture data...');
         
         // Get active synthetic user profile
-        const { data: syntheticUsers } = await authSupabase
-          .from('synthetic_users')
-          .select('profile_id')
-          .eq('parent_user_id', user.id)
-          .eq('is_active', true)
-          .single();
-        
-        if (!syntheticUsers?.profile_id) {
+        activeProfileId = await this.getActiveSyntheticProfileId(authSupabase, user.id);
+
+        if (!activeProfileId) {
           console.warn('⚠️ No active synthetic user for LinkedIn enrichment');
           return;
         }
 
-        activeProfileId = syntheticUsers.profile_id; // e.g., "P01"
         const fixturePath = `/fixtures/synthetic/v1/raw_uploads/${activeProfileId}_linkedin.json`;
         
         try {

@@ -15,6 +15,22 @@
 
 import { supabase } from '@/lib/supabase';
 import { UserPreferencesService } from './userPreferencesService';
+import type { PMLevelInference } from '@/types/content';
+
+interface ContentQualityProgressDetail {
+  stage: string;
+  message?: string;
+  progress?: number;
+  tone?: 'info' | 'success' | 'warning' | 'error';
+}
+
+const emitContentQualityProgress = (detail: ContentQualityProgressDetail) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.dispatchEvent(new CustomEvent('content-quality:progress', { detail }));
+};
 
 export interface Gap {
   id?: string;
@@ -229,17 +245,34 @@ export class GapDetectionService {
       metrics?: any[];
       startDate?: string;
       endDate?: string | null;
+      tags?: string[];
     },
     stories?: Array<{
       id: string;
       title: string;
       content: string;
       metrics?: any[];
-    }>
+    }>,
+    userGoals?: {
+      industries?: string[];
+      businessModels?: string[];
+    }
   ): Promise<Gap[]> {
     const gaps: Gap[] = [];
 
-    // 1. Detect role-level description gaps
+    // 1. Detect tag misalignment gaps (if user goals provided)
+    if (userGoals && (userGoals.industries?.length > 0 || userGoals.businessModels?.length > 0)) {
+      const tagGaps = this.detectTagMisalignmentGaps(
+        userId,
+        workItemId,
+        'work_item',
+        workItemData.tags || [],
+        userGoals
+      );
+      gaps.push(...tagGaps);
+    }
+
+    // 2. Detect role-level description gaps
     const roleDescriptionGaps = await this.detectRoleDescriptionGaps(
       userId,
       workItemId,
@@ -270,6 +303,201 @@ export class GapDetectionService {
   }
 
   /**
+   * Sync PM Level expectation gaps for work history and stories
+   * Creates or resolves gaps based on PM Level analysis results
+   */
+  static async syncPmLevelExpectationGaps(
+    userId: string,
+    inference: PMLevelInference | null,
+    accessToken?: string
+  ): Promise<void> {
+    if (!userId) return;
+
+    const stories = inference?.levelEvidence?.storyEvidence?.stories || [];
+
+    if (!stories || stories.length === 0) {
+      await this.resolveAllPmLevelGaps(userId, accessToken);
+      return;
+    }
+
+    const currentLevelLabel =
+      inference?.levelEvidence?.currentLevel ||
+      inference?.displayLevel ||
+      inference?.inferredLevel ||
+      'your current level';
+
+    const storyIdsAll = stories.map(story => story.id).filter(Boolean) as string[];
+    const storyIdsBelow = stories
+      .filter(story => story.levelAssessment === 'below')
+      .map(story => story.id)
+      .filter(Boolean) as string[];
+
+    const workItemIdsAll = Array.from(
+      new Set(
+        stories
+          .map(story => story.workItemId)
+          .filter((id): id is string => Boolean(id))
+      )
+    );
+
+    const workItemBelowMap = new Map<string, typeof stories>();
+    for (const story of stories) {
+      if (story.levelAssessment !== 'below' || !story.workItemId) continue;
+      const existing = workItemBelowMap.get(story.workItemId) || [];
+      existing.push(story);
+      workItemBelowMap.set(story.workItemId, existing);
+    }
+
+    const workItemIdsBelow = Array.from(workItemBelowMap.keys());
+
+    // Resolve story-level gaps that are no longer below expectations
+    const storiesToResolve = storyIdsAll.filter(id => !storyIdsBelow.includes(id));
+    if (storiesToResolve.length > 0) {
+      await this.resolvePmLevelGaps(
+        userId,
+        'approved_content',
+        storiesToResolve,
+        'pm_level_expectation_story',
+        accessToken
+      );
+    }
+
+    // Resolve work-item-level gaps that now meet expectations
+    const workItemsToResolve = workItemIdsAll.filter(id => !workItemIdsBelow.includes(id));
+    if (workItemsToResolve.length > 0) {
+      await this.resolvePmLevelGaps(
+        userId,
+        'work_item',
+        workItemsToResolve,
+        'pm_level_expectation_work_item',
+        accessToken
+      );
+    }
+
+    if (storyIdsBelow.length === 0 && workItemIdsBelow.length === 0) {
+      return;
+    }
+
+    const gaps: Gap[] = [];
+
+    for (const story of stories) {
+      if (story.levelAssessment !== 'below' || !story.id) continue;
+      gaps.push({
+        user_id: userId,
+        entity_type: 'approved_content',
+        entity_id: story.id,
+        gap_type: 'role_expectation',
+        gap_category: 'pm_level_expectation_story',
+        severity: 'medium',
+        description: `This story is below expectations for ${currentLevelLabel}.`,
+        suggestions: [
+          {
+            type: 'pm_level_alignment',
+            description: 'Expand scope, quantify impact, or highlight higher-level leadership to align with your current level.',
+          }
+        ],
+      });
+    }
+
+    for (const [workItemId, storiesForRole] of workItemBelowMap.entries()) {
+      if (!workItemId) continue;
+      const uniqueTitles = Array.from(
+        new Set(storiesForRole.map(story => story.title).filter(Boolean))
+      );
+      gaps.push({
+        user_id: userId,
+        entity_type: 'work_item',
+        entity_id: workItemId,
+        gap_type: 'role_expectation',
+        gap_category: 'pm_level_expectation_work_item',
+        severity: 'medium',
+        description: `Some stories for this role fall below expectations for ${currentLevelLabel}.`,
+        suggestions: [
+          {
+            type: 'pm_level_alignment',
+            description: uniqueTitles.length > 0
+              ? `Strengthen these stories: ${uniqueTitles.slice(0, 3).join(', ')}${uniqueTitles.length > 3 ? '…' : ''}`
+              : 'Strengthen associated stories to showcase higher-scope impact.',
+          }
+        ],
+        addressing_content_ids: storiesForRole
+          .map(story => story.id)
+          .filter(Boolean),
+      });
+    }
+
+    if (gaps.length > 0) {
+      await this.saveGaps(gaps, accessToken);
+    }
+  }
+
+  private static async resolvePmLevelGaps(
+    userId: string,
+    entityType: 'work_item' | 'approved_content',
+    entityIds: string[],
+    category: 'pm_level_expectation_story' | 'pm_level_expectation_work_item',
+    accessToken?: string
+  ): Promise<void> {
+    if (!userId || entityIds.length === 0) return;
+
+    try {
+      const dbClient = accessToken
+        ? await this.getAuthenticatedClient(accessToken)
+        : supabase;
+
+      await dbClient
+        .from('gaps')
+        .update({
+          resolved: true,
+          resolved_at: new Date().toISOString(),
+          resolved_reason: 'content_added',
+        })
+        .eq('user_id', userId)
+        .eq('entity_type', entityType)
+        .eq('gap_category', category)
+        .in('entity_id', entityIds);
+    } catch (error) {
+      console.error('[GapDetectionService] Failed to resolve PM level gaps:', error);
+    }
+  }
+
+  private static async resolveAllPmLevelGaps(userId: string, accessToken?: string): Promise<void> {
+    if (!userId) return;
+
+    try {
+      const dbClient = accessToken
+        ? await this.getAuthenticatedClient(accessToken)
+        : supabase;
+
+      const { data, error } = await dbClient
+        .from('gaps')
+        .select('entity_id, entity_type, gap_category')
+        .eq('user_id', userId)
+        .in('gap_category', ['pm_level_expectation_story', 'pm_level_expectation_work_item']);
+
+      if (error || !data || data.length === 0) return;
+
+      const storyIds = data
+        .filter((gap: any) => gap.gap_category === 'pm_level_expectation_story' && gap.entity_type === 'approved_content')
+        .map((gap: any) => gap.entity_id);
+
+      const workItemIds = data
+        .filter((gap: any) => gap.gap_category === 'pm_level_expectation_work_item' && gap.entity_type === 'work_item')
+        .map((gap: any) => gap.entity_id);
+
+      if (storyIds.length > 0) {
+        await this.resolvePmLevelGaps(userId, 'approved_content', storyIds, 'pm_level_expectation_story', accessToken);
+      }
+
+      if (workItemIds.length > 0) {
+        await this.resolvePmLevelGaps(userId, 'work_item', workItemIds, 'pm_level_expectation_work_item', accessToken);
+      }
+    } catch (error) {
+      console.error('[GapDetectionService] Failed to resolve all PM level gaps:', error);
+    }
+  }
+
+  /**
    * Return unresolved gaps for a user, optionally filtered by synthetic profile ID (e.g., P00).
    * When profileId is provided, filters gaps to entities originating from sources whose file_name
    * starts with the profile prefix (supports separators: _, -, space, .).
@@ -277,6 +505,13 @@ export class GapDetectionService {
   static async getUserGaps(userId: string, profileId?: string, accessToken?: string): Promise<Gap[]> {
     try {
       const db = accessToken ? await this.getAuthenticatedClient(accessToken) : supabase;
+      emitContentQualityProgress({
+        stage: 'initialize',
+        progress: 0.05,
+        message: profileId
+          ? `Resolving content quality for profile ${profileId.toUpperCase()}...`
+          : 'Resolving content quality context...'
+      });
       const { data: gaps, error } = await db
         .from('gaps')
         .select('*')
@@ -294,16 +529,17 @@ export class GapDetectionService {
         .eq('user_id', userId)
         .or(
           `file_name.ilike.${pid}_%,` +
-          `file_name.ilike.${pid}-% ,` +
-          `file_name.ilike.${pid}.% ,` +
+          `file_name.ilike.${pid}-%,` +
+          `file_name.ilike.${pid}.%,` +
           `file_name.ilike.${pid} %`
         );
 
       const profileSourceIds = new Set<string>((profileSources || []).map((s: any) => s.id));
 
-      // Preload work_items and approved_content ids associated with this profile's sources
+      // Preload work_items, approved_content, and saved_sections ids associated with this profile's sources
       let workItemIdsBySource = new Set<string>();
       let storyIdsBySource = new Set<string>();
+      let savedSectionIdsBySource = new Set<string>();
 
       if (profileSourceIds.size > 0) {
         const sourceIdList = Array.from(profileSourceIds);
@@ -331,6 +567,14 @@ export class GapDetectionService {
             .in('work_item_id', workItemIdList);
           (acByWi || []).forEach((r: any) => storyIdsBySource.add(r.id));
         }
+
+        // Get saved_sections for this profile's sources
+        const { data: ssBySource } = await db
+          .from('saved_sections')
+          .select('id')
+          .eq('user_id', userId)
+          .in('source_id', sourceIdList);
+        savedSectionIdsBySource = new Set((ssBySource || []).map((r: any) => r.id));
       }
 
       // Filter gaps by whether their entity belongs to this profile
@@ -341,9 +585,8 @@ export class GapDetectionService {
         } else if (g.entity_type === 'approved_content') {
           if (storyIdsBySource.has(g.entity_id)) filtered.push(g);
         } else if (g.entity_type === 'saved_section') {
-          // Saved sections are cover letter items which are inherently profile-scoped by source filename
-          // There is no direct FK; keep them for now only when we cannot disambiguate by source
-          filtered.push(g);
+          // Filter saved sections by source_id (they're linked via source, not direct profile_id)
+          if (savedSectionIdsBySource.has(g.entity_id)) filtered.push(g);
         }
       }
 
@@ -423,6 +666,253 @@ export class GapDetectionService {
     const tenureMonths = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30);
     
     return tenureMonths >= 12; // 1 year or more
+  }
+
+  /**
+   * Detect tag misalignment gaps
+   * Compares tags against user goals (industries and business models)
+   * Creates gaps when tags don't align with user preferences
+   */
+  static detectTagMisalignmentGaps(
+    userId: string,
+    entityId: string,
+    entityType: 'work_item' | 'company' | 'saved_section',
+    tags: string[],
+    userGoals: {
+      industries?: string[];
+      businessModels?: string[];
+    }
+  ): Gap[] {
+    const gaps: Gap[] = [];
+
+    if (!tags || tags.length === 0) {
+      // No tags at all - suggest adding tags
+      gaps.push({
+        user_id: userId,
+        entity_type: entityType === 'company' ? 'work_item' : entityType,
+        entity_id: entityId,
+        gap_type: 'data_quality',
+        gap_category: 'missing_tags',
+        severity: 'medium',
+        description: 'No tags found. Add tags to help match your experience to opportunities.',
+        suggestions: [
+          {
+            type: 'add_tags',
+            description: 'Use the tag suggestion feature to add relevant tags'
+          }
+        ]
+      });
+      return gaps;
+    }
+
+    // Normalize tags and goals for comparison
+    const normalizedTags = tags.map(t => t.toLowerCase().trim());
+    const userIndustries = (userGoals.industries || []).map(i => i.toLowerCase().trim());
+    const userBusinessModels = (userGoals.businessModels || []).map(b => b.toLowerCase().trim());
+
+    // Check for industry alignment
+    const hasIndustryMatch = userIndustries.some(industry => 
+      normalizedTags.some(tag => 
+        tag.includes(industry) || industry.includes(tag) ||
+        this.areSemanticallySimilar(tag, industry)
+      )
+    );
+
+    // Check for business model alignment
+    const hasBusinessModelMatch = userBusinessModels.some(model => 
+      normalizedTags.some(tag => 
+        tag.includes(model) || model.includes(tag) ||
+        this.areSemanticallySimilar(tag, model)
+      )
+    );
+
+    // Create gaps for misalignment
+    if (userIndustries.length > 0 && !hasIndustryMatch) {
+      gaps.push({
+        user_id: userId,
+        entity_type: entityType === 'company' ? 'work_item' : entityType,
+        entity_id: entityId,
+        gap_type: 'role_expectation',
+        gap_category: 'tag_industry_misalignment',
+        severity: 'medium',
+        description: `Tags don't align with your target industries (${userGoals.industries?.join(', ')}). Consider adding industry-relevant tags.`,
+        suggestions: [
+          {
+            type: 'update_tags',
+            description: `Add tags related to: ${userGoals.industries?.join(', ')}`,
+            targetIndustries: userGoals.industries
+          }
+        ]
+      });
+    }
+
+    if (userBusinessModels.length > 0 && !hasBusinessModelMatch) {
+      gaps.push({
+        user_id: userId,
+        entity_type: entityType === 'company' ? 'work_item' : entityType,
+        entity_id: entityId,
+        gap_type: 'role_expectation',
+        gap_category: 'tag_business_model_misalignment',
+        severity: 'medium',
+        description: `Tags don't align with your target business models (${userGoals.businessModels?.join(', ')}). Consider adding business model-relevant tags.`,
+        suggestions: [
+          {
+            type: 'update_tags',
+            description: `Add tags related to: ${userGoals.businessModels?.join(', ')}`,
+            targetBusinessModels: userGoals.businessModels
+          }
+        ]
+      });
+    }
+
+    return gaps;
+  }
+
+  /**
+   * Simple semantic similarity check
+   * Checks if two strings are semantically related (e.g., "fintech" and "financial technology")
+   */
+  private static areSemanticallySimilar(tag: string, goal: string): boolean {
+    // Common semantic mappings
+    const mappings: Record<string, string[]> = {
+      'fintech': ['financial', 'finance', 'banking', 'fintech'],
+      'saas': ['software', 'saas', 'cloud', 'platform'],
+      'b2b': ['enterprise', 'b2b', 'business-to-business'],
+      'b2c': ['consumer', 'b2c', 'retail', 'ecommerce'],
+      'healthcare': ['health', 'medical', 'healthcare', 'pharma'],
+      'ecommerce': ['ecommerce', 'e-commerce', 'retail', 'online'],
+    };
+
+    // Check direct mappings
+    for (const [key, values] of Object.entries(mappings)) {
+      if (tag.includes(key) || goal.includes(key)) {
+        const other = tag.includes(key) ? goal : tag;
+        if (values.some(v => other.includes(v))) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Re-analyze tag misalignment gaps when user goals change
+   * Checks all work items, companies, and saved sections for tag misalignment
+   */
+  static async reanalyzeTagMisalignmentGaps(
+    userId: string,
+    userGoals: {
+      industries?: string[];
+      businessModels?: string[];
+    }
+  ): Promise<void> {
+    try {
+      console.log('[GapDetectionService] Re-analyzing tag misalignment gaps...');
+
+      // 1. Get all work items with tags
+      const { data: workItems, error: workItemsError } = await supabase
+        .from('work_items')
+        .select('id, tags')
+        .eq('user_id', userId);
+
+      if (workItemsError) {
+        console.error('Error fetching work items:', workItemsError);
+        return;
+      }
+
+      // 2. Get all companies with tags
+      const { data: companies, error: companiesError } = await supabase
+        .from('companies')
+        .select('id, tags')
+        .eq('user_id', userId);
+
+      if (companiesError) {
+        console.error('Error fetching companies:', companiesError);
+        return;
+      }
+
+      // 3. Get all saved sections with tags
+      const { data: savedSections, error: savedSectionsError } = await supabase
+        .from('saved_sections')
+        .select('id, tags')
+        .eq('user_id', userId);
+
+      if (savedSectionsError) {
+        console.error('Error fetching saved sections:', savedSectionsError);
+        return;
+      }
+
+      // 4. Detect gaps for each entity
+      const allGaps: Gap[] = [];
+
+      // Work items
+      for (const workItem of workItems || []) {
+        const gaps = this.detectTagMisalignmentGaps(
+          userId,
+          workItem.id,
+          'work_item',
+          workItem.tags || [],
+          userGoals
+        );
+        allGaps.push(...gaps);
+      }
+
+      // Companies (map to work_item entity type for gaps table)
+      for (const company of companies || []) {
+        const gaps = this.detectTagMisalignmentGaps(
+          userId,
+          company.id,
+          'company',
+          company.tags || [],
+          userGoals
+        );
+        allGaps.push(...gaps);
+      }
+
+      // Saved sections
+      for (const section of savedSections || []) {
+        const gaps = this.detectTagMisalignmentGaps(
+          userId,
+          section.id,
+          'saved_section',
+          section.tags || [],
+          userGoals
+        );
+        allGaps.push(...gaps);
+      }
+
+      // 5. Resolve existing tag misalignment gaps before saving new ones
+      // This prevents duplicate gaps when goals change
+      const { data: existingGaps } = await supabase
+        .from('gaps')
+        .select('id')
+        .eq('user_id', userId)
+        .in('gap_category', ['missing_tags', 'tag_industry_misalignment', 'tag_business_model_misalignment'])
+        .eq('resolved', false);
+
+      if (existingGaps && existingGaps.length > 0) {
+        await supabase
+          .from('gaps')
+          .update({
+            resolved: true,
+            resolved_at: new Date().toISOString(),
+            resolved_reason: 'no_longer_applicable'
+          })
+          .in('id', existingGaps.map(g => g.id));
+      }
+
+      // 6. Save new gaps
+      if (allGaps.length > 0) {
+        await this.saveGaps(allGaps);
+        console.log(`[GapDetectionService] Created ${allGaps.length} tag misalignment gap(s)`);
+      } else {
+        console.log('[GapDetectionService] No tag misalignment gaps found');
+      }
+    } catch (error) {
+      console.error('[GapDetectionService] Error re-analyzing tag misalignment gaps:', error);
+      throw error;
+    }
   }
 
   /**
@@ -1188,15 +1678,29 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
   static async getContentItemsWithGaps(userId: string, profileId?: string, accessToken?: string): Promise<GapSummaryByItem> {
     try {
       const db = accessToken ? await this.getAuthenticatedClient(accessToken) : supabase;
-      const { data: gaps, error } = await db
+      
+      // Filter gaps by profile_id if provided (similar to getUserGaps)
+      let gaps: any[] = [];
+      if (profileId) {
+        // Use getUserGaps which already handles profile filtering
+        gaps = await this.getUserGaps(userId, profileId, accessToken);
+      } else {
+        const { data, error } = await db
         .from('gaps')
         .select('*')
         .eq('user_id', userId)
         .or('resolved.is.null,resolved.eq.false');
-
       if (error) throw error;
+        gaps = data || [];
+      }
 
       const items: ContentItemWithGaps[] = [];
+
+      emitContentQualityProgress({
+        stage: 'collect-gaps',
+        progress: 0.2,
+        message: `Identified ${gaps.length} open gap${gaps.length === 1 ? '' : 's'} to review`
+      });
 
       // Process gaps and group by entity
       const entityMap = new Map<string, {
@@ -1205,7 +1709,7 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
         entity_id: string;
       }>();
 
-      (gaps as any[])?.forEach((gap: any) => {
+      gaps.forEach((gap: any) => {
         const key = `${gap.entity_type}:${gap.entity_id}`;
         if (!entityMap.has(key)) {
           entityMap.set(key, {
@@ -1217,7 +1721,222 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
         entityMap.get(key)!.gaps.push(gap);
       });
 
+      const workItemIds = new Set<string>();
+      const storyIds = new Set<string>();
+      const savedSectionIds = new Set<string>();
+
+      for (const entityData of entityMap.values()) {
+        if (entityData.entity_type === 'work_item') {
+          workItemIds.add(entityData.entity_id);
+        } else if (entityData.entity_type === 'approved_content') {
+          storyIds.add(entityData.entity_id);
+        } else if (entityData.entity_type === 'saved_section') {
+          savedSectionIds.add(entityData.entity_id);
+        }
+      }
+
+      const workItemMap = new Map<string, any>();
+      emitContentQualityProgress({
+        stage: 'hydrate-content',
+        progress: 0.35,
+        message: workItemIds.size > 0
+          ? `Enriching ${workItemIds.size} work history record${workItemIds.size === 1 ? '' : 's'}...`
+          : 'No work history gaps detected'
+      });
+      if (workItemIds.size > 0) {
+        const { data: workItemsData, error: workItemsError } = await db
+          .from('work_items')
+          .select('id, title, description, metrics, source_id, company:companies!company_id(name)')
+          .in('id', Array.from(workItemIds));
+
+        if (workItemsError) {
+          console.error('[GapDetection] Error loading work items for gaps:', workItemsError);
+        } else {
+          (workItemsData || []).forEach((wi: any) => {
+            workItemMap.set(wi.id, wi);
+          });
+        }
+      }
+
+      const storyMap = new Map<string, any>();
+      if (storyIds.size > 0) {
+        const { data: storiesData, error: storiesError } = await db
+          .from('approved_content')
+          .select('id, title, source_id, work_item_id, work_item:work_items!work_item_id(id, title, source_id, company:companies!company_id(name))')
+          .in('id', Array.from(storyIds));
+
+        if (storiesError) {
+          console.error('[GapDetection] Error loading stories for gaps:', storiesError);
+        } else {
+          (storiesData || []).forEach((story: any) => {
+            storyMap.set(story.id, story);
+          });
+        }
+      }
+
+      emitContentQualityProgress({
+        stage: 'hydrate-content',
+        progress: storyMap.size > 0 || workItemMap.size > 0 ? 0.5 : 0.45,
+        message: [
+          storyMap.size > 0 ? `Linked ${storyMap.size} stor${storyMap.size === 1 ? 'y' : 'ies'}` : null,
+          workItemMap.size > 0 ? `with detailed roles` : null
+        ]
+          .filter(Boolean)
+          .join(' ')
+          || 'No stories with gaps to hydrate'
+      });
+
+      const savedSectionMap = new Map<string, any>();
+      if (savedSectionIds.size > 0) {
+        let savedSectionsData: any[] | null = null;
+        let savedSectionsError: any = null;
+
+        // Batch query if too many IDs (Supabase has limits on .in() queries)
+        const savedSectionIdArray = Array.from(savedSectionIds);
+        const BATCH_SIZE = 100; // Safe batch size for Supabase queries
+        
+        // Get profile source IDs to filter saved_sections by source_id (not profile_id)
+        let profileSourceIds = new Set<string>();
+        if (profileId) {
+          const pid = profileId.toUpperCase();
+          const { data: profileSources } = await db
+            .from('sources')
+            .select('id')
+            .eq('user_id', userId)
+            .or(
+              `file_name.ilike.${pid}_%,` +
+              `file_name.ilike.${pid}-%,` +
+              `file_name.ilike.${pid}.%,` +
+              `file_name.ilike.${pid} %`
+            );
+          profileSourceIds = new Set((profileSources || []).map((s: any) => s.id));
+        }
+
+        const attemptSelect = async (columns: string, ids: string[]) => {
+          let query = db
+            .from('saved_sections')
+            .select(columns)
+            .eq('user_id', userId)
+            .in('id', ids);
+          
+          // Filter by source_id if profileId is provided (saved_sections are linked via source, not profile_id)
+          if (profileId && profileSourceIds.size > 0) {
+            query = query.in('source_id', Array.from(profileSourceIds));
+          }
+          
+          const { data, error } = await query;
+          if (error) {
+            savedSectionsError = error;
+            return null;
+          }
+          savedSectionsError = null;
+          return data;
+        };
+
+        // Process in batches if needed
+        if (savedSectionIdArray.length > BATCH_SIZE) {
+          const batches: any[] = [];
+          for (let i = 0; i < savedSectionIdArray.length; i += BATCH_SIZE) {
+            const batch = savedSectionIdArray.slice(i, i + BATCH_SIZE);
+            const batchData = await attemptSelect('id, title, type, source_id', batch);
+            if (batchData) batches.push(...batchData);
+          }
+          savedSectionsData = batches;
+        } else {
+          savedSectionsData = await attemptSelect('id, title, type, source_id', savedSectionIdArray);
+        }
+
+        if (savedSectionsError) {
+          console.error('[GapDetection] Error loading saved sections for gaps:', savedSectionsError);
+        } else if (savedSectionsData) {
+          savedSectionsData.forEach((section: any) => {
+            savedSectionMap.set(section.id, section);
+          });
+        }
+      }
+
+      emitContentQualityProgress({
+        stage: 'hydrate-content',
+        progress: savedSectionMap.size > 0 ? 0.65 : 0.6,
+        message: savedSectionMap.size > 0
+          ? `Merged ${savedSectionMap.size} cover letter section${savedSectionMap.size === 1 ? '' : 's'}`
+          : 'No cover letter gaps detected'
+      });
+
+      const sourceMap = new Map<string, string>();
+      if (profileId) {
+        const sourceIdsToFetch = new Set<string>();
+
+        workItemMap.forEach((wi: any) => {
+          if (!wi?.profile_id && wi?.source_id) {
+            sourceIdsToFetch.add(wi.source_id);
+          }
+        });
+
+        storyMap.forEach((story: any) => {
+          if (story?.source_id) {
+            sourceIdsToFetch.add(story.source_id);
+          }
+          const joinedWorkItem = story?.work_item;
+          if (joinedWorkItem?.source_id && !joinedWorkItem?.profile_id) {
+            sourceIdsToFetch.add(joinedWorkItem.source_id);
+          } else if (!joinedWorkItem && story?.work_item_id) {
+            const fallbackWI = workItemMap.get(story.work_item_id);
+            if (fallbackWI?.source_id && !fallbackWI?.profile_id) {
+              sourceIdsToFetch.add(fallbackWI.source_id);
+            }
+          }
+        });
+
+        savedSectionMap.forEach((section: any) => {
+          if (section?.source_id) {
+            sourceIdsToFetch.add(section.source_id);
+          }
+        });
+
+        if (sourceIdsToFetch.size > 0) {
+          const { data: sourcesData, error: sourcesError } = await db
+            .from('sources')
+            .select('id, file_name')
+            .in('id', Array.from(sourceIdsToFetch));
+
+          if (sourcesError) {
+            console.error('[GapDetection] Error loading source metadata for gaps:', sourcesError);
+          } else {
+            (sourcesData || []).forEach((src: any) => {
+              if (src?.id && src?.file_name) {
+                sourceMap.set(src.id, src.file_name.toUpperCase());
+              }
+            });
+          }
+        }
+      }
+
+      emitContentQualityProgress({
+        stage: 'hydrate-content',
+        progress: 0.8,
+        message: 'Resolved source metadata for profile filtering'
+      });
+
+      const matchesProfileByFilename = (sourceId?: string | null) => {
+        if (!profileId || !sourceId) return false;
+        const fileName = sourceMap.get(sourceId);
+        if (!fileName) return false;
+        const pid = profileId.toUpperCase();
+        return (
+          fileName.startsWith(`${pid}_`) ||
+          fileName.startsWith(`${pid}-`) ||
+          fileName.startsWith(`${pid}.`) ||
+          fileName.startsWith(`${pid} `)
+        );
+      };
+
       // Fetch content metadata for each entity
+      emitContentQualityProgress({
+        stage: 'summarize',
+        progress: 0.85,
+        message: 'Ranking content by severity and priority...'
+      });
       for (const [key, entityData] of entityMap.entries()) {
         const [entityType, entityId] = key.split(':');
         const entityGaps: any[] = entityData.gaps as any[];
@@ -1230,34 +1949,14 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
         const gapCategories = [...new Set(entityGaps.map((g: any) => g.gap_category))];
 
         if (entityType === 'work_item') {
-          // Fetch work item with company
-          const { data: workItem, error: wiError } = await db
-            .from('work_items')
-            .select('title, description, metrics, source_id, company:companies(name)')
-            .eq('id', entityId)
-            .single();
+          const workItem = workItemMap.get(entityId);
+          if (!workItem) continue;
 
-          if (wiError || !workItem) continue;
-
-          // Profile filter: when profile_id available, use it; otherwise fallback to source file prefix
           if (profileId) {
-            const wi: any = workItem as any;
-            if (wi?.profile_id) {
-              if (wi.profile_id !== profileId) continue;
-            } else if (wi?.source_id) {
-              const { data: src, error: srcError }: any = await db
-                .from('sources')
-                .select('file_name')
-                .eq('id', wi.source_id)
-                .maybeSingle();
-
-              if (srcError) throw srcError;
-
-              const fileName = (src?.file_name || '').toUpperCase();
-              const pid = profileId.toUpperCase();
-              const matches = fileName.startsWith(`${pid}_`) || fileName.startsWith(`${pid}-`) || fileName.startsWith(`${pid} `) || fileName.startsWith(`${pid}.`);
-              if (!fileName || !matches) continue;
-            }
+            const matchesProfile = workItem.profile_id
+              ? workItem.profile_id === profileId
+              : matchesProfileByFilename(workItem.source_id);
+            if (!matchesProfile) continue;
           }
 
           const companyName = (workItem.company as any)?.name || 'Unknown Company';
@@ -1382,35 +2081,24 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
             });
           }
         } else if (entityType === 'approved_content') {
-          // Fetch story with work item and company
-          const { data: story, error: storyError }: any = await db
-            .from('approved_content')
-            .select('title, source_id, work_item:work_items!work_item_id(id, title, company:companies(name))')
-            .eq('id', entityId)
-            .single();
+          const story = storyMap.get(entityId);
+          if (!story) continue;
 
-          if (storyError || !story) continue;
+          const linkedWorkItem = (story.work_item as any) || (story.work_item_id ? workItemMap.get(story.work_item_id) : null);
+          if (!linkedWorkItem) continue;
 
-          const workItem = story.work_item as any;
-
-          // Profile filter: use work_item.profile_id when present; else fallback to story.source filename prefix
           if (profileId) {
-            if (workItem?.profile_id) {
-              if (workItem.profile_id !== profileId) continue;
-            } else if ((story as any)?.source_id) {
-              const { data: src }: any = await db
-                .from('sources')
-                .select('file_name')
-                .eq('id', (story as any).source_id)
-                .maybeSingle();
-              const fileName = (src?.file_name || '').toUpperCase();
-              const pid = profileId.toUpperCase();
-              const matches = fileName.startsWith(`${pid}_`) || fileName.startsWith(`${pid}-`) || fileName.startsWith(`${pid} `) || fileName.startsWith(`${pid}.`);
-              if (!fileName || !matches) continue;
+            let matchesProfile = false;
+            if (linkedWorkItem.profile_id) {
+              matchesProfile = linkedWorkItem.profile_id === profileId;
+            } else {
+              matchesProfile = matchesProfileByFilename(linkedWorkItem.source_id) || matchesProfileByFilename(story.source_id);
             }
-          }
-          const roleTitle = workItem?.title || 'Unknown Role';
-          const companyName = workItem?.company?.name || 'Unknown Company';
+            if (!matchesProfile) continue;
+            }
+
+          const roleTitle = linkedWorkItem?.title || 'Unknown Role';
+          const companyName = linkedWorkItem?.company?.name || 'Unknown Company';
           const storyTitle = story.title;
 
           items.push({
@@ -1425,22 +2113,15 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
             gap_categories: gapCategories,
             content_type_label: 'Work History',
             navigation_path: '/work-history',
-            navigation_params: { roleId: workItem?.id || '', storyId: entityId },
+            navigation_params: { roleId: linkedWorkItem?.id || story.work_item_id || '', storyId: entityId },
           });
         } else if (entityType === 'saved_section') {
-          // Fetch saved section (use the same db client to respect auth in Node contexts)
-          const { data: section, error: sectionError } = await db
-            .from('saved_sections')
-            .select('title, type, profile_id')
-            .eq('id', entityId)
-            .single();
+          const section = savedSectionMap.get(entityId);
+          if (!section) continue;
 
-          if (sectionError || !section) continue;
-
-          // Profile filter: skip if profileId provided and does not match
           if (profileId) {
-            const sec: any = section as any;
-            if (sec?.profile_id && sec.profile_id !== profileId) continue;
+          const matchesProfile = matchesProfileByFilename(section?.source_id);
+            if (!matchesProfile) continue;
           }
 
           const sectionTitle = section.title || section.type || 'Section';
@@ -1472,15 +2153,32 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
       const workHistory = items.filter(item => item.content_type_label === 'Work History');
       const coverLetterSavedSections = items.filter(item => item.content_type_label === 'Cover Letter Saved Sections');
 
-      return {
+      const result = {
         total: items.length,
         byContentType: {
           workHistory,
           coverLetterSavedSections,
         },
       };
+
+      emitContentQualityProgress({
+        stage: 'complete',
+        progress: 1,
+        message: items.length > 0
+          ? `Content quality ready: ${items.length} item${items.length === 1 ? '' : 's'} need attention`
+          : 'Content quality ready: no gaps detected',
+        tone: 'success'
+      });
+
+      return result;
     } catch (error) {
       console.error('Error in getContentItemsWithGaps:', error);
+      emitContentQualityProgress({
+        stage: 'error',
+        progress: 1,
+        message: error instanceof Error ? error.message : 'Failed to load content quality',
+        tone: 'error'
+      });
       return {
         total: 0,
         byContentType: {

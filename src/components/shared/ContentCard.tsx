@@ -10,7 +10,8 @@ import {
   Copy,
   TrendingUp,
   Tags,
-  Trash2
+  Trash2,
+  Plus
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -147,7 +148,7 @@ export const ContentCard = ({
         {/* Content - Show read-only preview if children provided (for inline editing), otherwise show content */}
         {!children && (
         <div className="mb-6">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground whitespace-pre-line">
             {content}
           </p>
         </div>
@@ -157,7 +158,7 @@ export const ContentCard = ({
         {renderChildrenBeforeTags && children}
 
         {/* Tags */}
-        {(tags.length > 0 || onTagSuggestions) && (
+        {(tags.length > 0 || onEdit) && (
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-2">
               <Tags className="h-4 w-4 text-muted-foreground" />
@@ -169,14 +170,15 @@ export const ContentCard = ({
                   {tag}
                 </Badge>
               ))}
-              {onTagSuggestions && (
-                <TagSuggestionButton
-                  content={content}
-                  onTagsSuggested={onTagSuggestions}
-                  onClick={() => onTagSuggestions([])}
-                  variant="tertiary"
-                  size="sm"
-                />
+              {tags.length === 0 && onEdit && (
+                <Badge 
+                  variant="outline" 
+                  className="text-xs cursor-pointer hover:bg-muted border-dashed"
+                  onClick={onEdit}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add tag
+                </Badge>
               )}
             </div>
           </div>

@@ -1,75 +1,68 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import type { ComponentProps } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Plus, FileText, CheckCircle, Edit, X } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { FileText, CheckCircle, X, BookOpen } from "lucide-react";
 import { TemplateBlurbHierarchical } from "@/components/template-blurbs/TemplateBlurbHierarchical";
-import { type TemplateBlurb } from "@/components/template-blurbs/TemplateBlurbMaster";
 import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
+import { CoverLetterTemplateService, type SavedSection } from "@/services/coverLetterTemplateService";
+import { useUserGoals } from "@/contexts/UserGoalsContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { TagSuggestionService } from "@/services/tagSuggestionService";
+import { TagService } from "@/services/tagService";
+import { GapDetectionService } from "@/services/gapDetectionService";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { LoadingState } from "@/components/shared/LoadingState";
+import { useToast } from "@/hooks/use-toast";
+import { SyntheticUserService } from "@/services/syntheticUserService";
 
-// Mock template blurbs library
-const mockTemplateBlurbs: TemplateBlurb[] = [
-  {
-    id: "intro-1",
-    type: "intro",
-    title: "Standard Professional Opening",
-    content: "I am writing to express my strong interest in the [Position] role at [Company]. With my background in [Industry/Field], I am excited about the opportunity to contribute to your team's success.",
-    tags: ["professional", "standard", "interest", "background"],
-    isDefault: true,
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z",
-    // Mock gap detection data - lacks compelling hook and company research
-    hasGaps: true,
-    gapCount: 1
-  },
-  {
-    id: "intro-2", 
-    type: "intro",
-    title: "Passionate Connection",
-    content: "I was thrilled to discover the [Position] opening at [Company], as it perfectly aligns with my passion for [Industry/Field] and my career goals in [Specific Area].",
-    tags: ["passion", "thrilled", "alignment", "career goals"],
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z",
-    // Mock gap detection data - lacks compelling hook and company research
-    hasGaps: true,
-    gapCount: 1
-  },
-  {
-    id: "intro-3",
-    type: "intro",
-    title: "Referral Opening",
-    content: "I was referred to this [Position] opportunity at [Company] by [Referral Name], who spoke highly of your team and the innovative work you're doing in [Industry/Field].",
-    tags: ["referral", "network", "recommendation", "connection"],
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
-  },
-  {
-    id: "closer-1",
-    type: "closer",
-    title: "Professional Closing",
-    content: "I am excited about the opportunity to discuss how my experience and skills can contribute to [Company]'s continued success. I look forward to hearing from you soon.",
-    tags: ["professional", "closing", "excitement", "follow-up"],
-    isDefault: true,
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z",
-    // Mock gap detection data - no gaps
-    hasGaps: false,
-    gapCount: 0
-  }
-];
+type SavedSectionItem = {
+  id: string;
+  type: 'intro' | 'paragraph' | 'closer' | 'signature';
+  title: string;
+  content: string;
+  tags: string[];
+  isDefault?: boolean;
+  timesUsed: number;
+  lastUsed?: string;
+  createdAt: string;
+  updatedAt: string;
+  hasGaps?: boolean;
+  gapCount?: number;
+  gapCategories?: string[];
+  maxGapSeverity?: 'high' | 'medium' | 'low';
+  status?: 'approved' | 'draft' | 'needs-review';
+  confidence?: 'high' | 'medium' | 'low';
+  linkedExternalLinks?: string[];
+  externalLinks?: string[];
+};
+
+type HierarchicalBlurb = ComponentProps<typeof TemplateBlurbHierarchical>['blurbs'][number] & {
+  hasGaps?: boolean;
+  gapCount?: number;
+  linkedExternalLinks?: string[];
+  externalLinks?: string[];
+  gapCategories?: string[];
+  maxGapSeverity?: 'high' | 'medium' | 'low';
+};
 
 export default function SavedSections() {
-  const [templateBlurbs, setTemplateBlurbs] = useState<TemplateBlurb[]>(mockTemplateBlurbs);
+  const { user } = useAuth();
+  const { goals } = useUserGoals();
+  const { toast } = useToast();
+  const [savedSections, setSavedSections] = useState<SavedSectionItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isEditingSection, setIsEditingSection] = useState(false);
+  const [editingSection, setEditingSection] = useState<SavedSectionItem | null>(null);
+  const [sectionTagInput, setSectionTagInput] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const [showAddReusableContentModal, setShowAddReusableContentModal] = useState(false);
   const [newReusableContent, setNewReusableContent] = useState({ title: '', content: '', tags: '', contentType: '' });
-  const [userContentTypes, setUserContentTypes] = useState<Array<{
-    type: string;
-    label: string;
-    description: string;
-    icon: React.ComponentType<{ className?: string }>;
-  }>>([]);
-  
+
   // HIL Content Generation state
   const [isContentModalOpen, setIsContentModalOpen] = useState(false);
   const [selectedGap, setSelectedGap] = useState<any>(null);
@@ -80,52 +73,281 @@ export default function SavedSections() {
   const [isTagModalOpen, setIsTagModalOpen] = useState(false);
   const [tagContent, setTagContent] = useState('');
   const [suggestedTags, setSuggestedTags] = useState<any[]>([]);
+  const [tagEntityId, setTagEntityId] = useState<string | undefined>();
+  const [existingTags, setExistingTags] = useState<string[]>([]);
 
-  const handleSelectBlurbFromLibrary = (blurb: TemplateBlurb) => {
-    console.log('Selected blurb from library:', blurb);
+  const mountedRef = useRef(true);
+
+  // Load saved sections from database
+  useEffect(() => {
+    mountedRef.current = true;
+
+    const loadSavedSections = async () => {
+      if (!user?.id) {
+        if (mountedRef.current) {
+          setSavedSections([]);
+          setError(null);
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const syntheticUserService = new SyntheticUserService();
+        const syntheticContext = await syntheticUserService.getSyntheticUserContext();
+
+        const profileId = syntheticContext.isSyntheticTestingEnabled
+          ? syntheticContext.currentUser?.profileId
+          : undefined;
+
+        const sections = await CoverLetterTemplateService.getUserSavedSections(user.id, profileId);
+
+        let savedSectionGapIndex = new Map<
+          string,
+          { gapCount: number; categories: string[]; maxSeverity: "high" | "medium" | "low" }
+        >();
+
+        try {
+          const gapSummary = await GapDetectionService.getContentItemsWithGaps(user.id, profileId);
+          const savedSectionGaps = gapSummary.byContentType.coverLetterSavedSections || [];
+          savedSectionGapIndex = new Map(
+            savedSectionGaps.map((item) => [
+              item.entity_id,
+              {
+                gapCount: item.gap_categories?.length ?? 0,
+                categories: item.gap_categories ?? [],
+                maxSeverity: item.max_severity ?? "low"
+              }
+            ])
+          );
+        } catch (gapError) {
+          console.warn(
+            "[SavedSections] Gap summary unavailable (using defaults).",
+            gapError
+          );
+        }
+
+        if (!mountedRef.current) {
+          return;
+        }
+
+        const sectionItems: SavedSectionItem[] = sections.map((section) => ({
+          id: section.id!,
+          type: section.type as SavedSectionItem["type"],
+          title: section.title,
+          content: section.content,
+          tags: Array.from(new Set([...(section.tags ?? []), ...(section.purpose_tags ?? [])])),
+          isDefault: (section.type as string) === "intro",
+          status: "approved" as const,
+          confidence: "high" as const,
+          timesUsed: section.times_used || 0,
+          lastUsed: section.last_used,
+          createdAt: section.created_at!,
+          updatedAt: section.updated_at!,
+          hasGaps: (savedSectionGapIndex.get(section.id!)?.gapCount ?? 0) > 0,
+          gapCount: savedSectionGapIndex.get(section.id!)?.gapCount ?? 0,
+          gapCategories: savedSectionGapIndex.get(section.id!)?.categories ?? [],
+          maxGapSeverity: savedSectionGapIndex.get(section.id!)?.maxSeverity,
+          linkedExternalLinks: [],
+          externalLinks: []
+        }));
+
+        setSavedSections(sectionItems);
+      } catch (err) {
+        if (!mountedRef.current) {
+          return;
+        }
+        const message =
+          err instanceof Error ? err.message : "Failed to load saved sections";
+        setError(`Failed to load saved sections: ${message}`);
+        setSavedSections([]);
+      } finally {
+        if (mountedRef.current) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadSavedSections();
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [user?.id]);
+
+  const handleSelectSectionFromLibrary = (_section: HierarchicalBlurb) => {
+    // Reserved for future interactions when selecting a saved section from the library.
   };
 
-  const handleEditBlurb = (blurb: TemplateBlurb) => {
-    console.log('Edit blurb:', blurb);
+  const handleEditSection = (section: HierarchicalBlurb) => {
+    const existing = savedSections.find((item) => item.id === section.id);
+    const draft: SavedSectionItem = existing
+      ? { ...existing, tags: [...(existing.tags ?? [])] }
+      : {
+          id: section.id,
+          type: section.type as SavedSectionItem["type"],
+          title: section.title ?? "",
+          content: section.content ?? "",
+          tags: [...(section.tags ?? [])],
+          isDefault: false,
+          timesUsed: section.timesUsed ?? 0,
+          lastUsed: section.lastUsed,
+          createdAt: section.createdAt ?? new Date().toISOString(),
+          updatedAt: section.updatedAt ?? new Date().toISOString(),
+          hasGaps: section.hasGaps,
+          gapCount: section.gapCount,
+          gapCategories: section.gapCategories,
+          maxGapSeverity: section.maxGapSeverity,
+          status: section.status,
+          confidence: section.confidence,
+          linkedExternalLinks: section.linkedExternalLinks ?? [],
+          externalLinks: section.externalLinks ?? []
+        };
+
+    setEditingSection({ ...draft, tags: [...(draft.tags ?? [])] });
+    setSectionTagInput("");
+    setIsEditingSection(true);
   };
 
-  const handleCreateBlurb = (type?: 'intro' | 'closer' | 'signature' | string) => {
+  const handleCreateSection = (type?: 'intro' | 'paragraph' | 'closer' | 'signature' | string) => {
     if (type) {
       setNewReusableContent(prev => ({ ...prev, contentType: type }));
       setShowAddReusableContentModal(true);
     }
   };
 
-  const handleDeleteBlurb = (id: string) => {
-    setTemplateBlurbs(prev => prev.filter(blurb => blurb.id !== id));
+  const handleDeleteSection = async (id: string) => {
+    if (!user?.id) return;
+
+    try {
+      await CoverLetterTemplateService.deleteSavedSection(id);
+      setSavedSections(prev => prev.filter(section => section.id !== id));
+    } catch (err) {
+      console.error('Error deleting saved section:', err);
+      toast({
+        title: 'Unable to delete saved section',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive'
+      });
+    }
   };
 
-  const handleGenerateContent = (blurb: TemplateBlurb) => {
-    const mockGapData = {
-      id: `blurb-gap-${blurb.id}`,
-      type: 'content-enhancement' as const,
-      severity: 'medium' as const,
-      description: 'Content could be more compelling and specific',
-      suggestion: 'Add quantifiable results and specific achievements to make this section more impactful',
-      paragraphId: blurb.type,
-      origin: 'saved-section' as const,
-      existingContent: blurb.content
-    };
-    
-    setSelectedGap(mockGapData);
+  const handleAddSectionTag = () => {
+    if (!editingSection) return;
+    const newTag = sectionTagInput.trim();
+    if (!newTag || editingSection.tags?.includes(newTag)) {
+      setSectionTagInput('');
+      return;
+    }
+
+    setEditingSection({
+      ...editingSection,
+      tags: [...(editingSection.tags ?? []), newTag]
+    });
+    setSectionTagInput('');
+  };
+
+  const handleRemoveSectionTag = (tagToRemove: string) => {
+    if (!editingSection) return;
+    setEditingSection({
+      ...editingSection,
+      tags: (editingSection.tags ?? []).filter((tag) => tag !== tagToRemove)
+    });
+  };
+
+  const handleCancelEditSection = () => {
+    setIsEditingSection(false);
+    setEditingSection(null);
+    setSectionTagInput('');
+  };
+
+  const handleSaveSection = async () => {
+    if (!editingSection || !user?.id) return;
+
+    try {
+      const updated = await CoverLetterTemplateService.updateSavedSection(editingSection.id, {
+        title: editingSection.title,
+        content: editingSection.content,
+        tags: editingSection.tags ?? []
+      });
+
+      const updatedTimestamp = updated.updated_at ?? new Date().toISOString();
+      const updatedId = updated.id ?? editingSection.id;
+
+      setSavedSections((prev) =>
+        prev.map((section) =>
+          section.id === updatedId
+            ? {
+                ...section,
+                title: updated.title ?? editingSection.title,
+                content: updated.content ?? editingSection.content,
+                tags: updated.tags ?? editingSection.tags ?? [],
+                updatedAt: updatedTimestamp
+              }
+            : section
+        )
+      );
+
+      toast({
+        title: "Saved section updated",
+        description: "Your changes have been saved."
+      });
+
+      handleCancelEditSection();
+    } catch (err) {
+      console.error("Error updating saved section:", err);
+      toast({
+        title: "Unable to update saved section",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const formatGapCategory = (category: string) =>
+    category
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+
+  const handleGenerateContent = (section: HierarchicalBlurb) => {
+    const categories = (section.gapCategories ?? []) as string[];
+    const formattedCategories = categories.map(formatGapCategory);
+    const severity = (section.maxGapSeverity ?? "medium") as "high" | "medium" | "low";
+
+    const description =
+      formattedCategories.length > 0
+        ? `This section can be improved by addressing: ${formattedCategories.join(', ')}.`
+        : "This section can be strengthened with more specific, outcome-driven language.";
+
+    const suggestion =
+      formattedCategories.length > 0
+        ? `Add detail that directly speaks to ${formattedCategories.join(', ').toLowerCase()}.`
+        : "Include quantifiable results and tailor the copy to the target role or company.";
+
+    setSelectedGap({
+      id: `saved-section-gap-${section.id}`,
+      type: 'content-enhancement',
+      severity,
+      description,
+      suggestion,
+      paragraphId: section.type,
+      origin: 'library',
+      existingContent: section.content
+    });
     setIsContentModalOpen(true);
   };
 
   const handleApplyContent = (content: string) => {
-    console.log('Applied generated content:', content);
-    console.log('Selected gap:', selectedGap);
     
-    if (selectedGap && selectedGap.origin === 'saved-section') {
-      // Update the blurb content
-      setTemplateBlurbs(prev => prev.map(blurb => 
-        blurb.id === selectedGap.id.replace('blurb-gap-', '') 
-          ? { ...blurb, content: content, updatedAt: new Date().toISOString() }
-          : blurb
+    if (selectedGap && selectedGap.origin === 'library') {
+      // Update the saved section content
+      setSavedSections(prev => prev.map(section => 
+        section.id === selectedGap.id.replace('saved-section-gap-', '') 
+          ? { ...section, content: content, updatedAt: new Date().toISOString() }
+          : section
       ));
     }
     
@@ -143,95 +365,54 @@ export default function SavedSections() {
     setDismissedSuccessCards(prev => new Set([...prev, gapId]));
   };
 
-  // Mock tag generation function
-  const generateMockTags = async (content: string): Promise<string[]> => {
-    // No delay for demo purposes
-    const keywords = content.toLowerCase();
-    const suggestedTags: string[] = [];
-    
-    // Industry tags
-    if (keywords.includes('product') || keywords.includes('pm')) {
-      suggestedTags.push('Product Management');
-    }
-    if (keywords.includes('saas') || keywords.includes('software')) {
-      suggestedTags.push('SaaS');
-    }
-    if (keywords.includes('fintech') || keywords.includes('finance')) {
-      suggestedTags.push('Fintech');
-    }
-    if (keywords.includes('healthcare') || keywords.includes('medical')) {
-      suggestedTags.push('Healthcare');
-    }
-    if (keywords.includes('ecommerce') || keywords.includes('retail')) {
-      suggestedTags.push('E-commerce');
-    }
-    
-    // Competency tags
-    if (keywords.includes('strategy') || keywords.includes('strategic')) {
-      suggestedTags.push('Strategy');
-    }
-    if (keywords.includes('growth') || keywords.includes('scale')) {
-      suggestedTags.push('Growth');
-    }
-    if (keywords.includes('ux') || keywords.includes('user experience')) {
-      suggestedTags.push('UX');
-    }
-    if (keywords.includes('data') || keywords.includes('analytics')) {
-      suggestedTags.push('Data Analytics');
-    }
-    if (keywords.includes('leadership') || keywords.includes('team')) {
-      suggestedTags.push('Leadership');
-    }
-    if (keywords.includes('launch') || keywords.includes('release')) {
-      suggestedTags.push('Product Launch');
-    }
-    if (keywords.includes('revenue') || keywords.includes('monetization')) {
-      suggestedTags.push('Monetization');
-    }
-    
-    // Business model tags
-    if (keywords.includes('b2b') || keywords.includes('enterprise')) {
-      suggestedTags.push('B2B');
-    }
-    if (keywords.includes('b2c') || keywords.includes('consumer')) {
-      suggestedTags.push('B2C');
-    }
-    if (keywords.includes('marketplace') || keywords.includes('platform')) {
-      suggestedTags.push('Platform');
-    }
-    
-    // Remove duplicates and limit to 5 tags
-    return [...new Set(suggestedTags)].slice(0, 5);
-  };
-
-  // Tag suggestion handler for Saved Sections
-  const handleTagSuggestions = async (blurb: TemplateBlurb) => {
-    console.log('handleTagSuggestions called with blurb:', blurb);
-    // Generate mock tag suggestions based on blurb content
-    const mockTags = await generateMockTags(blurb.content);
-    console.log('Generated mock tags for blurb:', mockTags);
-    
-    const tagSuggestions = mockTags.map((tag, index) => ({
-      id: `blurb-tag-${index}`,
-      value: tag,
-      confidence: Math.random() > 0.5 ? 'high' : Math.random() > 0.3 ? 'medium' : 'low'
-    }));
-    console.log('Blurb tag suggestions:', tagSuggestions);
-    setSuggestedTags(tagSuggestions);
-    setTagContent(blurb.content);
-    console.log('Setting isTagModalOpen to true for blurb tags');
-    setIsTagModalOpen(true);
-    console.log('Blurb tag modal should be opening now');
-  };
+  // NOTE: Saved section tag suggestions removed
+  // Tags are auto-generated when creating content to address gaps (using gapContext)
+  // This happens automatically during HIL content creation flow
 
   // Handle applying selected tags
-  const handleApplyTags = (selectedTags: string[]) => {
-    console.log('Applied tags to blurb:', selectedTags);
-    // TODO: Update blurb tags in the data
+  const handleApplyTags = async (selectedTags: string[]) => {
+    if (!user || !tagEntityId) return;
+    
+    try {
+      // Merge with existing tags
+      const allTags = [...new Set([...existingTags, ...selectedTags])];
+      await TagService.updateSavedSectionTags(tagEntityId, allTags, user.id);
+      
+      // Update local state
+      setSavedSections(prev => prev.map(section => 
+        section.id === tagEntityId 
+          ? { ...section, tags: allTags, updatedAt: new Date().toISOString() }
+          : section
+      ));
+      
     setIsTagModalOpen(false);
     setSuggestedTags([]);
     setTagContent('');
+      setTagEntityId(undefined);
+      setExistingTags([]);
+    } catch (error) {
+      console.error('Error updating tags:', error);
+      // Error handling could be added here
+    }
   };
+
+  const hierarchicalSections = savedSections.map((section) => ({
+    id: section.id,
+    type: section.type,
+    title: section.title,
+    content: section.content,
+    status: 'approved' as const,
+    confidence: 'high' as const,
+    tags: section.tags,
+    timesUsed: section.timesUsed,
+    lastUsed: section.lastUsed,
+    createdAt: section.createdAt,
+    updatedAt: section.updatedAt,
+    hasGaps: section.hasGaps,
+    gapCount: section.gapCount,
+    gapCategories: section.gapCategories,
+    maxGapSeverity: section.maxGapSeverity
+  }));
 
   return (
     <div className="min-h-screen bg-background">
@@ -240,54 +421,168 @@ export default function SavedSections() {
         <p className="text-muted-foreground mb-6">
           Manage your reusable cover letter sections and templates
         </p>
-        
-        <div className="bg-background">
-          <div className="container mx-auto px-4">
-            <div className="max-w-4xl mx-auto">
-              <div className="template-content-spacing mt-2">
-                <TemplateBlurbHierarchical
-                  blurbs={templateBlurbs.map(blurb => ({
-                    ...blurb,
-                    status: 'approved' as const,
-                    confidence: 'high' as const,
-                    timesUsed: 5,
-                    lastUsed: '2024-01-15',
-                    linkedExternalLinks: [],
-                    externalLinks: []
-                  }))}
-                  selectedBlurbId={undefined}
-                  onSelectBlurb={handleSelectBlurbFromLibrary}
-                  onCreateBlurb={handleCreateBlurb}
-                  onEditBlurb={handleEditBlurb}
-                  onDeleteBlurb={handleDeleteBlurb}
-                  onGenerateContent={handleGenerateContent}
-                  onTagSuggestions={handleTagSuggestions}
-                  resolvedGaps={resolvedGaps}
-                  dismissedSuccessCards={dismissedSuccessCards}
-                  onDismissSuccessCard={handleDismissSuccessCard}
-                  contentTypes={[
+
+        {error && (
+          <div className="mb-4 p-4 bg-destructive/10 border border-destructive rounded-lg text-destructive">
+            {error}
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <LoadingState isLoading loadingText="Loading saved sections..." />
+          </div>
+        ) : savedSections.length === 0 ? (
+          <EmptyState
+            title="No saved sections found for this profile."
+            description="Upload a cover letter for this persona (e.g. P01) or create a new section manually to populate your library."
+            action={{
+              label: "Create New Section",
+              onClick: () => {
+                setNewReusableContent({ title: '', content: '', tags: '', contentType: '' });
+                setShowAddReusableContentModal(true);
+              }
+            }}
+          />
+        ) : (
+          <TemplateBlurbHierarchical
+            blurbs={hierarchicalSections}
+            selectedBlurbId={undefined}
+            onSelectBlurb={handleSelectSectionFromLibrary}
+            onCreateBlurb={handleCreateSection}
+            onEditBlurb={handleEditSection}
+            onDeleteBlurb={handleDeleteSection}
+            onGenerateContent={handleGenerateContent}
+            resolvedGaps={resolvedGaps}
+            dismissedSuccessCards={dismissedSuccessCards}
+            onDismissSuccessCard={handleDismissSuccessCard}
+            contentTypes={[
                     {
                       type: 'intro',
                       label: 'Introduction',
                       description: 'Opening paragraphs that grab attention and introduce you',
-                      icon: FileText,
-                      blurbs: templateBlurbs.filter(b => b.type === 'intro')
+                icon: FileText
+              },
+              {
+                type: 'paragraph',
+                label: 'Body Paragraph',
+                description: 'Static supporting paragraphs kept verbatim from uploads',
+                icon: BookOpen
                     },
                     {
                       type: 'closer',
                       label: 'Closing',
-                      description: 'Professional closing paragraphs that wrap up your letter',
-                      icon: CheckCircle,
-                      blurbs: templateBlurbs.filter(b => b.type === 'closer')
+                description: 'Professional closing paragraphs that reinforce your interest',
+                icon: CheckCircle
                     }
                   ]}
                 />
-              </div>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
-      
+
+      {/* Edit Saved Section Modal */}
+      {isEditingSection && editingSection && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <div>
+                <CardTitle>Edit Saved Section</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Update the title, content, and tags for this reusable section.
+                </p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={handleCancelEditSection}>
+                <X className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="saved-section-title">Title</Label>
+                <Input
+                  id="saved-section-title"
+                  value={editingSection.title}
+                  onChange={(event) =>
+                    setEditingSection((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            title: event.target.value
+                          }
+                        : prev
+                    )
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="saved-section-content">Content</Label>
+                <Textarea
+                  id="saved-section-content"
+                  value={editingSection.content}
+                  onChange={(event) =>
+                    setEditingSection((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            content: event.target.value
+                          }
+                        : prev
+                    )
+                  }
+                  placeholder="Enter the section content..."
+                  rows={8}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="saved-section-tags">Tags</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="saved-section-tags"
+                    value={sectionTagInput}
+                    onChange={(event) => setSectionTagInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        handleAddSectionTag();
+                      }
+                    }}
+                    placeholder="Add a tag and press Enter"
+                  />
+                  <Button type="button" variant="secondary" onClick={handleAddSectionTag}>
+                    Add
+                  </Button>
+                </div>
+
+                {editingSection.tags && editingSection.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {editingSection.tags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-xs">
+                        <span>{tag}</span>
+                        <button
+                          type="button"
+                          className="ml-1 text-muted-foreground transition hover:text-destructive"
+                          onClick={() => handleRemoveSectionTag(tag)}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="secondary" onClick={handleCancelEditSection}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveSection}>Save Changes</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* HIL Content Generation Modal */}
       {isContentModalOpen && selectedGap && (
         <ContentGenerationModal
@@ -387,24 +682,46 @@ export default function SavedSections() {
                   Cancel
                 </Button>
                 <Button
-                  onClick={() => {
-                    // Create new blurb
-                    const newBlurb: TemplateBlurb = {
-                      id: `blurb-${Date.now()}`,
-                      type: newReusableContent.contentType as 'intro' | 'closer' | 'signature',
-                      title: newReusableContent.title,
-                      content: newReusableContent.content,
-                      tags: newReusableContent.tags.split(',').map(tag => tag.trim()).filter(Boolean),
-                      status: 'draft',
-                      confidence: 'medium',
-                      timesUsed: 0,
-                      createdAt: new Date().toISOString(),
-                      updatedAt: new Date().toISOString()
-                    };
-                    
-                    setTemplateBlurbs(prev => [...prev, newBlurb]);
-                    setShowAddReusableContentModal(false);
-                    setNewReusableContent({ title: '', content: '', tags: '', contentType: '' });
+                  onClick={async () => {
+                    if (!user?.id) return;
+
+                    try {
+                      // Create saved section in database
+                      const newSection: SavedSection = {
+                        user_id: user.id,
+                        type: newReusableContent.contentType as 'intro' | 'paragraph' | 'closer' | 'signature' | 'other',
+                        title: newReusableContent.title,
+                        content: newReusableContent.content,
+                        tags: newReusableContent.tags.split(',').map(tag => tag.trim()).filter(Boolean),
+                        times_used: 0
+                      };
+
+                      const createdSection = await CoverLetterTemplateService.createSavedSection(newSection);
+
+                      // Convert to SavedSectionItem for UI
+                      const newSectionItem: SavedSectionItem = {
+                        id: createdSection.id!,
+                        type: createdSection.type as SavedSectionItem['type'],
+                        title: createdSection.title,
+                        content: createdSection.content,
+                        tags: createdSection.tags ?? [],
+                        timesUsed: createdSection.times_used ?? 0,
+                        lastUsed: createdSection.last_used ?? undefined,
+                        createdAt: createdSection.created_at!,
+                        updatedAt: createdSection.updated_at!,
+                        hasGaps: false, // Newly created sections have no gaps
+                        gapCount: 0,
+                        gapCategories: [],
+                        maxGapSeverity: 'low'
+                      };
+
+                      setSavedSections(prev => [...prev, newSectionItem]);
+                      setShowAddReusableContentModal(false);
+                      setNewReusableContent({ title: '', content: '', tags: '', contentType: '' });
+                    } catch (err) {
+                      console.error('Error creating saved section:', err);
+                      alert('Failed to create saved section');
+                    }
                   }}
                   disabled={!newReusableContent.title || !newReusableContent.content || !newReusableContent.contentType}
                 >
@@ -421,12 +738,17 @@ export default function SavedSections() {
         <ContentGenerationModal
           mode="tag-suggestion"
           content={tagContent}
+          contentType="saved_section"
+          entityId={tagEntityId}
+          existingTags={existingTags}
           suggestedTags={suggestedTags}
           isOpen={isTagModalOpen}
           onClose={() => {
             setIsTagModalOpen(false);
             setSuggestedTags([]);
             setTagContent('');
+            setTagEntityId(undefined);
+            setExistingTags([]);
           }}
           onApplyTags={handleApplyTags}
         />

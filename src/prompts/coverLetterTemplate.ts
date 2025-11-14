@@ -53,6 +53,8 @@ Return ONLY valid JSON with this structure:
 }
 
 CRITICAL INSTRUCTIONS:
+- Treat the greeting (e.g., "Dear Hiring Team") and the first introductory paragraph as a single Introduction section. Do not create a separate greeting block.
+- If the cover letter ends with a sign-off (e.g., "Regards, Avery"), include those lines as their own paragraph and label its function as signature.
 - Extract the STRUCTURAL PATTERNS, not the specific content
 - Focus on HOW the user writes, not WHAT they wrote
 - Create templates with [PLACEHOLDER] text that can be filled later

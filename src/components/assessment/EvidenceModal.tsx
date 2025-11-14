@@ -1,10 +1,13 @@
-import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
-import { X, Tag, Building, User, Calendar, Target, Edit, BarChart3 } from "lucide-react";
+import { calculateEvidenceBasedConfidence } from "@/utils/confidenceCalculation";
+import { getConfidenceBadgeColor } from "@/utils/confidenceBadge";
+import { EvidenceSummaryStats } from "./EvidenceSummaryStats";
+import { CriteriaDisplay } from "./CriteriaDisplay";
+import { StoryCard } from "./StoryCard";
+import { DisputeFeedbackDialog } from "./DisputeFeedbackDialog";
 
 interface EvidenceStory {
   id: string;
@@ -17,6 +20,7 @@ interface EvidenceStory {
   timesUsed: number;
   confidence: 'high' | 'medium' | 'low';
   outcomeMetrics?: string[];
+  levelAssessment?: 'exceeds' | 'meets' | 'below';
 }
 
 interface EvidenceModalProps {
@@ -26,6 +30,8 @@ interface EvidenceModalProps {
   evidence: EvidenceStory[];
   matchedTags: string[];
   overallConfidence: 'high' | 'medium' | 'low';
+  competencyScore?: number; // 0-3 scale for percentage calculation
+  currentLevel?: string; // Current PM level for criteria title
 }
 
 const EvidenceModal = ({ 
@@ -34,24 +40,120 @@ const EvidenceModal = ({
   competency, 
   evidence,
   matchedTags,
-  overallConfidence
+  overallConfidence,
+  competencyScore,
+  currentLevel
 }: EvidenceModalProps) => {
-  const getConfidenceColor = (confidence: string) => {
+  // Calculate confidence percentage using shared utility
+  const getConfidencePercentage = (): number => {
+    return calculateEvidenceBasedConfidence({
+      competencyScore,
+      evidence,
+      matchedTags,
+      overallConfidence
+    });
+  };
+
+  // Get confidence color for story relevance (text-based: 'high', 'medium', 'low')
+  const getStoryConfidenceColor = (confidence: string) => {
     switch (confidence) {
       case 'high': return 'bg-success text-success-foreground';
-      case 'medium': return 'bg-warning text-warning-foreground';
+      case 'medium': return 'bg-blue-600 text-white';
       case 'low': return 'bg-muted text-muted-foreground';
       default: return 'bg-muted text-muted-foreground';
     }
   };
 
-  const getConfidenceText = (confidence: string) => {
-    switch (confidence) {
-      case 'high': return 'High confidence';
-      case 'medium': return 'Medium confidence';
-      case 'low': return 'Low confidence';
-      default: return 'Unknown confidence';
+  const getLevelAssessmentColor = (assessment?: string) => {
+    switch (assessment) {
+      case 'exceeds': return 'bg-success text-success-foreground';
+      case 'meets': return 'bg-warning text-warning-foreground';
+      case 'below': return 'bg-muted text-muted-foreground';
+      default: return 'bg-muted text-muted-foreground';
     }
+  };
+
+  const getLevelAssessmentText = (assessment?: string) => {
+    switch (assessment) {
+      case 'exceeds': return 'exceeds expectations';
+      case 'meets': return 'meets level';
+      case 'below': return 'below level';
+      default: return 'Unknown';
+    }
+  };
+
+  // Count stories meeting or exceeding level
+  const storiesMeetingLevel = evidence?.filter(story => 
+    story.levelAssessment === 'meets' || story.levelAssessment === 'exceeds'
+  ).length || 0;
+
+  // Calculate all evidence counts
+  const storyCount = evidence?.length || 0;
+  const tagCount = matchedTags?.length || 0;
+  
+  // Count total metrics across all stories
+  const metricsCount = evidence?.reduce((total, story) => {
+    return total + (story.outcomeMetrics?.length || 0);
+  }, 0) || 0;
+  
+  // Count unique roles
+  const uniqueRoles = new Set(evidence?.map(story => story.sourceRole).filter(Boolean) || []);
+  const roleCount = uniqueRoles.size;
+
+  // Map competency to criteria with met/unmet status
+  const getCompetencyCriteria = (competencyName: string): Array<{ criterion: string; met: boolean }> => {
+    const criteriaMap: Record<string, string[]> = {
+      'Product Execution': [
+        'Delivering products on time and within scope',
+        'Managing product development lifecycle',
+        'Shipping features with measurable impact',
+        'Technical understanding and collaboration with engineering'
+      ],
+      'Customer Insight': [
+        'User research and understanding customer needs',
+        'Data analysis and metrics-driven decisions',
+        'Market validation and product-market fit',
+        'User feedback integration'
+      ],
+      'Product Strategy': [
+        'Product vision and roadmap planning',
+        'Market analysis and competitive positioning',
+        'Business model understanding',
+        'Long-term thinking and planning'
+      ],
+      'Influencing People': [
+        'Cross-functional leadership',
+        'Stakeholder management',
+        'Executive communication',
+        'Team building and mentorship'
+      ]
+    };
+    
+    const criteria = criteriaMap[competencyName] || [];
+    
+    // Determine if criteria are met: requires BOTH score >= 2.5 AND evidence exists
+    // If there's no evidence (0 stories, 0 tags), criteria cannot be met regardless of score
+    const hasEvidence = (evidence?.length || 0) > 0 || (matchedTags?.length || 0) > 0;
+    const hasSufficientScore = competencyScore !== undefined && competencyScore >= 2.5;
+    const isMet = hasSufficientScore && hasEvidence;
+    
+    return criteria.map(criterion => ({
+      criterion,
+      met: isMet
+    }));
+  };
+
+  const competencyCriteria = getCompetencyCriteria(competency);
+
+  const locationHref = typeof window !== 'undefined' ? window.location.href : '';
+  const disputeMetadata = {
+    competency,
+    currentLevel,
+    overallConfidence,
+    storyIds: evidence?.map((story) => story.id),
+    storyTitles: evidence?.map((story) => story.title),
+    matchedTags,
+    location: locationHref,
   };
 
   return (
@@ -62,7 +164,8 @@ const EvidenceModal = ({
       }}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="pb-4">
-          <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-start justify-between gap-3">
             <div>
               <DialogTitle className="text-2xl font-bold">
                 Evidence for {competency}
@@ -70,46 +173,33 @@ const EvidenceModal = ({
               <DialogDescription className="text-base">
                 Supporting examples from your work history and stories
               </DialogDescription>
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <DisputeFeedbackDialog
+                  subject={`PM Level competency dispute: ${competency}`}
+                  metadata={disputeMetadata}
+                />
             </div>
           </div>
         </DialogHeader>
 
         <div>
           {/* Summary Stats */}
-          <Card className="section-spacing">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Summary</CardTitle>
-                <Badge className={getConfidenceColor(overallConfidence)}>
-                  {getConfidenceText(overallConfidence)}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                <div className="text-center p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-foreground">{evidence.length}</div>
-                  <div className="text-muted-foreground">Supporting Examples</div>
-                </div>
-                <div className="text-center p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-foreground">{matchedTags.length}</div>
-                  <div className="text-muted-foreground">Matched Tags</div>
-                </div>
-                <div className="text-center p-3 bg-muted/20 rounded-lg">
-                  <div className="text-2xl font-bold text-foreground">
-                    {Math.round(evidence.reduce((sum, b) => sum + b.timesUsed, 0) / evidence.length)}
-                  </div>
-                  <div className="text-muted-foreground">Avg Usage</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            <EvidenceSummaryStats
+              stats={[
+                { label: "Stories", value: storyCount },
+                { label: "Tags", value: tagCount },
+                { label: "Metrics", value: metricsCount }
+              ]}
+              confidence={getConfidencePercentage()}
+              confidenceLabel="confidence"
+            />
 
           {/* How This Was Scored */}
           <Card className="section-spacing">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Target className="h-5 w-5" />
+              <CardTitle className="text-lg">
                 How This Was Scored
               </CardTitle>
             </CardHeader>
@@ -127,17 +217,28 @@ const EvidenceModal = ({
             </CardContent>
           </Card>
 
-          {/* Matched Tags */}
+          {/* Criteria */}
           <Card className="section-spacing">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Tag className="h-5 w-5" />
+              <CardTitle className="text-lg">
+                Criteria for {competency}{currentLevel ? ` at the ${currentLevel} Level` : ''}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CriteriaDisplay criteria={competencyCriteria} />
+            </CardContent>
+          </Card>
+
+          {/* Tags */}
+          <Card className="section-spacing">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">
                 Tags That Contributed
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                {matchedTags.map((tag) => (
+                {(matchedTags || []).map((tag) => (
                   <Badge key={tag} variant="secondary" className="text-sm">
                     {tag}
                   </Badge>
@@ -146,68 +247,49 @@ const EvidenceModal = ({
             </CardContent>
           </Card>
 
-          {/* Outcome Metrics */}
+          {/* Metrics */}
           <Card className="section-spacing">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
+              <CardTitle className="text-lg">
                 Outcome Metrics
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <OutcomeMetrics 
-                metrics={evidence
+              <OutcomeMetrics
+                metrics={(evidence || [])
                   .filter(story => story.outcomeMetrics && story.outcomeMetrics.length > 0)
                   .flatMap(story => story.outcomeMetrics || [])
-                } 
+                }
               />
             </CardContent>
           </Card>
 
-          {/* Evidence Stories */}
-          <div className="section-spacing">
-            <h3 className="text-lg font-semibold">Supporting Examples</h3>
-            {evidence.map((story) => (
-              <Card key={story.id} className="hover:shadow-md transition-shadow">
+          {/* Stories */}
+          <Card className="section-spacing">
                 <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-base mb-2">{story.title}</CardTitle>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Building className="h-4 w-4" />
-                          {story.sourceCompany}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <User className="h-4 w-4" />
-                          {story.sourceRole}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
-                          Used {story.timesUsed} times
-                        </div>
-                      </div>
-                    </div>
-                    <Badge className={getConfidenceColor(story.confidence)}>
-                      {story.confidence} confidence
-                    </Badge>
-                  </div>
+              <CardTitle className="text-lg">Stories</CardTitle>
                 </CardHeader>
-                <CardContent className="pt-0">
-                  <p className="text-sm text-muted-foreground mb-3 line-clamp-3">
-                    {story.content}
-                  </p>
-                  <div className="flex flex-wrap gap-1">
-                    {story.tags.map((tag) => (
-                      <Badge key={tag} variant="outline" className="text-xs">
-                        {tag}
-                      </Badge>
+            <CardContent>
+              <div className="space-y-4">
+                {(evidence || []).map((story) => (
+                  <StoryCard
+                    key={story.id}
+                    id={story.id}
+                    title={story.title}
+                    content={story.content}
+                    sourceCompany={story.sourceCompany}
+                    sourceRole={story.sourceRole}
+                    tags={story.tags}
+                    levelAssessment={story.levelAssessment}
+                    confidence={story.confidence}
+                    getLevelAssessmentColor={getLevelAssessmentColor}
+                    getLevelAssessmentText={getLevelAssessmentText}
+                    getStoryConfidenceColor={getStoryConfidenceColor}
+                  />
                     ))}
                   </div>
                 </CardContent>
               </Card>
-            ))}
-          </div>
 
 
         </div>

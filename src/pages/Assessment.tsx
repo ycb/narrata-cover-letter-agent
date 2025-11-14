@@ -1,1164 +1,867 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { 
-  TrendingUp, 
-  Users, 
-  Target, 
-  Lightbulb, 
+import {
+  TrendingUp,
+  Users,
+  Lightbulb,
   BarChart3,
   CheckCircle,
   AlertCircle,
-  XCircle,
-  Edit,
   Info,
-  FileText,
-  Link
+  RotateCw,
+  Clock,
+  Loader2,
 } from "lucide-react";
 import EvidenceModal from "@/components/assessment/EvidenceModal";
 import LevelEvidenceModal from "@/components/assessment/LevelEvidenceModal";
 import RoleEvidenceModal from "@/components/assessment/RoleEvidenceModal";
 import { SpecializationCard } from "@/components/assessment/SpecializationCard";
 import { CompetencyCard } from "@/components/assessment/CompetencyCard";
+import { CareerLadder } from "@/components/assessment/CareerLadder";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { usePMLevel } from "@/hooks/usePMLevel";
+import { calculateEvidenceBasedConfidence } from "@/utils/confidenceCalculation";
+import { getConfidenceProgressColor, getConfidenceBadgeColor, textConfidenceToPercentage } from "@/utils/confidenceBadge";
+import { useAuth } from "@/contexts/AuthContext";
+import { formatDistanceToNow, format } from "date-fns";
+import type { PMLevelInference, RoleType } from "@/types/content";
+import { StreamingProgress } from "@/components/shared/StreamingProgress";
+import type {
+  StreamingStepState,
+  StreamingTimelineEvent,
+  StreamingLifecycleStatus,
+} from "@/hooks/useStreamingProgress";
+import { LoadingState } from "@/components/shared/LoadingState";
 
-// Simplified mock data for testing
-const mockAssessment = {
-  currentLevel: "Senior PM" as const,
-  confidence: "high" as const,
-      nextLevel: "Lead PM" as const,
-  levelDescription: "Experienced product manager with strong execution and growing strategic influence",
-  inferenceSource: "Based on resume, LinkedIn, and 47 approved stories",
-  
-  competencies: [
+const SNAPSHOT_STORAGE_PREFIX = "pm-level-snapshot";
+
+type LevelSnapshot = {
+  lastAnalyzedAt: string;
+  displayLevel: string;
+  confidence: number;
+  roleType: RoleType[];
+  deltaSummary?: string;
+};
+
+type ChangeSummary = {
+  analyzedAt: string;
+  headline: string;
+  items: string[];
+};
+
+const getConfidenceText = (score: number): string => {
+  if (score >= 0.8) return "high";
+  if (score >= 0.5) return "medium";
+  return "low";
+};
+
+const getCompetencyLevel = (percentage: number): string => {
+  if (percentage >= 90) return "Advanced";
+  if (percentage >= 70) return "Proficient";
+  if (percentage >= 50) return "Needs Work";
+  return "Developing";
+};
+
+const scoreToPercentage = (score: number, max: number = 3): number => {
+  return Math.round((score / max) * 100);
+};
+
+function formatRoleTypeName(key: string): string {
+  const nameMap: Record<string, string> = {
+    growth: "Growth PM",
+    platform: "Platform PM",
+    ai_ml: "AI/ML PM",
+    founding: "Founding PM",
+    technical: "Technical PM",
+    general: "General PM",
+  };
+  return nameMap[key] || key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, " ");
+}
+
+const buildSnapshot = (data: PMLevelInference): LevelSnapshot => ({
+  lastAnalyzedAt: data.lastAnalyzedAt ?? new Date().toISOString(),
+  displayLevel: data.displayLevel,
+  confidence: data.confidence ?? 0,
+  roleType: Array.isArray(data.roleType) ? [...data.roleType] : [],
+  deltaSummary: data.deltaSummary,
+});
+
+const buildChangeSummary = (previous: LevelSnapshot, current: PMLevelInference): ChangeSummary => {
+  const items: string[] = [];
+
+  if (previous.displayLevel !== current.displayLevel) {
+    items.push(`Level changed from ${previous.displayLevel} to ${current.displayLevel}.`);
+  }
+
+  const previousConfidence = Math.round((previous.confidence ?? 0) * 100);
+  const currentConfidence = Math.round((current.confidence ?? 0) * 100);
+  if (previousConfidence !== currentConfidence) {
+    const direction = currentConfidence > previousConfidence ? "increased" : "decreased";
+    items.push(`Confidence ${direction} from ${previousConfidence}% to ${currentConfidence}%.`);
+  }
+
+  const previousRoles = previous.roleType || [];
+  const currentRoles = Array.isArray(current.roleType) ? current.roleType : [];
+  const addedRoles = currentRoles.filter((role) => !previousRoles.includes(role));
+  const removedRoles = previousRoles.filter((role) => !currentRoles.includes(role));
+
+  if (addedRoles.length > 0) {
+    items.push(`New specialization matches: ${addedRoles.map(formatRoleTypeName).join(", ")}.`);
+  }
+
+  if (removedRoles.length > 0) {
+    items.push(`No longer detecting: ${removedRoles.map(formatRoleTypeName).join(", ")}.`);
+  }
+
+  if (current.deltaSummary && current.deltaSummary.trim().length > 0) {
+    items.push(current.deltaSummary.trim());
+  }
+
+  if (items.length === 0) {
+    items.push("Analysis refreshed. No major changes detected.");
+  }
+
+  const uniqueItems = Array.from(new Set(items));
+
+  const headline =
+    previous.displayLevel !== current.displayLevel
+      ? "Your PM level changed"
+      : uniqueItems.length > 1
+      ? "Updates to your PM assessment"
+      : "PM assessment refreshed";
+
+  return {
+    analyzedAt: current.lastAnalyzedAt ?? new Date().toISOString(),
+    headline,
+    items: uniqueItems,
+  };
+};
+
+const transformLevelData = (levelData: any) => {
+  if (!levelData) return null;
+
+  const {
+    competencyScores = {
+      execution: 0,
+      customer_insight: 0,
+      strategy: 0,
+      influence: 0,
+    },
+    recommendations = [],
+    displayLevel = "PM",
+    confidence = 0.5,
+    signals = {},
+    roleType = [],
+    evidenceByCompetency = {},
+    roleArchetypeEvidence = {},
+  } = levelData;
+
+  const dimensionMap: Record<string, string> = {
+    "Product Execution": "execution",
+    "Customer Insight": "customer_insight",
+    "Product Strategy": "strategy",
+    "Influencing People": "influence",
+  };
+
+  const getEvidenceBasedScore = (domain: string, rawScore: number): number => {
+    const dimensionKey = dimensionMap[domain];
+    const evidence = evidenceByCompetency?.[dimensionKey];
+
+    if (evidence) {
+      return calculateEvidenceBasedConfidence({
+        competencyScore: rawScore,
+        evidence: evidence.evidence || [],
+        matchedTags: evidence.matchedTags || [],
+        overallConfidence: evidence.overallConfidence,
+      });
+    }
+
+    return scoreToPercentage(rawScore);
+  };
+
+  const competencies = [
     {
       domain: "Product Execution",
-      level: "Strong",
-      score: 85,
-      evidence: "5 case studies tagged 'Execution'",
+      score: getEvidenceBasedScore("Product Execution", competencyScores.execution || 0),
+      level: getCompetencyLevel(getEvidenceBasedScore("Product Execution", competencyScores.execution || 0)),
+      rawScore: competencyScores.execution || 0,
+      evidence: signals?.execution_evidence || "Based on your work history and achievements",
       tags: ["Execution", "Delivery", "Technical"],
-      description: "Consistently delivers complex products with measurable impact",
-      evidenceStories: [
-        {
-          id: "exec-1",
-          title: "Growth PM Leadership at SaaS Startup",
-          content: "Led cross-functional product team of 8 to drive 40% user acquisition growth through data-driven experimentation and customer research, resulting in $2M ARR increase.",
-          tags: ["Growth", "Leadership", "SaaS", "Data Driven"],
-          sourceRole: "Product Lead",
-          sourceCompany: "InnovateTech",
-          lastUsed: "2 days ago",
-          timesUsed: 12,
-          confidence: "high",
-          outcomeMetrics: [
-            "40% user acquisition growth",
-            "$2M ARR increase",
-            "Led team of 8 cross-functional members"
-          ]
-        },
-        {
-          id: "exec-2",
-          title: "0-1 Product Development Success",
-          content: "Built and launched MVP mobile platform from concept to 10K+ users in 6 months, collaborating with design and engineering to validate product-market fit.",
-          tags: ["0-1", "Mobile", "MVP", "Product Market Fit"],
-          sourceRole: "Product Manager",
-          sourceCompany: "StartupXYZ",
-          lastUsed: "1 week ago",
-          timesUsed: 8,
-          confidence: "high",
-          outcomeMetrics: [
-            "Launched MVP in 6 months",
-            "Reached 10K+ users",
-            "Validated product-market fit"
-          ]
-        }
-      ]
+      description: "Measures your ability to deliver products effectively",
+      evidenceStories: signals?.execution_stories || [],
     },
     {
       domain: "Customer Insight",
-      level: "Strong", 
-      score: 80,
-      evidence: "Samsung + Meta stories with user research",
+      score: getEvidenceBasedScore("Customer Insight", competencyScores.customer_insight || 0),
+      level: getCompetencyLevel(getEvidenceBasedScore("Customer Insight", competencyScores.customer_insight || 0)),
+      rawScore: competencyScores.customer_insight || 0,
+      evidence: signals?.customer_evidence || "Based on your user research and customer focus",
       tags: ["Research", "User Experience", "Customer"],
-      description: "Deep understanding of user needs and market validation",
-      evidenceStories: [
-        {
-          id: "insight-1",
-          title: "Customer Research & Strategy",
-          content: "Conducted 50+ customer interviews and usability studies to inform product roadmap, leading to 25% improvement in user satisfaction scores.",
-          tags: ["Research", "Strategy", "Customer Experience"],
-          sourceRole: "Product Manager",
-          sourceCompany: "Meta",
-          lastUsed: "3 days ago",
-          timesUsed: 15,
-          confidence: "high",
-          outcomeMetrics: [
-            "50+ customer interviews conducted",
-            "25% improvement in user satisfaction",
-            "Informed product roadmap decisions"
-          ]
-        }
-      ]
+      description: "Assesses your understanding of user needs",
+      evidenceStories: signals?.customer_stories || [],
     },
     {
       domain: "Product Strategy",
-      level: "Emerging",
-      score: 65,
-      evidence: "2 strategy-related stories",
+      score: getEvidenceBasedScore("Product Strategy", competencyScores.strategy || 0),
+      level: getCompetencyLevel(getEvidenceBasedScore("Product Strategy", competencyScores.strategy || 0)),
+      rawScore: competencyScores.strategy || 0,
+      evidence: signals?.strategy_evidence || "Based on your strategic initiatives",
       tags: ["Strategy", "Vision", "Roadmap"],
-      description: "Developing strategic thinking, needs more leadership examples",
-      evidenceStories: [
-        {
-          id: "strategy-1",
-          title: "Platform Strategy Development",
-          content: "Developed 3-year platform strategy for enterprise SaaS product, including market analysis and competitive positioning.",
-          tags: ["Strategy", "Platform", "Enterprise"],
-          sourceRole: "Senior PM",
-          sourceCompany: "TechCorp",
-          lastUsed: "2 weeks ago",
-          timesUsed: 3,
-          confidence: "medium",
-          outcomeMetrics: [
-            "Developed 3-year platform strategy",
-            "Completed market analysis",
-            "Established competitive positioning"
-          ]
-        }
-      ]
+      description: "Evaluates your strategic thinking and planning",
+      evidenceStories: signals?.strategy_stories || [],
     },
     {
       domain: "Influencing People",
-      level: "Solid",
-      score: 75,
-      evidence: "Aurora + Meta stories tagged 'XFN Collaboration'",
+      score: getEvidenceBasedScore("Influencing People", competencyScores.influence || 0),
+      level: getCompetencyLevel(getEvidenceBasedScore("Influencing People", competencyScores.influence || 0)),
+      rawScore: competencyScores.influence || 0,
+      evidence: signals?.influence_evidence || "Based on your leadership examples",
       tags: ["Leadership", "Collaboration", "Stakeholder"],
-      description: "Effective cross-functional collaboration and team influence",
-      evidenceStories: [
-        {
-          id: "influence-1",
-          title: "Cross-functional Team Leadership",
-          content: "Led 15-person cross-functional team across engineering, design, and marketing to deliver major product launch on time and under budget.",
-          tags: ["Leadership", "Collaboration", "Team Management"],
-          sourceRole: "Product Lead",
-          sourceCompany: "Aurora",
-          lastUsed: "1 month ago",
-          timesUsed: 6,
-          confidence: "high",
-          outcomeMetrics: [
-            "Led 15-person cross-functional team",
-            "Delivered product launch on time",
-            "Completed project under budget"
-          ]
-        }
-      ]
-    }
-  ],
-
-  roleArchetypes: [
-    {
-      type: "Growth PM",
-      match: 85,
-      description: "Data-driven experimentation and user acquisition focus",
-      evidence: "Growth, Leadership, SaaS tags from multiple stories",
-      typicalProfile: "Startup or scale-up experience, PLG systems and user analytics, B2C focus, A/B testing expertise"
+      description: "Measures your ability to lead and influence",
+      evidenceStories: signals?.influence_stories || [],
     },
+  ];
+
+  const validSpecializations = ["growth", "platform", "ai_ml", "founding"];
+
+  const roleArchetypes =
+    Array.isArray(roleType) && roleType.length > 0
+      ? roleType
+          .filter((roleTypeKey: string) => validSpecializations.includes(roleTypeKey))
+          .map((roleTypeKey: string) => {
+            const evidence = roleArchetypeEvidence[roleTypeKey];
+            const formattedName = formatRoleTypeName(roleTypeKey);
+
+            return {
+              type: formattedName,
+              typeKey: roleTypeKey,
+              match: evidence?.matchScore || 80,
+              description: evidence?.description || `${formattedName} product management focus`,
+              evidence: `Based on your ${roleTypeKey.toLowerCase()} experience`,
+              typicalProfile: evidence?.description || `Experience with ${roleTypeKey.toLowerCase()} products and initiatives`,
+            };
+          })
+      : [];
+
+  const levelProgression = [
     {
-      type: "Technical PM", 
-      match: 70,
-      description: "Technical depth and engineering collaboration",
-      evidence: "Technical, Engineering, Platform tags",
-      typicalProfile: "Engineering background or technical degree, API and infrastructure products, developer tools, enterprise SaaS"
+      level: "Associate PM",
+      description: "0-2 years, feature delivery",
+      current: displayLevel?.toLowerCase().includes("associate") || displayLevel === "L3",
     },
     {
-      type: "Founding PM",
-      match: 60,
-      description: "0-1 product development and market validation",
-      evidence: "0-1, MVP, Product-Market Fit tags",
-      typicalProfile: "Early-stage startup experience, product-market fit validation, fundraising support, end-to-end product ownership"
+      level: "Product Manager",
+      description: "2-4 years, product ownership",
+      current: displayLevel?.toLowerCase().includes("product manager") || displayLevel === "L4",
     },
     {
-      type: "Platform PM",
-      match: 45,
-      description: "API and infrastructure product management",
-      evidence: "Limited platform and API-related content",
-      typicalProfile: "Developer platform experience, API design, infrastructure products, enterprise integration focus"
-    }
-  ],
+      level: "Senior PM",
+      description: "4-7 years, strategic execution",
+      current: displayLevel?.toLowerCase().includes("senior") || displayLevel === "L5",
+    },
+    {
+      level: "Staff/Principal PM",
+      description: "7-10 years, product strategy",
+      current:
+        displayLevel?.toLowerCase().includes("staff") ||
+        displayLevel?.toLowerCase().includes("principal") ||
+        displayLevel === "L6",
+    },
+    {
+      level: "Director+",
+      description: "10+ years, organizational leadership",
+      current:
+        displayLevel?.toLowerCase().includes("director") ||
+        displayLevel?.toLowerCase().includes("vp") ||
+        displayLevel?.toLowerCase().includes("head of") ||
+        ["M1", "M2"].includes(displayLevel),
+    },
+  ];
 
-  levelProgression: [
-    { level: "Entry PM", description: "0-2 years, feature delivery" },
-    { level: "Mid PM", description: "2-4 years, product ownership" },
-    { level: "Senior PM", description: "4-7 years, strategic execution", current: true },
-    { level: "Principal PM", description: "7-10 years, product strategy" },
-    { level: "Director+", description: "10+ years, organizational leadership" }
-  ],
+  const currentLevelIndex = levelProgression.findIndex((l) => l.current);
+  const fallbackNextLevel =
+    currentLevelIndex < levelProgression.length - 1
+      ? levelProgression[currentLevelIndex + 1]?.level
+      : levelProgression[levelProgression.length - 1]?.level;
 
-  // Level Evidence Data
-  levelEvidence: {
-    currentLevel: "Senior PM",
-    nextLevel: "Lead PM",
-    confidence: "high",
-    resumeEvidence: {
-      roleTitles: ["Product Manager", "Senior PM", "Product Lead"],
-      duration: "6+ years in product management",
-      companyScale: ["Startup", "Scale-up", "Enterprise"]
-    },
-    storyEvidence: {
-      totalStories: 47,
-      relevantStories: 32,
-      tagDensity: [
-        { tag: "Leadership", count: 15 },
-        { tag: "Strategy", count: 8 },
-        { tag: "Execution", count: 12 },
-        { tag: "Growth", count: 10 }
-      ]
-    },
-    levelingFramework: {
-      framework: "Reforge + Market Calibration",
-      criteria: [
-        "Strategic thinking and roadmap development",
-        "Cross-functional team leadership",
-        "Complex problem solving at scale",
-        "Stakeholder influence and collaboration"
-      ],
-      match: "Strong Match"
-    },
-    gaps: [
-      {
-        area: "Organizational Strategy",
-        description: "Need more examples of company-wide strategic initiatives",
-        examples: ["Company vision setting", "Portfolio strategy", "Organizational design"]
-      },
-      {
-        area: "Executive Communication",
-        description: "Limited evidence of board-level presentations and executive influence",
-        examples: ["Board presentations", "C-suite collaboration", "Investor communications"]
-      }
-    ],
-    outcomeMetrics: {
-      roleLevel: [
-        "Led cross-functional team of 12 engineers and designers",
-        "Increased user engagement by 40% through feature optimization",
-        "Launched 3 major product releases ahead of schedule"
-      ],
-      storyLevel: [
-        "Launched MVP in 6 months",
-        "Hired 8 product professionals",
-        "Built high-performing product team from ground up"
-      ],
-      analysis: {
-        totalMetrics: 6,
-        impactLevel: 'team' as const,
-        keyAchievements: [
-          "Team leadership at scale (12+ people)",
-          "Significant user engagement improvement (40%)",
-          "Accelerated product delivery (ahead of schedule)"
-        ]
-      }
-    }
-  },
+  const nextLevel = levelData?.levelEvidence?.nextLevel || fallbackNextLevel || "Staff/Principal Product Manager";
 
-  // Role Archetype Evidence Data
-  roleArchetypeEvidence: {
-    "Growth PM": {
-      roleType: "Growth PM",
-      matchScore: 85,
-      description: "Data-driven experimentation and user acquisition focus",
-      industryPatterns: [
-        {
-          pattern: "Startup/Scale-up Experience",
-          match: true,
-          examples: ["InnovateTech", "StartupXYZ", "Early-stage companies"]
-        },
-        {
-          pattern: "PLG Systems",
-          match: true,
-          examples: ["User analytics", "A/B testing", "Growth loops"]
-        },
-        {
-          pattern: "B2C Focus",
-          match: true,
-          examples: ["User acquisition", "Retention optimization", "Viral mechanics"]
-        }
-      ],
-      problemComplexity: {
-        level: "High",
-        examples: ["User acquisition at scale", "Growth strategy", "Product-market fit"],
-        evidence: ["Led 40% user growth", "Built MVP to 10K users", "Cross-functional leadership"]
-      },
-      workHistory: [
-        {
-          company: "InnovateTech",
-          role: "Product Lead",
-          relevance: "Highly Relevant",
-          tags: ["Growth", "Leadership", "SaaS"]
-        },
-        {
-          company: "StartupXYZ",
-          role: "Product Manager",
-          relevance: "Highly Relevant",
-          tags: ["0-1", "MVP", "Product Market Fit"]
-        }
-      ],
-      tagAnalysis: [
-        {
-          tag: "Growth",
-          count: 10,
-          relevance: 95,
-          examples: ["User acquisition", "A/B testing", "Growth strategy"]
-        },
-        {
-          tag: "Leadership",
-          count: 15,
-          relevance: 90,
-          examples: ["Team management", "Cross-functional collaboration"]
-        }
-      ],
-      gaps: [
-        {
-          area: "Enterprise Growth",
-          description: "Limited experience with enterprise sales and B2B growth",
-          suggestions: ["B2B customer development", "Enterprise sales process", "Account-based marketing"]
-        }
-      ],
-      outcomeMetrics: {
-        roleLevel: [
-          "Led 40% user acquisition growth",
-          "Built MVP to 10K users",
-          "Managed cross-functional team of 8"
-        ],
-        storyLevel: [
-          "Launched MVP in 6 months",
-          "Achieved $2M ARR increase",
-          "Validated product-market fit"
-        ],
-        analysis: {
-          totalMetrics: 6,
-          impactLevel: 'team' as const,
-          keyAchievements: [
-            "Significant user growth (40%)",
-            "Rapid MVP development (6 months)",
-            "Substantial revenue impact ($2M ARR)"
-          ]
-        }
-      }
-    },
-    "Technical PM": {
-      roleType: "Technical PM",
-      matchScore: 70,
-      description: "Technical depth and engineering collaboration",
-      industryPatterns: [
-        {
-          pattern: "Engineering Background",
-          match: true,
-          examples: ["Technical degree", "Engineering experience", "Technical collaboration"]
-        },
-        {
-          pattern: "Platform Products",
-          match: true,
-          examples: ["API design", "Infrastructure", "Developer tools"]
-        },
-        {
-          pattern: "Enterprise SaaS",
-          match: true,
-          examples: ["B2B products", "Technical complexity", "Enterprise integration"]
-        }
-      ],
-      problemComplexity: {
-        level: "Medium-High",
-        examples: ["Technical architecture", "API design", "Platform scalability"],
-        evidence: ["Technical collaboration", "Platform strategy", "Engineering partnerships"]
-      },
-      workHistory: [
-        {
-          company: "TechCorp",
-          role: "Senior PM",
-          relevance: "Moderately Relevant",
-          tags: ["Technical", "Platform", "Enterprise"]
-        }
-      ],
-      tagAnalysis: [
-        {
-          tag: "Technical",
-          count: 8,
-          relevance: 75,
-          examples: ["Technical collaboration", "Platform design", "API strategy"]
-        },
-        {
-          tag: "Engineering",
-          count: 6,
-          relevance: 70,
-          examples: ["Engineering partnerships", "Technical requirements", "Platform architecture"]
-        }
-      ],
-      gaps: [
-        {
-          area: "Deep Technical Expertise",
-          description: "Need more evidence of hands-on technical implementation",
-          suggestions: ["Technical implementation", "Code reviews", "Technical architecture decisions"]
-        }
-      ],
-      outcomeMetrics: {
-        roleLevel: [
-          "Designed scalable API architecture",
-          "Led platform strategy development",
-          "Collaborated with engineering teams"
-        ],
-        storyLevel: [
-          "Improved API performance by 30%",
-          "Reduced technical debt by 25%",
-          "Enhanced platform scalability"
-        ],
-        analysis: {
-          totalMetrics: 6,
-          impactLevel: 'feature' as const,
-          keyAchievements: [
-            "API performance improvement (30%)",
-            "Technical debt reduction (25%)",
-            "Platform scalability enhancement"
-          ]
-        }
-      }
-    },
-    "Founding PM": {
-      roleType: "Founding PM",
-      matchScore: 60,
-      description: "0-1 product development and market validation",
-      industryPatterns: [
-        {
-          pattern: "Early-stage Startup",
-          match: true,
-          examples: ["StartupXYZ", "0-1 products", "MVP development"]
-        },
-        {
-          pattern: "Product-Market Fit",
-          match: true,
-          examples: ["Market validation", "Customer research", "Iteration"]
-        },
-        {
-          pattern: "End-to-End Ownership",
-          match: true,
-          examples: ["Full product lifecycle", "Strategic decisions", "Execution"]
-        }
-      ],
-      problemComplexity: {
-        level: "Medium",
-        examples: ["Product-market fit", "MVP development", "Strategic decisions"],
-        evidence: ["Built MVP to 10K users", "0-1 product development", "Strategic thinking"]
-      },
-      workHistory: [
-        {
-          company: "StartupXYZ",
-          role: "Product Manager",
-          relevance: "Highly Relevant",
-          tags: ["0-1", "MVP", "Product Market Fit"]
-        }
-      ],
-      tagAnalysis: [
-        {
-          tag: "0-1",
-          count: 8,
-          relevance: 80,
-          examples: ["MVP development", "Product-market fit", "Strategic decisions"]
-        },
-        {
-          tag: "MVP",
-          count: 6,
-          relevance: 75,
-          examples: ["Product development", "Market validation", "Iteration"]
-        }
-      ],
-      gaps: [
-        {
-          area: "Fundraising Experience",
-          description: "Limited evidence of fundraising and investor relations",
-          suggestions: ["Investor presentations", "Fundraising strategy", "Financial modeling"]
-        }
-      ],
-      outcomeMetrics: {
-        roleLevel: [
-          "Built MVP from concept to launch",
-          "Led product-market fit validation",
-          "Made strategic product decisions"
-        ],
-        storyLevel: [
-          "Launched MVP in 6 months",
-          "Reached 10K+ users",
-          "Validated product-market fit"
-        ],
-        analysis: {
-          totalMetrics: 6,
-          impactLevel: 'company' as const,
-          keyAchievements: [
-            "Successful MVP launch",
-            "User validation (10K+)",
-            "Product-market fit achieved"
-          ]
-        }
-      }
-    },
-    "Platform PM": {
-      roleType: "Platform PM",
-      matchScore: 45,
-      description: "API and infrastructure product management",
-      industryPatterns: [
-        {
-          pattern: "Developer Platforms",
-          match: false,
-          examples: ["Limited API design", "No developer tools", "No platform focus"]
-        },
-        {
-          pattern: "Infrastructure Products",
-          match: false,
-          examples: ["No infrastructure experience", "Limited technical depth", "No platform strategy"]
-        },
-        {
-          pattern: "Enterprise Integration",
-          match: false,
-          examples: ["Limited enterprise focus", "No integration experience", "No platform thinking"]
-        }
-      ],
-      problemComplexity: {
-        level: "Low",
-        examples: ["Basic product management", "Feature delivery", "User-facing products"],
-        evidence: ["Limited platform experience", "No API design", "No infrastructure focus"]
-      },
-      workHistory: [
-        {
-          company: "Various",
-          role: "Product Manager",
-          relevance: "Low Relevance",
-          tags: ["General PM", "Feature delivery", "User products"]
-        }
-      ],
-      tagAnalysis: [
-        {
-          tag: "Platform",
-          count: 2,
-          relevance: 30,
-          examples: ["Limited platform thinking", "No API focus", "No infrastructure"]
-        },
-        {
-          tag: "API",
-          count: 1,
-          relevance: 20,
-          examples: ["No API design", "No developer experience", "No platform strategy"]
-        }
-      ],
-      gaps: [
-        {
-          area: "Platform Thinking",
-          description: "Need to develop platform and infrastructure mindset",
-          suggestions: ["API design", "Developer experience", "Platform strategy", "Infrastructure products"]
-        }
-      ],
-      outcomeMetrics: {
-        roleLevel: [
-          "Limited platform strategy experience",
-          "No API design or developer tools",
-          "No infrastructure product management"
-        ],
-        storyLevel: [
-          "Basic product management focus",
-          "Feature delivery emphasis",
-          "User-facing product experience"
-        ],
-        analysis: {
-          totalMetrics: 3,
-          impactLevel: 'feature' as const,
-          keyAchievements: [
-            "General product management",
-            "Feature delivery",
-            "User product focus"
-          ]
-        }
-      }
-    }
-  }
+  return {
+    currentLevel: levelData?.levelEvidence?.currentLevel || displayLevel || "Product Manager",
+    confidence: getConfidenceText(confidence),
+    nextLevel,
+    levelDescription:
+      levelData?.levelDescription || `Product manager with a focus on ${roleType?.[0] || "general product management"}`,
+    inferenceSource: levelData?.inferenceSource || "Based on your profile and work history",
+    competencies,
+    roleArchetypes: roleArchetypes.slice(0, 4),
+    levelProgression,
+    roleArchetypeEvidence: levelData?.roleArchetypeEvidence || {},
+    levelEvidence: levelData?.levelEvidence || {},
+    evidenceByCompetency: levelData?.evidenceByCompetency || {},
+    recommendations: Array.isArray(recommendations) ? recommendations : [],
+  };
 };
 
 interface AssessmentProps {
   initialSection?: string;
 }
 
-const Assessment = ({ initialSection }: AssessmentProps) => {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  
+function Assessment({ initialSection = "overview" }: AssessmentProps) {
+  const { user } = useAuth();
+  const {
+    levelData,
+    isLoading,
+    error,
+    recalculate,
+    isRecalculating,
+    isBackgroundAnalyzing,
+    backgroundError,
+    activeProfileId,
+  } = usePMLevel();
+  const profileKey = `${user?.id ?? "anon"}::${activeProfileId ?? "default"}`;
+  const [assessmentData, setAssessmentData] = useState<any>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>(initialSection);
   const [selectedCompetency, setSelectedCompetency] = useState<string | null>(null);
+  const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [evidenceModalOpen, setEvidenceModalOpen] = useState(false);
   const [selectedEvidence, setSelectedEvidence] = useState<any>(null);
   const [levelEvidenceModalOpen, setLevelEvidenceModalOpen] = useState(false);
   const [roleEvidenceModalOpen, setRoleEvidenceModalOpen] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<string | null>(null);
-  const [showLeadershipTrack, setShowLeadershipTrack] = useState(false);
+  const [changeSummary, setChangeSummary] = useState<ChangeSummary | null>(null);
+  const [isSummaryDismissed, setIsSummaryDismissed] = useState(false);
 
-  // Handle initialSection prop for direct navigation
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const lastAnalyzedAt = levelData?.lastAnalyzedAt;
+  const lastAnalyzedRelative = lastAnalyzedAt ? formatDistanceToNow(new Date(lastAnalyzedAt), { addSuffix: true }) : null;
+  const lastAnalyzedExact = lastAnalyzedAt ? format(new Date(lastAnalyzedAt), "PPpp") : null;
+  const shouldShowStreaming = isAnalyzing || isRecalculating || isBackgroundAnalyzing;
+  const isInitialAnalysisStreaming = !assessmentData && shouldShowStreaming;
+
+  const analysisSteps = useMemo<StreamingStepState[]>(() => {
+    const competencyCount = Object.keys(levelData?.evidenceByCompetency ?? {}).length;
+    const currentLevelLabel =
+      levelData?.levelEvidence?.currentLevel || levelData?.displayLevel || assessmentData?.currentLevel || "Product Manager";
+
+    const fetchStatus: StreamingStepState["status"] =
+      error ? "error" : shouldShowStreaming ? "running" : levelData ? "success" : "pending";
+
+    const steps: StreamingStepState[] = [
+      {
+        id: "fetch-level",
+        label: "Fetch PM level",
+        status: fetchStatus,
+        detail: error
+          ? error instanceof Error
+            ? error.message
+            : String(error)
+          : levelData
+          ? `Current level: ${currentLevelLabel}`
+          : "Retrieving latest assessment data",
+      },
+      {
+        id: "aggregate-evidence",
+        label: "Aggregate evidence",
+        status: levelData ? "success" : fetchStatus === "running" ? "pending" : "pending",
+        detail: levelData ? `${competencyCount} competency areas evaluated` : "Waiting for assessment results",
+      },
+      {
+        id: "prepare-insights",
+        label: "Prepare insights",
+        status: levelData ? "success" : fetchStatus === "running" ? "pending" : "pending",
+        detail: levelData ? "Insights ready to review" : "Preparing personalized recommendations",
+      },
+    ];
+
+    if (isBackgroundAnalyzing && levelData) {
+      steps[0] = {
+        ...steps[0],
+        status: "running",
+        detail: "Refreshing analysis with latest profile updates",
+      };
+    }
+
+    return steps;
+  }, [assessmentData?.currentLevel, error, isBackgroundAnalyzing, levelData, shouldShowStreaming]);
+
+  const analysisStatus: StreamingLifecycleStatus = error ? "error" : shouldShowStreaming ? "streaming" : "complete";
+
+  const analysisEvents = useMemo<StreamingTimelineEvent[]>(() => {
+    if (backgroundError) {
+      return [
+        {
+          id: "analysis-error",
+          message: backgroundError,
+          tone: "error",
+          timestamp: Date.now(),
+        },
+      ];
+    }
+
+    if (isBackgroundAnalyzing) {
+      return [
+        {
+          id: "analysis-background",
+          message: "Background analysis in progress",
+          tone: "info",
+          timestamp: Date.now(),
+        },
+      ];
+    }
+
+    return [];
+  }, [backgroundError, isBackgroundAnalyzing]);
+
   useEffect(() => {
-    if (initialSection) {
-      if (initialSection === 'overall-level') {
-        handleShowLevelEvidence();
-      } else if (initialSection.startsWith('competency-')) {
-        const competencyName = initialSection.replace('competency-', '');
-        // Map URL names to actual competency names
-        const competencyMap: Record<string, string> = {
-          'execution': 'Product Execution',
-          'customer-insight': 'Customer Insight',
-          'strategy': 'Product Strategy',
-          'influence': 'Influencing People'
-        };
-        const actualName = competencyMap[competencyName] || competencyName;
-        const competencyData = mockAssessment.competencies.find(
-          c => c.domain === actualName
-        );
-        if (competencyData) {
-          handleShowEvidence(competencyData);
-        }
-      } else if (initialSection.startsWith('specialization-')) {
-        const specializationName = initialSection.replace('specialization-', '');
-        // Map URL names to actual specialization names
-        const specializationMap: Record<string, string> = {
-          'growth': 'Growth PM',
-          'technical': 'Technical PM',
-          'founding': 'Founding PM',
-          'platform': 'Platform PM'
-        };
-        const actualName = specializationMap[specializationName] || specializationName;
-        const specializationData = mockAssessment.roleArchetypes.find(
-          s => s.type === actualName
-        );
-        if (specializationData) {
-          handleShowRoleEvidence(specializationData.type);
-        }
-      }
+    if (levelData) {
+      const transformedData = transformLevelData(levelData);
+      setAssessmentData(transformedData);
+    } else if (!isLoading) {
+      setAssessmentData(null);
     }
-  }, [initialSection]);
+  }, [levelData, isLoading]);
 
-  // Handle URL parameters for navigation from Header (legacy support)
   useEffect(() => {
-    const competency = searchParams.get('competency');
-    const specialization = searchParams.get('specialization');
-    const level = searchParams.get('level');
-    
-    if (competency) {
-      // Find the competency and open its evidence modal
-      const competencyData = mockAssessment.competencies.find(
-        c => c.domain.toLowerCase().includes(competency.toLowerCase())
-      );
-      if (competencyData) {
-        handleShowEvidence(competencyData);
-        // Clear the URL parameter
-        navigate('/assessment', { replace: true });
+    if (!levelData?.lastAnalyzedAt || typeof window === "undefined") {
+      return;
+    }
+
+    const snapshotKey = `${SNAPSHOT_STORAGE_PREFIX}:${profileKey}`;
+    let previousSnapshot: LevelSnapshot | null = null;
+
+    try {
+      const storedValue = window.localStorage.getItem(snapshotKey);
+      if (storedValue) {
+        previousSnapshot = JSON.parse(storedValue) as LevelSnapshot;
+      }
+    } catch (storageError) {
+      console.warn("[Assessment] Unable to read stored PM level snapshot:", storageError);
+    }
+
+    if (!previousSnapshot) {
+      try {
+        window.localStorage.setItem(snapshotKey, JSON.stringify(buildSnapshot(levelData)));
+      } catch (persistError) {
+        console.warn("[Assessment] Unable to persist PM level snapshot:", persistError);
+      }
+      setChangeSummary(null);
+      setIsSummaryDismissed(false);
+      return;
+    }
+
+    if (previousSnapshot.lastAnalyzedAt === levelData.lastAnalyzedAt) {
+      return;
+    }
+
+    const summary = buildChangeSummary(previousSnapshot, levelData);
+    setChangeSummary(summary);
+    setIsSummaryDismissed(false);
+
+    try {
+      window.localStorage.setItem(snapshotKey, JSON.stringify(buildSnapshot(levelData)));
+    } catch (persistError) {
+      console.warn("[Assessment] Unable to persist PM level snapshot:", persistError);
+    }
+  }, [levelData, profileKey]);
+
+  useEffect(() => {
+    const section = searchParams.get("section") || initialSection;
+    setActiveTab(section);
+
+    if (section?.startsWith("specialization-")) {
+      const scrollToSpecializations = () => {
+        const element = document.getElementById("role-specializations");
+        if (element) {
+          const y = element.getBoundingClientRect().top + window.scrollY - 100;
+          window.scrollTo({ top: y, behavior: "smooth" });
+          return true;
+        }
+        return false;
+      };
+
+      if (!scrollToSpecializations()) {
+        setTimeout(() => {
+          scrollToSpecializations();
+        }, 300);
       }
     }
-    
-    if (specialization) {
-      // Find the specialization and open its evidence modal
-      const specializationData = mockAssessment.roleArchetypes.find(
-        s => s.type.toLowerCase().includes(specialization.toLowerCase())
-      );
-      if (specializationData) {
-        handleShowRoleEvidence(specializationData.type);
-        // Clear the URL parameter
-        navigate('/assessment', { replace: true });
-      }
-    }
+  }, [searchParams, initialSection, assessmentData]);
 
-    if (level === 'overall') {
-      // Open the level evidence modal
-      handleShowLevelEvidence();
-      // Clear the URL parameter
-      navigate('/assessment', { replace: true });
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (activeTab !== "overview") {
+      params.set("section", activeTab);
+      navigate(`?${params.toString()}`, { replace: true });
+    } else {
+      navigate("", { replace: true });
     }
-  }, [searchParams, navigate]);
+  }, [activeTab, navigate]);
 
-  // Smart CTA logic - determine which area needs improvement
-  const getSmartCTA = () => {
-    const dataMetrics = {
-      stories: 47,
-      externalLinks: 3,
-      outcomeMetrics: 5
-    };
-    
-    // Find the metric with the lowest count
-    const weakestArea = Object.entries(dataMetrics).reduce((a, b) => 
-      dataMetrics[a[0]] < dataMetrics[b[0]] ? a : b
-    );
-    
-    const ctaText = {
-      stories: "Add More Stories",
-      externalLinks: "Add External Links", 
-      outcomeMetrics: "Add Outcome Metrics"
-    };
-    
-    return {
-      text: ctaText[weakestArea[0] as keyof typeof ctaText],
-      area: weakestArea[0],
-      count: weakestArea[1]
-    };
+  const handleRunAnalysis = () => {
+    setIsAnalyzing(true);
+    recalculate();
   };
 
-  const smartCTA = getSmartCTA();
-
-  const getLevelColor = (level: string) => {
-    switch (level) {
-      case "Strong": return "text-success border-success/20";
-      case "Solid": return "text-blue-600 border-blue-200";
-      case "Emerging": return "text-warning border-warning/20";
-      case "Needs More Evidence": return "text-muted-foreground border-muted";
-      default: return "text-foreground border-muted";
+  useEffect(() => {
+    if (!isRecalculating && isAnalyzing) {
+      setIsAnalyzing(false);
     }
-  };
-
-  const getConfidenceColor = (confidence: string) => {
-    switch (confidence) {
-      case "high": return "bg-success text-success-foreground";
-      case "medium": return "bg-warning text-warning-foreground";
-      case "low": return "bg-destructive text-destructive-foreground";
-      default: return "bg-muted text-muted-foreground";
-    }
-  };
-
-  const getArchetypeColor = (match: number) => {
-    if (match >= 80) return "bg-success text-success-foreground";
-    if (match >= 60) return "bg-foreground text-background";
-    if (match >= 40) return "bg-warning text-warning-foreground";
-    return "bg-muted text-muted-foreground";
-  };
+  }, [isRecalculating, isAnalyzing]);
 
   const handleShowEvidence = (competency: any) => {
-    setSelectedEvidence(competency);
+    setSelectedCompetency(competency.domain);
+
+    const dimensionMap: Record<string, string> = {
+      "Product Execution": "execution",
+      "Customer Insight": "customer_insight",
+      "Product Strategy": "strategy",
+      "Influencing People": "influence",
+    };
+
+    const dimensionKey = dimensionMap[competency.domain];
+    const realEvidence = dimensionKey && assessmentData?.evidenceByCompetency?.[dimensionKey];
+
+    setSelectedEvidence({
+      evidence: realEvidence?.evidence || competency.evidenceStories || [],
+      matchedTags: realEvidence?.matchedTags || competency.tags || [],
+      overallConfidence:
+        realEvidence?.overallConfidence ||
+        (competency.level === "Advanced" ? "high" : competency.level === "Proficient" ? "medium" : "low"),
+      competencyScore: competency.rawScore,
+      currentLevel: assessmentData?.currentLevel,
+    });
     setEvidenceModalOpen(true);
   };
 
-  const handleShowLevelEvidence = () => {
-    setLevelEvidenceModalOpen(true);
-  };
-
-  const handleShowRoleEvidence = (roleType: string) => {
-    setSelectedRole(roleType);
-    setRoleEvidenceModalOpen(true);
-  };
-
-  return (
-    <div className="min-h-screen bg-gradient-subtle">
-      <main className="container mx-auto px-4 pb-8">
-        <div className="max-w-6xl mx-auto">
-          
-          {/* Page Description */}
-          <p className="text-muted-foreground description-spacing">View your level, evidence and ways to progress</p>
-          
-          {/* Data Sources - Using new layout from DataSources page */}
-          <div className="mb-3">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold tracking-tight text-lg">Data Sources</h3>
-              <div className="text-right">
-                <span className="text-xs text-muted-foreground mr-2">PROFILE STRENGTH:</span>
-                <Badge className="bg-success text-success-foreground text-xs">Strong</Badge>
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background">
+        <main className="container mx-auto px-4 py-6">
+          <div className="max-w-3xl mx-auto">
+            <div className="p-6 border rounded-lg bg-destructive/5 border-destructive/30">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <AlertCircle className="w-6 h-6 text-destructive mt-0.5" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-lg font-medium text-destructive">Error Loading Assessment</h3>
+                  <div className="mt-2 text-sm text-muted-foreground">
+                    <p>We encountered an issue while loading your PM level assessment:</p>
+                    <div className="mt-2 p-3 bg-background rounded-md border border-border">
+                      <code className="text-sm break-all">
+                        {error instanceof Error ? error.message : String(error)}
+                      </code>
+                    </div>
+                    <p className="mt-3">
+                      This might be due to a temporary issue. Please try again or contact support if the problem persists.
+                    </p>
+                  </div>
+                  <div className="mt-4 space-x-3">
+                    <Button variant="default" onClick={() => window.location.reload()}>
+                      <RotateCw className="w-4 h-4 mr-2" />
+                      Try Again
+                    </Button>
+                    <Button variant="secondary" onClick={() => recalculate()} disabled={isRecalculating}>
+                      {isRecalculating ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Recalculating...
+                        </>
+                      ) : (
+                        <>
+                          <RotateCw className="w-4 h-4 mr-2" />
+                          Recalculate PM Level
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-          {/* Stats Overview - Using Cover Letters widget styling */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
-            {/* LinkedIn */}
-            <Card className="shadow-soft">
-              <CardContent className="p-4">
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-1 mb-1">
-                    <div className="h-2 w-2 rounded-full bg-success"></div>
-                    <span className="text-xs text-muted-foreground">LinkedIn</span>
-                  </div>
-                  <div className="text-sm font-medium">Connected</div>
-                </div>
-              </CardContent>
-            </Card>
+        </main>
+      </div>
+    );
+  }
 
-            {/* Resume */}
-            <Card className="shadow-soft">
-              <CardContent className="p-4">
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-1 mb-1">
-                    <div className="h-2 w-2 rounded-full bg-success"></div>
-                    <span className="text-xs text-muted-foreground">Resume</span>
-                  </div>
-                  <div className="text-sm font-medium">Uploaded</div>
-                </div>
-              </CardContent>
-            </Card>
+  if (isInitialAnalysisStreaming) {
+    return (
+      <div className="min-h-screen bg-background">
+        <main className="container mx-auto px-4 py-6">
+          <div className="max-w-3xl mx-auto">
+            <StreamingProgress steps={analysisSteps} status={analysisStatus} events={analysisEvents} showTimeline />
+            <p className="mt-4 text-sm text-muted-foreground">
+              We're evaluating your experience to refresh the assessment. Add more approved stories or update your work history
+              to improve accuracy.
+            </p>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
-            {/* Outcome Metrics */}
-            <Card className="shadow-soft">
-              <CardContent className="p-4">
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-1 mb-1">
-                    <div className="h-2 w-2 rounded-full bg-success"></div>
-                    <span className="text-xs text-muted-foreground">Outcome Metrics</span>
-                  </div>
-                  <div className="text-sm font-medium">5</div>
-                </div>
-              </CardContent>
-            </Card>
+  if (!assessmentData && isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <main className="container mx-auto px-4 py-6">
+          <div className="max-w-3xl mx-auto">
+            <LoadingState isLoading loadingText="Loading PM level assessment..." />
+          </div>
+        </main>
+      </div>
+    );
+  }
 
-            {/* Stories */}
-            <Card className="shadow-soft">
-              <CardContent className="p-4">
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-1 mb-1">
-                    <div className="h-2 w-2 rounded-full bg-success"></div>
-                    <span className="text-xs text-muted-foreground">Stories</span>
-                  </div>
-                  <div className="text-sm font-medium">47</div>
-                </div>
-              </CardContent>
-            </Card>
+  if (!assessmentData) {
+    const isSpecializationSection =
+      initialSection?.startsWith("specialization-") || searchParams.get("section")?.startsWith("specialization-");
 
-            {/* External Links */}
-            <Card className="shadow-soft">
-              <CardContent className="p-4">
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-1 mb-1">
-                    <div className="h-2 w-2 rounded-full bg-success"></div>
-                    <span className="text-xs text-muted-foreground">External Links</span>
-                  </div>
-                  <div className="text-sm font-medium">3</div>
+    return (
+      <div className="min-h-screen bg-background">
+        <main className="container mx-auto px-4 py-6">
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-background rounded-xl border shadow-sm overflow-hidden">
+              <div className="p-8 text-center">
+                <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-primary/10 mb-4">
+                  <BarChart3 className="h-8 w-8 text-primary" />
                 </div>
-              </CardContent>
-            </Card>
+                <h2 className="text-2xl font-bold tracking-tight mb-2">PM Level Assessment</h2>
+                <p className="text-muted-foreground max-w-2xl mx-auto mb-8">
+                  {isSpecializationSection
+                    ? "Run an analysis to see your specialization matches. Add work history and stories to get detailed insights."
+                    : "Get a detailed analysis of your product management level based on your experience, skills, and achievements. Understand your strengths and areas for growth with personalized recommendations."}
+                </p>
+
+                {backgroundError ? (
+                  <div className="max-w-2xl mx-auto mb-8">
+                    <div className="p-6 border border-destructive/40 bg-destructive/10 rounded-lg text-left">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className="w-5 h-5 text-destructive mt-0.5" />
+                        <div>
+                          <h3 className="text-lg font-semibold text-destructive mb-1">We couldn't finish the analysis</h3>
+                          <p className="text-sm text-muted-foreground">{backgroundError}</p>
+                          <div className="flex flex-wrap gap-3 mt-4">
+                            <Button onClick={handleRunAnalysis} disabled={isAnalyzing || isRecalculating}>
+                              {(isAnalyzing || isRecalculating) ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  Retrying...
+                                </>
+                              ) : (
+                                <>
+                                  <RotateCw className="w-4 h-4 mr-2" />
+                                  Try Again
+                                </>
+                              )}
+                            </Button>
+                            <Button variant="ghost" onClick={() => setActiveTab("how-it-works")}>
+                              Learn More
+                            </Button>
+                            <Button variant="ghost" onClick={() => navigate("/work-history")}>
+                              Update Work History
+                            </Button>
+                            <Button variant="ghost" onClick={() => navigate("/stories")}>
+                              Add Stories
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="bg-muted/30 border rounded-lg p-6 mb-8 text-left max-w-2xl mx-auto">
+                      <h3 className="font-medium mb-3 flex items-center">
+                        <Info className="w-4 h-4 mr-2 text-amber-500" />
+                        How it works
+                      </h3>
+                      <ul className="space-y-3 text-sm text-muted-foreground">
+                        <li className="flex items-start">
+                          <CheckCircle className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                          <span>We'll analyze your work history, achievements, and skills</span>
+                        </li>
+                        <li className="flex items-start">
+                          <CheckCircle className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                          <span>Compare against industry benchmarks for different PM levels</span>
+                        </li>
+                        <li className="flex items-start">
+                          <CheckCircle className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                          <span>Provide personalized recommendations for growth</span>
+                        </li>
+                      </ul>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
+                      <Button onClick={handleRunAnalysis} disabled={isAnalyzing || isRecalculating} size="lg" className="px-8 py-6 text-base">
+                        {(isAnalyzing || isRecalculating) ? (
+                          <>
+                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                            Analyzing Your Profile...
+                          </>
+                        ) : (
+                          <>
+                            <BarChart3 className="w-5 h-5 mr-2" />
+                            Run PM Level Analysis
+                          </>
+                        )}
+                      </Button>
+
+                      <Button variant="secondary" size="lg" className="px-8 py-6 text-base" onClick={() => setActiveTab("how-it-works")}>
+                        <Info className="w-5 h-5 mr-2" />
+                        Learn More
+                      </Button>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground mt-4">
+                      This may take a few minutes. You'll receive a notification when it's ready.
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  const {
+    currentLevel,
+    confidence,
+    nextLevel,
+    levelDescription,
+    inferenceSource,
+    competencies,
+    roleArchetypes,
+    levelProgression,
+    roleArchetypeEvidence,
+    levelEvidence,
+    evidenceByCompetency,
+    recommendations,
+  } = assessmentData;
+
+  return (
+    <div className="min-h-screen bg-background">
+      <main className="container mx-auto px-4 py-6">
+        <div className="space-y-6">
+          <div className="flex flex-col justify-between space-y-4 md:flex-row md:items-center md:space-y-0">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">PM Level Assessment</h1>
+              <p className="text-muted-foreground">{inferenceSource}</p>
+            </div>
+            <div className="flex flex-col items-start gap-2 text-sm text-muted-foreground sm:flex-row sm:items-center">
+              {lastAnalyzedRelative && (
+                <Badge variant="outline" className="flex items-center gap-1" title={lastAnalyzedExact ?? undefined}>
+                  <Clock className="h-3 w-3" />
+                  {`Last analyzed ${lastAnalyzedRelative}`}
+                </Badge>
+              )}
+            </div>
           </div>
 
-          {/* Combined Level Assessment & Career Progression */}
-          <Card className="shadow-soft section-spacing">
-            <CardHeader className="text-center pb-4">
-              <CardTitle className="text-4xl font-bold text-foreground mb-2">
-                You are a <span className="text-foreground">{mockAssessment.currentLevel}</span>
-              </CardTitle>
-              <CardDescription className="text-lg">
-                {mockAssessment.levelDescription}
-              </CardDescription>
-              <p className="text-sm text-muted-foreground mt-2">
-                {mockAssessment.inferenceSource}
-              </p>
-            </CardHeader>
-            
-            <CardContent>
+          {(shouldShowStreaming || analysisEvents.length > 0) && (
+            <Card>
+              <CardContent className="p-4">
+                <StreamingProgress
+                  steps={analysisSteps}
+                  status={analysisStatus}
+                  events={analysisEvents}
+                  showTimeline={analysisEvents.length > 0}
+                />
+              </CardContent>
+            </Card>
+          )}
 
-              {/* Evidence CTA Button - Above Career Ladder */}
-              <div className="flex justify-center mb-4">
-                <Button 
-                  variant="primary" 
-                  size="lg" 
-                  onClick={handleShowLevelEvidence}
-                >
-                  View Evidence for Overall Level
-                  <TrendingUp className="h-5 w-5 ml-2" />
-                </Button>
-              </div>
-              
-              {/* Dual-Track Career Path Visualization */}
-              <div className="mb-4 relative overflow-hidden -mx-6 my-4">
-                {/* IC Track - Full Width */}
-                <div className={`transition-transform duration-500 ease-in-out ${showLeadershipTrack ? '-translate-x-full' : 'translate-x-0'}`}>
-                  <div className="bg-white">
-                    {/* IC Track Header */}
-                    <div className="text-left mb-4 border-t-2 border-blue-500 pt-4 px-6">
-                      <h3 className="flex items-center gap-2 font-medium text-blue-900">
-                        <Target className="h-5 w-5" />
-                        Individual Contributor Track
-                      </h3>
+          {changeSummary && !isSummaryDismissed && (
+            <Card className="border-primary/30 bg-primary/5">
+              <CardContent className="p-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 text-primary">
+                      <AlertCircle className="h-4 w-4" />
+                      <span className="font-semibold">{changeSummary.headline}</span>
                     </div>
-                    
-                    {/* IC Track Steps */}
-                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-start">
-                      {/* IC Track Items */}
-                      <div className="flex flex-col lg:flex-row lg:items-center relative">
-                        {/* Completed Steps */}
-                        {/* Mobile: Card style */}
-                        <div className="ladder-step-mobile-ic mx-4">
-                          <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
-                          <div className="text-center">
-                            <div className="text-sm font-medium text-blue-900 mb-1">Associate PM</div>
-                            <div className="text-xs text-muted-foreground text-center">0-2 years</div>
-                          </div>
-                        </div>
-                        {/* Desktop: Original style */}
-                        <div className="ladder-step-desktop ladder-step ladder-step-height">
-                          <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
-                          <div className="text-center">
-                            <div className="text-sm font-medium text-blue-900 mb-1">Associate PM</div>
-                            <div className="text-xs text-muted-foreground text-center">0-2 years</div>
-                          </div>
-                        </div>
-                        {/* Horizontal connector (desktop) */}
-                        <div className="ladder-conn-h ladder-conn-blue"></div>
-                        {/* Vertical connector (mobile) */}
-                        <div className="ladder-conn-v ladder-conn-blue"></div>
-                        
-                        {/* Mobile: Card style */}
-                        <div className="ladder-step-mobile-ic mx-4">
-                          <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
-                          <div className="text-center">
-                            <div className="text-sm font-medium text-blue-900 mb-1">PM</div>
-                            <div className="text-xs text-muted-foreground text-center">2-4 years</div>
-                          </div>
-                        </div>
-                        {/* Desktop: Original style */}
-                        <div className="ladder-step-desktop ladder-step ladder-step-height">
-                          <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-2">✓</div>
-                          <div className="text-center">
-                            <div className="text-sm font-medium text-blue-900 mb-1">PM</div>
-                            <div className="text-xs text-muted-foreground text-center">2-4 years</div>
-                          </div>
-                        </div>
-                        {/* Horizontal connector (desktop) */}
-                        <div className="ladder-conn-h ladder-conn-blue"></div>
-                        {/* Vertical connector (mobile) */}
-                        <div className="ladder-conn-v ladder-conn-blue"></div>
-                        
-                        {/* Current Step - TODAY Card */}
-                        <div className="ladder-card-labeled border-blue-500 mx-4">
-                          <div className="ladder-card-header bg-blue-600">
-                            <div className="text-xs font-normal uppercase tracking-wide">TODAY</div>
-                          </div>
-                          <div className="ladder-card-content">
-                            <div className="text-center">
-                              <div className="h-6 w-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mb-3 mx-auto">✓</div>
-                              <div className="text-sm font-medium bg-blue-500 text-white px-3 py-1 rounded-full mb-2">Sr PM</div>
-                              <div className="text-xs text-muted-foreground">4-7 years</div>
-                            </div>
-                          </div>
-                        </div>
-                        {/* Horizontal connector (desktop) */}
-                        <div className="ladder-conn-h ladder-conn-blue"></div>
-                        {/* Vertical connector (mobile) */}
-                        <div className="ladder-conn-v ladder-conn-blue"></div>
-                        
-                        {/* Next Step - NEXT STEP Card */}
-                        <div className="ladder-card-labeled border-blue-500 mx-4">
-                          <div className="ladder-card-header bg-blue-600">
-                            <div className="text-xs font-normal uppercase tracking-wide">NEXT STEP</div>
-                          </div>
-                          <div className="ladder-card-content">
-                            <div className="text-center">
-                              <div className="h-6 w-6 rounded-full border-2 border-blue-500 mb-3 mx-auto" style={{ borderColor: 'rgb(59 130 246)' }}></div>
-                              <div className="text-sm font-medium text-blue-900 mb-2">Lead PM</div>
-                              <div className="text-xs text-muted-foreground">Technical leadership</div>
-                            </div>
-                          </div>
-                        </div>
-                        {/* Horizontal connector (desktop) */}
-                        <div className="ladder-conn-h ladder-conn-blue"></div>
-                        {/* Vertical connector (mobile) */}
-                        <div className="ladder-conn-v ladder-conn-blue"></div>
-                        
-                        {/* Future Step - Dotted Circle */}
-                        {/* Mobile: Card style */}
-                        <div className="ladder-step-mobile-ic mx-4">
-                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-blue-500 mb-2"></div>
-                          <div className="text-center">
-                            <div className="text-sm font-medium text-blue-900 mb-1">Principal PM</div>
-                            <div className="text-xs text-muted-foreground text-center">Domain expert</div>
-                          </div>
-                        </div>
-                        {/* Desktop: Original style */}
-                        <div className="ladder-step-desktop ladder-step ladder-step-height">
-                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-blue-500 mb-2"></div>
-                          <div className="text-center">
-                            <div className="text-sm font-medium text-blue-900 mb-1">Principal PM</div>
-                            <div className="text-xs text-muted-foreground text-center">Domain expert</div>
-                          </div>
-                        </div>
-                        
-                        {/* Full Height Vertical Separator - Blue when viewing IC (desktop only) */}
-                        <div className="ladder-separator-ic"></div>
-                      </div>
-                      
-                      {/* Spacing between tracks (desktop only) */}
-                      <div className="hidden lg:block w-12"></div>
-                      
-                      {/* View Leadership Track Card */}
-                      {/* Mobile: Primary CTA */}
-                      <div className="ladder-cta-primary mt-4 lg:hidden" onClick={() => setShowLeadershipTrack(true)}>
-                        <div className="text-sm font-medium flex items-center justify-center gap-2">
-                          View Leadership Track
-                          <TrendingUp className="h-4 w-4" />
-                        </div>
-                      </div>
-                      {/* Desktop: Card with label */}
-                      <div className="hidden lg:block ladder-card-labeled border-green-500 cursor-pointer mt-4" onClick={() => setShowLeadershipTrack(true)}>
-                        <div className="ladder-card-header bg-green-600">
-                          <div className="text-xs font-normal uppercase tracking-wide">VIEW</div>
-                        </div>
-                        <div className="ladder-card-content">
-                          <div className="text-center">
-                            <div className="text-xs text-green-900 font-medium">Leadership Track</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                                          {/* IC Guidance Banner */}
-                      <div className="bg-blue-50 border-t-2 border-b-2 border-blue-500 py-4 px-6 mt-4 mb-4">
-                      <div className="text-center">
-                        <p className="text-blue-900 font-medium" style={{ fontSize: '1.1rem' }}>Demonstrate strategic thinking and organizational influence to advance</p>
-                      </div>
-                    </div>
+                    <ul className="mt-2 space-y-1 text-sm text-muted-foreground list-disc pl-5">
+                      {changeSummary.items.map((item, index) => (
+                        <li key={index}>{item}</li>
+                      ))}
+                    </ul>
                   </div>
+                  <Button variant="ghost" size="sm" onClick={() => setIsSummaryDismissed(true)} className="self-start md:self-start">
+                    Dismiss
+                  </Button>
                 </div>
-                
-                {/* Leadership Track - Slides in from right */}
-                <div className={`absolute top-0 left-0 w-full transition-transform duration-500 ease-in-out ${showLeadershipTrack ? 'translate-x-0' : 'translate-x-full'}`}>
-                  <div className="bg-white">
-                    {/* Leadership Track Header */}
-                    <div className="text-left mb-4 border-t-2 border-green-500 pt-4 px-6">
-                      <h3 className="flex items-center gap-2 font-medium text-green-900">
-                        <Users className="h-5 w-5" />
-                        Leadership Track
-                      </h3>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="text-center space-y-4">
+                <h2 className="text-3xl font-bold tracking-tight">You are a {currentLevel}</h2>
+                {(() => {
+                  const confidencePercentage =
+                    levelEvidence?.levelingFramework?.confidencePercentage !== undefined
+                      ? levelEvidence.levelingFramework.confidencePercentage
+                      : textConfidenceToPercentage(confidence as "high" | "medium" | "low");
+
+                  return (
+                    <div className="flex items-center justify-center gap-2">
+                      <p className="text-sm text-muted-foreground">{inferenceSource}</p>
+                      <Badge className={getConfidenceBadgeColor(confidencePercentage)}>
+                        {confidencePercentage}% confidence
+                      </Badge>
                     </div>
-                    
-                    {/* Leadership Track Steps */}
-                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-start px-6">
-                      {/* View IC Track Card */}
-                      {/* Mobile: Primary CTA */}
-                      <div className="ladder-cta-primary mb-4 lg:mr-6 lg:hidden" onClick={() => setShowLeadershipTrack(false)}>
-                        <div className="text-sm font-medium flex items-center justify-center gap-2">
-                          View IC Track
-                          <Target className="h-4 w-4" />
-                        </div>
-                      </div>
-                      {/* Desktop: Card with label */}
-                      <div className="hidden lg:block ladder-card-labeled border-blue-600 cursor-pointer mb-4 lg:mr-6" onClick={() => setShowLeadershipTrack(false)}>
-                        <div className="ladder-card-header bg-blue-600">
-                          <div className="text-xs font-normal uppercase tracking-wide">VIEW</div>
-                        </div>
-                        <div className="ladder-card-content">
-                          <div className="text-center">
-                            <div className="text-xs text-blue-900 font-medium">IC Track</div>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Leadership Track Items */}
-                      <div className="flex flex-col lg:flex-row lg:items-center relative">
-                        {/* Full Height Vertical Separator - Green when viewing Leadership (desktop only) */}
-                        <div className="ladder-separator-leadership"></div>
-                        
-                        {/* First Step - Group PM / Manager */}
-                        {/* Mobile: Card style */}
-                        <div className="ladder-step-mobile-leadership">
-                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
-                          <div className="text-center">
-                            <div className="text-sm font-medium text-green-900 mb-1">Group PM / Manager</div>
-                            <div className="text-xs text-muted-foreground text-center">Portfolio oversight</div>
-                          </div>
-                        </div>
-                        {/* Desktop: Original style */}
-                        <div className="ladder-step-desktop ladder-step ladder-step-height">
-                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
-                          <div className="text-center">
-                            <div className="text-sm font-medium text-green-900 mb-1">Group PM / Manager</div>
-                            <div className="text-xs text-muted-foreground text-center">Portfolio oversight</div>
-                          </div>
-                        </div>
-                        {/* Horizontal connector (desktop) */}
-                        <div className="ladder-conn-h ladder-conn-green"></div>
-                        {/* Vertical connector (mobile) */}
-                        <div className="ladder-conn-v ladder-conn-green"></div>
-                        
-                        {/* Second Step - Director of Product */}
-                        {/* Mobile: Card style */}
-                        <div className="ladder-step-mobile-leadership">
-                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
-                          <div className="text-center">
-                            <div className="text-sm font-medium text-green-900 mb-1">Director of Product</div>
-                            <div className="text-xs text-muted-foreground text-center">Strategic direction</div>
-                          </div>
-                        </div>
-                        {/* Desktop: Original style */}
-                        <div className="ladder-step-desktop ladder-step ladder-step-height">
-                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
-                          <div className="text-center">
-                            <div className="text-sm font-medium text-green-900 mb-1">Director of Product</div>
-                            <div className="text-xs text-muted-foreground text-center">Strategic direction</div>
-                          </div>
-                        </div>
-                        {/* Horizontal connector (desktop) */}
-                        <div className="ladder-conn-h ladder-conn-green"></div>
-                        {/* Vertical connector (mobile) */}
-                        <div className="ladder-conn-v ladder-conn-green"></div>
-                        
-                        {/* Third Step - Vice President, Product */}
-                        {/* Mobile: Card style */}
-                        <div className="ladder-step-mobile-leadership">
-                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
-                          <div className="text-center">
-                            <div className="text-sm font-medium text-green-900 mb-1">Vice President, Product</div>
-                            <div className="text-xs text-muted-foreground text-center">Executive leadership</div>
-                          </div>
-                        </div>
-                        {/* Desktop: Original style */}
-                        <div className="ladder-step-desktop ladder-step ladder-step-height">
-                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
-                          <div className="text-center">
-                            <div className="text-sm font-medium text-green-900 mb-1">Vice President, Product</div>
-                            <div className="text-xs text-muted-foreground text-center">Executive leadership</div>
-                          </div>
-                        </div>
-                        {/* Horizontal connector (desktop) */}
-                        <div className="ladder-conn-h ladder-conn-green"></div>
-                        {/* Vertical connector (mobile) */}
-                        <div className="ladder-conn-v ladder-conn-green"></div>
-                        
-                        {/* Fourth Step - Chief Product Officer */}
-                        {/* Mobile: Card style */}
-                        <div className="ladder-step-mobile-leadership">
-                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
-                          <div className="text-center">
-                            <div className="text-sm font-medium text-green-900 mb-1">Chief Product Officer</div>
-                            <div className="text-xs text-muted-foreground text-center">CPO</div>
-                          </div>
-                        </div>
-                        {/* Desktop: Original style */}
-                        <div className="ladder-step-desktop ladder-step ladder-step-height">
-                          <div className="h-6 w-6 rounded-full border-2 border-dashed border-green-500 mb-2"></div>
-                          <div className="text-center">
-                            <div className="text-sm font-medium text-green-900 mb-1">Chief Product Officer</div>
-                            <div className="text-xs text-muted-foreground text-center">CPO</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                                          {/* Leadership Guidance Banner */}
-                      <div className="bg-green-50 border-t-2 border-b-2 border-green-500 py-4 px-6 mb-4">
-                      <div className="text-center">
-                        <p className="text-green-900 font-medium" style={{ fontSize: '1.1rem' }}>Develop team leadership skills and strategic organizational thinking to advance</p>
-                      </div>
-                    </div>
-                  </div>
+                  );
+                })()}
+
+                <div className="pt-2">
+                  <Button size="lg" onClick={() => setLevelEvidenceModalOpen(true)} className="px-6">
+                    View Evidence for Overall Level
+                    <TrendingUp className="w-4 h-4 ml-2" />
+                  </Button>
                 </div>
               </div>
-              
             </CardContent>
           </Card>
 
+          <Card>
+            <CardContent className="p-6">
+              <h3 className="text-xl font-semibold mb-4">PM Career Ladder</h3>
+              <CareerLadder
+                currentLevelCode={levelData?.inferredLevel || "L4"}
+                currentLevelDisplay={currentLevel}
+                onViewEvidence={() => setLevelEvidenceModalOpen(true)}
+              />
 
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                <div className="rounded-lg border p-4">
+                  <h4 className="text-sm font-medium text-muted-foreground">Current Level</h4>
+                  <div className="mt-2 text-lg font-semibold">{currentLevel}</div>
+                </div>
+                <div className="rounded-lg border p-4">
+                  <h4 className="text-sm font-medium text-muted-foreground">Target Next Level</h4>
+                  <div className="mt-2 text-lg font-semibold">{nextLevel}</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-          {/* Competency Breakdown */}
-          <Card className="shadow-soft section-spacing">
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5" />
-                Competency Breakdown
+                Core Competencies
               </CardTitle>
-              <CardDescription>
-                Your strengths and areas for growth across key PM domains
-              </CardDescription>
+              <CardDescription>Your strengths and areas for growth across key PM domains</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="assessment-grid">
-                {mockAssessment.competencies.map((competency) => (
+              <div className="grid gap-4 md:grid-cols-2">
+                {competencies.map((competency: any) => (
                   <CompetencyCard
                     key={competency.domain}
                     domain={competency.domain}
@@ -1172,77 +875,165 @@ const Assessment = ({ initialSection }: AssessmentProps) => {
             </CardContent>
           </Card>
 
-          {/* Specialization Mapping */}
-          <Card className="shadow-soft section-spacing">
+          <Card id="role-specializations">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                Specialization Mapping
+                Role Specializations
               </CardTitle>
-              <CardDescription>
-                How your profile matches different PM specializations
-              </CardDescription>
+              <CardDescription>How your profile matches PM specializations</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="assessment-grid">
-                {mockAssessment.roleArchetypes.map((archetype) => (
-                  <SpecializationCard
-                    key={archetype.type}
-                    type={archetype.type}
-                    match={archetype.match}
-                    description={archetype.description}
-                    tags={archetype.type === "Growth PM" ? ["Growth", "Leadership", "SaaS"] : 
-                          archetype.type === "Technical PM" ? ["Technical", "Engineering", "Platform"] :
-                          archetype.type === "Founding PM" ? ["0-1", "MVP", "Product-Market Fit"] :
-                          ["Platform", "API", "Infrastructure"]}
-                    experienceLevel={archetype.type === "Growth PM" ? "High" : 
-                                   archetype.type === "Technical PM" ? "Medium" : "Low"}
-                    onViewEvidence={() => handleShowRoleEvidence(archetype.type)}
-                  />
-                ))}
-              </div>
+              {roleArchetypes.length > 0 ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {roleArchetypes.map((archetype: any) => {
+                    const evidence =
+                      roleArchetypeEvidence[archetype.typeKey] || roleArchetypeEvidence[archetype.type];
+                    const hasEvidence = evidence && evidence.matchScore > 0;
+
+                    return (
+                      <SpecializationCard
+                        key={archetype.type}
+                        type={archetype.type}
+                        match={archetype.match}
+                        description={archetype.description || archetype.typicalProfile || ""}
+                        tags={evidence?.tagAnalysis?.slice(0, 5).map((t: any) => t.tag) || []}
+                        experienceLevel={archetype.experienceLevel}
+                        onViewEvidence={() => {
+                          if (hasEvidence) {
+                            setSelectedRole(archetype.typeKey || archetype.type);
+                            setRoleEvidenceModalOpen(true);
+                          } else {
+                            const sectionMap: Record<string, string> = {
+                              growth: "specialization-growth",
+                              platform: "specialization-platform",
+                              ai_ml: "specialization-ai_ml",
+                              founding: "specialization-founding",
+                            };
+                            const section = sectionMap[archetype.typeKey] || "overview";
+                            setActiveTab(section);
+                            navigate(`/assessment?section=${section}`);
+                          }
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No specializations detected: add stories to see new matches</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
+          {recommendations && recommendations.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Lightbulb className="h-5 w-5" />
+                  Growth Recommendations
+                </CardTitle>
+                <CardDescription>Actionable insights to help you advance your PM career</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {(() => {
+                    const narrataTypes = ["quantify-metrics", "add-story"];
+                    const sortedRecommendations = [...recommendations].sort((a, b) => {
+                      const aIsNarrata = narrataTypes.includes(a.type);
+                      const bIsNarrata = narrataTypes.includes(b.type);
 
+                      if (aIsNarrata && !bIsNarrata) return -1;
+                      if (!aIsNarrata && bIsNarrata) return 1;
+
+                      const priorityOrder = { high: 0, medium: 1, low: 2 } as const;
+                      return priorityOrder[a.priority] - priorityOrder[b.priority];
+                    });
+
+                    return sortedRecommendations.map((rec: any, index: number) => (
+                      <Card key={rec.id || index}>
+                        <CardContent className="p-4">
+                          <h4 className="font-medium mb-2">{rec.title}</h4>
+                          <p className="text-sm text-muted-foreground">{rec.description}</p>
+                        </CardContent>
+                      </Card>
+                    ));
+                  })()}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </main>
 
-      {/* Evidence Modal */}
-      {selectedEvidence && (
-        <EvidenceModal
-          isOpen={evidenceModalOpen}
-          onClose={() => {
-            setEvidenceModalOpen(false);
-            setSelectedEvidence(null);
-          }}
-          competency={selectedEvidence.domain}
-          evidence={selectedEvidence.evidenceStories}
-          matchedTags={selectedEvidence.tags}
-          overallConfidence={selectedEvidence.level === "Strong" ? "high" : selectedEvidence.level === "Solid" ? "medium" : "low"}
-        />
-      )}
+      <EvidenceModal
+        isOpen={evidenceModalOpen}
+        onClose={() => setEvidenceModalOpen(false)}
+        evidence={selectedEvidence?.evidence || []}
+        matchedTags={selectedEvidence?.matchedTags || []}
+        overallConfidence={selectedEvidence?.overallConfidence || "medium"}
+        competency={selectedCompetency || ""}
+        competencyScore={selectedEvidence?.competencyScore}
+        currentLevel={selectedEvidence?.currentLevel || currentLevel}
+      />
 
-      {/* Level Evidence Modal */}
       <LevelEvidenceModal
         isOpen={levelEvidenceModalOpen}
         onClose={() => setLevelEvidenceModalOpen(false)}
-        evidence={mockAssessment.levelEvidence}
+        evidence={{
+          currentLevel: levelEvidence?.currentLevel || currentLevel || "Product Manager",
+          nextLevel: levelEvidence?.nextLevel || nextLevel || "Staff/Principal Product Manager",
+          confidence: confidence || "medium",
+          resumeEvidence: levelEvidence?.resumeEvidence || {
+            roleTitles: [],
+            duration: "N/A",
+            companyScale: [],
+          },
+          storyEvidence: levelEvidence?.storyEvidence || {
+            totalStories: 0,
+            relevantStories: 0,
+            tagDensity: [],
+          },
+          levelingFramework: levelEvidence?.levelingFramework || {
+            framework: "N/A",
+            criteria: [],
+            match: "N/A",
+          },
+          gaps: levelEvidence?.gaps || [],
+          outcomeMetrics: levelEvidence?.outcomeMetrics || {
+            roleLevel: [],
+            storyLevel: [],
+            analysis: {
+              totalMetrics: 0,
+              impactLevel: "feature",
+              keyAchievements: [],
+            },
+          },
+        }}
       />
 
-      {/* Role Evidence Modal */}
-      {selectedRole && mockAssessment.roleArchetypeEvidence[selectedRole] && (
-        <RoleEvidenceModal
-          isOpen={roleEvidenceModalOpen}
-          onClose={() => {
-            setRoleEvidenceModalOpen(false);
-            setSelectedRole(null);
-          }}
-          evidence={mockAssessment.roleArchetypeEvidence[selectedRole]}
-        />
-      )}
+      <RoleEvidenceModal
+        isOpen={roleEvidenceModalOpen}
+        onClose={() => setRoleEvidenceModalOpen(false)}
+        evidence={roleArchetypeEvidence[selectedRole || ""] || {
+          roleType: selectedRole || "Unknown",
+          matchScore: 0,
+          description: "",
+          industryPatterns: [],
+          problemComplexity: { level: "N/A", examples: [], evidence: [] },
+          workHistory: [],
+          tagAnalysis: [],
+          gaps: [],
+          outcomeMetrics: {
+            roleLevel: [],
+            storyLevel: [],
+            analysis: { totalMetrics: 0, impactLevel: "feature", keyAchievements: [] },
+          },
+        }}
+      />
     </div>
   );
-};
+}
 
 export default Assessment;

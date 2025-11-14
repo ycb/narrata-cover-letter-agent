@@ -3,232 +3,145 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Sparkles, RefreshCw, CheckCircle, AlertTriangle, Save, FileStack } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/lib/supabase';
-import type { Gap } from '@/services/gapDetectionService';
-import {
-  ContentGenerationService,
-  type ValidationResult,
-  type ContentSaveRequest
-} from '@/services/contentGenerationService';
-import type { WorkHistoryContext, JobContext } from '@/prompts/contentGeneration';
+import { Sparkles, RefreshCw, CheckCircle, AlertTriangle } from 'lucide-react';
+interface GapAnalysis {
+  id: string;
+  type: 'core-requirement' | 'preferred-requirement' | 'best-practice' | 'content-enhancement';
+  severity: 'high' | 'medium' | 'low';
+  description: string;
+  suggestion: string;
+  paragraphId?: string;
+  requirementId?: string;
+  origin: 'ai' | 'human' | 'library';
+  addresses?: string[];
+  existingContent?: string;
+}
+
+interface TagSuggestion {
+  id: string;
+  value: string;
+  confidence: 'high' | 'medium' | 'low';
+  category?: 'industry' | 'business_model' | 'skill' | 'competency' | 'other';
+}
 
 interface ContentGenerationModalProps {
   isOpen: boolean;
   onClose: () => void;
-
-  // Gap context
-  gap: Gap;
-
-  // Entity context
-  entityType: 'work_item' | 'approved_content' | 'saved_section';
-  entityId: string;
-  existingContent: string;
-
-  // Work history context for LLM
-  workHistoryContext: WorkHistoryContext;
-
-  // Job context (optional, for variations)
-  jobContext?: JobContext;
-
-  // Section type for saved sections
-  sectionType?: 'introduction' | 'closer' | 'signature' | 'custom';
-
-  // Callbacks
-  onContentApplied?: () => void; // Called after successful save
+  gap?: GapAnalysis | null;
+  onApplyContent?: (content: string) => void;
+  // Tag suggestion mode
+  mode?: 'gap-detection' | 'tag-suggestion';
+  content?: string;
+  contentType?: 'company' | 'role' | 'saved_section';
+  entityId?: string; // For persisting tags
+  existingTags?: string[];
+  suggestedTags?: TagSuggestion[];
+  onApplyTags?: (tags: string[]) => void;
+  onGenerateTags?: () => Promise<void>; // New: trigger tag generation
+  isSearching?: boolean; // For company research status
+  searchError?: string | null; // For search error display
+  onRetry?: () => void; // For retrying failed searches
 }
 
 export function ContentGenerationModal({
   isOpen,
   onClose,
   gap,
-  entityType,
-  entityId,
-  existingContent,
-  workHistoryContext,
-  jobContext,
-  sectionType,
-  onContentApplied
+  onApplyContent,
+  mode = 'gap-detection',
+  content,
+  contentType,
+  existingTags = [],
+  suggestedTags = [],
+  onApplyTags,
+  onGenerateTags,
+  isSearching = false,
+  searchError = null,
+  onRetry
 }: ContentGenerationModalProps) {
-  const { toast } = useToast();
-
-  // Content generation state
+  console.log('ContentGenerationModal render:', { isOpen, mode, suggestedTags, isSearching, searchError });
   const [generatedContent, setGeneratedContent] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-
-  // Validation state
-  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
-  const [isValidating, setIsValidating] = useState(false);
-  const [allGaps, setAllGaps] = useState<Gap[]>([gap]); // Start with current gap
-
-  // Save mode state
-  const [saveMode, setSaveMode] = useState<'replace' | 'variation'>('replace');
-  const [showSaveModeSelection, setShowSaveModeSelection] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-
-  // Variation metadata state
-  const [variationMetadata, setVariationMetadata] = useState({
-    title: `Fills Gap: ${gap.gap_category.replace(/_/g, ' ')}`,
-    gapTags: [gap.gap_category],
-    targetJobTitle: jobContext?.jobTitle || '',
-    targetCompany: jobContext?.company || '',
-    jobDescriptionId: ''
-  });
-
-  // Service instance
-  const [service] = useState(() => new ContentGenerationService());
-
-  // Fetch all gaps for this entity to enable multi-gap validation
+  const [contentQuality, setContentQuality] = useState<'draft' | 'review' | 'ready'>('draft');
+  
+  // Tag suggestion state
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [isGeneratingTags, setIsGeneratingTags] = useState(false);
+  
+  // Reset selected tags when modal opens/closes or suggested tags change
   useEffect(() => {
-    const fetchAllGaps = async () => {
-      try {
-        const { data: gaps, error } = await supabase
-          .from('gaps')
-          .select('*')
-          .eq('entity_type', entityType)
-          .eq('entity_id', entityId)
-          .eq('user_id', workHistoryContext.userId)
-          .eq('resolved', false);
-
-        if (error) throw error;
-
-        // Include current gap if not in fetched gaps
-        const allEntityGaps = gaps || [];
-        if (!allEntityGaps.find(g => g.id === gap.id)) {
-          allEntityGaps.push(gap);
-        }
-
-        setAllGaps(allEntityGaps);
-      } catch (error) {
-        console.error('Error fetching gaps:', error);
-        // Fall back to just current gap
-        setAllGaps([gap]);
-      }
-    };
-
-    if (isOpen) {
-      fetchAllGaps();
+    if (isOpen && mode === 'tag-suggestion') {
+      setSelectedTags([]);
     }
-  }, [isOpen, entityType, entityId, workHistoryContext.userId, gap]);
+  }, [isOpen, mode, suggestedTags]);
 
   const handleGenerate = async () => {
+    if (!gap) return;
+    
     setIsGenerating(true);
-    setValidationResult(null);
-
-    try {
-      // Call ContentGenerationService
-      const content = await service.generateContent({
-        gap,
-        existingContent,
-        entityType,
-        entityId,
-        workHistoryContext,
-        jobContext,
-        sectionType
-      });
-
-      setGeneratedContent(content);
-
-      // Run validation on ALL gaps for this entity
-      setIsValidating(true);
-      const validation = await service.validateContent(
-        content,
-        allGaps,
-        entityType,
-        workHistoryContext.userId
-      );
-
-      setValidationResult(validation);
-      setIsValidating(false);
-
-    } catch (error) {
-      console.error('Generation error:', error);
-      toast({
-        title: 'Generation Failed',
-        description: error instanceof Error ? error.message : 'Failed to generate content',
-        variant: 'destructive'
-      });
-    } finally {
-      setIsGenerating(false);
-    }
+    
+          // Mock content generation based on gap type, suggestion, and paragraph context
+      setTimeout(() => {
+        let content = '';
+        
+        // Generate content specific to the paragraph and gap
+        switch (gap.paragraphId) {
+          case 'intro':
+            if (gap.type === 'best-practice') {
+              content = `I am writing to express my strong interest in the Senior Product Manager position at TechCorp. With over 5 years of experience in product management and a passion for data-driven decision making, I have consistently delivered measurable results that demonstrate my value. ${gap.suggestion}.\n\nFor example, in my previous role at InnovateTech, I increased user engagement by 35% through A/B testing and optimization, reduced customer churn by 40% through improved onboarding flows, and directly contributed to a 25% improvement in overall team productivity through streamlined processes and clear KPIs. My experience with SQL, Python, and analytics tools like Tableau has enabled me to make data-informed decisions that drive business growth.`;
+            } else {
+              content = `I am writing to express my strong interest in this position. ${gap.suggestion}.\n\nMy background includes extensive experience with the required technologies, and I am confident I can contribute immediately to your team's success.`;
+            }
+            break;
+            
+          case 'experience':
+            if (gap.type === 'core-requirement') {
+              content = `In my previous role as a Senior Product Manager at InnovateTech, I successfully ${gap.suggestion.toLowerCase()}.\n\nSpecifically, I led cross-functional teams of 8-12 engineers, designers, and analysts to deliver products that met both user needs and business objectives. My hands-on experience with SQL, Python, and analytics platforms like Tableau and Looker has enabled me to dive deep into data to inform product decisions and measure success. I've consistently delivered products that exceed user expectations while meeting business goals.`;
+            } else if (gap.type === 'preferred-requirement') {
+              content = `Beyond technical skills, I also bring strong leadership experience to the table. ${gap.suggestion}.\n\nI led a team of 8 product managers and successfully delivered 12 major product launches on time and under budget, demonstrating my ability to manage both technical and business challenges. My experience in SaaS and fintech has given me deep insights into user behavior and market dynamics.`;
+            }
+            break;
+            
+          case 'closing':
+            content = `I am particularly excited about this opportunity at TechCorp because ${gap.suggestion.toLowerCase()}.\n\nYour focus on sustainable technology solutions and commitment to innovation aligns perfectly with my values and experience. I led a green technology initiative that reduced our infrastructure costs by 30% while improving performance, demonstrating my ability to balance technical excellence with business impact and environmental responsibility. My combination of technical expertise, proven track record of delivering results, and passion for sustainable solutions makes me confident I can contribute significantly to your team's success. I look forward to discussing how my background aligns with your needs and how I can help drive TechCorp's mission forward.`;
+            break;
+            
+          case 'role-description':
+            content = `Led product strategy for core platform. I increased user engagement by 35% through data-driven product decisions, reduced customer churn by 40% through improved user experience flows, and delivered $2M in additional revenue through strategic feature launches. My experience with SQL, Python, and analytics tools like Tableau enabled me to make informed decisions that drove measurable business impact.`;
+            break;
+            
+          case 'outcome-metrics':
+            content = `Increased user engagement by 25% and reduced churn by 15%, ${gap.suggestion.toLowerCase()}.\n\nSpecifically, I achieved a 35% increase in daily active users through A/B testing and optimization, reduced customer acquisition cost by 30% through improved conversion funnels, and delivered $1.5M in additional revenue through strategic product initiatives. These metrics were measured over a 12-month period and validated through user research and business impact analysis.`;
+            break;
+            
+          case 'story-content':
+            content = `Successfully launched new product features that improved user experience, ${gap.suggestion.toLowerCase()}.\n\nSpecifically, I led the development of a recommendation engine that increased user engagement by 45%, implemented a streamlined checkout process that reduced cart abandonment by 25%, and introduced personalization features that boosted user retention by 30%. These features were built using React, Node.js, and machine learning algorithms, resulting in $500K in additional monthly revenue.`;
+            break;
+            
+          default:
+            content = `I am confident that my background and experience make me an excellent fit for this position. ${gap.suggestion}.\n\nI look forward to discussing how I can contribute to your team's success.`;
+        }
+        
+        setGeneratedContent(content);
+        setContentQuality('review');
+        setIsGenerating(false);
+      }, 2000);
   };
 
   const handleRegenerate = () => {
     setGeneratedContent('');
-    setValidationResult(null);
+    setContentQuality('draft');
     handleGenerate();
   };
 
-  const handleApply = async () => {
-    if (!generatedContent.trim()) return;
-
-    // Context-dependent save mode logic:
-    // - Cover Letter Draft context (jobContext exists) → ALWAYS variation
-    // - Work History context (no jobContext) → Default to replace, but show option for variations
-
-    if (jobContext) {
-      // Cover letter draft context: ALWAYS create variation (no user choice needed)
-      await saveContent('variation');
-      return;
-    }
-
-    // Work History context: Show save mode selection for entities that support variations
-    if (entityType === 'approved_content' || entityType === 'saved_section') {
-      setShowSaveModeSelection(true);
-      return;
-    }
-
-    // For work_item (role descriptions), always replace
-    await saveContent('replace');
-  };
-
-  const saveContent = async (mode: 'replace' | 'variation') => {
-    setIsSaving(true);
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-
-      const saveRequest: ContentSaveRequest = {
-        mode,
-        entityType,
-        entityId,
-        content: generatedContent,
-        userId: user.id,
-        gapId: gap.id!,
-        variationData: mode === 'variation' ? variationMetadata : undefined
-      };
-
-      const result = await service.saveContent(saveRequest);
-
-      if (result.success) {
-        toast({
-          title: mode === 'replace' ? 'Content Updated' : 'Variation Created',
-          description: mode === 'replace'
-            ? 'Your content has been updated successfully'
-            : `Variation "${variationMetadata.title}" created successfully`,
-        });
-
-        // Call callback
-        onContentApplied?.();
-
-        // Close modal and reset
-        handleClose();
-      }
-
-    } catch (error) {
-      console.error('Save error:', error);
-      toast({
-        title: 'Save Failed',
-        description: error instanceof Error ? error.message : 'Failed to save content',
-        variant: 'destructive'
-      });
-    } finally {
-      setIsSaving(false);
+  const handleApply = () => {
+    if (generatedContent.trim()) {
+      onApplyContent(generatedContent);
+      onClose();
+      // Reset state
+      setGeneratedContent('');
+      setContentQuality('draft');
     }
   };
 
@@ -236,38 +149,10 @@ export function ContentGenerationModal({
     onClose();
     // Reset state
     setGeneratedContent('');
-    setValidationResult(null);
-    setShowSaveModeSelection(false);
-    setSaveMode('replace');
+    setContentQuality('draft');
   };
 
-  const getValidationBadge = () => {
-    if (!validationResult) return null;
-
-    switch (validationResult.status) {
-      case 'pass':
-        return (
-          <Badge variant="outline" className="text-green-600 border-green-600">
-            <CheckCircle className="h-3 w-3 mr-1" />
-            All Gaps Addressed
-          </Badge>
-        );
-      case 'partial':
-        return (
-          <Badge variant="outline" className="text-yellow-600 border-yellow-600">
-            <AlertTriangle className="h-3 w-3 mr-1" />
-            {validationResult.addressedGaps.length}/{allGaps.length} Gaps Addressed
-          </Badge>
-        );
-      case 'fail':
-        return (
-          <Badge variant="outline" className="text-red-600 border-red-600">
-            <AlertTriangle className="h-3 w-3 mr-1" />
-            Gaps Remain
-          </Badge>
-        );
-    }
-  };
+  if (mode === 'gap-detection' && !gap) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -275,111 +160,206 @@ export function ContentGenerationModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            Generate Content
+            {mode === 'tag-suggestion' ? 'Suggest Tags' : 'Generate Content'}
           </DialogTitle>
           <DialogDescription>
-            AI-assisted content generation with gap validation
+            {mode === 'tag-suggestion' ? 'AI-powered tag suggestions for your content' : 'Generate enhanced content to address this gap'}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Gap Context */}
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Gap Analysis</CardTitle>
-                <div className="flex items-center gap-2">
-                  <Badge className={
-                    gap.severity === 'high' ? 'bg-red-500 text-white' :
-                    gap.severity === 'medium' ? 'bg-yellow-500 text-white' :
-                    'bg-blue-500 text-white'
-                  }>
-                    {gap.severity} priority
-                  </Badge>
-                  <Badge variant="outline">
-                    {gap.gap_category.replace(/_/g, ' ')}
-                  </Badge>
+          {/* Gap Context - Only show in gap detection mode */}
+          {mode === 'gap-detection' && gap && (
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">Gap Analysis</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Badge className={gap.severity === 'high' ? 'bg-destructive text-destructive-foreground' : 'bg-warning text-warning-foreground'}>
+                      {gap.severity} priority
+                    </Badge>
+                    <Badge variant="outline">
+                      {gap.type.replace('-', ' ')}
+                    </Badge>
+                  </div>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-2">
-                <div className="flex items-start gap-2">
-                  <h4 className="font-medium text-sm min-w-[80px]">Issue:</h4>
+              </CardHeader>
+              <CardContent className="space-y-4">
+              
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <h4 className="font-medium text-sm">Issue:</h4>
                   <p className="text-sm text-muted-foreground">{gap.description}</p>
                 </div>
-
-                {gap.suggestions && gap.suggestions.length > 0 && (
-                  <div className="flex items-start gap-2">
-                    <h4 className="font-medium text-sm min-w-[80px]">Suggestion:</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {Array.isArray(gap.suggestions) ? gap.suggestions.join('; ') : gap.suggestions}
-                    </p>
-                  </div>
-                )}
+                
+                <div className="flex items-center gap-2">
+                  <h4 className="font-medium text-sm">Suggestion:</h4>
+                  <p className="text-sm text-muted-foreground">{gap.suggestion}</p>
+                </div>
               </div>
+            </CardContent>
+          </Card>
+          )}
 
-              {allGaps.length > 1 && (
-                <div className="pt-2 border-t">
-                  <p className="text-xs text-muted-foreground">
-                    This content has {allGaps.length} total gaps. Validation will check all simultaneously.
+          {/* Existing Content - Only show in gap detection mode */}
+          {mode === 'gap-detection' && gap && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">Existing Content</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="p-3 bg-muted/30 rounded-lg">
+                  <p className="text-sm text-muted-foreground">
+                    {gap.existingContent || 
+                      (gap.paragraphId === 'intro' && "I am writing to express my strong interest in the Senior Software Engineer position at TechCorp. With over 5 years of experience in full-stack development and a passion for creating innovative solutions, I am excited about the opportunity to contribute to your team's mission of building cutting-edge technology.") ||
+                      (gap.paragraphId === 'experience' && "In my previous role as a Lead Developer at InnovateTech, I successfully architected and implemented a microservices platform that reduced system latency by 40% and improved scalability for over 100,000 daily active users. My expertise in React, Node.js, and cloud technologies aligns perfectly with TechCorp's technology stack.") ||
+                      (gap.paragraphId === 'closing' && "What particularly excites me about TechCorp is your commitment to innovation and sustainable technology solutions. I led a green technology initiative that reduced our infrastructure costs by 30% while improving performance, demonstrating my ability to balance technical excellence with business impact.") ||
+                      "No existing content available."
+                    }
                   </p>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
-          {/* Existing Content */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Existing Content</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="p-3 bg-muted/30 rounded-lg">
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                  {existingContent || 'No existing content'}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Generated Content */}
+          {/* Content Generation */}
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Generated Content</CardTitle>
+                <CardTitle className="text-lg">
+                  {!generatedContent ? 'Generated Content' : 'Generated Content'}
+                </CardTitle>
                 <div className="flex items-center gap-2">
-                  {isValidating && (
-                    <Badge variant="outline" className="text-muted-foreground">
-                      <RefreshCw className="h-3 w-3 animate-spin mr-1" />
-                      Validating...
+                  {contentQuality === 'review' && (
+                    <Badge variant="outline" className="text-warning">
+                      <AlertTriangle className="h-3 w-3 mr-1" />
+                      Review
                     </Badge>
                   )}
-                  {getValidationBadge()}
+                  {contentQuality === 'ready' && (
+                    <Badge variant="outline" className="text-success">
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      Ready
+                    </Badge>
+                  )}
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {!generatedContent ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground mb-4">
-                    Click "Generate Content" to create AI-powered content that addresses this gap.
-                  </p>
-                  <Button onClick={handleGenerate} disabled={isGenerating} className="w-full">
-                    {isGenerating ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        Generate Content
-                      </>
-                    )}
+        <CardContent className="space-y-4">
+          {mode === 'tag-suggestion' ? (
+            <div className="space-y-4">
+              <div className="p-3 bg-muted/30 rounded-lg">
+                <p className="text-sm text-muted-foreground mb-2">Content to analyze:</p>
+                <p className="text-sm">{content}</p>
+              </div>
+
+              {/* Existing tags display */}
+              {existingTags.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Existing tags:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {existingTags.map((tag, index) => (
+                      <Badge key={`existing-${index}`} variant="secondary">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Search status indicator */}
+              {isSearching && (
+                <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                  <RefreshCw className="h-4 w-4 animate-spin text-blue-600" />
+                  <span className="text-sm text-blue-700 dark:text-blue-300">
+                    Researching company information...
+                  </span>
+                </div>
+              )}
+
+              {/* Search error with retry */}
+              {searchError && (
+                <div className="p-3 bg-red-50 dark:bg-red-950 rounded-lg space-y-2">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-red-600" />
+                    <p className="text-sm text-red-700 dark:text-red-300">{searchError}</p>
+                  </div>
+                  {onRetry && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={onRetry}
+                      className="w-full"
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Retry
+                    </Button>
+                  )}
+                </div>
+              )}
+              
+              {suggestedTags.length > 0 ? (
+                <div className="space-y-3">
+                  <p className="text-sm font-medium">Suggested tags:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {suggestedTags.map((tag) => (
+                      <Badge
+                        key={tag.id}
+                        variant={selectedTags.includes(tag.value) ? "default" : "outline"}
+                        className="cursor-pointer"
+                        onClick={() => {
+                          if (selectedTags.includes(tag.value)) {
+                            setSelectedTags(selectedTags.filter(t => t !== tag.value));
+                          } else {
+                            setSelectedTags([...selectedTags, tag.value]);
+                          }
+                        }}
+                      >
+                        {tag.value}
+                      </Badge>
+                    ))}
+                  </div>
+                  
+                  <Button 
+                    onClick={() => onApplyTags?.(selectedTags)}
+                    disabled={selectedTags.length === 0}
+                    className="w-full"
+                  >
+                    Apply {selectedTags.length} selected tags
                   </Button>
                 </div>
-              ) : (
+              ) : !isSearching && !searchError ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground mb-4">
+                    Analyzing content to suggest relevant tags...
+                  </p>
+                  <div className="flex items-center justify-center">
+                    <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                    <span>Generating tag suggestions...</span>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : !generatedContent ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground mb-4">
+                Click "Generate Content" to create AI-powered content that addresses this gap.
+              </p>
+              <Button onClick={handleGenerate} disabled={isGenerating} className="w-full">
+                {isGenerating ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Generate Content
+                  </>
+                )}
+              </Button>
+            </div>
+          ) : (
                 <>
                   <Textarea
                     value={generatedContent}
@@ -388,80 +368,22 @@ export function ContentGenerationModal({
                     rows={8}
                     className="resize-none"
                   />
-
-                  {/* Validation Results */}
-                  {validationResult && (
-                    <div className="space-y-2 p-3 bg-muted/30 rounded-lg">
-                      <h4 className="font-medium text-sm">Validation Results:</h4>
-
-                      {validationResult.addressedGaps.length > 0 && (
-                        <div>
-                          <p className="text-xs text-green-600 font-medium mb-1">
-                            ✓ Addressed Gaps ({validationResult.addressedGaps.length}):
-                          </p>
-                          <ul className="text-xs text-muted-foreground space-y-1 pl-4">
-                            {validationResult.addressedGaps.map(g => (
-                              <li key={g.id} className="list-disc">
-                                {g.gap_category.replace(/_/g, ' ')}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                      {validationResult.remainingGaps.length > 0 && (
-                        <div>
-                          <p className="text-xs text-yellow-600 font-medium mb-1">
-                            ! Remaining Gaps ({validationResult.remainingGaps.length}):
-                          </p>
-                          <ul className="text-xs text-muted-foreground space-y-1 pl-4">
-                            {validationResult.remainingGaps.map(g => (
-                              <li key={g.id} className="list-disc">
-                                {g.gap_category.replace(/_/g, ' ')}: {g.description}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                      {validationResult.suggestions.length > 0 && (
-                        <div>
-                          <p className="text-xs font-medium mb-1">Suggestions:</p>
-                          <ul className="text-xs text-muted-foreground space-y-1 pl-4">
-                            {validationResult.suggestions.map((s, i) => (
-                              <li key={i} className="list-disc">{s}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Action Buttons */}
-                  <div className="flex items-center justify-between pt-2">
+                  
+                  <div className="flex items-center justify-between">
                     <div className="flex gap-2">
-                      <Button variant="outline" onClick={handleRegenerate} disabled={isGenerating}>
+                      <Button variant="secondary" onClick={handleRegenerate}>
                         <RefreshCw className="h-4 w-4 mr-2" />
                         Regenerate
                       </Button>
                     </div>
-
+                    
                     <div className="flex gap-2">
-                      <Button variant="outline" onClick={handleClose}>
+                      <Button variant="secondary" onClick={handleClose}>
                         Cancel
                       </Button>
-                      <Button onClick={handleApply} disabled={isSaving || !generatedContent.trim()}>
-                        {jobContext ? (
-                          <>
-                            <FileStack className="h-4 w-4 mr-2" />
-                            Save as Variation
-                          </>
-                        ) : (
-                          <>
-                            <Save className="h-4 w-4 mr-2" />
-                            {entityType === 'work_item' ? 'Update Content' : 'Continue'}
-                          </>
-                        )}
+                      <Button onClick={handleApply}>
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Apply Content
                       </Button>
                     </div>
                   </div>
@@ -469,115 +391,6 @@ export function ContentGenerationModal({
               )}
             </CardContent>
           </Card>
-
-          {/* Save Mode Selection (Work History context only) */}
-          {showSaveModeSelection && (
-            <Card className="border-primary">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg">Save Options</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Choose how to save this content
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <Card
-                    className={`cursor-pointer transition-colors ${saveMode === 'replace' ? 'border-primary bg-primary/5' : 'hover:border-primary/50'}`}
-                    onClick={() => setSaveMode('replace')}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Save className="h-4 w-4" />
-                        <h4 className="font-medium">Replace Content</h4>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Update the original content with this improved version
-                      </p>
-                    </CardContent>
-                  </Card>
-
-                  <Card
-                    className={`cursor-pointer transition-colors ${saveMode === 'variation' ? 'border-primary bg-primary/5' : 'hover:border-primary/50'}`}
-                    onClick={() => setSaveMode('variation')}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <FileStack className="h-4 w-4" />
-                        <h4 className="font-medium">Save as Variation</h4>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Keep original, save this as a reusable variation
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Variation Metadata Form */}
-                {saveMode === 'variation' && (
-                  <div className="space-y-3 pt-3 border-t">
-                    <div className="space-y-2">
-                      <Label htmlFor="variation-title">Variation Title</Label>
-                      <Input
-                        id="variation-title"
-                        value={variationMetadata.title}
-                        onChange={(e) => setVariationMetadata({ ...variationMetadata, title: e.target.value })}
-                        placeholder="e.g., Fills Gap: Leadership Philosophy"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-2">
-                        <Label htmlFor="target-job-title">Target Job Title (Optional)</Label>
-                        <Input
-                          id="target-job-title"
-                          value={variationMetadata.targetJobTitle}
-                          onChange={(e) => setVariationMetadata({ ...variationMetadata, targetJobTitle: e.target.value })}
-                          placeholder="e.g., Senior Product Manager"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="target-company">Target Company (Optional)</Label>
-                        <Input
-                          id="target-company"
-                          value={variationMetadata.targetCompany}
-                          onChange={(e) => setVariationMetadata({ ...variationMetadata, targetCompany: e.target.value })}
-                          placeholder="e.g., TechCorp"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowSaveModeSelection(false)}
-                    className="flex-1"
-                  >
-                    Back
-                  </Button>
-                  <Button
-                    onClick={() => saveContent(saveMode)}
-                    disabled={isSaving}
-                    className="flex-1"
-                  >
-                    {isSaving ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        {saveMode === 'replace' ? 'Update Content' : 'Create Variation'}
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </div>
       </DialogContent>
     </Dialog>

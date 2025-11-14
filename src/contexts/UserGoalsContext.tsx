@@ -67,7 +67,9 @@ export function UserGoalsProvider({ children }: UserGoalsProviderProps) {
   });
 
   // Track synthetic profile ID changes - verify against service and update if needed
+  // Run this in background - don't block provider initialization
   useEffect(() => {
+    // Don't block on this - run async in background
     const checkSyntheticProfile = async () => {
       if (!user) {
         setSyntheticProfileId(null);
@@ -77,19 +79,31 @@ export function UserGoalsProvider({ children }: UserGoalsProviderProps) {
       try {
         const { SyntheticUserService } = await import('@/services/syntheticUserService');
         const syntheticService = new SyntheticUserService();
-        const syntheticContext = await syntheticService.getSyntheticUserContext();
-        if (syntheticContext.isSyntheticTestingEnabled && syntheticContext.currentUser) {
+        
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Synthetic context check timeout')), 3000);
+        });
+        
+        const syntheticContext = await Promise.race([
+          syntheticService.getSyntheticUserContext(),
+          timeoutPromise
+        ]) as any;
+        
+        if (syntheticContext?.isSyntheticTestingEnabled && syntheticContext?.currentUser) {
           const profileId = syntheticContext.currentUser.profileId;
           setSyntheticProfileId(profileId);
         } else {
           setSyntheticProfileId(null);
         }
       } catch (e) {
-        console.error('[UserGoalsContext] Error checking synthetic mode:', e);
+        console.warn('[UserGoalsContext] Error checking synthetic mode (non-blocking):', e);
         // Don't clear on error - keep localStorage value as fallback
+        // This is non-critical, so we continue with localStorage value
       }
     };
     
+    // Run in background - don't await
     checkSyntheticProfile();
   }, [user?.id]);
 
@@ -268,9 +282,26 @@ export function UserGoalsProvider({ children }: UserGoalsProviderProps) {
           // - Role expectation gaps based on level requirements
         }
         
-        // TODO: When building auto-suggest tags feature, invalidate tag suggestion cache
-        // when industries or businessModels change, so new suggestions reflect updated preferences
-        // This will ensure tag suggestions align with user's stated interests in career goals
+        // Trigger tag misalignment gap re-analysis when industries or businessModels change
+        const industriesChanged = goals?.industries?.join(',') !== newGoals.industries?.join(',');
+        const businessModelsChanged = goals?.businessModels?.join(',') !== newGoals.businessModels?.join(',');
+        
+        if ((industriesChanged || businessModelsChanged) && user?.id) {
+          // Re-analyze tag misalignment gaps for all work items and saved sections
+          try {
+            const { GapDetectionService } = await import('@/services/gapDetectionService');
+            await GapDetectionService.reanalyzeTagMisalignmentGaps(
+              user.id,
+              {
+                industries: newGoals.industries,
+                businessModels: newGoals.businessModels
+              }
+            );
+          } catch (error) {
+            console.error('Error re-analyzing tag misalignment gaps:', error);
+            // Non-blocking: gap re-analysis failure shouldn't block goal save
+          }
+        }
       } catch (error) {
         console.error('Error saving user goals to database:', error);
         // Non-blocking: localStorage already saved

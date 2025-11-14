@@ -156,15 +156,23 @@ export const StoryCard = ({
       {/* Variations */}
       {story.variations && story.variations.length > 0 && (
         <div className="mb-6 pt-4 border-t border-muted">
+          {(() => {
+            const variations = story.variations ?? [];
+            const anyExpanded = variations.some(variation => expandedVariations[variation.id]);
+            const allExpanded = variations.length > 0 && variations.every(variation => expandedVariations[variation.id]);
+
+            return (
           <div 
             className="flex items-center gap-2 mb-3 cursor-pointer hover:bg-muted/30 rounded-lg p-2 transition-colors group"
             onClick={() => {
-              // Toggle all variations to expanded state
-              const allExpanded = Object.values(expandedVariations).every(Boolean);
+                  const variationsList = story.variations ?? [];
+                  const shouldExpand = !anyExpanded;
               const newState: Record<string, boolean> = {};
-              story.variations?.forEach(variation => {
-                newState[variation.id] = !allExpanded;
+
+                  variationsList.forEach(variation => {
+                    newState[variation.id] = shouldExpand;
               });
+
               setExpandedVariations(newState);
             }}
           >
@@ -172,15 +180,17 @@ export const StoryCard = ({
             <span className="text-sm font-medium group-hover:text-primary transition-colors">
               Variations ({story.variations.length})
             </span>
-            {Object.values(expandedVariations).every(Boolean) ? (
+                {allExpanded ? (
               <ChevronUp className="h-4 w-4 text-muted-foreground ml-auto group-hover:text-primary transition-colors" />
             ) : (
               <ChevronDown className="h-4 w-4 text-muted-foreground ml-auto group-hover:text-primary transition-colors" />
             )}
           </div>
+            );
+          })()}
           
           {/* Variations content - only show when expanded */}
-          {Object.values(expandedVariations).some(Boolean) && (
+          {(story.variations ?? []).some(variation => expandedVariations[variation.id]) && (
             <div className="space-y-2">
               {story.variations.map((variation, index) => (
                 <div key={variation.id} className="p-3 bg-muted/30 rounded-lg border-l-4 border-primary">

@@ -1,5 +1,6 @@
 // OpenAI service for LLM analysis
 import { OPENAI_CONFIG } from '@/lib/config/fileUpload';
+import type { FileType } from '@/lib/config/fileUpload';
 import type { 
   LLMAnalysisResult, 
   StructuredResumeData, 
@@ -36,13 +37,14 @@ export class LLMAnalysisService {
   /**
    * Analyze resume text and extract structured data
    */
-  async analyzeResume(text: string): Promise<LLMAnalysisResult> {
+  async analyzeResume(text: string, coverLetterText?: string): Promise<LLMAnalysisResult> {
     try {
       // Calculate optimal token limit based on content analysis
+      const contentLength = text.length + (coverLetterText?.length || 0);
       const optimalTokens = this.calculateOptimalTokens(text, 'resume');
-      console.warn(`🚀 Starting resume analysis with ${optimalTokens} tokens (smart calculation)`);
+      console.warn(`🚀 Starting resume${coverLetterText ? ' + cover letter' : ''} analysis with ${optimalTokens} tokens (smart calculation)`);
       
-      const prompt = this.buildResumeAnalysisPrompt(text);
+      const prompt = this.buildResumeAnalysisPrompt(text, coverLetterText);
       const response = await this.callOpenAI(prompt, optimalTokens);
       
       if (!response.success) {
@@ -55,7 +57,11 @@ export class LLMAnalysisService {
 
       // Parse and validate the response
       // Types now match LLM schema, so parsed data includes all fields
-      const structuredData = this.parseStructuredData(response.data);
+      const resumePayload = response.data;
+      if (!resumePayload || Array.isArray(resumePayload) || typeof resumePayload !== 'object') {
+        throw new Error('Invalid resume data structure returned by LLM');
+      }
+      const structuredData = this.parseStructuredData(resumePayload as Record<string, unknown>);
       
       return {
         success: true,
@@ -199,7 +205,11 @@ export class LLMAnalysisService {
       }
 
       // Parse and validate the response
-      const structuredData = this.parseStructuredData(response.data);
+      const caseStudyPayload = response.data;
+      if (!caseStudyPayload || Array.isArray(caseStudyPayload) || typeof caseStudyPayload !== 'object') {
+        throw new Error('Invalid case study data structure returned by LLM');
+      }
+      const structuredData = this.parseStructuredData(caseStudyPayload as Record<string, unknown>);
       
       return {
         success: true,
@@ -218,8 +228,8 @@ export class LLMAnalysisService {
   /**
    * Build prompt for resume analysis
    */
-  private buildResumeAnalysisPrompt(text: string): string {
-    return buildResumeAnalysisPrompt(text);
+  private buildResumeAnalysisPrompt(text: string, coverLetterText?: string): string {
+    return buildResumeAnalysisPrompt(text, coverLetterText);
   }
 
   // Removed legacy cover letter prompt; we rely on prompts/coverLetterAnalysis.ts
@@ -323,7 +333,7 @@ export class LLMAnalysisService {
    */
   private async callOpenAI(prompt: string, dynamicTokenLimit?: number): Promise<{
     success: boolean;
-    data?: Record<string, unknown>;
+    data?: Record<string, unknown> | unknown[];
     error?: string;
     retryable?: boolean;
   }> {
@@ -469,7 +479,7 @@ export class LLMAnalysisService {
    */
   private async callOpenAIWithRetry(originalPrompt: string): Promise<{
     success: boolean;
-    data?: Record<string, unknown>;
+    data?: Record<string, unknown> | unknown[];
     error?: string;
     retryable?: boolean;
   }> {
@@ -550,48 +560,132 @@ IMPORTANT: Return ONLY the JSON object, no other text, no markdown, no explanati
     }
   }
 
-  /**
-   * Parse JSON response with improved error handling for common OpenAI response formats
-   */
-  private parseJSONResponse(content: string): Record<string, unknown> {
-    // Remove markdown code blocks if present
-    let cleanedContent = content.trim();
-    
-    // Remove ```json and ``` markers
-    if (cleanedContent.startsWith('```json')) {
-      cleanedContent = cleanedContent.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-    } else if (cleanedContent.startsWith('```')) {
-      cleanedContent = cleanedContent.replace(/^```\s*/, '').replace(/\s*```$/, '');
+  private parseJSONResponse(content: string): Record<string, unknown> | unknown[] {
+    const normalized = this.normalizeJsonContent(content ?? '');
+    const payload = this.extractJsonPayload(normalized);
+
+    if (!payload) {
+      console.error('Unable to locate JSON payload in LLM response.', { preview: normalized.slice(0, 200) });
+      throw new Error('Invalid JSON response: no JSON object or array detected');
     }
-    
-    // Remove any leading/trailing text that's not JSON
-    const jsonStart = cleanedContent.indexOf('{');
-    const jsonEnd = cleanedContent.lastIndexOf('}');
-    
-    if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-      cleanedContent = cleanedContent.substring(jsonStart, jsonEnd + 1);
-    }
-    
-    // Try to parse the cleaned content
-    try {
-      return JSON.parse(cleanedContent);
-    } catch (error) {
-      // If still failing, try to fix common JSON issues
+
+    const parseAttempts: Array<{ label: string; value: string }> = [
+      { label: 'raw', value: payload },
+      { label: 'repaired-basic', value: this.basicJsonRepairs(payload) }
+    ];
+
+    for (const attempt of parseAttempts) {
       try {
-        // Fix common issues like trailing commas, missing quotes, etc.
-        const fixedContent = cleanedContent
-          .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
-          .replace(/([{,]\s*)(\w+):/g, '$1"$2":') // Add quotes to unquoted keys
-          .replace(/:\s*([^",{\s][^,}\]]*?)(\s*[,}])/g, ': "$1"$2'); // Add quotes to unquoted string values
-        
-        return JSON.parse(fixedContent);
-      } catch (secondError) {
-        console.error('Failed to parse JSON even after cleaning:', secondError);
-        console.error('Original content:', content);
-        console.error('Cleaned content:', cleanedContent);
-        throw new Error(`Invalid JSON response: ${secondError instanceof Error ? secondError.message : 'Unknown error'}`);
+        return JSON.parse(attempt.value) as Record<string, unknown> | unknown[];
+      } catch (error) {
+        this.logParseAttemptFailure(attempt.label, attempt.value, error as Error);
       }
     }
+
+    // Last resort: attempt a second repair pass (e.g. quote single bare words) before giving up
+    const secondPass = this.basicJsonRepairs(payload, { includeSingleWordStrings: true });
+    try {
+      return JSON.parse(secondPass) as Record<string, unknown> | unknown[];
+    } catch (finalError) {
+      console.error('Failed to parse JSON after multiple repair attempts.');
+      console.error('Original content:', content);
+      console.error('Final repaired payload:', secondPass.slice(0, 500));
+      throw new Error(`Invalid JSON response: ${(finalError as Error).message}`);
+    }
+  }
+
+  private normalizeJsonContent(content: string): string {
+    if (!content) {
+      return '';
+    }
+
+    let normalized = content
+      .replace(/^[\uFEFF]/, '') // Strip BOM
+      .replace(/```json/gi, '')
+      .replace(/```/g, '')
+      .replace(/\r\n?/g, '\n')
+      .trim();
+
+    // Normalize smart quotes, dashes, ellipses, non-breaking spaces
+    normalized = normalized
+      .replace(/[\u201C\u201D\u201E\u201F\u2033]/g, '"')
+      .replace(/[\u2018\u2019\u201A\u2032]/g, "'")
+      .replace(/[\u2013\u2014\u2212]/g, '-')
+      .replace(/[\u2026]/g, '...')
+      .replace(/\u00A0/g, ' ')
+      .replace(/[\u200B-\u200D\u2060\uFEFF]/g, '');
+
+    return normalized;
+  }
+
+  private extractJsonPayload(text: string): string | null {
+    const length = text.length;
+    let start = -1;
+    const stack: string[] = [];
+    const matching: Record<string, string> = { '{': '}', '[': ']' };
+
+    for (let i = 0; i < length; i += 1) {
+      const char = text[i];
+
+      if (start === -1) {
+        if (char === '{' || char === '[') {
+          start = i;
+          stack.push(char);
+        }
+        continue;
+      }
+
+      if (char === '{' || char === '[') {
+        stack.push(char);
+        continue;
+      }
+
+      if (char === '}' || char === ']') {
+        const last = stack.pop();
+        if (!last) {
+          continue;
+        }
+
+        const expected = matching[last];
+        if (char !== expected) {
+          // mismatched pair; continue scanning but keep state
+          continue;
+        }
+
+        if (stack.length === 0 && start !== -1) {
+          return text.slice(start, i + 1);
+        }
+      }
+    }
+
+    if (start !== -1) {
+      return text.slice(start);
+    }
+
+    return null;
+  }
+
+  private basicJsonRepairs(payload: string, options: { includeSingleWordStrings?: boolean } = {}): string {
+    let repaired = payload
+      .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
+      .replace(/([{,]\s*)([A-Za-z0-9_\-]+)(\s*):/g, '$1"$2"$3:'); // Quote bare keys
+
+    if (options.includeSingleWordStrings) {
+      repaired = repaired.replace(/:\s*([A-Za-z0-9_\-]+)(\s*[,}])/g, ': "$1"$2');
+    }
+
+    // Remove stray text after closing brace/bracket
+    const extracted = this.extractJsonPayload(repaired);
+    if (extracted) {
+      repaired = extracted;
+    }
+
+    return repaired.trim();
+  }
+
+  private logParseAttemptFailure(label: string, payload: string, error: Error): void {
+    console.warn(`JSON parse attempt failed (${label}): ${error.message}`);
+    console.warn('Payload preview:', payload.slice(0, 200));
   }
 
   /**

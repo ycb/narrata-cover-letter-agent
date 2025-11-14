@@ -12,7 +12,8 @@ import {
   ExternalLink as ExternalLinkIcon,
   TrendingUp,
   Calendar,
-  Tags
+  Tags,
+  Plus
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -133,13 +134,16 @@ export const LinkCard = ({
                 {tag}
               </Badge>
             ))}
-            <TagSuggestionButton
-              content={`${label}: ${url}`}
-              onTagsSuggested={onTagSuggestions}
-              onClick={() => onTagSuggestions?.([])}
-              variant="tertiary"
-              size="sm"
-            />
+            {tags.length === 0 && onEdit && (
+              <Badge 
+                variant="outline" 
+                className="text-xs cursor-pointer hover:bg-muted border-dashed"
+                onClick={() => onEdit(id)}
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Add tag
+              </Badge>
+            )}
           </div>
         </div>
       </CardContent>
