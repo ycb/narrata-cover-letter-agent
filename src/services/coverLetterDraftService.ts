@@ -22,6 +22,7 @@ import type {
 import type { CoverLetterSection } from '@/types/workHistory';
 import { UserPreferencesService } from './userPreferencesService';
 import { JobDescriptionService } from './jobDescriptionService';
+import { EvaluationLoggingService } from './evaluationLoggingService';
 
 type SupabaseClient = typeof supabase;
 
@@ -41,6 +42,7 @@ export interface CoverLetterDraftServiceOptions {
   supabaseClient?: SupabaseClient;
   jobDescriptionService?: JobDescriptionService;
   metricsStreamer?: MetricsStreamer;
+  evaluationLogger?: EvaluationLoggingService;
   now?: () => Date;
 }
 
@@ -58,6 +60,11 @@ const MATCH_PHASES: DraftGenerationPhase[] = [
   'metrics',
   'gap_detection',
 ];
+
+const MAX_RETRIES = 2;
+const RETRY_DELAYS_MS = [750, 1500];
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const createDefaultMetricsStreamer = (): MetricsStreamer => {
   const apiKey =
@@ -358,100 +365,197 @@ export class CoverLetterDraftService {
   private readonly supabaseClient: SupabaseClient;
   private readonly jobDescriptionService: JobDescriptionService;
   private readonly metricsStreamer: MetricsStreamer;
+  private readonly evaluationLogger: EvaluationLoggingService;
   private readonly now: () => Date;
 
   constructor(options: CoverLetterDraftServiceOptions = {}) {
     this.supabaseClient = options.supabaseClient ?? supabase;
     this.jobDescriptionService = options.jobDescriptionService ?? new JobDescriptionService();
     this.metricsStreamer = options.metricsStreamer ?? createDefaultMetricsStreamer();
+    this.evaluationLogger =
+      options.evaluationLogger ??
+      new EvaluationLoggingService({
+        supabaseClient: options.supabaseClient,
+        now: options.now,
+      });
     this.now = options.now ?? (() => new Date());
   }
 
   async generateDraft(options: DraftGenerationOptions): Promise<DraftGenerationResult> {
     const { userId, templateId, jobDescriptionId, onProgress, signal } = options;
 
-    this.emitProgress(onProgress, 'jd_parse', 'Loading job description…');
-    const jobDescription = await this.fetchJobDescription(userId, jobDescriptionId);
+    const sessionId = `draft-generate-${Date.now()}-${templateId.slice(0, 8)}`;
+    const startTimestamp = this.now().getTime();
+    let evaluationRunId: string | undefined;
 
-    this.emitProgress(onProgress, 'content_match', 'Loading content libraries…');
-    const [templateRow, stories, savedSections, userGoals] = await Promise.all([
-      this.fetchTemplate(userId, templateId),
-      this.fetchStories(userId),
-      this.fetchSavedSections(userId),
-      UserPreferencesService.loadGoals(userId),
-    ]);
+    try {
+      evaluationRunId = await this.evaluationLogger.createRun({
+        userId,
+        sessionId,
+        fileType: 'cover_letter_draft_generate',
+        metadata: {
+          templateId,
+          jobDescriptionId,
+        },
+      });
 
-    const templateSections = this.normaliseTemplateSections(templateRow.sections);
+      this.emitProgress(onProgress, 'jd_parse', 'Loading job description…');
+      const jobDescription = await this.fetchJobDescription(userId, jobDescriptionId);
 
-    const { sections, matchState } = this.buildSections({
-      templateSections,
-      stories,
-      savedSections,
-      jobDescription,
-      userGoals,
-    });
+      this.emitProgress(onProgress, 'content_match', 'Loading content libraries…');
+      const [templateRow, stories, savedSections, userGoals] = await Promise.all([
+        this.fetchTemplate(userId, templateId),
+        this.fetchStories(userId),
+        this.fetchSavedSections(userId),
+        UserPreferencesService.loadGoals(userId),
+      ]);
 
-    this.emitProgress(onProgress, 'metrics', 'Calculating match metrics…');
-    const metricResult = await this.metricsStreamer({
-      draft: sections,
-      jobDescription,
-      userGoals,
-      signal,
-      onToken: token =>
-        this.emitProgress(onProgress, 'metrics', `Analyzing… ${token.slice(0, 20)}…`, true),
-    });
+      const templateSections = this.normaliseTemplateSections(templateRow.sections);
 
-    const differentiatorSummary = this.buildDifferentiatorSummary(jobDescription, sections);
+      const { sections, matchState } = this.buildSections({
+        templateSections,
+        stories,
+        savedSections,
+        jobDescription,
+        userGoals,
+      });
 
-    const insertPayload: Database['public']['Tables']['cover_letters']['Insert'] = {
-      user_id: userId,
-      template_id: templateId,
-      job_description_id: jobDescriptionId,
-      status: 'draft',
-      sections: sections as unknown as Record<string, unknown>,
-      llm_feedback: {
-        generatedAt: this.now().toISOString(),
-        metrics: metricResult.raw,
-      },
-      metrics: metricResult.metrics as unknown as Record<string, unknown>,
-      differentiator_summary: differentiatorSummary as unknown as Record<string, unknown>,
-      analytics: {
-        atsScore: metricResult.atsScore,
-        generatedAt: this.now().toISOString(),
-      } as unknown as Record<string, unknown>,
-    };
+      this.emitProgress(onProgress, 'metrics', 'Calculating match metrics…');
 
-    const { data: draftRow, error } = await this.supabaseClient
-      .from('cover_letters')
-      .insert(insertPayload)
-      .select()
-      .single();
+      // Metrics streaming with retry and token sampling
+      let metricResult;
+      let lastError: Error | null = null;
 
-    if (error || !draftRow) {
-      console.error('[CoverLetterDraftService] Failed to store draft:', error);
-      throw new Error('Unable to create cover letter draft. Please try again.');
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          if (attempt > 0) {
+            const delay = RETRY_DELAYS_MS[attempt - 1] ?? RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
+            this.emitProgress(onProgress, 'metrics', `Retrying metrics calculation (attempt ${attempt + 1}/${MAX_RETRIES + 1})…`);
+            await sleep(delay);
+          }
+
+          let tokenSequence = 0;
+          metricResult = await this.metricsStreamer({
+            draft: sections,
+            jobDescription,
+            userGoals,
+            signal,
+            onToken: async (token) => {
+              this.emitProgress(onProgress, 'metrics', `Analyzing… ${token.slice(0, 20)}…`, true);
+              if (evaluationRunId) {
+                await this.evaluationLogger.appendTokenSample(evaluationRunId, token, tokenSequence);
+                tokenSequence++;
+              }
+            },
+          });
+          break; // Success, exit retry loop
+        } catch (error) {
+          lastError = error instanceof Error ? error : new Error('Unknown error during metrics calculation');
+          if (attempt === MAX_RETRIES) {
+            throw lastError;
+          }
+          console.warn(`[CoverLetterDraftService] Metrics attempt ${attempt + 1} failed, retrying…`, lastError);
+        }
+      }
+
+      if (!metricResult) {
+        throw lastError ?? new Error('Metrics calculation failed after retries');
+      }
+
+      const differentiatorSummary = this.buildDifferentiatorSummary(jobDescription, sections);
+
+      const insertPayload: Database['public']['Tables']['cover_letters']['Insert'] = {
+        user_id: userId,
+        template_id: templateId,
+        job_description_id: jobDescriptionId,
+        status: 'draft',
+        sections: sections as unknown as Record<string, unknown>,
+        llm_feedback: {
+          generatedAt: this.now().toISOString(),
+          metrics: metricResult.raw,
+        },
+        metrics: metricResult.metrics as unknown as Record<string, unknown>,
+        differentiator_summary: differentiatorSummary as unknown as Record<string, unknown>,
+        analytics: {
+          atsScore: metricResult.atsScore,
+          generatedAt: this.now().toISOString(),
+        } as unknown as Record<string, unknown>,
+      };
+
+      const { data: draftRow, error } = await this.supabaseClient
+        .from('cover_letters')
+        .insert(insertPayload)
+        .select()
+        .single();
+
+      if (error || !draftRow) {
+        console.error('[CoverLetterDraftService] Failed to store draft:', error);
+        throw new Error('Unable to create cover letter draft. Please try again.');
+      }
+
+      const workpadRow = await this.upsertWorkpad({
+        draftId: draftRow.id,
+        userId,
+        jobDescriptionId,
+        matchState,
+        sections,
+        phase: 'metrics',
+      });
+
+      const draft = this.mapCoverLetterRow(draftRow, metricResult.metrics, metricResult.atsScore);
+
+      const finishTimestamp = this.now().getTime();
+      const totalLatencyMs = finishTimestamp - startTimestamp;
+
+      if (evaluationRunId) {
+        await this.evaluationLogger.updateRun(evaluationRunId, {
+          structuredData: {
+            event: 'cover_letter.generate.completed',
+            draftId: draftRow.id,
+            templateId,
+            jobDescriptionId,
+            atsScore: metricResult.atsScore,
+            metrics: {
+              goals: metricResult.metrics.find(m => m.key === 'goals')?.type === 'strength' ? 'strong' : 'average',
+              experience: metricResult.metrics.find(m => m.key === 'experience')?.type === 'strength' ? 'strong' : 'average',
+              rating: metricResult.metrics.find(m => m.key === 'rating')?.type === 'score' ? metricResult.metrics.find(m => m.key === 'rating')?.value : 0,
+            },
+            differentiatorCoverage: {
+              addressed: differentiatorSummary.filter(d => d.status === 'addressed').length,
+              total: differentiatorSummary.length,
+            },
+            sectionsCount: sections.length,
+          },
+          totalLatencyMs,
+          llmAnalysisLatencyMs: totalLatencyMs,
+          model: OPENAI_CONFIG.MODEL,
+          evaluationRationale: `Draft generated successfully with ATS score ${metricResult.atsScore}`,
+          goNogoDecision: '✅ Go',
+        });
+      }
+
+      this.emitProgress(onProgress, 'gap_detection', 'Draft ready for refinement.');
+
+      return {
+        draft: {
+          ...draft,
+          differentiatorSummary,
+        },
+        workpad: workpadRow,
+      };
+    } catch (error) {
+      const finishTimestamp = this.now().getTime();
+      const totalLatencyMs = finishTimestamp - startTimestamp;
+
+      if (evaluationRunId) {
+        await this.evaluationLogger.markFailure(evaluationRunId, {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          stage: 'draft_generation',
+        });
+      }
+
+      throw error;
     }
-
-    const workpadRow = await this.upsertWorkpad({
-      draftId: draftRow.id,
-      userId,
-      jobDescriptionId,
-      matchState,
-      sections,
-      phase: 'metrics',
-    });
-
-    const draft = this.mapCoverLetterRow(draftRow, metricResult.metrics, metricResult.atsScore);
-
-    this.emitProgress(onProgress, 'gap_detection', 'Draft ready for refinement.');
-
-    return {
-      draft: {
-        ...draft,
-        differentiatorSummary,
-      },
-      workpad: workpadRow,
-    };
   }
 
   async calculateMatchMetrics(
