@@ -383,7 +383,7 @@ export class CoverLetterDraftService {
     const { userId, templateId, jobDescriptionId, onProgress, signal } = options;
 
     this.emitProgress(onProgress, 'jd_parse', 'Loading job description…');
-      const jobDescription = await this.fetchJobDescription(userId, jobDescriptionId);
+    const jobDescription = await this.fetchJobDescription(userId, jobDescriptionId);
 
       this.emitProgress(onProgress, 'content_match', 'Loading content libraries…');
       const [templateRow, stories, savedSections, userGoals] = await Promise.all([
