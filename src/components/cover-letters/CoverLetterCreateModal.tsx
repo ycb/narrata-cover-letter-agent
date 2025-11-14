@@ -54,7 +54,11 @@ import { CoverLetterDraftService } from '@/services/coverLetterDraftService';
 import { useCoverLetterDraft } from '@/hooks/useCoverLetterDraft';
 import { MatchComponent } from './MatchComponent';
 import { CoverLetterFinalization } from './CoverLetterFinalization';
+import { ContentCard } from '@/components/shared/ContentCard';
+import { ContentGenerationModal } from '@/components/hil/ContentGenerationModal';
+import { GapDetectionService } from '@/services/gapDetectionService';
 import type { CoverLetterDraft, JobDescriptionRecord } from '@/types/coverLetters';
+import type { Gap } from '@/types/content';
 
 const MIN_JOB_DESCRIPTION_LENGTH = 50;
 
@@ -86,6 +90,9 @@ export const CoverLetterCreateModal = ({
   const [jobDescriptionRecord, setJobDescriptionRecord] = useState<JobDescriptionRecord | null>(null);
   const [sectionDrafts, setSectionDrafts] = useState<Record<string, string>>({});
   const [savingSections, setSavingSections] = useState<Record<string, boolean>>({});
+  const [sectionGaps, setSectionGaps] = useState<Record<string, Gap[]>>({});
+  const [selectedGap, setSelectedGap] = useState<Gap | null>(null);
+  const [showContentGenerationModal, setShowContentGenerationModal] = useState(false);
   const [mainTab, setMainTab] = useState<'job-description' | 'cover-letter'>('job-description');
   const [finalizationOpen, setFinalizationOpen] = useState(false);
   const [finalizationError, setFinalizationError] = useState<string | null>(null);
@@ -256,10 +263,37 @@ export const CoverLetterCreateModal = ({
       setJobDescriptionRecord(record);
       setJobDescriptionId(record.id);
       setJdStreamingMessages(prev => [...prev, 'Job description analysis complete.']);
-      await generateDraft({
+      const { draft: generatedDraft } = await generateDraft({
         templateId: selectedTemplateId,
         jobDescriptionId: record.id,
       });
+      
+      // Detect gaps for each section after draft generation
+      if (generatedDraft && user?.id) {
+        const gapsBySection: Record<string, Gap[]> = {};
+        const jobRequirements = record.structuredData?.standardRequirements?.map(r => r.requirement) || [];
+        
+        for (const section of generatedDraft.sections) {
+          try {
+            const gaps = await GapDetectionService.detectCoverLetterSectionGaps(
+              user.id,
+              {
+                id: section.id,
+                type: section.slug as 'intro' | 'paragraph' | 'closer' | 'signature',
+                content: section.content,
+                title: section.title,
+              },
+              jobRequirements,
+            );
+            gapsBySection[section.id] = gaps;
+          } catch (error) {
+            console.error(`[CoverLetterCreateModal] Failed to detect gaps for section ${section.id}:`, error);
+            gapsBySection[section.id] = [];
+          }
+        }
+        setSectionGaps(gapsBySection);
+      }
+      
       setMainTab('cover-letter');
     } catch (error) {
       const message =
@@ -538,40 +572,53 @@ export const CoverLetterCreateModal = ({
             const editedContent = sectionDrafts[section.id] ?? section.content;
             const isDirty = editedContent !== section.content;
             const isSaving = !!savingSections[section.id];
-            const badgeVariant = section.status.hasGaps
-              ? 'destructive'
-              : section.status.isModified
-              ? 'secondary'
-              : 'outline';
+            const gaps = sectionGaps[section.id] || [];
+            const hasGaps = gaps.length > 0;
+            
+            // Get job requirement tags from JD
+            const jobRequirementTags = jobDescriptionRecord?.structuredData?.standardRequirements?.map(
+              r => r.requirement
+            ) || [];
 
             return (
-              <Card key={section.id} className="border-muted-foreground/20 shadow-sm">
-                <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
-                  <div>
-                    <CardTitle className="text-base font-semibold">
-                      {section.title}
-                    </CardTitle>
-                    <CardDescription className="text-xs text-muted-foreground mt-1">
-                      {section.slug.replace(/-/g, ' ')}
-                    </CardDescription>
-                  </div>
-                  <Badge variant={badgeVariant} className="gap-1">
-                    <FileText className="h-3 w-3" />
-                    {section.status.hasGaps
-                      ? 'Needs attention'
-                      : section.status.isModified
-                      ? 'Updated'
-                      : 'Auto-generated'}
-                  </Badge>
-                </CardHeader>
-                <CardContent className="space-y-3">
+              <ContentCard
+                key={section.id}
+                title={section.title}
+                content={editedContent}
+                tags={jobRequirementTags}
+                hasGaps={hasGaps}
+                gaps={gaps.map(g => ({ id: g.id || g.gap_category, description: g.description }))}
+                isGapResolved={!hasGaps}
+                onGenerateContent={hasGaps ? () => {
+                  // Open HIL workflow with first gap
+                  const firstGap = gaps[0];
+                  if (firstGap) {
+                    setSelectedGap(firstGap);
+                    setShowContentGenerationModal(true);
+                  }
+                } : undefined}
+                onDismissGap={hasGaps ? () => {
+                  // Remove gap from state (user dismissed)
+                  setSectionGaps(prev => ({
+                    ...prev,
+                    [section.id]: prev[section.id]?.filter(g => g.id !== gaps[0]?.id) || [],
+                  }));
+                } : undefined}
+                tagsLabel="Job Requirements"
+                showUsage={false}
+                renderChildrenBeforeTags={true}
+                className={cn(hasGaps && 'border-warning')}
+              >
+                {/* Inline editable Textarea */}
+                <div className="mb-6">
                   <Textarea
                     value={editedContent}
                     onChange={event => handleSectionChange(section.id, event.target.value)}
                     rows={8}
                     className="resize-y"
+                    placeholder="Enter cover letter content..."
                   />
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
                     <Button
                       type="button"
                       size="sm"
@@ -600,19 +647,9 @@ export const CoverLetterCreateModal = ({
                     >
                       Reset
                     </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      className="gap-2 text-muted-foreground"
-                      disabled
-                    >
-                      <Pencil className="h-4 w-4" />
-                      AI assist (coming soon)
-                    </Button>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </ContentCard>
             );
           })}
         </div>
@@ -697,6 +734,57 @@ export const CoverLetterCreateModal = ({
           }}
         />
       )}
+      <ContentGenerationModal
+        isOpen={showContentGenerationModal}
+        onClose={() => {
+          setShowContentGenerationModal(false);
+          setSelectedGap(null);
+        }}
+        gap={selectedGap ? {
+          id: selectedGap.id || selectedGap.gap_category,
+          type: selectedGap.gap_type === 'best_practice' ? 'best-practice' : 
+                selectedGap.gap_type === 'requirement' ? 'core-requirement' : 'content-enhancement',
+          severity: selectedGap.severity,
+          description: selectedGap.description,
+          suggestion: selectedGap.suggestions?.[0]?.description || selectedGap.description,
+          paragraphId: selectedGap.entity_id,
+          origin: 'ai',
+        } : null}
+        onApplyContent={async (content: string) => {
+          if (!selectedGap || !draft) return;
+          
+          // Find the section this gap belongs to
+          const sectionId = Object.keys(sectionGaps).find(id => 
+            sectionGaps[id].some(g => g.id === selectedGap.id || g.gap_category === selectedGap.gap_category)
+          );
+          
+          if (sectionId) {
+            // Update the section content
+            setSectionDrafts(prev => ({
+              ...prev,
+              [sectionId]: content,
+            }));
+            
+            // Save the section
+            try {
+              await handleSectionSave(sectionId);
+              
+              // Remove the resolved gap
+              setSectionGaps(prev => ({
+                ...prev,
+                [sectionId]: prev[sectionId]?.filter(g => 
+                  g.id !== selectedGap.id && g.gap_category !== selectedGap.gap_category
+                ) || [],
+              }));
+            } catch (error) {
+              console.error('[CoverLetterCreateModal] Failed to apply generated content:', error);
+            }
+          }
+          
+          setShowContentGenerationModal(false);
+          setSelectedGap(null);
+        }}
+      />
     </Dialog>
   );
 };
