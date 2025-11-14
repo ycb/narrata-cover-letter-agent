@@ -4,6 +4,7 @@
 
 import { supabase } from '@/lib/supabase';
 import { GapDetectionService, type Gap } from './gapDetectionService';
+import { EvaluationEventLogger } from './evaluationEventLogger';
 import {
   buildStoryGenerationPrompt,
   buildRoleDescriptionPrompt,
@@ -13,6 +14,7 @@ import {
   type JobContext
 } from '@/prompts/contentGeneration';
 import type { ContentVariationInsert } from '@/types/variations';
+import type { HILStoryEvent, HILSavedSectionEvent } from '@/types/evaluationEvents';
 
 /**
  * Content generation request parameters
@@ -85,8 +87,18 @@ export class ContentGenerationService {
 
   /**
    * Generate enhanced content using LLM
+   * Returns content and metadata for evaluation logging
    */
-  async generateContent(request: ContentGenerationRequest): Promise<string> {
+  async generateContent(
+    request: ContentGenerationRequest,
+    options?: {
+      userId?: string;
+      startTime?: number;
+      syntheticProfileId?: string;
+    }
+  ): Promise<string> {
+    const startTime = options?.startTime || Date.now();
+    
     try {
       // Build appropriate prompt based on entity type
       let userPrompt: string;
@@ -127,10 +139,17 @@ export class ContentGenerationService {
       const response = await this.callOpenAI(userPrompt, 1000);
 
       if (!response.success) {
+        // Log failure for story/saved section generation
+        if (options?.userId && (request.entityType === 'approved_content' || request.entityType === 'saved_section')) {
+          await this.logGenerationFailure(request, options, startTime, response.error);
+        }
         throw new Error(response.error || 'Content generation failed');
       }
 
       if (!response.data || response.data.trim().length === 0) {
+        if (options?.userId && (request.entityType === 'approved_content' || request.entityType === 'saved_section')) {
+          await this.logGenerationFailure(request, options, startTime, 'Generated content is empty');
+        }
         throw new Error('Generated content is empty');
       }
 
@@ -223,14 +242,45 @@ export class ContentGenerationService {
    * - Work History view: Default to REPLACE (improving base content)
    * - Cover Letter Draft view: ALWAYS VARIATION (JD-specific)
    */
-  async saveContent(request: ContentSaveRequest): Promise<{ success: boolean; id: string }> {
+  async saveContent(
+    request: ContentSaveRequest,
+    options?: {
+      initialContent?: string;
+      generatedContent?: string;
+      startTime?: number;
+      syntheticProfileId?: string;
+      draftId?: string;
+    }
+  ): Promise<{ success: boolean; id: string }> {
+    const startTime = options?.startTime || Date.now();
+    const initialContent = options?.initialContent || '';
+    const initialWordCount = this.countWords(initialContent);
+    
     try {
+      let result: { success: boolean; id: string };
+      
       if (request.mode === 'replace') {
-        return await this.replaceContent(request);
+        result = await this.replaceContent(request);
       } else {
-        return await this.createVariation(request);
+        result = await this.createVariation(request);
       }
+
+      // Log HIL event after successful save
+      if (request.entityType === 'approved_content') {
+        await this.logStoryEvent(request, result.id, initialWordCount, options, startTime);
+      } else if (request.entityType === 'saved_section') {
+        await this.logSavedSectionEvent(request, result.id, initialWordCount, options, startTime);
+      }
+
+      return result;
     } catch (error) {
+      // Log failure event
+      if (request.entityType === 'approved_content') {
+        await this.logStoryEvent(request, request.entityId, initialWordCount, options, startTime, error);
+      } else if (request.entityType === 'saved_section') {
+        await this.logSavedSectionEvent(request, request.entityId, initialWordCount, options, startTime, error);
+      }
+      
       console.error('Save content error:', error);
       throw error;
     }
@@ -522,5 +572,232 @@ export class ContentGenerationService {
 
     // Generic if it has generic phrases AND no metrics
     return hasGenericPhrase && hasNoMetrics;
+  }
+
+  // ==========================================
+  // Evaluation Logging Helpers
+  // ==========================================
+
+  /**
+   * Count words in content
+   */
+  private countWords(content: string): number {
+    if (!content || content.trim().length === 0) return 0;
+    return content.trim().split(/\s+/).length;
+  }
+
+  /**
+   * Calculate gap coverage from validation result
+   */
+  private calculateGapCoverage(
+    addressedGaps: Gap[],
+    remainingGaps: Gap[]
+  ): { closedGapIds: string[]; remainingGapCount: number; gapCoveragePercentage: number } {
+    const closedGapIds = addressedGaps.map(g => g.id);
+    const totalGaps = addressedGaps.length + remainingGaps.length;
+    const gapCoveragePercentage = totalGaps > 0 
+      ? (addressedGaps.length / totalGaps) * 100 
+      : 0;
+
+    return {
+      closedGapIds,
+      remainingGapCount: remainingGaps.length,
+      gapCoveragePercentage: Math.round(gapCoveragePercentage),
+    };
+  }
+
+  /**
+   * Log HIL story event
+   */
+  private async logStoryEvent(
+    request: ContentSaveRequest,
+    storyId: string,
+    initialWordCount: number,
+    options: { startTime?: number; syntheticProfileId?: string; draftId?: string } | undefined,
+    startTime: number,
+    error?: unknown
+  ): Promise<void> {
+    try {
+      // Fetch final content to calculate word count
+      const { data: story } = await supabase
+        .from('approved_content')
+        .select('content, work_item_id')
+        .eq('id', storyId)
+        .eq('user_id', request.userId)
+        .single();
+
+      const finalContent = story?.content || request.content;
+      const finalWordCount = this.countWords(finalContent);
+      const wordDelta = finalWordCount - initialWordCount;
+
+      // Determine action type
+      const action = request.mode === 'replace' ? 'apply_suggestion' : 'ai_suggest';
+
+      // Get gap coverage if available
+      let gapCoverage;
+      let gapsAddressed: string[] = [];
+      
+      if (!error) {
+        // Try to get gap information
+        const { data: gap } = await supabase
+          .from('gaps')
+          .select('id')
+          .eq('id', request.gapId)
+          .single();
+
+        if (gap) {
+          gapsAddressed = [request.gapId];
+          gapCoverage = {
+            closedGapIds: [request.gapId],
+            remainingGapCount: 0, // Simplified - would need full gap analysis
+            gapCoveragePercentage: 100,
+          };
+        }
+      }
+
+      const event: HILStoryEvent = {
+        userId: request.userId,
+        storyId,
+        workItemId: (story?.work_item_id as string) || request.entityId,
+        contentSource: 'story',
+        action,
+        initialWordCount,
+        finalWordCount,
+        wordDelta,
+        gapCoverage,
+        gapsAddressed,
+        latency: Date.now() - startTime,
+        status: error ? 'failed' : 'success',
+        error: error instanceof Error ? error.message : undefined,
+        syntheticProfileId: options?.syntheticProfileId,
+        draftId: options?.draftId,
+      };
+
+      await EvaluationEventLogger.logHILStory(event);
+    } catch (logError) {
+      console.error('[ContentGenerationService] Failed to log HIL story event:', logError);
+      // Don't throw - logging failure shouldn't break the main flow
+    }
+  }
+
+  /**
+   * Log HIL saved section event
+   */
+  private async logSavedSectionEvent(
+    request: ContentSaveRequest,
+    savedSectionId: string,
+    initialWordCount: number,
+    options: { startTime?: number; syntheticProfileId?: string; draftId?: string } | undefined,
+    startTime: number,
+    error?: unknown
+  ): Promise<void> {
+    try {
+      // Fetch final content to calculate word count
+      const { data: section } = await supabase
+        .from('saved_sections')
+        .select('content')
+        .eq('id', savedSectionId)
+        .eq('user_id', request.userId)
+        .single();
+
+      const finalContent = section?.content || request.content;
+      const finalWordCount = this.countWords(finalContent);
+      const wordDelta = finalWordCount - initialWordCount;
+
+      // Determine action type
+      const action = request.mode === 'replace' ? 'apply_suggestion' : 'ai_suggest';
+
+      // Get gap coverage
+      let gapCoverage;
+      let gapsAddressed: string[] = [];
+      
+      if (!error) {
+        const { data: gap } = await supabase
+          .from('gaps')
+          .select('id')
+          .eq('id', request.gapId)
+          .single();
+
+        if (gap) {
+          gapsAddressed = [request.gapId];
+          gapCoverage = {
+            closedGapIds: [request.gapId],
+            remainingGapCount: 0,
+            gapCoveragePercentage: 100,
+          };
+        }
+      }
+
+      const event: HILSavedSectionEvent = {
+        userId: request.userId,
+        savedSectionId,
+        contentSource: 'saved_section',
+        action,
+        initialWordCount,
+        finalWordCount,
+        wordDelta,
+        gapCoverage,
+        gapsAddressed,
+        latency: Date.now() - startTime,
+        status: error ? 'failed' : 'success',
+        error: error instanceof Error ? error.message : undefined,
+        syntheticProfileId: options?.syntheticProfileId,
+        draftId: options?.draftId,
+      };
+
+      await EvaluationEventLogger.logHILSavedSection(event);
+    } catch (logError) {
+      console.error('[ContentGenerationService] Failed to log HIL saved section event:', logError);
+      // Don't throw - logging failure shouldn't break the main flow
+    }
+  }
+
+  /**
+   * Log generation failure
+   */
+  private async logGenerationFailure(
+    request: ContentGenerationRequest,
+    options: { userId?: string; syntheticProfileId?: string } | undefined,
+    startTime: number,
+    error: string | undefined
+  ): Promise<void> {
+    if (!options?.userId) return;
+
+    try {
+      const initialWordCount = this.countWords(request.existingContent);
+
+      if (request.entityType === 'approved_content') {
+        const event: HILStoryEvent = {
+          userId: options.userId,
+          workItemId: request.entityId,
+          contentSource: 'story',
+          action: 'ai_suggest',
+          initialWordCount,
+          finalWordCount: initialWordCount,
+          wordDelta: 0,
+          latency: Date.now() - startTime,
+          status: 'failed',
+          error,
+          syntheticProfileId: options.syntheticProfileId,
+        };
+        await EvaluationEventLogger.logHILStory(event);
+      } else if (request.entityType === 'saved_section') {
+        const event: HILSavedSectionEvent = {
+          userId: options.userId,
+          contentSource: 'saved_section',
+          action: 'ai_suggest',
+          initialWordCount,
+          finalWordCount: initialWordCount,
+          wordDelta: 0,
+          latency: Date.now() - startTime,
+          status: 'failed',
+          error,
+          syntheticProfileId: options.syntheticProfileId,
+        };
+        await EvaluationEventLogger.logHILSavedSection(event);
+      }
+    } catch (logError) {
+      console.error('[ContentGenerationService] Failed to log generation failure:', logError);
+    }
   }
 }
