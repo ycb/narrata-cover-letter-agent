@@ -307,8 +307,8 @@ export class PersonalDataService {
       );
 
       // Soft delete the asset
-      const { error } = await supabase
-        .from('sources')
+      const { error } = await (supabase
+        .from('sources') as any)
         .update({
           is_deleted: true,
           deleted_at: new Date().toISOString(),
