@@ -592,6 +592,81 @@ export class CoverLetterDraftService {
     return result.metrics;
   }
 
+  /**
+   * Refresh gap detection by comparing draft sections against JD requirements.
+   * Updates hasGaps and gapIds for each section based on unmatched requirements.
+   */
+  private refreshGapDetection(
+    sections: CoverLetterDraftSection[],
+    jobDescription: ParsedJobDescription,
+  ): CoverLetterDraftSection[] {
+    const allRequirements = [
+      ...jobDescription.standardRequirements,
+      ...jobDescription.differentiatorRequirements,
+      ...jobDescription.preferredRequirements,
+    ];
+
+    // Build a map of requirement IDs to their details for gap tracking
+    const requirementMap = new Map(
+      allRequirements.map(req => [req.id, req]),
+    );
+
+    // Track which requirements are matched across all sections
+    const matchedRequirementIds = new Set(
+      sections.flatMap(section => section.metadata.requirementsMatched),
+    );
+
+    // Identify unmatched core and differentiator requirements (these are gaps)
+    const coreRequirementIds = new Set(
+      jobDescription.standardRequirements.map(req => req.id),
+    );
+    const differentiatorRequirementIds = new Set(
+      jobDescription.differentiatorRequirements.map(req => req.id),
+    );
+
+    const unmatchedCoreRequirements = jobDescription.standardRequirements
+      .filter(req => !matchedRequirementIds.has(req.id))
+      .map(req => req.id);
+
+    const unmatchedDifferentiatorRequirements = jobDescription.differentiatorRequirements
+      .filter(req => !matchedRequirementIds.has(req.id))
+      .map(req => req.id);
+
+    // Update each section with gap information
+    return sections.map(section => {
+      const sectionMatchedIds = new Set(section.metadata.requirementsMatched);
+
+      // Find requirements that should be covered by this section but aren't
+      // Priority: differentiator > core > preferred
+      const sectionGapIds: string[] = [];
+
+      // Check if section should address differentiators (if it's a dynamic section)
+      if (section.type === 'dynamic-story' || section.type === 'dynamic-saved') {
+        // Add unmatched differentiators as potential gaps
+        sectionGapIds.push(...unmatchedDifferentiatorRequirements.slice(0, 2)); // Limit to 2 per section
+      }
+
+      // Add unmatched core requirements if section is meant for core content
+      if (sectionGapIds.length < 3 && unmatchedCoreRequirements.length > 0) {
+        const remaining = unmatchedCoreRequirements
+          .filter(id => !sectionGapIds.includes(id))
+          .slice(0, 3 - sectionGapIds.length);
+        sectionGapIds.push(...remaining);
+      }
+
+      const hasGaps = sectionGapIds.length > 0;
+
+      return {
+        ...section,
+        status: {
+          ...section.status,
+          hasGaps,
+          gapIds: sectionGapIds,
+        },
+      };
+    });
+  }
+
   async updateDraftSection(
     draftId: string,
     sectionId: string,
@@ -613,11 +688,20 @@ export class CoverLetterDraftService {
       throw new Error('Cover letter section not found.');
     }
 
+    const jobDescription = await this.fetchJobDescription(
+      draftRow.user_id,
+      draftRow.job_description_id,
+    );
+
+    // Recompute requirements matched for the updated section
+    const updatedRequirementsMatched = this.matchRequirements(newContent, jobDescription);
+
     const updatedSection: CoverLetterDraftSection = {
       ...sections[index],
       content: newContent,
       metadata: {
         ...sections[index].metadata,
+        requirementsMatched: updatedRequirementsMatched,
         wordCount: countWords(newContent),
       },
       status: {
@@ -630,16 +714,39 @@ export class CoverLetterDraftService {
     const nextSections = [...sections];
     nextSections[index] = updatedSection;
 
-    const differentiatorSummary = this.buildDifferentiatorSummary(
-      await this.fetchJobDescription(draftRow.user_id, draftRow.job_description_id),
-      nextSections,
+    // Refresh gap detection after content update
+    const sectionsWithGaps = this.refreshGapDetection(nextSections, jobDescription);
+    const differentiatorSummary = this.buildDifferentiatorSummary(jobDescription, sectionsWithGaps);
+
+    // Compute requirement coverage for analytics
+    const allMatchedIds = new Set(
+      sectionsWithGaps.flatMap(s => s.metadata.requirementsMatched),
     );
+    const coreMet = jobDescription.standardRequirements.filter(req =>
+      allMatchedIds.has(req.id),
+    ).length;
+    const differentiatorAddressed = jobDescription.differentiatorRequirements.filter(req =>
+      allMatchedIds.has(req.id),
+    ).length;
 
     const { data: updatedRow, error: updateError } = await this.supabaseClient
       .from('cover_letters')
       .update({
-        sections: nextSections as unknown as Record<string, unknown>,
+        sections: sectionsWithGaps as unknown as Record<string, unknown>,
         differentiator_summary: differentiatorSummary as unknown as Record<string, unknown>,
+        analytics: {
+          ...((draftRow.analytics as Record<string, unknown>) ?? {}),
+          requirementCoverage: {
+            core: {
+              met: coreMet,
+              total: jobDescription.standardRequirements.length,
+            },
+            differentiators: {
+              addressed: differentiatorAddressed,
+              total: jobDescription.differentiatorRequirements.length,
+            },
+          },
+        } as unknown as Record<string, unknown>,
         updated_at: this.now().toISOString(),
       })
       .eq('id', draftId)
@@ -654,8 +761,8 @@ export class CoverLetterDraftService {
       draftId,
       userId: updatedRow.user_id,
       jobDescriptionId: updatedRow.job_description_id,
-      matchState: this.buildMatchState(nextSections),
-      sections: nextSections,
+      matchState: this.buildMatchState(sectionsWithGaps),
+      sections: sectionsWithGaps,
       phase: 'content_match',
     });
 
@@ -670,7 +777,7 @@ export class CoverLetterDraftService {
 
     return {
       ...this.mapCoverLetterRow(updatedRow, metrics, atsScore),
-      sections: nextSections,
+      sections: sectionsWithGaps,
       differentiatorSummary,
     };
   }
@@ -697,13 +804,14 @@ export class CoverLetterDraftService {
     );
 
     const normalizedSections = this.normaliseFinalSections(sections, jobDescription);
-    const differentiatorSummary = this.buildDifferentiatorSummary(jobDescription, normalizedSections);
+    const sectionsWithGaps = this.refreshGapDetection(normalizedSections, jobDescription);
+    const differentiatorSummary = this.buildDifferentiatorSummary(jobDescription, sectionsWithGaps);
 
     const differentiatorWeights = new Map(
       jobDescription.differentiatorRequirements.map(req => [req.id, req]),
     );
 
-    const matchState = this.buildMatchState(normalizedSections, differentiatorWeights);
+    const matchState = this.buildMatchState(sectionsWithGaps, differentiatorWeights);
 
     const metrics = this.normaliseMatchMetrics(draftRow.metrics);
     const atsMetric = metrics.find(metric => metric.key === 'ats');
@@ -717,7 +825,7 @@ export class CoverLetterDraftService {
         : 0;
 
     const finalizedAt = this.now().toISOString();
-    const totalWordCount = normalizedSections.reduce(
+    const totalWordCount = sectionsWithGaps.reduce(
       (acc, section) => acc + (section.metadata?.wordCount ?? 0),
       0,
     );
@@ -726,6 +834,17 @@ export class CoverLetterDraftService {
       missing: differentiatorSummary.filter(item => item.status !== 'addressed').length,
       total: differentiatorSummary.length,
     };
+
+    // Compute final requirement coverage
+    const allMatchedIds = new Set(
+      sectionsWithGaps.flatMap(s => s.metadata.requirementsMatched),
+    );
+    const coreMet = jobDescription.standardRequirements.filter(req =>
+      allMatchedIds.has(req.id),
+    ).length;
+    const differentiatorAddressed = jobDescription.differentiatorRequirements.filter(req =>
+      allMatchedIds.has(req.id),
+    ).length;
 
     const existingAnalytics =
       draftRow.analytics && typeof draftRow.analytics === 'object'
@@ -760,9 +879,21 @@ export class CoverLetterDraftService {
     const { data: updatedRow, error: updateError } = await this.supabaseClient
       .from('cover_letters')
       .update({
-        sections: normalizedSections as unknown as Record<string, unknown>,
+        sections: sectionsWithGaps as unknown as Record<string, unknown>,
         differentiator_summary: differentiatorSummary as unknown as Record<string, unknown>,
-        analytics: analyticsPayload as unknown as Record<string, unknown>,
+        analytics: {
+          ...analyticsPayload,
+          requirementCoverage: {
+            core: {
+              met: coreMet,
+              total: jobDescription.standardRequirements.length,
+            },
+            differentiators: {
+              addressed: differentiatorAddressed,
+              total: jobDescription.differentiatorRequirements.length,
+            },
+          },
+        } as unknown as Record<string, unknown>,
         status: 'finalized',
         finalized_at: finalizedAt,
         updated_at: finalizedAt,
@@ -780,7 +911,7 @@ export class CoverLetterDraftService {
       userId: updatedRow.user_id,
       jobDescriptionId: updatedRow.job_description_id,
       matchState,
-      sections: normalizedSections,
+      sections: sectionsWithGaps,
       phase: 'finalized',
     });
 
@@ -795,7 +926,7 @@ export class CoverLetterDraftService {
 
     const draft = {
       ...this.mapCoverLetterRow(updatedRow, updatedMetrics, updatedAtsScore),
-      sections: this.normaliseDraftSections(updatedRow.sections),
+      sections: sectionsWithGaps,
       differentiatorSummary,
     };
 
