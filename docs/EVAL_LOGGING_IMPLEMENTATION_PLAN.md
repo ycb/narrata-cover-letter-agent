@@ -312,9 +312,10 @@ git commit -m "feat: integrate HIL content creation with evaluation logging
 
 1. ✅ Create new worktree & branch
 2. ✅ Implement infrastructure (schema, service, types, tests)
-3. ⏳ Integrate with JobDescriptionService
-4. ⏳ Integrate with HIL handlers (story, saved section, draft)
-5. ⏳ Write integration tests
+3. ✅ Integrate with JobDescriptionService (Phase 2 - commit: 81fde80)
+4. ✅ Integrate with HIL handlers (story, saved section) (Phase 3 - commit: 6dc4acb)
+   - ⏳ Draft edit logging deferred (will integrate when draft editing UI flow is finalized)
+5. ✅ Write integration tests (E2E tests with Playwright - commit: cdefd10)
 6. ⏳ QA & manual testing
 7. ⏳ Merge to main
 
@@ -341,4 +342,5 @@ A: MVP defers redaction. Future: add hashing/sanitization layer (see open questi
 - CLAUDE.md - Architecture overview
 - evaluationEventLogger.ts - Service implementation
 - evaluationEvents.ts - Type definitions
+
 
