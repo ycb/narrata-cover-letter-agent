@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,254 +12,55 @@ import { TemplateBanner } from "@/components/layout/TemplateBanner";
 import { Link, useNavigate } from "react-router-dom";
 import { TemplateBlurbHierarchical } from "@/components/template-blurbs/TemplateBlurbHierarchical";
 import { type TemplateBlurb } from "@/components/template-blurbs/TemplateBlurbMaster";
-import { TemplateBlurbDetail } from "@/components/template-blurbs/TemplateBlurbDetail";
 import { WorkHistoryBlurbSelector } from "@/components/work-history/WorkHistoryBlurbSelector";
 import { SectionInsertButton } from "@/components/template-blurbs/SectionInsertButton";
 import { CoverLetterViewModal } from "@/components/cover-letters/CoverLetterViewModal";
-import type { CoverLetterSection, CoverLetterTemplate, WorkHistoryBlurb } from "@/types/workHistory";
+import type { CoverLetterSection, CoverLetterTemplate, WorkHistoryBlurb, WorkHistoryCompany, WorkHistoryRole } from "@/types/workHistory";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 import { useTour } from "@/contexts/TourContext";
 import { TourBannerFull } from "@/components/onboarding/TourBannerFull";
 import { FormModal } from "@/components/shared/FormModal";
+import { CoverLetterTemplateService, type SavedSection } from "@/services/coverLetterTemplateService";
+import { SyntheticUserService } from "@/services/syntheticUserService";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { LoadingState } from "@/components/shared/LoadingState";
 
-// Mock template blurbs library
-const mockTemplateBlurbs: TemplateBlurb[] = [
-  {
-    id: "intro-1",
-    type: "intro",
-    title: "Standard Professional Opening",
-    content: "I am writing to express my strong interest in the [Position] role at [Company]. With my background in [Industry/Field], I am excited about the opportunity to contribute to your team's success.",
-    tags: ["professional", "standard", "interest", "background"],
-    isDefault: true,
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
-  },
-  {
-    id: "intro-2", 
-    type: "intro",
-    title: "Passionate Connection",
-    content: "I was thrilled to discover the [Position] opening at [Company], as it perfectly aligns with my passion for [Industry/Field] and my career goals in [Specific Area].",
-    tags: ["passion", "thrilled", "alignment", "career goals"],
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
-  },
-  {
-    id: "intro-3",
-    type: "intro",
-    title: "Referral Opening",
-    content: "I was referred to this [Position] opportunity at [Company] by [Referral Name], who spoke highly of your team and the innovative work you're doing in [Industry/Field].",
-    tags: ["referral", "recommendation", "networking", "innovation"],
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
-  },
-  {
-    id: "closer-1",
-    type: "closer",
-    title: "Standard Professional Close",
-    content: "I would welcome the opportunity to discuss how my background and passion can contribute to your team's continued success. Thank you for your time and consideration.",
-    tags: ["professional", "discussion", "contribution", "gratitude"],
-    isDefault: true,
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
-  },
-  {
-    id: "closer-2",
-    type: "closer",
-    title: "Eager Follow-up",
-    content: "I am excited about the possibility of joining your team and would love to discuss how I can help [Company] achieve its goals. I look forward to hearing from you soon.",
-    tags: ["excitement", "team", "goals", "follow up"],
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
-  },
-  {
-    id: "closer-3",
-    type: "closer",
-    title: "Value-focused Close",
-    content: "I am confident that my skills and experience would be valuable additions to your team. I would appreciate the opportunity to discuss how I can contribute to [Company]'s continued growth and success.",
-    tags: ["confidence", "value", "skills", "growth"],
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
-  },
-  {
-    id: "signature-1",
-    type: "signature",
-    title: "Professional",
-    content: "Sincerely,\n[Your Name]",
-    tags: ["formal", "professional", "traditional"],
-    isDefault: true,
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
-  },
-  {
-    id: "signature-2",
-    type: "signature",
-    title: "Warm Professional",
-    content: "Best regards,\n[Your Name]",
-    tags: ["warm", "professional", "friendly"],
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
-  },
-  {
-    id: "signature-3",
-    type: "signature",
-    title: "Respectful",
-    content: "Respectfully,\n[Your Name]",
-    tags: ["respectful", "formal", "courteous"],
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
-  }
-];
+const DEFAULT_TEMPLATE_NAME = "Professional Template";
 
-// Mock work history data for the modal
-const mockWorkHistory = [
-  {
-    id: 'company-1',
-    name: 'TechCorp Inc.',
-    description: 'Software development company',
-    roles: [
-      {
-        id: 'role-1',
-        title: 'Senior Software Engineer',
-        description: 'Led development of web applications',
-        blurbs: [
-          {
-            id: 'story-1',
-            title: 'Improved Performance by 40%',
-            content: 'Optimized database queries and implemented caching strategies, resulting in a 40% improvement in application performance.',
-            tags: ['performance', 'optimization', 'database'],
-            confidence: 'high',
-            timesUsed: 3,
-            source: 'work-history',
-            status: 'approved',
-            createdAt: '2024-01-01T00:00:00Z',
-            updatedAt: '2024-01-01T00:00:00Z'
-          },
-          {
-            id: 'story-2',
-            title: 'Led Team of 5 Developers',
-            content: 'Successfully led a team of 5 developers to deliver a major feature on time and under budget.',
-            tags: ['leadership', 'team management', 'delivery'],
-            confidence: 'high',
-            timesUsed: 2,
-            source: 'work-history',
-            status: 'approved',
-            createdAt: '2024-01-01T00:00:00Z',
-            updatedAt: '2024-01-01T00:00:00Z'
-          }
-        ],
-        source: 'work-history',
-        createdAt: '2024-01-01T00:00:00Z',
-        updatedAt: '2024-01-01T00:00:00Z'
-      }
-    ],
-    source: 'work-history',
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z'
-  },
-  {
-    id: 'company-2',
-    name: 'StartupXYZ',
-    description: 'Innovative startup',
-    roles: [
-      {
-        id: 'role-2',
-        title: 'Full Stack Developer',
-        description: 'Built end-to-end solutions',
-        blurbs: [
-          {
-            id: 'story-3',
-            title: 'Built MVP in 3 Months',
-            content: 'Designed and built a complete MVP from scratch in just 3 months, including frontend, backend, and database.',
-            tags: ['mvp', 'full stack', 'rapid development'],
-            confidence: 'high',
-            timesUsed: 1,
-            source: 'work-history',
-            status: 'approved',
-            createdAt: '2024-01-01T00:00:00Z',
-            updatedAt: '2024-01-01T00:00:00Z'
-          }
-        ],
-        source: 'work-history',
-        createdAt: '2024-01-01T00:00:00Z',
-        updatedAt: '2024-01-01T00:00:00Z'
-      }
-    ],
-    source: 'work-history',
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z'
-  }
-];
-
-// Mock template data with default static content
-const mockTemplate: CoverLetterTemplate = {
-  id: "template-1",
-  name: "Professional Template",
-  sections: [
-    {
-      id: "intro",
-      type: "intro" as const,
-      isStatic: true,
-      staticContent: "I am writing to express my strong interest in the [Position] role at [Company]. With my background in [Industry/Field], I am excited about the opportunity to contribute to your team's success.",
-      order: 1
-    },
-    {
-      id: "paragraph-1",
-      type: "paragraph" as const,
-      isStatic: false,
-      blurbCriteria: {
-        goals: ["showcase relevant experience and technical skills"]
-      },
-      order: 2
-    },
-    {
-      id: "paragraph-2", 
-      type: "paragraph" as const,
-      isStatic: false,
-      blurbCriteria: {
-        goals: ["highlight achievements and quantifiable impact"]
-      },
-      order: 3
-    },
-    {
-      id: "closer",
-      type: "closer" as const,
-      isStatic: true,
-      staticContent: "I would welcome the opportunity to discuss how my background and passion can contribute to your team's continued success. Thank you for your time and consideration.",
-      order: 4
-    },
-    {
-      id: "signature",
-      type: "signature" as const,
-      isStatic: true,
-      staticContent: "Sincerely,\n[Your Name]",
-      order: 5
-    }
-  ],
-  createdAt: "2024-01-01",
-  updatedAt: "2024-01-01"
-};
+const createEmptyTemplate = (name: string = DEFAULT_TEMPLATE_NAME): CoverLetterTemplate => ({
+  id: "draft-template",
+  name,
+  sections: [],
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString()
+});
 
 export default function CoverLetterTemplate() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [template, setTemplate] = useState<CoverLetterTemplate>(mockTemplate);
-  const [templateBlurbs, setTemplateBlurbs] = useState<TemplateBlurb[]>(mockTemplateBlurbs);
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [template, setTemplate] = useState<CoverLetterTemplate>(createEmptyTemplate());
+  const [templateBlurbs, setTemplateBlurbs] = useState<TemplateBlurb[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const [showBlurbSelector, setShowBlurbSelector] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showBlurbDetail, setShowBlurbDetail] = useState(false);
-  const [selectedBlurb, setSelectedBlurb] = useState<TemplateBlurb | null>(null);
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
-  const [editingBlurb, setEditingBlurb] = useState<TemplateBlurb | null>(null);
-  const [creatingBlurbType, setCreatingBlurbType] = useState<'intro' | 'closer' | 'signature' | null>(null);
   const [showWorkHistorySelector, setShowWorkHistorySelector] = useState(false);
   const [showAddContentTypeModal, setShowAddContentTypeModal] = useState(false);
   const [newContentType, setNewContentType] = useState({ label: '', description: '' });
   const [showAddReusableContentModal, setShowAddReusableContentModal] = useState(false);
   const [newReusableContent, setNewReusableContent] = useState({ title: '', content: '', tags: '', contentType: '' });
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewCoverLetter, setPreviewCoverLetter] = useState<any>(null);
+  const [isDirty, setIsDirty] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [userContentTypes, setUserContentTypes] = useState<Array<{
     type: string;
     label: string;
@@ -267,6 +68,11 @@ export default function CoverLetterTemplate() {
     icon: React.ComponentType<{ className?: string }>;
     isDefault: boolean;
   }>>([]);
+  const [workHistoryLibrary, setWorkHistoryLibrary] = useState<WorkHistoryCompany[]>([]);
+  const [isLibraryLoading, setIsLibraryLoading] = useState(false);
+  const [libraryError, setLibraryError] = useState<string | null>(null);
+  const dragIndexRef = useRef<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   // Add Section Modal State
   const [showAddSectionModal, setShowAddSectionModal] = useState(false);
@@ -277,6 +83,8 @@ export default function CoverLetterTemplate() {
   const [selectedRole, setSelectedRole] = useState<string>('');
   const [selectedReusableType, setSelectedReusableType] = useState<string>('');
   const [selectedContent, setSelectedContent] = useState<any>(null);
+  const loadMountedRef = useRef(true);
+
   
   // Tour integration
   const { isActive: isTourActive, currentStep: tourStep, tourSteps, currentTourStep, nextStep, previousStep, cancelTour } = useTour();
@@ -297,8 +105,195 @@ export default function CoverLetterTemplate() {
     }
   }, [isTourActive]);
 
+  useEffect(() => {
+    loadMountedRef.current = true;
+
+    const loadData = async () => {
+      if (!user?.id) {
+        if (loadMountedRef.current) {
+          setIsLoading(false);
+          setTemplate(createEmptyTemplate());
+          setTemplateBlurbs([]);
+          setWorkHistoryLibrary([]);
+          setIsDirty(false);
+        }
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const syntheticUserService = new SyntheticUserService();
+        const syntheticContext = await syntheticUserService.getSyntheticUserContext();
+        const profileId = syntheticContext.isSyntheticTestingEnabled
+          ? syntheticContext.currentUser?.profileId
+          : undefined;
+
+        const templates = await CoverLetterTemplateService.getUserTemplates(user.id);
+        const sections = await CoverLetterTemplateService.getUserSavedSections(user.id, profileId);
+        const libraryCompanies = await fetchWorkHistoryLibrary(user.id, profileId);
+
+        if (!loadMountedRef.current) {
+          return;
+        }
+
+        const normalizeContentKey = (text: string | undefined | null) =>
+          (text ?? "")
+            .replace(/\s+/g, " ")
+            .trim()
+            .toLowerCase();
+
+        const extractSignoffParts = (text: string | undefined | null) => {
+          if (!text) {
+            return null;
+          }
+
+          const lines = text
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter((line) => line.length > 0);
+
+          if (lines.length < 2) {
+            return null;
+          }
+
+          const signoffKeywords = ["regards", "sincerely", "best", "thanks", "thank you", "cheers"];
+          let signoffIndex = -1;
+
+          for (let idx = 0; idx < lines.length; idx += 1) {
+            const lower = lines[idx].toLowerCase();
+            if (signoffKeywords.some((keyword) => lower.startsWith(keyword))) {
+              signoffIndex = idx;
+              break;
+            }
+          }
+
+          if (signoffIndex <= 0) {
+            return null;
+          }
+
+          const body = lines.slice(0, signoffIndex).join("\n").trim();
+          const signature = lines.slice(signoffIndex).join("\n").trim();
+
+          if (!body || !signature) {
+            return null;
+          }
+
+          return { body, signature };
+        };
+
+        const savedSectionMap = new Map<string, SavedSection>();
+        const savedSectionContentMap = new Map<string, string>();
+
+        const blurbs: TemplateBlurb[] = sections.map((section) => {
+          const allowedTypes: TemplateBlurb["type"][] = ["intro", "paragraph", "closer", "signature"];
+          const sectionType = allowedTypes.includes(section.type as TemplateBlurb["type"])
+            ? (section.type as TemplateBlurb["type"])
+            : "intro";
+
+          if (section.id) {
+            savedSectionMap.set(section.id, section);
+          }
+          const normalizedKey = normalizeContentKey(section.content);
+          if (normalizedKey && !savedSectionContentMap.has(normalizedKey)) {
+            savedSectionContentMap.set(normalizedKey, section.content);
+          }
+
+          const signoffParts = extractSignoffParts(section.content);
+          if (signoffParts) {
+            const baseKey = normalizeContentKey(signoffParts.body);
+            if (baseKey && !savedSectionContentMap.has(baseKey)) {
+              savedSectionContentMap.set(baseKey, section.content);
+            }
+          }
+
+          return {
+            id: section.id!,
+            type: sectionType,
+            title: section.title,
+            content: section.content,
+            tags: Array.from(new Set([...(section.tags ?? []), ...(section.purpose_tags ?? [])])),
+            isDefault: (section.type as string) === "intro",
+            status: "approved" as const,
+            confidence: "high" as const,
+            timesUsed: section.times_used || 0,
+            lastUsed: section.last_used,
+            createdAt: section.created_at!,
+            updatedAt: section.updated_at!
+          };
+        });
+
+        const templateToUse =
+          templates.length > 0 ? templates[0] : buildTemplateFromSections(sections);
+
+        const templateWithSignatures = {
+          ...templateToUse,
+          sections: (templateToUse.sections || []).map((section) => {
+            if (section.type !== "closer") {
+              return section;
+            }
+
+            let replacementContent: string | undefined;
+
+            const savedSectionId = (section as any).savedSectionId as string | undefined;
+            if (savedSectionId) {
+              const saved = savedSectionMap.get(savedSectionId);
+              if (saved?.content) {
+                replacementContent = saved.content;
+              }
+            }
+
+            if (!replacementContent && section.staticContent) {
+              const normalized = normalizeContentKey(section.staticContent);
+              const matched = normalized ? savedSectionContentMap.get(normalized) : undefined;
+              if (matched) {
+                replacementContent = matched;
+              }
+            }
+
+            if (replacementContent && replacementContent !== section.staticContent) {
+              return {
+                ...section,
+                staticContent: replacementContent
+              };
+            }
+
+            return section;
+          })
+        };
+
+        setTemplate(templateWithSignatures);
+        setTemplateBlurbs(blurbs);
+        setIsDirty(false);
+        setWorkHistoryLibrary(libraryCompanies);
+      } catch (err) {
+        if (!loadMountedRef.current) {
+          return;
+        }
+        console.error("Error loading template data:", err);
+        const message = err instanceof Error ? err.message : "Failed to load template data";
+        setError(message);
+        setTemplate(createEmptyTemplate());
+        setTemplateBlurbs([]);
+        setWorkHistoryLibrary([]);
+        setIsDirty(false);
+      } finally {
+        if (loadMountedRef.current) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadData();
+
+    return () => {
+      loadMountedRef.current = false;
+    };
+  }, [user?.id]);
+
   const getBlurbTitleByContent = (content: string, sectionType: string) => {
-    const blurb = mockTemplateBlurbs.find(b => b.content === content && b.type === sectionType);
+    const blurb = templateBlurbs.find(b => b.content === content && b.type === sectionType);
     return blurb?.title || 'Custom Content';
   };
 
@@ -312,8 +307,18 @@ export default function CoverLetterTemplate() {
     }
   };
 
+  const updateTemplateState = (updater: (prev: CoverLetterTemplate) => CoverLetterTemplate) => {
+    setTemplate((prev) => {
+      const next = updater(prev);
+      if (next !== prev) {
+        setIsDirty(true);
+      }
+      return next;
+    });
+  };
+
   const updateSection = (sectionId: string, updates: Partial<CoverLetterSection>) => {
-    setTemplate(prev => ({
+    updateTemplateState(prev => ({
       ...prev,
       sections: prev.sections.map(section =>
         section.id === sectionId ? { ...section, ...updates } : section
@@ -392,11 +397,8 @@ export default function CoverLetterTemplate() {
       };
     }
     
-    console.log('Creating new section:', newSection);
-    
-    setTemplate(prev => {
+    updateTemplateState(prev => {
       const newSections = [...prev.sections, newSection];
-      console.log('Updated template sections:', newSections);
       return { ...prev, sections: newSections };
     });
     
@@ -427,51 +429,8 @@ export default function CoverLetterTemplate() {
   };
 
   const getAvailableBlurbs = (sectionType: string) => {
-    return mockTemplateBlurbs.filter(blurb => blurb.type === sectionType);
-  };
-
-  const handleCreateBlurb = (type: 'intro' | 'closer' | 'signature') => {
-    setEditingBlurb(null);
-  };
-
-  const handleEditBlurb = (blurb: TemplateBlurb) => {
-    setEditingBlurb(blurb);
-    setCreatingBlurbType(null);
-  };
-
-  const handleSaveBlurb = (blurbData: Partial<TemplateBlurb>) => {
-    if (editingBlurb) {
-      // Update existing blurb
-      setTemplateBlurbs(prev => prev.map(blurb => 
-        blurb.id === editingBlurb.id ? { ...blurb, ...blurbData } : blurb
-      ));
-    } else {
-      // Create new blurb
-      const newBlurb: TemplateBlurb = {
-        ...blurbData,
-        id: `${blurbData.type}-${Date.now()}`,
-        type: blurbData.type!,
-        title: blurbData.title!,
-        content: blurbData.content!,
-        tags: blurbData.tags || [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      setTemplateBlurbs(prev => [...prev, newBlurb]);
-    }
-    
-    setEditingBlurb(null);
-    setCreatingBlurbType(null);
-  };
-
-  const handleDeleteBlurb = (blurbId: string) => {
-    setTemplateBlurbs(prev => prev.filter(blurb => blurb.id !== blurbId));
-  };
-
-  const handleSelectBlurbFromLibrary = (blurb: TemplateBlurb) => {
-    if (selectedSection) {
-      selectBlurbForSection(selectedSection, blurb);
-    }
+    if (!sectionType) return templateBlurbs;
+    return templateBlurbs.filter(blurb => blurb.type === sectionType);
   };
 
   const handleSelectWorkHistoryBlurb = (blurb: WorkHistoryBlurb) => {
@@ -504,9 +463,14 @@ export default function CoverLetterTemplate() {
 
   const handleCreateReusableContent = () => {
     if (newReusableContent.title.trim() && newReusableContent.content.trim()) {
+      const allowedTypes: TemplateBlurb['type'][] = ['intro', 'paragraph', 'closer', 'signature'];
+      const sectionType = allowedTypes.includes(newReusableContent.contentType as TemplateBlurb['type'])
+        ? newReusableContent.contentType as TemplateBlurb['type']
+        : 'intro';
+
       const newBlurb: TemplateBlurb = {
         id: `${newReusableContent.contentType}-${Date.now()}`,
-        type: newReusableContent.contentType as 'intro' | 'closer' | 'signature',
+        type: sectionType,
         title: newReusableContent.title,
         content: newReusableContent.content,
         tags: newReusableContent.tags ? newReusableContent.tags.split(',').map(tag => tag.trim()) : [],
@@ -522,25 +486,433 @@ export default function CoverLetterTemplate() {
   };
 
   const removeSection = (sectionId: string) => {
-    setTemplate(prev => ({
+    updateTemplateState(prev => ({
       ...prev,
       sections: prev.sections.filter(section => section.id !== sectionId)
     }));
   };
 
-  const handleDone = () => {
+  const getConfidenceColor = (confidence: 'high' | 'medium' | 'low') => {
+    const colors = {
+      high: 'bg-confidence-high',
+      medium: 'bg-confidence-medium',
+      low: 'bg-confidence-low'
+    };
+    return colors[confidence];
+  };
+
+  const savedSectionGroups = [
+    {
+      value: 'intro',
+      label: 'Introduction',
+      description: 'Opening paragraphs that grab attention and introduce you'
+    },
+    {
+      value: 'paragraph',
+      label: 'Body Paragraph',
+      description: 'Static supporting paragraphs kept verbatim from uploads'
+    },
+    {
+      value: 'closer',
+      label: 'Closing',
+      description: 'Professional closing paragraphs that wrap up your letter'
+    }
+  ];
+
+  const matchesProfilePrefix = (fileName: string | null | undefined, profileId: string) => {
+    if (!fileName) return false;
+    const normalized = fileName.toUpperCase();
+    const pid = profileId.toUpperCase();
+    return (
+      normalized.startsWith(`${pid}_`) ||
+      normalized.startsWith(`${pid}-`) ||
+      normalized.startsWith(`${pid} `) ||
+      normalized.startsWith(`${pid}.`)
+    );
+  };
+
+  const fetchWorkHistoryLibrary = async (currentUserId: string, currentProfileId?: string): Promise<WorkHistoryCompany[]> => {
+    setIsLibraryLoading(true);
+    setLibraryError(null);
+
+    try {
+      const client = supabase as any;
+
+      const { data: sourceRows, error: sourceError } = await client
+        .from('sources')
+        .select('id, file_name')
+        .eq('user_id', currentUserId);
+
+      if (sourceError) throw sourceError;
+
+      let allowedSourceIds: string[] | undefined;
+
+      if (currentProfileId) {
+        const matchingSources = (sourceRows || []).filter((row) =>
+          matchesProfilePrefix(row.file_name, currentProfileId)
+        );
+
+        if (matchingSources.length === 0) {
+          setWorkHistoryLibrary([]);
+          return [];
+        }
+
+        allowedSourceIds = matchingSources.map((row) => row.id);
+      }
+
+      const buildWorkItemsQuery = () => {
+        let query = client
+          .from('work_items')
+          .select('id, title, description, company_id, source_id, created_at, updated_at, start_date, end_date, tags, metrics')
+          .eq('user_id', currentUserId);
+
+        if (allowedSourceIds && allowedSourceIds.length > 0) {
+          query = query.in('source_id', allowedSourceIds);
+        }
+
+        return query;
+      };
+
+      const buildStoriesQuery = () => {
+        let query = client
+          .from('approved_content')
+          .select('id, title, content, status, confidence, tags, times_used, last_used, work_item_id, source_id, created_at, updated_at')
+          .eq('user_id', currentUserId);
+
+        if (allowedSourceIds && allowedSourceIds.length > 0) {
+          query = query.in('source_id', allowedSourceIds);
+        }
+
+        return query;
+      };
+
+      const buildCompaniesQuery = () =>
+        client
+          .from('companies')
+          .select('id, name, description, created_at, updated_at')
+          .eq('user_id', currentUserId);
+
+      const [
+        { data: workItems, error: workItemsError },
+        { data: stories, error: storiesError },
+        { data: companies, error: companiesError }
+      ] = await Promise.all([
+        buildWorkItemsQuery(),
+        buildStoriesQuery(),
+        buildCompaniesQuery()
+      ]);
+
+      if (workItemsError) throw workItemsError;
+      if (storiesError) throw storiesError;
+      if (companiesError) throw companiesError;
+
+      const companyMap = new Map<string, WorkHistoryCompany>();
+      const roleMap = new Map<string, WorkHistoryRole>();
+
+      const ensureCompany = (companyId?: string | null) => {
+        const fallbackId = companyId ?? 'unknown-company';
+        if (!companyMap.has(fallbackId)) {
+          const companyRecord = (companies || []).find((company) => company.id === fallbackId);
+          companyMap.set(fallbackId, {
+            id: fallbackId,
+            name: companyRecord?.name || 'Untitled Company',
+            description: companyRecord?.description || '',
+            tags: [],
+            source: 'resume',
+            createdAt: companyRecord?.created_at || new Date().toISOString(),
+            updatedAt: companyRecord?.updated_at || companyRecord?.created_at || new Date().toISOString(),
+            roles: []
+          });
+        }
+
+        return companyMap.get(fallbackId)!;
+      };
+
+      (workItems || []).forEach((item) => {
+        const company = ensureCompany(item.company_id);
+        const metricsArray = Array.isArray(item.metrics)
+          ? item.metrics.map((metric: any) => String(metric))
+          : [];
+        const tagsArray = Array.isArray(item.tags)
+          ? item.tags.map((tag: any) => String(tag))
+          : [];
+
+        const role: WorkHistoryRole = {
+          id: item.id,
+          companyId: company.id,
+          title: item.title || 'Role',
+          type: 'full-time',
+          startDate: item.start_date || '',
+          endDate: item.end_date || undefined,
+          description: item.description || '',
+          tags: tagsArray,
+          outcomeMetrics: metricsArray,
+          blurbs: [],
+          externalLinks: [],
+          createdAt: item.created_at || new Date().toISOString(),
+          updatedAt: item.updated_at || item.created_at || new Date().toISOString()
+        };
+
+        roleMap.set(item.id, role);
+        company.roles.push(role);
+      });
+
+      (stories || []).forEach((story) => {
+        if (!story.work_item_id) return;
+        const role = roleMap.get(story.work_item_id);
+        if (!role) return;
+
+        const blurb: WorkHistoryBlurb = {
+          id: story.id,
+          roleId: story.work_item_id,
+          title: story.title || 'Untitled Story',
+          content: story.content || '',
+          outcomeMetrics: [],
+          tags: Array.isArray(story.tags)
+            ? story.tags.map((tag: any) => String(tag))
+            : [],
+          source: 'resume',
+          status: (story.status as WorkHistoryBlurb['status']) || 'draft',
+          confidence: (story.confidence as WorkHistoryBlurb['confidence']) || 'medium',
+          timesUsed: story.times_used ?? 0,
+          lastUsed: story.last_used ?? undefined,
+          linkedExternalLinks: [],
+          hasGaps: false,
+          gapCount: 0,
+          createdAt: story.created_at || new Date().toISOString(),
+          updatedAt: story.updated_at || story.created_at || new Date().toISOString()
+        };
+
+        role.blurbs.push(blurb);
+      });
+
+      const companiesWithStories = Array.from(companyMap.values())
+        .map((company) => ({
+          ...company,
+          roles: company.roles
+            .map((role) => ({
+              ...role,
+              blurbs: role.blurbs
+            }))
+            .filter((role) => role.blurbs.length > 0)
+        }))
+        .filter((company) => company.roles.length > 0);
+
+      setWorkHistoryLibrary(companiesWithStories);
+      return companiesWithStories;
+    } catch (libraryErr: any) {
+      console.error('Error loading work history library:', libraryErr);
+      setLibraryError(libraryErr?.message || 'Failed to load work history blurbs');
+      setWorkHistoryLibrary([]);
+      return [];
+    } finally {
+      setIsLibraryLoading(false);
+    }
+
+    return [];
+  };
+
+  const buildTemplateFromSections = (sections: SavedSection[]): CoverLetterTemplate => {
+    if (!sections || sections.length === 0) {
+      return createEmptyTemplate();
+    }
+
+    const sortedSections = [...sections].sort((a, b) => {
+      const aDate = a.created_at || '';
+      const bDate = b.created_at || '';
+      return aDate.localeCompare(bDate);
+    });
+
+    const templateSections: CoverLetterSection[] = sortedSections.map((section, index) => {
+      const allowedTypes: CoverLetterSection['type'][] = ['intro', 'paragraph', 'closer', 'signature'];
+      const sectionType = allowedTypes.includes(section.type as CoverLetterSection['type'])
+        ? (section.type as CoverLetterSection['type'])
+        : 'paragraph';
+
+      return {
+        id: section.id || `${sectionType}-${index}`,
+        type: sectionType,
+        contentType: 'saved',
+        isStatic: true,
+        staticContent: section.content,
+        order: index + 1
+      };
+    });
+
+    return {
+      ...createEmptyTemplate(),
+      id: 'derived-template',
+      sections: templateSections
+    };
+  };
+
+  const buildPreviewSections = () => {
+    const sections = [...(template.sections ?? [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    if (sections.length === 0) {
+      return [{
+        content: 'Your template does not have any sections yet. Add introductions, body paragraphs, and a closing to preview the final letter.'
+      }];
+    }
+
+    return sections.map((section, index) => {
+      const typeLabel = getSectionTypeLabel(section.type);
+      let content = '';
+
+      if (section.isStatic && section.staticContent?.trim()) {
+        content = section.staticContent.trim();
+      } else {
+        const goals = section.blurbCriteria?.goals;
+        const goalsText = goals && goals.length > 0 ? ` focused on ${goals.join(', ')}` : '';
+
+        if (section.contentType === 'work-history') {
+          content = `[Dynamic ${typeLabel} story will be selected from your work history${goalsText}.]`;
+        } else if (section.contentType === 'saved') {
+          content = `[Dynamic ${typeLabel} from your saved sections will be inserted${goalsText}.]`;
+        } else {
+          content = `[Dynamic ${typeLabel} content will be generated when drafting the cover letter.]`;
+        }
+      }
+
+      if (!content.trim()) {
+        content = `[${typeLabel} content not provided yet.]`;
+      }
+
+      return { content };
+    });
+  };
+
+  const handlePreviewTemplate = () => {
+    const sections = buildPreviewSections();
+    const preview = {
+      id: 'template-preview',
+      title: template.name || 'Template Preview',
+      content: { sections },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    setPreviewCoverLetter(preview);
+    setShowPreviewModal(true);
+  };
+
+const reorderSections = (fromIndex: number, toIndex: number) => {
+  updateTemplateState((prev) => {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= prev.sections.length) {
+      return prev;
+    }
+
+    const sections = [...prev.sections];
+    const [moved] = sections.splice(fromIndex, 1);
+    let insertIndex = toIndex;
+
+    if (fromIndex < toIndex) {
+      insertIndex = insertIndex - 1;
+    }
+
+    if (insertIndex < 0) insertIndex = 0;
+    if (insertIndex > sections.length) insertIndex = sections.length;
+
+    sections.splice(insertIndex, 0, moved);
+
+    const updatedSections = sections.map((section, idx) => ({
+      ...section,
+      order: idx + 1
+    }));
+
+    return {
+      ...prev,
+      sections: updatedSections
+    };
+  });
+};
+
+const handleDragStart = (event: React.DragEvent<HTMLDivElement>, index: number, sectionId: string) => {
+  dragIndexRef.current = index;
+  setDragOverIndex(index);
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('text/plain', sectionId);
+};
+
+const handleDragOver = (event: React.DragEvent<HTMLDivElement>, index: number) => {
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  if (dragOverIndex !== index) {
+    setDragOverIndex(index);
+  }
+};
+
+const handleDrop = (event: React.DragEvent<HTMLDivElement>, index: number) => {
+  event.preventDefault();
+  const fromIndex = dragIndexRef.current;
+  if (fromIndex === null) return;
+  reorderSections(fromIndex, index);
+  dragIndexRef.current = null;
+  setDragOverIndex(null);
+};
+
+const handleDropAtEnd = (event: React.DragEvent<HTMLDivElement>) => {
+  event.preventDefault();
+  const fromIndex = dragIndexRef.current;
+  if (fromIndex === null) return;
+  reorderSections(fromIndex, template.sections.length);
+  dragIndexRef.current = null;
+  setDragOverIndex(null);
+};
+
+const handleDragEnd = () => {
+  dragIndexRef.current = null;
+  setDragOverIndex(null);
+};
+
+const persistTemplate = async () => {
+  if (!template.id || template.id === 'draft-template') {
+    setIsDirty(false);
     navigate('/cover-letters');
+    return;
+  }
+
+  if (!isDirty) {
+    navigate('/cover-letters');
+    return;
+  }
+
+  setIsSaving(true);
+  try {
+    await CoverLetterTemplateService.updateTemplate(template.id, {
+      name: template.name,
+      sections: template.sections
+    });
+    setIsDirty(false);
+    toast({
+      title: 'Template saved',
+      description: 'Your cover letter template is up to date.'
+    });
+    navigate('/cover-letters');
+  } catch (err) {
+    console.error('Error saving template:', err);
+    toast({
+      title: 'Unable to save template',
+      description: err instanceof Error ? err.message : 'Please try again.',
+      variant: 'destructive'
+    });
+  } finally {
+    setIsSaving(false);
+  }
   };
 
   return (
     <div className="min-h-screen bg-background">
       <TemplateBanner
-        onDone={handleDone}
+        onDone={persistTemplate}
+        doneLabel={isDirty ? 'Save' : 'Done'}
+        isDoneDisabled={isSaving}
+        isDoneLoading={isSaving}
         previewButton={
           <Button
-            variant="outline"
+            variant="secondary"
             size="sm"
-            onClick={() => setShowPreviewModal(true)}
+            onClick={handlePreviewTemplate}
             className="flex items-center gap-2 hover:text-[#E32D9A] hover:border-[#E32D9A]"
           >
             <Eye className="h-4 w-4" />
@@ -561,17 +933,31 @@ export default function CoverLetterTemplate() {
                   Create and manage your cover letter templates
                 </p>
               </div>
+
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={() => setShowUploadModal(true)}
                 className="flex items-center gap-2"
+                disabled={isLoading}
               >
                 <Plus className="h-4 w-4" />
                 Add New Template
               </Button>
             </div>
-            
+
+            {error && (
+              <div className="mb-4 p-4 bg-destructive/10 border border-destructive rounded-lg text-destructive">
+                {error}
+              </div>
+            )}
+
+            {isLoading && (
+              <div className="mb-6">
+                <LoadingState isLoading loadingText="Loading template..." />
+              </div>
+            )}
+
             {/* Content Area */}
             <div>
               <div className="template-content-spacing mt-2">
@@ -590,23 +976,20 @@ export default function CoverLetterTemplate() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem onClick={() => {
-                                // TODO: Implement duplicate template
-                                console.log('Duplicate template');
+                                console.info('Duplicate template action coming soon');
                               }}>
                                 <Copy className="mr-2 h-4 w-4" />
                                 Duplicate Template
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => {
-                                // TODO: Implement export template
-                                console.log('Export template');
+                                console.info('Export template action coming soon');
                               }}>
                                 <FileText className="mr-2 h-4 w-4" />
                                 Export Template
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem onClick={() => {
-                                // TODO: Implement template history
-                                console.log('View template history');
+                                console.info('Template history action coming soon');
                               }}>
                                 <Clock className="mr-2 h-4 w-4" />
                                 Template History
@@ -623,7 +1006,10 @@ export default function CoverLetterTemplate() {
                           <Input
                             id="template-name"
                             value={template.name}
-                            onChange={(e) => setTemplate(prev => ({ ...prev, name: e.target.value }))}
+                            onChange={(e) => {
+                              const { value } = e.target;
+                              updateTemplateState(prev => (prev.name === value ? prev : { ...prev, name: value }));
+                            }}
                             placeholder="Enter template name..."
                           />
                         </div>
@@ -642,8 +1028,15 @@ export default function CoverLetterTemplate() {
                   {/* Sections */}
                   <div>
                     {template.sections.map((section, index) => (
-                      <div key={section.id}>
-                        <Card className="relative">
+                      <div
+                        key={section.id}
+                        draggable
+                        onDragStart={(event) => handleDragStart(event, index, section.id)}
+                        onDragOver={(event) => handleDragOver(event, index)}
+                        onDrop={(event) => handleDrop(event, index)}
+                        onDragEnd={handleDragEnd}
+                      >
+                        <Card className={`relative ${dragOverIndex === index ? 'ring-2 ring-primary/40' : ''}`}>
                           <CardHeader>
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
@@ -723,7 +1116,6 @@ export default function CoverLetterTemplate() {
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => {
                                       // TODO: Implement duplicate section
-                                      console.log('Duplicate section:', section.id);
                                     }}>
                                       <Copy className="mr-2 h-4 w-4" />
                                       Duplicate Section
@@ -732,7 +1124,7 @@ export default function CoverLetterTemplate() {
                                       <>
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem onClick={() => {
-                                          setTemplate(prev => ({
+                                          updateTemplateState(prev => ({
                                             ...prev,
                                             sections: prev.sections.filter(s => s.id !== section.id)
                                           }));
@@ -755,7 +1147,7 @@ export default function CoverLetterTemplate() {
                                   <Badge variant="secondary" className="mb-2">
                                     {getBlurbTitleByContent(section.staticContent || '', section.type)}
                                   </Badge>
-                                  <div className="text-sm text-muted-foreground">
+                                  <div className="text-sm text-muted-foreground whitespace-pre-line">
                                     {section.staticContent}
                                   </div>
                                 </div>
@@ -777,6 +1169,23 @@ export default function CoverLetterTemplate() {
                         )}
                       </div>
                     ))}
+
+                    {template.sections.length > 0 && (
+                      <div
+                        className={`mt-4 h-10 rounded-lg border-2 border-dashed transition-colors ${dragOverIndex === template.sections.length ? 'border-primary/60 bg-primary/5' : 'border-muted'}`}
+                        onDragOver={(event) => {
+                          event.preventDefault();
+                          setDragOverIndex(template.sections.length);
+                        }}
+                        onDrop={handleDropAtEnd}
+                        onDragLeave={(event) => {
+                          event.preventDefault();
+                          if (dragOverIndex === template.sections.length) {
+                            setDragOverIndex(null);
+                          }
+                        }}
+                      />
+                    )}
                   </div>
                   
                   {/* Bottom Add Section Button - Only show if no sections exist */}
@@ -841,16 +1250,26 @@ export default function CoverLetterTemplate() {
                 {/* Add New Button */}
                 <Card className="border-dashed">
                   <CardContent className="p-4 text-center">
-                    <Button 
-                      variant="secondary"
-                      onClick={() => {
-                        const sectionType = template.sections.find(s => s.id === selectedSection)?.type as 'intro' | 'closer' | 'signature';
-                        setShowBlurbSelector(false);
-                        setSelectedSection(null);
-                        handleCreateBlurb(sectionType);
-                      }}
-                      className="flex items-center gap-2"
-                    >
+                      <Button 
+                        variant="secondary"
+                        onClick={() => {
+                          const allowedTypesForCreation: TemplateBlurb['type'][] = ['intro', 'paragraph', 'closer', 'signature'];
+                          const rawType = template.sections.find(s => s.id === selectedSection)?.type;
+                          const sectionType = allowedTypesForCreation.includes(rawType as TemplateBlurb['type'])
+                            ? rawType as TemplateBlurb['type']
+                            : 'intro';
+                          setShowBlurbSelector(false);
+                          setSelectedSection(null);
+                          setNewReusableContent({
+                            title: '',
+                            content: '',
+                            tags: '',
+                            contentType: sectionType
+                          });
+                          setShowAddReusableContentModal(true);
+                        }}
+                        className="flex items-center gap-2"
+                      >
                       <Plus className="h-4 w-4" />
                       Create New {getSectionTypeLabel(template.sections.find(s => s.id === selectedSection)?.type || '')} Story
                     </Button>
@@ -882,6 +1301,9 @@ export default function CoverLetterTemplate() {
       {/* Work History Blurb Selector */}
       {showWorkHistorySelector && selectedSection && (
         <WorkHistoryBlurbSelector
+          companies={workHistoryLibrary}
+          isLoading={isLibraryLoading}
+          error={libraryError}
           onSelectBlurb={handleSelectWorkHistoryBlurb}
           onCancel={() => {
             setShowWorkHistorySelector(false);
@@ -925,7 +1347,6 @@ export default function CoverLetterTemplate() {
                   className="flex-1"
                   onClick={() => {
                     // TODO: Add navigation to pricing page
-                    console.log('Navigate to paid plans');
                     setShowUploadModal(false);
                   }}
                 >
@@ -1204,38 +1625,72 @@ export default function CoverLetterTemplate() {
                     </div>
                     
                     {selectedContentType === 'story' && (
-                      /* Story Selection - Single Panel at a time */
                       <div>
-                        {/* Company Selection */}
+                        {isLibraryLoading ? (
+                          <div className="p-4 border border-dashed rounded-lg text-sm text-muted-foreground text-center">
+                            Loading stories...
+                          </div>
+                        ) : libraryError ? (
+                          <div className="p-4 border border-destructive/30 bg-destructive/5 rounded-lg text-sm text-destructive">
+                            {libraryError}
+                          </div>
+                        ) : workHistoryLibrary.length === 0 ? (
+                          <div className="p-4 border border-dashed rounded-lg text-sm text-muted-foreground text-center">
+                            No approved stories available yet. Upload a resume or add work history blurbs to populate this list.
+                          </div>
+                        ) : (
+                          <div className="space-y-4">
                         {!selectedCompany && (
                           <div className="space-y-2">
-                            {mockWorkHistory.map((company) => (
+                                {workHistoryLibrary.map((company) => {
+                                  const roleCount = company.roles.filter((role) => role.blurbs.length > 0).length;
+                                  return (
                               <div
                                 key={company.id}
                                 className="p-3 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
-                                onClick={() => setSelectedCompany(company.id)}
+                                      onClick={() => {
+                                        if (roleCount === 0) return;
+                                        setSelectedCompany(company.id);
+                                        setSelectedRole('');
+                                      }}
                               >
                                 <div className="flex items-center justify-between">
                                   <div>
                                     <h4 className="font-medium">{company.name}</h4>
+                                          {company.description && (
                                     <p className="text-sm text-muted-foreground">{company.description}</p>
+                                          )}
                                   </div>
                                   <div className="flex items-center gap-2">
-                                    <Badge variant="secondary">{company.roles.length} role{company.roles.length !== 1 ? 's' : ''}</Badge>
+                                          <Badge variant="secondary">{roleCount} role{roleCount === 1 ? '' : 's'}</Badge>
                                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                                   </div>
                                 </div>
                               </div>
-                            ))}
+                                  );
+                                })}
                           </div>
                         )}
 
-                        {/* Role Selection */}
                         {selectedCompany && !selectedRole && (
                           <div className="space-y-2">
-                            {mockWorkHistory
-                              .find(c => c.id === selectedCompany)
-                              ?.roles.map((role) => (
+                                <div className="flex items-center justify-between">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedCompany('');
+                                      setSelectedRole('');
+                                    }}
+                                    className="h-8 px-2"
+                                  >
+                                    ← Back
+                                  </Button>
+                                </div>
+                                {workHistoryLibrary
+                                  .find((company) => company.id === selectedCompany)
+                                  ?.roles.filter((role) => role.blurbs.length > 0)
+                                  .map((role) => (
                                 <div
                                   key={role.id}
                                   className="p-3 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
@@ -1244,10 +1699,12 @@ export default function CoverLetterTemplate() {
                                   <div className="flex items-center justify-between">
                                     <div>
                                       <h4 className="font-medium">{role.title}</h4>
+                                          {role.description && (
                                       <p className="text-sm text-muted-foreground">{role.description}</p>
+                                          )}
                                     </div>
                                     <div className="flex items-center gap-2">
-                                      <Badge variant="secondary">{role.blurbs.length === 0 ? '0 stories' : `${role.blurbs.length} story${role.blurbs.length === 1 ? '' : 's'}`}</Badge>
+                                          <Badge variant="secondary">{role.blurbs.length} story{role.blurbs.length === 1 ? '' : 's'}</Badge>
                                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
                                     </div>
                                   </div>
@@ -1256,12 +1713,21 @@ export default function CoverLetterTemplate() {
                           </div>
                         )}
 
-                        {/* Story Selection */}
                         {selectedRole && (
                           <div className="space-y-3">
-                            {mockWorkHistory
-                              .find(c => c.id === selectedCompany)
-                              ?.roles.find(r => r.id === selectedRole)
+                                <div className="flex items-center justify-between">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setSelectedRole('')}
+                                    className="h-8 px-2"
+                                  >
+                                    ← Back
+                                  </Button>
+                                </div>
+                                {workHistoryLibrary
+                                  .find((company) => company.id === selectedCompany)
+                                  ?.roles.find((role) => role.id === selectedRole)
                               ?.blurbs.map((blurb) => (
                                 <div
                                   key={blurb.id}
@@ -1270,53 +1736,77 @@ export default function CoverLetterTemplate() {
                                 >
                                   <div className="space-y-3">
                                     <h4 className="font-medium">{blurb.title}</h4>
-                                    <p className="text-sm text-muted-foreground">{blurb.content}</p>
+                                        <p className="text-sm text-muted-foreground whitespace-pre-line">
+                                          {blurb.content || 'No story content captured yet.'}
+                                        </p>
                                   </div>
                                 </div>
                               ))}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
                     )}
 
                     {selectedContentType === 'saved' && (
-                      /* Saved Sections Selection - Single Panel at a time */
                       <div>
-                        {/* Content Type Selection */}
-                        {!selectedReusableType && (
+                        {!selectedReusableType ? (
                           <div className="space-y-2">
-                            {['Intro', 'Closing', 'Signature'].map((contentType) => (
+                            {savedSectionGroups.map((group) => {
+                              const count = templateBlurbs.filter(blurb => blurb.type === group.value).length;
+                              return (
                               <div
-                                key={contentType}
+                                  key={group.value}
                                 className="p-3 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
-                                onClick={() => setSelectedReusableType(contentType)}
+                                  onClick={() => {
+                                    if (count === 0) return;
+                                    setSelectedReusableType(group.value);
+                                  }}
                               >
                                 <div className="flex items-center justify-between">
                                   <div>
-                                    <h4 className="font-medium">{contentType}</h4>
-                                    <p className="text-sm text-muted-foreground">
-                                      {contentType === 'Intro' && 'Opening paragraphs and introductions'}
-                                      {contentType === 'Closing' && 'Closing statements and calls to action'}
-                                      {contentType === 'Signature' && 'Professional sign-offs and contact information'}
-                                    </p>
+                                      <h4 className="font-medium">{group.label}</h4>
+                                      <p className="text-sm text-muted-foreground">{group.description}</p>
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <Badge variant="secondary">
-                                      {mockTemplateBlurbs.filter(b => b.type === contentType.toLowerCase()).length} items
+                                        {count} item{count === 1 ? '' : 's'}
                                     </Badge>
                                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                                   </div>
                                 </div>
                               </div>
-                            ))}
+                              );
+                            })}
+                            {templateBlurbs.length === 0 && (
+                              <div className="p-3 border border-dashed rounded-lg text-sm text-muted-foreground text-center">
+                                Upload a cover letter or create a saved section to populate this library.
                           </div>
                         )}
-
-                        {/* Content Selection */}
-                        {selectedReusableType && (
+                          </div>
+                        ) : (
                           <div className="space-y-3">
-                            {mockTemplateBlurbs
-                              .filter(b => b.type === selectedReusableType.toLowerCase())
+                            <div className="flex items-center justify-between">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setSelectedReusableType('')}
+                                className="h-8 px-2"
+                              >
+                                ← Back
+                              </Button>
+                              <span className="text-sm text-muted-foreground">
+                                {savedSectionGroups.find(group => group.value === selectedReusableType)?.label}
+                              </span>
+                            </div>
+                            {templateBlurbs.filter(blurb => blurb.type === selectedReusableType).length === 0 ? (
+                              <div className="p-4 border border-dashed rounded-lg text-sm text-muted-foreground text-center">
+                                No saved sections of this type yet.
+                              </div>
+                            ) : (
+                              templateBlurbs
+                                .filter(blurb => blurb.type === selectedReusableType)
                               .map((blurb) => (
                                 <div
                                   key={blurb.id}
@@ -1325,10 +1815,11 @@ export default function CoverLetterTemplate() {
                                 >
                                   <div className="space-y-3">
                                     <h4 className="font-medium">{blurb.title}</h4>
-                                    <p className="text-sm text-muted-foreground">{blurb.content}</p>
+                                      <p className="text-sm text-muted-foreground whitespace-pre-line">{blurb.content}</p>
                                   </div>
                                 </div>
-                              ))}
+                                ))
+                            )}
                           </div>
                         )}
                       </div>
@@ -1360,30 +1851,7 @@ export default function CoverLetterTemplate() {
       <CoverLetterViewModal
         isOpen={showPreviewModal}
         onClose={() => setShowPreviewModal(false)}
-        coverLetter={{
-          id: "preview-template",
-          title: "Template Preview",
-          content: {
-            sections: [
-              {
-                content: `Dear Hiring Manager,
-
-I am writing to express my strong interest in the [Position] role at [Company]. With my background in [Industry/Field], I am excited about the opportunity to contribute to your team's success.
-
-[Your personalized content will appear here based on your template settings and selected work history stories.]
-
-I am particularly excited about this opportunity because your focus on [Company Value/Goal] aligns perfectly with my passion for [Relevant Area]. I am confident that my experience in [Key Skill/Area] and my track record of [Achievement/Result] would make me a valuable addition to your team.
-
-Thank you for considering my application. I look forward to the opportunity to discuss how I can contribute to [Company]'s continued success.
-
-Sincerely,
-[Your Name]`
-              }
-            ]
-          },
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }}
+        coverLetter={previewCoverLetter}
       />
       </div>
     </div>

@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { 
   Upload, 
@@ -16,11 +15,9 @@ import {
   Users,
   Lightbulb,
   BookOpen,
-  RefreshCw,
 } from "lucide-react";
 import { ImportSummaryStep } from "@/components/onboarding/ImportSummaryStep";
 import { FileUploadCard } from "@/components/onboarding/FileUploadCard";
-import { ProgressIndicator } from "@/components/onboarding/ProgressIndicator";
 import { useTour } from "@/contexts/TourContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -88,41 +85,23 @@ export default function NewUserOnboarding() {
   const linkedinId = linkedinIdentity?.identity_data?.id;
   const linkedinUrl = linkedinId ? `https://linkedin.com/in/${linkedinId}` : onboardingData.linkedinUrl;
 
-  // Debug logging for LinkedIn OAuth data (development only)
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🔍 LinkedIn OAuth Debug:', {
-      isLinkedInUser,
-      linkedinId,
-      linkedinUrl,
-      provider: user?.app_metadata?.provider
-    });
-  }
-
   const handleNextStep = () => {
-    console.log('handleNextStep called, current step:', currentStep);
-    
     switch (currentStep) {
       case 'welcome':
-        console.log('Moving from welcome to upload');
         setCurrentStep('upload');
         break;
       case 'upload':
-        console.log('Moving from upload to review');
         setCurrentStep('review');
         break;
       case 'review':
-        console.log('Moving from review to start tour');
         try {
-          // Start tour and navigate to Work History immediately
-          console.log('Calling startTour()...');
           startTour();
-          console.log('startTour() called successfully');
         } catch (error) {
           console.error('Error starting tour:', error);
         }
         break;
       default:
-        console.log('Unknown step in handleNextStep:', currentStep);
+        setCurrentStep('welcome');
     }
   };
 
@@ -147,7 +126,6 @@ export default function NewUserOnboarding() {
   };
 
   const handleUploadComplete = async (fileId: string, uploadType: string) => {
-    console.log('Background processing completed:', { fileId, uploadType });
     // Store the file ID for later reference
     setOnboardingData(prev => ({ 
       ...prev, 
@@ -157,16 +135,13 @@ export default function NewUserOnboarding() {
     // Mark steps as completed
     if (uploadType === 'resume') {
       setResumeCompleted(true);
-      console.log('✅ Resume step completed');
       
       // Check if resume contains LinkedIn URL and auto-populate
       await checkAndAutoPopulateLinkedIn(fileId);
     } else if (uploadType === 'linkedin') {
       setLinkedinCompleted(true);
-      console.log('✅ LinkedIn step completed');
     } else if (uploadType === 'coverLetter') {
       setCoverLetterCompleted(true);
-      console.log('✅ Cover letter step completed');
     }
   };
 
@@ -181,10 +156,46 @@ export default function NewUserOnboarding() {
   };
 
   const handleCoverLetterText = (text: string) => {
-    console.log('handleCoverLetterText called with:', text);
     setOnboardingData(prev => ({ ...prev, coverLetter: text }));
-    console.log('Updated onboardingData.coverLetter to:', text);
   };
+
+  useEffect(() => {
+    const handleFileUploadProgress = (event: Event) => {
+      const detail = (event as CustomEvent).detail as { stage?: string } | undefined;
+      const stage = detail?.stage;
+      if (!stage) return;
+
+      if (['uploading', 'extracting', 'analyzing', 'structuring'].includes(stage)) {
+        setIsProcessing(true);
+      }
+
+      if (stage === 'complete' || stage === 'duplicate') {
+        setIsProcessing(false);
+      }
+    };
+
+    const handleUploadProgress = (event: Event) => {
+      const detail = (event as CustomEvent).detail as { step?: string } | undefined;
+      const step = detail?.step;
+      if (!step) return;
+
+      if (step === 'saving') {
+        setIsProcessing(true);
+      }
+
+      if (step === 'complete') {
+        setIsProcessing(false);
+      }
+    };
+
+    window.addEventListener('file-upload-progress', handleFileUploadProgress as EventListener);
+    window.addEventListener('upload:progress', handleUploadProgress as EventListener);
+
+    return () => {
+      window.removeEventListener('file-upload-progress', handleFileUploadProgress as EventListener);
+      window.removeEventListener('upload:progress', handleUploadProgress as EventListener);
+    };
+  }, []);
 
   /**
    * Check if resume contains LinkedIn URL and auto-populate Step 2
@@ -192,12 +203,7 @@ export default function NewUserOnboarding() {
   const checkAndAutoPopulateLinkedIn = async (resumeFileId: string) => {
     if (!user) return;
 
-    const startTime = performance.now();
     try {
-      console.log('🔍 Checking resume for LinkedIn URL...');
-      console.log('Resume file ID:', resumeFileId);
-      
-      // Fetch the uploaded resume's structured data from 'sources' table
       const { data: fileData, error } = await supabase
         .from('sources')
         .select('structured_data')
@@ -205,69 +211,40 @@ export default function NewUserOnboarding() {
         .eq('user_id', user.id)
         .single();
 
-      console.log('Query result:', { hasData: !!fileData, error: error?.message });
-
       if (error || !fileData) {
-        console.log('❌ No resume data found for LinkedIn auto-population');
-        console.log('Error:', error);
         return;
       }
 
-      // Check for LinkedIn URL in contactInfo
       const structuredData = (fileData as any).structured_data;
-      console.log('Structured data:', structuredData);
-      
-      let linkedinUrl = structuredData?.contactInfo?.linkedin;
-      console.log('Raw LinkedIn URL from resume:', linkedinUrl);
+      const linkedinUrl = structuredData?.contactInfo?.linkedin;
 
       if (!linkedinUrl) {
-        console.log('❌ No LinkedIn URL found in contactInfo');
         return;
       }
 
-      // Normalize the URL (handles URLs without protocol like "www.linkedin.com/in/...")
       const normalizedUrl = normalizeLinkedInUrl(linkedinUrl);
-      console.log('Normalized LinkedIn URL:', normalizedUrl);
-
-      if (normalizedUrl && isValidLinkedInUrl(normalizedUrl)) {
-        console.log('✨ Valid LinkedIn URL found in resume:', normalizedUrl);
-        
-        // Set the normalized LinkedIn URL in state
-        setOnboardingData(prev => ({ ...prev, linkedinUrl: normalizedUrl }));
-        
-        // Show processing state
-        setAutoPopulatingLinkedIn(true);
-        
-        // Auto-trigger LinkedIn enrichment
-        const linkedInStartTime = performance.now();
-        console.log('🚀 Auto-triggering LinkedIn enrichment...');
-        const result = await linkedInUpload.connectLinkedIn(normalizedUrl);
-        const linkedInEndTime = performance.now();
-        console.warn(`⏱️ LinkedIn PDL API call took: ${(linkedInEndTime - linkedInStartTime).toFixed(2)}ms`);
-        
-        if (result.success) {
-          console.log('✅ LinkedIn auto-populated and enriched successfully!');
-          setLinkedinAutoCompleted(true);
-          // Mark as completed
-          await handleUploadComplete(result.fileId || `linkedin_${Date.now()}`, 'linkedin');
-        } else {
-          console.warn('❌ LinkedIn auto-population failed:', result.error);
-          // Still set the URL so user can see it and retry manually if needed
-          console.log('💡 LinkedIn URL is available for manual enrichment');
-        }
-        
-        setAutoPopulatingLinkedIn(false);
-      } else {
-        console.log('❌ Invalid LinkedIn URL after normalization:', linkedinUrl);
+      if (!normalizedUrl || !isValidLinkedInUrl(normalizedUrl)) {
+        return;
       }
-      
-      const totalTime = performance.now() - startTime;
-      console.warn(`⏱️ Total LinkedIn auto-population took: ${totalTime.toFixed(2)}ms`);
+
+      setOnboardingData(prev => ({ ...prev, linkedinUrl: normalizedUrl }));
+      setAutoPopulatingLinkedIn(true);
+
+      try {
+        if (linkedInUpload?.connectLinkedIn) {
+          const result = await linkedInUpload.connectLinkedIn(normalizedUrl);
+          if (result?.success) {
+            setLinkedinAutoCompleted(true);
+            await handleUploadComplete(result.fileId || `linkedin_${Date.now()}`, 'linkedin');
+          }
+        }
+        setLinkedinCompleted(true);
+      } finally {
+        setAutoPopulatingLinkedIn(false);
+      }
     } catch (error) {
-      console.error('💥 Error during LinkedIn auto-population:', error);
+      console.error('Error during LinkedIn auto-population:', error);
       setAutoPopulatingLinkedIn(false);
-      const totalTime = performance.now() - startTime;
-      console.log(`⏱️ LinkedIn auto-population failed after: ${totalTime.toFixed(2)}ms`);
     }
   };
 
@@ -518,9 +495,6 @@ export default function NewUserOnboarding() {
           </div>
         </div>
         
-        {/* Progressive Loading Indicator */}
-        <ProgressIndicator />
-        
       </div>
 
       <div className="text-center">
@@ -628,12 +602,7 @@ export default function NewUserOnboarding() {
           </div>
         </Card>
 
-        <ImportSummaryStep 
-          onNext={() => {
-            console.log('Starting product tour');
-            handleNextStep();
-          }}
-        />
+        <ImportSummaryStep onNext={handleNextStep} />
       </div>
     );
   };
@@ -702,10 +671,7 @@ export default function NewUserOnboarding() {
         </p>
         <Button 
           size="lg" 
-          onClick={() => {
-            console.log('Starting product tour');
-            startTour();
-          }}
+          onClick={startTour}
           className="px-8 py-3 text-lg"
         >
           Start Product Tour
@@ -716,23 +682,15 @@ export default function NewUserOnboarding() {
   );
 
   const renderCurrentStep = () => {
-    console.log('renderCurrentStep called with step:', currentStep);
-    console.log('Onboarding data:', onboardingData);
-    
     try {
       switch (currentStep) {
         case 'welcome':
-          console.log('Rendering welcome step');
           return renderWelcomeStep();
         case 'upload':
-          console.log('Rendering upload step');
           return renderUploadStep();
         case 'review':
-          console.log('Rendering review step');
           return renderReviewStep();
-
         default:
-          console.log('Unknown step, defaulting to welcome');
           return renderWelcomeStep();
       }
     } catch (error: any) {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,7 +37,7 @@ import { LinkedInDataSource } from "./LinkedInDataSource";
 import { ResumeDataSource } from "./ResumeDataSource";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserGoals } from "@/contexts/UserGoalsContext";
-import { GapDetectionService } from "@/services/gapDetectionService";
+import { GapDetectionService, type Gap } from "@/services/gapDetectionService";
 import { TagSuggestionService } from "@/services/tagSuggestionService";
 import { TagService } from "@/services/tagService";
 import {
@@ -48,6 +48,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { WorkHistoryCompany, WorkHistoryRole, WorkHistoryBlurb } from "@/types/workHistory";
+import { useContentGeneration } from "@/hooks/useContentGeneration";
+import { supabase } from "@/lib/supabase";
+import { useToast } from "@/hooks/use-toast";
 
 interface WorkHistoryDetailProps {
   selectedCompany: WorkHistoryCompany | null;
@@ -95,120 +98,203 @@ export const WorkHistoryDetail = ({
   const [detailView, setDetailView] = useState<DetailView>(initialTab);
   const [isEditingRole, setIsEditingRole] = useState(false);
   const [editingRole, setEditingRole] = useState<WorkHistoryRole | null>(null);
-  const [roleTagInput, setRoleTagInput] = useState('');
   const [isEditingStory, setIsEditingStory] = useState(false);
   const [editingStory, setEditingStory] = useState<WorkHistoryBlurb | null>(null);
-  const [storyTagInput, setStoryTagInput] = useState('');
   
-  // Content Generation Modal state
-  const [isContentModalOpen, setIsContentModalOpen] = useState(false);
-  const [selectedGap, setSelectedGap] = useState<any>(null);
-  
-  // Tag suggestion state
-  const [isTagModalOpen, setIsTagModalOpen] = useState(false);
-  const [tagContent, setTagContent] = useState('');
-  const [suggestedTags, setSuggestedTags] = useState<any[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
-  const [tagContentType, setTagContentType] = useState<'company' | 'role' | 'saved_section'>('company');
-  const [tagEntityId, setTagEntityId] = useState<string | undefined>();
-  
-  // Success state management - tracks which success cards have been dismissed
+  const { toast } = useToast();
   const [dismissedSuccessCards, setDismissedSuccessCards] = useState<Set<string>>(new Set());
-  
+  const [gapsByEntity, setGapsByEntity] = useState<Record<string, Gap[]>>({});
+  const [gapsRefreshKey, setGapsRefreshKey] = useState(0);
+  const [activeGapContext, setActiveGapContext] = useState<{
+    gap: Gap;
+    entityType: 'work_item' | 'approved_content' | 'saved_section';
+    entityId: string;
+  } | null>(null);
+
+  const {
+    isModalOpen: isContentGenerationModalOpen,
+    modalProps: contentGenerationModalProps,
+    isLoadingContext: isContentGenerationLoading,
+    openModal: openContentGenerationModal,
+    closeModal: closeContentGenerationModal,
+  } = useContentGeneration({
+    onContentApplied: () => {
+      if (activeGapContext) {
+        const gapId = activeGapContext.gap.id ?? activeGapContext.entityId;
+        const gapKey = activeGapContext.entityType === 'approved_content'
+          ? `story-content-gap-${activeGapContext.entityId}`
+          : gapId;
+        const generatedKey = activeGapContext.entityType === 'approved_content'
+          ? `story-content-generated-${activeGapContext.entityId}`
+          : `${gapId}-generated`;
+        const nextResolved = new Set(resolvedGaps);
+        nextResolved.add(gapKey);
+        nextResolved.add(generatedKey);
+        onResolvedGapsChange(nextResolved);
+        setTimeout(() => {
+          setDismissedSuccessCards(prev => new Set(prev).add(generatedKey));
+        }, 3000);
+      }
+      setActiveGapContext(null);
+      setGapsRefreshKey(prev => prev + 1);
+      onRefresh?.();
+    },
+  });
+
+  useEffect(() => {
+    const fetchGaps = async () => {
+      if (!user || !selectedRole) {
+        setGapsByEntity({});
+        return;
+      }
+
+      const entityIds = [selectedRole.id, ...(selectedRole.blurbs || []).map((story) => story.id)];
+      if (entityIds.length === 0) {
+        setGapsByEntity({});
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('gaps')
+        .select('*')
+        .eq('user_id', user.id)
+        .in('entity_id', entityIds)
+        .eq('resolved', false)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Error loading gaps', error);
+        toast({
+          title: 'Unable to load gaps',
+          description: error.message || 'Please try again.',
+          variant: 'destructive',
+        });
+        setGapsByEntity({});
+        return;
+      }
+
+      const grouped: Record<string, Gap[]> = {};
+      (data || []).forEach((gap: Gap) => {
+        const entityId = gap.entity_id;
+        if (!grouped[entityId]) {
+          grouped[entityId] = [];
+        }
+        grouped[entityId].push(gap);
+      });
+      setGapsByEntity(grouped);
+    };
+
+    fetchGaps();
+  }, [user?.id, selectedRole?.id, selectedRole?.blurbs?.length, gapsRefreshKey, selectedRole, toast]);
+
+  const getGapsForEntity = useCallback(
+    (entityId: string) => gapsByEntity[entityId] || [],
+    [gapsByEntity],
+  );
+
+  const pickTopGap = useCallback((gaps: Gap[], predicate?: (gap: Gap) => boolean) => {
+    const filtered = predicate ? gaps.filter(predicate) : gaps.slice();
+    if (filtered.length === 0) return null;
+    const severityOrder: Record<Gap['severity'], number> = {
+      high: 0,
+      medium: 1,
+      low: 2,
+    };
+    filtered.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
+    return filtered[0];
+  }, []);
+
+  const openGapModal = useCallback(
+    (
+      gap: Gap,
+      entityType: 'work_item' | 'approved_content' | 'saved_section',
+      entityId: string,
+      existingContent: string,
+    ) => {
+      setActiveGapContext({ gap, entityType, entityId });
+      openContentGenerationModal(gap, entityType, entityId, existingContent);
+    },
+    [openContentGenerationModal],
+  );
+
+  const handleRoleDescriptionGenerate = useCallback(() => {
+    if (!selectedRole) return;
+    const roleGaps = getGapsForEntity(selectedRole.id);
+    const gap = pickTopGap(
+      roleGaps,
+      (gap) =>
+        (gap.gap_category || '').includes('role_description') ||
+        gap.gap_category === 'missing_role_description' ||
+        gap.gap_category === 'generic_role_description',
+    );
+    if (!gap) {
+      toast({
+        title: 'No role description gaps',
+        description: 'This role description is already up to date.',
+      });
+      return;
+    }
+    openGapModal(gap, 'work_item', selectedRole.id, selectedRole.description || '');
+  }, [getGapsForEntity, pickTopGap, selectedRole, toast, openGapModal]);
+
+  const handleRoleMetricsGenerate = useCallback(() => {
+    if (!selectedRole) return;
+    const roleGaps = getGapsForEntity(selectedRole.id);
+    const gap = pickTopGap(
+      roleGaps,
+      (gap) =>
+        gap.gap_category === 'missing_role_metrics' ||
+        gap.gap_category === 'insufficient_role_metrics',
+    );
+    if (!gap) {
+      toast({
+        title: 'No role metrics gaps',
+        description: 'All role metrics have already been addressed.',
+      });
+      return;
+    }
+    const existingContent = (selectedRole.outcomeMetrics || []).join('\n');
+    openGapModal(gap, 'work_item', selectedRole.id, existingContent);
+  }, [getGapsForEntity, pickTopGap, selectedRole, toast, openGapModal]);
+
+  const handleStoryContentGenerate = useCallback(
+    (story: WorkHistoryBlurb) => {
+      const storyGaps = getGapsForEntity(story.id);
+      const gap = pickTopGap(storyGaps);
+      if (!gap) {
+        toast({
+          title: 'No story gaps detected',
+          description: 'This story has no unresolved gaps to address.',
+        });
+        return;
+      }
+      openGapModal(gap, 'approved_content', story.id, story.content);
+    },
+    [getGapsForEntity, pickTopGap, toast, openGapModal],
+  );
+
+  const handleGenerateCompanyContent = useCallback(() => {
+    if (!user || !selectedRole) return;
+    const roleGaps = getGapsForEntity(selectedRole.id);
+    const gap = pickTopGap(
+      roleGaps,
+      (gap) =>
+        gap.gap_category === 'missing_role_description' ||
+        gap.gap_category === 'generic_role_description',
+    );
+    if (!gap) {
+      toast({
+        title: 'No company description gaps',
+        description: 'This company description is already up to date.',
+      });
+      return;
+    }
+    openGapModal(gap, 'work_item', selectedRole.id, selectedRole.description || '');
+  }, [getGapsForEntity, pickTopGap, selectedRole, toast, openGapModal, user]);
+
   // Inline editing state for company description
   const [isEditingCompanyDescription, setIsEditingCompanyDescription] = useState(false);
   const [companyDescriptionDraft, setCompanyDescriptionDraft] = useState('');
-
-  // Mock gap data for content generation
-  const mockGapData = useMemo(() => ({
-    'role-description': {
-      id: 'role-description-gap',
-      type: 'content-enhancement',
-      severity: 'high',
-      description: 'Role description is too generic and lacks specific achievements',
-      suggestion: 'Add quantifiable results, specific projects, and measurable impact to demonstrate value',
-      paragraphId: 'role-description',
-      origin: 'ai' as const,
-      addresses: ['quantifiable achievements', 'specific metrics', 'KPIs from past projects'],
-      existingContent: 'Led product strategy for core platform'
-    },
-    'outcome-metrics': {
-      id: 'outcome-metrics-gap',
-      type: 'content-enhancement',
-      severity: 'high',
-      description: 'Outcome metrics need more specificity and context',
-      suggestion: 'Include percentages, dollar amounts, timeframes, and business impact metrics',
-      paragraphId: 'outcome-metrics',
-      origin: 'ai' as const,
-      addresses: ['specific percentages', 'dollar amounts', 'timeframes', 'business impact'],
-      existingContent: 'Increased user engagement by 25% and reduced churn by 15%'
-    },
-    'role-metrics': {
-      id: 'role-metrics-gap',
-      type: 'content-enhancement',
-      severity: 'medium',
-      description: 'Role-level metrics are missing or insufficient',
-      suggestion: 'Add quantified metrics at the role level to demonstrate overall impact (e.g., revenue increases, team size, project scope)',
-      paragraphId: 'role-metrics',
-      origin: 'ai' as const,
-      addresses: ['role-level metrics', 'quantified outcomes', 'business impact'],
-      existingContent: selectedRole?.description || ''
-    },
-    'story-content': {
-      id: 'story-content-gap',
-      type: 'content-enhancement',
-      severity: 'medium',
-      description: 'Story needs more specific examples and quantifiable results',
-      suggestion: 'Add concrete examples, metrics, and outcomes to strengthen the narrative',
-      paragraphId: 'story-content',
-      origin: 'ai' as const,
-      addresses: ['concrete examples', 'specific metrics', 'measurable outcomes'],
-      existingContent: 'Successfully launched new product features that improved user experience'
-    }
-  }), [selectedRole]);
-
-  const handleGenerateContent = (gapType: string) => {
-    setSelectedGap(mockGapData[gapType as keyof typeof mockGapData]);
-    setIsContentModalOpen(true);
-  };
-
-  const handleGenerateCompanyContent = () => {
-    // Create a company-level gap for content generation
-    const companyGap = {
-      id: 'company-description-gap',
-      type: 'content-enhancement' as const,
-      severity: 'medium' as const,
-      description: 'Generate company description and information',
-      suggestion: 'Research company and generate description, tags, and relevant information',
-      paragraphId: 'company-description',
-      origin: 'user' as const
-    };
-    setSelectedGap(companyGap);
-    setIsContentModalOpen(true);
-  };
-
-  // Inline editing handlers for company description
-  const handleSaveCompanyDescription = async () => {
-    if (selectedRole) {
-      const currentCompany = companies.find(c => c.id === selectedRole.companyId);
-      if (currentCompany && companyDescriptionDraft !== currentCompany.description) {
-        // Update company description
-        if (onEditCompany) {
-          onEditCompany({ ...currentCompany, description: companyDescriptionDraft });
-        }
-      }
-    }
-    setIsEditingCompanyDescription(false);
-  };
-
-  const handleCancelEditCompanyDescription = () => {
-    if (selectedRole) {
-      const currentCompany = companies.find(c => c.id === selectedRole.companyId);
-      setCompanyDescriptionDraft(currentCompany?.description || '');
-    }
-    setIsEditingCompanyDescription(false);
-  };
 
   // Reset editing state when company/role changes
   useEffect(() => {
@@ -222,13 +308,13 @@ export const WorkHistoryDetail = ({
   }, [selectedRole?.companyId, companies]);
 
   const handleApplyContent = async (content: string) => {
-    if (!user || !selectedGap) return;
+    if (!user || !activeGapContext) return;
     
     console.log('Applied generated content:', content);
     
     // Resolve gap in database with 'content_added' reason (not 'user_override')
     // This distinguishes content-generated resolution from manual dismissal
-    const gapId = selectedGap.id;
+    const gapId = activeGapContext.gap.id;
     const isDatabaseId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(gapId);
     
     if (isDatabaseId) {
@@ -251,12 +337,12 @@ export const WorkHistoryDetail = ({
     }
     
     // Mark this gap as resolved AND track that content was generated (not just dismissed)
-      const gapKey = selectedGap.storyId 
-        ? `story-content-gap-${selectedGap.storyId}`
-        : selectedGap.id;
-      const generatedKey = selectedGap.storyId
-        ? `story-content-generated-${selectedGap.storyId}`
-        : `${selectedGap.id}-generated`;
+      const gapKey = activeGapContext.entityType === 'approved_content'
+        ? `story-content-gap-${activeGapContext.entityId}`
+        : activeGapContext.gap.id;
+      const generatedKey = activeGapContext.entityType === 'approved_content'
+        ? `story-content-generated-${activeGapContext.entityId}`
+        : `${activeGapContext.gap.id}-generated`;
       
     // Update local state (for immediate UI feedback)
       onResolvedGapsChange(new Set([...resolvedGaps, gapKey, generatedKey]));
@@ -270,8 +356,8 @@ export const WorkHistoryDetail = ({
     
     // Show temporary success state
     setTimeout(() => {
-      setIsContentModalOpen(false);
-      setSelectedGap(null);
+      closeContentGenerationModal();
+      setActiveGapContext(null);
     }, 1000);
   };
 
@@ -313,20 +399,21 @@ export const WorkHistoryDetail = ({
   // Users can manually edit tags if needed, but auto-suggest is no longer needed for roles
 
   const handleApplyTags = async (selectedTags: string[]) => {
-    if (!user || !tagEntityId) return;
+    if (!user || !activeGapContext?.gap.entity_id) return;
     
     try {
-      if (tagContentType === 'role') {
+      const entityId = activeGapContext.gap.entity_id;
+      if (activeGapContext.entityType === 'role') {
         // Merge with existing tags
         const allTags = [...new Set([...(selectedRole?.tags || []), ...selectedTags])];
-        await TagService.updateWorkItemTags(tagEntityId, allTags, user.id);
-      } else if (tagContentType === 'company') {
+        await TagService.updateWorkItemTags(entityId, allTags, user.id);
+      } else if (activeGapContext.entityType === 'company') {
         // Find company by ID if not selectedCompany
-        const targetCompany = selectedCompany || companies.find(c => c.id === tagEntityId);
+        const targetCompany = selectedCompany || companies.find(c => c.id === entityId);
         if (targetCompany) {
           // Merge with existing tags
           const allTags = [...new Set([...(targetCompany.tags || []), ...selectedTags])];
-          await TagService.updateCompanyTags(tagEntityId, allTags, user.id);
+          await TagService.updateCompanyTags(entityId, allTags, user.id);
         }
       }
       
@@ -335,13 +422,15 @@ export const WorkHistoryDetail = ({
         onRefresh();
       }
       
-      setIsTagModalOpen(false);
-      setSuggestedTags([]);
-      setTagContent('');
-      setSearchError(null);
+      closeContentGenerationModal();
+      setActiveGapContext(null);
     } catch (error) {
       console.error('Error updating tags:', error);
-      setSearchError(error instanceof Error ? error.message : 'Failed to update tags. Please try again.');
+      toast({
+        title: 'Failed to update tags',
+        description: error instanceof Error ? error.message : 'Failed to update tags. Please try again.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -352,33 +441,42 @@ export const WorkHistoryDetail = ({
     
     const content = `${targetCompany.name}: ${targetCompany.description || 'Company information'}`;
     
-    setTagContent(content);
-    setTagContentType('company');
-    setTagEntityId(targetCompany.id);
-    setSuggestedTags([]);
-    setSearchError(null);
-    setIsSearching(true); // Show "Researching company..." indicator
-    setIsTagModalOpen(true);
-    
-    try {
-      const suggestions = await TagSuggestionService.suggestTags({
-        content,
-        contentType: 'company',
-        companyName: targetCompany.name, // Pass company name for browser search
-        userGoals: goals ? {
-          industries: goals.industries,
-          businessModels: goals.businessModels
-        } : undefined,
-        existingTags: targetCompany.tags || []
-      });
-      
-      setSuggestedTags(suggestions);
-      setIsSearching(false);
-    } catch (error) {
-      console.error('Error generating tag suggestions:', error);
-      setIsSearching(false);
-      setSearchError(error instanceof Error ? error.message : 'Failed to research company. Please try again.');
-    }
+    openContentGenerationModal({
+      gap: {
+        id: targetCompany.id,
+        entity_type: 'company',
+        entity_id: targetCompany.id,
+        gap_category: 'company_description',
+        gap_type: 'missing_description',
+        gap_description: 'Company description is missing or insufficient.',
+        gap_context: 'Company description is missing or insufficient. This gap needs to be addressed to provide a comprehensive overview of the company.',
+        gap_solution: 'Generate a comprehensive company description that highlights the company\'s mission, values, and key achievements.',
+        gap_priority: 'high',
+        gap_status: 'open',
+        gap_created_at: new Date().toISOString(),
+        gap_updated_at: new Date().toISOString(),
+        gap_created_by: user?.id,
+        gap_updated_by: user?.id,
+        gap_source: 'user_input',
+        gap_context_type: 'company_description',
+        gap_context_id: targetCompany.id,
+        gap_context_entity_type: 'company',
+        gap_context_entity_id: targetCompany.id,
+        gap_context_entity_name: targetCompany.name,
+        gap_context_entity_description: targetCompany.description,
+        gap_context_entity_tags: targetCompany.tags || [],
+        gap_context_entity_roles: targetCompany.roles || [],
+        gap_context_entity_external_links: targetCompany.externalLinks || [],
+        gap_context_entity_outcome_metrics: targetCompany.outcomeMetrics || [],
+        gap_context_entity_gaps: targetCompany.gaps || [],
+        gap_context_entity_id: targetCompany.id,
+      },
+      entityType: 'company',
+      entityId: targetCompany.id,
+      onContentApplied: () => {
+        // This callback is handled by the main useContentGeneration hook
+      }
+    });
   };
 
   // Retry handler for company tag suggestions
@@ -1181,7 +1279,7 @@ export const WorkHistoryDetail = ({
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => {
                     // Trigger HIL workflow for role content generation
-                    handleGenerateContent('role-description');
+                    handleRoleDescriptionGenerate();
                   }}>
                     <Sparkles className="mr-2 h-4 w-4" />
                     Generate Content
@@ -1226,7 +1324,7 @@ export const WorkHistoryDetail = ({
                     return descriptionGaps.length > 0 && !resolvedGaps.has('role-description-gap') ? (
                       <ContentGapBanner
                         gaps={descriptionGaps}
-                        onGenerateContent={() => handleGenerateContent('role-description')}
+                        onGenerateContent={() => handleRoleDescriptionGenerate()}
                         onDismiss={() => {
                           // Resolve all description gaps (use first gap's ID for DB, but keep local ID for state)
                           if (descriptionGaps.length > 0 && descriptionGaps[0].id) {
@@ -1274,7 +1372,7 @@ export const WorkHistoryDetail = ({
                     return metricsGaps.length > 0 && !resolvedGaps.has('role-metrics-gap') ? (
                       <ContentGapBanner
                         gaps={metricsGaps}
-                        onGenerateContent={() => handleGenerateContent('role-metrics')}
+                        onGenerateContent={() => handleRoleMetricsGenerate()}
                         onDismiss={() => {
                           // Resolve all metrics gaps (use first gap's ID for DB, but keep local ID for state)
                           if (metricsGaps.length > 0 && metricsGaps[0].id) {
@@ -1353,8 +1451,7 @@ export const WorkHistoryDetail = ({
                             hasGaps={(story as any).hasGaps}
                             gaps={(story as any).gaps}
                             onGenerateContent={(story as any).hasGaps && !resolvedGaps.has(`story-content-gap-${story.id}`) ? () => {
-                              setSelectedGap({ ...mockGapData['story-content'], storyId: story.id });
-                              setIsContentModalOpen(true);
+                              handleStoryContentGenerate(story);
                             } : undefined}
                             onDismissGap={(story as any).hasGaps && !resolvedGaps.has(`story-content-gap-${story.id}`) ? () => {
                               // Resolve all story gaps using real database IDs
@@ -1436,26 +1533,19 @@ export const WorkHistoryDetail = ({
         
         {/* Content Generation Modal */}
         <ContentGenerationModal
-          isOpen={isContentModalOpen}
-          onClose={() => {
-            setIsContentModalOpen(false);
-            setSelectedGap(null);
-          }}
-          gap={selectedGap}
+          isOpen={isContentGenerationModalOpen}
+          onClose={closeContentGenerationModal}
+          gap={activeGapContext?.gap}
           onApplyContent={handleApplyContent}
         />
 
         {/* Tag Suggestion Modal */}
         <ContentGenerationModal
-          isOpen={isTagModalOpen}
-          onClose={() => {
-            console.log('Closing tag suggestion modal');
-            setIsTagModalOpen(false);
-            setSuggestedTags([]);
-          }}
+          isOpen={isContentGenerationModalOpen} // Reusing the same modal for tags
+          onClose={closeContentGenerationModal}
           mode="tag-suggestion"
-          content={tagContent}
-          suggestedTags={suggestedTags}
+          content={activeGapContext?.gap.gap_context || ''} // Use gap context for tag suggestions
+          suggestedTags={[]} // Tags are handled by handleApplyTags
           onApplyTags={handleApplyTags}
         />
       </div>
@@ -1583,30 +1673,12 @@ export const WorkHistoryDetail = ({
 
         {/* Tag Suggestion Modal */}
         <ContentGenerationModal
-          isOpen={isTagModalOpen}
-          onClose={() => {
-            setIsTagModalOpen(false);
-            setSuggestedTags([]);
-            setTagContent('');
-            setSearchError(null);
-            setIsSearching(false);
-          }}
+          isOpen={isContentGenerationModalOpen} // Reusing the same modal for tags
+          onClose={closeContentGenerationModal}
           mode="tag-suggestion"
-          content={tagContent}
-          contentType={tagContentType}
-          entityId={tagEntityId}
-          existingTags={
-            tagContentType === 'company' 
-              ? (selectedCompany?.tags || companies.find(c => c.id === tagEntityId)?.tags || [])
-              : tagContentType === 'role'
-              ? (selectedRole?.tags || [])
-              : []
-          }
-          suggestedTags={suggestedTags}
+          content={activeGapContext?.gap.gap_context || ''} // Use gap context for tag suggestions
+          suggestedTags={[]} // Tags are handled by handleApplyTags
           onApplyTags={handleApplyTags}
-          isSearching={isSearching}
-          searchError={searchError}
-          onRetry={tagContentType === 'company' ? handleRetryCompanyTags : undefined}
         />
       </div>
     );

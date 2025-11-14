@@ -18,6 +18,9 @@ import {
 import { ContentItemWithGaps, GapSummary } from '@/services/gapDetectionService';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { StreamingProgress } from '@/components/shared/StreamingProgress';
+import { useStreamingProgress } from '@/hooks/useStreamingProgress';
+import type { StreamingLifecycleStatus } from '@/hooks/useStreamingProgress';
 
 interface ContentQualityWidgetProps {
   gapSummary: GapSummary | null;
@@ -34,6 +37,13 @@ export type SeverityFilter = 'all' | 'high' | 'medium' | 'low';
 export interface ContentQualityWidgetRef {
   scrollIntoView: (offsetPx?: number) => void;
 }
+
+type ContentQualityProgressEvent = {
+  stage: string;
+  message?: string;
+  progress?: number;
+  tone?: 'info' | 'success' | 'warning' | 'error';
+};
 
 const SEVERITY_CONFIG = {
   high: {
@@ -93,6 +103,20 @@ export const ContentQualityWidget = React.forwardRef<ContentQualityWidgetRef, Co
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>(initialSeverityFilter);
   const [sortField, setSortField] = useState<'company' | 'role' | 'title' | 'type' | 'severity'>('company');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const streamingStepDefinitions = React.useMemo(() => ([
+    { id: 'context', label: 'Resolve persona context' },
+    { id: 'collect', label: 'Collect content gaps' },
+    { id: 'hydrate', label: 'Enrich content details' },
+    { id: 'summarize', label: 'Summarize insights' },
+  ]), []);
+  const {
+    steps: streamingSteps,
+    reset: resetStreaming,
+    setStepStatus: setStreamingStepStatus,
+    setStepProgress: setStreamingStepProgress,
+    setStepDetail: setStreamingStepDetail,
+  } = useStreamingProgress({ steps: streamingStepDefinitions, autoResolveSteps: false });
+  const [streamLifecycle, setStreamLifecycle] = React.useState<StreamingLifecycleStatus>('idle');
   
   // Update internal state when external props change
   React.useEffect(() => {
@@ -118,6 +142,75 @@ export const ContentQualityWidget = React.forwardRef<ContentQualityWidgetRef, Co
       }
     }
   }), []);
+
+  React.useEffect(() => {
+    const handleProgress = (event: Event) => {
+      const detail = (event as CustomEvent<ContentQualityProgressEvent>).detail;
+      if (!detail) return;
+
+      const updateStep = (id: string) => {
+        if (typeof detail.progress === 'number') {
+          setStreamingStepProgress(id, detail.progress);
+        }
+        if (detail.message) {
+          setStreamingStepDetail(id, detail.message);
+        }
+      };
+
+      switch (detail.stage) {
+        case 'initialize': {
+          resetStreaming();
+          setStreamLifecycle('streaming');
+          setStreamingStepStatus('context', 'running', detail.message);
+          updateStep('context');
+          break;
+        }
+        case 'collect-gaps': {
+          setStreamingStepStatus('context', 'success');
+          setStreamingStepProgress('context', 1);
+          setStreamingStepStatus('collect', 'running', detail.message);
+          updateStep('collect');
+          break;
+        }
+        case 'hydrate-content': {
+          setStreamingStepStatus('collect', 'success');
+          setStreamingStepProgress('collect', 1);
+          setStreamingStepStatus('hydrate', 'running', detail.message);
+          updateStep('hydrate');
+          break;
+        }
+        case 'summarize': {
+          setStreamingStepStatus('hydrate', 'success');
+          setStreamingStepProgress('hydrate', 1);
+          setStreamingStepStatus('summarize', 'running', detail.message);
+          updateStep('summarize');
+          break;
+        }
+        case 'complete': {
+          setStreamingStepStatus('summarize', 'success', detail.message);
+          setStreamingStepProgress('summarize', 1);
+          if (detail.message) {
+            setStreamingStepDetail('summarize', detail.message);
+          }
+          setStreamLifecycle('complete');
+          break;
+        }
+        case 'error': {
+          setStreamLifecycle('error');
+          setStreamingStepStatus('summarize', 'error', detail.message || 'Failed to load content quality');
+          break;
+        }
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('content-quality:progress', handleProgress as EventListener);
+
+    return () => {
+      window.removeEventListener('content-quality:progress', handleProgress as EventListener);
+    };
+  }, [resetStreaming, setStreamingStepDetail, setStreamingStepProgress, setStreamingStepStatus]);
   
   // Notify parent of filter changes
   const handleContentTypeChange = (value: ContentTypeFilter) => {
@@ -136,8 +229,17 @@ export const ContentQualityWidget = React.forwardRef<ContentQualityWidgetRef, Co
         <CardHeader>
           <CardTitle>Content Quality</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="text-sm text-muted-foreground">Loading...</div>
+        <CardContent className="space-y-4">
+          <StreamingProgress
+            steps={streamingSteps}
+            status={streamLifecycle}
+            showTimeline={false}
+          />
+          {streamLifecycle === 'idle' && (
+            <div className="text-sm text-muted-foreground">
+              Preparing content quality insights...
+            </div>
+          )}
         </CardContent>
       </Card>
     );

@@ -289,14 +289,14 @@ export interface TruthScore {
 // PM Levels Service types
 export type PMLevelCode = 'L3' | 'L4' | 'L5' | 'L6' | 'M1' | 'M2';
 export type PMLevelDisplay = 
-  | 'Associate PM'
-  | 'PM'
-  | 'Senior PM'
-  | 'Staff PM'
-  | 'Principal PM'
-  | 'Lead PM'
-  | 'Manager'
-  | 'Senior Manager';
+  | 'Associate Product Manager'
+  | 'Product Manager'
+  | 'Senior Product Manager'
+  | 'Staff Product Manager'
+  | 'Principal Product Manager'
+  | 'Staff/Principal Product Manager'
+  | 'Group Product Manager'
+  | 'Director of Product';
 
 export type RoleType = 'growth' | 'platform' | 'ai_ml' | 'founding' | 'technical' | 'general';
 export type BusinessMaturity = 'early' | 'growth' | 'late';
@@ -341,6 +341,115 @@ export interface CompanyMetadata {
   size?: number; // employee count
   fundingStage?: 'seed' | 'series_a' | 'series_b' | 'series_c' | 'series_d' | 'public' | 'late';
   yearsActive?: number;
+  companyStage?: string; // Researched stage: startup, growth-stage, established, enterprise
+  maturity?: 'early' | 'growth' | 'late'; // Normalized maturity for PM Levels
+}
+
+// Evidence structures for PM Levels modals
+
+// Evidence for a single story (used in EvidenceModal)
+export interface EvidenceStory {
+  id: string;
+  title: string;
+  content: string;
+  tags: string[];
+  sourceRole: string;
+  sourceCompany: string;
+  lastUsed: string;
+  timesUsed: number;
+  confidence: 'high' | 'medium' | 'low';
+  outcomeMetrics?: string[];
+  levelAssessment?: 'exceeds' | 'meets' | 'below'; // Added for level expectations
+  workItemId?: string;
+  workItemTitle?: string;
+}
+
+// Evidence by competency (for EvidenceModal)
+export interface CompetencyEvidence {
+  competency: PMDimension;
+  evidence: EvidenceStory[];
+  matchedTags: string[];
+  overallConfidence: 'high' | 'medium' | 'low';
+}
+
+// Level evidence (for LevelEvidenceModal)
+export interface LevelEvidence {
+  currentLevel: string;
+  nextLevel: string;
+  confidence: string;
+  resumeEvidence: {
+    roleTitles: string[];
+    duration: string;
+    companyScale: string[];
+  };
+  storyEvidence: {
+    totalStories: number;
+    relevantStories: number;
+    tagDensity: { tag: string; count: number }[];
+    stories?: EvidenceStory[]; // Individual stories for display
+  };
+  levelingFramework: {
+    framework: string;
+    criteria: string[];
+    match: string;
+  };
+  gaps: {
+    area: string;
+    description: string;
+    examples: string[];
+  }[];
+  outcomeMetrics: {
+    roleLevel: string[];
+    storyLevel: string[];
+    analysis: {
+      totalMetrics: number;
+      impactLevel: 'feature' | 'team' | 'org' | 'company';
+      keyAchievements: string[];
+    };
+  };
+}
+
+// Role archetype evidence (for RoleEvidenceModal)
+export interface RoleArchetypeEvidence {
+  roleType: string;
+  matchScore: number;
+  description: string;
+  industryPatterns: {
+    pattern: string;
+    match: boolean;
+    examples: string[];
+  }[];
+  problemComplexity: {
+    level: string;
+    examples: string[];
+    evidence: string[];
+  };
+  workHistory: {
+    company: string;
+    role: string;
+    relevance: string;
+    tags: string[];
+  }[];
+  tagAnalysis: {
+    tag: string;
+    count: number;
+    relevance: number;
+    examples: string[];
+  }[];
+  gaps: {
+    area: string;
+    description: string;
+    suggestions: string[];
+  }[];
+  outcomeMetrics: {
+    roleLevel: string[];
+    storyLevel: string[];
+    analysis: {
+      totalMetrics: number;
+      impactLevel: 'feature' | 'team' | 'org' | 'company';
+      keyAchievements: string[];
+    };
+  };
 }
 
 // PM Level inference result
@@ -349,7 +458,7 @@ export interface PMLevelInference {
   displayLevel: PMLevelDisplay;
   confidence: number; // 0-1
   scopeScore: number; // 0-1
-  maturityModifier: number; // 0.8-1.2
+  maturityInfo: BusinessMaturity; // Maturity for display/evidence only, not used as modifier
   roleType: RoleType[];
   competencyScores: CompetencyScore;
   levelScore: number; // Calculated score
@@ -357,6 +466,12 @@ export interface PMLevelInference {
   recommendations: LevelRecommendation[];
   signals: LevelSignal;
   topArtifacts: string[]; // IDs of top 6 artifacts used
+  lastAnalyzedAt?: string;
+
+  // NEW: Evidence structures for modals
+  evidenceByCompetency?: Record<PMDimension, CompetencyEvidence>;
+  levelEvidence?: LevelEvidence;
+  roleArchetypeEvidence?: Record<RoleType, RoleArchetypeEvidence>;
 }
 
 // Level recommendation

@@ -24,6 +24,7 @@ VITE_LINKEDIN_CLIENT_SECRET=your_linkedin_client_secret
 # Application Configuration
 VITE_APP_URL=http://localhost:5173
 VITE_ENV=development
+VITE_SYNTHETIC_LOCAL_ONLY=true
 ```
 
 ## Variable Details
@@ -80,6 +81,9 @@ Setup guide: [LinkedIn OAuth Setup](./LINKEDIN_OAUTH_SETUP.md)
 
 - **VITE_APP_URL**: The URL where your app is running (for OAuth callbacks)
 - **VITE_ENV**: Environment (`development`, `staging`, `production`)
+- **VITE_SYNTHETIC_LOCAL_ONLY**: When set to `true`, synthetic profile switches are scoped to the current browser/session only. Leave unset/`false` for shared environments (staging/production) that rely on the Supabase RPC to broadcast changes.
+
+**Local QA Tip:** Enable `VITE_SYNTHETIC_LOCAL_ONLY=true` in your `.env` when running multiple dev servers (e.g., ports 8080/8082). Each window can then pin a different synthetic persona without affecting the others. Clear the flag or set it to `false` before deploying to shared environments.
 
 ## Security Best Practices
 

@@ -1,111 +1,221 @@
-// PM Levels Service LLM Prompts
-// Temperature ≤ 0.3 for deterministic outputs
+/**
+ * PM Levels Service Prompts
+ * 
+ * Prompts for extracting signals, scoring competencies, deriving business maturity,
+ * and generating recommendations for PM level inference.
+ */
 
-export const EXTRACT_SIGNALS_PROMPT = `You are a product management expert analyzing career content to extract objective signals for level assessment.
+/**
+ * Extract signals from user content (scope, impact, influence)
+ */
+export const EXTRACT_SIGNALS_PROMPT = (content: string): string => {
+  return `You are an expert at analyzing product management experience to extract leveling signals.
 
-Analyze the following content and extract structured signals. Focus on factual evidence, not interpretation.
+Analyze the following professional content (resume, cover letter, LinkedIn, stories) and extract signals that indicate PM level:
 
-Content:
-{content}
+${content}
 
-Extract and return a JSON object with this exact structure:
+Extract the following signals:
+
+1. SCOPE SIGNALS:
+   - Number of teams worked with/cross-functional teams
+   - Revenue impact (if quantified: $ amount, % growth)
+   - Users/impact scale (if quantified: number of users, % adoption)
+   - Organization size (team size, company size)
+
+2. IMPACT SIGNALS:
+   - Metrics mentioned (revenue, users, engagement, efficiency, etc.)
+   - Whether metrics are quantified (numbers, percentages, dollar amounts)
+   - Scale of impact: 'feature' (single feature), 'team' (cross-team), 'org' (organization-wide), 'company' (company-wide)
+
+3. INFLUENCE SIGNALS:
+   - Cross-functional collaboration (worked with engineering, design, sales, etc.)
+   - Executive influence (presented to executives, worked with VP+, influenced strategy)
+   - External influence (spoke at conferences, wrote articles, open source contributions)
+   - Team size led or influenced
+
+4. METRICS:
+   - List all quantifiable metrics mentioned
+   - Extract numbers, percentages, dollar amounts
+
+Return ONLY valid JSON with this structure:
 {
   "scope": {
-    "teams": <number of teams worked with/cross-functional teams>,
-    "revenueImpact": <estimated revenue impact in dollars, or null>,
-    "usersImpact": <number of users affected, or null>,
-    "orgSize": <organization size if mentioned, or null>
+    "teams": <number of teams/cross-functional teams>,
+    "revenueImpact": <revenue impact in $ or null>,
+    "usersImpact": <number of users impacted or null>,
+    "orgSize": <organization/company size or null>
   },
   "impact": {
-    "metrics": [<array of specific metrics mentioned>],
-    "quantified": <boolean - true if metrics include numbers>,
+    "metrics": [<array of metric strings>],
+    "quantified": <true if metrics have numbers, false otherwise>,
     "scale": <"feature" | "team" | "org" | "company">
   },
   "influence": {
-    "crossFunctional": <boolean - worked with multiple teams>,
-    "executive": <boolean - presented to executives/leadership>,
-    "external": <boolean - worked with external partners/customers>,
-    "teamSize": <number of people managed/led, or null>
+    "crossFunctional": <true if worked across functions, false otherwise>,
+    "executive": <true if worked with executives, false otherwise>,
+    "external": <true if external influence (conferences, articles, etc.), false otherwise>,
+    "teamSize": <size of team led/influenced or null>
   },
-  "teamSize": <size of team if mentioned, or null>,
-  "metrics": [<array of all metrics/numbers mentioned>]
+  "teamSize": <average or largest team size or null>,
+  "metrics": [<array of all metrics mentioned as strings>]
 }
 
-Rules:
-- Only extract facts that are explicitly stated or clearly implied
-- Use null for missing information
-- Be conservative with estimates
-- Focus on the most impactful signals mentioned
-`;
+Return valid JSON only, no markdown formatting.`;
+};
 
-export const RATE_COMPETENCIES_PROMPT = `You are a product management expert rating competencies on a 0-3 scale based on content evidence.
+/**
+ * Rate competencies on 0-3 scale
+ */
+export const RATE_COMPETENCIES_PROMPT = (
+  content: string,
+  roleTypes: string[],
+  businessMaturity: string
+): string => {
+  return `You are an expert at evaluating product management competencies.
 
-Content:
-{content}
+Analyze the following professional content and rate competencies on a 0-3 scale:
 
-Rate each competency dimension (0-3) where:
-- 0 = No evidence
-- 1 = Limited evidence / entry-level
-- 2 = Solid evidence / mid-level
-- 3 = Strong evidence / senior-level
+${content}
 
-Return a JSON object with this exact structure:
+Role Types: ${roleTypes.join(', ') || 'general'}
+Business Maturity: ${businessMaturity}
+
+Rate each competency dimension (0-3 scale):
+- 0: No evidence or minimal evidence
+- 1: Basic evidence, entry-level
+- 2: Strong evidence, solid performance
+- 3: Exceptional evidence, expert-level
+
+COMPETENCY DIMENSIONS:
+
+1. EXECUTION (0-3):
+   - Delivering products on time and within scope
+   - Managing product development lifecycle
+   - Shipping features with measurable impact
+   - Technical understanding and collaboration with engineering
+
+2. CUSTOMER_INSIGHT (0-3):
+   - User research and understanding customer needs
+   - Data analysis and metrics-driven decisions
+   - Market validation and product-market fit
+   - User feedback integration
+
+3. STRATEGY (0-3):
+   - Product vision and roadmap planning
+   - Market analysis and competitive positioning
+   - Business model understanding
+   - Long-term thinking and planning
+
+4. INFLUENCE (0-3):
+   - Cross-functional leadership
+   - Stakeholder management
+   - Executive communication
+   - Team building and mentorship
+
+Return ONLY valid JSON with this structure:
 {
-  "execution": <0-3 score based on delivery consistency, quality, technical depth>,
-  "customer_insight": <0-3 score based on user research, market understanding, validation>,
-  "strategy": <0-3 score based on problem definition, goal setting, business alignment>,
-  "influence": <0-3 score based on cross-functional leadership, stakeholder management, team building>
+  "execution": <0-3>,
+  "customer_insight": <0-3>,
+  "strategy": <0-3>,
+  "influence": <0-3>
 }
 
-Scoring Guidelines:
-- Execution: Look for delivery track record, technical depth, quality metrics
-- Customer Insight: Look for research methods, user interviews, validation approaches
-- Strategy: Look for problem framing, OKRs, business outcomes, pivots
-- Influence: Look for team leadership, stakeholder alignment, cross-functional collaboration
+Return valid JSON only, no markdown formatting.`;
+};
 
-Be objective and evidence-based.`;
+/**
+ * Derive business maturity from company metadata
+ */
+export const DERIVE_BUSINESS_MATURITY_PROMPT = (companies: Array<{
+  name: string;
+  size?: number;
+  fundingStage?: string;
+  yearsActive?: number;
+}>): string => {
+  return `You are an expert at determining business maturity from company information.
 
-export const DERIVE_BUSINESS_MATURITY_PROMPT = `Analyze company information to determine business maturity stage.
+Analyze the following company metadata and determine business maturity:
 
-Company Information:
-{companyInfo}
+${JSON.stringify(companies, null, 2)}
 
-Return a JSON object with this structure:
+Business Maturity Levels:
+- "early": Seed/Series A, <50 employees, <3 years old
+- "growth": Series B/C, 50-500 employees, 3-10 years old
+- "late": Series D+, public, or >500 employees, >10 years old
+
+For each company, determine maturity based on:
+1. Funding stage (seed/Series A = early, Series B/C = growth, Series D+/public = late)
+2. Company size (<50 = early, 50-500 = growth, >500 = late)
+3. Years active (<3 = early, 3-10 = growth, >10 = late)
+
+If multiple companies, use the most mature one (highest level).
+
+Return ONLY valid JSON with this structure:
 {
   "maturity": <"early" | "growth" | "late">,
-  "confidence": <0-1>,
-  "reasoning": "<brief explanation>"
+  "reasoning": <brief explanation>
 }
 
-Classification:
-- "early": Seed to Series A, <50 employees, <3 years old
-- "growth": Series B-D, 50-1000 employees, 3-10 years old
-- "late": Series E+, public, or >1000 employees, >10 years old
+Note: Maturity is used for display/evidence only, not as a scoring modifier.
 
-If information is insufficient, use "growth" as default with low confidence.`;
+Return valid JSON only, no markdown formatting.`;
+};
 
-export const GENERATE_RECOMMENDATIONS_PROMPT = `Generate actionable recommendations to help a PM progress from their current level to their target level.
+/**
+ * Generate actionable recommendations
+ */
+export const GENERATE_RECOMMENDATIONS_PROMPT = (
+  currentLevel: string,
+  targetLevel: string | undefined,
+  competencyScores: { execution: number; customer_insight: number; strategy: number; influence: number },
+  signals: any
+): string => {
+  return `You are an expert at providing actionable recommendations for PM career growth.
 
-Current Level: {currentLevel}
-Target Level: {targetLevel}
-Competency Gaps: {gaps}
-Delta Summary: {deltaSummary}
+Current Level: ${currentLevel}
+${targetLevel ? `Target Level: ${targetLevel}` : 'No target level specified'}
 
-Generate 3-5 specific, actionable recommendations. Return a JSON array:
+Competency Scores (0-3 scale):
+- Execution: ${competencyScores.execution}
+- Customer Insight: ${competencyScores.customer_insight}
+- Strategy: ${competencyScores.strategy}
+- Influence: ${competencyScores.influence}
+
+Signals:
+${JSON.stringify(signals, null, 2)}
+
+Generate actionable recommendations to:
+1. Strengthen weak competencies (scores < 2.0)
+2. Expand scope (if scope is limited)
+3. Add quantifiable metrics (if metrics are missing)
+4. Build stories that demonstrate target level competencies
+
+Recommendation Types:
+- "add-story": Need to add more stories demonstrating competency
+- "quantify-metrics": Need to add numbers/percentages to existing stories
+- "strengthen-competency": Need to develop specific competency
+- "expand-scope": Need to work on larger scope projects
+
+Return ONLY valid JSON array with this structure:
 [
   {
+    "id": <unique id>,
     "type": <"add-story" | "quantify-metrics" | "strengthen-competency" | "expand-scope">,
     "priority": <"high" | "medium" | "low">,
-    "title": "<short title>",
-    "description": "<what's missing or needs improvement>",
+    "title": <short title>,
+    "description": <detailed description>,
     "competency": <"execution" | "customer_insight" | "strategy" | "influence" | null>,
-    "suggestedAction": "<specific action the user should take>"
+    "suggestedAction": <specific actionable step>,
+    "relatedStories": [<array of story IDs if applicable>]
   }
 ]
 
-Focus on:
-- Specific, measurable improvements
-- Clear actions the user can take
-- Priority based on impact to level progression
-- Address gaps in weakest competencies first`;
+Prioritize recommendations:
+- High: Competency score < 1.5 or critical gap to target level
+- Medium: Competency score 1.5-2.0 or moderate gap
+- Low: Competency score > 2.0 or minor improvements
+
+Return valid JSON only, no markdown formatting.`;
+};
 

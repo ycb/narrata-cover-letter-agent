@@ -10,8 +10,6 @@ describe('UnifiedGapCard', () => {
     suggestion: 'This is a test suggestion',
     origin: 'ai' as const,
     paragraphId: 'intro',
-    severity: 'medium' as const,
-    onEdit: vi.fn(),
     onGenerate: vi.fn(),
   };
 
@@ -28,88 +26,43 @@ describe('UnifiedGapCard', () => {
   });
 
   describe('Gap Status Rendering', () => {
-    it('renders gap card with correct styling and content', () => {
+    it('renders gap card with issue details', () => {
       render(<UnifiedGapCard {...mockGapProps} />);
       
       expect(screen.getByText('Issue')).toBeInTheDocument();
+      expect(screen.getByText(/Issue:/)).toBeInTheDocument();
+      expect(screen.getByText(/Suggestion:/)).toBeInTheDocument();
       expect(screen.getByText('This is a test issue')).toBeInTheDocument();
       expect(screen.getByText('This is a test suggestion')).toBeInTheDocument();
-      expect(screen.getByText('Needs Action')).toBeInTheDocument();
-      expect(screen.getByText('medium priority')).toBeInTheDocument();
-      expect(screen.getByText('intro')).toBeInTheDocument();
     });
 
-    it('shows action buttons for gap status', () => {
+    it('shows generate action when handler provided', () => {
       render(<UnifiedGapCard {...mockGapProps} />);
       
-      expect(screen.getByText('Edit')).toBeInTheDocument();
-      expect(screen.getByText('Generate')).toBeInTheDocument();
+      expect(screen.getByText('Generate Content')).toBeInTheDocument();
     });
 
-    it('calls onEdit when Edit button is clicked', () => {
+    it('calls onGenerate when the button is clicked', () => {
       render(<UnifiedGapCard {...mockGapProps} />);
       
-      fireEvent.click(screen.getByText('Edit'));
-      expect(mockGapProps.onEdit).toHaveBeenCalledTimes(1);
-    });
-
-    it('calls onGenerate when Generate button is clicked', () => {
-      render(<UnifiedGapCard {...mockGapProps} />);
-      
-      fireEvent.click(screen.getByText('Generate'));
+      fireEvent.click(screen.getByText('Generate Content'));
       expect(mockGapProps.onGenerate).toHaveBeenCalledTimes(1);
     });
   });
 
   describe('Met Status Rendering', () => {
-    it('renders met card with correct styling and content', () => {
+    it('renders met card with addressed requirements', () => {
       render(<UnifiedGapCard {...mockMetProps} />);
       
-      expect(screen.getByText('Requirement Met')).toBeInTheDocument();
-      expect(screen.getByText('Completed')).toBeInTheDocument();
-      expect(screen.getByText('experience')).toBeInTheDocument();
-      expect(screen.getByText('requirement 1, requirement 2')).toBeInTheDocument();
+      expect(screen.getByText('Matches Job Req')).toBeInTheDocument();
+      expect(screen.getByText('requirement 1')).toBeInTheDocument();
+      expect(screen.getByText('requirement 2')).toBeInTheDocument();
     });
 
-    it('does not show action buttons for met status', () => {
+    it('does not show generate action for met status', () => {
       render(<UnifiedGapCard {...mockMetProps} />);
       
-      expect(screen.queryByText('Edit')).not.toBeInTheDocument();
-      expect(screen.queryByText('Generate')).not.toBeInTheDocument();
-    });
-  });
-
-  describe('Origin Tags', () => {
-    it('renders AI origin tag correctly', () => {
-      render(<UnifiedGapCard {...mockGapProps} origin="ai" />);
-      
-      expect(screen.getByText('AI')).toBeInTheDocument();
-    });
-
-    it('renders Human origin tag correctly', () => {
-      render(<UnifiedGapCard {...mockGapProps} origin="human" />);
-      
-      expect(screen.getByText('Human')).toBeInTheDocument();
-    });
-
-    it('renders Library origin tag correctly', () => {
-      render(<UnifiedGapCard {...mockGapProps} origin="library" />);
-      
-      expect(screen.getByText('Library')).toBeInTheDocument();
-    });
-  });
-
-  describe('Severity Levels', () => {
-    it('renders high severity with correct styling', () => {
-      render(<UnifiedGapCard {...mockGapProps} severity="high" />);
-      
-      expect(screen.getByText('high priority')).toBeInTheDocument();
-    });
-
-    it('renders low severity with correct styling', () => {
-      render(<UnifiedGapCard {...mockGapProps} severity="low" />);
-      
-      expect(screen.getByText('low priority')).toBeInTheDocument();
+      expect(screen.queryByText('Generate Content')).not.toBeInTheDocument();
     });
   });
 
@@ -125,30 +78,18 @@ describe('UnifiedGapCard', () => {
       render(<UnifiedGapCard {...minimalProps} />);
       
       expect(screen.getByText('Issue')).toBeInTheDocument();
-      expect(screen.getByText('Needs Action')).toBeInTheDocument();
     });
 
     it('renders without action handlers', () => {
       const propsWithoutHandlers = {
         ...mockGapProps,
-        onEdit: undefined,
         onGenerate: undefined,
       };
       
       render(<UnifiedGapCard {...propsWithoutHandlers} />);
       
-      // Should still render the card but without buttons
       expect(screen.getByText('Issue')).toBeInTheDocument();
-      expect(screen.queryByText('Edit')).not.toBeInTheDocument();
-      expect(screen.queryByText('Generate')).not.toBeInTheDocument();
-    });
-  });
-
-  describe('Paragraph ID Formatting', () => {
-    it('formats paragraph ID correctly', () => {
-      render(<UnifiedGapCard {...mockGapProps} paragraphId="work-experience" />);
-      
-      expect(screen.getByText('work experience')).toBeInTheDocument();
+      expect(screen.queryByText('Generate Content')).not.toBeInTheDocument();
     });
   });
 });

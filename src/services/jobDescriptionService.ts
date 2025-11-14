@@ -11,10 +11,8 @@ import {
   type RequirementCategory,
   type RequirementInsight,
 } from '@/types/coverLetters';
-import {
-  EvaluationLoggingService,
-  type EvaluationLoggingServiceOptions as EvalLoggingOptions,
-} from './evaluationLoggingService';
+import { EvaluationEventLogger } from './evaluationEventLogger';
+import { StreamingTokenTracker } from '@/utils/streamingTokenTracker';
 
 type SupabaseClient = typeof supabase;
 
@@ -27,7 +25,6 @@ export interface ParseJobDescriptionOptions {
 export interface JobDescriptionServiceOptions {
   supabaseClient?: SupabaseClient;
   openAIKey?: string;
-  evaluationLogger?: EvaluationLoggingService;
   now?: () => Date;
 }
 
@@ -316,18 +313,11 @@ const mapRowToRecord = (row: JobDescriptionRow): JobDescriptionRecord => {
 export class JobDescriptionService {
   private readonly supabaseClient: SupabaseClient;
   private readonly openAIClient: ReturnType<typeof createOpenAI>;
-  private readonly evaluationLogger: EvaluationLoggingService;
   private readonly now: () => Date;
 
   constructor(options: JobDescriptionServiceOptions = {}) {
     this.supabaseClient = options.supabaseClient ?? supabase;
     this.openAIClient = createOpenAIClient(options.openAIKey);
-    this.evaluationLogger =
-      options.evaluationLogger ??
-      new EvaluationLoggingService({
-        supabaseClient: options.supabaseClient,
-        now: options.now,
-      });
     this.now = options.now ?? (() => new Date());
   }
 
@@ -466,56 +456,38 @@ export class JobDescriptionService {
   async parseAndCreate(
     userId: string,
     content: string,
-    options: ParseJobDescriptionOptions & { url?: string | null } = {},
+    options: ParseJobDescriptionOptions & { url?: string | null; syntheticProfileId?: string } = {},
   ): Promise<JobDescriptionRecord & { evaluationRunId?: string; sessionId?: string }> {
     const trimmedContent = content.trim();
     const checksum = computeTextChecksum(trimmedContent);
-    const sessionId = `jd-parse-${Date.now()}-${checksum.slice(0, 8)}`;
+    const startTimestamp = this.now().getTime();
 
     options.onProgress?.('Starting job description analysis…');
 
-    let evaluationRunId: string | undefined;
-    const startTimestamp = this.now().getTime();
+    // Track tokens during streaming
+    const tokenTracker = new StreamingTokenTracker();
+    let tokenSequence = 0;
+    let inputTokens = 0;
+    let outputTokens = 0;
 
     try {
-      evaluationRunId = await this.evaluationLogger.createRun({
-        userId,
-        sessionId,
-        fileType: 'cover_letter_jd_parse',
-        rawText: trimmedContent,
-        metadata: {
-          textLength: trimmedContent.length,
-          checksum,
-          url: options.url ?? null,
-        },
-      });
-
       const parseOptions: ParseJobDescriptionOptions = {
         ...options,
         onProgress: (message) => {
           options.onProgress?.(message);
         },
-        onToken: async (token, aggregate) => {
+        onToken: (token, aggregate) => {
           options.onToken?.(token, aggregate);
-          // Token sampling handled in parseJobDescription if we track sequence there
-          // For now, we'll sample in the streaming loop
+          tokenTracker.sampleToken(token, tokenSequence);
+          tokenSequence++;
+          outputTokens++; // Approximate - actual count from LLM response would be better
         },
       };
 
-      // Track token sequence for sampling
-      let tokenSequence = 0;
-      const originalOnToken = parseOptions.onToken;
-      parseOptions.onToken = async (token, aggregate) => {
-        if (originalOnToken) {
-          await originalOnToken(token, aggregate);
-        }
-        if (evaluationRunId) {
-          await this.evaluationLogger.appendTokenSample(evaluationRunId, token, tokenSequence);
-          tokenSequence++;
-        }
-      };
-
       const { parsed, raw } = await this.parseJobDescription(trimmedContent, parseOptions);
+
+      // Add final token sample
+      tokenTracker.addFinalToken('', tokenSequence);
 
       const finishTimestamp = this.now().getTime();
       const totalLatencyMs = finishTimestamp - startTimestamp;
@@ -549,43 +521,53 @@ export class JobDescriptionService {
         analysis,
       });
 
-      if (evaluationRunId) {
-        await this.evaluationLogger.updateRun(evaluationRunId, {
-          structuredData: {
-            event: 'jd.parse.completed',
-            jobDescriptionId: record.id,
-            company: parsed.company,
-            role: parsed.role,
-            differentiators: parsed.differentiatorRequirements.length,
-            keywords: parsed.keywords.length,
-            standardRequirements: parsed.standardRequirements.length,
-            preferredRequirements: parsed.preferredRequirements.length,
-          },
-          totalLatencyMs,
-          llmAnalysisLatencyMs: totalLatencyMs,
-          model: OPENAI_CONFIG.MODEL,
-          evaluationRationale: `JD parse completed: ${parsed.company} - ${parsed.role}`,
-          goNogoDecision: '✅ Go',
-        });
-      }
+      // Log success event using EvaluationEventLogger
+      const logResult = await EvaluationEventLogger.logJDParse({
+        userId,
+        jobDescriptionId: record.id,
+        rawTextChecksum: checksum,
+        company: parsed.company,
+        role: parsed.role,
+        requirements: [
+          ...parsed.standardRequirements.map(r => r.label),
+          ...parsed.differentiatorRequirements.map(r => r.label),
+          ...parsed.preferredRequirements.map(r => r.label),
+        ],
+        differentiatorSummary: parsed.differentiatorNotes,
+        inputTokens,
+        outputTokens,
+        latency: totalLatencyMs,
+        status: 'success',
+        sourceUrl: options.url ?? undefined,
+        model: OPENAI_CONFIG.MODEL,
+        syntheticProfileId: options.syntheticProfileId,
+      });
 
       options.onProgress?.('Job description analysis complete.');
 
       return {
         ...record,
-        evaluationRunId,
-        sessionId,
+        evaluationRunId: logResult.runId,
+        sessionId: `jd-parse-${Date.now()}-${checksum.slice(0, 8)}`,
       };
     } catch (error) {
       const finishTimestamp = this.now().getTime();
       const totalLatencyMs = finishTimestamp - startTimestamp;
 
-      if (evaluationRunId) {
-        await this.evaluationLogger.markFailure(evaluationRunId, {
-          error: error instanceof Error ? error.message : 'Unknown error',
-          stage: 'jd_parse',
-        });
-      }
+      // Log failure event
+      await EvaluationEventLogger.logJDParse({
+        userId,
+        jobDescriptionId: 'pending',
+        rawTextChecksum: checksum,
+        inputTokens,
+        outputTokens,
+        latency: totalLatencyMs,
+        status: 'failed',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        sourceUrl: options.url ?? undefined,
+        model: OPENAI_CONFIG.MODEL,
+        syntheticProfileId: options.syntheticProfileId,
+      });
 
       throw error;
     }

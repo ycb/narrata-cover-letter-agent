@@ -1,28 +1,18 @@
+import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
 import { 
   Building, 
-  Target, 
-  FileText,
-  TrendingUp,
-  MessageSquare,
-  Edit,
-  CheckCircle,
-  AlertCircle,
-  ChevronDown,
-  ChevronUp,
-  Tag,
-  Puzzle,
-  Settings,
-  BarChart3,
-  TrendingDown
+  CheckCircle2,
+  HelpCircle
 } from "lucide-react";
-import { useState } from "react";
-import { MatchPill } from "./MatchPill";
+import { getConfidenceBadgeColor } from "@/utils/confidenceBadge";
+import { EvidenceSummaryStats } from "./EvidenceSummaryStats";
+import { CriteriaDisplay } from "./CriteriaDisplay";
+import { DisputeFeedbackDialog } from "./DisputeFeedbackDialog";
 
 interface RoleEvidence {
   roleType: string;
@@ -73,7 +63,22 @@ interface RoleEvidenceModalProps {
 }
 
 const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps) => {
-  const [isTagAnalysisOpen, setIsTagAnalysisOpen] = useState(false);
+  // Provide default values if evidence is undefined
+  if (!evidence) {
+    return null;
+  }
+
+  const locationHref = typeof window !== "undefined" ? window.location.href : "";
+  const disputeMetadata = {
+    roleType: evidence.roleType,
+    matchScore: evidence.matchScore,
+    workHistory: evidence.workHistory,
+    tagAnalysis: evidence.tagAnalysis,
+    industryPatterns: evidence.industryPatterns,
+    gaps: evidence.gaps,
+    outcomeMetrics: evidence.outcomeMetrics,
+    location: locationHref,
+  };
 
   const getRelevanceColor = (relevance: string) => {
     if (relevance.includes("High")) return "bg-success text-success-foreground";
@@ -81,6 +86,65 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
     if (relevance.includes("Low")) return "bg-muted text-muted-foreground";
     return "bg-muted text-muted-foreground";
   };
+
+  // Get specialization criteria with met/unmet status
+  const getSpecializationCriteria = (roleType: string): Array<{ criterion: string; met: boolean }> => {
+    const criteriaMap: Record<string, string[]> = {
+      'Growth PM': [
+        'User acquisition and growth strategies',
+        'Product-led growth (PLG) systems',
+        'Metrics-driven decision making',
+        'A/B testing and experimentation'
+      ],
+      'Platform PM': [
+        'Developer-facing products',
+        'API and infrastructure design',
+        'Technical depth and system architecture',
+        'Developer experience focus'
+      ],
+      'AI/ML PM': [
+        'Machine learning product experience',
+        'Data-driven insights and algorithms',
+        'Model evaluation and performance',
+        'AI/ML feature development'
+      ],
+      'Founding PM': [
+        '0-1 product building',
+        'Startup environment experience',
+        'Early customer discovery',
+        'Resource-constrained execution'
+      ],
+      'Technical PM': [
+        'Deep technical products',
+        'Engineering collaboration',
+        'System design and architecture',
+        'Technical problem-solving'
+      ],
+      'General PM': [
+        'Broad product management skills',
+        'Cross-functional leadership',
+        'Feature development and delivery',
+        'Stakeholder management'
+      ]
+    };
+    
+    const criteria = criteriaMap[roleType] || [];
+    // Determine if criteria are met based on match score (>= 70% is met)
+    const isMet = (evidence.matchScore || 0) >= 70;
+    
+    return criteria.map(criterion => ({
+      criterion,
+      met: isMet
+    }));
+  };
+
+  const specializationCriteria = getSpecializationCriteria(evidence.roleType);
+  
+  // Get matched tags from tagAnalysis (top tags by relevance)
+  const matchedTags = (evidence.tagAnalysis || [])
+    .filter(tag => tag.relevance >= 50)
+    .map(tag => tag.tag)
+    .slice(0, 10);
 
   return (
     <>
@@ -91,7 +155,8 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         {/* Sticky Header */}
         <DialogHeader className="pb-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-start justify-between gap-3">
             <div>
               <DialogTitle className="text-2xl font-bold">
                 Evidence for {evidence.roleType} Match
@@ -101,202 +166,195 @@ const RoleEvidenceModal = ({ isOpen, onClose, evidence }: RoleEvidenceModalProps
               </DialogDescription>
             </div>
           </div>
-        </DialogHeader>
-
-        <div className="p-6">
-          {/* Summary Tiles */}
-          <div className="summary-grid">
-            <div className="summary-tile">
-              <div className="summary-tile-value">
-                {evidence.matchScore}%
-              </div>
-              <div className="summary-tile-label">Match</div>
-            </div>
-            <div className="summary-tile">
-              <div className="summary-tile-value">
-                {evidence.workHistory.length}
-              </div>
-              <div className="summary-tile-label">Relevant Roles</div>
-            </div>
-            <div className="summary-tile">
-              <div className="summary-tile-value">
-                {evidence.tagAnalysis.length}
-              </div>
-              <div className="summary-tile-label">Key Tags</div>
-            </div>
-            <div className="summary-tile">
-              <div className="summary-tile-value">
-                {evidence.industryPatterns.filter(p => p.match).length}
-              </div>
-              <div className="summary-tile-label">Patterns Matched</div>
+            <div className="flex justify-end">
+              <DisputeFeedbackDialog
+                subject={`PM Level specialization dispute: ${evidence.roleType}`}
+                metadata={disputeMetadata}
+              />
             </div>
           </div>
+        </DialogHeader>
 
-          {/* Section 1: Industry Pattern Analysis */}
+        <div>
+          {/* Summary Stats */}
+          <EvidenceSummaryStats
+            stats={[
+              { label: "Stories", value: evidence.workHistory?.length || 0 },
+              { label: "Matched Tags", value: matchedTags.length },
+              { label: "Patterns Matched", value: (evidence.industryPatterns || []).filter(p => p.match).length }
+            ]}
+            confidence={evidence.matchScore || 0}
+            confidenceLabel="Match"
+          />
+
+          {/* How This Was Scored */}
           <Card className="section-spacing">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Puzzle className="h-5 w-5" />
-                Industry Pattern Analysis
+              <CardTitle className="text-lg">
+                How This Was Scored
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {evidence.industryPatterns.map((pattern, index) => (
-                <div key={index} className="p-3 border rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium">{pattern.pattern}</h4>
+            <CardContent className="text-sm text-muted-foreground space-y-2">
+              <p>
+                Your {evidence.roleType} match is based on:
+              </p>
+              <ul className="list-disc list-inside space-y-1 ml-4 text-foreground">
+                <li>Industry patterns and domain experience</li>
+                <li>Problem complexity and scale addressed</li>
+                <li>Relevance of work history to specialization</li>
+                <li>Tag density and keyword alignment</li>
+                <li>Outcome metrics and quantifiable impact</li>
+              </ul>
+              {(evidence.industryPatterns || []).length > 0 && (
+                <div className="mt-4 pt-4 border-t">
+                  <p className="font-medium mb-2 text-foreground">Industry Patterns:</p>
+                  <div className="space-y-2">
+              {(evidence.industryPatterns || []).map((pattern, index) => (
+                      <div key={index} className="flex items-center gap-2">
                     {pattern.match ? (
-                      <CheckCircle className="h-5 w-5 text-success" />
+                          <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
                     ) : (
-                      <AlertCircle className="h-5 w-5 text-muted-foreground" />
+                          <HelpCircle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                     )}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    <strong>Examples:</strong> {pattern.examples.join(', ')}
+                        <span>{pattern.pattern}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          {/* Section 2: Problem Complexity */}
-          <Card className="section-spacing">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Settings className="h-5 w-5" />
-                Problem Complexity
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="font-medium">Complexity Level</h4>
-                <Badge variant="outline">{evidence.problemComplexity.level}</Badge>
-              </div>
-              
-              <div>
-                <h4 className="font-medium mb-2">Problem Types Addressed</h4>
-                <div className="flex flex-wrap gap-2">
-                  {evidence.problemComplexity.examples.map((example, index) => (
-                    <Badge key={index} variant="secondary">
-                      {example}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Section 3: Relevant Work History */}
-          <Card className="section-spacing">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Relevant Work History
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {evidence.workHistory.map((work, index) => (
-                <div key={index} className="p-3 border rounded-lg">
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <h4 className="font-medium">{work.role}</h4>
-                      <p className="text-sm text-muted-foreground">{work.company}</p>
-                    </div>
-                    <Badge className={getRelevanceColor(work.relevance)}>
-                      {work.relevance}
-                    </Badge>
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {work.tags.map((tag) => (
-                      <Badge key={tag} variant="outline" className="text-xs">
-                        {tag}
+              )}
+              {evidence.problemComplexity && (
+                <div className="mt-4 pt-4 border-t">
+                  <p className="font-medium mb-2 text-foreground">Problem Complexity: {evidence.problemComplexity.level}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(evidence.problemComplexity.examples || []).map((example, index) => (
+                      <Badge key={index} variant="secondary" className="text-xs">
+                        {example}
                       </Badge>
                     ))}
                   </div>
                 </div>
-              ))}
+              )}
             </CardContent>
           </Card>
 
-          {/* Section 4: Tag Relevance (Collapsible) */}
-          <Collapsible open={isTagAnalysisOpen} onOpenChange={setIsTagAnalysisOpen}>
-            <Card className="section-spacing">
-              <CollapsibleTrigger asChild>
-                <CardHeader className="pb-3 cursor-pointer hover:bg-muted/50 transition-colors">
-                  <CardTitle className="text-lg flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Tag className="h-5 w-5" />
-                      Tag Relevance Analysis
-                    </div>
-                    {isTagAnalysisOpen ? (
-                      <ChevronUp className="h-5 w-5" />
-                    ) : (
-                      <ChevronDown className="h-5 w-5" />
-                    )}
-                  </CardTitle>
-                </CardHeader>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent className="space-y-3">
-                  {evidence.tagAnalysis.map((tag) => (
-                    <div key={tag.tag} className="p-3 border rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium">{tag.tag}</h4>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline">{tag.count} uses</Badge>
-                          <Badge variant="secondary">{tag.relevance}% relevant</Badge>
-                        </div>
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        <strong>Examples:</strong> {tag.examples.join(', ')}
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
-
-          {/* Outcome Metrics */}
+          {/* Criteria */}
           <Card className="section-spacing">
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
+              <CardTitle className="text-lg">
+                Criteria for {evidence.roleType}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CriteriaDisplay criteria={specializationCriteria} />
+            </CardContent>
+          </Card>
+
+          {/* Tags */}
+          <Card className="section-spacing">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">
+                Tags That Contributed
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {matchedTags.map((tag) => (
+                  <Badge key={tag} variant="secondary" className="text-sm">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+            </CardContent>
+          </Card>
+
+          {/* Metrics */}
+          <Card className="section-spacing">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">
                 Outcome Metrics
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <OutcomeMetrics 
+              <OutcomeMetrics
                 metrics={[
-                  ...evidence.outcomeMetrics.roleLevel,
-                  ...evidence.outcomeMetrics.storyLevel
-                ]} 
+                  ...(evidence.outcomeMetrics?.roleLevel || []),
+                  ...(evidence.outcomeMetrics?.storyLevel || [])
+                ]}
               />
             </CardContent>
           </Card>
 
-          {/* Section 5: Areas for Improvement */}
-          {evidence.gaps.length > 0 && (
+          {/* Stories */}
+          <Card className="section-spacing">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Stories</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {(evidence.workHistory || []).map((work, index) => (
+                  <Card key={index}>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <CardTitle className="text-base mb-2">{work.role}</CardTitle>
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <Building className="h-4 w-4" />
+                              {work.company}
+                            </div>
+                          </div>
+                        </div>
+                        <Badge className={getRelevanceColor(work.relevance)}>
+                          {work.relevance}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="flex flex-wrap gap-1">
+                        {(work.tags || []).map((tag) => (
+                          <Badge key={tag} variant="outline" className="text-xs">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Areas for Improvement */}
+          {(evidence.gaps?.length || 0) > 0 && (
             <Card className="section-spacing">
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <TrendingDown className="h-5 w-5" />
+                <CardTitle className="text-lg">
                   Areas for Improvement
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {evidence.gaps.map((gap, index) => (
+                {(evidence.gaps || []).map((gap, index) => (
                   <div key={index} className="p-3 border rounded-lg">
                     <h4 className="font-medium mb-2">{gap.area}</h4>
                     <p className="text-sm text-muted-foreground mb-2">{gap.description}</p>
                     <div className="text-xs text-muted-foreground">
-                      <strong>Suggestions:</strong> {gap.suggestions.join(', ')}
+                      <strong>Suggestions:</strong> {gap.suggestions?.join(', ') || 'N/A'}
                     </div>
                   </div>
                 ))}
               </CardContent>
             </Card>
           )}
+        </div>
+
+        <div className="mt-6 flex justify-end">
+          <Button
+            variant="ghost"
+            onClick={() => onClose()}
+            className="gap-2 text-muted-foreground hover:text-foreground"
+          >
+            Close
+          </Button>
         </div>
       </DialogContent>
       </Dialog>
