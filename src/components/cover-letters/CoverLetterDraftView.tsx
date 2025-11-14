@@ -64,7 +64,7 @@ interface CoverLetterDraftViewProps {
 export function CoverLetterDraftView({
   sections,
   hilProgressMetrics,
-  detailedAnalysis,
+  enhancedMatchData,
   goNoGoAnalysis,
   jobDescription,
   isEditable = false,
@@ -91,11 +91,11 @@ export function CoverLetterDraftView({
   };
 
   const getRequirementsForParagraph = (paragraphType: string) => {
-    // Get requirements from detailedAnalysis if available
-    if (detailedAnalysis?.requirementsMatch) {
+    // Agent C: Get requirements from enhancedMatchData if available
+    if (enhancedMatchData) {
       const allReqs = [
-        ...(detailedAnalysis.requirementsMatch.coreRequirements || []),
-        ...(detailedAnalysis.requirementsMatch.preferredRequirements || [])
+        ...(enhancedMatchData.coreRequirementDetails || []),
+        ...(enhancedMatchData.preferredRequirementDetails || [])
       ];
 
       // Filter requirements that are demonstrated in this section
@@ -132,7 +132,7 @@ export function CoverLetterDraftView({
           isPostHIL={hilCompleted}
           goNoGoAnalysis={goNoGoAnalysis || undefined}
           jobDescription={jobDescription || undefined}
-          detailedAnalysis={detailedAnalysis || undefined}
+          enhancedMatchData={enhancedMatchData || undefined}
           onEditGoals={onEditGoals}
         />
       )}
