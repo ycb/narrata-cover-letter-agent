@@ -177,3 +177,19 @@
   - All tests pass (10/10 ✓)
 
 - 🧪 Ready for E2E testing: Need user credentials to test actual flow in browser
+
+- ✅ Fixed mock data in match criteria component:
+  - Root cause: ProgressIndicatorWithTooltips using createMockGoalMatches() hardcoded data
+  - Solution: Extended CoverLetterDraft to include jobDescription data
+  - Created buildGoalMatchesFromAnalysis() to build real criteria from Go/No-Go analysis
+  - Pass goNoGoAnalysis + jobDescription to component
+  - Match criteria now shows REAL data from job description and user profile
+  - Commit: 1704338 "fix: replace mock data with real Go/No-Go analysis in match criteria"
+
+- ✅ Fixed modal closing on tab switch:
+  - Root cause: Dialog onOpenChange triggered handleClose() on blur events
+  - Solution: Added modal=true and proper onOpenChange handler
+  - Users can now switch tabs to copy job descriptions without losing work
+  - Included in commit: 1704338
+
+- 🎯 Both critical UX issues resolved - Ready for testing
