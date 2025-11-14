@@ -34,17 +34,18 @@ describe('EvaluationEventLogger', () => {
 
   describe('logJDParse', () => {
     it('should log successful JD parsing event', async () => {
-      const mockInsert = vi.fn().mockResolvedValue({
+      // Create proper mock chain: from() -> insert() -> select()
+      const mockSelect = vi.fn().mockResolvedValue({
         data: [{ id: 'run-1' }],
         error: null,
       });
 
+      const mockInsert = vi.fn().mockReturnValue({
+        select: mockSelect,
+      });
+
       const mockFrom = vi.fn().mockReturnValue({
         insert: mockInsert,
-        select: vi.fn().mockReturnValue({
-          insert: mockInsert,
-          select: mockInsert,
-        }),
       });
 
       vi.mocked(mockSupabase.from).mockImplementation(mockFrom);
@@ -81,17 +82,17 @@ describe('EvaluationEventLogger', () => {
     });
 
     it('should handle JD parsing failure', async () => {
-      const mockInsert = vi.fn().mockResolvedValue({
+      const mockSelect = vi.fn().mockResolvedValue({
         data: [{ id: 'run-2' }],
         error: null,
       });
 
+      const mockInsert = vi.fn().mockReturnValue({
+        select: mockSelect,
+      });
+
       const mockFrom = vi.fn().mockReturnValue({
         insert: mockInsert,
-        select: vi.fn().mockReturnValue({
-          insert: mockInsert,
-          select: mockInsert,
-        }),
       });
 
       vi.mocked(mockSupabase.from).mockImplementation(mockFrom);
@@ -118,17 +119,17 @@ describe('EvaluationEventLogger', () => {
 
     it('should handle database errors gracefully', async () => {
       const mockError = { message: 'Database connection failed' };
-      const mockInsert = vi.fn().mockResolvedValue({
+      const mockSelect = vi.fn().mockResolvedValue({
         data: null,
         error: mockError,
       });
 
+      const mockInsert = vi.fn().mockReturnValue({
+        select: mockSelect,
+      });
+
       const mockFrom = vi.fn().mockReturnValue({
         insert: mockInsert,
-        select: vi.fn().mockReturnValue({
-          insert: mockInsert,
-          select: mockInsert,
-        }),
       });
 
       vi.mocked(mockSupabase.from).mockImplementation(mockFrom);
@@ -187,17 +188,17 @@ describe('EvaluationEventLogger', () => {
 
   describe('logHILStory', () => {
     it('should log HIL story creation event', async () => {
-      const mockInsert = vi.fn().mockResolvedValue({
+      const mockSelect = vi.fn().mockResolvedValue({
         data: [{ id: 'run-4' }],
         error: null,
       });
 
+      const mockInsert = vi.fn().mockReturnValue({
+        select: mockSelect,
+      });
+
       const mockFrom = vi.fn().mockReturnValue({
         insert: mockInsert,
-        select: vi.fn().mockReturnValue({
-          insert: mockInsert,
-          select: mockInsert,
-        }),
       });
 
       vi.mocked(mockSupabase.from).mockImplementation(mockFrom);
@@ -235,17 +236,17 @@ describe('EvaluationEventLogger', () => {
     });
 
     it('should log manual edit action', async () => {
-      const mockInsert = vi.fn().mockResolvedValue({
+      const mockSelect = vi.fn().mockResolvedValue({
         data: [{ id: 'run-5' }],
         error: null,
       });
 
+      const mockInsert = vi.fn().mockReturnValue({
+        select: mockSelect,
+      });
+
       const mockFrom = vi.fn().mockReturnValue({
         insert: mockInsert,
-        select: vi.fn().mockReturnValue({
-          insert: mockInsert,
-          select: mockInsert,
-        }),
       });
 
       vi.mocked(mockSupabase.from).mockImplementation(mockFrom);
@@ -274,17 +275,17 @@ describe('EvaluationEventLogger', () => {
 
   describe('logHILSavedSection', () => {
     it('should log HIL saved section event', async () => {
-      const mockInsert = vi.fn().mockResolvedValue({
+      const mockSelect = vi.fn().mockResolvedValue({
         data: [{ id: 'run-6' }],
         error: null,
       });
 
+      const mockInsert = vi.fn().mockReturnValue({
+        select: mockSelect,
+      });
+
       const mockFrom = vi.fn().mockReturnValue({
         insert: mockInsert,
-        select: vi.fn().mockReturnValue({
-          insert: mockInsert,
-          select: mockInsert,
-        }),
       });
 
       vi.mocked(mockSupabase.from).mockImplementation(mockFrom);
@@ -314,17 +315,17 @@ describe('EvaluationEventLogger', () => {
 
   describe('logHILDraft', () => {
     it('should log HIL draft edit event with gap tracking', async () => {
-      const mockInsert = vi.fn().mockResolvedValue({
+      const mockSelect = vi.fn().mockResolvedValue({
         data: [{ id: 'run-7' }],
         error: null,
       });
 
+      const mockInsert = vi.fn().mockReturnValue({
+        select: mockSelect,
+      });
+
       const mockFrom = vi.fn().mockReturnValue({
         insert: mockInsert,
-        select: vi.fn().mockReturnValue({
-          insert: mockInsert,
-          select: mockInsert,
-        }),
       });
 
       vi.mocked(mockSupabase.from).mockImplementation(mockFrom);
@@ -391,17 +392,17 @@ describe('EvaluationEventLogger', () => {
     });
 
     it('should provide runId on successful insertion', async () => {
-      const mockInsert = vi.fn().mockResolvedValue({
+      const mockSelect = vi.fn().mockResolvedValue({
         data: [{ id: 'unique-run-id-12345' }],
         error: null,
       });
 
+      const mockInsert = vi.fn().mockReturnValue({
+        select: mockSelect,
+      });
+
       const mockFrom = vi.fn().mockReturnValue({
         insert: mockInsert,
-        select: vi.fn().mockReturnValue({
-          insert: mockInsert,
-          select: mockInsert,
-        }),
       });
 
       vi.mocked(mockSupabase.from).mockImplementation(mockFrom);
