@@ -52,7 +52,7 @@ import { supabase } from '@/lib/supabase';
 import { JobDescriptionService } from '@/services/jobDescriptionService';
 import { CoverLetterDraftService } from '@/services/coverLetterDraftService';
 import { useCoverLetterDraft } from '@/hooks/useCoverLetterDraft';
-import { MatchComponent } from './MatchComponent';
+import { ProgressIndicatorWithTooltips } from './ProgressIndicatorWithTooltips';
 import { CoverLetterFinalization } from './CoverLetterFinalization';
 import { ContentCard } from '@/components/shared/ContentCard';
 import { ContentGenerationModal } from '@/components/hil/ContentGenerationModal';
@@ -536,11 +536,45 @@ export const CoverLetterCreateModal = ({
           </Alert>
         )}
 
-        <MatchComponent
-          metrics={draft.metrics}
-          differentiators={draft.differentiatorSummary}
-          isLoading={isGenerating}
-        />
+        {(() => {
+          // Transform draft.metrics to HILProgressMetrics format
+          const metricsMap = new Map(draft.metrics.map(m => [m.key, m]));
+          
+          const goalsMetric = metricsMap.get('goals');
+          const experienceMetric = metricsMap.get('experience');
+          const ratingMetric = metricsMap.get('rating');
+          const atsMetric = metricsMap.get('ats');
+          const coreReqsMetric = metricsMap.get('coreRequirements');
+          const preferredReqsMetric = metricsMap.get('preferredRequirements');
+          
+          const hilMetrics = {
+            goalsMatch: goalsMetric && goalsMetric.type === 'strength' 
+              ? goalsMetric.strength 
+              : 'weak',
+            experienceMatch: experienceMetric && experienceMetric.type === 'strength'
+              ? experienceMetric.strength
+              : 'weak',
+            coverLetterRating: ratingMetric && ratingMetric.type === 'strength'
+              ? ratingMetric.strength
+              : 'weak',
+            atsScore: atsMetric && atsMetric.type === 'score'
+              ? Math.round(atsMetric.value)
+              : draft.atsScore || 0,
+            coreRequirementsMet: coreReqsMetric && coreReqsMetric.type === 'requirement'
+              ? { met: coreReqsMetric.met, total: coreReqsMetric.total }
+              : { met: 0, total: 0 },
+            preferredRequirementsMet: preferredReqsMetric && preferredReqsMetric.type === 'requirement'
+              ? { met: preferredReqsMetric.met, total: preferredReqsMetric.total }
+              : { met: 0, total: 0 },
+          };
+          
+          return (
+            <ProgressIndicatorWithTooltips
+              metrics={hilMetrics}
+              isPostHIL={false}
+            />
+          );
+        })()}
 
         {jobDescriptionRecord && (
           <Card className="border-muted-foreground/20 bg-muted/10">
