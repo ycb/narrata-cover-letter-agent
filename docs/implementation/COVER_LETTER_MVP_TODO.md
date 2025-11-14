@@ -165,3 +165,15 @@
   - Added error handling with toast notifications
   - Build passes successfully (TypeScript compilation)
 - 🎯 MVP Core Flow Complete: End-to-end cover letter creation working!
+
+- ⚠️ Fixed foreign key constraint error:
+  - Root cause: template_id foreign key constraint in cover_letters table
+  - Previous approach created templates via raw Supabase insert (unreliable)
+  - Solution: Use existing CoverLetterTemplateService for template management
+  - Now calls getUserTemplates() first, creates default if none exist
+  - Added comprehensive console logging for debugging
+  - Commit: ac13b46 "fix: use CoverLetterTemplateService for proper template management"
+  - Build passes (npm run build ✓)
+  - All tests pass (10/10 ✓)
+
+- 🧪 Ready for E2E testing: Need user credentials to test actual flow in browser
