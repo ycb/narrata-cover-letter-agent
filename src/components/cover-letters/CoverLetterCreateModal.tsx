@@ -75,13 +75,7 @@ const CoverLetterCreateModal = ({ isOpen, onClose, onCoverLetterCreated }: Cover
   // State
   const [jobDescriptionMethod, setJobDescriptionMethod] = useState<'url' | 'paste'>('paste');
   const [jobUrl, setJobUrl] = useState('');
-  const [jobContent, setJobContent] = useState(`Senior Product Manager - Growth & SaaS Platform
-
-Requirements: 6+ years PM experience, SaaS background, growth metrics, SQL/Python, Tableau/Looker, fintech experience
-
-Responsibilities: Lead growth initiatives, analyze user behavior, optimize conversion funnels, collaborate with engineering teams
-
-Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership`);
+  const [jobContent, setJobContent] = useState('');
 
 
   const [isGenerating, setIsGenerating] = useState(false);
