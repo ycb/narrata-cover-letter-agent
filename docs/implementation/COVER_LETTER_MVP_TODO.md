@@ -22,14 +22,14 @@
 - ✅ Commit: "feat: add Go/No-Go job fit analysis service"
 
 ### 2. Cover Letter Draft Service
-- ⬜ Create `src/services/coverLetterDraftService.ts`
-- ⬜ Implement `createDraft()` orchestration
-- ⬜ Implement `generateSections()` from saved sections + work history
-- ⬜ Implement `calculateMetrics()` for HIL progress
-- ⬜ Implement `saveDraft()` to database
-- ⬜ Implement `updateDraft()` for HIL edits
-- ⬜ Write basic tests
-- ⬜ Commit: "feat: add CoverLetterDraftService orchestration"
+- ✅ Create `src/services/coverLetterDraftService.ts`
+- ✅ Implement `createDraft()` orchestration
+- ✅ Implement `generateSections()` from saved sections + work history
+- ✅ Implement `calculateMetrics()` for HIL progress
+- ✅ Implement `saveDraft()` to database
+- ✅ Implement `updateDraft()` for HIL edits
+- ✅ Write basic tests (6 tests passing)
+- ✅ Commit: "feat: add CoverLetterDraftService orchestration"
 
 ### 3. Gap Detection Extension
 - ⬜ Update `src/services/gapDetectionService.ts` to support `cover_letter_section`
@@ -156,5 +156,6 @@
 - Created branch `feat/draft-cover-letter-claude`
 - Created TODO tracking document
 - Starting Phase 1: Critical Path implementation
-- ✅ Completed Go/No-Go Service (goNoGoService.ts + prompts + tests)
-- ⏳ Working on CoverLetterDraftService
+- ✅ Completed Go/No-Go Service (goNoGoService.ts + prompts + tests - 4 tests)
+- ✅ Completed CoverLetterDraftService (orchestration + tests - 6 tests)
+- ⏳ Working on Modal Integration (wiring real services)
