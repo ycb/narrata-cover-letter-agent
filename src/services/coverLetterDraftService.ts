@@ -22,7 +22,6 @@ import type {
 import type { CoverLetterSection } from '@/types/workHistory';
 import { UserPreferencesService } from './userPreferencesService';
 import { JobDescriptionService } from './jobDescriptionService';
-import { EvaluationLoggingService } from './evaluationLoggingService';
 
 type SupabaseClient = typeof supabase;
 
@@ -42,7 +41,6 @@ export interface CoverLetterDraftServiceOptions {
   supabaseClient?: SupabaseClient;
   jobDescriptionService?: JobDescriptionService;
   metricsStreamer?: MetricsStreamer;
-  evaluationLogger?: EvaluationLoggingService;
   now?: () => Date;
 }
 
