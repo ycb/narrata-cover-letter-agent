@@ -701,3 +701,5 @@ export const CoverLetterCreateModal = ({
   );
 };
 
+export default CoverLetterCreateModal;
+
