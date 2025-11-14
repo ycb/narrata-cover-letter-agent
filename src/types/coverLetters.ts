@@ -123,6 +123,67 @@ export type CoverLetterMatchMetric =
   | ScoreMatchMetric
   | RequirementMatchMetric;
 
+// Enhanced match detail types for Agent C
+export interface GoalMatchDetail {
+  id: string;
+  goalType: string;
+  userValue: string | null;
+  jobValue: string | null;
+  met: boolean;
+  evidence: string;
+  requiresManualVerification?: boolean;
+}
+
+export interface RequirementMatchDetail {
+  id: string;
+  requirement: string;
+  demonstrated: boolean;
+  evidence: string;
+  sectionIds: string[];
+}
+
+export interface ExperienceMatchDetail {
+  requirement: string;
+  confidence: 'high' | 'medium' | 'low';
+  matchedWorkItemIds: string[];
+  matchedStoryIds: string[];
+  evidence: string;
+  missingDetails?: string;
+}
+
+export interface CTAHook {
+  type: 'add-story' | 'edit-goals' | 'enhance-section' | 'add-metrics';
+  label: string;
+  requirement: string;
+  severity: 'high' | 'medium' | 'low';
+  actionPayload?: Record<string, unknown>;
+}
+
+// Enhanced metrics with detailed breakdowns
+export interface EnhancedMatchData {
+  // Goals match details
+  goalMatches?: GoalMatchDetail[];
+  
+  // Requirements match details (what's in the DRAFT)
+  coreRequirementDetails?: RequirementMatchDetail[];
+  preferredRequirementDetails?: RequirementMatchDetail[];
+  
+  // Experience match details (what's in WORK HISTORY)
+  coreExperienceDetails?: ExperienceMatchDetail[];
+  preferredExperienceDetails?: ExperienceMatchDetail[];
+  
+  // Differentiator analysis
+  differentiatorAnalysis?: {
+    summary: string;
+    userPositioning: string;
+    strengthAreas: string[];
+    gapAreas: string[];
+  };
+  
+  // CTA hooks for actions
+  ctaHooks?: CTAHook[];
+}
+
 export interface DifferentiatorInsight {
   requirementId: string;
   label: string;
@@ -159,6 +220,7 @@ export interface CoverLetterDraft {
   differentiatorSummary: DifferentiatorInsight[];
   llmFeedback: Record<string, Json>;
   analytics?: CoverLetterAnalytics;
+  enhancedMatchData?: EnhancedMatchData; // Agent C: detailed match breakdown
   createdAt: string;
   updatedAt: string;
   finalizedAt?: string | null;

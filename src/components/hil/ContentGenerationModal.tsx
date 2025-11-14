@@ -80,53 +80,67 @@ export function ContentGenerationModal({
     if (!gap) return;
     
     setIsGenerating(true);
+    setGeneratedContent(''); // Clear previous content
     
-          // Mock content generation based on gap type, suggestion, and paragraph context
-      setTimeout(() => {
-        let content = '';
-        
-        // Generate content specific to the paragraph and gap
-        switch (gap.paragraphId) {
-          case 'intro':
-            if (gap.type === 'best-practice') {
-              content = `I am writing to express my strong interest in the Senior Product Manager position at TechCorp. With over 5 years of experience in product management and a passion for data-driven decision making, I have consistently delivered measurable results that demonstrate my value. ${gap.suggestion}.\n\nFor example, in my previous role at InnovateTech, I increased user engagement by 35% through A/B testing and optimization, reduced customer churn by 40% through improved onboarding flows, and directly contributed to a 25% improvement in overall team productivity through streamlined processes and clear KPIs. My experience with SQL, Python, and analytics tools like Tableau has enabled me to make data-informed decisions that drive business growth.`;
-            } else {
-              content = `I am writing to express my strong interest in this position. ${gap.suggestion}.\n\nMy background includes extensive experience with the required technologies, and I am confident I can contribute immediately to your team's success.`;
-            }
-            break;
-            
-          case 'experience':
-            if (gap.type === 'core-requirement') {
-              content = `In my previous role as a Senior Product Manager at InnovateTech, I successfully ${gap.suggestion.toLowerCase()}.\n\nSpecifically, I led cross-functional teams of 8-12 engineers, designers, and analysts to deliver products that met both user needs and business objectives. My hands-on experience with SQL, Python, and analytics platforms like Tableau and Looker has enabled me to dive deep into data to inform product decisions and measure success. I've consistently delivered products that exceed user expectations while meeting business goals.`;
-            } else if (gap.type === 'preferred-requirement') {
-              content = `Beyond technical skills, I also bring strong leadership experience to the table. ${gap.suggestion}.\n\nI led a team of 8 product managers and successfully delivered 12 major product launches on time and under budget, demonstrating my ability to manage both technical and business challenges. My experience in SaaS and fintech has given me deep insights into user behavior and market dynamics.`;
-            }
-            break;
-            
-          case 'closing':
-            content = `I am particularly excited about this opportunity at TechCorp because ${gap.suggestion.toLowerCase()}.\n\nYour focus on sustainable technology solutions and commitment to innovation aligns perfectly with my values and experience. I led a green technology initiative that reduced our infrastructure costs by 30% while improving performance, demonstrating my ability to balance technical excellence with business impact and environmental responsibility. My combination of technical expertise, proven track record of delivering results, and passion for sustainable solutions makes me confident I can contribute significantly to your team's success. I look forward to discussing how my background aligns with your needs and how I can help drive TechCorp's mission forward.`;
-            break;
-            
-          case 'role-description':
-            content = `Led product strategy for core platform. I increased user engagement by 35% through data-driven product decisions, reduced customer churn by 40% through improved user experience flows, and delivered $2M in additional revenue through strategic feature launches. My experience with SQL, Python, and analytics tools like Tableau enabled me to make informed decisions that drove measurable business impact.`;
-            break;
-            
-          case 'outcome-metrics':
-            content = `Increased user engagement by 25% and reduced churn by 15%, ${gap.suggestion.toLowerCase()}.\n\nSpecifically, I achieved a 35% increase in daily active users through A/B testing and optimization, reduced customer acquisition cost by 30% through improved conversion funnels, and delivered $1.5M in additional revenue through strategic product initiatives. These metrics were measured over a 12-month period and validated through user research and business impact analysis.`;
-            break;
-            
-          case 'story-content':
-            content = `Successfully launched new product features that improved user experience, ${gap.suggestion.toLowerCase()}.\n\nSpecifically, I led the development of a recommendation engine that increased user engagement by 45%, implemented a streamlined checkout process that reduced cart abandonment by 25%, and introduced personalization features that boosted user retention by 30%. These features were built using React, Node.js, and machine learning algorithms, resulting in $500K in additional monthly revenue.`;
-            break;
-            
-          default:
-            content = `I am confident that my background and experience make me an excellent fit for this position. ${gap.suggestion}.\n\nI look forward to discussing how I can contribute to your team's success.`;
+    try {
+      // Use real streaming service
+      const { GapResolutionStreamingService } = await import('@/services/gapResolutionStreamingService');
+      const streamingService = new GapResolutionStreamingService();
+      
+      // Extract job description context from gap or use defaults
+      const jobContext = {
+        role: gap.paragraphId === 'intro' ? 'the role' : undefined,
+        company: undefined,
+        coreRequirements: gap.addresses || [],
+        preferredRequirements: [],
+      };
+      
+      await streamingService.streamGapResolution(gap, jobContext, {
+        onUpdate: (content) => {
+          setGeneratedContent(content);
+        },
+        onComplete: (content) => {
+          setGeneratedContent(content);
+          setContentQuality('review');
+          setIsGenerating(false);
+        },
+        onError: (error) => {
+          console.error('[ContentGenerationModal] Streaming error:', error);
+          setIsGenerating(false);
+          // Fallback to mock content on error
+          handleGenerateFallback();
         }
-        
-        setGeneratedContent(content);
-        setContentQuality('review');
-        setIsGenerating(false);
-      }, 2000);
+      });
+    } catch (error) {
+      console.error('[ContentGenerationModal] Failed to initialize streaming:', error);
+      setIsGenerating(false);
+      // Fallback to mock content on error
+      handleGenerateFallback();
+    }
+  };
+
+  const handleGenerateFallback = () => {
+    if (!gap) return;
+    
+    // Fallback mock content generation
+    let content = '';
+    
+    switch (gap.paragraphId) {
+      case 'intro':
+        content = `I am writing to express my strong interest in this position. ${gap.suggestion}. My background includes relevant experience that directly aligns with your requirements.`;
+        break;
+      case 'experience':
+        content = `In my previous role, I successfully ${gap.suggestion.toLowerCase()}. Specifically, I delivered measurable results that demonstrate my capabilities in this area.`;
+        break;
+      case 'closing':
+        content = `I am particularly excited about this opportunity because ${gap.suggestion.toLowerCase()}. I look forward to discussing how my background aligns with your needs.`;
+        break;
+      default:
+        content = `${gap.suggestion}. I am confident I can contribute to your team's success.`;
+    }
+    
+    setGeneratedContent(content);
+    setContentQuality('review');
   };
 
   const handleRegenerate = () => {

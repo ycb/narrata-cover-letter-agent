@@ -14,6 +14,7 @@ import type {
   DraftGenerationProgressUpdate,
   DraftGenerationResult,
   DraftWorkpad,
+  EnhancedMatchData,
   MatchStrength,
   ParsedJobDescription,
   RequirementCategory,
@@ -22,6 +23,7 @@ import type {
 import type { CoverLetterSection } from '@/types/workHistory';
 import { UserPreferencesService } from './userPreferencesService';
 import { JobDescriptionService } from './jobDescriptionService';
+import { ENHANCED_METRICS_SYSTEM_PROMPT, buildEnhancedMetricsUserPrompt } from '@/prompts/enhancedMetricsAnalysis';
 
 type SupabaseClient = typeof supabase;
 
@@ -29,11 +31,24 @@ type MetricsStreamer = (input: {
   draft: CoverLetterDraftSection[];
   jobDescription: ParsedJobDescription;
   userGoals: Awaited<ReturnType<typeof UserPreferencesService.loadGoals>> | null;
+  workHistory?: Array<{
+    id: string;
+    company: string;
+    title: string;
+    description: string;
+    achievements: string[];
+  }>;
+  approvedContent?: Array<{
+    id: string;
+    title: string;
+    content: string;
+  }>;
   signal?: AbortSignal;
   onToken?: (token: string) => void;
 }) => Promise<{
   metrics: CoverLetterMatchMetric[];
   atsScore: number;
+  enhancedMatchData?: EnhancedMatchData; // Agent C: detailed analysis
   raw: Record<string, unknown>;
 }>;
 
@@ -76,7 +91,7 @@ const createDefaultMetricsStreamer = (): MetricsStreamer => {
 
   const client = createOpenAI({ apiKey });
 
-  return async ({ draft, jobDescription, userGoals, signal, onToken }) => {
+  return async ({ draft, jobDescription, userGoals, workHistory, approvedContent, signal, onToken }) => {
     const letterText = draft
       .sort((a, b) => a.order - b.order)
       .map(section => section.content.trim())
@@ -101,32 +116,21 @@ const createDefaultMetricsStreamer = (): MetricsStreamer => {
         differentiatorSignals: jobDescription.differentiatorSignals,
       },
       userGoals,
+      workHistory,
+      approvedContent,
     };
 
     const result: any = await streamText({
       model: client.chat(OPENAI_CONFIG.MODEL),
-      system: `
-You are an expert cover letter reviewer. Evaluate how well the draft cover letter matches the job description and user goals.
-Respond ONLY with JSON following this schema:
-{
-  "metrics": {
-    "goals": { "strength": "strong|average|weak", "summary": string, "tooltip": string, "differentiatorHighlights": string[] },
-    "experience": { "strength": "strong|average|weak", "summary": string, "tooltip": string, "differentiatorHighlights": string[] },
-    "rating": { "score": number (0-100), "summary": string, "tooltip": string },
-    "ats": { "score": number (0-100), "summary": string, "tooltip": string, "differentiatorHighlights": string[] },
-    "coreRequirements": { "met": number, "total": number, "summary": string, "tooltip": string, "differentiatorHighlights": string[] },
-    "preferredRequirements": { "met": number, "total": number, "summary": string, "tooltip": string, "differentiatorHighlights": string[] }
-  }
-}
-`,
+      system: ENHANCED_METRICS_SYSTEM_PROMPT,
       messages: [
         {
           role: 'user',
-          content: JSON.stringify(payload),
+          content: buildEnhancedMetricsUserPrompt(payload),
         },
       ],
       temperature: 0.1,
-      maxTokens: 1200,
+      maxTokens: 3500, // Increased for enhanced response with detailed breakdowns
       signal,
     } as any);
 
@@ -166,6 +170,7 @@ Respond ONLY with JSON following this schema:
 
     const parsed = JSON.parse(cleaned) as {
       metrics: Record<string, any>;
+      enhancedMatchData?: EnhancedMatchData;
     };
 
     const metrics = transformMetricPayload(parsed.metrics);
@@ -181,6 +186,7 @@ Respond ONLY with JSON following this schema:
           : atsMetric && atsMetric.type === 'strength'
           ? strengthToScore(atsMetric.strength)
           : 0,
+      enhancedMatchData: parsed.enhancedMatchData, // Agent C: pass through enhanced data
       raw: parsed.metrics,
     };
   };
@@ -379,11 +385,13 @@ export class CoverLetterDraftService {
     const jobDescription = await this.fetchJobDescription(userId, jobDescriptionId);
 
     this.emitProgress(onProgress, 'content_match', 'Loading content libraries…');
-    const [templateRow, stories, savedSections, userGoals] = await Promise.all([
+    const [templateRow, stories, savedSections, userGoals, workHistory, approvedContent] = await Promise.all([
       this.fetchTemplate(userId, templateId),
       this.fetchStories(userId),
       this.fetchSavedSections(userId),
       UserPreferencesService.loadGoals(userId),
+      this.fetchWorkHistory(userId),
+      this.fetchApprovedContent(userId),
     ]);
 
     const templateSections = this.normaliseTemplateSections(templateRow.sections);
@@ -398,7 +406,20 @@ export class CoverLetterDraftService {
 
     this.emitProgress(onProgress, 'metrics', 'Calculating match metrics…');
 
-    // Metrics streaming with retry and token sampling
+    /**
+     * METRICS CALCULATION WITH RETRY + GRACEFUL FALLBACK
+     * 
+     * We attempt to calculate metrics via LLM with exponential backoff retry.
+     * If all retries fail, we provide sensible default metrics so the user
+     * still gets a draft (resilience over perfection).
+     * 
+     * Retry strategy:
+     * - Attempt 1: Immediate
+     * - Attempt 2: Wait 1s
+     * - Attempt 3: Wait 2s
+     * - Attempt 4: Wait 4s
+     * - If all fail: Use fallback defaults
+     */
     let metricResult;
     let lastError: Error | null = null;
 
@@ -406,7 +427,11 @@ export class CoverLetterDraftService {
       try {
         if (attempt > 0) {
           const delay = RETRY_DELAYS_MS[attempt - 1] ?? RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
-          this.emitProgress(onProgress, 'metrics', `Retrying metrics calculation (attempt ${attempt + 1}/${MAX_RETRIES + 1})…`);
+          this.emitProgress(
+            onProgress, 
+            'metrics', 
+            `AI analysis temporarily unavailable. Retrying (${attempt + 1}/${MAX_RETRIES + 1})…`
+          );
           await sleep(delay);
         }
 
@@ -414,23 +439,49 @@ export class CoverLetterDraftService {
           draft: sections,
           jobDescription,
           userGoals,
+          workHistory,
+          approvedContent,
           signal,
           onToken: (token) => {
-            this.emitProgress(onProgress, 'metrics', `Analyzing… ${token.slice(0, 20)}…`, true);
+            this.emitProgress(onProgress, 'metrics', `AI analyzing draft quality…`, true);
           },
         });
         break; // Success, exit retry loop
       } catch (error) {
         lastError = error instanceof Error ? error : new Error('Unknown error during metrics calculation');
+        
+        // Log detailed error for debugging
+        console.warn(
+          `[CoverLetterDraftService] Metrics attempt ${attempt + 1}/${MAX_RETRIES + 1} failed:`,
+          {
+            errorMessage: lastError.message,
+            errorName: lastError.name,
+            attemptNumber: attempt + 1,
+          }
+        );
+        
+        // If this was the last attempt, use fallback metrics instead of throwing
         if (attempt === MAX_RETRIES) {
-          throw lastError;
+          console.warn(
+            '[CoverLetterDraftService] All metric calculation attempts failed. Using fallback metrics.',
+            lastError
+          );
+          this.emitProgress(
+            onProgress, 
+            'metrics', 
+            'Using estimated metrics (AI analysis unavailable)'
+          );
+          
+          // GRACEFUL FALLBACK: Provide default metrics
+          metricResult = this.createFallbackMetrics();
+          break;
         }
-        console.warn(`[CoverLetterDraftService] Metrics attempt ${attempt + 1} failed, retrying…`, lastError);
       }
     }
 
     if (!metricResult) {
-      throw lastError ?? new Error('Metrics calculation failed after retries');
+      // This should never happen due to fallback, but TypeScript needs it
+      metricResult = this.createFallbackMetrics();
     }
 
     const differentiatorSummary = this.buildDifferentiatorSummary(jobDescription, sections);
@@ -444,6 +495,7 @@ export class CoverLetterDraftService {
       llm_feedback: {
         generatedAt: this.now().toISOString(),
         metrics: metricResult.raw,
+        enhancedMatchData: metricResult.enhancedMatchData, // Agent C: store enhanced analysis
       },
       metrics: metricResult.metrics as unknown as Record<string, unknown>,
       differentiator_summary: differentiatorSummary as unknown as Record<string, unknown>,
@@ -958,6 +1010,60 @@ export class CoverLetterDraftService {
     return data ?? [];
   }
 
+  /**
+   * Fetch user's work history for enhanced match analysis
+   */
+  private async fetchWorkHistory(userId: string): Promise<Array<{
+    id: string;
+    company: string;
+    title: string;
+    description: string;
+    achievements: string[];
+  }>> {
+    const { data, error } = await this.supabaseClient
+      .from('work_items')
+      .select('id, company:companies(name), title, description, achievements')
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('[CoverLetterDraftService] Failed to load work history:', error);
+      return [];
+    }
+
+    return (data ?? []).map(item => ({
+      id: item.id,
+      company: (item.company as any)?.name || 'Unknown',
+      title: item.title || '',
+      description: item.description || '',
+      achievements: Array.isArray(item.achievements) ? item.achievements as string[] : [],
+    }));
+  }
+
+  /**
+   * Fetch user's approved content (stories) for enhanced match analysis
+   */
+  private async fetchApprovedContent(userId: string): Promise<Array<{
+    id: string;
+    title: string;
+    content: string;
+  }>> {
+    const { data, error } = await this.supabaseClient
+      .from('approved_content')
+      .select('id, title, content')
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('[CoverLetterDraftService] Failed to load approved content:', error);
+      return [];
+    }
+
+    return (data ?? []).map(item => ({
+      id: item.id,
+      title: item.title || '',
+      content: item.content || '',
+    }));
+  }
+
   private normaliseTemplateSections(sections: TemplateRow['sections']): CoverLetterSection[] {
     if (Array.isArray(sections)) {
       return sections as CoverLetterSection[];
@@ -1445,6 +1551,95 @@ export class CoverLetterDraftService {
           },
         };
       });
+  }
+
+  /**
+   * Create fallback metrics when AI analysis is unavailable
+   * 
+   * RESILIENCE STRATEGY: When LLM calls fail after all retries, we provide
+   * reasonable default metrics so users always get a usable draft.
+   * This implements the "graceful degradation" principle.
+   * 
+   * @returns Fallback metrics with average/neutral values
+   */
+  private createFallbackMetrics(): {
+    metrics: CoverLetterMatchMetric[];
+    atsScore: number;
+    enhancedMatchData?: EnhancedMatchData;
+    raw: Record<string, unknown>;
+  } {
+    const fallbackMetrics: CoverLetterMatchMetric[] = [
+      {
+        key: 'goals',
+        label: 'Match with Goals',
+        type: 'strength',
+        strength: 'average',
+        summary: 'AI analysis unavailable',
+        tooltip: 'Unable to calculate goals match at this time. Your draft has been created successfully.',
+        differentiatorHighlights: [],
+      },
+      {
+        key: 'experience',
+        label: 'Match with Experience',
+        type: 'strength',
+        strength: 'average',
+        summary: 'AI analysis unavailable',
+        tooltip: 'Unable to calculate experience match at this time. Your draft has been created successfully.',
+        differentiatorHighlights: [],
+      },
+      {
+        key: 'rating',
+        label: 'Cover Letter Rating',
+        type: 'score',
+        value: 70,
+        summary: 'Estimated rating',
+        tooltip: 'AI quality rating unavailable. Your draft has been created successfully.',
+        differentiatorHighlights: [],
+      },
+      {
+        key: 'ats',
+        label: 'ATS Score',
+        type: 'score',
+        value: 70,
+        summary: 'Estimated ATS compatibility',
+        tooltip: 'AI ATS analysis unavailable. Your draft has been created successfully.',
+        differentiatorHighlights: [],
+      },
+      {
+        key: 'coreRequirements',
+        label: 'Core Requirements',
+        type: 'requirement',
+        met: 0,
+        total: 0,
+        summary: 'Analysis unavailable',
+        tooltip: 'Unable to analyze core requirements at this time. Your draft has been created successfully.',
+        differentiatorHighlights: [],
+      },
+      {
+        key: 'preferredRequirements',
+        label: 'Preferred Requirements',
+        type: 'requirement',
+        met: 0,
+        total: 0,
+        summary: 'Analysis unavailable',
+        tooltip: 'Unable to analyze preferred requirements at this time. Your draft has been created successfully.',
+        differentiatorHighlights: [],
+      },
+    ];
+
+    return {
+      metrics: fallbackMetrics,
+      atsScore: 70,
+      enhancedMatchData: undefined, // No enhanced data available in fallback
+      raw: {
+        goals: { strength: 'average', summary: 'AI analysis unavailable', tooltip: '' },
+        experience: { strength: 'average', summary: 'AI analysis unavailable', tooltip: '' },
+        rating: { score: 70, summary: 'Estimated rating', tooltip: '' },
+        ats: { score: 70, summary: 'Estimated ATS compatibility', tooltip: '' },
+        coreRequirements: { met: 0, total: 0, summary: 'Analysis unavailable', tooltip: '' },
+        preferredRequirements: { met: 0, total: 0, summary: 'Analysis unavailable', tooltip: '' },
+      },
+    };
   }
 }
 

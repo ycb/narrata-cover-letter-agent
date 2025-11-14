@@ -5,7 +5,7 @@ import { ATSScoreTooltip } from './ATSScoreTooltip';
 import { RequirementsTooltip } from './RequirementsTooltip';
 import { MatchExperienceTooltip } from './MatchExperienceTooltip';
 import { MatchGoalsTooltip } from './MatchGoalsTooltip';
-import type { DetailedMatchAnalysis } from '@/services/coverLetterDraftService';
+import type { EnhancedMatchData } from '@/types/coverLetters';
 
 interface HILProgressMetrics {
   goalsMatch: string;
@@ -40,7 +40,7 @@ interface ProgressIndicatorWithTooltipsProps {
     location?: string;
     salary?: string;
   };
-  detailedAnalysis?: DetailedMatchAnalysis;
+  enhancedMatchData?: EnhancedMatchData; // Agent C: detailed match data
   onEditGoals?: () => void; // Callback to open goals modal
 }
 
@@ -50,7 +50,7 @@ export function ProgressIndicatorWithTooltips({
   isPostHIL = false,
   goNoGoAnalysis,
   jobDescription,
-  detailedAnalysis,
+  enhancedMatchData,
   onEditGoals
 }: ProgressIndicatorWithTooltipsProps) {
   const getRatingColor = (rating: string) => {
@@ -68,14 +68,17 @@ export function ProgressIndicatorWithTooltips({
     return 'bg-destructive/10 text-destructive border-destructive/20';
   };
 
-  // Use real analysis data from detailedAnalysis
-  const goalMatches = detailedAnalysis?.goalsMatch.matches || [];
-  const coreReqs = detailedAnalysis?.requirementsMatch.coreRequirements || [];
-  const preferredReqs = detailedAnalysis?.requirementsMatch.preferredRequirements || [];
-  const coreExperienceMatches = detailedAnalysis?.coreExperienceMatch.matches || [];
-  const preferredExperienceMatches = detailedAnalysis?.preferredExperienceMatch.matches || [];
-  const coverLetterRating = detailedAnalysis?.coverLetterRating || null;
-  const atsAnalysis = detailedAnalysis?.atsAnalysis || null;
+  // Agent C: Use enhanced match data from consolidated analysis
+  const goalMatches = enhancedMatchData?.goalMatches || [];
+  const coreReqs = enhancedMatchData?.coreRequirementDetails || [];
+  const preferredReqs = enhancedMatchData?.preferredRequirementDetails || [];
+  const coreExperienceMatches = enhancedMatchData?.coreExperienceDetails || [];
+  const preferredExperienceMatches = enhancedMatchData?.preferredExperienceDetails || [];
+  
+  // For tooltips that still expect old format, we pass the data directly
+  // TODO: Update these tooltips to use the new enhanced data structure
+  const coverLetterRating = null; // No longer in enhanced data, use metrics instead
+  const atsAnalysis = null; // No longer in enhanced data, use metrics instead
 
   return (
     <div className={`w-full bg-card border rounded-lg p-4 ${className}`}>
