@@ -505,21 +505,29 @@ export class JobDescriptionService {
         raw,
       );
 
-      const record = await this.createJobDescription(userId, {
-        content: trimmedContent,
-        url: options.url ?? null,
-        company: parsed.company,
-        role: parsed.role,
-        summary: parsed.summary,
-        structuredData: parsed.structuredInsights,
-        standardRequirements: parsed.standardRequirements,
-        differentiatorRequirements: parsed.differentiatorRequirements,
-        preferredRequirements: parsed.preferredRequirements,
-        keywords: parsed.keywords,
-        differentiatorNotes: parsed.differentiatorNotes,
-        rawSections: parsed.rawSections,
-        analysis,
-      });
+      let record;
+      try {
+        record = await this.createJobDescription(userId, {
+          content: trimmedContent,
+          url: options.url ?? null,
+          company: parsed.company,
+          role: parsed.role,
+          summary: parsed.summary,
+          structuredData: parsed.structuredInsights,
+          standardRequirements: parsed.standardRequirements,
+          differentiatorRequirements: parsed.differentiatorRequirements,
+          preferredRequirements: parsed.preferredRequirements,
+          keywords: parsed.keywords,
+          differentiatorNotes: parsed.differentiatorNotes,
+          rawSections: parsed.rawSections,
+          analysis,
+        });
+      } catch (createError) {
+        console.error('[JobDescriptionService] Failed to create JD record:', createError);
+        throw new Error(
+          `Unable to process job description: ${createError instanceof Error ? createError.message : 'Unknown error'}`,
+        );
+      }
 
       // Log success event using EvaluationEventLogger
       const logResult = await EvaluationEventLogger.logJDParse({

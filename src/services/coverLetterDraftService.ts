@@ -1309,7 +1309,10 @@ export class CoverLetterDraftService {
       .single();
 
     if (error || !data) {
-      throw new Error('Unable to persist draft checkpoint.');
+      console.error('[CoverLetterDraftService] Workpad upsert failed:', error);
+      throw new Error(
+        `Unable to persist draft checkpoint: ${error?.message ?? 'Unknown error'}`,
+      );
     }
 
     return this.mapWorkpadRow(data);
