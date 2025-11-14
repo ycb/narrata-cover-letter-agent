@@ -47,8 +47,20 @@ export function PrivacySection() {
 
     setIsDeleting(true);
     try {
-      // TODO: Implement account deletion API endpoint
-      // For now, this will contact support
+      // ACCOUNT DELETION: Currently uses email-to-support flow for MVP.
+      // This approach is intentional for MVP/beta because:
+      // 1. Account deletion is irreversible and requires verification
+      // 2. Compliance requirements (GDPR, CCPA) often require manual review
+      // 3. Ensures proper cleanup of all user data across tables
+      // 4. Allows support to verify identity and handle edge cases
+      //
+      // For production, consider implementing:
+      // - Supabase Edge Function for account deletion
+      // - Cascade delete via database triggers (most tables already have ON DELETE CASCADE)
+      // - Delete auth.users record (cascades to profiles and related data)
+      // - Clean up storage files, provider_settings, and other user data
+      // - Add confirmation flow (email verification or 2FA)
+      // - Log deletion for audit/compliance purposes
       LogRocket.track('Account Deletion Requested', { userId: user.id });
       
       const supportEmail = 'support@narrata.ai';
