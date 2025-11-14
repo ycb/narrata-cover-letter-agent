@@ -363,19 +363,12 @@ export class CoverLetterDraftService {
   private readonly supabaseClient: SupabaseClient;
   private readonly jobDescriptionService: JobDescriptionService;
   private readonly metricsStreamer: MetricsStreamer;
-  private readonly evaluationLogger: EvaluationLoggingService;
   private readonly now: () => Date;
 
   constructor(options: CoverLetterDraftServiceOptions = {}) {
     this.supabaseClient = options.supabaseClient ?? supabase;
     this.jobDescriptionService = options.jobDescriptionService ?? new JobDescriptionService();
     this.metricsStreamer = options.metricsStreamer ?? createDefaultMetricsStreamer();
-    this.evaluationLogger =
-      options.evaluationLogger ??
-      new EvaluationLoggingService({
-        supabaseClient: options.supabaseClient,
-        now: options.now,
-      });
     this.now = options.now ?? (() => new Date());
   }
 
