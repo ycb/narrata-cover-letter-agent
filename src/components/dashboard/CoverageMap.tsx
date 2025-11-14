@@ -82,75 +82,84 @@ export function CoverageMap({ coverage, overallCoverage, priorityGaps }: Coverag
 
           {/* Competency Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {coverage.map((item) => (
-              <div
-                key={item.competency.id}
-                className={`p-4 rounded-lg border-2 transition-all hover:shadow-md ${
-                  item.gap === 'high' 
-                    ? 'border-destructive/20 bg-destructive/5' 
-                    : item.gap === 'medium'
-                    ? 'border-warning/20 bg-warning/5'
-                    : 'border-success/20 bg-success/5'
-                }`}
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <h4 className="font-medium text-sm mb-1">
-                      {item.competency.name}
-                    </h4>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      {item.competency.description}
-                    </p>
-                  </div>
-                  {getGapIcon(item.gap)}
-                </div>
+            {coverage.map((item) => {
+              const highlightClass =
+                item.gap === 'high'
+                  ? 'border-destructive/20 bg-destructive/5'
+                  : item.gap === 'medium'
+                  ? 'border-warning/20 bg-warning/5'
+                  : 'border-success/20 bg-success/5';
 
-                <div className="space-y-2">
-                  {/* Coverage Bar */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-muted-foreground">Coverage</span>
-                      <span className="text-xs font-medium">{item.coverage}%</span>
+              return (
+                <div
+                  key={item.competency.id}
+                  className={`p-4 rounded-lg border-2 transition-all hover:shadow-md ${highlightClass}`}
+                >
+                  <div className={`flex items-start justify-between mb-3 ${highlightClass}`}>
+                    <div className={`flex-1 ${highlightClass}`}>
+                      <h4 className="font-medium text-sm mb-1">
+                        {item.competency.name}
+                      </h4>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        {item.competency.description}
+                      </p>
                     </div>
-                    <Progress value={item.coverage} className="h-1.5" />
+                    {getGapIcon(item.gap)}
                   </div>
 
-                  {/* Stats */}
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">
-                      {item.stories.length} stories
-                    </span>
-                    <span className="text-muted-foreground">
-                      Avg: {item.averageStrength}/100
-                    </span>
-                  </div>
+                  <div className="space-y-2">
+                    {/* Coverage Bar */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-muted-foreground">Coverage</span>
+                        <span className="text-xs font-medium">{item.coverage}%</span>
+                      </div>
+                      <Progress value={item.coverage} className="h-1.5" />
+                    </div>
 
-                  {/* Gap Status */}
-                  <div className="flex items-center justify-between">
-                    <Badge 
-                      variant={item.gap === 'high' ? 'destructive' : item.gap === 'medium' ? 'secondary' : 'default'}
-                      className="text-xs"
-                    >
-                      {getGapText(item.gap)}
-                    </Badge>
-                    
-                    {item.gap !== 'low' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-6 px-2 text-xs"
-                        asChild
+                    {/* Stats */}
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">
+                        {item.stories.length} stories
+                      </span>
+                      <span className="text-muted-foreground">
+                        Avg: {item.averageStrength}/100
+                      </span>
+                    </div>
+
+                    {/* Gap Status */}
+                    <div className="flex items-center justify-between">
+                      <Badge
+                        variant={
+                          item.gap === 'high'
+                            ? 'destructive'
+                            : item.gap === 'medium'
+                            ? 'secondary'
+                            : 'default'
+                        }
+                        className="text-xs"
                       >
-                        <Link to={`/work-history?tab=stories&competency=${item.competency.id}`}>
-                          <Plus className="h-3 w-3 mr-1" />
-                          Add Story
-                        </Link>
-                      </Button>
-                    )}
+                        {getGapText(item.gap)}
+                      </Badge>
+
+                      {item.gap !== 'low' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-6 px-2 text-xs"
+                          asChild
+                        >
+                          <Link to={`/work-history?tab=stories&competency=${item.competency.id}`}>
+                            <Plus className="h-3 w-3 mr-1" />
+                            Add Story
+                          </Link>
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Priority Actions */}
@@ -176,7 +185,7 @@ export function CoverageMap({ coverage, overallCoverage, priorityGaps }: Coverag
                     >
                       <Link to={`/work-history?tab=stories&competency=${gapId}`}>
                         <Plus className="h-3 w-3 mr-1" />
-                        {competency?.competency.name}
+                        {competency ? `Focus ${competency.competency.name}` : 'Focus Area'}
                       </Link>
                     </Button>
                   );

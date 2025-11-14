@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,13 +18,9 @@ import {
   Users,
   FileText,
   BarChart3,
-  Zap,
-  Lightbulb,
   ArrowRight,
   ArrowLeft,
-  Play,
-  Pause,
-  SkipForward
+  CheckCircle2,
 } from 'lucide-react';
 import { useHIL } from '@/contexts/HILContext';
 import { VariationsHILBridge } from './VariationsHILBridge';
@@ -34,7 +30,7 @@ import { ATSAssessmentPanel } from './ATSAssessmentPanel';
 import { PMAssessmentPanel } from './PMAssessmentPanel';
 import { ContentGenerationPanel } from './ContentGenerationPanel';
 import type { WorkHistoryBlurb, BlurbVariation } from '@/types/workHistory';
-import type { HILContentMetadata } from '@/types/content';
+import type { HILContentMetadata, ImprovementSuggestion, GapAnalysis, ContentRecommendation } from '@/types/content';
 
 interface MainHILInterfaceProps {
   story: WorkHistoryBlurb;
@@ -49,13 +45,14 @@ export function MainHILInterface({
   targetRole,
   jobKeywords,
   onContentUpdated,
-  onClose
+  onClose,
 }: MainHILInterfaceProps) {
-  const { state, dispatch } = useHIL();
+  const { state, dispatch, setActiveSection } = useHIL();
   const [selectedVariation, setSelectedVariation] = useState<BlurbVariation | null>(null);
   const [currentStep, setCurrentStep] = useState<number>(0);
-  const [isEditing, setIsEditing] = useState<boolean>(false);
   const [workflowStatus, setWorkflowStatus] = useState<'idle' | 'analyzing' | 'generating' | 'reviewing'>('idle');
+  const [appliedSuggestions, setAppliedSuggestions] = useState<ImprovementSuggestion[]>([]);
+  const [latestAnalysis, setLatestAnalysis] = useState<GapAnalysis | null>(null);
 
   const workflowSteps = [
     { id: 0, name: 'Select Variation', icon: FileText, description: 'Choose a story variation to work with' },
@@ -63,26 +60,29 @@ export function MainHILInterface({
     { id: 2, name: 'ATS Assessment', icon: TrendingUp, description: 'Check ATS compatibility and optimization' },
     { id: 3, name: 'PM Assessment', icon: Users, description: 'Evaluate PM role alignment and competencies' },
     { id: 4, name: 'Content Generation', icon: Sparkles, description: 'Generate enhanced content with AI' },
-    { id: 5, name: 'Review & Edit', icon: Edit, description: 'Review and finalize the content' }
+    { id: 5, name: 'Review & Edit', icon: Edit, description: 'Review and finalize the content' },
   ];
 
-  useEffect(() => {
-    // Initialize with the first variation if available
-    if (story.variations && story.variations.length > 0) {
-      setSelectedVariation(story.variations[0]);
+  const handleVariationSelect = (variation: BlurbVariation, metadata?: HILContentMetadata) => {
+    if (metadata) {
+      dispatch({ type: 'UPDATE_METADATA', payload: metadata });
     }
-  }, [story.variations]);
-
-  const handleVariationSelect = (variation: BlurbVariation) => {
     setSelectedVariation(variation);
-    setCurrentStep(1); // Move to gap analysis
+    setCurrentStep(1);
     setWorkflowStatus('analyzing');
+    setAppliedSuggestions([]);
+    setLatestAnalysis(null);
   };
 
   const handleStepComplete = (step: number) => {
     if (step < workflowSteps.length - 1) {
-      setCurrentStep(step + 1);
-      setWorkflowStatus('analyzing');
+      const nextStep = step + 1;
+      setCurrentStep(nextStep);
+      if (nextStep === 4) {
+        setWorkflowStatus('generating');
+      } else {
+        setWorkflowStatus('analyzing');
+      }
     } else {
       setWorkflowStatus('reviewing');
     }
@@ -92,10 +92,10 @@ export function MainHILInterface({
     if (selectedVariation) {
       const updatedVariation = {
         ...selectedVariation,
-        content
+        content,
       };
       setSelectedVariation(updatedVariation);
-      setCurrentStep(5); // Move to review step
+      setCurrentStep(5);
       setWorkflowStatus('reviewing');
     }
   };
@@ -103,14 +103,17 @@ export function MainHILInterface({
   const handleSaveContent = () => {
     if (selectedVariation) {
       onContentUpdated(selectedVariation.content);
-      dispatch({ type: 'SAVE_CONTENT', payload: selectedVariation.content });
+      setAppliedSuggestions([]);
+      setWorkflowStatus('reviewing');
     }
   };
 
   const handleResetWorkflow = () => {
+    setSelectedVariation(null);
     setCurrentStep(0);
     setWorkflowStatus('idle');
-    setIsEditing(false);
+    setAppliedSuggestions([]);
+    setLatestAnalysis(null);
     dispatch({ type: 'RESET_STATE' });
   };
 
@@ -123,17 +126,96 @@ export function MainHILInterface({
   const getStepIcon = (step: number) => {
     const status = getStepStatus(step);
     const IconComponent = workflowSteps[step].icon;
-    
+
     if (status === 'completed') {
       return <CheckCircle className="h-4 w-4 text-success" />;
     }
     if (status === 'active') {
-      return <IconComponent className="h-4 w-4 text-primary" />;
+      return IconComponent ? <IconComponent className="h-4 w-4 text-primary" /> : null;
     }
-    return <IconComponent className="h-4 w-4 text-muted-foreground" />;
+    return IconComponent ? <IconComponent className="h-4 w-4 text-muted-foreground" /> : null;
+  };
+
+  const handleApplySuggestion = (suggestion: ImprovementSuggestion) => {
+    setAppliedSuggestions(prev => {
+      if (prev.some(item => item.type === suggestion.type && item.content === suggestion.content)) {
+        return prev;
+      }
+      return [...prev, suggestion];
+    });
+    setWorkflowStatus('generating');
+  };
+
+  const handleViewRelatedContent = (content: ContentRecommendation) => {
+    setActiveSection(content.id);
+    setWorkflowStatus('reviewing');
+  };
+
+  const renderFinalizationSummary = () => {
+    if (!latestAnalysis) {
+      return null;
+    }
+
+    const resolvedGaps = appliedSuggestions.filter(suggestion => suggestion.type === 'fill-gap').length;
+    const outstandingGaps = latestAnalysis.paragraphGaps.length - resolvedGaps;
+
+    return (
+      <Card className="mb-4">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <CheckCircle2 className="h-4 w-4 text-success" /> Finalization Summary
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="p-3 rounded-md border bg-muted/30">
+              <p className="text-xs text-muted-foreground">Applied Suggestions</p>
+              <p className="text-lg font-semibold">{appliedSuggestions.length}</p>
+            </div>
+            <div className="p-3 rounded-md border bg-muted/30">
+              <p className="text-xs text-muted-foreground">Remaining Gaps</p>
+              <p className={`text-lg font-semibold ${outstandingGaps === 0 ? 'text-success' : 'text-destructive'}`}>
+                {Math.max(outstandingGaps, 0)}
+              </p>
+            </div>
+            <div className="p-3 rounded-md border bg-muted/30">
+              <p className="text-xs text-muted-foreground">Auto-tagged Keywords</p>
+              <p className="text-lg font-semibold">{latestAnalysis.autoTags?.length ?? 0}</p>
+            </div>
+          </div>
+          {latestAnalysis.autoTags && latestAnalysis.autoTags.length > 0 && (
+            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+              {latestAnalysis.autoTags.slice(0, 6).map(tag => (
+                <Badge key={tag} variant="outline">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          )}
+          <div className="text-xs text-muted-foreground">
+            {latestAnalysis.summary?.targetRole
+              ? `Optimized for ${latestAnalysis.summary.targetRole} using differentiator focus on ${latestAnalysis.summary.keywordEmphasis?.join(', ') || 'key requirements'}.`
+              : 'Summary data ready for final review.'}
+          </div>
+        </CardContent>
+      </Card>
+    );
   };
 
   const renderCurrentStep = () => {
+    if (currentStep === 0) {
+      return (
+        <VariationsHILBridge
+          story={story}
+          variations={story.variations ?? []}
+          onVariationEdit={(variation) => undefined}
+          onVariationCreate={(content, metadata) => undefined}
+          onVariationDelete={(variationId) => undefined}
+          onHILEdit={(variation, metadata) => handleVariationSelect(variation, metadata)}
+        />
+      );
+    }
+
     if (!selectedVariation) {
       return (
         <div className="text-center py-12">
@@ -145,30 +227,18 @@ export function MainHILInterface({
     }
 
     switch (currentStep) {
-      case 0:
-        return (
-          <VariationsHILBridge
-            story={story}
-            onVariationSelect={handleVariationSelect}
-            onEditVariation={(variation) => {
-              setSelectedVariation(variation);
-              setIsEditing(true);
-            }}
-            onDeleteVariation={() => {
-              // Handle deletion
-            }}
-          />
-        );
       case 1:
         return (
           <GapAnalysisPanel
             variation={selectedVariation}
             targetRole={targetRole}
             jobKeywords={jobKeywords}
-            onApplySuggestion={(suggestion) => {
-              // Apply suggestion logic
+            onApplySuggestion={handleApplySuggestion}
+            onViewRelatedContent={handleViewRelatedContent}
+            onComplete={analysis => {
+              setLatestAnalysis(analysis);
+              setWorkflowStatus('reviewing');
             }}
-            onComplete={() => handleStepComplete(1)}
           />
         );
       case 2:
@@ -177,7 +247,7 @@ export function MainHILInterface({
             variation={selectedVariation}
             targetRole={targetRole}
             jobKeywords={jobKeywords}
-            onOptimizeContent={(optimizedContent) => {
+            onOptimizeContent={optimizedContent => {
               setSelectedVariation({ ...selectedVariation, content: optimizedContent });
             }}
             onComplete={() => handleStepComplete(2)}
@@ -189,8 +259,8 @@ export function MainHILInterface({
             variation={selectedVariation}
             targetRole={targetRole}
             jobKeywords={jobKeywords}
-            onApplySuggestion={(suggestion) => {
-              // Apply suggestion logic
+            onApplySuggestion={() => {
+              setWorkflowStatus('analyzing');
             }}
             onComplete={() => handleStepComplete(3)}
           />
@@ -206,23 +276,30 @@ export function MainHILInterface({
         );
       case 5:
         return (
-          <HILEditorPanel
-            variation={selectedVariation}
-            story={story}
-            metadata={state.metadata}
-            onSave={(content, metadata) => {
-              const updatedVariation = { ...selectedVariation, content };
-              setSelectedVariation(updatedVariation);
-              dispatch({ type: 'UPDATE_METADATA', payload: metadata });
-              onContentUpdated(content);
-            }}
-            onCancel={onClose}
-          />
+          <>
+            {renderFinalizationSummary()}
+            <HILEditorPanel
+              variation={selectedVariation}
+              story={story}
+              metadata={state.metadata as HILContentMetadata}
+              onSave={(content, metadata) => {
+                const updatedVariation = { ...selectedVariation, content };
+                setSelectedVariation(updatedVariation);
+                dispatch({ type: 'UPDATE_METADATA', payload: metadata });
+                onContentUpdated(content);
+              }}
+              onCancel={onClose}
+            />
+          </>
         );
       default:
         return null;
     }
   };
+
+  const appliedSummary = latestAnalysis
+    ? `${appliedSuggestions.length}/${latestAnalysis.paragraphGaps.length + latestAnalysis.suggestions.length}`
+    : `${appliedSuggestions.length}`;
 
   return (
     <div className="h-full flex flex-col bg-background">
@@ -277,24 +354,30 @@ export function MainHILInterface({
             {workflowSteps.map((step, index) => (
               <React.Fragment key={step.id}>
                 <div className="flex items-center gap-2">
-                  <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 ${
-                    getStepStatus(index) === 'completed' ? 'border-success bg-success/10' :
-                    getStepStatus(index) === 'active' ? 'border-primary bg-primary/10' :
-                    'border-muted bg-muted/50'
-                  }`}>
+                  <div
+                    className={`flex items-center justify-center w-8 h-8 rounded-full border-2 ${
+                      getStepStatus(index) === 'completed'
+                        ? 'border-success bg-success/10'
+                        : getStepStatus(index) === 'active'
+                        ? 'border-primary bg-primary/10'
+                        : 'border-muted bg-muted/50'
+                    }`}
+                  >
                     {getStepIcon(index)}
                   </div>
                   <div className="hidden sm:block">
-                    <div className={`text-xs font-medium ${
-                      getStepStatus(index) === 'completed' ? 'text-success' :
-                      getStepStatus(index) === 'active' ? 'text-primary' :
-                      'text-muted-foreground'
-                    }`}>
+                    <div
+                      className={`text-xs font-medium ${
+                        getStepStatus(index) === 'completed'
+                          ? 'text-success'
+                          : getStepStatus(index) === 'active'
+                          ? 'text-primary'
+                          : 'text-muted-foreground'
+                      }`}
+                    >
                       {step.name}
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      {step.description}
-                    </div>
+                    <div className="text-xs text-muted-foreground">{step.description}</div>
                   </div>
                 </div>
                 {index < workflowSteps.length - 1 && (
@@ -343,10 +426,7 @@ export function MainHILInterface({
                     </Button>
                   )}
                   {currentStep === workflowSteps.length - 1 && (
-                    <Button
-                      onClick={handleSaveContent}
-                      className="flex items-center gap-1"
-                    >
+                    <Button onClick={handleSaveContent} className="flex items-center gap-1">
                       <Save className="h-4 w-4" />
                       Save Content
                     </Button>
@@ -354,16 +434,14 @@ export function MainHILInterface({
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="h-full overflow-auto">
-              {renderCurrentStep()}
-            </CardContent>
+            <CardContent className="h-full overflow-auto">{renderCurrentStep()}</CardContent>
           </Card>
         </div>
       </div>
 
       {/* Quick Actions Footer */}
       <div className="border-t bg-card p-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Quick Actions:</span>
             <Button
@@ -397,10 +475,12 @@ export function MainHILInterface({
               Edit Content
             </Button>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>
               Step {currentStep + 1} of {workflowSteps.length}
             </span>
+            <Separator orientation="vertical" className="h-4" />
+            <span>Suggestions applied: {appliedSummary}</span>
           </div>
         </div>
       </div>

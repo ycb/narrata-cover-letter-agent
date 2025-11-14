@@ -3,9 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Search, 
-  Plus, 
+import {
+  Search,
+  Plus,
   Filter,
   ChevronDown,
   ChevronUp,
@@ -30,7 +30,7 @@ export interface FilterOption {
 export interface SortOption {
   label: string;
   value: string;
-  category: 'company' | 'role' | 'tag' | 'other';
+  category: 'company' | 'role' | 'tag' | 'section-type' | 'gap' | 'other';
 }
 
 export interface ShowAllTemplateProps<T> {
@@ -46,6 +46,7 @@ export interface ShowAllTemplateProps<T> {
   emptyStateMessage?: string;
   isLoading?: boolean;
   sortOptions?: SortOption[];
+  filters?: FilterOption[];
 }
 
 export function ShowAllTemplate<T>({
@@ -60,13 +61,17 @@ export function ShowAllTemplate<T>({
   searchKeys = [],
   emptyStateMessage = "No items found",
   isLoading = false,
-  sortOptions
+  sortOptions,
+  filters,
 }: ShowAllTemplateProps<T>) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
   const [sortField, setSortField] = useState<keyof T | null>(null);
-  const [sortDirection] = useState<'asc' | 'desc'>('asc');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
+
+  const hasAdvancedFilters = Boolean(sortOptions && sortOptions.length);
+  const hasSimpleFilters = !hasAdvancedFilters && Boolean(filters && filters.length);
 
   // Filter and search data
   const filteredData = useMemo(() => {
@@ -74,9 +79,8 @@ export function ShowAllTemplate<T>({
 
     // Apply filter
     if (activeFilter !== "all") {
-      result = result.filter(item => {
-        // Check if any of the sortOptions match the activeFilter
-        if (sortOptions) {
+      if (hasAdvancedFilters && sortOptions) {
+        result = result.filter(item => {
           return sortOptions.some(option => {
             if (option.value === activeFilter) {
               // For company, role, tag, and section-type categories, we need to map to the correct field
@@ -106,12 +110,12 @@ export function ShowAllTemplate<T>({
                 default:
                   fieldToCheck = option.value as keyof T;
               }
-              
+
               // Skip fieldToCheck if we already handled gap category
               if (option.category === 'gap') {
                 return false; // Already handled above
               }
-              
+
               const itemValue = item[fieldToCheck];
               if (typeof itemValue === 'string') {
                 return itemValue === option.label;
@@ -122,9 +126,26 @@ export function ShowAllTemplate<T>({
             }
             return false;
           });
+        });
+      } else if (hasSimpleFilters && filters) {
+        const selectedFilter = filters.find(filter => filter.value === activeFilter || filter.label === activeFilter);
+        if (selectedFilter) {
+          const searchToken = selectedFilter.label.toLowerCase();
+          result = result.filter(item =>
+            Object.values(item).some(value => {
+              if (typeof value === 'string') {
+                return value.toLowerCase().includes(searchToken);
+              }
+              if (Array.isArray(value)) {
+                return value.some(entry =>
+                  typeof entry === 'string' && entry.toLowerCase().includes(searchToken),
+                );
+              }
+              return false;
+            }),
+          );
         }
-        return true;
-      });
+      }
     }
 
     // Apply search
@@ -152,16 +173,16 @@ export function ShowAllTemplate<T>({
           const aHasGaps = (a as any).hasGaps || false;
           const bHasGaps = (b as any).hasGaps || false;
           if (aHasGaps === bHasGaps) return 0;
-          return sortDirection === 'asc' 
+          return sortDirection === 'asc'
             ? (aHasGaps ? 1 : -1) - (bHasGaps ? 1 : -1)
             : (bHasGaps ? 1 : -1) - (aHasGaps ? 1 : -1);
         }
-        
+
         const aVal = a[sortField];
         const bVal = b[sortField];
-        
+
         if (aVal === bVal) return 0;
-        
+
         let comparison = 0;
         if (typeof aVal === 'string' && typeof bVal === 'string') {
           comparison = aVal.localeCompare(bVal);
@@ -170,13 +191,24 @@ export function ShowAllTemplate<T>({
         } else if (aVal instanceof Date && bVal instanceof Date) {
           comparison = aVal.getTime() - bVal.getTime();
         }
-        
+
         return sortDirection === 'asc' ? comparison : -comparison;
       });
     }
 
     return result;
-  }, [data, activeFilter, searchTerm, searchKeys, sortField, sortDirection, sortOptions]);
+  }, [
+    data,
+    activeFilter,
+    searchTerm,
+    searchKeys,
+    sortField,
+    sortDirection,
+    sortOptions,
+    filters,
+    hasAdvancedFilters,
+    hasSimpleFilters,
+  ]);
 
   const handleFilterChange = (filter: string) => {
     setActiveFilter(filter);
@@ -195,7 +227,7 @@ export function ShowAllTemplate<T>({
   const getSortIcon = (field: keyof T | string) => {
     const sortKey = field as keyof T;
     if (sortField !== sortKey) return <ChevronDown className="h-4 w-4 text-muted-foreground" />;
-    return sortDirection === 'asc' 
+    return sortDirection === 'asc'
       ? <ChevronUp className="h-4 w-4 text-primary" />
       : <ChevronDown className="h-4 w-4 text-primary" />;
   };
@@ -206,7 +238,7 @@ export function ShowAllTemplate<T>({
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-4 py-6">
         <div className="max-w-7xl mx-auto">
-          
+
           {/* Page Header */}
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -237,9 +269,9 @@ export function ShowAllTemplate<T>({
                     />
                   </div>
                 </div>
-                
+
                 {/* Single Filter Fly-out Component */}
-                {sortOptions && sortOptions.length > 0 && (
+                {hasAdvancedFilters && sortOptions && (
                   <div className="flex gap-2">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -257,10 +289,10 @@ export function ShowAllTemplate<T>({
                         {/* Company Fly-out */}
                         {sortOptions.some(s => s.category === 'company') && (
                           <DropdownMenuSub onOpenChange={(open) => setOpenSubmenu(open ? 'company' : null)}>
-                            <DropdownMenuSubTrigger 
+                            <DropdownMenuSubTrigger
                               className={`px-3 py-2 transition-colors ${
-                                openSubmenu === 'company' 
-                                  ? 'bg-blue-600 text-white' 
+                                openSubmenu === 'company'
+                                  ? 'bg-blue-600 text-white'
                                   : 'hover:bg-blue-600 hover:text-white'
                               }`}
                             >
@@ -273,7 +305,7 @@ export function ShowAllTemplate<T>({
                               {sortOptions
                                 .filter(s => s.category === 'company')
                                 .map((option) => (
-                                  <DropdownMenuItem 
+                                  <DropdownMenuItem
                                     key={option.value}
                                     onClick={() => handleFilterChange(option.value)}
                                     className="px-3 py-2 hover:bg-blue-600 hover:text-white"
@@ -288,10 +320,10 @@ export function ShowAllTemplate<T>({
                         {/* Role Fly-out */}
                         {sortOptions.some(s => s.category === 'role') && (
                           <DropdownMenuSub onOpenChange={(open) => setOpenSubmenu(open ? 'role' : null)}>
-                            <DropdownMenuSubTrigger 
+                            <DropdownMenuSubTrigger
                               className={`px-3 py-2 transition-colors ${
-                                openSubmenu === 'role' 
-                                  ? 'bg-blue-600 text-white' 
+                                openSubmenu === 'role'
+                                  ? 'bg-blue-600 text-white'
                                   : 'hover:bg-blue-600 hover:text-white'
                               }`}
                             >
@@ -304,7 +336,7 @@ export function ShowAllTemplate<T>({
                               {sortOptions
                                 .filter(s => s.category === 'role')
                                 .map((option) => (
-                                  <DropdownMenuItem 
+                                  <DropdownMenuItem
                                     key={option.value}
                                     onClick={() => handleFilterChange(option.value)}
                                     className="px-3 py-2 hover:bg-blue-600 hover:text-white"
@@ -319,10 +351,10 @@ export function ShowAllTemplate<T>({
                         {/* Sections Fly-out */}
                         {sortOptions.some(s => s.category === 'section-type') && (
                           <DropdownMenuSub onOpenChange={(open) => setOpenSubmenu(open ? 'sections' : null)}>
-                            <DropdownMenuSubTrigger 
+                            <DropdownMenuSubTrigger
                               className={`px-3 py-2 transition-colors ${
-                                openSubmenu === 'sections' 
-                                  ? 'bg-blue-600 text-white' 
+                                openSubmenu === 'sections'
+                                  ? 'bg-blue-600 text-white'
                                   : 'hover:bg-blue-600 hover:text-white'
                               }`}
                             >
@@ -335,7 +367,7 @@ export function ShowAllTemplate<T>({
                               {sortOptions
                                 .filter(s => s.category === 'section-type')
                                 .map((option) => (
-                                  <DropdownMenuItem 
+                                  <DropdownMenuItem
                                     key={option.value}
                                     onClick={() => handleFilterChange(option.value)}
                                     className="px-3 py-2 hover:bg-blue-600 hover:text-white"
@@ -350,10 +382,10 @@ export function ShowAllTemplate<T>({
                         {/* Gap Fly-out */}
                         {sortOptions.some(s => s.category === 'gap') && (
                           <DropdownMenuSub onOpenChange={(open) => setOpenSubmenu(open ? 'gap' : null)}>
-                            <DropdownMenuSubTrigger 
+                            <DropdownMenuSubTrigger
                               className={`px-3 py-2 transition-colors ${
-                                openSubmenu === 'gap' 
-                                  ? 'bg-blue-600 text-white' 
+                                openSubmenu === 'gap'
+                                  ? 'bg-blue-600 text-white'
                                   : 'hover:bg-blue-600 hover:text-white'
                               }`}
                             >
@@ -366,7 +398,7 @@ export function ShowAllTemplate<T>({
                               {sortOptions
                                 .filter(s => s.category === 'gap')
                                 .map((option) => (
-                                  <DropdownMenuItem 
+                                  <DropdownMenuItem
                                     key={option.value}
                                     onClick={() => handleFilterChange(option.value)}
                                     className="px-3 py-2 hover:bg-blue-600 hover:text-white"
@@ -381,10 +413,10 @@ export function ShowAllTemplate<T>({
                         {/* Tags Fly-out */}
                         {sortOptions.some(s => s.category === 'tag') && (
                           <DropdownMenuSub onOpenChange={(open) => setOpenSubmenu(open ? 'tags' : null)}>
-                            <DropdownMenuSubTrigger 
+                            <DropdownMenuSubTrigger
                               className={`px-3 py-2 transition-colors ${
-                                openSubmenu === 'tags' 
-                                  ? 'bg-blue-600 text-white' 
+                                openSubmenu === 'tags'
+                                  ? 'bg-blue-600 text-white'
                                   : 'hover:bg-blue-600 hover:text-white'
                               }`}
                             >
@@ -397,7 +429,7 @@ export function ShowAllTemplate<T>({
                               {sortOptions
                                 .filter(s => s.category === 'tag')
                                 .map((option) => (
-                                  <DropdownMenuItem 
+                                  <DropdownMenuItem
                                     key={option.value}
                                     onClick={() => handleFilterChange(option.value)}
                                     className="px-3 py-2 hover:bg-blue-600 hover:text-white"
@@ -412,11 +444,57 @@ export function ShowAllTemplate<T>({
 
                       </DropdownMenuContent>
                     </DropdownMenu>
-                    
+
                     {/* Clear Filters Button */}
                     {activeFilter !== "all" && (
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleFilterChange("all")}
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {hasSimpleFilters && filters && (
+                  <div className="flex gap-2">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <Filter className="h-4 w-4 mr-2" />
+                          Filter
+                          {activeFilter !== "all" && (
+                            <Badge variant="secondary" className="ml-2">
+                              {activeFilter}
+                            </Badge>
+                          )}
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-60">
+                        <DropdownMenuItem onClick={() => handleFilterChange("all")}>
+                          All
+                        </DropdownMenuItem>
+                        {filters.map(filter => (
+                          <DropdownMenuItem
+                            key={filter.value}
+                            onClick={() => handleFilterChange(filter.value)}
+                          >
+                            <span className="flex-1">{filter.label}</span>
+                            {typeof filter.count === 'number' && (
+                              <Badge variant="outline" className="ml-2 text-xs">
+                                {filter.count}
+                              </Badge>
+                            )}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    {activeFilter !== "all" && (
+                      <Button
+                        variant="ghost"
                         size="sm"
                         onClick={() => handleFilterChange("all")}
                         className="text-muted-foreground hover:text-foreground"

@@ -1,847 +1,827 @@
-import React, { useState, useEffect, useRef } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
-import { LinkIcon, Upload, Wand2, RefreshCw, Save, Send, AlertTriangle, CheckCircle, X, Target, Pencil, Sparkles } from "lucide-react";
-import { HILProgressPanel } from "@/components/hil/HILProgressPanel";
-import { GapAnalysisPanel } from "@/components/hil/GapAnalysisPanel";
-import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
-import { UnifiedGapCard } from "@/components/hil/UnifiedGapCard";
-import { CoverLetterFinalization } from "./CoverLetterFinalization";
-import { ProgressIndicatorWithTooltips } from "./ProgressIndicatorWithTooltips";
-import { ContentCard } from "@/components/shared/ContentCard";
-import { UserGoalsModal } from "@/components/user-goals/UserGoalsModal";
-import { cn } from "@/lib/utils";
-import { useAuth } from "@/contexts/AuthContext";
-import { useUserGoals } from "@/contexts/UserGoalsContext";
-import { useUserVoice } from "@/contexts/UserVoiceContext";
-import { usePMLevel } from "@/hooks/usePMLevel";
-import { GoNoGoService } from "@/services/goNoGoService";
-import { CoverLetterDraftService, type DetailedMatchAnalysis } from "@/services/coverLetterDraftService";
-import { useToast } from "@/hooks/use-toast";
+import { useEffect, useMemo, useState } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  AlertTriangle,
+  FileText,
+  Loader2,
+  Pencil,
+  RefreshCw,
+  Save,
+  Wand2,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
+import { JobDescriptionService } from '@/services/jobDescriptionService';
+import { CoverLetterDraftService } from '@/services/coverLetterDraftService';
+import { useCoverLetterDraft } from '@/hooks/useCoverLetterDraft';
+import { ProgressIndicatorWithTooltips } from './ProgressIndicatorWithTooltips';
+import { CoverLetterFinalization } from './CoverLetterFinalization';
+import { ContentCard } from '@/components/shared/ContentCard';
+import { ContentGenerationModal } from '@/components/hil/ContentGenerationModal';
+import { GapDetectionService } from '@/services/gapDetectionService';
+import type { CoverLetterDraft, JobDescriptionRecord } from '@/types/coverLetters';
+import type { Gap } from '@/types/content';
+
+const MIN_JOB_DESCRIPTION_LENGTH = 50;
+
+type TemplateSummary = {
+  id: string;
+  name: string;
+};
 
 interface CoverLetterCreateModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCoverLetterCreated?: (coverLetter: any) => void;
+  onCoverLetterCreated?: (draft: CoverLetterDraft) => void;
 }
 
-// Enhanced Go/No-Go analysis interface
-interface GoNoGoAnalysis {
-  decision: 'go' | 'no-go';
-  confidence: number;
-  mismatches: {
-    type: 'geography' | 'pay' | 'core-requirements' | 'work-history';
-    severity: 'high' | 'medium' | 'low';
-    description: string;
-    userOverride?: boolean;
-  }[];
-}
-
-// HIL Progress Metrics interface
-interface HILProgressMetrics {
-  goalsMatch: 'strong' | 'average' | 'weak';
-  experienceMatch: 'strong' | 'average' | 'weak';
-  coverLetterRating: 'strong' | 'average' | 'weak';
-  atsScore: number;
-  coreRequirementsMet: { met: number; total: number };
-  preferredRequirementsMet: { met: number; total: number };
-}
-
-// Gap Analysis interface
-interface GapAnalysis {
-  id: string;
-  type: 'core-requirement' | 'preferred-requirement' | 'best-practice' | 'content-enhancement';
-  severity: 'high' | 'medium' | 'low';
-  description: string;
-  suggestion: string;
-  paragraphId?: string;
-  requirementId?: string;
-  origin: 'ai' | 'human' | 'library';
-  addresses?: string[];
-}
-
-const CoverLetterCreateModal = ({ isOpen, onClose, onCoverLetterCreated }: CoverLetterCreateModalProps) => {
-  // Hooks
+export const CoverLetterCreateModal = ({
+  isOpen,
+  onClose,
+  onCoverLetterCreated,
+}: CoverLetterCreateModalProps) => {
   const { user } = useAuth();
-  const { toast } = useToast();
-  const { goals } = useUserGoals();
-  const { voice } = useUserVoice();
-  const { levelData } = usePMLevel();
-
-  // Services
-  const [goNoGoService] = useState(() => new GoNoGoService());
-  const [draftService] = useState(() => new CoverLetterDraftService());
-
-  // State - with sessionStorage persistence to prevent loss on tab switch
-  const [jobDescriptionMethod, setJobDescriptionMethod] = useState<'url' | 'paste'>(() => {
-    const saved = sessionStorage.getItem('coverLetterModal_jobMethod');
-    return (saved as 'url' | 'paste') || 'paste';
-  });
-
-  const [jobUrl, setJobUrl] = useState(() => {
-    return sessionStorage.getItem('coverLetterModal_jobUrl') || '';
-  });
-
-  const [jobContent, setJobContent] = useState(() => {
-    return sessionStorage.getItem('coverLetterModal_jobContent') || '';
-  });
-
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatingProgress, setGeneratingProgress] = useState(0);
-  const [generatingStep, setGeneratingStep] = useState('');
-  const [generatingDetail, setGeneratingDetail] = useState('');
-  const [coverLetterGenerated, setCoverLetterGenerated] = useState(() => {
-    return sessionStorage.getItem('coverLetterModal_generated') === 'true';
-  });
-  const [goNoGoAnalysis, setGoNoGoAnalysis] = useState<GoNoGoAnalysis | null>(null);
-  const [showGoNoGoModal, setShowGoNoGoModal] = useState(false);
-  const [userOverrideDecision, setUserOverrideDecision] = useState(false);
-  const [hilProgressMetrics, setHilProgressMetrics] = useState<HILProgressMetrics | null>(null);
-  const [detailedAnalysis, setDetailedAnalysis] = useState<DetailedMatchAnalysis | null>(null);
-  const [gaps, setGaps] = useState<GapAnalysis[]>([]);
-  const [hilCompleted, setHilCompleted] = useState(false);
+  const [jobContent, setJobContent] = useState('');
+  const [jobInputError, setJobInputError] = useState<string | null>(null);
+  const [isParsingJobDescription, setIsParsingJobDescription] = useState(false);
+  const [jdStreamingMessages, setJdStreamingMessages] = useState<string[]>([]);
+  const [templates, setTemplates] = useState<TemplateSummary[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [templateError, setTemplateError] = useState<string | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [jobDescriptionRecord, setJobDescriptionRecord] = useState<JobDescriptionRecord | null>(null);
+  const [sectionDrafts, setSectionDrafts] = useState<Record<string, string>>({});
+  const [savingSections, setSavingSections] = useState<Record<string, boolean>>({});
+  const [sectionGaps, setSectionGaps] = useState<Record<string, Gap[]>>({});
+  const [selectedGap, setSelectedGap] = useState<Gap | null>(null);
   const [showContentGenerationModal, setShowContentGenerationModal] = useState(false);
-  const [selectedGap, setSelectedGap] = useState<GapAnalysis | null>(null);
-  const [mainTabValue, setMainTabValue] = useState<'job-description' | 'cover-letter'>('cover-letter');
-  const [showFinalizationModal, setShowFinalizationModal] = useState(false);
-  const [currentDraftId, setCurrentDraftId] = useState<string | null>(null);
-  const [currentJobDescription, setCurrentJobDescription] = useState<{ id: string; role?: string; company?: string; location?: string; salary?: string; extracted_requirements?: string[]; } | null>(null);
-  const [showGoalsModal, setShowGoalsModal] = useState(false);
+  const [mainTab, setMainTab] = useState<'job-description' | 'cover-letter'>('job-description');
+  const [finalizationOpen, setFinalizationOpen] = useState(false);
+  const [finalizationError, setFinalizationError] = useState<string | null>(null);
 
+  const jobDescriptionService = useMemo(() => new JobDescriptionService(), []);
+  const coverLetterDraftService = useMemo(() => new CoverLetterDraftService(), []);
 
-
-
-
-  // Persist state to sessionStorage to survive tab switches
-  useEffect(() => {
-    sessionStorage.setItem('coverLetterModal_jobMethod', jobDescriptionMethod);
-  }, [jobDescriptionMethod]);
-
-  useEffect(() => {
-    sessionStorage.setItem('coverLetterModal_jobUrl', jobUrl);
-  }, [jobUrl]);
-
-  useEffect(() => {
-    sessionStorage.setItem('coverLetterModal_jobContent', jobContent);
-  }, [jobContent]);
-
-  useEffect(() => {
-    sessionStorage.setItem('coverLetterModal_generated', String(coverLetterGenerated));
-  }, [coverLetterGenerated]);
-
-  // Clear sessionStorage when modal is explicitly closed
-  // Track previous isOpen state to only clear on transitions from true -> false
-  const prevIsOpenRef = useRef(isOpen);
-  useEffect(() => {
-    if (prevIsOpenRef.current && !isOpen) {
-      // Only clear when modal was open and now is closed (explicit user action)
-      sessionStorage.removeItem('coverLetterModal_jobMethod');
-      sessionStorage.removeItem('coverLetterModal_jobUrl');
-      sessionStorage.removeItem('coverLetterModal_jobContent');
-      sessionStorage.removeItem('coverLetterModal_generated');
-    }
-    prevIsOpenRef.current = isOpen;
-  }, [isOpen]);
-
-  // Enhanced mock data for generated cover letter
-  const [generatedLetter, setGeneratedLetter] = useState({
-    sections: [
-      {
-        id: 'intro',
-        type: 'intro',
-        content: "I am writing to express my strong interest in the Senior Software Engineer position at TechCorp. With over 5 years of experience in full-stack development and a passion for creating innovative solutions, I am excited about the opportunity to contribute to your team's mission of building cutting-edge technology.",
-        usedBlurbs: ['blurb-1', 'blurb-2'],
-        isModified: false
-      },
-      {
-        id: 'experience',
-        type: 'experience',
-        content: "In my previous role as a Lead Developer at InnovateTech, I successfully architected and implemented a microservices platform that reduced system latency by 40% and improved scalability for over 100,000 daily active users. My expertise in React, Node.js, and cloud technologies aligns perfectly with TechCorp's technology stack.",
-        usedBlurbs: ['blurb-3', 'blurb-4'],
-        isModified: false
-      },
-      {
-        id: 'closing',
-        type: 'closing',
-        content: "What particularly excites me about TechCorp is your commitment to innovation and sustainable technology solutions. I led a green technology initiative that reduced our infrastructure costs by 30% while improving performance, demonstrating my ability to balance technical excellence with business impact.",
-        usedBlurbs: ['blurb-5'],
-        isModified: false
-      },
-      {
-        id: 'signature',
-        type: 'signature',
-        content: "I look forward to discussing how my background aligns with your needs and how I can contribute to TechCorp's continued success.\n\nBest regards,\n[Your Name]\n[Your Phone]\n[Your Email]\n[Your LinkedIn]",
-        usedBlurbs: [],
-        isModified: false
-      }
-    ],
-    llmFeedback: {
-      goNoGo: 'go' as const,
-      score: 87,
-      matchedBlurbs: ['blurb-1', 'blurb-2', 'blurb-3', 'blurb-4', 'blurb-5'],
-      gaps: [],
-      suggestions: [
-        'Consider adding specific metrics about team leadership',
-        'Mention experience with the specific frameworks mentioned in the job description'
-      ]
-    }
+  const {
+    draft,
+    workpad,
+    progress,
+    isGenerating,
+    isMutating,
+    isFinalizing,
+    error: generationError,
+    generateDraft,
+    updateSection,
+    recalculateMetrics,
+    finalizeDraft,
+    setDraft,
+    setWorkpad,
+    setTemplateId,
+    setJobDescriptionId,
+    clearError,
+    resetProgress,
+  } = useCoverLetterDraft({
+    userId: user?.id ?? '',
+    service: coverLetterDraftService,
   });
 
-  // Generate cover letter draft using real services
-  const handleGenerate = async () => {
-    if (!user) {
-      toast({
-        title: 'Error',
-        description: 'You must be logged in to create a cover letter',
-        variant: 'destructive',
-      });
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    if (!user?.id) {
+      setTemplates([]);
+      setTemplateError('Sign in to generate cover letters.');
       return;
     }
 
-    setIsGenerating(true);
-    setGeneratingStep('Starting analysis...');
-    setGeneratingProgress(0);
+    let cancelled = false;
+    const fetchTemplates = async () => {
+      setTemplatesLoading(true);
+      setTemplateError(null);
+      const { data, error } = await supabase
+        .from('cover_letter_templates')
+        .select('id, name')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true })
+        .limit(20);
 
-    try {
-      // Step 1: Analyze Go/No-Go (integrated into progress flow)
-      setGeneratingStep('Analyzing job fit...');
-      setGeneratingProgress(5);
-      setGeneratingDetail('Checking if this role matches your profile');
-
-      const analysis = await goNoGoService.analyzeJobFit(user.id, jobContent || jobUrl);
-      setGoNoGoAnalysis(analysis);
-
-      // If no-go, show inline warning and let user decide to continue
-      if (analysis.decision === 'no-go') {
-        setIsGenerating(false);
-        setShowGoNoGoModal(true);
-        return;
-      }
-
-      // Step 2: Create draft using DraftService with streaming progress
-      const draft = await draftService.createDraftWithProgress(
-        user.id,
-        jobContent || jobUrl,
-        (step, progress, detail) => {
-          setGeneratingStep(step);
-          setGeneratingProgress(progress);
-          setGeneratingDetail(detail || '');
-        },
-        jobDescriptionMethod === 'url' ? jobUrl : undefined,
-        goals,
-        voice,
-        levelData?.levelCode,
-        goNoGoAnalysis
-      );
-
-      // Step 3: Update state with draft data and show result (no toast)
-      setCurrentDraftId(draft.draftId);
-      setCurrentJobDescription(draft.jobDescription);
-      setGeneratedLetter({ sections: draft.sections });
-      setHilProgressMetrics(draft.metrics);
-      setDetailedAnalysis(draft.detailedAnalysis || null);
-      setGaps(draft.gaps);
-      setCoverLetterGenerated(true);
-      setIsGenerating(false);
-
-      // Clear progress state
-      setGeneratingStep('');
-      setGeneratingProgress(0);
-      setGeneratingDetail('');
-    } catch (error) {
-      console.error('Error generating cover letter:', error);
-      setIsGenerating(false);
-
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to generate cover letter',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleGoNoGoOverride = async () => {
-    if (!user) return;
-
-    setUserOverrideDecision(true);
-    setShowGoNoGoModal(false);
-    setIsGenerating(true);
-    setGeneratingStep('Continuing with draft...');
-    setGeneratingProgress(5);
-
-    try {
-      // Mark user override in analysis
-      if (goNoGoAnalysis) {
-        const overriddenAnalysis = goNoGoService.markUserOverride(goNoGoAnalysis);
-        setGoNoGoAnalysis(overriddenAnalysis);
-      }
-
-      // Proceed with draft creation despite no-go
-      const draft = await draftService.createDraftWithProgress(
-        user.id,
-        jobContent || jobUrl,
-        (step, progress, detail) => {
-          setGeneratingStep(step);
-          setGeneratingProgress(progress);
-          setGeneratingDetail(detail || '');
-        },
-        jobDescriptionMethod === 'url' ? jobUrl : undefined,
-        goals,
-        voice,
-        levelData?.levelCode,
-        goNoGoAnalysis
-      );
-
-      setCurrentDraftId(draft.draftId);
-      setCurrentJobDescription(draft.jobDescription);
-      setGeneratedLetter({ sections: draft.sections });
-      setHilProgressMetrics(draft.metrics);
-      setDetailedAnalysis(draft.detailedAnalysis || null);
-      setGaps(draft.gaps);
-      setCoverLetterGenerated(true);
-      setIsGenerating(false);
-
-      // Clear progress state
-      setGeneratingStep('');
-      setGeneratingProgress(0);
-      setGeneratingDetail('');
-    } catch (error) {
-      console.error('Error generating cover letter:', error);
-      setIsGenerating(false);
-
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to generate cover letter',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleGoNoGoReturn = () => {
-    setShowGoNoGoModal(false);
-    setGoNoGoAnalysis(null);
-    setIsGenerating(false);
-  };
-
-  // HIL Action Handlers
-  const handleAddressGap = (gap: GapAnalysis) => {
-    setSelectedGap(gap);
-    setShowContentGenerationModal(true);
-  };
-
-  const handleGenerateContent = () => {
-    // Generate content for the first available gap
-    const firstGap = gaps[0];
-    if (firstGap) {
-      setSelectedGap(firstGap);
-      setShowContentGenerationModal(true);
-    }
-  };
-
-  const handleFinalizeLetter = () => {
-    setShowFinalizationModal(true);
-  };
-
-  const handleSaveCoverLetter = async () => {
-    if (!currentDraftId || !user) {
-      toast({
-        title: 'Error',
-        description: 'No draft found to save',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    try {
-      // Import supabase
-      const { supabase } = await import('@/lib/supabase');
-
-      // Update draft status to 'finalized' in database
-      await draftService.updateDraft(
-        currentDraftId,
-        generatedLetter.sections,
-        gaps,
-        hilProgressMetrics || undefined
-      );
-
-      // Also update status field
-      const { error } = await supabase
-        .from('cover_letters')
-        .update({ status: 'finalized' })
-        .eq('id', currentDraftId);
+      if (cancelled) return;
 
       if (error) {
-        throw new Error(`Failed to finalize draft: ${error.message}`);
+        setTemplateError(error.message);
+        setTemplates([]);
+      } else {
+        const summaries = (data ?? []).map(({ id, name }) => ({
+          id,
+          name: name || 'Untitled Template',
+        }));
+        setTemplates(summaries);
+        if (summaries.length > 0) {
+          const nextTemplateId = selectedTemplateId ?? summaries[0].id;
+          setSelectedTemplateId(nextTemplateId);
+          setTemplateId(nextTemplateId);
+        }
       }
+      setTemplatesLoading(false);
+    };
 
-      toast({
-        title: 'Success',
-        description: 'Cover letter saved successfully',
-      });
+    fetchTemplates();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, user?.id, selectedTemplateId, setTemplateId]);
 
-      // Call parent callback if provided
-      if (onCoverLetterCreated) {
-        onCoverLetterCreated({
-          id: currentDraftId,
-          status: 'finalized',
-          sections: generatedLetter.sections,
-          metrics: hilProgressMetrics,
-        });
-      }
-
-      // Close modals
-      setShowFinalizationModal(false);
-      onClose();
-    } catch (error) {
-      console.error('Error saving cover letter:', error);
-
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to save cover letter',
-        variant: 'destructive',
-      });
+  useEffect(() => {
+    if (!draft) {
+      setSectionDrafts({});
+      return;
     }
-  };
+    const map = draft.sections.reduce((acc, section) => {
+      acc[section.id] = section.content;
+      return acc;
+    }, {} as Record<string, string>);
+    setSectionDrafts(map);
+  }, [draft]);
 
-
-
-  const handleApplyGeneratedContent = (content: string) => {
-    console.log('Applying generated content:', content);
-    
-    if (!selectedGap?.paragraphId) return;
-    
-    // Find and update the specific paragraph section
-    const updatedSections = generatedLetter.sections.map(section => {
-      if (section.type === selectedGap.paragraphId) {
-        return {
-          ...section,
-          content: content,
-          isEnhanced: true
-        };
-      }
-      return section;
-    });
-    
-    // Update the generated letter with the enhanced content
-    setGeneratedLetter(prev => ({
-      ...prev,
-      sections: updatedSections
-    }));
-    
-    // Update HIL metrics to reflect improvement
-    if (hilProgressMetrics) {
-      const updatedMetrics = { ...hilProgressMetrics };
-      
-      // Improve scores based on content enhancement
-      updatedMetrics.coverLetterRating = 'strong';
-      updatedMetrics.atsScore = 90; // Increase to 90%
-      updatedMetrics.coreRequirementsMet = { met: 4, total: 4 }; // All core requirements met
-      updatedMetrics.preferredRequirementsMet = { met: 2, total: 4 }; // 2 preferred requirements met
-      
-      setHilProgressMetrics(updatedMetrics);
+  useEffect(() => {
+    if (!isOpen) {
+      setMainTab('job-description');
+      resetViewState();
     }
-    
-    // Remove the addressed gap
-    if (selectedGap) {
-      setGaps(prevGaps => prevGaps.filter(gap => gap.id !== selectedGap.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (draft && mainTab !== 'cover-letter') {
+      setMainTab('cover-letter');
     }
-    
-    // Mark HIL as completed when gaps are addressed
-    setHilCompleted(true);
-    
-    // Close the modal and return to draft view
-    setShowContentGenerationModal(false);
-    setSelectedGap(null);
-    
-    // Force re-render to show updated content and metrics
-    // Note: We don't need to toggle coverLetterGenerated state here
-    // as it should remain true after generation
-  };
+  }, [draft, mainTab]);
 
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return 'text-success';
-    if (score >= 60) return 'text-warning';
-    return 'text-destructive';
-  };
-
-  const getGoNoGoColor = (status: string) => {
-    switch (status) {
-      case 'go': return 'bg-success text-success-foreground';
-      case 'no-go': return 'bg-destructive text-destructive-foreground';
-      default: return 'bg-muted text-muted-foreground';
-    }
-  };
-
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'high': return 'bg-destructive text-destructive-foreground';
-      case 'medium': return 'bg-warning text-warning-foreground';
-      case 'low': return 'bg-muted text-muted-foreground';
-      default: return 'bg-muted text-muted-foreground';
-    }
-  };
-
-  const getRatingColor = (rating: string) => {
-    switch (rating) {
-      case 'strong': return 'text-success';
-      case 'average': return 'text-warning';
-      case 'weak': return 'text-destructive';
-      default: return 'text-muted-foreground';
-    }
-  };
-
-  // Get requirements from real job description data
-  const getRequirementsForSection = (): string[] => {
-    return currentJobDescription?.extracted_requirements || [];
-  };
-
-  const handleClose = () => {
-    // Allow closing at any time - user can re-open and start fresh
-    // Reset form state when closing
-    setJobUrl('');
+  const resetViewState = () => {
     setJobContent('');
-    setCoverLetterGenerated(false);
-    setIsGenerating(false);
-    setGoNoGoAnalysis(null);
-    setUserOverrideDecision(false);
-    setHilProgressMetrics(null);
-    setGaps([]);
-    setCurrentDraftId(null);
-    setCurrentJobDescription(null);
-    onClose();
+    setJobInputError(null);
+    setJobDescriptionRecord(null);
+    setSectionDrafts({});
+    setSavingSections({});
+    setJdStreamingMessages([]);
+    clearError();
+    resetProgress();
+    setDraft(null);
+    setWorkpad(null);
+    setJobDescriptionId(null);
+    setFinalizationOpen(false);
+    setFinalizationError(null);
+  };
+
+  const handleTemplateChange = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+    setTemplateId(templateId);
+  };
+
+  const handleGenerateDraft = async () => {
+    if (!user?.id) {
+      setJobInputError('Sign in to draft cover letters.');
+      return;
+    }
+    if (!selectedTemplateId) {
+      setJobInputError('Create a cover letter template before generating drafts.');
+      return;
+    }
+    if (jobContent.trim().length < MIN_JOB_DESCRIPTION_LENGTH) {
+      setJobInputError(
+        `Please paste the full job description (at least ${MIN_JOB_DESCRIPTION_LENGTH} characters).`,
+      );
+      return;
+    }
+
+    setJobInputError(null);
+    clearError();
+    resetProgress();
+    setFinalizationError(null);
+    setJdStreamingMessages([]);
+    setIsParsingJobDescription(true);
+
+    try {
+      const record = await jobDescriptionService.parseAndCreate(user.id, jobContent.trim(), {
+        url: null, // URL ingestion hidden for MVP (see TODO in renderJobDescriptionTab)
+        onProgress: (message) => {
+          setJdStreamingMessages(prev => {
+            const last = prev[prev.length - 1];
+            // Dedupe consecutive identical messages
+            if (last === message) return prev;
+            return [...prev, message];
+          });
+        },
+        onToken: (token, aggregate) => {
+          // Update last message with token preview for live feedback
+          setJdStreamingMessages(prev => {
+            const base = prev.slice(0, -1);
+            const preview = aggregate.slice(-50); // Last 50 chars for preview
+            return [...base, `Parsing… ${preview}${preview.length < aggregate.length ? '…' : ''}`];
+          });
+        },
+      });
+      setJobDescriptionRecord(record);
+      setJobDescriptionId(record.id);
+      setJdStreamingMessages(prev => [...prev, 'Job description analysis complete.']);
+      const { draft: generatedDraft } = await generateDraft({
+        templateId: selectedTemplateId,
+        jobDescriptionId: record.id,
+      });
+      
+      // Detect gaps for each section after draft generation
+      if (generatedDraft && user?.id) {
+        const gapsBySection: Record<string, Gap[]> = {};
+        const jobRequirements = record.structuredData?.standardRequirements?.map(r => r.requirement) || [];
+        
+        for (const section of generatedDraft.sections) {
+          try {
+            const gaps = await GapDetectionService.detectCoverLetterSectionGaps(
+              user.id,
+              {
+                id: section.id,
+                type: section.slug as 'intro' | 'paragraph' | 'closer' | 'signature',
+                content: section.content,
+                title: section.title,
+              },
+              jobRequirements,
+            );
+            gapsBySection[section.id] = gaps;
+          } catch (error) {
+            console.error(`[CoverLetterCreateModal] Failed to detect gaps for section ${section.id}:`, error);
+            gapsBySection[section.id] = [];
+          }
+        }
+        setSectionGaps(gapsBySection);
+      }
+      
+      setMainTab('cover-letter');
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to generate cover letter draft.';
+      setJobInputError(message);
+      setJdStreamingMessages(prev => [...prev, `Error: ${message}`]);
+    } finally {
+      setIsParsingJobDescription(false);
+    }
+  };
+
+  const handleSectionChange = (sectionId: string, value: string) => {
+    setSectionDrafts(prev => ({
+      ...prev,
+      [sectionId]: value,
+    }));
+  };
+
+  const handleSectionReset = (sectionId: string) => {
+    if (!draft) return;
+    const original = draft.sections.find(section => section.id === sectionId);
+    if (!original) return;
+    setSectionDrafts(prev => ({
+      ...prev,
+      [sectionId]: original.content,
+    }));
+  };
+
+  const handleSectionSave = async (sectionId: string) => {
+    if (!draft) return;
+    const content = sectionDrafts[sectionId];
+    if (content === undefined) return;
+    setSavingSections(prev => ({
+      ...prev,
+      [sectionId]: true,
+    }));
+
+    try {
+      const updatedDraft = await updateSection({ sectionId, content });
+      const map = updatedDraft.sections.reduce((acc, section) => {
+        acc[section.id] = section.content;
+        return acc;
+      }, {} as Record<string, string>);
+      setSectionDrafts(map);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to update section content.';
+      setJobInputError(message);
+    } finally {
+      setSavingSections(prev => ({
+        ...prev,
+        [sectionId]: false,
+      }));
+    }
+  };
+
+  const handleFinalize = () => {
+    setFinalizationError(null);
+    setFinalizationOpen(true);
+  };
+
+  const handleFinalizeConfirm = async () => {
+    if (!draft) return;
+
+    const finalSections = draft.sections.map(section => ({
+      ...section,
+      content: sectionDrafts[section.id] ?? section.content,
+    }));
+
+    setFinalizationError(null);
+
+    try {
+      const finalizedDraft = await finalizeDraft({ sections: finalSections });
+      if (onCoverLetterCreated) {
+        onCoverLetterCreated(finalizedDraft);
+      }
+      handleClose();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to finalize cover letter draft.';
+      setFinalizationError(message);
+    }
+  };
+
+  const handleClose = (shouldCloseModal = true) => {
+    resetViewState();
+    if (shouldCloseModal) {
+      onClose();
+    }
+  };
+
+  const isBusy = isGenerating || isParsingJobDescription;
+
+  const renderProgress = () => {
+    const hasProgress = progress.length > 0 || jdStreamingMessages.length > 0;
+    if (!hasProgress) return null;
+
+    return (
+      <Card className="border-muted-foreground/20 bg-muted/20">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold">Generation progress</CardTitle>
+          <CardDescription className="text-xs text-muted-foreground">
+            Follow each stage as we parse the job description and assemble your cover letter.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {jdStreamingMessages.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Job Description Analysis
+              </p>
+              <ul className="space-y-1 text-sm">
+                {jdStreamingMessages.map((msg, idx) => (
+                  <li key={idx} className="text-muted-foreground">
+                    {msg}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {progress.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Draft Generation
+              </p>
+              <ul className="space-y-1 text-sm">
+                {progress.map(update => (
+                  <li
+                    key={`${update.phase}-${update.timestamp}`}
+                    className="flex items-start gap-2"
+                  >
+                    <Badge
+                      variant="outline"
+                      className="mt-0.5 text-[11px] uppercase tracking-wide"
+                    >
+                      {update.phase.replace(/-/g, ' ')}
+                    </Badge>
+                    <span className="text-muted-foreground">{update.message}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderJobDescriptionTab = () => {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold">Job description</CardTitle>
+            <CardDescription>
+              Paste the full role description so we can analyze requirements and tailor your draft.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* TODO: Re-enable job description URL ingestion once MVP supports remote fetching. Tracked in docs/backlog/HIDDEN_FEATURES.md */}
+            <Textarea
+              placeholder="Paste job description here..."
+              rows={16}
+              value={jobContent}
+              onChange={event => setJobContent(event.target.value)}
+              disabled={isBusy}
+            />
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>{jobContent.trim().length} characters</span>
+              <span>Minimum {MIN_JOB_DESCRIPTION_LENGTH} characters required</span>
+            </div>
+
+            {jobInputError && (
+              <Alert variant="destructive">
+                <AlertTitle>Unable to process job description</AlertTitle>
+                <AlertDescription>{jobInputError}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                type="button"
+                className="gap-2"
+                onClick={handleGenerateDraft}
+                disabled={
+                  isBusy ||
+                  !user?.id ||
+                  !selectedTemplateId ||
+                  templates.length === 0
+                }
+              >
+                {isParsingJobDescription ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Analyzing job description…
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="h-4 w-4" />
+                    Generate cover letter
+                  </>
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setJobContent('')}
+                disabled={isBusy}
+              >
+                Clear
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {renderProgress()}
+      </div>
+    );
+  };
+
+  const renderDraftTab = () => {
+    if (!draft) {
+      return (
+        <Card className="border-dashed border-muted-foreground/30 bg-muted/20">
+          <CardContent className="flex h-48 items-center justify-center text-sm text-muted-foreground">
+            Generate a draft first by pasting the job description.
+          </CardContent>
+        </Card>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        {(generationError || jobInputError) && (
+          <Alert variant="destructive">
+            <AlertTitle>Cover letter generation issue</AlertTitle>
+            <AlertDescription>
+              {generationError ?? jobInputError ?? 'Unable to generate cover letter.'}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {(() => {
+          // Transform draft.metrics to HILProgressMetrics format
+          const metricsMap = new Map(draft.metrics.map(m => [m.key, m]));
+          
+          const goalsMetric = metricsMap.get('goals');
+          const experienceMetric = metricsMap.get('experience');
+          const ratingMetric = metricsMap.get('rating');
+          const atsMetric = metricsMap.get('ats');
+          const coreReqsMetric = metricsMap.get('coreRequirements');
+          const preferredReqsMetric = metricsMap.get('preferredRequirements');
+          
+          const hilMetrics = {
+            goalsMatch: goalsMetric && goalsMetric.type === 'strength' 
+              ? goalsMetric.strength 
+              : 'weak',
+            experienceMatch: experienceMetric && experienceMetric.type === 'strength'
+              ? experienceMetric.strength
+              : 'weak',
+            coverLetterRating: ratingMetric && ratingMetric.type === 'strength'
+              ? ratingMetric.strength
+              : 'weak',
+            atsScore: atsMetric && atsMetric.type === 'score'
+              ? Math.round(atsMetric.value)
+              : draft.atsScore || 0,
+            coreRequirementsMet: coreReqsMetric && coreReqsMetric.type === 'requirement'
+              ? { met: coreReqsMetric.met, total: coreReqsMetric.total }
+              : { met: 0, total: 0 },
+            preferredRequirementsMet: preferredReqsMetric && preferredReqsMetric.type === 'requirement'
+              ? { met: preferredReqsMetric.met, total: preferredReqsMetric.total }
+              : { met: 0, total: 0 },
+          };
+          
+          return (
+            <ProgressIndicatorWithTooltips
+              metrics={hilMetrics}
+              isPostHIL={false}
+            />
+          );
+        })()}
+
+        {jobDescriptionRecord && (
+          <Card className="border-muted-foreground/20 bg-muted/10">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold">Job description snapshot</CardTitle>
+              <CardDescription className="text-xs text-muted-foreground">
+                We parsed these details from the job description to guide the draft.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3 text-sm md:grid-cols-2">
+              <div className="space-y-1">
+                <span className="text-xs font-semibold uppercase text-muted-foreground">
+                  Company
+                </span>
+                <p className="font-medium">{jobDescriptionRecord.company}</p>
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs font-semibold uppercase text-muted-foreground">
+                  Role
+                </span>
+                <p className="font-medium">{jobDescriptionRecord.role}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <div className="space-y-4">
+          {draft.sections.map(section => {
+            const editedContent = sectionDrafts[section.id] ?? section.content;
+            const isDirty = editedContent !== section.content;
+            const isSaving = !!savingSections[section.id];
+            const gaps = sectionGaps[section.id] || [];
+            const hasGaps = gaps.length > 0;
+            
+            // Get job requirement tags from JD
+            const jobRequirementTags = jobDescriptionRecord?.structuredData?.standardRequirements?.map(
+              r => r.requirement
+            ) || [];
+
+            return (
+              <ContentCard
+                key={section.id}
+                title={section.title}
+                content={editedContent}
+                tags={jobRequirementTags}
+                hasGaps={hasGaps}
+                gaps={gaps.map(g => ({ id: g.id || g.gap_category, description: g.description }))}
+                isGapResolved={!hasGaps}
+                onGenerateContent={hasGaps ? () => {
+                  // Open HIL workflow with first gap
+                  const firstGap = gaps[0];
+                  if (firstGap) {
+                    setSelectedGap(firstGap);
+                    setShowContentGenerationModal(true);
+                  }
+                } : undefined}
+                onDismissGap={hasGaps ? () => {
+                  // Remove gap from state (user dismissed)
+                  setSectionGaps(prev => ({
+                    ...prev,
+                    [section.id]: prev[section.id]?.filter(g => g.id !== gaps[0]?.id) || [],
+                  }));
+                } : undefined}
+                tagsLabel="Job Requirements"
+                showUsage={false}
+                renderChildrenBeforeTags={true}
+                className={cn(hasGaps && 'border-warning')}
+              >
+                {/* Inline editable Textarea */}
+                <div className="mb-6">
+                  <Textarea
+                    value={editedContent}
+                    onChange={event => handleSectionChange(section.id, event.target.value)}
+                    rows={8}
+                    className="resize-y"
+                    placeholder="Enter cover letter content..."
+                  />
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => handleSectionSave(section.id)}
+                      disabled={!isDirty || isSaving}
+                    >
+                      {isSaving ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Saving…
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4" />
+                          Save changes
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleSectionReset(section.id)}
+                      disabled={!isDirty || isSaving}
+                    >
+                      Reset
+                    </Button>
+                  </div>
+                </div>
+              </ContentCard>
+            );
+          })}
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {workpad && (
+            <Badge variant="outline" className="gap-1">
+              <RefreshCw className="h-3 w-3 animate-spin-slow text-primary" />
+              Last checkpoint: {workpad.lastPhase ?? 'draft'}
+            </Badge>
+          )}
+
+          <div className="flex flex-wrap gap-3">
+            <Button type="button" variant="outline" onClick={() => handleClose()}>
+              Close
+            </Button>
+            <Button type="button" className="gap-2" onClick={handleFinalize}>
+              <FileText className="h-4 w-4" />
+              Finalize letter
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
-    <>
-      <Dialog open={isOpen} onOpenChange={() => {
-        // DO NOT close on blur/tab switch
-        // Only close via explicit X button or Cancel actions
-      }} modal={false}>
-        <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="pb-2">
-            <DialogTitle className="text-2xl font-bold">Create Cover Letter</DialogTitle>
-            <DialogDescription className="text-base">
-              Generate a personalized cover letter for your job application
-            </DialogDescription>
-          </DialogHeader>
-
-          {/* Top Progress Bar with Tooltips - Show when draft is ready */}
-          {hilProgressMetrics && coverLetterGenerated && (
-            <ProgressIndicatorWithTooltips
-              metrics={hilProgressMetrics}
-              className="mb-4"
-              isPostHIL={hilCompleted} // Show post-HIL tooltips after HIL completion
-              goNoGoAnalysis={goNoGoAnalysis || undefined}
-              jobDescription={currentJobDescription || undefined}
-              detailedAnalysis={detailedAnalysis || undefined}
-              onEditGoals={() => setShowGoalsModal(true)}
-            />
-          )}
-
-          {/* Job Description Input - Modal 1 - Only show when NOT generated */}
-          {!coverLetterGenerated && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Job Description</CardTitle>
-                <CardDescription>
-                  Provide the job description to generate a targeted cover letter
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                               <Tabs value={jobDescriptionMethod} onValueChange={(value) => setJobDescriptionMethod(value as 'url' | 'paste')}>
-                 <TabsList className="grid w-fit grid-cols-2">
-                   <TabsTrigger value="url" className="flex items-center gap-2">
-                     <LinkIcon className="h-4 w-4" />
-                     URL
-                   </TabsTrigger>
-                   <TabsTrigger value="paste" className="flex items-center gap-2">
-                     <Upload className="h-4 w-4" />
-                     Paste
-                   </TabsTrigger>
-                 </TabsList>
-                  
-                  <TabsContent value="url" className="mt-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="job-url">Job Posting URL</Label>
-                      <Input
-                        id="job-url"
-                        placeholder="https://company.com/jobs/senior-pm"
-                        value={jobUrl}
-                        onChange={(e) => setJobUrl(e.target.value)}
-                      />
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="paste" className="mt-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="job-content">Job Description</Label>
-                      <Textarea
-                        id="job-content"
-                        placeholder="Paste the job description here..."
-                        value={jobContent}
-                        onChange={(e) => setJobContent(e.target.value)}
-                        rows={8}
-                      />
-                    </div>
-                  </TabsContent>
-                </Tabs>
-
-                {/* Progress Display - Show above button when generating */}
-                {isGenerating && (
-                  <div className="mt-4 space-y-2 p-4 bg-muted/30 rounded-lg border border-muted">
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <RefreshCw className="h-4 w-4 animate-spin text-primary" />
-                        <span className="font-medium">{generatingStep || 'Processing...'}</span>
-                      </div>
-                      <span className="text-muted-foreground tabular-nums">{generatingProgress}%</span>
-                    </div>
-                    {generatingDetail && (
-                      <p className="text-xs text-muted-foreground pl-6">{generatingDetail}</p>
-                    )}
-                    <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-                      <div
-                        className="bg-primary h-full rounded-full transition-all duration-300 ease-out"
-                        style={{ width: `${generatingProgress}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Generate Button */}
-                <Button
-                  onClick={handleGenerate}
-                  disabled={isGenerating || (!jobUrl && !jobContent)}
-                  className="w-full mt-4"
-                  size="lg"
-                >
-                  <Wand2 className="h-4 w-4 mr-2" />
-                  Generate Cover Letter
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Main Tabs for Draft Modal - Only show when cover letter is generated */}
-          {coverLetterGenerated && (
-            <div className="w-full">
-              <Tabs value={mainTabValue} onValueChange={(value) => setMainTabValue(value as 'job-description' | 'cover-letter')}>
-                <TabsList className="grid w-fit grid-cols-2 mb-4">
-                    <TabsTrigger value="cover-letter" className="flex items-center gap-2">
-                      <Wand2 className="h-4 w-4" />
-                      Cover Letter
-                    </TabsTrigger>
-                    <TabsTrigger value="job-description" className="flex items-center gap-2">
-                      <Upload className="h-4 w-4" />
-                      Job Description
-                    </TabsTrigger>
-                  </TabsList>
-
-                {/* Job Description Tab - Shows full JD with Re-Generate button */}
-                <TabsContent value="job-description" className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">Job Description</CardTitle>
-                      <CardDescription>
-                        The job description used to generate this cover letter
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="space-y-2">
-                        <Label>Job Description Content</Label>
-                        <Textarea
-                          value={jobContent || jobUrl}
-                          onChange={(e) => setJobContent(e.target.value)}
-                          rows={8}
-                          className="resize-none"
-                        />
-                      </div>
-                      <Button 
-                        variant="outline"
-                        className="w-full flex items-center gap-2"
-                        size="lg"
-                      >
-                        <RefreshCw className="h-4 w-4" />
-                        Re-Generate Cover Letter
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-
-                {/* Cover Letter Tab - Shows draft with content cards */}
-                <TabsContent value="cover-letter" className="space-y-6">
-                  {/* Single Column Layout - Content Cards */}
-                  {generatedLetter.sections.map((section, index) => {
-                    const sectionGaps = gaps.filter(gap => gap.paragraphId === section.type);
-                    const hasGaps = sectionGaps.length > 0;
-                    const sectionTitle = section.type === 'intro' ? 'Introduction' :
-                           section.type === 'experience' ? 'Experience' :
-                           section.type === 'closing' ? 'Closing' :
-                                        section.type === 'signature' ? 'Signature' : section.type;
-                    const realRequirements = getRequirementsForSection();
-
-                    return (
-                      <ContentCard
-                        key={section.id}
-                        title={sectionTitle}
-                        content={section.content}
-                        tags={realRequirements}
-                        hasGaps={hasGaps}
-                        gaps={sectionGaps.map(g => ({ id: g.id, description: g.description }))}
-                        isGapResolved={!hasGaps}
-                        onGenerateContent={hasGaps ? () => handleAddressGap(sectionGaps[0]) : undefined}
-                        onDismissGap={hasGaps ? () => {
-                          // Mock gap dismissal for now
-                          setGaps(gaps.filter(g => g.id !== sectionGaps[0].id));
-                        } : undefined}
-                        onEdit={() => {
-                          // Handle inline editing - will be handled by Textarea in children
-                        }}
-                        onDuplicate={() => {
-                          // TODO: Implement duplicate section
-                          console.log('Duplicate section:', section.id);
-                        }}
-                        onDelete={() => {
-                          // TODO: Implement delete section
-                          console.log('Delete section:', section.id);
-                        }}
-                        tagsLabel="Job Requirements"
-                        showUsage={false}
-                        renderChildrenBeforeTags={true}
-                        className={cn((section as any).isEnhanced && 'border-success/30')}
-                      >
-                        {/* Inline editable Textarea - renders before tags */}
-                        <div className="mb-6">
-                        <Textarea
-                          value={section.content}
-                            ref={(textarea) => {
-                              if (textarea) {
-                                // Set initial height based on content
-                                textarea.style.height = 'auto';
-                                textarea.style.height = `${textarea.scrollHeight}px`;
-                              }
-                            }}
-                            onChange={(e) => {
-                              const updatedSections = generatedLetter.sections.map(s => 
-                                s.id === section.id ? { ...s, content: e.target.value } : s
-                              );
-                              setGeneratedLetter({ ...generatedLetter, sections: updatedSections });
-                              // Auto-resize textarea
-                              e.target.style.height = 'auto';
-                              e.target.style.height = `${e.target.scrollHeight}px`;
-                            }}
-                            className="resize-none overflow-hidden"
-                            placeholder="Enter cover letter content..."
-                            rows={1}
-                          />
-                        </div>
-                      </ContentCard>
-                    );
-                  })}
-
-                  {/* Action Buttons */}
-                  <div className="flex gap-3 pt-4">
-                    <Button variant="link" className="flex-1 text-muted-foreground hover:text-foreground">
-                      Save Draft
-                    </Button>
-                    <Button className="flex-1 flex items-center gap-2" onClick={handleFinalizeLetter}>
-                      <Send className="h-4 w-4" />
-                      Finalize Letter
-                    </Button>
-                  </div>
-                </TabsContent>
-              </Tabs>
+    <Dialog open={isOpen} onOpenChange={open => (!open ? handleClose() : undefined)}>
+      <DialogContent className="max-w-6xl h-[90vh] overflow-y-auto">
+        <DialogHeader className="pb-6">
+          <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+            <div>
+              <DialogTitle className="text-3xl font-bold">
+                Draft cover letter
+              </DialogTitle>
+              <DialogDescription className="text-base mt-2">
+                Paste the job description so we can analyze requirements, match your best stories,
+                and draft a tailored cover letter.
+              </DialogDescription>
             </div>
-          )}
-
-
-        </DialogContent>
-      </Dialog>
-
-      {/* Go/No-Go Modal */}
-      <AlertDialog open={showGoNoGoModal} onOpenChange={setShowGoNoGoModal}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              No-Go Recommendation
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Our analysis suggests this job may not be a good match based on the following factors:
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          
-          <div className="space-y-3 my-4">
-            {goNoGoAnalysis?.mismatches.map((mismatch, index) => (
-              <div key={index} className="p-3 border rounded-lg">
-                <div className="flex items-center gap-2 mb-1">
-                  <Badge className={getSeverityColor(mismatch.severity)}>
-                    {mismatch.severity} priority
-                  </Badge>
-                  <Badge variant="outline">
-                    {mismatch.type}
-                  </Badge>
-                </div>
-                <p className="text-sm">{mismatch.description}</p>
-              </div>
-            ))}
+            <div className="flex gap-2">
+              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+                AI assisted
+              </Badge>
+              <Badge variant="outline" className="bg-success/10 text-success border-success/20">
+                Role targeted
+              </Badge>
+            </div>
           </div>
+        </DialogHeader>
 
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleGoNoGoReturn}>
-              Return to Job Description
-            </AlertDialogCancel>
-            <Button variant="warning" onClick={handleGoNoGoOverride} asChild>
-              <AlertDialogPrimitive.Action>
-                Override & Continue
-              </AlertDialogPrimitive.Action>
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        <Tabs value={mainTab} onValueChange={setMainTab} className="space-y-6">
+          <TabsList className="grid grid-cols-2 md:w-96">
+            <TabsTrigger value="job-description">Job description</TabsTrigger>
+            <TabsTrigger value="cover-letter" disabled={!draft}>
+              Cover letter
+            </TabsTrigger>
+          </TabsList>
 
-      {/* Content Generation Modal */}
+          <TabsContent value="job-description">{renderJobDescriptionTab()}</TabsContent>
+          <TabsContent value="cover-letter">{renderDraftTab()}</TabsContent>
+        </Tabs>
+      </DialogContent>
+      {draft && (
+        <CoverLetterFinalization
+          isOpen={finalizationOpen}
+          onClose={() => setFinalizationOpen(false)}
+          onBackToDraft={() => setFinalizationOpen(false)}
+          onFinalizeConfirm={handleFinalizeConfirm}
+          isFinalizing={isFinalizing}
+          errorMessage={finalizationError}
+          sections={draft.sections.map(section => ({
+            ...section,
+            content: sectionDrafts[section.id] ?? section.content,
+          }))}
+          metrics={draft.metrics}
+          differentiators={draft.differentiatorSummary}
+          analytics={draft.analytics}
+          job={{
+            company: jobDescriptionRecord?.company ?? draft.company,
+            role: jobDescriptionRecord?.role ?? draft.role,
+          }}
+        />
+      )}
       <ContentGenerationModal
         isOpen={showContentGenerationModal}
-        onClose={() => setShowContentGenerationModal(false)}
-        gap={selectedGap}
-        onApplyContent={handleApplyGeneratedContent}
-      />
-
-      {/* Cover Letter Finalization Modal */}
-      <CoverLetterFinalization
-        isOpen={showFinalizationModal}
-        onClose={() => setShowFinalizationModal(false)}
-        coverLetter={generatedLetter}
-        onBackToDraft={() => setShowFinalizationModal(false)}
-        onSave={handleSaveCoverLetter}
-      />
-
-      {/* User Goals Modal */}
-      <UserGoalsModal
-        isOpen={showGoalsModal}
-        onClose={() => setShowGoalsModal(false)}
-        onSave={async (updatedGoals) => {
-          await saveGoals(updatedGoals);
-          setShowGoalsModal(false);
-          // Optionally: Re-run analysis with new goals
-          toast({
-            title: 'Goals Updated',
-            description: 'Your career goals have been updated successfully',
-          });
+        onClose={() => {
+          setShowContentGenerationModal(false);
+          setSelectedGap(null);
         }}
-        initialGoals={goals || undefined}
+        gap={selectedGap ? {
+          id: selectedGap.id || selectedGap.gap_category,
+          type: selectedGap.gap_type === 'best_practice' ? 'best-practice' : 
+                selectedGap.gap_type === 'requirement' ? 'core-requirement' : 'content-enhancement',
+          severity: selectedGap.severity,
+          description: selectedGap.description,
+          suggestion: selectedGap.suggestions?.[0]?.description || selectedGap.description,
+          paragraphId: selectedGap.entity_id,
+          origin: 'ai',
+        } : null}
+        onApplyContent={async (content: string) => {
+          if (!selectedGap || !draft) return;
+          
+          // Find the section this gap belongs to
+          const sectionId = Object.keys(sectionGaps).find(id => 
+            sectionGaps[id].some(g => g.id === selectedGap.id || g.gap_category === selectedGap.gap_category)
+          );
+          
+          if (sectionId) {
+            // Update the section content
+            setSectionDrafts(prev => ({
+              ...prev,
+              [sectionId]: content,
+            }));
+            
+            // Save the section
+            try {
+              await handleSectionSave(sectionId);
+              
+              // Remove the resolved gap
+              setSectionGaps(prev => ({
+                ...prev,
+                [sectionId]: prev[sectionId]?.filter(g => 
+                  g.id !== selectedGap.id && g.gap_category !== selectedGap.gap_category
+                ) || [],
+              }));
+            } catch (error) {
+              console.error('[CoverLetterCreateModal] Failed to apply generated content:', error);
+            }
+          }
+          
+          setShowContentGenerationModal(false);
+          setSelectedGap(null);
+        }}
       />
-    </>
+    </Dialog>
   );
 };
 
 export default CoverLetterCreateModal;
+

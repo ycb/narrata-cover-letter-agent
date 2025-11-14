@@ -164,7 +164,7 @@ export function VariationsHILBridge({
           <div className="space-y-3">
             {sortedVariations.map((variation, index) => {
               const priority = getVariationPriority(variation);
-              const isExpanded = expandedVariations[variation.id];
+              const isExpanded = expandedVariations[variation.id] ?? index === 0;
               
               return (
                 <Card key={variation.id} className="border-l-4 border-l-primary/20">
@@ -189,6 +189,7 @@ export function VariationsHILBridge({
                           size="sm"
                           onClick={() => toggleVariation(variation.id)}
                           className="h-6 w-6 p-0"
+                          aria-label={`Toggle variation ${getVariationLabel(variation, index)}`}
                         >
                           {isExpanded ? (
                             <ChevronUp className="h-3 w-3" />
