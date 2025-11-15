@@ -66,6 +66,25 @@ Respond ONLY with valid JSON following this EXACT schema:
         "met": true,
         "evidence": "Job title matches target",
         "requiresManualVerification": false
+      },
+      {
+        "id": "goal-salary",
+        "goalType": "Minimum Salary",
+        "userValue": "$180,000",
+        "jobValue": null,
+        "met": false,
+        "evidence": "Salary not specified in JD",
+        "requiresManualVerification": false
+      },
+      {
+        "id": "goal-worktype",
+        "goalType": "Work Type",
+        "userValue": null,
+        "jobValue": null,
+        "met": false,
+        "evidence": "Work type not specified in career goals",
+        "emptyState": "goal-not-set",
+        "requiresManualVerification": false
       }
     ],
     "coreRequirementDetails": [
@@ -135,7 +154,18 @@ CRITICAL RULES:
 2. Use "high"/"medium"/"low" for confidence and severity
 3. Use "strong"/"average"/"weak" for strength ratings
 4. Scores should be 0-100
-5. For goalMatches: Analyze all goal types (title, salary, location, work type, etc.)
+5. For goalMatches: MUST include ALL 7 goal categories in this exact order:
+   - "Target Title" (goal-title) - jobValue from JD role
+   - "Minimum Salary" (goal-salary) - jobValue from JD salary field if present
+   - "Work Type" (goal-worktype) - jobValue from JD workType field (Remote/Hybrid/In-person)
+   - "Preferred Location" (goal-cities) - jobValue from JD location field
+   - "Company Maturity" (goal-maturity) - jobValue from JD companyMaturity field
+   - "Industry" (goal-industry) - jobValue from JD companyIndustry field
+   - "Business Model" (goal-business-model) - jobValue from JD companyBusinessModel field
+   
+   IMPORTANT: Use the JD structured data (salary, workType, location, companyMaturity, companyIndustry, companyBusinessModel) 
+   to populate jobValue fields. These were extracted during JD parsing.
+   For goals not set by user: set userValue=null, met=false, emptyState="goal-not-set"
 6. For requirement details: "demonstrated" means it's IN THE DRAFT, not just in work history
 7. For experience details: Check work history and stories, reference IDs
 8. For differentiatorAnalysis: Focus on what makes THIS role unique

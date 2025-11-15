@@ -442,9 +442,8 @@ export class CoverLetterDraftService {
           workHistory,
           approvedContent,
           signal,
-          onToken: (token) => {
-            this.emitProgress(onProgress, 'metrics', `AI analyzing draft quality…`, true);
-          },
+          // Don't emit on every token - causes infinite progress list
+          onToken: undefined,
         });
         break; // Success, exit retry loop
       } catch (error) {

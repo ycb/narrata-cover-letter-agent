@@ -21,6 +21,19 @@ export function MatchGoalsTooltip({
   // Check if user has ANY goals configured
   const hasAnyGoals = goalMatches.some(match => match.userValue !== null && match.userValue !== undefined && match.emptyState !== 'goal-not-set');
 
+  // Sort goals: matched first, then unmatched, then not-set last
+  const sortedMatches = [...goalMatches].sort((a, b) => {
+    // Not-set goals go to the bottom
+    if (a.emptyState === 'goal-not-set' && b.emptyState !== 'goal-not-set') return 1;
+    if (b.emptyState === 'goal-not-set' && a.emptyState !== 'goal-not-set') return -1;
+    
+    // Among set goals, matched ones come first
+    if (a.met && !b.met) return -1;
+    if (!a.met && b.met) return 1;
+    
+    return 0; // Maintain relative order otherwise
+  });
+
   const content = (
     <div className="space-y-3">
       {!hasAnyGoals ? (
@@ -31,14 +44,15 @@ export function MatchGoalsTooltip({
           onEditGoals={onEditGoals}
         />
       ) : (
-        // Show all goal matches (including individual "goal-not-set" states)
-        goalMatches.map((match) => (
+        // Show all goal matches sorted (matched → unmatched → not-set)
+        sortedMatches.map((match) => (
           <GoalMatchCard
             key={match.id}
             goalType={match.goalType}
             userValue={match.userValue}
             jobValue={match.jobValue}
             met={match.met}
+            matchState={match.matchState}
             evidence={match.evidence}
             requiresManualVerification={match.requiresManualVerification}
             emptyState={match.emptyState}

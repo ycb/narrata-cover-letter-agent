@@ -36,13 +36,15 @@ export const FullWidthTooltip: React.FC<FullWidthTooltipProps> = ({
     const margin = (viewportWidth - tooltipWidth) / 2;
     const clampedLeft = Math.max(margin, Math.min(left, viewportWidth - tooltipWidth - margin));
 
+    const tooltipTop = rect.bottom + 8; // Reduced gap - 8px instead of 12px
+
     setPosition({
-      top: rect.bottom + 12, // 12px gap below the metric
+      top: tooltipTop,
       left: clampedLeft,
       width: tooltipWidth,
       // Calculate triangle position relative to the metric center
       triangleLeft: rect.left + (rect.width / 2) - clampedLeft - 8, // Position relative to tooltip left, adjusted for triangle width
-      triggerBottom: rect.top, // Start bridge from top of trigger element
+      triggerBottom: rect.bottom, // Start bridge from bottom of trigger element
     });
   };
 
@@ -57,7 +59,7 @@ export const FullWidthTooltip: React.FC<FullWidthTooltipProps> = ({
   const hideTooltip = () => {
     timeoutRef.current = setTimeout(() => {
       setIsVisible(false);
-    }, 200); // Delay to allow mousing into tooltip
+    }, 300); // Increased delay to allow easier mousing into tooltip
   };
 
   const handleMouseEnter = () => {
@@ -111,7 +113,8 @@ export const FullWidthTooltip: React.FC<FullWidthTooltipProps> = ({
               top: position.triggerBottom,
               left: 0,
               width: '100%',
-              height: position.top - position.triggerBottom, // Cover entire gap from trigger to tooltip
+              height: Math.max(0, position.top - position.triggerBottom), // Cover entire gap from trigger to tooltip
+              pointerEvents: 'auto', // Explicitly enable pointer events
             }}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
@@ -124,6 +127,7 @@ export const FullWidthTooltip: React.FC<FullWidthTooltipProps> = ({
               top: position.top,
               left: position.left,
               width: position.width,
+              pointerEvents: 'auto', // Ensure tooltip content is interactive
             }}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}

@@ -180,6 +180,12 @@ const createSupabaseMock = (): SupabaseMock => {
             }),
           })),
         };
+      case 'work_items':
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => Promise.resolve({ data: [], error: null })),
+          })),
+        };
       case 'cover_letters':
         return {
           insert: vi.fn((payload: Record<string, unknown>) => {
@@ -201,6 +207,20 @@ const createSupabaseMock = (): SupabaseMock => {
         };
       case 'cover_letter_workpads':
         return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })),
+            })),
+          })),
+          insert: vi.fn((payload: Record<string, unknown>) => {
+            workpadUpsertPayload = payload;
+            const row = buildWorkpadRow(payload);
+            return {
+              select: () => ({
+                single: () => Promise.resolve({ data: row, error: null }),
+              }),
+            };
+          }),
           upsert: vi.fn((payload: Record<string, unknown>) => {
             workpadUpsertPayload = payload;
             const row = buildWorkpadRow(payload);
@@ -235,6 +255,20 @@ const createFinalizeSupabaseMock = (
 
   const from = vi.fn((table: string) => {
     switch (table) {
+      case 'work_items':
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => Promise.resolve({ data: [], error: null })),
+          })),
+        };
+      case 'approved_content':
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              eq: vi.fn(() => Promise.resolve({ data: [], error: null })),
+            })),
+          })),
+        };
       case 'cover_letters':
         return {
           select: vi.fn(() => ({
@@ -270,6 +304,20 @@ const createFinalizeSupabaseMock = (
         };
       case 'cover_letter_workpads':
         return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })),
+            })),
+          })),
+          insert: vi.fn((payload: Record<string, unknown>) => {
+            workpadUpsertPayload = payload;
+            const row = buildWorkpadRow(payload);
+            return {
+              select: () => ({
+                single: () => Promise.resolve({ data: row, error: null }),
+              }),
+            };
+          }),
           upsert: vi.fn((payload: Record<string, unknown>) => {
             workpadUpsertPayload = payload;
             const row = buildWorkpadRow(payload);

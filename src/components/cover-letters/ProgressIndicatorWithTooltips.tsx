@@ -5,6 +5,9 @@ import { ATSScoreTooltip } from './ATSScoreTooltip';
 import { RequirementsTooltip } from './RequirementsTooltip';
 import { MatchExperienceTooltip } from './MatchExperienceTooltip';
 import { MatchGoalsTooltip } from './MatchGoalsTooltip';
+import { useUserGoals } from '@/contexts/UserGoalsContext';
+import { GoalsMatchService } from '@/services/goalsMatchService';
+import { useMemo } from 'react';
 import type { EnhancedMatchData } from '@/types/coverLetters';
 
 interface HILProgressMetrics {
@@ -59,7 +62,11 @@ export function ProgressIndicatorWithTooltips({
   onEnhanceSection,
   onAddMetrics
 }: ProgressIndicatorWithTooltipsProps) {
-  const getRatingColor = (rating: string) => {
+  // Get current goals from context
+  const { goals } = useUserGoals();
+
+  const getRatingColor = (rating: string | undefined) => {
+    if (!rating) return 'bg-muted/10 text-muted-foreground border-muted/20';
     switch (rating.toLowerCase()) {
       case 'strong': return 'bg-success/10 text-success border-success/20';
       case 'average': return 'bg-warning/10 text-warning border-warning/20';
@@ -74,8 +81,33 @@ export function ProgressIndicatorWithTooltips({
     return 'bg-destructive/10 text-destructive border-destructive/20';
   };
 
-  // Agent C: Use enhanced match data from consolidated analysis
-  const goalMatches = enhancedMatchData?.goalMatches || [];
+  // Agent C: Recalculate goal matches using current goals from context
+  // This ensures the tooltip shows up-to-date information even if goals changed after draft creation
+  const goalMatches = useMemo(() => {
+    // Debug: Log what goals we're receiving
+    console.log('[ProgressIndicatorWithTooltips] Recalculating goalMatches with:', {
+      goals: goals,
+      jobDescription: jobDescription,
+      hasGoNoGoAnalysis: !!goNoGoAnalysis
+    });
+
+    if (!jobDescription) {
+      // Fallback to cached data if no job description available
+      return enhancedMatchData?.goalMatches || [];
+    }
+
+    // Recalculate using current goals from context
+    const goalsMatchService = new GoalsMatchService();
+    const freshAnalysis = goalsMatchService.analyzeGoalsMatch(
+      goals || null,
+      jobDescription,
+      goNoGoAnalysis
+    );
+    
+    console.log('[ProgressIndicatorWithTooltips] Fresh goal matches:', freshAnalysis.matches);
+    
+    return freshAnalysis.matches;
+  }, [goals, jobDescription, enhancedMatchData?.goalMatches, goNoGoAnalysis]);
   const coreReqs = enhancedMatchData?.coreRequirementDetails || [];
   const preferredReqs = enhancedMatchData?.preferredRequirementDetails || [];
   const coreExperienceMatches = enhancedMatchData?.coreExperienceDetails || [];
@@ -94,7 +126,7 @@ export function ProgressIndicatorWithTooltips({
           <div className="flex flex-col items-center justify-center">
             <div className="text-xs text-muted-foreground mb-2 underline underline-offset-2">MATCH WITH GOALS</div>
             <Badge variant="outline" className={getRatingColor(metrics.goalsMatch)}>
-              {metrics.goalsMatch}
+              {metrics.goalsMatch || 'N/A'}
             </Badge>
           </div>
         </MatchGoalsTooltip>
@@ -107,14 +139,14 @@ export function ProgressIndicatorWithTooltips({
           <div className="flex flex-col items-center justify-center">
             <div className="text-xs text-muted-foreground mb-2 underline underline-offset-2">MATCH WITH EXPERIENCE</div>
             <Badge variant="outline" className={getRatingColor(metrics.experienceMatch)}>
-              {metrics.experienceMatch}
+              {metrics.experienceMatch || 'N/A'}
             </Badge>
           </div>
         </MatchExperienceTooltip>
 
         {/* Core Requirements - Shows what's addressed in the DRAFT */}
         <RequirementsTooltip
-          title={`Core Reqs: ${metrics.coreRequirementsMet.met}/${metrics.coreRequirementsMet.total}`}
+          title={`Core Reqs: ${metrics.coreRequirementsMet?.met ?? 0}/${metrics.coreRequirementsMet?.total ?? 0}`}
           requirements={coreReqs}
           description="Essential requirements addressed in your draft"
           onEnhanceSection={onEnhanceSection}
@@ -122,15 +154,15 @@ export function ProgressIndicatorWithTooltips({
         >
           <div className="flex flex-col items-center justify-center">
             <div className="text-xs text-muted-foreground mb-2 underline underline-offset-2">CORE REQS</div>
-            <Badge variant="outline" className={getATSScoreColor((metrics.coreRequirementsMet.met / metrics.coreRequirementsMet.total) * 100)}>
-              {metrics.coreRequirementsMet.met}/{metrics.coreRequirementsMet.total}
+            <Badge variant="outline" className={getATSScoreColor(metrics.coreRequirementsMet?.total > 0 ? (metrics.coreRequirementsMet.met / metrics.coreRequirementsMet.total) * 100 : 0)}>
+              {metrics.coreRequirementsMet?.met ?? 0}/{metrics.coreRequirementsMet?.total ?? 0}
             </Badge>
           </div>
         </RequirementsTooltip>
 
         {/* Preferred Requirements - Shows what's addressed in the DRAFT */}
         <RequirementsTooltip
-          title={`Preferred Reqs: ${metrics.preferredRequirementsMet.met}/${metrics.preferredRequirementsMet.total}`}
+          title={`Preferred Reqs: ${metrics.preferredRequirementsMet?.met ?? 0}/${metrics.preferredRequirementsMet?.total ?? 0}`}
           requirements={preferredReqs}
           description="Nice-to-have requirements addressed in your draft"
           onEnhanceSection={onEnhanceSection}
@@ -138,8 +170,8 @@ export function ProgressIndicatorWithTooltips({
         >
           <div className="flex flex-col items-center justify-center">
             <div className="text-xs text-muted-foreground mb-2 underline underline-offset-2">PREFERRED REQS</div>
-            <Badge variant="outline" className={getATSScoreColor((metrics.preferredRequirementsMet.met / metrics.preferredRequirementsMet.total) * 100)}>
-              {metrics.preferredRequirementsMet.met}/{metrics.preferredRequirementsMet.total}
+            <Badge variant="outline" className={getATSScoreColor(metrics.preferredRequirementsMet?.total > 0 ? (metrics.preferredRequirementsMet.met / metrics.preferredRequirementsMet.total) * 100 : 0)}>
+              {metrics.preferredRequirementsMet?.met ?? 0}/{metrics.preferredRequirementsMet?.total ?? 0}
             </Badge>
           </div>
         </RequirementsTooltip>
@@ -149,7 +181,7 @@ export function ProgressIndicatorWithTooltips({
           <div className="flex flex-col items-center justify-center">
             <div className="text-xs text-muted-foreground mb-2 underline underline-offset-2">COVER LETTER RATING</div>
             <Badge variant="outline" className={getRatingColor(metrics.coverLetterRating)}>
-              {metrics.coverLetterRating}
+              {metrics.coverLetterRating || 'N/A'}
             </Badge>
           </div>
         </CoverLetterRatingTooltip>
@@ -158,8 +190,8 @@ export function ProgressIndicatorWithTooltips({
         <ATSScoreTooltip atsAnalysis={atsAnalysis}>
           <div className="flex flex-col items-center justify-center">
             <div className="text-xs text-muted-foreground mb-2 underline underline-offset-2">ATS</div>
-            <Badge variant="outline" className={getATSScoreColor(metrics.atsScore)}>
-              {metrics.atsScore}%
+            <Badge variant="outline" className={getATSScoreColor(metrics.atsScore ?? 0)}>
+              {metrics.atsScore ?? 0}%
             </Badge>
           </div>
         </ATSScoreTooltip>

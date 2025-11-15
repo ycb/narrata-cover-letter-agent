@@ -23,7 +23,7 @@ interface CoverLetterEditModalProps {
 }
 
 export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals, onAddStory, onEnhanceSection, onAddMetrics }: CoverLetterEditModalProps) {
-  const { goals, saveGoals } = useUserGoals();
+  const { goals, setGoals } = useUserGoals();
   const { toast } = useToast();
   const [editedContent, setEditedContent] = useState<any>(null);
   const [mainTabValue, setMainTabValue] = useState<'cover-letter' | 'job-description'>('cover-letter');
@@ -218,7 +218,7 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
         isOpen={showGoalsModal}
         onClose={() => setShowGoalsModal(false)}
         onSave={async (updatedGoals) => {
-          await saveGoals(updatedGoals);
+          await setGoals(updatedGoals);
           setShowGoalsModal(false);
           toast({
             title: 'Goals Updated',

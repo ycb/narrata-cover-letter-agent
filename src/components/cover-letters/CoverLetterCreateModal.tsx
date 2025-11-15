@@ -56,6 +56,8 @@ import { ProgressIndicatorWithTooltips } from './ProgressIndicatorWithTooltips';
 import { CoverLetterFinalization } from './CoverLetterFinalization';
 import { ContentCard } from '@/components/shared/ContentCard';
 import { ContentGenerationModal } from '@/components/hil/ContentGenerationModal';
+import { UserGoalsModal } from '@/components/user-goals/UserGoalsModal';
+import { useUserGoals } from '@/contexts/UserGoalsContext';
 import { GapDetectionService } from '@/services/gapDetectionService';
 import type { CoverLetterDraft, JobDescriptionRecord } from '@/types/coverLetters';
 import type { Gap } from '@/types/content';
@@ -79,6 +81,8 @@ export const CoverLetterCreateModal = ({
   onCoverLetterCreated,
 }: CoverLetterCreateModalProps) => {
   const { user } = useAuth();
+  const { goals, setGoals } = useUserGoals();
+  
   const [jobContent, setJobContent] = useState('');
   const [jobInputError, setJobInputError] = useState<string | null>(null);
   const [isParsingJobDescription, setIsParsingJobDescription] = useState(false);
@@ -93,6 +97,7 @@ export const CoverLetterCreateModal = ({
   const [sectionGaps, setSectionGaps] = useState<Record<string, Gap[]>>({});
   const [selectedGap, setSelectedGap] = useState<Gap | null>(null);
   const [showContentGenerationModal, setShowContentGenerationModal] = useState(false);
+  const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [mainTab, setMainTab] = useState<'job-description' | 'cover-letter'>('job-description');
   const [finalizationOpen, setFinalizationOpen] = useState(false);
   const [finalizationError, setFinalizationError] = useState<string | null>(null);
@@ -391,52 +396,47 @@ export const CoverLetterCreateModal = ({
     const hasProgress = progress.length > 0 || jdStreamingMessages.length > 0;
     if (!hasProgress) return null;
 
+    // Group progress by phase and show only the latest message per phase
+    const phaseGroups = progress.reduce((acc, update) => {
+      acc[update.phase] = update.message;
+      return acc;
+    }, {} as Record<string, string>);
+
+    const phaseLabels: Record<string, string> = {
+      jd_parse: 'Parsing',
+      content_match: 'Draft Generation',
+      metrics: 'Calculating Metrics',
+      gap_detection: 'Gap Detection',
+    };
+
     return (
       <Card className="border-muted-foreground/20 bg-muted/20">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold">Generation progress</CardTitle>
           <CardDescription className="text-xs text-muted-foreground">
-            Follow each stage as we parse the job description and assemble your cover letter.
+            Follow each stage as we analyze and assemble your cover letter.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
-          {jdStreamingMessages.length > 0 && (
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+        <CardContent className="space-y-2">
+          {jdStreamingMessages.length > 0 && jdStreamingMessages[jdStreamingMessages.length - 1] && (
+            <div className="flex items-start gap-2">
+              <span className="text-xs font-semibold text-foreground/80 uppercase tracking-wide min-w-[180px]">
                 Job Description Analysis
-              </p>
-              <ul className="space-y-1 text-sm">
-                {jdStreamingMessages.map((msg, idx) => (
-                  <li key={idx} className="text-muted-foreground">
-                    {msg}
-                  </li>
-                ))}
-              </ul>
+              </span>
+              <span className="text-sm text-muted-foreground flex-1">
+                {jdStreamingMessages[jdStreamingMessages.length - 1]}
+              </span>
             </div>
           )}
-          {progress.length > 0 && (
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Draft Generation
-              </p>
-              <ul className="space-y-1 text-sm">
-                {progress.map(update => (
-                  <li
-                    key={`${update.phase}-${update.timestamp}`}
-                    className="flex items-start gap-2"
-                  >
-                    <Badge
-                      variant="outline"
-                      className="mt-0.5 text-[11px] uppercase tracking-wide"
-                    >
-                      {update.phase.replace(/-/g, ' ')}
-                    </Badge>
-                    <span className="text-muted-foreground">{update.message}</span>
-                  </li>
-                ))}
-              </ul>
+
+          {Object.entries(phaseGroups).map(([phase, message]) => (
+            <div key={phase} className="flex items-start gap-2">
+              <span className="text-xs font-semibold text-foreground/80 uppercase tracking-wide min-w-[180px]">
+                {phaseLabels[phase] || phase}
+              </span>
+              <span className="text-sm text-muted-foreground flex-1">{message}</span>
             </div>
-          )}
+          ))}
         </CardContent>
       </Card>
     );
@@ -485,10 +485,15 @@ export const CoverLetterCreateModal = ({
                   templates.length === 0
                 }
               >
-                {isParsingJobDescription ? (
+                {isParsingJobDescription || isGenerating ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Analyzing job description…
+                    {isParsingJobDescription ? 'Job Description Analysis' :
+                     progress[progress.length - 1]?.phase === 'jd_parse' ? 'Parsing' :
+                     progress[progress.length - 1]?.phase === 'content_match' ? 'Draft Generation' :
+                     progress[progress.length - 1]?.phase === 'metrics' ? 'Calculating Metrics' :
+                     progress[progress.length - 1]?.phase === 'gap_detection' ? 'Gap Detection' :
+                     'Generating'}
                   </>
                 ) : (
                   <>
@@ -572,6 +577,25 @@ export const CoverLetterCreateModal = ({
             <ProgressIndicatorWithTooltips
               metrics={hilMetrics}
               isPostHIL={false}
+              enhancedMatchData={draft.enhancedMatchData}
+              goNoGoAnalysis={undefined}
+              jobDescription={jobDescriptionRecord ? {
+                role: jobDescriptionRecord.role,
+                company: jobDescriptionRecord.company,
+              } : undefined}
+              onEditGoals={() => setShowGoalsModal(true)}
+              onAddStory={(requirement, severity) => {
+                // TODO: Open story creation modal
+                console.log('Add story for requirement:', requirement);
+              }}
+              onEnhanceSection={(sectionId, requirement) => {
+                // TODO: Open section enhancement flow
+                console.log('Enhance section:', sectionId, 'for requirement:', requirement);
+              }}
+              onAddMetrics={(sectionId) => {
+                // TODO: Open metrics addition flow
+                console.log('Add metrics to section:', sectionId);
+              }}
             />
           );
         })()}
@@ -711,6 +735,7 @@ export const CoverLetterCreateModal = ({
   };
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={open => (!open ? handleClose() : undefined)}>
       <DialogContent className="max-w-6xl h-[90vh] overflow-y-auto">
         <DialogHeader className="pb-6">
@@ -819,7 +844,17 @@ export const CoverLetterCreateModal = ({
           setSelectedGap(null);
         }}
       />
+
     </Dialog>
+
+    {/* User Goals Modal - rendered outside main dialog to avoid nesting issues */}
+    <UserGoalsModal
+      isOpen={showGoalsModal}
+      onClose={() => setShowGoalsModal(false)}
+      onSave={setGoals}
+      initialGoals={goals || undefined}
+    />
+  </>
   );
 };
 

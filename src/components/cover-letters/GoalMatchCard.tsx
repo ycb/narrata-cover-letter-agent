@@ -11,16 +11,18 @@ export interface GoalMatchCardProps {
   requiresManualVerification?: boolean;
   onEditGoals?: () => void;
   emptyState?: 'no-goals' | 'goal-not-set' | null;
+  matchState?: 'match' | 'no-match' | 'unknown'; // Explicit match state for better UX
 }
 
 /**
  * Modular card component for displaying goal matches
- * Supports three states:
- * 1. Match found (met=true) - Green card with checkmark
- * 2. Match not found (met=false) - Red card with X
- * 3. Empty states:
- *    - 'no-goals': User hasn't set any goals yet
- *    - 'goal-not-set': Specific goal field is empty
+ * Supports three visual states:
+ * 1. Match found (matchState='match') - Green card with checkmark
+ * 2. No match (matchState='no-match') - Red card with X
+ * 3. Unknown (matchState='unknown') - Gray card with question mark
+ *    - Used when user hasn't set goal OR JD doesn't have data
+ * 
+ * Legacy 'emptyState' prop is still supported for backward compatibility
  */
 export function GoalMatchCard({
   goalType,
@@ -31,8 +33,9 @@ export function GoalMatchCard({
   requiresManualVerification = false,
   onEditGoals,
   emptyState = null,
+  matchState,
 }: GoalMatchCardProps) {
-  // Empty state: No goals configured at all
+  // Empty state: No goals configured at all (special case for entire goals system)
   if (emptyState === 'no-goals') {
     return (
       <div className="border rounded-lg p-4 bg-muted/30 border-muted">
@@ -49,7 +52,7 @@ export function GoalMatchCard({
             </p>
             {onEditGoals && (
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={onEditGoals}
                 className="h-7 text-xs"
@@ -64,85 +67,72 @@ export function GoalMatchCard({
     );
   }
 
-  // Empty state: Specific goal not set
-  if (emptyState === 'goal-not-set' || !userValue) {
-    return (
-      <div className="border rounded-lg p-3 bg-muted/10 border-muted/40">
-        <div className="flex items-start gap-2">
-          <div className="flex-shrink-0 mt-0.5">
-            <HelpCircle className="h-4 w-4 text-muted-foreground" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h4 className="text-sm font-medium text-muted-foreground">
-              {goalType}
-            </h4>
-            <p className="text-xs text-muted-foreground mt-1">
-              Not specified in your career goals
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   // Normal state: Show match result
-  const isMatch = met === true;
+  // Determine match state from explicit prop or fallback to met boolean
+  const effectiveMatchState = matchState || (met === true ? 'match' : 'no-match');
+  
+  const isMatch = effectiveMatchState === 'match';
+  const isUnknown = effectiveMatchState === 'unknown';
+  
   const cardBgClass = isMatch
     ? 'bg-success/10 border-success/20'
+    : isUnknown
+    ? 'bg-muted/10 border-muted/40'
     : 'bg-destructive/10 border-destructive/20';
 
   return (
     <div className={`border rounded-lg p-3 ${cardBgClass}`}>
-      {/* Goal type and match indicator */}
-      <div className="flex items-start gap-2 mb-2">
+      {/* Goal type with user value in heading */}
+      <div className="flex items-start gap-2 mb-1.5">
         <div className="flex-shrink-0 mt-0.5">
           {isMatch ? (
             <Check className="h-4 w-4 text-success" />
+          ) : isUnknown ? (
+            <HelpCircle className="h-4 w-4 text-muted-foreground" />
           ) : (
             <X className="h-4 w-4 text-destructive" />
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <h4 className="text-sm font-medium text-foreground">
-            {goalType}
-          </h4>
+          {userValue ? (
+            <h4 className="text-sm font-medium text-foreground">
+              {goalType}: <span className="font-normal text-foreground/80">{userValue}</span>
+            </h4>
+          ) : onEditGoals ? (
+            <button
+              onClick={onEditGoals}
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors underline decoration-dotted underline-offset-2 cursor-pointer text-left"
+            >
+              {goalType}: Not set
+            </button>
+          ) : (
+            <h4 className="text-sm font-medium text-muted-foreground">
+              {goalType}: Not set
+            </h4>
+          )}
         </div>
       </div>
 
-      {/* User's goal value */}
-      <div className="ml-6 space-y-2">
+      {/* Show what the job offers */}
+      <div className="ml-6 text-xs">
         <div>
-          <div className="text-xs font-medium text-muted-foreground mb-0.5">
-            Your preference:
-          </div>
-          <div className="text-xs text-foreground/90">
-            {userValue}
-          </div>
+          <span className="font-medium text-foreground/90">This job:</span>{' '}
+          <span className="text-foreground/80">
+            {jobValue || 'Unknown'}
+          </span>
         </div>
 
-        {/* Job's value (if available) */}
-        {jobValue && (
-          <div>
-            <div className="text-xs font-medium text-muted-foreground mb-0.5">
-              Job offers:
-            </div>
-            <div className="text-xs text-foreground/90">
-              {jobValue}
-            </div>
-          </div>
-        )}
-
-        {/* Evidence/explanation */}
-        {evidence && (
-          <div className={`text-xs ${isMatch ? 'text-foreground/80' : 'text-muted-foreground'} pt-1 border-t border-current/10`}>
+        {/* Evidence/explanation - only if not redundant */}
+        {evidence && !evidence.toLowerCase().includes('matches target') && !evidence.toLowerCase().includes('not specified') && (
+          <div className={`${isMatch ? 'text-foreground/70' : 'text-muted-foreground'} pt-1 border-t border-current/10 italic`}>
             {evidence}
           </div>
         )}
 
         {/* Manual verification flag */}
         {requiresManualVerification && (
-          <div className="text-xs text-muted-foreground italic pt-1">
-            ℹ️ Requires manual verification from job description
+          <div className="text-muted-foreground italic pt-1">
+            ℹ️ Requires manual verification
           </div>
         )}
       </div>

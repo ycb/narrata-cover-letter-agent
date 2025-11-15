@@ -89,6 +89,19 @@ vi.mock('@/contexts/AuthContext', () => ({
   })
 }));
 
+// Mock TourContext
+vi.mock('@/contexts/TourContext', () => ({
+  useTour: () => ({
+    isTourActive: false,
+    currentStep: null,
+    startTour: vi.fn(),
+    endTour: vi.fn(),
+    nextStep: vi.fn(),
+    prevStep: vi.fn(),
+  }),
+  TourProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
 describe('WorkHistory Page Integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();

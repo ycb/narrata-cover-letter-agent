@@ -16,6 +16,7 @@ export interface GoalMatch {
   evidence: string;
   requiresManualVerification?: boolean; // For fields like industry, business model
   emptyState?: 'no-goals' | 'goal-not-set' | null; // For elegant empty state handling
+  matchState?: 'match' | 'no-match' | 'unknown'; // Explicit match state: match (green), no-match (red), unknown (gray)
 
   // Legacy fields for backward compatibility
   criterion?: string; // Deprecated: use goalType instead
@@ -60,17 +61,10 @@ export class GoalsMatchService {
   ): GoalsMatchResult {
     const matches: GoalMatch[] = [];
 
-    if (!userGoals) {
-      return {
-        matches: [],
-        overallMatch: 'weak',
-        metCount: 0,
-        totalCount: 0,
-      };
-    }
+    // Don't return early if userGoals is null - still show all goal categories as "not-set"
 
     // 1. Target Title Match
-    if (userGoals.targetTitles && userGoals.targetTitles.length > 0) {
+    if (userGoals?.targetTitles && userGoals.targetTitles.length > 0) {
       if (jobDescription.role) {
         const titleMatch = this.checkTitleMatch(userGoals.targetTitles, jobDescription.role);
         matches.push({
@@ -95,77 +89,89 @@ export class GoalsMatchService {
         });
       }
     } else {
-      // User hasn't set target titles
+      // User hasn't set target titles - show as unknown
       matches.push({
         id: 'goal-title',
         goalType: 'Target Title',
         userValue: null,
         jobValue: jobDescription.role || null,
         met: false,
+        matchState: 'unknown',
         evidence: 'Target title not specified in your career goals',
-        emptyState: 'goal-not-set',
         criterion: 'Target Title', // Legacy
       });
     }
 
     // 2. Salary Match
-    if (userGoals.minimumSalary || userGoals.dealBreakers?.salaryMinimum) {
-      const minSalary = userGoals.dealBreakers?.salaryMinimum || userGoals.minimumSalary;
+    if (userGoals?.minimumSalary || userGoals?.dealBreakers?.salaryMinimum) {
+      const minSalary = userGoals?.dealBreakers?.salaryMinimum || userGoals.minimumSalary;
       const salaryMismatch = goNoGoAnalysis?.mismatches.find(m => m.type === 'pay');
+      
+      // Determine match state: match, no-match, or unknown
+      const hasJobData = jobDescription.salary && jobDescription.salary.toLowerCase() !== 'unknown';
+      const matchState = !hasJobData ? 'unknown' : salaryMismatch ? 'no-match' : 'match';
+      const isMatch = matchState === 'match';
 
       matches.push({
         id: 'goal-salary',
         goalType: 'Minimum Salary',
         userValue: minSalary ? `$${minSalary.toLocaleString()}` : null,
         jobValue: jobDescription.salary || null,
-        met: !salaryMismatch,
-        evidence: salaryMismatch?.description || (jobDescription.salary ? 'Salary meets your requirements' : 'Salary information not specified in JD'),
+        met: isMatch,
+        matchState,
+        evidence: salaryMismatch?.description || (hasJobData ? 'Salary meets your requirements' : 'Salary information not specified in JD'),
         criterion: `Minimum Salary: $${minSalary?.toLocaleString() || 'Not specified'}`, // Legacy
       });
     } else {
-      // User hasn't set salary preference
+      // User hasn't set salary preference - show as unknown
       matches.push({
         id: 'goal-salary',
         goalType: 'Minimum Salary',
         userValue: null,
         jobValue: jobDescription.salary || null,
         met: false,
+        matchState: 'unknown',
         evidence: 'Minimum salary not specified in your career goals',
-        emptyState: 'goal-not-set',
         criterion: 'Minimum Salary', // Legacy
       });
     }
 
     // 3. Work Type / Geography Match
-    if (userGoals.workType && userGoals.workType.length > 0) {
+    if (userGoals?.workType && userGoals.workType.length > 0) {
       const geoMismatch = goNoGoAnalysis?.mismatches.find(m => m.type === 'geography');
-      const isDealBreaker = userGoals.dealBreakers?.workType.length > 0;
+      const isDealBreaker = (userGoals?.dealBreakers?.workType?.length ?? 0) > 0;
+      
+      // Determine match state: match, no-match, or unknown
+      const hasJobData = jobDescription.location && jobDescription.location.toLowerCase() !== 'unknown';
+      const matchState = !hasJobData ? 'unknown' : geoMismatch ? 'no-match' : 'match';
+      const isMatch = matchState === 'match';
 
       matches.push({
         id: 'goal-worktype',
         goalType: 'Work Type',
         userValue: `${userGoals.workType.join(', ')}${isDealBreaker ? ' (Deal-breaker)' : ''}`,
         jobValue: jobDescription.location || null,
-        met: !geoMismatch,
-        evidence: geoMismatch?.description || (jobDescription.location ? 'Work type matches your preferences' : 'Work type not specified in JD'),
+        met: isMatch,
+        matchState,
+        evidence: geoMismatch?.description || (hasJobData ? 'Work type matches your preferences' : 'Work type not specified in JD'),
         criterion: `Work Type: ${userGoals.workType.join(', ')}${isDealBreaker ? ' (Deal-breaker)' : ''}`, // Legacy
       });
     } else {
-      // User hasn't set work type preference
+      // User hasn't set work type preference - show as unknown
       matches.push({
         id: 'goal-worktype',
         goalType: 'Work Type',
         userValue: null,
         jobValue: jobDescription.location || null,
         met: false,
+        matchState: 'unknown',
         evidence: 'Work type not specified in your career goals',
-        emptyState: 'goal-not-set',
         criterion: 'Work Type', // Legacy
       });
     }
 
     // 4. Preferred Cities Match (if specified and not remote)
-    if (userGoals.preferredCities && userGoals.preferredCities.length > 0 && !userGoals.workType?.includes('Remote')) {
+    if (userGoals?.preferredCities && userGoals.preferredCities.length > 0 && !userGoals.workType?.includes('Remote')) {
       const cityMatch = this.checkCityMatch(userGoals.preferredCities, jobDescription.location);
       matches.push({
         id: 'goal-cities',
@@ -176,7 +182,7 @@ export class GoalsMatchService {
         evidence: cityMatch.evidence,
         criterion: `Preferred Cities: ${userGoals.preferredCities.join(', ')}`, // Legacy
       });
-    } else if (userGoals.preferredCities && userGoals.preferredCities.length > 0) {
+    } else if (userGoals?.preferredCities && userGoals.preferredCities.length > 0) {
       // User wants remote, so city preference is not relevant
       matches.push({
         id: 'goal-cities',
@@ -190,77 +196,89 @@ export class GoalsMatchService {
     }
 
     // 5. Company Maturity Match
-    if (userGoals.companyMaturity && userGoals.companyMaturity.length > 0) {
-      const isDealBreaker = userGoals.dealBreakers?.companyMaturity.length > 0;
+    if (userGoals?.companyMaturity && userGoals.companyMaturity.length > 0) {
+      const isDealBreaker = (userGoals?.dealBreakers?.companyMaturity?.length ?? 0) > 0;
+      // jobValue will come from JD extraction (TODO: populate from JD parser)
+      const hasJobData = false; // Not yet extracted from JD
       matches.push({
         id: 'goal-maturity',
         goalType: 'Company Maturity',
         userValue: `${userGoals.companyMaturity.join(', ')}${isDealBreaker ? ' (Deal-breaker)' : ''}`,
-        jobValue: null, // Not available in JD
-        met: true, // Default to true since we can't verify yet
+        jobValue: null, // Not available in JD yet
+        met: false, // Can't confirm match without data
+        matchState: 'unknown', // Unknown until we have JD data
         evidence: 'Company maturity not specified in job description - requires manual research',
         requiresManualVerification: true,
         criterion: `Company Maturity: ${userGoals.companyMaturity.join(', ')}${isDealBreaker ? ' (Deal-breaker)' : ''}`, // Legacy
       });
     } else {
+      // User hasn't set company maturity preference - show as unknown
       matches.push({
         id: 'goal-maturity',
         goalType: 'Company Maturity',
         userValue: null,
         jobValue: null,
         met: false,
+        matchState: 'unknown',
         evidence: 'Company maturity not specified in your career goals',
-        emptyState: 'goal-not-set',
         criterion: 'Company Maturity', // Legacy
       });
     }
 
     // 6. Industry Match
-    if (userGoals.industries && userGoals.industries.length > 0) {
+    if (userGoals?.industries && userGoals.industries.length > 0) {
+      // jobValue will come from JD extraction (TODO: populate from JD parser)
+      const hasJobData = false; // Not yet extracted from JD
       matches.push({
         id: 'goal-industry',
         goalType: 'Industry',
         userValue: userGoals.industries.join(', '),
-        jobValue: null, // Not available in JD
-        met: true, // Default to true since we can't verify yet
+        jobValue: null, // Not available in JD yet
+        met: false, // Can't confirm match without data
+        matchState: 'unknown', // Unknown until we have JD data
         evidence: 'Industry not specified in job description - requires manual research',
         requiresManualVerification: true,
         criterion: `Industries: ${userGoals.industries.join(', ')}`, // Legacy
       });
     } else {
+      // User hasn't set industry preference - show as unknown
       matches.push({
         id: 'goal-industry',
         goalType: 'Industry',
         userValue: null,
         jobValue: null,
         met: false,
+        matchState: 'unknown',
         evidence: 'Industry not specified in your career goals',
-        emptyState: 'goal-not-set',
         criterion: 'Industry', // Legacy
       });
     }
 
     // 7. Business Model Match
-    if (userGoals.businessModels && userGoals.businessModels.length > 0) {
+    if (userGoals?.businessModels && userGoals.businessModels.length > 0) {
+      // jobValue will come from JD extraction (TODO: populate from JD parser)
+      const hasJobData = false; // Not yet extracted from JD
       matches.push({
         id: 'goal-business-model',
         goalType: 'Business Model',
         userValue: userGoals.businessModels.join(', '),
-        jobValue: null, // Not available in JD
-        met: true, // Default to true since we can't verify yet
+        jobValue: null, // Not available in JD yet
+        met: false, // Can't confirm match without data
+        matchState: 'unknown', // Unknown until we have JD data
         evidence: 'Business model not specified in job description - requires manual research',
         requiresManualVerification: true,
         criterion: `Business Models: ${userGoals.businessModels.join(', ')}`, // Legacy
       });
     } else {
+      // User hasn't set business model preference - show as unknown
       matches.push({
         id: 'goal-business-model',
         goalType: 'Business Model',
         userValue: null,
         jobValue: null,
         met: false,
+        matchState: 'unknown',
         evidence: 'Business model not specified in your career goals',
-        emptyState: 'goal-not-set',
         criterion: 'Business Model', // Legacy
       });
     }
