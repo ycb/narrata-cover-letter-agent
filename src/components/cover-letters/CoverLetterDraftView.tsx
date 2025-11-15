@@ -183,18 +183,40 @@ export function CoverLetterDraftView({
   };
 
   /**
-   * Get section-specific gap insights from enhancedMatchData.sectionGapInsights
-   * Filters gaps by section slug/type and returns structured gap objects.
+   * AGENT D: Get section-specific gap insights with fallback to pending heuristic insights
    * 
-   * Agent C: Returns { promptSummary, gaps, isLoading }
+   * Priority order:
+   * 1. LLM insights from enhancedMatchData.sectionGapInsights (most accurate)
+   * 2. Heuristic insights from pendingSectionInsights (fast, immediately after edit)
+   * 3. Fallback to unmet requirements (legacy behavior)
+   * 
+   * Returns { promptSummary, gaps, isLoading }
    * - isLoading: true when metrics are being calculated (no enhancedMatchData yet)
-   * - promptSummary: rubric guidance for the section (from sectionGapInsights)
+   * - promptSummary: rubric guidance for the section
    * - gaps: structured gap objects with title + description
    */
-  const getSectionGapInsights = (sectionType: string) => {
+  const getSectionGapInsights = (sectionId: string, sectionType: string) => {
+    // AGENT D: Check for pending heuristic insight first
+    const pendingInsight = pendingSectionInsights[sectionId];
+    
     // If no enhancedMatchData at all, we're likely still loading metrics
-    // Show loading state instead of fallback gaps
+    // Check if we have pending insight to show meanwhile
     if (!enhancedMatchData) {
+      if (pendingInsight) {
+        // Show pending heuristic insight while waiting for LLM
+        const gaps = pendingInsight.requirementGaps.map(gap => ({
+          id: gap.id,
+          title: gap.label,
+          description: `${gap.rationale} ${gap.recommendation}`,
+        }));
+
+        return {
+          promptSummary: pendingInsight.promptSummary || 'Quick analysis (calculating full metrics...)',
+          gaps,
+          isLoading: true, // Still loading LLM insights
+        };
+      }
+      
       return {
         promptSummary: null,
         gaps: [],
@@ -202,9 +224,46 @@ export function CoverLetterDraftView({
       };
     }
     
-    // If enhancedMatchData exists but no sectionGapInsights, fallback to old heuristic
+    // Priority 1: LLM insights from sectionGapInsights (if available)
+    if (enhancedMatchData.sectionGapInsights) {
+      const normalizedTypes = normalizeSectionType(sectionType);
+      const sectionInsight = enhancedMatchData.sectionGapInsights.find(
+        insight => normalizedTypes.includes(insight.sectionSlug.toLowerCase())
+      );
+
+      if (sectionInsight) {
+        // LLM insight found - use it (most accurate)
+        const gaps = sectionInsight.requirementGaps.map(gap => ({
+          id: gap.id,
+          title: gap.label,
+          description: `${gap.rationale} ${gap.recommendation}`,
+        }));
+
+        return {
+          promptSummary: sectionInsight.promptSummary,
+          gaps,
+          isLoading: false,
+        };
+      }
+    }
+    
+    // Priority 2: Pending heuristic insight (if available and no LLM insight)
+    if (pendingInsight) {
+      const gaps = pendingInsight.requirementGaps.map(gap => ({
+        id: gap.id,
+        title: gap.label,
+        description: `${gap.rationale} ${gap.recommendation}`,
+      }));
+
+      return {
+        promptSummary: pendingInsight.promptSummary || 'Quick analysis (press refresh for AI insights)',
+        gaps,
+        isLoading: false,
+      };
+    }
+    
+    // Priority 3: Fallback to legacy unmet requirements
     if (!enhancedMatchData.sectionGapInsights) {
-      // Old behavior: show all unmet requirements (not section-specific)
       const unmetCoreReqs = enhancedMatchData.coreRequirementDetails?.filter(
         (req: any) => !req.demonstrated
       ) || [];
@@ -225,30 +284,8 @@ export function CoverLetterDraftView({
       };
     }
 
-    // New behavior: use sectionGapInsights (section-specific)
-    const normalizedTypes = normalizeSectionType(sectionType);
-    
-    // Find the insight for this section
-    const sectionInsight = enhancedMatchData.sectionGapInsights.find(
-      insight => normalizedTypes.includes(insight.sectionSlug.toLowerCase())
-    );
-
-    if (!sectionInsight) {
-      return { promptSummary: null, gaps: [], isLoading: false };
-    }
-
-    // Transform requirementGaps into gap objects with title + description
-    const gaps = sectionInsight.requirementGaps.map(gap => ({
-      id: gap.id,
-      title: gap.label,
-      description: `${gap.rationale} ${gap.recommendation}`,
-    }));
-
-    return {
-      promptSummary: sectionInsight.promptSummary,
-      gaps,
-      isLoading: false,
-    };
+    // No insights available
+    return { promptSummary: null, gaps: [], isLoading: false };
   };
 
   return (
@@ -274,7 +311,8 @@ export function CoverLetterDraftView({
         const requirements = getRequirementsForParagraph(section.type);
 
         // Agent C: Get section-specific gap insights
-        const { promptSummary, gaps: gapObjects, isLoading: gapsLoading } = getSectionGapInsights(section.type);
+        // AGENT D: Pass sectionId to enable pending insights lookup
+        const { promptSummary, gaps: gapObjects, isLoading: gapsLoading } = getSectionGapInsights(section.id, section.type);
         const hasGaps = gapObjects.length > 0;
 
         return (

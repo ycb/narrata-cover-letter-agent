@@ -132,8 +132,8 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
         </DialogHeader>
 
         {/* Main Tabs */}
-        <div className="w-full flex-1 flex flex-col overflow-hidden">
-          <Tabs value={mainTabValue} onValueChange={(value) => setMainTabValue(value as 'job-description' | 'cover-letter')} className="flex flex-col h-full">
+        <div className="w-full flex-1 flex flex-col">
+          <Tabs value={mainTabValue} onValueChange={(value) => setMainTabValue(value as 'job-description' | 'cover-letter')} className="flex flex-col">
             <TabsList className="grid w-fit grid-cols-2 mb-4 flex-shrink-0">
               <TabsTrigger value="cover-letter" className="flex items-center gap-2">
                 <Wand2 className="h-4 w-4" />

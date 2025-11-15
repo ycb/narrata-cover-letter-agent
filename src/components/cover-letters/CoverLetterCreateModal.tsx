@@ -864,12 +864,21 @@ export const CoverLetterCreateModal = ({
                 return [lowerSlug];
               };
               
+              // If no enhancedMatchData at all, we're likely still loading
+              if (!draft.enhancedMatchData) {
+                return {
+                  promptSummary: null,
+                  gaps: [],
+                  isLoading: true,
+                };
+              }
+              
               // If no sectionGapInsights, fallback to old heuristic
-              if (!draft.enhancedMatchData?.sectionGapInsights) {
-                const unmetCoreReqs = draft.enhancedMatchData?.coreRequirementDetails?.filter(
+              if (!draft.enhancedMatchData.sectionGapInsights) {
+                const unmetCoreReqs = draft.enhancedMatchData.coreRequirementDetails?.filter(
                   (req: any) => !req.demonstrated
                 ) || [];
-                const unmetPreferredReqs = draft.enhancedMatchData?.preferredRequirementDetails?.filter(
+                const unmetPreferredReqs = draft.enhancedMatchData.preferredRequirementDetails?.filter(
                   (req: any) => !req.demonstrated
                 ) || [];
                 const allGaps = [...unmetCoreReqs, ...unmetPreferredReqs];
@@ -881,6 +890,7 @@ export const CoverLetterCreateModal = ({
                     title: req.requirement || 'Missing requirement',
                     description: req.evidence || 'Not addressed in draft',
                   })),
+                  isLoading: false,
                 };
               }
               
@@ -891,7 +901,7 @@ export const CoverLetterCreateModal = ({
               );
               
               if (!sectionInsight) {
-                return { promptSummary: null, gaps: [] };
+                return { promptSummary: null, gaps: [], isLoading: false };
               }
               
               const gaps = sectionInsight.requirementGaps.map(gap => ({
@@ -903,10 +913,11 @@ export const CoverLetterCreateModal = ({
               return {
                 promptSummary: sectionInsight.promptSummary,
                 gaps,
+                isLoading: false,
               };
             };
             
-            const { promptSummary, gaps: gapObjects } = getSectionGapInsights(section.slug);
+            const { promptSummary, gaps: gapObjects, isLoading: gapsLoading } = getSectionGapInsights(section.slug);
             const hasGaps = gapObjects.length > 0;
             
             return (
@@ -985,6 +996,22 @@ export const CoverLetterCreateModal = ({
                     </Button>
                   </div>
                 </div>
+                
+                {/* Agent C: Show loading skeleton for pending gap insights */}
+                {gapsLoading && !hasGaps && (
+                  <div className="mt-6 pt-6 border-t border-muted">
+                    <div className="bg-muted/20 rounded-lg p-4 animate-pulse">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="h-4 w-4 bg-muted rounded"></div>
+                        <div className="h-4 w-32 bg-muted rounded"></div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="h-3 w-full bg-muted rounded"></div>
+                        <div className="h-3 w-5/6 bg-muted rounded"></div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </ContentCard>
             );
           })}
