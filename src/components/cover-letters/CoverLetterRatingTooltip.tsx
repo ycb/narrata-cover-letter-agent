@@ -15,104 +15,50 @@ export interface CoverLetterRatingInsightsProps {
 }
 
 export function CoverLetterRatingInsights({ isPostHIL = false, ratingLabel }: CoverLetterRatingInsightsProps) {
+  const criteria = [
+    { name: 'Compelling Opening', description: 'Strong hook that captures attention', passed: isPostHIL },
+    { name: 'Understanding of Business/Users', description: 'Demonstrates knowledge of company', passed: isPostHIL },
+    { name: 'Quantified Impact', description: 'Specific metrics and achievements', passed: isPostHIL },
+    { name: 'Action Verbs', description: 'Strong, active language', passed: isPostHIL },
+    { name: 'Concise Length', description: '3-4 paragraphs, under 400 words', passed: isPostHIL },
+    { name: 'Error-Free Writing', description: 'No spelling or grammar errors', passed: isPostHIL },
+    { name: 'Personalized Content', description: 'Tailored to specific role', passed: isPostHIL },
+    { name: 'Specific Examples', description: 'Concrete examples from work history', passed: true },
+    { name: 'Professional Tone', description: 'Appropriate formality level', passed: true },
+    { name: 'Company Research', description: 'Shows understanding of culture', passed: isPostHIL },
+    { name: 'Role Understanding', description: 'Clear grasp of responsibilities', passed: true },
+  ];
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {ratingLabel && (
         <div className="flex items-baseline justify-between border rounded-lg p-3 bg-muted/20">
           <span className="text-sm text-muted-foreground">Overall Rating</span>
           <span className="text-lg font-semibold text-foreground">{ratingLabel}</span>
         </div>
       )}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* Structure & Flow */}
-        <div className="space-y-2">
-          <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-destructive/10'}`}>
-            {isPostHIL ? <Check className="h-3 w-3 text-success flex-shrink-0" /> : <X className="h-3 w-3 text-destructive flex-shrink-0" />}
-            <div className="flex-1 min-w-0">
-              <span className={`text-sm ${isPostHIL ? 'text-foreground' : 'text-muted-foreground'}`}>Compelling Opening</span>
-              <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>Strong hook that captures attention</p>
+      {criteria.map((criterion) => (
+        <div
+          key={criterion.name}
+          className={`border rounded-lg p-3 ${criterion.passed ? 'bg-success/10 border-success/20' : 'bg-destructive/10 border-destructive/20'}`}
+        >
+          <div className="flex items-start gap-2">
+            <div className="flex-shrink-0 mt-0.5">
+              {criterion.passed ? (
+                <Check className="h-4 w-4 text-success" />
+              ) : (
+                <X className="h-4 w-4 text-destructive" />
+              )}
             </div>
-          </div>
-          <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-destructive/10'}`}>
-            {isPostHIL ? <Check className="h-3 w-3 text-success flex-shrink-0" /> : <X className="h-3 w-3 text-destructive flex-shrink-0" />}
             <div className="flex-1 min-w-0">
-              <span className={`text-sm ${isPostHIL ? 'text-foreground' : 'text-muted-foreground'}`}>Understanding of Business/Users</span>
-              <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>Demonstrates knowledge of company</p>
-            </div>
-          </div>
-          <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-destructive/10'}`}>
-            {isPostHIL ? <Check className="h-3 w-3 text-success flex-shrink-0" /> : <X className="h-3 w-3 text-destructive flex-shrink-0" />}
-            <div className="flex-1 min-w-0">
-              <span className={`text-sm ${isPostHIL ? 'text-foreground' : 'text-muted-foreground'}`}>Quantified Impact</span>
-              <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>Specific metrics and achievements</p>
-            </div>
-          </div>
-          <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-destructive/10'}`}>
-            {isPostHIL ? <Check className="h-3 w-3 text-success flex-shrink-0" /> : <X className="h-3 w-3 text-destructive flex-shrink-0" />}
-            <div className="flex-1 min-w-0">
-              <span className={`text-sm ${isPostHIL ? 'text-foreground' : 'text-muted-foreground'}`}>Action Verbs</span>
-              <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>Strong, active language</p>
+              <h4 className="text-sm font-medium text-foreground">{criterion.name}</h4>
+              <p className={`text-xs mt-1 ${criterion.passed ? 'text-foreground/80' : 'text-muted-foreground'}`}>
+                {criterion.description}
+              </p>
             </div>
           </div>
         </div>
-
-        {/* Content Quality */}
-        <div className="space-y-2">
-          <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-destructive/10'}`}>
-            {isPostHIL ? <Check className="h-3 w-3 text-success flex-shrink-0" /> : <X className="h-3 w-3 text-destructive flex-shrink-0" />}
-            <div className="flex-1 min-w-0">
-              <span className={`text-sm ${isPostHIL ? 'text-foreground' : 'text-muted-foreground'}`}>Concise Length</span>
-              <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>3-4 paragraphs, under 400 words</p>
-            </div>
-          </div>
-          <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-destructive/10'}`}>
-            {isPostHIL ? <Check className="h-3 w-3 text-success flex-shrink-0" /> : <X className="h-3 w-3 text-destructive flex-shrink-0" />}
-            <div className="flex-1 min-w-0">
-              <span className={`text-sm ${isPostHIL ? 'text-foreground' : 'text-muted-foreground'}`}>Error-Free Writing</span>
-              <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>No spelling or grammar errors</p>
-            </div>
-          </div>
-          <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-destructive/10'}`}>
-            {isPostHIL ? <Check className="h-3 w-3 text-success flex-shrink-0" /> : <X className="h-3 w-3 text-destructive flex-shrink-0" />}
-            <div className="flex-1 min-w-0">
-              <span className={`text-sm ${isPostHIL ? 'text-foreground' : 'text-muted-foreground'}`}>Personalized Content</span>
-              <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>Tailored to specific role</p>
-            </div>
-          </div>
-          <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-success/10'}`}>
-            <Check className="h-3 w-3 text-success flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <span className={`text-sm ${isPostHIL ? 'text-foreground' : 'text-foreground'}`}>Specific Examples</span>
-              <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground'}`}>Concrete examples from work history</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Professional Standards */}
-        <div className="space-y-2">
-          <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-success/10'}`}>
-            <Check className="h-3 w-3 text-success flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <span className={`text-sm ${isPostHIL ? 'text-foreground' : 'text-foreground'}`}>Professional Tone</span>
-              <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground'}`}>Appropriate formality level</p>
-            </div>
-          </div>
-          <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-destructive/10'}`}>
-            {isPostHIL ? <Check className="h-3 w-3 text-success flex-shrink-0" /> : <X className="h-3 w-3 text-destructive flex-shrink-0" />}
-            <div className="flex-1 min-w-0">
-              <span className={`text-sm ${isPostHIL ? 'text-foreground' : 'text-muted-foreground'}`}>Company Research</span>
-              <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>Shows understanding of culture</p>
-            </div>
-          </div>
-          <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-success/10'}`}>
-            <Check className="h-3 w-3 text-success flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <span className={`text-sm ${isPostHIL ? 'text-foreground' : 'text-foreground'}`}>Role Understanding</span>
-              <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground'}`}>Clear grasp of responsibilities</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      ))}
     </div>
   );
 }

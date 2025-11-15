@@ -15,141 +15,53 @@ export interface ATSScoreInsightsProps {
 }
 
 export function ATSScoreInsights({ isPostHIL = false, score }: ATSScoreInsightsProps) {
+  const criteria = [
+    { name: 'Spelling and Grammar', description: 'No errors that confuse ATS', passed: true },
+    { name: 'Email Format', description: 'Professional email address', passed: true },
+    { name: 'LinkedIn Profile', description: 'Profile mentioned or linked', passed: isPostHIL },
+    { name: 'Complete Contact Info', description: 'Name, email, phone included', passed: true },
+    { name: 'File Format', description: 'PDF or Word format', passed: true },
+    { name: 'File Size', description: 'Under 2MB for processing', passed: true },
+    { name: 'Simple Layout', description: 'Clean formatting', passed: isPostHIL },
+    { name: 'Standard Fonts', description: 'Arial, Calibri, Times New Roman', passed: false },
+    { name: 'Hard Skills', description: 'Technical skills mentioned', passed: true },
+    { name: 'Soft Skills', description: 'Leadership, communication', passed: isPostHIL },
+    { name: 'Keyword Density', description: 'Appropriate keyword use', passed: true },
+    { name: 'Industry Terms', description: 'Industry-specific terminology', passed: isPostHIL },
+    { name: 'Clear Headers', description: 'Proper section headers', passed: true },
+    { name: 'Consistent Formatting', description: 'Consistent date formats', passed: true },
+    { name: 'Chronological Order', description: 'Reverse chronological order', passed: false },
+    { name: 'No Tables', description: 'Linear text format', passed: true },
+  ];
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex items-baseline justify-between border rounded-lg p-3 bg-muted/20">
         <span className="text-sm text-muted-foreground">ATS Score</span>
         <span className="text-lg font-semibold text-foreground">{typeof score === 'number' ? `${score}%` : 'N/A'}</span>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Content Quality */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 p-2 rounded bg-success/10">
-            <Check className="h-3 w-3 text-success flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <span className="text-sm text-foreground">Spelling and Grammar</span>
-              <p className="text-xs mt-0.5 text-muted-foreground">No errors that confuse ATS</p>
+      {criteria.map((criterion) => (
+        <div
+          key={criterion.name}
+          className={`border rounded-lg p-3 ${criterion.passed ? 'bg-success/10 border-success/20' : 'bg-destructive/10 border-destructive/20'}`}
+        >
+          <div className="flex items-start gap-2">
+            <div className="flex-shrink-0 mt-0.5">
+              {criterion.passed ? (
+                <Check className="h-4 w-4 text-success" />
+              ) : (
+                <X className="h-4 w-4 text-destructive" />
+              )}
             </div>
-          </div>
-          <div className="flex items-center gap-2 p-2 rounded bg-success/10">
-            <Check className="h-3 w-3 text-success flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <span className="text-sm text-foreground">Email Format</span>
-              <p className="text-xs mt-0.5 text-muted-foreground">Professional email address</p>
-            </div>
-          </div>
-          <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-destructive/10'}`}>
-            {isPostHIL ? <Check className="h-3 w-3 text-success flex-shrink-0" /> : <X className="h-3 w-3 text-destructive flex-shrink-0" />}
-            <div className="flex-1 min-w-0">
-              <span className={`text-sm ${isPostHIL ? 'text-foreground' : 'text-muted-foreground'}`}>LinkedIn Profile</span>
-              <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>Profile mentioned or linked</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 p-2 rounded bg-success/10">
-            <Check className="h-3 w-3 text-success flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <span className="text-sm text-foreground">Complete Contact Info</span>
-              <p className="text-xs mt-0.5 text-muted-foreground">Name, email, phone included</p>
+              <h4 className="text-sm font-medium text-foreground">{criterion.name}</h4>
+              <p className={`text-xs mt-1 ${criterion.passed ? 'text-foreground/80' : 'text-muted-foreground'}`}>
+                {criterion.description}
+              </p>
             </div>
           </div>
         </div>
-
-        {/* ATS Essentials */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 p-2 rounded bg-success/10">
-            <Check className="h-3 w-3 text-success flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <span className="text-sm text-foreground">File Format</span>
-              <p className="text-xs mt-0.5 text-muted-foreground">PDF or Word format</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 p-2 rounded bg-success/10">
-            <Check className="h-3 w-3 text-success flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <span className="text-sm text-foreground">File Size</span>
-              <p className="text-xs mt-0.5 text-muted-foreground">Under 2MB for processing</p>
-            </div>
-          </div>
-          <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-destructive/10'}`}>
-            {isPostHIL ? <Check className="h-3 w-3 text-success flex-shrink-0" /> : <X className="h-3 w-3 text-destructive flex-shrink-0" />}
-            <div className="flex-1 min-w-0">
-              <span className={`text-sm ${isPostHIL ? 'text-foreground' : 'text-muted-foreground'}`}>Simple Layout</span>
-              <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>Clean formatting</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 p-2 rounded bg-success/10">
-            <Check className="h-3 w-3 text-success flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <span className="text-sm text-foreground">Standard Fonts</span>
-              <p className="text-xs mt-0.5 text-muted-foreground">Arial, Calibri, Times New Roman</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Skills & Keywords */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 p-2 rounded bg-success/10">
-            <Check className="h-3 w-3 text-success flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <span className="text-sm text-foreground">Hard Skills</span>
-              <p className="text-xs mt-0.5 text-muted-foreground">Technical skills mentioned</p>
-            </div>
-          </div>
-          <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-destructive/10'}`}>
-            {isPostHIL ? <Check className="h-3 w-3 text-success flex-shrink-0" /> : <X className="h-3 w-3 text-destructive flex-shrink-0" />}
-            <div className="flex-1 min-w-0">
-              <span className={`text-sm ${isPostHIL ? 'text-foreground' : 'text-muted-foreground'}`}>Soft Skills</span>
-              <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>Leadership, communication</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 p-2 rounded bg-success/10">
-            <Check className="h-3 w-3 text-success flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <span className="text-sm text-foreground">Keyword Density</span>
-              <p className="text-xs mt-0.5 text-muted-foreground">Appropriate keyword use</p>
-            </div>
-          </div>
-          <div className={`flex items-center gap-2 p-2 rounded ${isPostHIL ? 'bg-success/10' : 'bg-destructive/10'}`}>
-            {isPostHIL ? <Check className="h-3 w-3 text-success flex-shrink-0" /> : <X className="h-3 w-3 text-destructive flex-shrink-0" />}
-            <div className="flex-1 min-w-0">
-              <span className={`text-sm ${isPostHIL ? 'text-foreground' : 'text-muted-foreground'}`}>Industry Terms</span>
-              <p className={`text-xs mt-0.5 ${isPostHIL ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>Industry-specific terminology</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Structure & Formatting */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 p-2 rounded bg-success/10">
-            <Check className="h-3 w-3 text-success flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <span className="text-sm text-foreground">Clear Headers</span>
-              <p className="text-xs mt-0.5 text-muted-foreground">Proper section headers</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 p-2 rounded bg-success/10">
-            <Check className="h-3 w-3 text-success flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <span className="text-sm text-foreground">Consistent Formatting</span>
-              <p className="text-xs mt-0.5 text-muted-foreground">Consistent date formats</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 p-2 rounded bg-destructive/10">
-            <X className="h-3 w-3 text-destructive flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <span className="text-sm text-muted-foreground">Chronological Order</span>
-              <p className="text-xs text-muted-foreground/70 mt-0.5">Reverse chronological order</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 p-2 rounded bg-success/10">
-            <Check className="h-3 w-3 text-success flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <span className="text-sm text-foreground">No Tables</span>
-              <p className="text-xs mt-0.5 text-muted-foreground">Linear text format</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      ))}
     </div>
   );
 }

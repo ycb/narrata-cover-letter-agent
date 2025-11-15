@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ChevronRight, HelpCircle } from 'lucide-react';
+import { ChevronDown, ChevronRight, HelpCircle } from 'lucide-react';
 import { GoalMatchCard } from './GoalMatchCard';
 import { CoverLetterRatingInsights } from './CoverLetterRatingTooltip';
 import { ATSScoreInsights } from './ATSScoreTooltip';
@@ -36,7 +36,6 @@ interface ToolbarItem {
   key: MetricKey;
   label: string;
   value: string;
-  helper?: string;
   badgeClass: string;
   disabled?: boolean;
 }
@@ -65,7 +64,6 @@ export function MatchMetricsToolbar({
         key: 'goals',
         label: 'Match with Goals',
         value: isLoading ? '' : `${goalsSummary.met}/${goalsSummary.total}`,
-        helper: isLoading ? undefined : `${Math.round(goalsSummary.percentage)}%`,
         badgeClass: getATSScoreColor(goalsSummary.percentage),
         disabled: isLoading,
       },
@@ -73,7 +71,6 @@ export function MatchMetricsToolbar({
         key: 'core',
         label: 'Core Requirements',
         value: isLoading ? '' : `${coreRequirements.summary.met}/${coreRequirements.summary.total || 0}`,
-        helper: isLoading ? undefined : `${Math.round(coreRequirements.summary.percentage)}%`,
         badgeClass: getATSScoreColor(coreRequirements.summary.percentage),
         disabled: isLoading,
       },
@@ -81,7 +78,6 @@ export function MatchMetricsToolbar({
         key: 'preferred',
         label: 'Preferred Requirements',
         value: isLoading ? '' : `${preferredRequirements.summary.met}/${preferredRequirements.summary.total || 0}`,
-        helper: isLoading ? undefined : `${Math.round(preferredRequirements.summary.percentage)}%`,
         badgeClass: getATSScoreColor(preferredRequirements.summary.percentage),
         disabled: isLoading,
       },
@@ -89,7 +85,6 @@ export function MatchMetricsToolbar({
         key: 'rating',
         label: 'Cover Letter Rating',
         value: isLoading ? '' : metrics.coverLetterRating || 'N/A',
-        helper: isLoading ? undefined : 'Quality Review',
         badgeClass: getRatingColor(metrics.coverLetterRating),
         disabled: isLoading,
       },
@@ -97,7 +92,6 @@ export function MatchMetricsToolbar({
         key: 'ats',
         label: 'ATS',
         value: isLoading ? '' : `${metrics.atsScore ?? 0}%`,
-        helper: isLoading ? undefined : 'Readiness',
         badgeClass: getATSScoreColor(metrics.atsScore ?? 0),
         disabled: isLoading,
       },
@@ -105,7 +99,7 @@ export function MatchMetricsToolbar({
   }, [coreRequirements.summary, goalsSummary, isLoading, metrics.atsScore, metrics.coverLetterRating, preferredRequirements.summary]);
 
   const firstAvailable = toolbarItems.find((item) => !item.disabled) ?? toolbarItems[0];
-  const [activeMetric, setActiveMetric] = useState<MetricKey>(firstAvailable.key);
+  const [activeMetric, setActiveMetric] = useState<MetricKey | null>(firstAvailable.key);
 
   useEffect(() => {
     if (firstAvailable) {
@@ -113,64 +107,68 @@ export function MatchMetricsToolbar({
     }
   }, [firstAvailable]);
 
+  const hasExpandedItem = activeMetric !== null;
+
   return (
     <div className={`w-full bg-card border rounded-lg ${className || ''}`}>
-      <div className="flex flex-col md:flex-row">
-        <div className="flex md:flex-col gap-2 p-3 md:w-64 border-b md:border-b-0 md:border-r">
-          {toolbarItems.map((item) =>
-            isLoading ? (
-              <div
-                key={item.key}
-                className="h-14 w-full rounded-md bg-muted animate-pulse"
-                aria-hidden="true"
-              />
-            ) : (
-              <button
-                key={item.key}
-                type="button"
-                onClick={() => setActiveMetric(item.key)}
-                className={`flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-left transition ${
-                  activeMetric === item.key
-                    ? 'bg-primary/10 border-primary text-foreground'
-                    : 'bg-transparent border-transparent hover:bg-muted/40 text-muted-foreground'
-                }`}
-                aria-pressed={activeMetric === item.key}
-                aria-expanded={activeMetric === item.key}
-              >
-                <div className="flex flex-col">
-                  <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{item.label}</span>
-                  <span className="text-base font-semibold text-foreground">{item.value}</span>
-                  {item.helper && <span className="text-[11px] text-muted-foreground">{item.helper}</span>}
-                </div>
-                <Badge variant="outline" className={`${item.badgeClass} ml-auto`}>
-                  <ChevronRight className="h-4 w-4" />
-                </Badge>
-              </button>
-            ),
-          )}
-        </div>
-
-        <div className="flex-1 p-4" id="match-metrics-drawer">
-          {isLoading ? (
-            <div className="space-y-3">
-              <div className="h-6 w-32 rounded-md bg-muted animate-pulse" />
-              <div className="h-24 w-full rounded-md bg-muted animate-pulse" />
-              <div className="h-24 w-full rounded-md bg-muted animate-pulse" />
+      <div
+        className={`flex flex-col gap-2 p-3 border-b md:border-b-0 md:border-r transition-all duration-300 ease-in-out ${
+          hasExpandedItem ? 'md:w-96' : 'md:w-48'
+        }`}
+      >
+        {toolbarItems.map((item) => {
+          const isActive = activeMetric === item.key;
+          return (
+            <div key={item.key} className="flex flex-col">
+              {isLoading ? (
+                <div className="h-14 w-full rounded-md bg-muted animate-pulse" aria-hidden="true" />
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setActiveMetric(isActive ? null : item.key)}
+                    className={`flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-left transition ${
+                      isActive
+                        ? 'bg-primary/10 border-primary text-foreground'
+                        : 'bg-transparent border-transparent hover:bg-muted/40 text-muted-foreground'
+                    }`}
+                    aria-pressed={isActive}
+                    aria-expanded={isActive}
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{item.label}</span>
+                      <span className="text-base font-semibold text-foreground">{item.value}</span>
+                    </div>
+                    <Badge variant="outline" className={`${item.badgeClass} ml-auto`}>
+                      {isActive ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </Badge>
+                  </button>
+                  <div
+                    className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                      isActive && activeMetric ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+                    }`}
+                  >
+                    {isActive && activeMetric && (
+                      <div className="p-4 border-t mt-2" id="match-metrics-drawer">
+                        <MetricDrawerContent
+                          activeMetric={activeMetric}
+                          goalMatches={goalMatches}
+                          coreRequirements={coreRequirements.list}
+                          preferredRequirements={preferredRequirements.list}
+                          isPostHIL={isPostHIL}
+                          metrics={metrics}
+                          onEditGoals={onEditGoals}
+                          onEnhanceSection={onEnhanceSection}
+                          onAddMetrics={onAddMetrics}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
-          ) : (
-            <MetricDrawerContent
-              activeMetric={activeMetric}
-              goalMatches={goalMatches}
-              coreRequirements={coreRequirements.list}
-              preferredRequirements={preferredRequirements.list}
-              isPostHIL={isPostHIL}
-              metrics={metrics}
-              onEditGoals={onEditGoals}
-              onEnhanceSection={onEnhanceSection}
-              onAddMetrics={onAddMetrics}
-            />
-          )}
-        </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -228,24 +226,10 @@ function MetricDrawerContent({
         />
       );
     case 'rating':
-      return (
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            View the rubric we use to grade openings, body paragraphs, and sign-offs.
-          </p>
-          <CoverLetterRatingInsights isPostHIL={isPostHIL} ratingLabel={metrics.coverLetterRating || 'N/A'} />
-        </div>
-      );
+      return <CoverLetterRatingInsights isPostHIL={isPostHIL} ratingLabel={metrics.coverLetterRating || 'N/A'} />;
     case 'ats':
     default:
-      return (
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            Ensure your draft clears automated screens before recruiters read it.
-          </p>
-          <ATSScoreInsights isPostHIL={isPostHIL} score={metrics.atsScore ?? 0} />
-        </div>
-      );
+      return <ATSScoreInsights isPostHIL={isPostHIL} score={metrics.atsScore ?? 0} />;
   }
 }
 
