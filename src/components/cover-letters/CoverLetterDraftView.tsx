@@ -155,15 +155,24 @@ export function CoverLetterDraftView({
         const sectionTitle = getSectionTitle(section.type);
         const requirements = getRequirementsForParagraph(section.type);
 
+        // Check for gaps in this section
+        // For MVP: gaps are derived from unmet requirements (CTAHooks with type 'add-story')
+        const sectionGaps = enhancedMatchData?.ctaHooks?.filter(
+          (hook: any) => 
+            hook.type === 'add-story' && 
+            hook.severity !== 'low'
+        ) || [];
+        const hasGaps = sectionGaps.length > 0;
+
         return (
           <ContentCard
             key={section.id}
             title={sectionTitle}
-            content={section.content}
+            content={isEditable ? undefined : section.content} // Don't show content if editable (textarea will display it)
             tags={requirements}
-            hasGaps={false}
-            gaps={[]}
-            isGapResolved={true}
+            hasGaps={hasGaps}
+            gaps={sectionGaps.map((hook: any) => hook.requirement || hook.label)}
+            isGapResolved={false}
             onEdit={onSectionChange ? () => {} : undefined} // Will be handled by Textarea
             onDuplicate={onSectionDuplicate ? () => onSectionDuplicate(section.id) : undefined}
             onDelete={onSectionDelete ? () => onSectionDelete(section.id) : undefined}
