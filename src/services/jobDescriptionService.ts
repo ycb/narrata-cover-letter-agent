@@ -321,6 +321,48 @@ export class JobDescriptionService {
     this.now = options.now ?? (() => new Date());
   }
 
+  /**
+   * Calculate optimal token limit based on content analysis
+   * Uses same smart calculation from LLMAnalysisService
+   */
+  private calculateOptimalTokens(content: string, type: 'jobDescription' | 'metrics'): number {
+    // Improved token estimate (more accurate char-to-token ratio)
+    const contentTokens = Math.ceil(content.length / 3.5); // ~3.5 chars per token
+    
+    // Structured output overhead (JSON structure for JD parsing)
+    const structureOverhead = type === 'jobDescription' ? 600 : 1000; // JD is simpler than metrics
+    
+    // Complexity analysis
+    const lines = content.split('\n').length;
+    const bulletPoints = (content.match(/[•\-\*]\s/g) || []).length;
+    const sections = (content.match(/\n\s*\n/g) || []).length;
+    
+    // Calculate complexity multiplier
+    let complexityMultiplier = 1.0;
+    if (lines > 100 || bulletPoints > 20) complexityMultiplier = 1.3;
+    else if (lines > 50 || bulletPoints > 10) complexityMultiplier = 1.2;
+    else if (lines > 20 || bulletPoints > 5) complexityMultiplier = 1.1;
+    if (sections > 10) complexityMultiplier += 0.2;
+    
+    // Type-specific multiplier
+    const typeMultiplier = type === 'jobDescription' ? 0.4 : 0.8; // JD parsing is simpler
+    
+    // Calculate base output tokens needed
+    const baseOutputTokens = Math.ceil(contentTokens * complexityMultiplier * typeMultiplier);
+    
+    // Add structure overhead and safety buffer
+    const safetyBuffer = 1.5; // 50% safety buffer
+    const finalTokens = Math.ceil((baseOutputTokens + structureOverhead) * safetyBuffer);
+    
+    // Apply bounds: minimum 800, maximum 3000 for JD / 4000 for metrics
+    const maxTokens = type === 'jobDescription' ? 3000 : 4000;
+    const result = Math.max(800, Math.min(finalTokens, maxTokens));
+    
+    console.warn(`📊 Token calculation (${type}): ${content.length} chars → ${contentTokens} content tokens → ${result} max tokens (complexity: ${complexityMultiplier.toFixed(2)}x)`);
+    
+    return Math.floor(result);
+  }
+
   async parseJobDescription(
     content: string,
     options: ParseJobDescriptionOptions = {},
@@ -339,6 +381,10 @@ export class JobDescriptionService {
           await sleep(delay);
         }
 
+        // Use smart token calculation based on content length and complexity
+        const optimalTokens = this.calculateOptimalTokens(content.trim(), 'jobDescription');
+        options.onProgress?.(`Analyzing job description (${optimalTokens} tokens)…`);
+
         const result: any = await streamText({
           model: this.openAIClient.chat(OPENAI_CONFIG.MODEL),
           system: JOB_DESCRIPTION_PROMPT,
@@ -349,7 +395,7 @@ export class JobDescriptionService {
             },
           ],
           temperature: 0.2,
-          maxTokens: 1500,
+          maxTokens: optimalTokens,
           signal: options.signal,
         } as any);
 

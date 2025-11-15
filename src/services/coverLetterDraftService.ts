@@ -120,6 +120,16 @@ const createDefaultMetricsStreamer = (): MetricsStreamer => {
       approvedContent,
     };
 
+    // Calculate optimal tokens based on draft content and complexity
+    const contentForAnalysis = JSON.stringify(payload);
+    const contentTokens = Math.ceil(contentForAnalysis.length / 3.5);
+    const structureOverhead = 1200; // Large JSON output with nested arrays
+    const complexityMultiplier = 1.2; // Metrics analysis is moderately complex
+    const baseOutputTokens = Math.ceil(contentTokens * complexityMultiplier * 0.5); // 50% of input
+    const optimalTokens = Math.max(1500, Math.min(Math.ceil((baseOutputTokens + structureOverhead) * 1.5), 4000));
+    
+    console.warn(`📊 Metrics token calculation: ${contentForAnalysis.length} chars → ${contentTokens} input tokens → ${optimalTokens} max output tokens`);
+
     const result: any = await streamText({
       model: client.chat(OPENAI_CONFIG.MODEL),
       system: ENHANCED_METRICS_SYSTEM_PROMPT,
@@ -130,7 +140,7 @@ const createDefaultMetricsStreamer = (): MetricsStreamer => {
         },
       ],
       temperature: 0.1,
-      maxTokens: 3500, // Increased for enhanced response with detailed breakdowns
+      maxTokens: optimalTokens,
       signal,
     } as any);
 
