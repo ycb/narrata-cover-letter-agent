@@ -862,7 +862,7 @@ export const CoverLetterCreateModal = ({
               <ContentCard
                 key={section.id}
                 title={section.title}
-                content={editedContent}
+                content={undefined} // Don't show preview when editable (Textarea displays it)
                 tags={getRequirementTagsForSection(section)}
                 hasGaps={hasGaps}
                 gaps={gapObjects}
