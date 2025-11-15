@@ -25,6 +25,8 @@ Return ONLY valid JSON with this exact structure. ALL FIELDS ARE REQUIRED:
   "companyIndustry": "Industry name (e.g., 'Legal Tech', 'Fintech', 'Healthcare SaaS') or null",
   "companyBusinessModel": "Business model (e.g., 'B2B SaaS', 'B2C Marketplace', 'Enterprise Platform') or null",
   "companyMaturity": "startup|growth-stage|late-stage|enterprise or null",
+  "companyMission": "Company mission statement or purpose (1-2 sentences) or null",
+  "companyValues": ["value 1", "value 2", "value 3"] or [],
   "workType": "Work arrangement (e.g., 'Remote', 'Hybrid', 'In-person', 'Remote (US only)') or null",
   "location": "Primary location (e.g., 'Seattle, WA', 'San Francisco Bay Area', 'New York, NY') or null",
   "coreRequirements": [
@@ -33,7 +35,8 @@ Return ONLY valid JSON with this exact structure. ALL FIELDS ARE REQUIRED:
   ],
   "preferredRequirements": [
     "Requirement 1 (e.g., 'SQL/Python proficiency')",
-    "Requirement 2 (e.g., 'MBA or equivalent experience')"
+    "Requirement 2 (e.g., 'MBA or equivalent experience')",
+    "Requirement 3 (e.g., 'Experience with AI/ML technologies')"
   ],
   "differentiatorSummary": "1-2 sentence summary of what makes this role unique or what the company is specifically seeking (e.g., 'Seeks PM with AI/ML experience and growth metrics focus')"
 }
@@ -58,10 +61,12 @@ EXTRACTION RULES:
 
 4. COMPANY INDUSTRY:
    - Extract the industry or sector the company operates in
-   - Look for: company description, "about us", industry mentions
+   - Look for: company description, "about us", industry mentions, mission statement, product descriptions
+   - Infer from context clues: e.g., "Legal AI for Personal Injury Firms" → "Legal Tech", "helping injured people" → "Legal Tech"
    - Examples: "Legal Tech", "Fintech", "Healthcare SaaS", "E-commerce", "Developer Tools"
-   - Be specific (e.g., "Legal Tech" not just "Technology")
-   - Return null if not mentioned in JD
+   - Be specific (e.g., "Legal Tech" not just "Technology", "Healthcare SaaS" not just "Healthcare")
+   - If the company builds AI/ML products for a specific industry, name the industry (e.g., "Legal Tech" not "AI")
+   - Return null ONLY if no industry clues exist anywhere in the JD
 
 5. COMPANY BUSINESS MODEL:
    - Extract how the company makes money or their customer model
@@ -88,7 +93,23 @@ EXTRACTION RULES:
    - Examples: "Seattle, WA", "San Francisco Bay Area", "New York, NY", "Austin, TX"
    - Return null if not mentioned or if fully remote
 
-9. CORE REQUIREMENTS:
+9. COMPANY MISSION:
+   - Extract the company's mission statement or purpose
+   - Look for: "about us", "our mission", "we exist to", "our purpose is", mission-like statements
+   - Should be 1-2 sentences describing what the company aims to achieve or why they exist
+   - Examples: "We exist to ensure that evidence is never missed and justice is never compromised", "Our mission is to make financial services accessible to everyone"
+   - Extract verbatim if possible, or summarize if mission is implied across multiple statements
+   - Return null if no mission statement exists in JD
+
+10. COMPANY VALUES:
+   - Extract stated company values or cultural principles
+   - Look for: "our values", "we believe", "our principles", "culture" sections, repeated themes
+   - Can be explicitly listed (e.g., "Innovation, Integrity, Impact") or inferred from descriptions
+   - Return as array of concise value statements (e.g., ["Customer-first", "Data-driven", "Move fast"])
+   - Maximum 5 values
+   - Return empty array [] if no values are stated or clearly implied
+
+11. CORE REQUIREMENTS:
    - Extract MUST-HAVE requirements that are critical for the role
    - Look for keywords: "required", "must have", "essential", "critical"
    - Include fundamental experience levels and core skills
@@ -100,26 +121,35 @@ EXTRACTION RULES:
    - Minimum 2 core requirements, maximum 10
    - Default to core if requirement priority is ambiguous
 
-10. PREFERRED REQUIREMENTS:
+12. PREFERRED REQUIREMENTS:
    - Extract NICE-TO-HAVE requirements that strengthen candidacy but aren't dealbreakers
-   - Look for keywords: "preferred", "nice to have", "bonus", "plus", "ideal"
-   - Include advanced skills, specific tools, or education preferences
+   - Look for keywords: "preferred", "nice to have", "bonus", "plus", "ideal", "strong preference"
+   - Include:
+     * Advanced skills (e.g., "SQL/Python proficiency")
+     * Specific technical expertise (e.g., "Experience with AI/ML technologies", "Knowledge of LLMs")
+     * Education preferences (e.g., "MBA or equivalent experience")
+     * Domain expertise (e.g., "Experience in fintech/legal tech/healthcare")
+     * Specialized tools or frameworks
    - Format as clear, standalone statements
    - Examples:
      * "SQL/Python proficiency"
      * "MBA or equivalent experience"
      * "Experience with A/B testing and experimentation"
-     * "Knowledge of specific industry (fintech, healthcare, etc.)"
-   - Minimum 1 preferred requirement, maximum 8
+     * "Experience with AI/ML technologies"
+     * "Strong preference for experience in AI"
+     * "Knowledge of legal tech or healthcare industry"
+   - IMPORTANT: If JD emphasizes AI, ML, or other advanced tech as "strong preference" or "differentiator", include it here
+   - Minimum 1 preferred requirement, maximum 10
    - Can be empty array if JD lists no preferred requirements
 
-11. DIFFERENTIATOR SUMMARY:
+13. DIFFERENTIATOR SUMMARY:
    - Identify what makes this role unique or what the company specifically seeks
-   - Look for: unique qualifications, special focus areas, company priorities
+   - Look for: unique qualifications, special focus areas, company priorities, company mission/vision
    - Examples:
      * "Seeks PM with AI/ML experience and growth metrics focus"
      * "Looking for PM with fintech background and regulatory compliance experience"
      * "Emphasizes experimentation culture and data-driven decision making"
+     * "Company builds Legal AI for personal injury firms, seeking PM passionate about access to justice"
    - Should be 1-2 sentences, specific and actionable
    - If no clear differentiator, summarize the top 2-3 most important requirements
 
@@ -127,10 +157,12 @@ CRITICAL:
 - Return ONLY the JSON object
 - No markdown formatting
 - No explanations
-- All fields are required (use empty string/array if truly missing)
+- All fields are required (use null for missing strings, [] for missing arrays)
+- companyValues should be [] if no values found
 - coreRequirements array must have at least 2 items
 - preferredRequirements array must have at least 1 item (or empty array if none found)
 - Total requirements (core + preferred) should be between 3-15 items
+- If JD mentions AI/ML/advanced tech as important, ensure it appears in preferredRequirements
 `;
 };
 

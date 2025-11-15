@@ -13,6 +13,7 @@ import {
 } from '@/types/coverLetters';
 import { EvaluationEventLogger } from './evaluationEventLogger';
 import { StreamingTokenTracker } from '@/utils/streamingTokenTracker';
+import { buildJobDescriptionAnalysisPrompt } from '@/prompts/jobDescriptionAnalysis';
 
 type SupabaseClient = typeof supabase;
 
@@ -29,55 +30,6 @@ export interface JobDescriptionServiceOptions {
 }
 
 interface JobDescriptionRow extends Database['public']['Tables']['job_descriptions']['Row'] {}
-
-const JOB_DESCRIPTION_PROMPT = `
-You are an expert product hiring strategist.
-Analyse the job description and return JSON with this schema:
-{
-  "company": string,
-  "role": string,
-  "summary": string,
-  "standardRequirements": Requirement[],
-  "differentiatorRequirements": Requirement[],
-  "preferredRequirements": Requirement[],
-  "boilerplateSignals": string[],
-  "differentiatorSignals": string[],
-  "keywords": string[],
-  "differentiatorNotes": string,
-  "structuredData": {
-    "responsibilities": string[],
-    "qualifications": string[],
-    "tools": string[],
-    "teams": string[],
-    "location": string | null,
-    "employmentType": string | null,
-    "compensation": string | null
-  },
-  "rawSections": Array<{ "title": string, "content": string }>
-}
-
-Requirement shape:
-{
-  "id": string,
-  "label": string,
-  "detail": string,
-  "category": "standard" | "differentiator" | "preferred",
-  "priority": "critical" | "high" | "medium" | "low" | "optional",
-  "keywords": string[],
-  "signals": string[],
-  "reasoning": string
-}
-
-Rules:
-- Classify requirements as:
-  * standardRequirements: boilerplate expectations for Product Managers.
-  * differentiatorRequirements: unique priorities hinting at this company's context.
-  * preferredRequirements: nice-to-haves explicitly called out.
-- Highlight differentiatorNotes summarising why the differentiator items matter.
-- Include 5-8 keywords spanning responsibilities, tools, and outcomes.
-- rawSections should capture major headings detected in the JD with cleaned content.
-- Respond with STRICT JSON (no commentary, no markdown fences).
-`;
 
 const SUPPORTED_PRIORITIES = ['critical', 'high', 'medium', 'low', 'optional'] as const;
 type PriorityValue = (typeof SUPPORTED_PRIORITIES)[number];
@@ -385,13 +337,15 @@ export class JobDescriptionService {
         const optimalTokens = this.calculateOptimalTokens(content.trim(), 'jobDescription');
         options.onProgress?.(`Analyzing job description (${optimalTokens} tokens)…`);
 
+        // Build the new prompt from prompts/jobDescriptionAnalysis.ts
+        const userPrompt = buildJobDescriptionAnalysisPrompt(content.trim());
+
         const result: any = await streamText({
           model: this.openAIClient.chat(OPENAI_CONFIG.MODEL),
-          system: JOB_DESCRIPTION_PROMPT,
           messages: [
             {
               role: 'user',
-              content: content.trim(),
+              content: userPrompt,
             },
           ],
           temperature: 0.2,
@@ -689,6 +643,7 @@ export class JobDescriptionService {
   }
 
   private transformParsedResponse(payload: Record<string, unknown>): ParsedJobDescription {
+    // Extract basic fields
     const company =
       typeof payload.company === 'string' && payload.company.trim().length > 0
         ? payload.company.trim()
@@ -697,48 +652,94 @@ export class JobDescriptionService {
       typeof payload.role === 'string' && payload.role.trim().length > 0
         ? payload.role.trim()
         : 'Product Manager';
+    
+    // New format: differentiatorSummary replaces summary
     const summary =
-      typeof payload.summary === 'string' && payload.summary.trim().length > 0
-        ? payload.summary.trim()
+      typeof payload.differentiatorSummary === 'string' && payload.differentiatorSummary.trim().length > 0
+        ? payload.differentiatorSummary.trim()
         : 'No summary provided.';
-    const differentiatorNotes =
-      typeof payload.differentiatorNotes === 'string' && payload.differentiatorNotes.trim().length > 0
-        ? payload.differentiatorNotes.trim()
-        : undefined;
+    const differentiatorNotes = summary; // Use same value for backward compat
 
-    const standardRequirements = normaliseRequirementArray(payload.standardRequirements, 'standard');
-    const differentiatorRequirements = normaliseRequirementArray(
-      payload.differentiatorRequirements,
-      'differentiator',
-    );
-    const preferredRequirements = normaliseRequirementArray(payload.preferredRequirements, 'preferred');
+    // New format: simple string arrays for requirements
+    const coreRequirementsStrings = ensureStringArray(payload.coreRequirements);
+    const preferredRequirementsStrings = ensureStringArray(payload.preferredRequirements);
 
-    const keywords = ensureStringArray(payload.keywords);
-    const boilerplateSignals = ensureStringArray(payload.boilerplateSignals);
-    const differentiatorSignals = ensureStringArray(payload.differentiatorSignals);
+    // Convert string arrays to RequirementInsight objects for backward compatibility
+    const standardRequirements: RequirementInsight[] = coreRequirementsStrings.map((req, index) => ({
+      id: `core-${index + 1}`,
+      label: req.length > 50 ? req.substring(0, 50) + '...' : req,
+      requirement: req,
+      detail: req,
+      category: 'standard' as RequirementCategory,
+      priority: 'high' as PriorityValue,
+      keywords: [],
+      signals: [],
+      reasoning: '',
+    }));
 
-    const structuredData = normaliseStructuredData(
-      payload.structuredData ?? payload.structuredInsights ?? {},
-    );
+    const preferredRequirements: RequirementInsight[] = preferredRequirementsStrings.map((req, index) => ({
+      id: `pref-${index + 1}`,
+      label: req.length > 50 ? req.substring(0, 50) + '...' : req,
+      requirement: req,
+      detail: req,
+      category: 'preferred' as RequirementCategory,
+      priority: 'medium' as PriorityValue,
+      keywords: [],
+      signals: [],
+      reasoning: '',
+    }));
 
-    const rawSections = Array.isArray(payload.rawSections)
-      ? payload.rawSections
-          .map(section => {
-            if (typeof section === 'string') return section.trim();
-            if (isRecord(section) && typeof section.content === 'string') {
-              return section.content.trim();
-            }
-            return null;
-          })
-          .filter((item): item is string => Boolean(item))
-      : [];
+    // No more differentiatorRequirements in new format
+    const differentiatorRequirements: RequirementInsight[] = [];
+
+    // Extract new structured fields
+    const salary = typeof payload.salary === 'string' ? payload.salary : null;
+    const companyIndustry = typeof payload.companyIndustry === 'string' ? payload.companyIndustry : null;
+    const companyBusinessModel = typeof payload.companyBusinessModel === 'string' ? payload.companyBusinessModel : null;
+    const companyMaturity = typeof payload.companyMaturity === 'string' ? payload.companyMaturity : null;
+    const companyMission = typeof payload.companyMission === 'string' ? payload.companyMission : null;
+    const companyValues = ensureStringArray(payload.companyValues);
+    const workType = typeof payload.workType === 'string' ? payload.workType : null;
+    const location = typeof payload.location === 'string' ? payload.location : null;
+
+    // Build enhanced structuredData with new fields
+    const structuredData = {
+      responsibilities: [],
+      qualifications: [...coreRequirementsStrings, ...preferredRequirementsStrings],
+      tools: [],
+      teams: [],
+      location,
+      employmentType: workType,
+      compensation: salary,
+      // New fields
+      companyIndustry,
+      companyBusinessModel,
+      companyMaturity,
+      companyMission,
+      companyValues,
+      workType,
+      salary,
+      standardRequirements: standardRequirements,
+      preferredRequirements: preferredRequirements,
+    };
+
+    // Generate keywords from company industry, business model, and requirements
+    const keywords: string[] = [];
+    if (companyIndustry) keywords.push(companyIndustry);
+    if (companyBusinessModel) keywords.push(companyBusinessModel);
+    keywords.push(...coreRequirementsStrings.slice(0, 3).map(req => req.split(' ')[0])); // First word of each req
+    
+    const boilerplateSignals: string[] = [];
+    const differentiatorSignals: string[] = [];
+    if (companyIndustry) differentiatorSignals.push(`Industry: ${companyIndustry}`);
+    if (companyMission) differentiatorSignals.push('Mission-driven');
 
     const analysis: Record<string, Json> = {
       boilerplateSignals,
       differentiatorSignals,
       structuredInsights: structuredData,
       keywords,
-      rawSections,
+      rawSections: [],
     };
 
     return {
@@ -755,7 +756,7 @@ export class JobDescriptionService {
       structuredData,
       analysis,
       differentiatorNotes,
-      rawSections,
+      rawSections: [],
     };
   }
 }
