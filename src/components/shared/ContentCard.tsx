@@ -143,10 +143,12 @@ export const ContentCard = ({
       </CardHeader>
 
       <CardContent className="pt-0">
-        {/* Primary content preview */}
-        <div className="mb-6">
-          <p className="text-sm text-muted-foreground">{content}</p>
-        </div>
+        {/* Primary content preview - only show if content exists */}
+        {content && (
+          <div className="mb-6">
+            <p className="text-sm text-muted-foreground">{content}</p>
+          </div>
+        )}
 
         {/* Render children before tags if requested (for cover letter inline editing) */}
         {renderChildrenBeforeTags && children}

@@ -156,7 +156,8 @@ export function CoverLetterDraftView({
         const requirements = getRequirementsForParagraph(section.type);
 
         // Check for gaps: unmet requirements from the draft analysis
-        // Gaps are requirements that are NOT demonstrated in the current draft
+        // Use cached gaps from enhancedMatchData (already calculated during draft creation)
+        // This avoids recalculating and prevents gaps appearing after async JD load
         const unmetCoreReqs = enhancedMatchData?.coreRequirementDetails?.filter(
           (req: any) => !req.demonstrated
         ) || [];
