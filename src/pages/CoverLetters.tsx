@@ -681,7 +681,11 @@ export default function CoverLetters() {
 
       <CoverLetterCreateModal
         isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
+        onClose={async () => {
+          setIsCreateModalOpen(false);
+          // Refresh list in case a draft was created
+          await fetchCoverLetters();
+        }}
         onCoverLetterCreated={handleCoverLetterCreated}
       />
       

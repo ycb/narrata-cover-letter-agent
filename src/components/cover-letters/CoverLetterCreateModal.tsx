@@ -272,10 +272,9 @@ export const CoverLetterCreateModal = ({
         jobDescriptionId: record.id,
       });
       
-      // Notify parent that draft was created (triggers list refresh)
-      if (generatedDraft && onCoverLetterCreated) {
-        onCoverLetterCreated(generatedDraft);
-      }
+      // Note: We don't call onCoverLetterCreated here because it closes the modal
+      // The draft is saved to DB and will appear in the list when user closes/finalizes
+      // onCoverLetterCreated is only called when finalizing (see handleFinalize)
       
       // Note: Gap detection is now handled via enhancedMatchData (no need for separate GapDetectionService calls)
       // Gaps are already calculated during draft generation and stored in draft.enhancedMatchData
