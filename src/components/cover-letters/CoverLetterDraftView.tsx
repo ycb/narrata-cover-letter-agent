@@ -155,14 +155,24 @@ export function CoverLetterDraftView({
         const sectionTitle = getSectionTitle(section.type);
         const requirements = getRequirementsForParagraph(section.type);
 
-        // Check for gaps in this section
-        // For MVP: gaps are derived from unmet requirements (CTAHooks with type 'add-story')
-        const sectionGaps = enhancedMatchData?.ctaHooks?.filter(
-          (hook: any) => 
-            hook.type === 'add-story' && 
-            hook.severity !== 'low'
+        // Check for gaps: unmet requirements from the draft analysis
+        // Gaps are requirements that are NOT demonstrated in the current draft
+        const unmetCoreReqs = enhancedMatchData?.coreRequirementDetails?.filter(
+          (req: any) => !req.demonstrated
         ) || [];
-        const hasGaps = sectionGaps.length > 0;
+        const unmetPreferredReqs = enhancedMatchData?.preferredRequirementDetails?.filter(
+          (req: any) => !req.demonstrated
+        ) || [];
+        
+        // Combine all unmet requirements as gaps
+        const allGaps = [...unmetCoreReqs, ...unmetPreferredReqs];
+        
+        // For now, show all gaps on all sections (we can refine to per-section later)
+        // This matches the UX where gaps are about the overall draft, not individual sections
+        const hasGaps = allGaps.length > 0;
+        const gapDescriptions = allGaps.map((req: any) => 
+          req.requirement || req.evidence || 'Missing requirement'
+        );
 
         return (
           <ContentCard
@@ -171,7 +181,7 @@ export function CoverLetterDraftView({
             content={isEditable ? undefined : section.content} // Don't show content if editable (textarea will display it)
             tags={requirements}
             hasGaps={hasGaps}
-            gaps={sectionGaps.map((hook: any) => hook.requirement || hook.label)}
+            gaps={gapDescriptions}
             isGapResolved={false}
             onEdit={onSectionChange ? () => {} : undefined} // Will be handled by Textarea
             onDuplicate={onSectionDuplicate ? () => onSectionDuplicate(section.id) : undefined}

@@ -193,7 +193,7 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
               <CoverLetterDraftView
                 sections={editedContent.content?.sections || []}
                 hilProgressMetrics={editedContent.llmFeedback?.metrics || null}
-                enhancedMatchData={editedContent.enhancedMatchData || null}
+                enhancedMatchData={editedContent.llmFeedback?.enhancedMatchData || editedContent.enhancedMatchData || null}
                 goNoGoAnalysis={editedContent.llmFeedback?.goNoGoAnalysis || null}
                 jobDescription={jobDescriptionRecord ? {
                   id: jobDescriptionRecord.id,
