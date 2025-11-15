@@ -60,7 +60,7 @@ import { UserGoalsModal } from '@/components/user-goals/UserGoalsModal';
 import { useUserGoals } from '@/contexts/UserGoalsContext';
 import { GapDetectionService } from '@/services/gapDetectionService';
 import type { CoverLetterDraft, JobDescriptionRecord } from '@/types/coverLetters';
-import type { Gap } from '@/types/content';
+import type { Gap } from '@/services/gapTransformService';
 
 const MIN_JOB_DESCRIPTION_LENGTH = 50;
 
@@ -94,8 +94,7 @@ export const CoverLetterCreateModal = ({
   const [jobDescriptionRecord, setJobDescriptionRecord] = useState<JobDescriptionRecord | null>(null);
   const [sectionDrafts, setSectionDrafts] = useState<Record<string, string>>({});
   const [savingSections, setSavingSections] = useState<Record<string, boolean>>({});
-  const [sectionGaps, setSectionGaps] = useState<Record<string, Gap[]>>({});
-  const [selectedGap, setSelectedGap] = useState<Gap | null>(null);
+  const [selectedGap, setSelectedGap] = useState<Gap & { section_id?: string } | null>(null);
   const [showContentGenerationModal, setShowContentGenerationModal] = useState(false);
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [mainTab, setMainTab] = useState<'job-description' | 'cover-letter'>('job-description');
@@ -273,31 +272,14 @@ export const CoverLetterCreateModal = ({
         jobDescriptionId: record.id,
       });
       
-      // Detect gaps for each section after draft generation
-      if (generatedDraft && user?.id) {
-        const gapsBySection: Record<string, Gap[]> = {};
-        const jobRequirements = record.structuredData?.standardRequirements?.map(r => r.requirement) || [];
-        
-        for (const section of generatedDraft.sections) {
-          try {
-            const gaps = await GapDetectionService.detectCoverLetterSectionGaps(
-              user.id,
-              {
-                id: section.id,
-                type: section.slug as 'intro' | 'paragraph' | 'closer' | 'signature',
-                content: section.content,
-                title: section.title,
-              },
-              jobRequirements,
-            );
-            gapsBySection[section.id] = gaps;
-          } catch (error) {
-            console.error(`[CoverLetterCreateModal] Failed to detect gaps for section ${section.id}:`, error);
-            gapsBySection[section.id] = [];
-          }
-        }
-        setSectionGaps(gapsBySection);
+      // Notify parent that draft was created (triggers list refresh)
+      if (generatedDraft && onCoverLetterCreated) {
+        onCoverLetterCreated(generatedDraft);
       }
+      
+      // Note: Gap detection is now handled via enhancedMatchData (no need for separate GapDetectionService calls)
+      // Gaps are already calculated during draft generation and stored in draft.enhancedMatchData
+      // The old GapDetectionService calls were causing an 8-second delay
       
       setMainTab('cover-letter');
     } catch (error) {
@@ -656,8 +638,20 @@ export const CoverLetterCreateModal = ({
             const editedContent = sectionDrafts[section.id] ?? section.content;
             const isDirty = editedContent !== section.content;
             const isSaving = !!savingSections[section.id];
-            const gaps = sectionGaps[section.id] || [];
-            const hasGaps = gaps.length > 0;
+            
+            // Extract gaps from enhancedMatchData (same pattern as CoverLetterDraftView)
+            const unmetCoreReqs = draft.enhancedMatchData?.coreRequirementDetails?.filter(
+              (req: any) => !req.demonstrated
+            ) || [];
+            const unmetPreferredReqs = draft.enhancedMatchData?.preferredRequirementDetails?.filter(
+              (req: any) => !req.demonstrated
+            ) || [];
+            const allGaps = [...unmetCoreReqs, ...unmetPreferredReqs];
+            const hasGaps = allGaps.length > 0;
+            const gapObjects = allGaps.map((req: any, index: number) => ({
+              id: req.id || `gap-${index}`,
+              description: req.requirement || req.evidence || 'Missing requirement'
+            }));
             
             // Get job requirement tags from JD
             const jobRequirementTags = jobDescriptionRecord?.structuredData?.standardRequirements?.map(
@@ -671,22 +665,28 @@ export const CoverLetterCreateModal = ({
                 content={editedContent}
                 tags={jobRequirementTags}
                 hasGaps={hasGaps}
-                gaps={gaps.map(g => ({ id: g.id || g.gap_category, description: g.description }))}
+                gaps={gapObjects}
                 isGapResolved={!hasGaps}
                 onGenerateContent={hasGaps ? () => {
                   // Open HIL workflow with first gap
-                  const firstGap = gaps[0];
+                  const firstGap = gapObjects[0];
                   if (firstGap) {
-                    setSelectedGap(firstGap);
+                    setSelectedGap({ 
+                      id: firstGap.id, 
+                      type: 'core-requirement',
+                      severity: 'high',
+                      description: firstGap.description,
+                      suggestion: firstGap.description,
+                      origin: 'ai',
+                      section_id: section.id
+                    });
                     setShowContentGenerationModal(true);
                   }
                 } : undefined}
                 onDismissGap={hasGaps ? () => {
-                  // Remove gap from state (user dismissed)
-                  setSectionGaps(prev => ({
-                    ...prev,
-                    [section.id]: prev[section.id]?.filter(g => g.id !== gaps[0]?.id) || [],
-                  }));
+                  // Note: Dismissing gaps not currently supported in MVP
+                  // Would require updating enhancedMatchData or persisting dismissed state
+                  console.log('Gap dismissed for section:', section.id);
                 } : undefined}
                 tagsLabel="Job Requirements"
                 showUsage={false}
@@ -826,22 +826,19 @@ export const CoverLetterCreateModal = ({
           setSelectedGap(null);
         }}
         gap={selectedGap ? {
-          id: selectedGap.id || selectedGap.gap_category,
-          type: selectedGap.gap_type === 'best_practice' ? 'best-practice' : 
-                selectedGap.gap_type === 'requirement' ? 'core-requirement' : 'content-enhancement',
+          id: selectedGap.id,
+          type: selectedGap.type,
           severity: selectedGap.severity,
           description: selectedGap.description,
-          suggestion: selectedGap.suggestions?.[0]?.description || selectedGap.description,
-          paragraphId: selectedGap.entity_id,
-          origin: 'ai',
+          suggestion: selectedGap.suggestion,
+          paragraphId: selectedGap.paragraphId,
+          origin: selectedGap.origin,
         } : null}
         onApplyContent={async (content: string) => {
           if (!selectedGap || !draft) return;
           
-          // Find the section this gap belongs to
-          const sectionId = Object.keys(sectionGaps).find(id => 
-            sectionGaps[id].some(g => g.id === selectedGap.id || g.gap_category === selectedGap.gap_category)
-          );
+          // Use the section_id from selectedGap (set when gap was clicked)
+          const sectionId = selectedGap.section_id;
           
           if (sectionId) {
             // Update the section content
@@ -854,13 +851,9 @@ export const CoverLetterCreateModal = ({
             try {
               await handleSectionSave(sectionId);
               
-              // Remove the resolved gap
-              setSectionGaps(prev => ({
-                ...prev,
-                [sectionId]: prev[sectionId]?.filter(g => 
-                  g.id !== selectedGap.id && g.gap_category !== selectedGap.gap_category
-                ) || [],
-              }));
+              // Note: Gap resolution is tracked via enhancedMatchData in the database
+              // After HIL, metrics are recalculated and gaps are updated
+              console.log('[CoverLetterCreateModal] Gap resolved for section:', sectionId);
             } catch (error) {
               console.error('[CoverLetterCreateModal] Failed to apply generated content:', error);
             }
