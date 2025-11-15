@@ -589,6 +589,23 @@ export const CoverLetterCreateModal = ({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Pro tip for LinkedIn copying */}
+            <Alert className="bg-primary/5 border-primary/20">
+              <AlertTitle className="flex items-center gap-2 text-sm font-medium">
+                💡 Pro tip: Copying from LinkedIn?
+              </AlertTitle>
+              <AlertDescription className="text-xs mt-2 space-y-2">
+                <p>
+                  If there's an "About the company" section, <strong>FIRST expand that by clicking "show more"</strong>. 
+                  THEN select — starting at the top to highlight text describing <strong>BOTH the role and company</strong>. 
+                  We'll use those details to make your letter stand out!
+                </p>
+                <p className="text-muted-foreground">
+                  Please try to minimize including text that doesn't relate, as this creates a garbage in / garbage out situation.
+                </p>
+              </AlertDescription>
+            </Alert>
+            
             {/* TODO: Re-enable job description URL ingestion once MVP supports remote fetching. Tracked in docs/backlog/HIDDEN_FEATURES.md */}
             <div className="relative">
               <Textarea
