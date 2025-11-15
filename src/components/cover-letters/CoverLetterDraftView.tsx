@@ -100,6 +100,31 @@ export function CoverLetterDraftView({
     }
   };
 
+  /**
+   * Normalize section types to handle LLM variations (e.g., "intro" vs "introduction")
+   * Returns array of possible aliases for a given section type
+   */
+  const normalizeSectionType = (sectionType: string): string[] => {
+    const aliases: Record<string, string[]> = {
+      'introduction': ['introduction', 'intro', 'opening'],
+      'experience': ['experience', 'exp', 'background', 'body'],
+      'closing': ['closing', 'conclusion', 'signature'],
+      'signature': ['signature', 'closing', 'signoff'],
+    };
+    
+    const lowerType = sectionType.toLowerCase();
+    
+    // Find canonical type and return all aliases
+    for (const [canonical, variations] of Object.entries(aliases)) {
+      if (variations.includes(lowerType)) {
+        return variations;
+      }
+    }
+    
+    // If not found in aliases, return the type itself
+    return [lowerType];
+  };
+
   const getRequirementsForParagraph = (paragraphType: string) => {
     // Agent C: Get requirements from enhancedMatchData if available
     if (enhancedMatchData) {
@@ -108,9 +133,25 @@ export function CoverLetterDraftView({
         ...(enhancedMatchData.preferredRequirementDetails || [])
       ];
 
-      // Filter requirements that are demonstrated in this section
+      // Normalize the current section type to match against sectionIds
+      const normalizedTypes = normalizeSectionType(paragraphType);
+
+      // Filter requirements that are:
+      // 1. Demonstrated in the draft (met)
+      // 2. Addressed in THIS specific section
       const sectionReqs = allReqs
-        .filter(req => req.demonstrated)
+        .filter(req => {
+          // Must be demonstrated (requirement is met in the draft)
+          if (!req.demonstrated) return false;
+          
+          // Must be addressed in this specific section
+          const sectionIds = req.sectionIds || [];
+          
+          // Check if any normalized variation of the section type matches
+          return sectionIds.some(id => 
+            normalizedTypes.includes(id.toLowerCase())
+          );
+        })
         .map(req => req.requirement);
 
       if (sectionReqs.length > 0) {
@@ -118,19 +159,25 @@ export function CoverLetterDraftView({
       }
     }
 
-    // Fallback to generic requirements
-    switch (paragraphType) {
-      case 'intro':
-        return ['quantifiable achievements', 'specific metrics', 'KPIs from past projects'];
-      case 'experience':
-        return ['technical skills', 'leadership experience', 'cross-functional collaboration'];
-      case 'closing':
-        return ['enthusiasm', 'specific interest in role', 'company alignment'];
-      case 'signature':
-        return ['professional closing', 'contact information', 'call to action'];
-      default:
-        return ['requirements met'];
+    // Fallback to generic requirements only if no enhancedMatchData
+    // Don't show fallback tags if enhancedMatchData exists but section has no requirements
+    if (!enhancedMatchData) {
+      switch (paragraphType) {
+        case 'intro':
+          return ['quantifiable achievements', 'specific metrics', 'KPIs from past projects'];
+        case 'experience':
+          return ['technical skills', 'leadership experience', 'cross-functional collaboration'];
+        case 'closing':
+          return ['enthusiasm', 'specific interest in role', 'company alignment'];
+        case 'signature':
+          return ['professional closing', 'contact information', 'call to action'];
+        default:
+          return ['requirements met'];
+      }
     }
+
+    // If enhancedMatchData exists but no requirements for this section, return empty
+    return [];
   };
 
   return (
@@ -181,15 +228,16 @@ export function CoverLetterDraftView({
             key={section.id}
             title={sectionTitle}
             content={isEditable ? undefined : section.content} // Don't show content if editable (textarea will display it)
-            tags={requirements}
+            tags={requirements} // Always pass tags array (empty or populated)
             hasGaps={hasGaps}
             gaps={gapObjects}
             isGapResolved={false}
             onGenerateContent={onAddStory ? () => onAddStory() : undefined} // Hook up to HIL story creation
-            onEdit={onSectionChange ? () => {} : undefined} // Will be handled by Textarea
+            // NOTE: Don't pass onEdit for tags - requirement tags are system-generated, not user-editable
+            // onEdit is for section content editing (handled by Textarea), not for adding tags
             onDuplicate={onSectionDuplicate ? () => onSectionDuplicate(section.id) : undefined}
             onDelete={onSectionDelete ? () => onSectionDelete(section.id) : undefined}
-            tagsLabel="Job Requirements"
+            tagsLabel="Requirements Met" // Always show label, even when empty
             showUsage={false}
             renderChildrenBeforeTags={isEditable}
             className={cn(section.isEnhanced && 'border-success/30')}

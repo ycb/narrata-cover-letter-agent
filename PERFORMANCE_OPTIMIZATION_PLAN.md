@@ -108,11 +108,20 @@ Selects template → Clicks "Generate"
    - "✓ Job description analyzed" when complete
 
 **Acceptance Criteria:**
-- [ ] JD parsing starts automatically 1s after user stops typing
-- [ ] Pre-parsed JD is reused in handleGenerate if available
-- [ ] UI shows subtle feedback during pre-parsing
-- [ ] Falls back gracefully if pre-parse fails
-- [ ] Saves ~10 seconds from total wait time
+- [x] JD parsing starts automatically 1s after user stops typing
+- [x] Pre-parsed JD is reused in handleGenerate if available
+- [x] UI shows subtle feedback during pre-parsing
+- [x] Falls back gracefully if pre-parse fails
+- [x] Saves ~10 seconds from total wait time
+
+**Implementation Notes:**
+- Added `preParsedJD`, `isPreParsing`, and `preParsedContent` state to track pre-parsing status
+- Created useEffect hook that debounces JD parsing by 1 second after user stops typing
+- Pre-parse only triggers when content >= 50 chars, user is signed in, and content changed
+- Added subtle UI indicators in textarea corner: spinner during parsing, checkmark when complete
+- Modified `handleGenerateDraft` to reuse pre-parsed JD if content matches, skipping the ~10s parse step
+- Silent error handling: if pre-parse fails, it falls back to normal parsing on Generate button click
+- Pre-parse state is cleared when modal closes or content changes significantly
 
 ---
 
@@ -193,11 +202,24 @@ Selects template → Clicks "Generate"
    ```
 
 **Acceptance Criteria:**
-- [ ] Skeleton appears instantly when "Generate" is clicked
-- [ ] Skeleton shows real company, role, user name/email
-- [ ] Animated shimmer effect on placeholder content
-- [ ] Seamlessly transitions to real content when available
-- [ ] User feels progress happening immediately
+- [x] Skeleton appears instantly when "Generate" is clicked
+- [x] Skeleton shows real company, role, user name/email
+- [x] Animated shimmer effect on placeholder content
+- [x] Seamlessly transitions to real content when available
+- [x] User feels progress happening immediately
+
+**Implementation Status:** ✅ COMPLETED
+
+**Files Modified:**
+- Created: `src/components/cover-letters/CoverLetterSkeleton.tsx`
+- Modified: `src/components/cover-letters/CoverLetterCreateModal.tsx`
+
+**Implementation Details:**
+- Skeleton component displays real job details (company, role) and user info (name, email, date)
+- Animated pulse effect on placeholder content blocks simulating paragraphs
+- Conditionally rendered in `renderDraftTab()` when `isGenerating && !draft && jobDescriptionRecord`
+- Wrapped in Card with progress indicator showing generation status
+- Seamlessly transitions to actual CoverLetterDraftView when draft is available
 
 ---
 
@@ -297,11 +319,20 @@ Selects template → Clicks "Generate"
    ```
 
 **Acceptance Criteria:**
-- [ ] Sections are emitted one-by-one as they're built
-- [ ] `onSectionBuilt` callback fires for each section
-- [ ] UI can render sections progressively
-- [ ] Total build time unchanged (~5s) but perceived as faster
-- [ ] No breaking changes to existing API
+- [x] Sections are emitted one-by-one as they're built
+- [x] `onSectionBuilt` callback fires for each section
+- [x] UI can render sections progressively
+- [x] Total build time unchanged (~5s) but perceived as faster
+- [x] No breaking changes to existing API
+
+**Implementation Status:** ✅ COMPLETE
+
+**Implementation Summary:**
+1. Added `onSectionBuilt` callback to `DraftGenerationOptions` interface
+2. Updated `buildSections` method to emit sections as they're created
+3. Modified `generateDraft` to pass through the streaming callback
+4. Enhanced `useCoverLetterDraft` hook with `streamingSections` state
+5. Added progressive progress updates for each section built
 
 ---
 

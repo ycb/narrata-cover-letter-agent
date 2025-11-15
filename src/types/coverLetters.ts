@@ -140,6 +140,19 @@ export interface RequirementMatchDetail {
   demonstrated: boolean;
   evidence: string;
   sectionIds: string[];
+  severity?: 'critical' | 'important' | 'nice-to-have';
+}
+
+/**
+ * Structured tag object for requirement display in ContentCard
+ * Provides rich metadata for visual hierarchy and tooltips
+ */
+export interface RequirementTag {
+  id: string;
+  label: string;
+  evidence: string;
+  type: 'core' | 'preferred';
+  severity: 'critical' | 'important' | 'nice-to-have';
 }
 
 export interface ExperienceMatchDetail {
@@ -256,6 +269,7 @@ export interface DraftGenerationOptions {
   templateId: string;
   jobDescriptionId: string;
   onProgress?: (update: DraftGenerationProgressUpdate) => void;
+  onSectionBuilt?: (section: CoverLetterDraftSection, index: number, total: number) => void;
   signal?: AbortSignal;
 }
 

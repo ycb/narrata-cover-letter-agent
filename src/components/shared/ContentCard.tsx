@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TagSuggestionButton } from "@/components/ui/TagSuggestionButton";
 import { ContentGapBanner } from "@/components/shared/ContentGapBanner";
+import { RequirementTagTooltip } from "@/components/cover-letters/RequirementTagTooltip";
 import { 
   Calendar,
   MoreHorizontal,
@@ -21,11 +22,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import type { RequirementTag } from "@/types/coverLetters";
 
 interface ContentCardProps {
   title: string;
-  content: string;
-  tags: string[];
+  content?: string; // Made optional to support empty state
+  tags?: (string | RequirementTag)[]; // Support both simple strings and structured tags
   timesUsed?: number;
   lastUsed?: string;
   hasGaps?: boolean;
@@ -76,6 +78,30 @@ export const ContentCard = ({
   children,
   renderChildrenBeforeTags = false
 }: ContentCardProps) => {
+  // Helper to check if a tag is structured
+  const isStructuredTag = (tag: string | RequirementTag): tag is RequirementTag => {
+    return typeof tag === 'object' && 'id' in tag && 'type' in tag;
+  };
+
+  // Helper to get badge variant based on tag type
+  const getTagVariant = (tag: RequirementTag): "default" | "secondary" => {
+    return tag.type === 'core' ? 'default' : 'secondary';
+  };
+
+  // Helper to get badge className based on tag type
+  const getTagClassName = (tag: RequirementTag): string => {
+    if (tag.type === 'core') {
+      return 'bg-green-100 text-green-800 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700';
+    } else {
+      return 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700';
+    }
+  };
+
+  // Helper to get tag label
+  const getTagLabel = (tag: RequirementTag): string => {
+    return tag.label;
+  };
+
   return (
     <Card className={cn(
       "hover:shadow-md transition-shadow",
@@ -154,18 +180,40 @@ export const ContentCard = ({
         {renderChildrenBeforeTags && children}
 
         {/* Tags */}
-        {(tags.length > 0 || onEdit) && (
+        {tagsLabel && (
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-2">
               <Tags className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">{tagsLabel}</span>
             </div>
             <div className="flex flex-wrap gap-1">
-              {tags.length > 0 && tags.map((tag) => (
-                <Badge key={tag} variant="secondary" className="text-xs">
-                  {tag}
-                </Badge>
-              ))}
+              {tags.length > 0 && tags.map((tag, index) => {
+                // If structured tag, wrap with tooltip
+                if (isStructuredTag(tag)) {
+                  return (
+                    <RequirementTagTooltip key={tag.id} tag={tag}>
+                      <Badge 
+                        variant={getTagVariant(tag)}
+                        className={cn("text-xs cursor-help", getTagClassName(tag))}
+                        data-severity={tag.severity}
+                      >
+                        {getTagLabel(tag)}
+                      </Badge>
+                    </RequirementTagTooltip>
+                  );
+                }
+                
+                // Simple string tag (no tooltip)
+                return (
+                  <Badge 
+                    key={`${tag}-${index}`}
+                    variant="secondary"
+                    className="text-xs"
+                  >
+                    {tag}
+                  </Badge>
+                );
+              })}
               {tags.length === 0 && onEdit && (
                 <Badge 
                   variant="outline" 
@@ -174,6 +222,14 @@ export const ContentCard = ({
                 >
                   <Plus className="h-3 w-3 mr-1" />
                   Add tag
+                </Badge>
+              )}
+              {tags.length === 0 && !onEdit && (
+                <Badge 
+                  variant="outline" 
+                  className="text-xs text-muted-foreground border-dashed bg-muted/30"
+                >
+                  None yet
                 </Badge>
               )}
             </div>

@@ -215,6 +215,16 @@ const strengthToScore = (strength: MatchStrength): number => {
   }
 };
 
+const deriveAtsScore = (metrics: CoverLetterMatchMetric[]): number => {
+  const atsMetric = metrics.find(metric => metric.key === 'ats');
+  if (!atsMetric) return 0;
+  if (atsMetric.type === 'score') return Math.round(atsMetric.value);
+  if (atsMetric.type === 'strength') {
+    return strengthToScore(atsMetric.strength);
+  }
+  return 0;
+};
+
 const transformMetricPayload = (metrics: Record<string, any>): CoverLetterMatchMetric[] => {
   const lookup: Array<{ key: CoverLetterMatchMetric['key']; label: string }> = [
     { key: 'goals', label: 'Match with Goals' },
@@ -388,8 +398,220 @@ export class CoverLetterDraftService {
     this.now = options.now ?? (() => new Date());
   }
 
-  async generateDraft(options: DraftGenerationOptions): Promise<DraftGenerationResult> {
+  /**
+   * AGENT D: Fast draft generation without metrics (Phase 1)
+   * Generates a draft in ~15s by skipping expensive LLM metrics calculation.
+   * Metrics can be calculated in background using calculateMetricsForDraft.
+   */
+  async generateDraftFast(options: DraftGenerationOptions): Promise<{
+    draft: CoverLetterDraft;
+    workpad: DraftWorkpad;
+    jobDescription: ParsedJobDescription;
+  }> {
     const { userId, templateId, jobDescriptionId, onProgress, signal } = options;
+
+    this.emitProgress(onProgress, 'jd_parse', 'Loading job description…');
+    const jobDescription = await this.fetchJobDescription(userId, jobDescriptionId);
+
+    this.emitProgress(onProgress, 'content_match', 'Loading content libraries…');
+    const [templateRow, stories, savedSections, userGoals] = await Promise.all([
+      this.fetchTemplate(userId, templateId),
+      this.fetchStories(userId),
+      this.fetchSavedSections(userId),
+      UserPreferencesService.loadGoals(userId),
+    ]);
+
+    const templateSections = this.normaliseTemplateSections(templateRow.sections);
+
+    const { sections, matchState } = this.buildSections({
+      templateSections,
+      stories,
+      savedSections,
+      jobDescription,
+      userGoals,
+    });
+
+    const differentiatorSummary = this.buildDifferentiatorSummary(jobDescription, sections);
+
+    // Create placeholder metrics for fast path
+    const placeholderMetrics = this.createFallbackMetrics();
+
+    const insertPayload: Database['public']['Tables']['cover_letters']['Insert'] = {
+      user_id: userId,
+      template_id: templateId,
+      job_description_id: jobDescriptionId,
+      status: 'draft',
+      sections: sections as unknown as Record<string, unknown>,
+      llm_feedback: {
+        generatedAt: this.now().toISOString(),
+        metrics: placeholderMetrics.raw,
+        enhancedMatchData: undefined, // Will be calculated in background
+      },
+      metrics: [] as unknown as Record<string, unknown>, // Empty until metrics calculated
+      differentiator_summary: differentiatorSummary as unknown as Record<string, unknown>,
+      analytics: {
+        atsScore: 0, // Will be calculated in background
+        generatedAt: this.now().toISOString(),
+      } as unknown as Record<string, unknown>,
+    };
+
+    const { data: draftRow, error } = await this.supabaseClient
+      .from('cover_letters')
+      .insert(insertPayload)
+      .select()
+      .single();
+
+    if (error || !draftRow) {
+      console.error('[CoverLetterDraftService] Failed to store draft:', error);
+      throw new Error('Unable to create cover letter draft. Please try again.');
+    }
+
+    const workpadRow = await this.upsertWorkpad({
+      draftId: draftRow.id,
+      userId,
+      jobDescriptionId,
+      matchState,
+      sections,
+      phase: 'content_match', // Metrics not yet calculated
+    });
+
+    const draft = this.mapCoverLetterRow(draftRow, [], 0);
+
+    this.emitProgress(onProgress, 'content_match', 'Draft ready! Calculating metrics in background...');
+
+    return {
+      draft: {
+        ...draft,
+        differentiatorSummary,
+      },
+      workpad: workpadRow,
+      jobDescription,
+    };
+  }
+
+  /**
+   * AGENT D: Calculate metrics in background (Phase 2)
+   * Called after generateDraftFast to calculate expensive LLM metrics.
+   * Non-blocking - user can edit draft while this runs.
+   */
+  async calculateMetricsForDraft(
+    draftId: string,
+    userId: string,
+    jobDescriptionId: string,
+    onProgress?: (phase: string, message: string) => void
+  ): Promise<EnhancedMatchData | undefined> {
+    onProgress?.('metrics', 'Loading data for metrics calculation...');
+
+    const [draftRow, jobDescription, userGoals, workHistory, approvedContent] = await Promise.all([
+      this.supabaseClient
+        .from('cover_letters')
+        .select('*')
+        .eq('id', draftId)
+        .single()
+        .then(({ data, error }) => {
+          if (error || !data) throw new Error('Draft not found');
+          return data;
+        }),
+      this.fetchJobDescription(userId, jobDescriptionId),
+      UserPreferencesService.loadGoals(userId),
+      this.fetchWorkHistory(userId),
+      this.fetchApprovedContent(userId),
+    ]);
+
+    const sections = this.normaliseDraftSections(draftRow.sections);
+
+    onProgress?.('metrics', 'Analyzing match quality with AI...');
+
+    // Calculate metrics with retry logic
+    let metricResult;
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        if (attempt > 0) {
+          const delay = RETRY_DELAYS_MS[attempt - 1] ?? RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
+          onProgress?.(
+            'metrics',
+            `AI analysis temporarily unavailable. Retrying (${attempt + 1}/${MAX_RETRIES + 1})...`
+          );
+          await sleep(delay);
+        }
+
+        metricResult = await this.metricsStreamer({
+          draft: sections,
+          jobDescription,
+          userGoals,
+          workHistory,
+          approvedContent,
+          signal: undefined,
+          onToken: undefined,
+        });
+        break; // Success
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error('Unknown error during metrics calculation');
+        
+        if (attempt === MAX_RETRIES) {
+          console.warn(
+            '[CoverLetterDraftService] All metric calculation attempts failed. Using fallback metrics.',
+            lastError
+          );
+          onProgress?.('metrics', 'Using estimated metrics (AI analysis unavailable)');
+          metricResult = this.createFallbackMetrics();
+          break;
+        }
+      }
+    }
+
+    if (!metricResult) {
+      metricResult = this.createFallbackMetrics();
+    }
+
+    // Update draft with calculated metrics
+    await this.supabaseClient
+      .from('cover_letters')
+      .update({
+        llm_feedback: {
+          generatedAt: this.now().toISOString(),
+          metrics: metricResult.raw,
+          enhancedMatchData: metricResult.enhancedMatchData,
+        },
+        metrics: metricResult.metrics as unknown as Record<string, unknown>,
+        analytics: {
+          atsScore: metricResult.atsScore,
+          generatedAt: this.now().toISOString(),
+        } as unknown as Record<string, unknown>,
+        updated_at: this.now().toISOString(),
+      })
+      .eq('id', draftId);
+
+    onProgress?.('metrics', 'Match metrics calculated successfully!');
+
+    return metricResult.enhancedMatchData;
+  }
+
+  /**
+   * Fetch a draft by ID (used to get updated metrics after background calculation)
+   */
+  async getDraft(draftId: string): Promise<CoverLetterDraft | null> {
+    const { data, error } = await this.supabaseClient
+      .from('cover_letters')
+      .select('*')
+      .eq('id', draftId)
+      .single();
+
+    if (error || !data) {
+      console.error('[CoverLetterDraftService] Failed to fetch draft:', error);
+      return null;
+    }
+
+    const metrics = this.normaliseMatchMetrics(data.metrics);
+    const atsScore = deriveAtsScore(metrics);
+    
+    return this.mapCoverLetterRow(data, metrics, atsScore);
+  }
+
+  async generateDraft(options: DraftGenerationOptions): Promise<DraftGenerationResult> {
+    const { userId, templateId, jobDescriptionId, onProgress, onSectionBuilt, signal } = options;
 
     this.emitProgress(onProgress, 'jd_parse', 'Loading job description…');
     const jobDescription = await this.fetchJobDescription(userId, jobDescriptionId);
@@ -412,6 +634,7 @@ export class CoverLetterDraftService {
       savedSections,
       jobDescription,
       userGoals,
+      onSectionBuilt, // Pass through streaming callback
     });
 
     this.emitProgress(onProgress, 'metrics', 'Calculating match metrics…');
@@ -1109,8 +1332,9 @@ export class CoverLetterDraftService {
     savedSections: SavedSectionRow[];
     jobDescription: ParsedJobDescription;
     userGoals: Awaited<ReturnType<typeof UserPreferencesService.loadGoals>> | null;
+    onSectionBuilt?: (section: CoverLetterDraftSection, index: number, total: number) => void;
   }): { sections: CoverLetterDraftSection[]; matchState: Record<string, unknown> } {
-    const { templateSections, stories, savedSections, jobDescription, userGoals } = input;
+    const { templateSections, stories, savedSections, jobDescription, userGoals, onSectionBuilt } = input;
     const nowIso = this.now().toISOString();
 
     const differentiatorWeights = new Map(
@@ -1123,9 +1347,11 @@ export class CoverLetterDraftService {
         const slug = slugify(section.title || `section-${index + 1}`, `section-${index + 1}`);
         const sectionId = `${slug}-${index + 1}`;
 
+        let builtSection: CoverLetterDraftSection;
+
         if (section.isStatic) {
           const content = section.staticContent || '';
-          return this.createSection({
+          builtSection = this.createSection({
             id: sectionId,
             slug,
             title: section.title || `Section ${index + 1}`,
@@ -1138,13 +1364,11 @@ export class CoverLetterDraftService {
             tags: [],
             nowIso,
           });
-        }
-
-        if (section.contentType === 'saved') {
+        } else if (section.contentType === 'saved') {
           const bestSaved = this.pickBestSavedSection(section, savedSections, jobDescription);
           if (bestSaved) {
             const requirementsMatched = this.matchRequirements(bestSaved.content, jobDescription);
-            return this.createSection({
+            builtSection = this.createSection({
               id: sectionId,
               slug,
               title: section.title || bestSaved.title,
@@ -1157,41 +1381,79 @@ export class CoverLetterDraftService {
               tags: bestSaved.tags ?? [],
               nowIso,
             });
+          } else {
+            const bestStory = this.pickBestStory(section, stories, jobDescription, userGoals);
+            if (bestStory) {
+              const requirementsMatched = this.matchRequirements(bestStory.content, jobDescription);
+              builtSection = this.createSection({
+                id: sectionId,
+                slug,
+                title: section.title || bestStory.title || 'Experience Highlight',
+                templateSectionId: section.id,
+                type: this.resolveSectionType(section),
+                order: index + 1,
+                content: bestStory.content,
+                source: { kind: 'work_story', entityId: bestStory.id },
+                requirementsMatched,
+                tags: bestStory.tags ?? [],
+                nowIso,
+              });
+            } else {
+              const fallbackContent = section.staticContent || section.title || '';
+              builtSection = this.createSection({
+                id: sectionId,
+                slug,
+                title: section.title || `Section ${index + 1}`,
+                templateSectionId: section.id,
+                type: this.resolveSectionType(section),
+                order: index + 1,
+                content: fallbackContent,
+                source: { kind: 'template_static', entityId: null },
+                requirementsMatched: [],
+                tags: [],
+                nowIso,
+              });
+            }
+          }
+        } else {
+          const bestStory = this.pickBestStory(section, stories, jobDescription, userGoals);
+          if (bestStory) {
+            const requirementsMatched = this.matchRequirements(bestStory.content, jobDescription);
+            builtSection = this.createSection({
+              id: sectionId,
+              slug,
+              title: section.title || bestStory.title || 'Experience Highlight',
+              templateSectionId: section.id,
+              type: this.resolveSectionType(section),
+              order: index + 1,
+              content: bestStory.content,
+              source: { kind: 'work_story', entityId: bestStory.id },
+              requirementsMatched,
+              tags: bestStory.tags ?? [],
+              nowIso,
+            });
+          } else {
+            const fallbackContent = section.staticContent || section.title || '';
+            builtSection = this.createSection({
+              id: sectionId,
+              slug,
+              title: section.title || `Section ${index + 1}`,
+              templateSectionId: section.id,
+              type: this.resolveSectionType(section),
+              order: index + 1,
+              content: fallbackContent,
+              source: { kind: 'template_static', entityId: null },
+              requirementsMatched: [],
+              tags: [],
+              nowIso,
+            });
           }
         }
 
-        const bestStory = this.pickBestStory(section, stories, jobDescription, userGoals);
-        if (bestStory) {
-          const requirementsMatched = this.matchRequirements(bestStory.content, jobDescription);
-          return this.createSection({
-            id: sectionId,
-            slug,
-            title: section.title || bestStory.title || 'Experience Highlight',
-            templateSectionId: section.id,
-            type: this.resolveSectionType(section),
-            order: index + 1,
-            content: bestStory.content,
-            source: { kind: 'work_story', entityId: bestStory.id },
-            requirementsMatched,
-            tags: bestStory.tags ?? [],
-            nowIso,
-          });
-        }
+        // Emit section immediately after building
+        onSectionBuilt?.(builtSection, index, templateSections.length);
 
-        const fallbackContent = section.staticContent || section.title || '';
-        return this.createSection({
-          id: sectionId,
-          slug,
-          title: section.title || `Section ${index + 1}`,
-          templateSectionId: section.id,
-          type: this.resolveSectionType(section),
-          order: index + 1,
-          content: fallbackContent,
-          source: { kind: 'template_static', entityId: null },
-          requirementsMatched: [],
-          tags: [],
-          nowIso,
-        });
+        return builtSection;
       });
 
     const matchState = this.buildMatchState(sectionResults, differentiatorWeights);

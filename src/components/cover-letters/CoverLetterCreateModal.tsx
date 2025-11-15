@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -54,11 +54,11 @@ import { CoverLetterDraftService } from '@/services/coverLetterDraftService';
 import { useCoverLetterDraft } from '@/hooks/useCoverLetterDraft';
 import { ProgressIndicatorWithTooltips } from './ProgressIndicatorWithTooltips';
 import { CoverLetterFinalization } from './CoverLetterFinalization';
+import { CoverLetterSkeleton } from './CoverLetterSkeleton';
 import { ContentCard } from '@/components/shared/ContentCard';
 import { ContentGenerationModal } from '@/components/hil/ContentGenerationModal';
 import { UserGoalsModal } from '@/components/user-goals/UserGoalsModal';
 import { useUserGoals } from '@/contexts/UserGoalsContext';
-import { GapDetectionService } from '@/services/gapDetectionService';
 import type { CoverLetterDraft, JobDescriptionRecord } from '@/types/coverLetters';
 import type { Gap } from '@/services/gapTransformService';
 
@@ -87,6 +87,9 @@ export const CoverLetterCreateModal = ({
   const [jobInputError, setJobInputError] = useState<string | null>(null);
   const [isParsingJobDescription, setIsParsingJobDescription] = useState(false);
   const [jdStreamingMessages, setJdStreamingMessages] = useState<string[]>([]);
+  const [preParsedJD, setPreParsedJD] = useState<JobDescriptionRecord | null>(null);
+  const [isPreParsing, setIsPreParsing] = useState(false);
+  const [preParsedContent, setPreParsedContent] = useState('');
   const [templates, setTemplates] = useState<TemplateSummary[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [templateError, setTemplateError] = useState<string | null>(null);
@@ -100,6 +103,73 @@ export const CoverLetterCreateModal = ({
   const [mainTab, setMainTab] = useState<'job-description' | 'cover-letter'>('job-description');
   const [finalizationOpen, setFinalizationOpen] = useState(false);
   const [finalizationError, setFinalizationError] = useState<string | null>(null);
+  const preParseControllerRef = useRef<AbortController | null>(null);
+  const preParseRequestIdRef = useRef(0);
+  const normalizedJobDescription = useMemo(() => {
+    if (!jobDescriptionRecord) return null;
+    const analysis = (jobDescriptionRecord.analysis as Record<string, any> | null) ?? {};
+    const llmAnalysis = analysis.llm ?? {};
+    const structured =
+      jobDescriptionRecord.structuredData ??
+      llmAnalysis.structuredData ??
+      {};
+
+    return {
+      role: jobDescriptionRecord.role,
+      company: jobDescriptionRecord.company,
+      standardRequirements:
+        structured.standardRequirements ??
+        jobDescriptionRecord.standard_requirements ??
+        llmAnalysis.standardRequirements ??
+        [],
+      preferredRequirements:
+        structured.preferredRequirements ??
+        jobDescriptionRecord.preferred_requirements ??
+        llmAnalysis.preferredRequirements ??
+        [],
+      salary:
+        structured.salary ??
+        structured.compensation ??
+        llmAnalysis.structuredData?.compensation,
+      location: structured.location ?? llmAnalysis.structuredData?.location,
+      workType: structured.workType ?? llmAnalysis.structuredData?.workType,
+      structuredData: structured,
+      analysis,
+    };
+  }, [jobDescriptionRecord]);
+
+  const requirementLabelMap = useMemo(() => {
+    if (!jobDescriptionRecord) return new Map<string, string>();
+    const structured = normalizedJobDescription?.structuredData ?? {};
+    const analysis = normalizedJobDescription?.analysis ?? {};
+    const llmRequirements = (analysis as Record<string, any>).llm ?? {};
+    const allRequirements = [
+      ...(structured.standardRequirements ?? jobDescriptionRecord.standard_requirements ?? []),
+      ...(structured.differentiatorRequirements ?? jobDescriptionRecord.differentiator_requirements ?? []),
+      ...(structured.preferredRequirements ?? jobDescriptionRecord.preferred_requirements ?? []),
+      ...(llmRequirements.standardRequirements ?? []),
+      ...(llmRequirements.preferredRequirements ?? []),
+    ];
+
+    const map = new Map<string, string>();
+    allRequirements.forEach((req: any) => {
+      if (!req) return;
+      const id = String(req.id ?? req.requirement ?? req.label ?? req.detail ?? '');
+      const label = req.requirement || req.label || req.detail;
+      if (id && label && !map.has(id)) {
+        map.set(id, label);
+      }
+    });
+    return map;
+  }, [jobDescriptionRecord, normalizedJobDescription]);
+
+  const getRequirementTagsForSection = (section: { metadata?: { requirementsMatched?: string[] } }) => {
+    const matchedIds = section.metadata?.requirementsMatched ?? [];
+    if (!matchedIds.length) return [];
+    return matchedIds
+      .map(id => requirementLabelMap.get(String(id)) ?? null)
+      .filter((label): label is string => Boolean(label));
+  };
 
   const jobDescriptionService = useMemo(() => new JobDescriptionService(), []);
   const coverLetterDraftService = useMemo(() => new CoverLetterDraftService(), []);
@@ -107,8 +177,10 @@ export const CoverLetterCreateModal = ({
   const {
     draft,
     workpad,
+    streamingSections,
     progress,
     isGenerating,
+    metricsLoading, // AGENT D: Extract metrics loading state
     isMutating,
     isFinalizing,
     error: generationError,
@@ -200,6 +272,73 @@ export const CoverLetterCreateModal = ({
     }
   }, [draft, mainTab]);
 
+  // Pre-parse job description in the background when user pastes content
+  useEffect(() => {
+    const trimmed = jobContent.trim();
+
+    const cleanupRunningController = () => {
+      if (preParseControllerRef.current) {
+        preParseControllerRef.current.abort();
+        preParseControllerRef.current = null;
+      }
+    };
+
+    if (!user?.id || trimmed.length < MIN_JOB_DESCRIPTION_LENGTH) {
+      cleanupRunningController();
+      setIsPreParsing(false);
+      if (trimmed.length < MIN_JOB_DESCRIPTION_LENGTH) {
+        setPreParsedJD(null);
+        setPreParsedContent('');
+      }
+      return;
+    }
+
+    if (trimmed === preParsedContent) {
+      return;
+    }
+
+    cleanupRunningController();
+    const controller = new AbortController();
+    preParseControllerRef.current = controller;
+    const requestId = ++preParseRequestIdRef.current;
+
+    const timerId = window.setTimeout(async () => {
+      setIsPreParsing(true);
+      try {
+        const record = await jobDescriptionService.parseAndCreate(user.id, trimmed, {
+          url: null,
+          onProgress: () => {},
+          onToken: () => {},
+          signal: controller.signal,
+        });
+
+        if (preParseRequestIdRef.current !== requestId) {
+          return;
+        }
+
+        setPreParsedJD(record);
+        setPreParsedContent(trimmed);
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+        console.warn('[CoverLetterCreateModal] Pre-parse failed, will parse on generate', error);
+        if (preParseRequestIdRef.current === requestId) {
+          setPreParsedJD(null);
+        }
+      } finally {
+        if (preParseRequestIdRef.current === requestId) {
+          setIsPreParsing(false);
+        }
+      }
+    }, 1000); // Debounce 1s after user stops typing
+
+    return () => {
+      controller.abort();
+      clearTimeout(timerId);
+    };
+  }, [jobContent, user?.id, preParsedContent, jobDescriptionService]);
+
   const resetViewState = () => {
     setJobContent('');
     setJobInputError(null);
@@ -207,6 +346,9 @@ export const CoverLetterCreateModal = ({
     setSectionDrafts({});
     setSavingSections({});
     setJdStreamingMessages([]);
+    setPreParsedJD(null);
+    setIsPreParsing(false);
+    setPreParsedContent('');
     clearError();
     resetProgress();
     setDraft(null);
@@ -242,31 +384,44 @@ export const CoverLetterCreateModal = ({
     resetProgress();
     setFinalizationError(null);
     setJdStreamingMessages([]);
-    setIsParsingJobDescription(true);
 
     try {
-      const record = await jobDescriptionService.parseAndCreate(user.id, jobContent.trim(), {
-        url: null, // URL ingestion hidden for MVP (see TODO in renderJobDescriptionTab)
-        onProgress: (message) => {
-          setJdStreamingMessages(prev => {
-            const last = prev[prev.length - 1];
-            // Dedupe consecutive identical messages
-            if (last === message) return prev;
-            return [...prev, message];
-          });
-        },
-        onToken: (token, aggregate) => {
-          // Update last message with token preview for live feedback
-          setJdStreamingMessages(prev => {
-            const base = prev.slice(0, -1);
-            const preview = aggregate.slice(-50); // Last 50 chars for preview
-            return [...base, `Parsing… ${preview}${preview.length < aggregate.length ? '…' : ''}`];
-          });
-        },
-      });
+      let record: JobDescriptionRecord;
+      
+      // If we have a pre-parsed JD and the content hasn't changed, reuse it
+      if (preParsedJD && jobContent.trim() === preParsedContent) {
+        console.log('[CoverLetterCreateModal] Reusing pre-parsed JD, skipping parse step');
+        record = preParsedJD;
+        setJdStreamingMessages(['Job description analysis complete (cached).']);
+      } else {
+        // Otherwise, parse the JD with progress feedback
+        setIsParsingJobDescription(true);
+        record = await jobDescriptionService.parseAndCreate(user.id, jobContent.trim(), {
+          url: null, // URL ingestion hidden for MVP (see TODO in renderJobDescriptionTab)
+          onProgress: (message) => {
+            setJdStreamingMessages(prev => {
+              const last = prev[prev.length - 1];
+              // Dedupe consecutive identical messages
+              if (last === message) return prev;
+              return [...prev, message];
+            });
+          },
+          onToken: (token, aggregate) => {
+            // Update last message with token preview for live feedback
+            setJdStreamingMessages(prev => {
+              const base = prev.slice(0, -1);
+              const preview = aggregate.slice(-50); // Last 50 chars for preview
+              return [...base, `Parsing… ${preview}${preview.length < aggregate.length ? '…' : ''}`];
+            });
+          },
+        });
+        setJdStreamingMessages(prev => [...prev, 'Job description analysis complete.']);
+        setIsParsingJobDescription(false);
+      }
+      
       setJobDescriptionRecord(record);
       setJobDescriptionId(record.id);
-      setJdStreamingMessages(prev => [...prev, 'Job description analysis complete.']);
+      
       const { draft: generatedDraft } = await generateDraft({
         templateId: selectedTemplateId,
         jobDescriptionId: record.id,
@@ -435,13 +590,27 @@ export const CoverLetterCreateModal = ({
           </CardHeader>
           <CardContent className="space-y-4">
             {/* TODO: Re-enable job description URL ingestion once MVP supports remote fetching. Tracked in docs/backlog/HIDDEN_FEATURES.md */}
-            <Textarea
-              placeholder="Paste job description here..."
-              rows={16}
-              value={jobContent}
-              onChange={event => setJobContent(event.target.value)}
-              disabled={isBusy}
-            />
+            <div className="relative">
+              <Textarea
+                placeholder="Paste job description here..."
+                rows={16}
+                value={jobContent}
+                onChange={event => setJobContent(event.target.value)}
+                disabled={isBusy}
+              />
+              {isPreParsing && (
+                <div className="absolute top-2 right-2 flex items-center gap-2 text-xs text-muted-foreground bg-background/80 backdrop-blur-sm px-2 py-1 rounded-md border border-muted">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Analyzing...
+                </div>
+              )}
+              {preParsedJD && jobContent.trim() === preParsedContent && !isPreParsing && (
+                <div className="absolute top-2 right-2 flex items-center gap-2 text-xs text-success bg-success/10 backdrop-blur-sm px-2 py-1 rounded-md border border-success/20">
+                  <span className="text-success">✓</span>
+                  Job description analyzed
+                </div>
+              )}
+            </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>{jobContent.trim().length} characters</span>
               <span>Minimum {MIN_JOB_DESCRIPTION_LENGTH} characters required</span>
@@ -501,6 +670,60 @@ export const CoverLetterCreateModal = ({
   };
 
   const renderDraftTab = () => {
+    // Show progressive sections if available (streaming from backend)
+    if (!draft && streamingSections.length > 0 && jobDescriptionRecord) {
+      return (
+        <div className="space-y-6">
+          <Card className="border-primary/20 bg-primary/5">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2 text-primary">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Building your personalized draft
+              </CardTitle>
+              <CardDescription className="text-xs text-muted-foreground">
+                Sections appear as soon as they are assembled so you can start reading right away.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CoverLetterDraftView
+                sections={streamingSections}
+                jobDescription={normalizedJobDescription ?? undefined}
+              />
+            </CardContent>
+          </Card>
+          {renderProgress()}
+        </div>
+      );
+    }
+
+    // Show skeleton while generating (after JD is parsed)
+    if (!draft && isGenerating && jobDescriptionRecord && user) {
+      return (
+        <div className="space-y-6">
+          <Card className="border-muted-foreground/20 bg-muted/10">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                Generating your cover letter...
+              </CardTitle>
+              <CardDescription className="text-xs text-muted-foreground">
+                We're matching your stories to the job requirements and drafting tailored content.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CoverLetterSkeleton
+                company={jobDescriptionRecord.company}
+                role={jobDescriptionRecord.role}
+                userName={user.user_metadata?.full_name || 'Your Name'}
+                userEmail={user.email || ''}
+              />
+            </CardContent>
+          </Card>
+          {renderProgress()}
+        </div>
+      );
+    }
+    
     if (!draft) {
       return (
         <Card className="border-dashed border-muted-foreground/30 bg-muted/20">
@@ -518,6 +741,17 @@ export const CoverLetterCreateModal = ({
             <AlertTitle>Cover letter generation issue</AlertTitle>
             <AlertDescription>
               {generationError ?? jobInputError ?? 'Unable to generate cover letter.'}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* AGENT D: Show metrics loading indicator */}
+        {metricsLoading && (
+          <Alert className="border-primary/20 bg-primary/5">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            <AlertTitle>Calculating match metrics</AlertTitle>
+            <AlertDescription>
+              Analyzing how well your draft matches the job requirements. You can edit sections while this completes.
             </AlertDescription>
           </Alert>
         )}
@@ -558,38 +792,10 @@ export const CoverLetterCreateModal = ({
             <ProgressIndicatorWithTooltips
               metrics={hilMetrics}
               isPostHIL={false}
+              isLoading={metricsLoading} // AGENT D: Pass metrics loading state
               enhancedMatchData={draft.enhancedMatchData}
               goNoGoAnalysis={undefined}
-              jobDescription={jobDescriptionRecord ? {
-                role: jobDescriptionRecord.role,
-                company: jobDescriptionRecord.company,
-                // Normalized fields for UI consumption
-                standardRequirements:
-                  (jobDescriptionRecord as any).standardRequirements
-                  ?? (jobDescriptionRecord as any).standard_requirements
-                  ?? jobDescriptionRecord.analysis?.llm?.standardRequirements
-                  ?? jobDescriptionRecord.structuredData?.standardRequirements
-                  ?? [],
-                preferredRequirements:
-                  (jobDescriptionRecord as any).preferredRequirements
-                  ?? (jobDescriptionRecord as any).preferred_requirements
-                  ?? jobDescriptionRecord.analysis?.llm?.preferredRequirements
-                  ?? jobDescriptionRecord.structuredData?.preferredRequirements
-                  ?? [],
-                salary:
-                  (jobDescriptionRecord as any)?.structuredData?.salary
-                  ?? (jobDescriptionRecord as any)?.structuredData?.compensation
-                  ?? (jobDescriptionRecord as any)?.analysis?.llm?.structuredData?.compensation
-                  ?? undefined,
-                location:
-                  (jobDescriptionRecord as any)?.structuredData?.location
-                  ?? (jobDescriptionRecord as any)?.analysis?.llm?.structuredData?.location
-                  ?? undefined,
-                workType:
-                  (jobDescriptionRecord as any)?.structuredData?.workType
-                  ?? (jobDescriptionRecord as any)?.analysis?.llm?.structuredData?.workType
-                  ?? undefined,
-              } : undefined}
+              jobDescription={normalizedJobDescription ?? undefined}
               onEditGoals={() => setShowGoalsModal(true)}
               onAddStory={(requirement, severity) => {
                 // TODO: Open story creation modal
@@ -652,17 +858,12 @@ export const CoverLetterCreateModal = ({
               description: req.requirement || req.evidence || 'Missing requirement'
             }));
             
-            // Get job requirement tags from JD
-            const jobRequirementTags = jobDescriptionRecord?.structuredData?.standardRequirements?.map(
-              r => r.requirement
-            ) || [];
-
             return (
               <ContentCard
                 key={section.id}
                 title={section.title}
                 content={editedContent}
-                tags={jobRequirementTags}
+                tags={getRequirementTagsForSection(section)}
                 hasGaps={hasGaps}
                 gaps={gapObjects}
                 isGapResolved={!hasGaps}

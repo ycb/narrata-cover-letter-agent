@@ -93,7 +93,8 @@ Respond ONLY with valid JSON following this EXACT schema:
         "requirement": "5+ years PM experience",
         "demonstrated": true,
         "evidence": "Mentioned in experience section",
-        "sectionIds": ["experience"]
+        "sectionIds": ["experience"],
+        "severity": "critical"
       }
     ],
     "preferredRequirementDetails": [
@@ -102,7 +103,8 @@ Respond ONLY with valid JSON following this EXACT schema:
         "requirement": "SQL proficiency",
         "demonstrated": false,
         "evidence": "Not mentioned in draft",
-        "sectionIds": []
+        "sectionIds": [],
+        "severity": "nice-to-have"
       }
     ],
     "coreExperienceDetails": [
@@ -167,10 +169,19 @@ CRITICAL RULES:
    to populate jobValue fields. These were extracted during JD parsing.
    For goals not set by user: set userValue=null, met=false, emptyState="goal-not-set"
 6. For requirement details: "demonstrated" means it's IN THE DRAFT, not just in work history
-7. For experience details: Check work history and stories, reference IDs
-8. For differentiatorAnalysis: Focus on what makes THIS role unique
-9. For CTAs: Provide 3-5 actionable suggestions with clear labels
-10. Return ONLY the JSON object, no markdown, no explanations
+7. For sectionIds: CRITICAL - Populate this field for ALL demonstrated requirements
+   - Use the section slugs from the draft: "introduction", "experience", "closing", "signature"
+   - Match the exact slug name used in the draft sections (check [slug] prefix in draft)
+   - If a requirement is addressed in multiple sections, include ALL relevant slugs in the array
+   - If a requirement is NOT demonstrated (demonstrated: false), leave sectionIds as empty array []
+   - Examples:
+     * "demonstrated": true, "sectionIds": ["introduction"] - requirement only in intro
+     * "demonstrated": true, "sectionIds": ["introduction", "experience"] - requirement in multiple sections
+     * "demonstrated": false, "sectionIds": [] - requirement not addressed
+8. For experience details: Check work history and stories, reference IDs
+9. For differentiatorAnalysis: Focus on what makes THIS role unique
+10. For CTAs: Provide 3-5 actionable suggestions with clear labels
+11. Return ONLY the JSON object, no markdown, no explanations
 `;
 
 export const buildEnhancedMetricsUserPrompt = (payload: {
