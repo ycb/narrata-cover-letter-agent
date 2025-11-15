@@ -42,6 +42,10 @@ interface ProgressIndicatorWithTooltipsProps {
     company?: string;
     location?: string;
     salary?: string;
+    structuredData?: {
+      standardRequirements?: Array<any>;
+      preferredRequirements?: Array<any>;
+    };
   };
   enhancedMatchData?: EnhancedMatchData; // Agent C: detailed match data
   onEditGoals?: () => void; // Callback to open goals modal
@@ -113,6 +117,73 @@ export function ProgressIndicatorWithTooltips({
   const coreExperienceMatches = enhancedMatchData?.coreExperienceDetails || [];
   const preferredExperienceMatches = enhancedMatchData?.preferredExperienceDetails || [];
   
+  // Build requirement lists from JD parse and overlay "demonstrated" from analysis so tooltips never go blank
+  const normalizeReqText = (text?: string) =>
+    (text || '')
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, ' ');
+
+  const analyzedCoreById = new Map(
+    (enhancedMatchData?.coreRequirementDetails || []).map((d: any) => [d.id, d])
+  );
+  const analyzedPrefById = new Map(
+    (enhancedMatchData?.preferredRequirementDetails || []).map((d: any) => [d.id, d])
+  );
+
+  const analyzedCoreByText = new Map(
+    (enhancedMatchData?.coreRequirementDetails || []).map((d: any) => [normalizeReqText(d.requirement), d])
+  );
+  const analyzedPrefByText = new Map(
+    (enhancedMatchData?.preferredRequirementDetails || []).map((d: any) => [normalizeReqText(d.requirement), d])
+  );
+
+  const jdCore = jobDescription?.structuredData?.standardRequirements || [];
+  const jdPref = jobDescription?.structuredData?.preferredRequirements || [];
+
+  const buildReq = (req: any, analyzedById: Map<any, any>, analyzedByText: Map<any, any>) => {
+    const id = req.id || req.requirementId || req.key || normalizeReqText(req.requirement || req.label || req.detail);
+    const requirementText = req.requirement || req.label || req.detail || '';
+    const analyzed =
+      (id && analyzedById.get(id)) ||
+      analyzedByText.get(normalizeReqText(requirementText));
+    return {
+      id: String(id),
+      requirement: requirementText,
+      demonstrated: analyzed?.demonstrated ?? false,
+      evidence: analyzed?.evidence,
+      section: analyzed?.section,
+    };
+  };
+
+  const coreReqList =
+    jdCore.length > 0
+      ? jdCore.map((r: any) => buildReq(r, analyzedCoreById, analyzedCoreByText))
+      : (enhancedMatchData?.coreRequirementDetails || []).map((d: any) => ({
+          id: String(d.id),
+          requirement: d.requirement,
+          demonstrated: !!d.demonstrated,
+          evidence: d.evidence,
+          section: d.section,
+        }));
+
+  const preferredReqList =
+    jdPref.length > 0
+      ? jdPref.map((r: any) => buildReq(r, analyzedPrefById, analyzedPrefByText))
+      : (enhancedMatchData?.preferredRequirementDetails || []).map((d: any) => ({
+          id: String(d.id),
+          requirement: d.requirement,
+          demonstrated: !!d.demonstrated,
+          evidence: d.evidence,
+          section: d.section,
+        }));
+
+  // Compute badge counts directly from the lists to avoid drift
+  const coreMet = coreReqList.filter(r => r.demonstrated).length;
+  const coreTotal = coreReqList.length;
+  const prefMet = preferredReqList.filter(r => r.demonstrated).length;
+  const prefTotal = preferredReqList.length;
+
   // For tooltips that still expect old format, we pass the data directly
   // TODO: Update these tooltips to use the new enhanced data structure
   const coverLetterRating = null; // No longer in enhanced data, use metrics instead
@@ -146,38 +217,38 @@ export function ProgressIndicatorWithTooltips({
 
         {/* Core Requirements - Shows what's addressed in the DRAFT */}
         <RequirementsTooltip
-          title={`Core Reqs: ${metrics.coreRequirementsMet?.met ?? 0}/${metrics.coreRequirementsMet?.total ?? 0}`}
-          requirements={coreReqs}
+          title={`Core Reqs: ${coreMet}/${coreTotal}`}
+          requirements={coreReqList}
           description="Essential requirements addressed in your draft"
           onEnhanceSection={onEnhanceSection}
           onAddMetrics={onAddMetrics}
         >
           <div className="flex flex-col items-center justify-center">
             <div className="text-xs text-muted-foreground mb-2 underline underline-offset-2">CORE REQS</div>
-            <Badge variant="outline" className={getATSScoreColor(metrics.coreRequirementsMet?.total > 0 ? (metrics.coreRequirementsMet.met / metrics.coreRequirementsMet.total) * 100 : 0)}>
-              {metrics.coreRequirementsMet?.met ?? 0}/{metrics.coreRequirementsMet?.total ?? 0}
+            <Badge variant="outline" className={getATSScoreColor(coreTotal > 0 ? (coreMet / coreTotal) * 100 : 0)}>
+              {coreMet}/{coreTotal}
             </Badge>
           </div>
         </RequirementsTooltip>
 
         {/* Preferred Requirements - Shows what's addressed in the DRAFT */}
         <RequirementsTooltip
-          title={`Preferred Reqs: ${metrics.preferredRequirementsMet?.met ?? 0}/${metrics.preferredRequirementsMet?.total ?? 0}`}
-          requirements={preferredReqs}
+          title={`Preferred Reqs: ${prefMet}/${prefTotal}`}
+          requirements={preferredReqList}
           description="Nice-to-have requirements addressed in your draft"
           onEnhanceSection={onEnhanceSection}
           onAddMetrics={onAddMetrics}
         >
           <div className="flex flex-col items-center justify-center">
             <div className="text-xs text-muted-foreground mb-2 underline underline-offset-2">PREFERRED REQS</div>
-            <Badge variant="outline" className={getATSScoreColor(metrics.preferredRequirementsMet?.total > 0 ? (metrics.preferredRequirementsMet.met / metrics.preferredRequirementsMet.total) * 100 : 0)}>
-              {metrics.preferredRequirementsMet?.met ?? 0}/{metrics.preferredRequirementsMet?.total ?? 0}
+            <Badge variant="outline" className={getATSScoreColor(prefTotal > 0 ? (prefMet / prefTotal) * 100 : 0)}>
+              {prefMet}/{prefTotal}
             </Badge>
           </div>
         </RequirementsTooltip>
 
         {/* Cover Letter Rating */}
-        <CoverLetterRatingTooltip ratingResult={coverLetterRating}>
+        <CoverLetterRatingTooltip>
           <div className="flex flex-col items-center justify-center">
             <div className="text-xs text-muted-foreground mb-2 underline underline-offset-2">COVER LETTER RATING</div>
             <Badge variant="outline" className={getRatingColor(metrics.coverLetterRating)}>
@@ -187,7 +258,7 @@ export function ProgressIndicatorWithTooltips({
         </CoverLetterRatingTooltip>
 
         {/* ATS Score */}
-        <ATSScoreTooltip atsAnalysis={atsAnalysis}>
+        <ATSScoreTooltip>
           <div className="flex flex-col items-center justify-center">
             <div className="text-xs text-muted-foreground mb-2 underline underline-offset-2">ATS</div>
             <Badge variant="outline" className={getATSScoreColor(metrics.atsScore ?? 0)}>

@@ -582,6 +582,7 @@ export const CoverLetterCreateModal = ({
               jobDescription={jobDescriptionRecord ? {
                 role: jobDescriptionRecord.role,
                 company: jobDescriptionRecord.company,
+                structuredData: jobDescriptionRecord.structuredData
               } : undefined}
               onEditGoals={() => setShowGoalsModal(true)}
               onAddStory={(requirement, severity) => {
