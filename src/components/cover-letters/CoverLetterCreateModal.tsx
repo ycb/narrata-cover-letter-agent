@@ -586,7 +586,15 @@ export const CoverLetterCreateModal = ({
                 // Provide multiple potential locations for requirement arrays to ensure UI has JD lists
                 standardRequirements: (jobDescriptionRecord as any).standardRequirements ?? (jobDescriptionRecord as any).standard_requirements ?? jobDescriptionRecord.analysis?.llm?.standardRequirements,
                 preferredRequirements: (jobDescriptionRecord as any).preferredRequirements ?? (jobDescriptionRecord as any).preferred_requirements ?? jobDescriptionRecord.analysis?.llm?.preferredRequirements,
-                analysis: (jobDescriptionRecord as any).analysis
+                analysis: (jobDescriptionRecord as any).analysis,
+                // Map core JD metadata used by GoalsMatchService
+                salary: (jobDescriptionRecord as any)?.structuredData?.salary
+                  ?? (jobDescriptionRecord as any)?.structuredData?.compensation
+                  ?? (jobDescriptionRecord as any)?.analysis?.llm?.structuredData?.compensation
+                  ?? undefined,
+                location: (jobDescriptionRecord as any)?.structuredData?.location
+                  ?? (jobDescriptionRecord as any)?.analysis?.llm?.structuredData?.location
+                  ?? undefined,
               } : undefined}
               onEditGoals={() => setShowGoalsModal(true)}
               onAddStory={(requirement, severity) => {

@@ -11,6 +11,7 @@ import { UserGoalsModal } from '@/components/user-goals/UserGoalsModal';
 import { useUserGoals } from '@/contexts/UserGoalsContext';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/lib/supabase';
 
 interface CoverLetterEditModalProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
   const [mainTabValue, setMainTabValue] = useState<'cover-letter' | 'job-description'>('cover-letter');
   const [isSaving, setIsSaving] = useState(false);
   const [showGoalsModal, setShowGoalsModal] = useState(false);
+  const [jobDescriptionRecord, setJobDescriptionRecord] = useState<any | null>(null);
 
   // Initialize edited content when cover letter changes
   useEffect(() => {
@@ -42,6 +44,24 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
       });
     }
   }, [coverLetter]);
+
+  // Fetch parsed job description for this draft so match bar gets canonical fields
+  useEffect(() => {
+    const loadJD = async () => {
+      const jdId = coverLetter?.jobDescriptionId;
+      if (!jdId) {
+        setJobDescriptionRecord(null);
+        return;
+      }
+      const { data } = await supabase
+        .from('job_descriptions' as any)
+        .select('id, company, role, structured_data, analysis, standard_requirements, preferred_requirements')
+        .eq('id', jdId)
+        .maybeSingle();
+      setJobDescriptionRecord(data || null);
+    };
+    loadJD();
+  }, [coverLetter?.jobDescriptionId]);
 
   if (!coverLetter || !editedContent) return null;
 
@@ -156,7 +176,7 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
                     />
                   </div>
                   <Button 
-                    variant="outline"
+                    variant="secondary"
                     className="w-full flex items-center gap-2"
                     size="lg"
                   >
@@ -175,7 +195,24 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
                 hilProgressMetrics={editedContent.llmFeedback?.metrics || null}
                 enhancedMatchData={editedContent.enhancedMatchData || null}
                 goNoGoAnalysis={editedContent.llmFeedback?.goNoGoAnalysis || null}
-                jobDescription={editedContent.jobDescription || null}
+                jobDescription={jobDescriptionRecord ? {
+                  id: jobDescriptionRecord.id,
+                  role: jobDescriptionRecord.role,
+                  company: jobDescriptionRecord.company,
+                  structuredData: jobDescriptionRecord.structured_data,
+                  // Provide multiple potential locations for requirement arrays to ensure UI has JD lists
+                  standardRequirements: (jobDescriptionRecord as any).standard_requirements ?? (jobDescriptionRecord as any).standardRequirements ?? jobDescriptionRecord.analysis?.llm?.standardRequirements,
+                  preferredRequirements: (jobDescriptionRecord as any).preferred_requirements ?? (jobDescriptionRecord as any).preferredRequirements ?? jobDescriptionRecord.analysis?.llm?.preferredRequirements,
+                  analysis: jobDescriptionRecord.analysis,
+                  // Map core JD metadata used by GoalsMatchService
+                  salary: (jobDescriptionRecord as any)?.structured_data?.salary
+                    ?? (jobDescriptionRecord as any)?.structured_data?.compensation
+                    ?? (jobDescriptionRecord as any)?.analysis?.llm?.structuredData?.compensation
+                    ?? undefined,
+                  location: (jobDescriptionRecord as any)?.structured_data?.location
+                    ?? (jobDescriptionRecord as any)?.analysis?.llm?.structuredData?.location
+                    ?? undefined,
+                } : null}
                 onEditGoals={onEditGoals}
                 onAddStory={onAddStory}
                 onEnhanceSection={onEnhanceSection}
@@ -191,7 +228,6 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
                   console.log('Duplicate section:', sectionId);
                   // TODO: Implement duplicate section
                 }}
-                onEditGoals={() => setShowGoalsModal(true)}
               />
 
               {/* Action Buttons */}

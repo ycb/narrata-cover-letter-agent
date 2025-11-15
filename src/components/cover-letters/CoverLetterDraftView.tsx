@@ -40,6 +40,19 @@ interface JobDescription {
   location?: string;
   salary?: string;
   extracted_requirements?: string[];
+  // Optional enhanced shapes to carry parsed JD lists and metadata
+  standardRequirements?: Array<any>;
+  preferredRequirements?: Array<any>;
+  standard_requirements?: Array<any>;
+  preferred_requirements?: Array<any>;
+  structuredData?: {
+    standardRequirements?: Array<any>;
+    preferredRequirements?: Array<any>;
+    location?: string;
+    compensation?: string;
+    salary?: string;
+  };
+  analysis?: any;
 }
 
 interface CoverLetterDraftViewProps {
