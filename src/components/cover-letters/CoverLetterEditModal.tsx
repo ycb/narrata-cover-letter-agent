@@ -128,17 +128,6 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
                 </DialogDescription>
               </div>
             </div>
-            
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="bg-success/10 text-success border-success/20">
-                <Star className="h-3 w-3 mr-1" />
-                ATS Optimized
-              </Badge>
-              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
-                <CheckCircle className="h-3 w-3 mr-1" />
-                AI Enhanced
-              </Badge>
-            </div>
           </div>
         </DialogHeader>
 
