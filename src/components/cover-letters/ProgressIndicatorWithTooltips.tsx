@@ -3,7 +3,6 @@ import { Badge } from '@/components/ui/badge';
 import { CoverLetterRatingTooltip } from './CoverLetterRatingTooltip';
 import { ATSScoreTooltip } from './ATSScoreTooltip';
 import { RequirementsTooltip } from './RequirementsTooltip';
-import { MatchExperienceTooltip } from './MatchExperienceTooltip';
 import { MatchGoalsTooltip } from './MatchGoalsTooltip';
 import { useUserGoals } from '@/contexts/UserGoalsContext';
 import { GoalsMatchService } from '@/services/goalsMatchService';
@@ -42,6 +41,12 @@ interface ProgressIndicatorWithTooltipsProps {
     company?: string;
     location?: string;
     salary?: string;
+    // Allow multiple shapes coming from JD storage
+    standardRequirements?: Array<any>;
+    preferredRequirements?: Array<any>;
+    standard_requirements?: Array<any>;
+    preferred_requirements?: Array<any>;
+    analysis?: any;
     structuredData?: {
       standardRequirements?: Array<any>;
       preferredRequirements?: Array<any>;
@@ -114,8 +119,6 @@ export function ProgressIndicatorWithTooltips({
   }, [goals, jobDescription, enhancedMatchData?.goalMatches, goNoGoAnalysis]);
   const coreReqs = enhancedMatchData?.coreRequirementDetails || [];
   const preferredReqs = enhancedMatchData?.preferredRequirementDetails || [];
-  const coreExperienceMatches = enhancedMatchData?.coreExperienceDetails || [];
-  const preferredExperienceMatches = enhancedMatchData?.preferredExperienceDetails || [];
   
   // Build requirement lists from JD parse and overlay "demonstrated" from analysis so tooltips never go blank
   const normalizeReqText = (text?: string) =>
@@ -138,8 +141,18 @@ export function ProgressIndicatorWithTooltips({
     (enhancedMatchData?.preferredRequirementDetails || []).map((d: any) => [normalizeReqText(d.requirement), d])
   );
 
-  const jdCore = jobDescription?.structuredData?.standardRequirements || [];
-  const jdPref = jobDescription?.structuredData?.preferredRequirements || [];
+  const jdCore =
+    jobDescription?.structuredData?.standardRequirements ||
+    jobDescription?.standardRequirements ||
+    (jobDescription as any)?.standard_requirements ||
+    jobDescription?.analysis?.llm?.standardRequirements ||
+    [];
+  const jdPref =
+    jobDescription?.structuredData?.preferredRequirements ||
+    jobDescription?.preferredRequirements ||
+    (jobDescription as any)?.preferred_requirements ||
+    jobDescription?.analysis?.llm?.preferredRequirements ||
+    [];
 
   const buildReq = (req: any, analyzedById: Map<any, any>, analyzedByText: Map<any, any>) => {
     const id = req.id || req.requirementId || req.key || normalizeReqText(req.requirement || req.label || req.detail);
@@ -191,7 +204,7 @@ export function ProgressIndicatorWithTooltips({
 
   return (
     <div className={`w-full bg-card border rounded-lg p-4 ${className}`}>
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-center">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
         {/* Match with Goals */}
         <MatchGoalsTooltip goalMatches={goalMatches} isPostHIL={isPostHIL} onEditGoals={onEditGoals}>
           <div className="flex flex-col items-center justify-center">
@@ -201,19 +214,6 @@ export function ProgressIndicatorWithTooltips({
             </Badge>
           </div>
         </MatchGoalsTooltip>
-
-        {/* Match with Experience - Combined view of all requirements */}
-        <MatchExperienceTooltip 
-          matches={[...coreExperienceMatches, ...preferredExperienceMatches]}
-          onAddStory={onAddStory}
-        >
-          <div className="flex flex-col items-center justify-center">
-            <div className="text-xs text-muted-foreground mb-2 underline underline-offset-2">MATCH WITH EXPERIENCE</div>
-            <Badge variant="outline" className={getRatingColor(metrics.experienceMatch)}>
-              {metrics.experienceMatch || 'N/A'}
-            </Badge>
-          </div>
-        </MatchExperienceTooltip>
 
         {/* Core Requirements - Shows what's addressed in the DRAFT */}
         <RequirementsTooltip

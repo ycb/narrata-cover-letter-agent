@@ -1,7 +1,7 @@
 import React from 'react';
 import { FullWidthTooltip } from '@/components/ui/full-width-tooltip';
 import { Button } from '@/components/ui/button';
-import { Check, X, Wand2, TrendingUp } from 'lucide-react';
+import { Check, X, Wand2, TrendingUp, HelpCircle } from 'lucide-react';
 
 interface Requirement {
   id: string;
@@ -32,7 +32,28 @@ export function RequirementsTooltip({
 }: RequirementsTooltipProps) {
   const content = (
     <div className="space-y-3">
-      {requirements.map((req) => (
+      {requirements.length === 0 ? (
+        <div className="border rounded-lg p-3 bg-muted/10 border-muted/40">
+          <div className="flex items-start gap-2 mb-1.5">
+            <div className="flex-shrink-0 mt-0.5">
+              <HelpCircle className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-sm font-medium text-muted-foreground">
+                {title?.toLowerCase().includes('preferred')
+                  ? 'Preferred requirements: Not specified'
+                  : 'Requirements: Not specified'}
+              </h4>
+            </div>
+          </div>
+          <div className="ml-6 text-xs">
+            <div>
+              <span className="font-medium text-foreground/90">This job:</span>{' '}
+              <span className="text-foreground/80">Unknown</span>
+            </div>
+          </div>
+        </div>
+      ) : requirements.map((req) => (
         <div
           key={req.id}
           className={`border rounded-lg p-3 ${req.demonstrated ? 'bg-success/10 border-success/20' : 'bg-destructive/10 border-destructive/20'}`}
@@ -63,7 +84,7 @@ export function RequirementsTooltip({
                 {onEnhanceSection && req.section && (
                   <Button 
                     size="sm" 
-                    variant="outline"
+                    variant="secondary"
                     className="h-7 text-xs"
                     onClick={() => onEnhanceSection(req.section!, req.requirement)}
                   >
@@ -74,7 +95,7 @@ export function RequirementsTooltip({
                 {onAddMetrics && req.section && (
                   <Button 
                     size="sm" 
-                    variant="outline"
+                    variant="secondary"
                     className="h-7 text-xs"
                     onClick={() => onAddMetrics(req.section)}
                   >

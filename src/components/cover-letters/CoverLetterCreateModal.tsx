@@ -582,7 +582,11 @@ export const CoverLetterCreateModal = ({
               jobDescription={jobDescriptionRecord ? {
                 role: jobDescriptionRecord.role,
                 company: jobDescriptionRecord.company,
-                structuredData: jobDescriptionRecord.structuredData
+                structuredData: jobDescriptionRecord.structuredData,
+                // Provide multiple potential locations for requirement arrays to ensure UI has JD lists
+                standardRequirements: (jobDescriptionRecord as any).standardRequirements ?? (jobDescriptionRecord as any).standard_requirements ?? jobDescriptionRecord.analysis?.llm?.standardRequirements,
+                preferredRequirements: (jobDescriptionRecord as any).preferredRequirements ?? (jobDescriptionRecord as any).preferred_requirements ?? jobDescriptionRecord.analysis?.llm?.preferredRequirements,
+                analysis: (jobDescriptionRecord as any).analysis
               } : undefined}
               onEditGoals={() => setShowGoalsModal(true)}
               onAddStory={(requirement, severity) => {
