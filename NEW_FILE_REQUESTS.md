@@ -32,3 +32,23 @@
 
 - `src/components/cover-letters/__tests__/MatchMetricsToolbar.test.tsx`: Checked `src/components/cover-letters/__tests__` for coverage of match metric UIs (`Match`, `MetricsToolbar`) and only saw modal/finalization tests. Need a dedicated test to verify toolbar interactions and drawer content rendering.
 
+- `src/components/cover-letters/MatchMetricsToolbar.tsx`: Reviewed `src/components/cover-letters` and `src/components/ui` for horizontal toolbar + expandable drawer implementations (`Toolbar`, `MetricsPanel`, `Drawer`) and only found vertical tooltip-based UX. New component required to display metrics in a left toolbar with content drawers, replacing tooltip overlays for better accessibility and discoverability.
+
+- `src/components/cover-letters/useMatchMetricsDetails.ts`: Checked `src/hooks` and `src/components/cover-letters` for shared logic to compute metric summaries and display data (`useMetrics`, `useMatchSummary`) and found logic duplicated across `ProgressIndicatorWithTooltips` and tooltip components. New hook required to centralize data transformation for goals, requirements, ratings, and ATS scores with consistent typing.
+
+- `src/pages/MatchMetricsPreview.tsx`: Searched `src/pages` for preview/demo pages (`Preview`, `MetricsDemo`, `ComponentShowcase`) and found only `TooltipDemo` and `HILDemo`. New preview page required to showcase the toolbar + drawer UX with mock data, toggles for loading/post-HIL states, and interactive demonstrations for design validation before replacing existing tooltip-based match component.
+
+- `src/lib/coverLetters/sectionGapHeuristics.ts`: Reviewed `src/lib`, `src/services`, and `src/utils` for deterministic gap detection logic (`gapHeuristics`, `sectionAnalysis`, `fallbackEvaluation`) and found only LLM-based analysis in `coverLetterDraftService` and `gapTransformService`. New heuristic engine required as fallback using regex/NLP-lite checks for metrics, keywords, and structural elements in introduction/experience/closing sections, with severity scoring and batch evaluation support.
+
+- `src/lib/coverLetters/__tests__/sectionGapHeuristics.test.ts`: Checked `src/lib/__tests__` and `src/services/__tests__` for coverage of section gap analysis and found none targeting deterministic heuristics. Need comprehensive Jest tests covering hit/miss scenarios for each section type.
+
+- `tests/fixtures/mockSectionGapInsights.json`: Reviewed `tests/fixtures` and `src/lib/mockData` for gap insight fixtures and found none. Created comprehensive fixture with example LLM responses for introduction, experience, closing, and signature sections covering various gap scenarios (missing metrics, weak alignment, vague language, etc.) for use in UI component tests and Storybook stories.
+
+- `cypress/e2e/coverLetterGapFlow.cy.ts` or `tests/e2e/coverLetterGapFlow.spec.ts`: Checked `cypress/e2e` and `tests/e2e` directories for cover letter gap banner tests and found only basic creation flow tests. Need E2E scenario covering: (1) generate draft, (2) wait for metrics, (3) verify gap banners appear, (4) edit section, (5) verify heuristic update, (6) trigger refresh, (7) verify LLM insights replace heuristics. Placeholder test scenario provided in QA_DOCUMENTATION_PLAN.md.
+
+- `QA_DOCUMENTATION_PLAN.md`: Created comprehensive QA plan covering test matrix (happy path, fallback mode, edit flow, edge cases), regression checklist (tags, CTA, export), documentation updates to TAG_IMPROVEMENT_PLAN.md, and tooling (mock fixtures, E2E tests). Provides complete testing strategy for sectionGapInsights feature with expected UI states, data contracts, and flow diagrams.
+
+- `src/lib/jobDescriptionCleaning.ts`: Reviewed `src/lib`, `src/services`, and `src/utils` for job description preprocessing or cleaning utilities (`jdCleaning`, `textCleaning`, `jobPostingNormalization`) and found only parsing/analysis in `jobDescriptionService.ts`. New Phase 1 cleaning service required to remove high-confidence UI noise (navigation, metadata, job board chrome) from raw job postings before LLM parsing, with platform-specific pattern matching (LinkedIn, Indeed, Levels, etc.), confidence scoring, and removal logging for analytics.
+
+- `src/lib/__tests__/jobDescriptionCleaning.test.ts`: Checked `src/lib/__tests__` for coverage of text cleaning and found none. Created comprehensive test suite with 34 test cases covering: basic functionality, exact/startsWith/regex pattern matching, platform-specific cleaning (all 8 platforms), confidence calculation, edge cases (unicode, whitespace, long lines), and real-world job posting scenarios.
+

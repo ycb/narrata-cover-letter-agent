@@ -100,7 +100,8 @@ describe('MatchMetricsToolbar', () => {
     fireEvent.click(screen.getByRole('button', { name: /ATS/i }));
 
     expect(screen.getByText(/ATS Score/i)).toBeInTheDocument();
-    expect(screen.getByText(/82%/i)).toBeInTheDocument();
+    const scoreDisplays = screen.getAllByText(/82%/i);
+    expect(scoreDisplays.length).toBeGreaterThan(0);
   });
 });
 

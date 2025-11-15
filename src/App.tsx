@@ -41,6 +41,7 @@ import NewUserDashboard from "./pages/NewUserDashboard";
 
 import { HILDemo } from "./pages/HILDemo";
 import TooltipDemo from "./pages/TooltipDemo";
+import MatchMetricsPreview from "./pages/MatchMetricsPreview";
 import ShowAllStories from "./pages/ShowAllStories";
 import ShowAllLinks from "./pages/ShowAllLinks";
 import SavedSections from "./pages/SavedSections";
@@ -53,6 +54,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import LinkedInCallback from "./pages/LinkedInCallback";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
+import JobCleaningTest from "./pages/JobCleaningTest";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -168,6 +170,12 @@ function AppLayout() {
             <TooltipDemo />
           </ProtectedRoute>
         } />
+        <Route path="/match-metrics-preview" element={
+          <ProtectedRoute>
+            <Header />
+            <MatchMetricsPreview />
+          </ProtectedRoute>
+        } />
         <Route path="/show-all-stories" element={
           <ProtectedRoute>
             <Header />
@@ -214,6 +222,12 @@ function AppLayout() {
           <ProtectedRoute>
             <Header />
             <EvaluationDashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/dev/job-cleaning" element={
+          <ProtectedRoute>
+            <Header />
+            <JobCleaningTest />
           </ProtectedRoute>
         } />
         <Route path="/signup" element={<ProtectedRoute requireAuth={false}><SignUp /></ProtectedRoute>} />
