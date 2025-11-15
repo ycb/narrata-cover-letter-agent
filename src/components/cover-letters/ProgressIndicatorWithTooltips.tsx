@@ -4,32 +4,15 @@ import { CoverLetterRatingTooltip } from './CoverLetterRatingTooltip';
 import { ATSScoreTooltip } from './ATSScoreTooltip';
 import { RequirementsTooltip } from './RequirementsTooltip';
 import { MatchGoalsTooltip } from './MatchGoalsTooltip';
-import { useUserGoals } from '@/contexts/UserGoalsContext';
-import { GoalsMatchService } from '@/services/goalsMatchService';
-import { useMemo } from 'react';
 import type { EnhancedMatchData } from '@/types/coverLetters';
-
-interface HILProgressMetrics {
-  goalsMatch: string;
-  experienceMatch: string;
-  coverLetterRating: string;
-  atsScore: number;
-  coreRequirementsMet: { met: number; total: number };
-  preferredRequirementsMet: { met: number; total: number };
-}
-
-interface GoNoGoMismatch {
-  type: 'geography' | 'pay' | 'core-requirements' | 'work-history';
-  severity: 'high' | 'medium' | 'low';
-  description: string;
-  userOverride?: boolean;
-}
-
-interface GoNoGoAnalysis {
-  decision: 'go' | 'no-go';
-  confidence: number;
-  mismatches: GoNoGoMismatch[];
-}
+import {
+  getATSScoreColor,
+  getRatingColor,
+  useMatchMetricsDetails,
+  type GoNoGoAnalysis,
+  type HILProgressMetrics,
+  type MatchJobDescription,
+} from './useMatchMetricsDetails';
 
 interface ProgressIndicatorWithTooltipsProps {
   metrics: HILProgressMetrics;
@@ -37,23 +20,7 @@ interface ProgressIndicatorWithTooltipsProps {
   isPostHIL?: boolean;
   isLoading?: boolean; // AGENT D: Show loading state during background metrics calculation
   goNoGoAnalysis?: GoNoGoAnalysis;
-  jobDescription?: {
-    role?: string;
-    company?: string;
-    location?: string;
-    salary?: string;
-    workType?: string;
-    // Allow multiple shapes coming from JD storage
-    standardRequirements?: Array<any>;
-    preferredRequirements?: Array<any>;
-    standard_requirements?: Array<any>;
-    preferred_requirements?: Array<any>;
-    analysis?: any;
-    structuredData?: {
-      standardRequirements?: Array<any>;
-      preferredRequirements?: Array<any>;
-    };
-  };
+  jobDescription?: MatchJobDescription;
   enhancedMatchData?: EnhancedMatchData; // Agent C: detailed match data
   onEditGoals?: () => void; // Callback to open goals modal
   onAddStory?: (requirement?: string, severity?: string) => void; // Agent C: add story CTA
@@ -74,125 +41,22 @@ export function ProgressIndicatorWithTooltips({
   onEnhanceSection,
   onAddMetrics
 }: ProgressIndicatorWithTooltipsProps) {
-  // Get current goals from context
-  const { goals } = useUserGoals();
+  const {
+    goalMatches,
+    goalsSummary,
+    coreRequirements,
+    preferredRequirements,
+  } = useMatchMetricsDetails({
+    jobDescription,
+    enhancedMatchData,
+    goNoGoAnalysis,
+  });
 
-  const getRatingColor = (rating: string | undefined) => {
-    if (!rating) return 'bg-muted/10 text-muted-foreground border-muted/20';
-    switch (rating.toLowerCase()) {
-      case 'strong': return 'bg-success/10 text-success border-success/20';
-      case 'average': return 'bg-warning/10 text-warning border-warning/20';
-      case 'weak': return 'bg-destructive/10 text-destructive border-destructive/20';
-      default: return 'bg-muted/10 text-muted-foreground border-muted/20';
-    }
-  };
-
-  const getATSScoreColor = (score: number) => {
-    if (score >= 80) return 'bg-success/10 text-success border-success/20';
-    if (score >= 60) return 'bg-warning/10 text-warning border-warning/20';
-    return 'bg-destructive/10 text-destructive border-destructive/20';
-  };
-
-  // Agent C: Recalculate goal matches using current goals from context
-  // This ensures the tooltip shows up-to-date information even if goals changed after draft creation
-  const goalMatches = useMemo(() => {
-    if (!jobDescription) {
-      // Fallback to cached data if no job description available
-      return enhancedMatchData?.goalMatches || [];
-    }
-
-    // Recalculate using current goals from context
-    const goalsMatchService = new GoalsMatchService();
-    const freshAnalysis = goalsMatchService.analyzeGoalsMatch(
-      goals || null,
-      jobDescription,
-      goNoGoAnalysis
-    );
-
-    return freshAnalysis.matches;
-  }, [goals, jobDescription, enhancedMatchData?.goalMatches, goNoGoAnalysis]);
-  const coreReqs = enhancedMatchData?.coreRequirementDetails || [];
-  const preferredReqs = enhancedMatchData?.preferredRequirementDetails || [];
-  
-  // Build requirement lists from JD parse and overlay "demonstrated" from analysis so tooltips never go blank
-  const normalizeReqText = (text?: string) =>
-    (text || '')
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, ' ');
-
-  const analyzedCoreById = new Map(
-    (enhancedMatchData?.coreRequirementDetails || []).map((d: any) => [d.id, d])
-  );
-  const analyzedPrefById = new Map(
-    (enhancedMatchData?.preferredRequirementDetails || []).map((d: any) => [d.id, d])
-  );
-
-  const analyzedCoreByText = new Map(
-    (enhancedMatchData?.coreRequirementDetails || []).map((d: any) => [normalizeReqText(d.requirement), d])
-  );
-  const analyzedPrefByText = new Map(
-    (enhancedMatchData?.preferredRequirementDetails || []).map((d: any) => [normalizeReqText(d.requirement), d])
-  );
-
-  const jdCore =
-    jobDescription?.structuredData?.standardRequirements ||
-    jobDescription?.standardRequirements ||
-    (jobDescription as any)?.standard_requirements ||
-    jobDescription?.analysis?.llm?.standardRequirements ||
-    [];
-  const jdPref =
-    jobDescription?.structuredData?.preferredRequirements ||
-    jobDescription?.preferredRequirements ||
-    (jobDescription as any)?.preferred_requirements ||
-    jobDescription?.analysis?.llm?.preferredRequirements ||
-    [];
-
-  const buildReq = (req: any, analyzedById: Map<any, any>, analyzedByText: Map<any, any>) => {
-    const id = req.id || req.requirementId || req.key || normalizeReqText(req.requirement || req.label || req.detail);
-    const requirementText = req.requirement || req.label || req.detail || '';
-    const analyzed =
-      (id && analyzedById.get(id)) ||
-      analyzedByText.get(normalizeReqText(requirementText));
-    return {
-      id: String(id),
-      requirement: requirementText,
-      demonstrated: analyzed?.demonstrated ?? false,
-      evidence: analyzed?.evidence,
-      section: analyzed?.section,
-    };
-  };
-
-  const coreReqList =
-    jdCore.length > 0
-      ? jdCore.map((r: any) => buildReq(r, analyzedCoreById, analyzedCoreByText))
-      : (enhancedMatchData?.coreRequirementDetails || []).map((d: any) => ({
-          id: String(d.id),
-          requirement: d.requirement,
-          demonstrated: !!d.demonstrated,
-          evidence: d.evidence,
-          section: d.section,
-        }));
-
-  const preferredReqList =
-    jdPref.length > 0
-      ? jdPref.map((r: any) => buildReq(r, analyzedPrefById, analyzedPrefByText))
-      : (enhancedMatchData?.preferredRequirementDetails || []).map((d: any) => ({
-          id: String(d.id),
-          requirement: d.requirement,
-          demonstrated: !!d.demonstrated,
-          evidence: d.evidence,
-          section: d.section,
-        }));
-
-  // Compute badge counts directly from the lists to avoid drift
-  const coreMet = coreReqList.filter(r => r.demonstrated).length;
-  const coreTotal = coreReqList.length;
-  const prefMet = preferredReqList.filter(r => r.demonstrated).length;
-  const prefTotal = preferredReqList.length;
-
-  const goalsMetCount = goalMatches.filter(g => g.met).length;
-  const totalGoals = goalMatches.length || 7;
+  const coreReqList = coreRequirements.list;
+  const preferredReqList = preferredRequirements.list;
+  const { met: coreMet, total: coreTotal } = coreRequirements.summary;
+  const { met: prefMet, total: prefTotal } = preferredRequirements.summary;
+  const { met: goalsMetCount, total: totalGoals } = goalsSummary;
 
   const renderBadge = (value: string, className: string) => {
     if (isLoading) {

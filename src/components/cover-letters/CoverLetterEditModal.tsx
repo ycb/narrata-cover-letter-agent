@@ -146,7 +146,7 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
             </TabsList>
 
             {/* Job Description Tab - Shows full JD with Re-Generate button */}
-            <TabsContent value="job-description" className="space-y-6 flex-1 overflow-y-auto">
+            <TabsContent value="job-description" className="space-y-6 flex-1">
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Job Description</CardTitle>
@@ -177,7 +177,7 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
             </TabsContent>
 
             {/* Cover Letter Tab - Shows draft with content cards */}
-            <TabsContent value="cover-letter" className="space-y-6 flex-1 overflow-y-auto">
+            <TabsContent value="cover-letter" className="space-y-6 flex-1">
               {/* Use shared CoverLetterDraftView component */}
               <CoverLetterDraftView
                 sections={editedContent.content?.sections || []}

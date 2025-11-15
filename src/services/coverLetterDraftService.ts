@@ -23,7 +23,7 @@ import type {
 import type { CoverLetterSection } from '@/types/workHistory';
 import { UserPreferencesService } from './userPreferencesService';
 import { JobDescriptionService } from './jobDescriptionService';
-import { ENHANCED_METRICS_SYSTEM_PROMPT, buildEnhancedMetricsUserPrompt } from '@/prompts/enhancedMetricsAnalysis';
+import { ENHANCED_METRICS_SYSTEM_PROMPT, SECTION_GUIDANCE, buildEnhancedMetricsUserPrompt } from '@/prompts/enhancedMetricsAnalysis';
 
 type SupabaseClient = typeof supabase;
 
@@ -104,7 +104,8 @@ const createDefaultMetricsStreamer = (): MetricsStreamer => {
         slug: section.slug,
         title: section.title,
         content: section.content,
-        requirementsMatched: section.metadata.requirementsMatched,
+        requirementsMatched: section.metadata?.requirementsMatched ?? [],
+        sectionType: section.slug,
       })),
       jobDescription: {
         company: jobDescription.company,
@@ -118,6 +119,7 @@ const createDefaultMetricsStreamer = (): MetricsStreamer => {
       userGoals,
       workHistory,
       approvedContent,
+      sectionGuidance: SECTION_GUIDANCE,
     };
 
     // Calculate optimal tokens based on draft content and complexity

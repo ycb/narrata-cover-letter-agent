@@ -251,8 +251,9 @@ CRITICAL RULES:
      * "demonstrated": false, "sectionIds": [] - requirement not addressed
 8. For experience details: Check work history and stories, reference IDs
 9. For differentiatorAnalysis: Focus on what makes THIS role unique
-10. For CTAs: Provide 3-5 actionable suggestions with clear labels
-11. Return ONLY the JSON object, no markdown, no explanations
+10. For sectionGapInsights: Return one entry per section (in draft order). Tie every recommendation to BOTH the rubric expectations and JD requirements.
+11. For CTAs: Provide 3-5 actionable suggestions with clear labels
+12. Return ONLY the JSON object, no markdown, no explanations
 `;
 
 export const buildEnhancedMetricsUserPrompt = (payload: {
@@ -262,6 +263,7 @@ export const buildEnhancedMetricsUserPrompt = (payload: {
     title: string;
     content: string;
     requirementsMatched: string[];
+    sectionType?: string;
   }>;
   jobDescription: {
     company: string;
@@ -285,7 +287,9 @@ export const buildEnhancedMetricsUserPrompt = (payload: {
     title: string;
     content: string;
   }>;
+  sectionGuidance?: typeof SECTION_GUIDANCE;
 }): string => {
+  const guidanceMap = payload.sectionGuidance ?? SECTION_GUIDANCE;
   const workHistorySection = payload.workHistory && payload.workHistory.length > 0
     ? `\n\n=== USER'S WORK HISTORY ===
 ${payload.workHistory.map(w => `[${w.id}] ${w.title} at ${w.company}
@@ -324,6 +328,21 @@ ${storiesSection}
 ${payload.sections.map(s => `[${s.slug}] ${s.title}
 ${s.content}
 Requirements Matched: ${s.requirementsMatched.join(', ') || 'None'}`).join('\n\n')}
+
+=== SECTION RUBRIC & EXPECTATIONS ===
+${payload.sections.map(section => {
+  const normalizedType =
+    (section.sectionType as keyof typeof guidanceMap) ??
+    ((section.slug as keyof typeof guidanceMap) in guidanceMap
+      ? (section.slug as keyof typeof guidanceMap)
+      : 'experience');
+  const guidance = guidanceMap[normalizedType] ?? guidanceMap.experience;
+  return `[${section.slug}] ${guidance.title}
+Summary: ${guidance.summary}
+Expectations:
+- ${guidance.expectations.join('\n- ')}
+`;
+}).join('\n')}
 
 Analyze this cover letter draft comprehensively and return the structured JSON response.`;
 };
