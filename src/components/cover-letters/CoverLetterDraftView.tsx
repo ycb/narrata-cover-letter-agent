@@ -170,9 +170,10 @@ export function CoverLetterDraftView({
         // For now, show all gaps on all sections (we can refine to per-section later)
         // This matches the UX where gaps are about the overall draft, not individual sections
         const hasGaps = allGaps.length > 0;
-        const gapDescriptions = allGaps.map((req: any) => 
-          req.requirement || req.evidence || 'Missing requirement'
-        );
+        const gapObjects = allGaps.map((req: any, index: number) => ({
+          id: req.id || `gap-${index}`,
+          description: req.requirement || req.evidence || 'Missing requirement'
+        }));
 
         return (
           <ContentCard
@@ -181,8 +182,9 @@ export function CoverLetterDraftView({
             content={isEditable ? undefined : section.content} // Don't show content if editable (textarea will display it)
             tags={requirements}
             hasGaps={hasGaps}
-            gaps={gapDescriptions}
+            gaps={gapObjects}
             isGapResolved={false}
+            onGenerateContent={onAddStory ? () => onAddStory() : undefined} // Hook up to HIL story creation
             onEdit={onSectionChange ? () => {} : undefined} // Will be handled by Textarea
             onDuplicate={onSectionDuplicate ? () => onSectionDuplicate(section.id) : undefined}
             onDelete={onSectionDelete ? () => onSectionDelete(section.id) : undefined}
