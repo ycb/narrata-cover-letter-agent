@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { CoverLetterDraftService } from '@/services/coverLetterDraftService';
+import { evaluateSectionGap } from '@/services/sectionGapEvaluator';
 import type {
   CoverLetterDraft,
   CoverLetterDraftSection,
@@ -7,6 +8,7 @@ import type {
   DraftGenerationProgressUpdate,
   DraftWorkpad,
   ParsedJobDescription,
+  SectionGapInsight,
 } from '@/types/coverLetters';
 
 interface DraftState {
@@ -19,6 +21,8 @@ interface DraftState {
   isMutating: boolean;
   isFinalizing: boolean;
   error: string | null;
+  pendingSectionInsights: Record<string, SectionGapInsight>; // AGENT D: Heuristic insights pending LLM refresh
+  sectionInsightsRefreshing: Set<string>; // AGENT D: Track which sections are being refreshed
 }
 
 export interface UseCoverLetterDraftOptions {
@@ -60,9 +64,12 @@ export interface UseCoverLetterDraftReturn {
   error: string | null;
   templateId: string | null;
   jobDescriptionId: string | null;
+  pendingSectionInsights: Record<string, SectionGapInsight>; // AGENT D: Heuristic insights
+  sectionInsightsRefreshing: Set<string>; // AGENT D: Sections being refreshed
   generateDraft: (args?: GenerateDraftArgs) => Promise<{ draft: CoverLetterDraft; workpad: DraftWorkpad | null }>;
   updateSection: (args: UpdateSectionArgs) => Promise<CoverLetterDraft>;
   recalculateMetrics: (args: RecalculateMetricsArgs) => Promise<CoverLetterMatchMetric[]>;
+  refreshSectionInsights: (sectionId: string) => Promise<void>; // AGENT D: Manual refresh
   finalizeDraft: (args?: { sections?: CoverLetterDraftSection[] }) => Promise<CoverLetterDraft>;
   setDraft: (draft: CoverLetterDraft | null) => void;
   setWorkpad: (workpad: DraftWorkpad | null) => void;
@@ -106,6 +113,8 @@ export const useCoverLetterDraft = (options: UseCoverLetterDraftOptions): UseCov
     isMutating: false,
     isFinalizing: false,
     error: null,
+    pendingSectionInsights: {}, // AGENT D: Initialize pending insights
+    sectionInsightsRefreshing: new Set(), // AGENT D: Initialize refreshing set
   });
 
   const clearError = useCallback(() => {
@@ -323,12 +332,59 @@ export const useCoverLetterDraft = (options: UseCoverLetterDraftOptions): UseCov
       }));
 
       try {
+        // AGENT D: Update draft via service
         const updatedDraft = await service.updateDraftSection(state.draft.id, sectionId, content);
-        setState(prev => ({
-          ...prev,
-          draft: updatedDraft,
-          isMutating: false,
-        }));
+        
+        // AGENT D: Immediately run heuristic gap evaluation for this section
+        const updatedSection = updatedDraft.sections.find(s => s.id === sectionId);
+        if (updatedSection && context.jobDescriptionId) {
+          try {
+            // Fetch JD for heuristic evaluation
+            const jobDescription = await service['fetchJobDescription'](
+              options.userId,
+              context.jobDescriptionId
+            );
+            
+            // Run heuristic evaluation
+            const heuristicInsight = evaluateSectionGap({
+              section: updatedSection,
+              jobDescription,
+              allSections: updatedDraft.sections,
+            });
+            
+            // Store heuristic insight as pending (will be replaced by LLM when available)
+            setState(prev => ({
+              ...prev,
+              draft: updatedDraft,
+              isMutating: false,
+              pendingSectionInsights: {
+                ...prev.pendingSectionInsights,
+                [sectionId]: heuristicInsight,
+              },
+            }));
+            
+            // AGENT D: Trigger background metrics refresh
+            // This will recalculate full metrics + sectionGapInsights via LLM
+            console.log(`[useCoverLetterDraft] Section ${sectionId} updated, triggering background refresh...`);
+            // Note: Background refresh will be implemented in next steps
+          } catch (heuristicError) {
+            console.error('[useCoverLetterDraft] Heuristic gap evaluation failed:', heuristicError);
+            // Still update draft even if heuristic fails
+            setState(prev => ({
+              ...prev,
+              draft: updatedDraft,
+              isMutating: false,
+            }));
+          }
+        } else {
+          // No JD available, just update draft
+          setState(prev => ({
+            ...prev,
+            draft: updatedDraft,
+            isMutating: false,
+          }));
+        }
+        
         return updatedDraft;
       } catch (error) {
         const message =
@@ -341,7 +397,7 @@ export const useCoverLetterDraft = (options: UseCoverLetterDraftOptions): UseCov
         throw error;
       }
     },
-    [service, state.draft],
+    [service, state.draft, context.jobDescriptionId, options.userId],
   );
 
   const recalculateMetrics = useCallback<UseCoverLetterDraftReturn['recalculateMetrics']>(
@@ -453,6 +509,86 @@ export const useCoverLetterDraft = (options: UseCoverLetterDraftOptions): UseCov
     [service, state.draft],
   );
 
+  /**
+   * AGENT D: Refresh section insights (manual trigger from UI)
+   * This allows users to press "Generate Content" or "Refresh" to get
+   * updated LLM-based gap analysis for a specific section.
+   */
+  const refreshSectionInsights = useCallback<UseCoverLetterDraftReturn['refreshSectionInsights']>(
+    async (sectionId: string) => {
+      if (!state.draft || !context.jobDescriptionId) {
+        console.warn('[useCoverLetterDraft] Cannot refresh insights without draft and JD');
+        return;
+      }
+
+      // Mark section as refreshing
+      setState(prev => ({
+        ...prev,
+        sectionInsightsRefreshing: new Set([...prev.sectionInsightsRefreshing, sectionId]),
+      }));
+
+      try {
+        // Trigger full metrics recalculation (includes sectionGapInsights)
+        // This is the same flow as background metrics calculation
+        console.log(`[useCoverLetterDraft] Refreshing insights for section ${sectionId}...`);
+        
+        // For now, just trigger the background metrics calculation
+        // The full implementation will be added when we integrate with MetricsUpdateService
+        await service.calculateMetricsForDraft(
+          state.draft.id,
+          options.userId,
+          context.jobDescriptionId,
+          (phase, message) => {
+            setState(prev => ({
+              ...prev,
+              progress: [
+                ...prev.progress,
+                {
+                  phase: phase as any,
+                  message,
+                  timestamp: Date.now(),
+                },
+              ],
+            }));
+          }
+        );
+
+        // Fetch updated draft with new insights
+        const updatedDraft = await service.getDraft(state.draft.id);
+        if (updatedDraft) {
+          setState(prev => {
+            // Remove pending insight for this section (replaced by LLM insight)
+            const newPendingInsights = { ...prev.pendingSectionInsights };
+            delete newPendingInsights[sectionId];
+            
+            // Remove from refreshing set
+            const newRefreshing = new Set(prev.sectionInsightsRefreshing);
+            newRefreshing.delete(sectionId);
+            
+            return {
+              ...prev,
+              draft: updatedDraft,
+              pendingSectionInsights: newPendingInsights,
+              sectionInsightsRefreshing: newRefreshing,
+            };
+          });
+        }
+      } catch (error) {
+        console.error(`[useCoverLetterDraft] Failed to refresh insights for section ${sectionId}:`, error);
+        // Remove from refreshing set even on error
+        setState(prev => {
+          const newRefreshing = new Set(prev.sectionInsightsRefreshing);
+          newRefreshing.delete(sectionId);
+          return {
+            ...prev,
+            sectionInsightsRefreshing: newRefreshing,
+          };
+        });
+      }
+    },
+    [state.draft, context.jobDescriptionId, service, options.userId],
+  );
+
   return {
     draft: state.draft,
     workpad: state.workpad,
@@ -465,9 +601,12 @@ export const useCoverLetterDraft = (options: UseCoverLetterDraftOptions): UseCov
     error: state.error,
     templateId: context.templateId,
     jobDescriptionId: context.jobDescriptionId,
+    pendingSectionInsights: state.pendingSectionInsights, // AGENT D: Expose pending insights
+    sectionInsightsRefreshing: state.sectionInsightsRefreshing, // AGENT D: Expose refreshing state
     generateDraft,
     updateSection,
     recalculateMetrics,
+    refreshSectionInsights, // AGENT D: Expose manual refresh method
     finalizeDraft,
     setDraft,
     setWorkpad,

@@ -31,7 +31,8 @@ interface ContentCardProps {
   timesUsed?: number;
   lastUsed?: string;
   hasGaps?: boolean;
-  gaps?: Array<{ id: string; description: string }>;
+  gaps?: Array<{ id: string; title?: string; description: string }>; // Agent C: title is optional for structured gaps
+  gapSummary?: string | null; // Agent C: Rubric/prompt summary to show at top of gaps
   isGapResolved?: boolean;
   onGenerateContent?: () => void;
   onDismissGap?: () => void; // Callback for gap dismissal
@@ -66,6 +67,7 @@ export const ContentCard = ({
   lastUsed,
   hasGaps = false,
   gaps = [],
+  gapSummary = null,
   isGapResolved = false,
   onGenerateContent,
   onEdit,
@@ -240,9 +242,10 @@ export const ContentCard = ({
         {!renderChildrenBeforeTags && children}
 
         {/* Gap Banner - Inside card at bottom */}
-        {hasGaps && !isGapResolved && gaps.length > 0 && onGenerateContent && (
+        {hasGaps && !isGapResolved && gaps.length > 0 && (
           <ContentGapBanner
             gaps={gaps}
+            gapSummary={gapSummary}
             onGenerateContent={onGenerateContent}
             onDismiss={onDismissGap}
             isResolved={isGapResolved}

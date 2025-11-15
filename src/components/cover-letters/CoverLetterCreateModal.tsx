@@ -844,19 +844,70 @@ export const CoverLetterCreateModal = ({
             const isDirty = editedContent !== section.content;
             const isSaving = !!savingSections[section.id];
             
-            // Extract gaps from enhancedMatchData (same pattern as CoverLetterDraftView)
-            const unmetCoreReqs = draft.enhancedMatchData?.coreRequirementDetails?.filter(
-              (req: any) => !req.demonstrated
-            ) || [];
-            const unmetPreferredReqs = draft.enhancedMatchData?.preferredRequirementDetails?.filter(
-              (req: any) => !req.demonstrated
-            ) || [];
-            const allGaps = [...unmetCoreReqs, ...unmetPreferredReqs];
-            const hasGaps = allGaps.length > 0;
-            const gapObjects = allGaps.map((req: any, index: number) => ({
-              id: req.id || `gap-${index}`,
-              description: req.requirement || req.evidence || 'Missing requirement'
-            }));
+            // Agent C: Get section-specific gap insights (same helper as CoverLetterDraftView)
+            const getSectionGapInsights = (sectionSlug: string) => {
+              // Normalize section slug to match sectionGapInsights
+              const normalizeSlug = (slug: string) => {
+                const aliases: Record<string, string[]> = {
+                  'introduction': ['introduction', 'intro', 'opening'],
+                  'experience': ['experience', 'exp', 'background', 'body'],
+                  'closing': ['closing', 'conclusion', 'signature'],
+                  'signature': ['signature', 'closing', 'signoff'],
+                };
+                
+                const lowerSlug = slug.toLowerCase();
+                for (const [canonical, variations] of Object.entries(aliases)) {
+                  if (variations.includes(lowerSlug)) {
+                    return variations;
+                  }
+                }
+                return [lowerSlug];
+              };
+              
+              // If no sectionGapInsights, fallback to old heuristic
+              if (!draft.enhancedMatchData?.sectionGapInsights) {
+                const unmetCoreReqs = draft.enhancedMatchData?.coreRequirementDetails?.filter(
+                  (req: any) => !req.demonstrated
+                ) || [];
+                const unmetPreferredReqs = draft.enhancedMatchData?.preferredRequirementDetails?.filter(
+                  (req: any) => !req.demonstrated
+                ) || [];
+                const allGaps = [...unmetCoreReqs, ...unmetPreferredReqs];
+                
+                return {
+                  promptSummary: null,
+                  gaps: allGaps.map((req: any, index: number) => ({
+                    id: req.id || `gap-${index}`,
+                    title: req.requirement || 'Missing requirement',
+                    description: req.evidence || 'Not addressed in draft',
+                  })),
+                };
+              }
+              
+              // New behavior: use sectionGapInsights
+              const normalizedSlugs = normalizeSlug(sectionSlug);
+              const sectionInsight = draft.enhancedMatchData.sectionGapInsights.find(
+                insight => normalizedSlugs.includes(insight.sectionSlug.toLowerCase())
+              );
+              
+              if (!sectionInsight) {
+                return { promptSummary: null, gaps: [] };
+              }
+              
+              const gaps = sectionInsight.requirementGaps.map(gap => ({
+                id: gap.id,
+                title: gap.label,
+                description: `${gap.rationale} ${gap.recommendation}`,
+              }));
+              
+              return {
+                promptSummary: sectionInsight.promptSummary,
+                gaps,
+              };
+            };
+            
+            const { promptSummary, gaps: gapObjects } = getSectionGapInsights(section.slug);
+            const hasGaps = gapObjects.length > 0;
             
             return (
               <ContentCard
@@ -866,6 +917,7 @@ export const CoverLetterCreateModal = ({
                 tags={getRequirementTagsForSection(section)}
                 hasGaps={hasGaps}
                 gaps={gapObjects}
+                gapSummary={promptSummary} // Agent C: Pass rubric summary for section guidance
                 isGapResolved={!hasGaps}
                 onGenerateContent={hasGaps ? () => {
                   // Open HIL workflow with first gap

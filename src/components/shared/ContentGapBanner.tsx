@@ -7,8 +7,9 @@ import { cn } from "@/lib/utils";
 interface ContentGapBannerProps {
   title?: string;
   description?: string; // Single description (backward compat)
-  gaps?: Array<{ id: string; description: string }>; // Multiple gaps (list)
-  onGenerateContent: () => void;
+  gaps?: Array<{ id: string; title?: string; description: string }>; // Agent C: title is optional for structured gaps
+  gapSummary?: string | null; // Agent C: Rubric/prompt summary shown at top
+  onGenerateContent?: () => void; // Agent C: Make optional to support display-only mode
   onDismiss?: (gapId?: string) => void; // Callback for manual dismissal (optionally pass gapId)
   isResolved?: boolean;
 }
@@ -17,6 +18,7 @@ export const ContentGapBanner = ({
   title,
   description,
   gaps,
+  gapSummary = null,
   onGenerateContent,
   onDismiss,
   isResolved = false
@@ -79,26 +81,56 @@ export const ContentGapBanner = ({
             </TooltipProvider>
           )}
         </div>
+        
+        {/* Agent C: Show rubric/prompt summary if provided */}
+        {gapSummary && (
+          <div className="mb-3 p-3 bg-amber-50/50 rounded-md border border-amber-200/50">
+            <p className="text-xs font-medium text-amber-900 mb-1">Section Guidance</p>
+            <p className="text-xs text-amber-800">{gapSummary}</p>
+          </div>
+        )}
+        
+        {/* Agent C: Support structured gaps with title + description */}
         {displayGaps.length === 1 ? (
-          <p className="text-sm text-muted-foreground mb-3">
-            {displayGaps[0].description}
-          </p>
+          <div className="mb-3">
+            {displayGaps[0].title && (
+              <p className="text-sm font-medium text-foreground mb-1">
+                {displayGaps[0].title}
+              </p>
+            )}
+            <p className="text-sm text-muted-foreground">
+              {displayGaps[0].description}
+            </p>
+          </div>
         ) : displayGaps.length > 1 ? (
-          <ul className="text-sm text-muted-foreground mb-3 list-disc list-inside space-y-1">
+          <ul className="text-sm text-muted-foreground mb-3 space-y-2">
             {displayGaps.map((gap) => (
-              <li key={gap.id}>{gap.description}</li>
+              <li key={gap.id} className="list-none">
+                {gap.title && (
+                  <p className="font-medium text-foreground mb-0.5">
+                    • {gap.title}
+                  </p>
+                )}
+                <p className={cn("text-sm", gap.title && "ml-3")}>
+                  {gap.description}
+                </p>
+              </li>
             ))}
           </ul>
         ) : null}
-        <Button
-          variant="cta-secondary"
-          size="sm"
-          className="w-full"
-          onClick={onGenerateContent}
-        >
-          <Sparkles className="h-4 w-4 mr-2" />
-          Generate Content
-        </Button>
+        
+        {/* Agent C: Only show generate button if callback provided */}
+        {onGenerateContent && (
+          <Button
+            variant="cta-secondary"
+            size="sm"
+            className="w-full"
+            onClick={onGenerateContent}
+          >
+            <Sparkles className="h-4 w-4 mr-2" />
+            Generate Content
+          </Button>
+        )}
       </div>
     </div>
   );

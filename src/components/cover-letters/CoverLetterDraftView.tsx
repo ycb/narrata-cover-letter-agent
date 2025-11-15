@@ -4,7 +4,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ContentCard } from '@/components/shared/ContentCard';
 import { ProgressIndicatorWithTooltips } from './ProgressIndicatorWithTooltips';
 import { cn } from '@/lib/utils';
-import type { EnhancedMatchData } from '@/types/coverLetters';
+import type { EnhancedMatchData, SectionGapInsight } from '@/types/coverLetters';
 
 interface HILProgressMetrics {
   goalsMatch: 'strong' | 'average' | 'weak';
@@ -50,6 +50,7 @@ interface CoverLetterDraftViewProps {
   sections: CoverLetterSection[];
   hilProgressMetrics?: HILProgressMetrics | null;
   enhancedMatchData?: EnhancedMatchData | null; // Agent C: detailed match data
+  pendingSectionInsights?: Record<string, SectionGapInsight>; // Agent D: heuristic insights
   goNoGoAnalysis?: GoNoGoAnalysis | null;
   jobDescription?: JobDescription | null;
   isEditable?: boolean;
@@ -72,6 +73,7 @@ export function CoverLetterDraftView({
   sections,
   hilProgressMetrics,
   enhancedMatchData,
+  pendingSectionInsights = {}, // Agent D: default to empty object
   goNoGoAnalysis,
   jobDescription,
   isEditable = false,
@@ -180,6 +182,75 @@ export function CoverLetterDraftView({
     return [];
   };
 
+  /**
+   * Get section-specific gap insights from enhancedMatchData.sectionGapInsights
+   * Filters gaps by section slug/type and returns structured gap objects.
+   * 
+   * Agent C: Returns { promptSummary, gaps, isLoading }
+   * - isLoading: true when metrics are being calculated (no enhancedMatchData yet)
+   * - promptSummary: rubric guidance for the section (from sectionGapInsights)
+   * - gaps: structured gap objects with title + description
+   */
+  const getSectionGapInsights = (sectionType: string) => {
+    // If no enhancedMatchData at all, we're likely still loading metrics
+    // Show loading state instead of fallback gaps
+    if (!enhancedMatchData) {
+      return {
+        promptSummary: null,
+        gaps: [],
+        isLoading: true,
+      };
+    }
+    
+    // If enhancedMatchData exists but no sectionGapInsights, fallback to old heuristic
+    if (!enhancedMatchData.sectionGapInsights) {
+      // Old behavior: show all unmet requirements (not section-specific)
+      const unmetCoreReqs = enhancedMatchData.coreRequirementDetails?.filter(
+        (req: any) => !req.demonstrated
+      ) || [];
+      const unmetPreferredReqs = enhancedMatchData.preferredRequirementDetails?.filter(
+        (req: any) => !req.demonstrated
+      ) || [];
+      
+      const allGaps = [...unmetCoreReqs, ...unmetPreferredReqs];
+      
+      return {
+        promptSummary: null,
+        gaps: allGaps.map((req: any, index: number) => ({
+          id: req.id || `gap-${index}`,
+          title: req.requirement || 'Missing requirement',
+          description: req.evidence || 'Not addressed in draft',
+        })),
+        isLoading: false,
+      };
+    }
+
+    // New behavior: use sectionGapInsights (section-specific)
+    const normalizedTypes = normalizeSectionType(sectionType);
+    
+    // Find the insight for this section
+    const sectionInsight = enhancedMatchData.sectionGapInsights.find(
+      insight => normalizedTypes.includes(insight.sectionSlug.toLowerCase())
+    );
+
+    if (!sectionInsight) {
+      return { promptSummary: null, gaps: [], isLoading: false };
+    }
+
+    // Transform requirementGaps into gap objects with title + description
+    const gaps = sectionInsight.requirementGaps.map(gap => ({
+      id: gap.id,
+      title: gap.label,
+      description: `${gap.rationale} ${gap.recommendation}`,
+    }));
+
+    return {
+      promptSummary: sectionInsight.promptSummary,
+      gaps,
+      isLoading: false,
+    };
+  };
+
   return (
     <div className={cn('space-y-6', className)}>
       {/* Progress Indicators */}
@@ -202,26 +273,9 @@ export function CoverLetterDraftView({
         const sectionTitle = getSectionTitle(section.type);
         const requirements = getRequirementsForParagraph(section.type);
 
-        // Check for gaps: unmet requirements from the draft analysis
-        // Use cached gaps from enhancedMatchData (already calculated during draft creation)
-        // This avoids recalculating and prevents gaps appearing after async JD load
-        const unmetCoreReqs = enhancedMatchData?.coreRequirementDetails?.filter(
-          (req: any) => !req.demonstrated
-        ) || [];
-        const unmetPreferredReqs = enhancedMatchData?.preferredRequirementDetails?.filter(
-          (req: any) => !req.demonstrated
-        ) || [];
-        
-        // Combine all unmet requirements as gaps
-        const allGaps = [...unmetCoreReqs, ...unmetPreferredReqs];
-        
-        // For now, show all gaps on all sections (we can refine to per-section later)
-        // This matches the UX where gaps are about the overall draft, not individual sections
-        const hasGaps = allGaps.length > 0;
-        const gapObjects = allGaps.map((req: any, index: number) => ({
-          id: req.id || `gap-${index}`,
-          description: req.requirement || req.evidence || 'Missing requirement'
-        }));
+        // Agent C: Get section-specific gap insights
+        const { promptSummary, gaps: gapObjects, isLoading: gapsLoading } = getSectionGapInsights(section.type);
+        const hasGaps = gapObjects.length > 0;
 
         return (
           <ContentCard
@@ -231,6 +285,7 @@ export function CoverLetterDraftView({
             tags={requirements} // Always pass tags array (empty or populated)
             hasGaps={hasGaps}
             gaps={gapObjects}
+            gapSummary={promptSummary} // Agent C: Pass rubric summary for section guidance
             isGapResolved={false}
             onGenerateContent={onAddStory ? () => onAddStory() : undefined} // Hook up to HIL story creation
             // NOTE: Don't pass onEdit for tags - requirement tags are system-generated, not user-editable

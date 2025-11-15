@@ -157,12 +157,9 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Job Description Content</label>
-                    <Textarea
-                      value={coverLetter.jobDescription || "Senior Product Manager position requiring 5+ years of experience in product management, strong analytical skills, and experience with cross-functional team leadership. The role involves driving product strategy, analyzing user behavior, and optimizing conversion funnels. Experience with SQL/Python, Tableau/Looker, and fintech is preferred."}
-                      onChange={() => {}}
-                      rows={8}
-                      className="resize-none"
-                    />
+                    <div className="rounded-md border bg-muted/30 p-4 text-sm whitespace-pre-wrap">
+                      {coverLetter.jobDescription || "Senior Product Manager position requiring 5+ years of experience in product management, strong analytical skills, and experience with cross-functional team leadership. The role involves driving product strategy, analyzing user behavior, and optimizing conversion funnels. Experience with SQL/Python, Tableau/Looker, and fintech is preferred."}
+                    </div>
                   </div>
                   <Button 
                     variant="secondary"
