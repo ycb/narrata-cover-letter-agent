@@ -127,21 +127,34 @@ export function MatchMetricsToolbar({
                   <button
                     type="button"
                     onClick={() => setActiveMetric(isActive ? null : item.key)}
-                    className={`flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-left transition ${
+                    className={`w-full rounded-md border px-3 py-2 text-left transition ${
                       isActive
-                        ? 'bg-primary/10 border-primary text-foreground'
+                        ? 'bg-black dark:bg-white border-black dark:border-white text-white dark:text-black'
                         : 'bg-transparent border-transparent hover:bg-muted/40 text-muted-foreground'
                     }`}
                     aria-pressed={isActive}
                     aria-expanded={isActive}
                   >
-                    <div className="flex flex-col">
-                      <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{item.label}</span>
-                      <span className="text-base font-semibold text-foreground">{item.value}</span>
+                    <div className="flex flex-col w-full">
+                      <div className="flex items-center justify-between">
+                        <span className={`text-base font-semibold ${isActive ? 'text-white dark:text-black' : 'text-foreground'}`}>
+                          {item.value}
+                        </span>
+                        <Badge 
+                          variant="outline" 
+                          className={item.badgeClass}
+                        >
+                          {isActive ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                        </Badge>
+                      </div>
+                      <span className={`text-[11px] uppercase tracking-wide mt-1 ${isActive ? 'text-white dark:text-black' : 'text-muted-foreground'}`}>
+                        {item.label}
+                      </span>
                     </div>
-                    <Badge variant="outline" className={`${item.badgeClass} ml-auto`}>
-                      {isActive ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                    </Badge>
                   </button>
                   <div
                     className={`overflow-hidden transition-all duration-300 ease-in-out ${

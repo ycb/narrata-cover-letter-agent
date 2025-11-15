@@ -47,7 +47,7 @@ export function ProgressIndicatorWithTooltips({
     coreRequirements,
     preferredRequirements,
   } = useMatchMetricsDetails({
-    jobDescription,
+      jobDescription,
     enhancedMatchData,
     goNoGoAnalysis,
   });
@@ -80,45 +80,45 @@ export function ProgressIndicatorWithTooltips({
 
   const goalsCard = (
     <div className="flex flex-col items-center justify-center">
-      <div className="text-xs text-muted-foreground mb-2 underline underline-offset-2">MATCH WITH GOALS</div>
       {renderBadge(
         `${goalsMetCount}/${totalGoals}`,
         getATSScoreColor(totalGoals ? (goalsMetCount / totalGoals) * 100 : 0)
       )}
+      <div className="text-xs text-muted-foreground mt-2 underline underline-offset-2">MATCH WITH GOALS</div>
     </div>
   );
 
   const coreCard = (
     <div className="flex flex-col items-center justify-center">
-      <div className="text-xs text-muted-foreground mb-2 underline underline-offset-2">CORE REQS</div>
       {renderBadge(
         `${coreMet}/${coreTotal || 0}`,
         getATSScoreColor(coreTotal > 0 ? (coreMet / coreTotal) * 100 : 0)
       )}
+      <div className="text-xs text-muted-foreground mt-2 underline underline-offset-2">CORE REQS</div>
     </div>
   );
 
   const preferredCard = (
     <div className="flex flex-col items-center justify-center">
-      <div className="text-xs text-muted-foreground mb-2 underline underline-offset-2">PREFERRED REQS</div>
       {renderBadge(
         `${prefMet}/${prefTotal || 0}`,
         getATSScoreColor(prefTotal > 0 ? (prefMet / prefTotal) * 100 : 0)
       )}
+      <div className="text-xs text-muted-foreground mt-2 underline underline-offset-2">PREFERRED REQS</div>
     </div>
   );
 
   const ratingCard = (
     <div className="flex flex-col items-center justify-center">
-      <div className="text-xs text-muted-foreground mb-2 underline underline-offset-2">COVER LETTER RATING</div>
       {renderBadge(metrics.coverLetterRating || 'N/A', getRatingColor(metrics.coverLetterRating))}
+      <div className="text-xs text-muted-foreground mt-2 underline underline-offset-2">COVER LETTER RATING</div>
     </div>
   );
 
   const atsCard = (
     <div className="flex flex-col items-center justify-center">
-      <div className="text-xs text-muted-foreground mb-2 underline underline-offset-2">ATS</div>
       {renderBadge(`${metrics.atsScore ?? 0}%`, getATSScoreColor(metrics.atsScore ?? 0))}
+      <div className="text-xs text-muted-foreground mt-2 underline underline-offset-2">ATS</div>
     </div>
   );
 

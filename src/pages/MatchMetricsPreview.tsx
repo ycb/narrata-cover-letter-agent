@@ -4,6 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { ContentCard } from '@/components/shared/ContentCard';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Wand2, Upload } from 'lucide-react';
 import type { HILProgressMetrics } from '@/components/cover-letters/useMatchMetricsDetails';
 import type { EnhancedMatchData, GoalMatchDetail, RequirementMatchDetail } from '@/types/coverLetters';
 
@@ -179,6 +183,10 @@ export default function MatchMetricsPreview() {
     alert('Edit Goals clicked (would open goals modal)');
   };
 
+  const handleAddStory = (requirement?: string, severity?: string) => {
+    alert(`Add Story clicked:\nRequirement: ${requirement || 'N/A'}\nSeverity: ${severity || 'N/A'}`);
+  };
+
   const handleEnhanceSection = (sectionId: string, requirement?: string) => {
     alert(`Enhance Section clicked:\nSection: ${sectionId}\nRequirement: ${requirement || 'N/A'}`);
   };
@@ -187,90 +195,196 @@ export default function MatchMetricsPreview() {
     alert(`Add Metrics clicked:\nSection: ${sectionId || 'N/A'}`);
   };
 
+  const [mainTabValue, setMainTabValue] = useState<'cover-letter' | 'job-description'>('cover-letter');
+
+  // Mock cover letter sections
+  const mockSections = [
+    {
+      id: 'section-1',
+      type: 'intro',
+      content: "Dear Hiring Team, I'm a product manager with experience leading growth initiatives. I've learned that compounding growth comes from disciplined experimentation and clear measurement. Over the past several years, I've helped teams translate strategy into shipped impact across web and mobile platforms.",
+    },
+    {
+      id: 'section-2',
+      type: 'experience',
+      content: '',
+    },
+  ];
+
+  const getSectionTitle = (type: string) => {
+    switch (type) {
+      case 'intro':
+        return 'Introduction';
+      case 'experience':
+        return 'Experience';
+      case 'closing':
+        return 'Closing';
+      case 'signature':
+        return 'Signature';
+      default:
+        return type;
+    }
+  };
+
+  const getRequirementsForSection = (sectionType: string) => {
+    if (!mockEnhancedMatchData) return [];
+    
+    const allReqs = [
+      ...(mockEnhancedMatchData.coreRequirementDetails || []),
+      ...(mockEnhancedMatchData.preferredRequirementDetails || []),
+    ];
+
+    const sectionReqs = allReqs
+      .filter(req => {
+        if (!req.demonstrated) return false;
+        const sectionIds = req.sectionIds || [];
+        return sectionIds.some(id => id === `section-${mockSections.findIndex(s => s.type === sectionType) + 1}`);
+      })
+      .map(req => req.requirement);
+
+    return sectionReqs;
+  };
+
+  const getGapsForSection = (sectionType: string) => {
+    if (!mockEnhancedMatchData) return [];
+    
+    const allReqs = [
+      ...(mockEnhancedMatchData.coreRequirementDetails || []),
+      ...(mockEnhancedMatchData.preferredRequirementDetails || []),
+    ];
+
+    const gaps = allReqs
+      .filter(req => !req.demonstrated)
+      .map(req => ({
+        id: req.id,
+        title: req.requirement,
+        description: req.evidence || 'Not mentioned in draft',
+      }));
+
+    return gaps;
+  };
+
   return (
-    <div className="container mx-auto py-8 space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Match Metrics Toolbar Preview</CardTitle>
-          <CardDescription>
-            Independent preview of the new horizontal toolbar + drawer design that will replace tooltips
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
+    <div className="h-screen flex flex-col">
+      {/* Header */}
+      <div className="border-b bg-card px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Edit Cover Letter</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {mockJobDescription.company} • {mockJobDescription.role} • November 14, 2025 at 11:09 PM
+            </p>
+          </div>
           {/* Controls */}
-          <div className="flex items-center gap-6 p-4 bg-muted/50 rounded-lg">
+          <div className="flex items-center gap-4">
             <div className="flex items-center space-x-2">
               <Switch id="loading" checked={isLoading} onCheckedChange={setIsLoading} />
-              <Label htmlFor="loading">Show Loading State</Label>
+              <Label htmlFor="loading" className="text-xs">Loading</Label>
             </div>
             <div className="flex items-center space-x-2">
               <Switch id="posthil" checked={isPostHIL} onCheckedChange={setIsPostHIL} />
-              <Label htmlFor="posthil">Post-HIL State</Label>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setIsLoading(false);
-                setIsPostHIL(false);
-              }}
-            >
-              Reset
-            </Button>
-          </div>
-
-          {/* Job Context */}
-          <div className="p-4 bg-muted/30 rounded-lg border">
-            <h3 className="text-sm font-semibold mb-2">Mock Job Description</h3>
-            <div className="text-sm text-muted-foreground space-y-1">
-              <p>
-                <strong>Role:</strong> {mockJobDescription.role}
-              </p>
-              <p>
-                <strong>Company:</strong> {mockJobDescription.company}
-              </p>
-              <p>
-                <strong>Location:</strong> {mockJobDescription.location}
-              </p>
-              <p>
-                <strong>Salary:</strong> {mockJobDescription.salary}
-              </p>
-              <p>
-                <strong>Work Type:</strong> {mockJobDescription.workType}
-              </p>
+              <Label htmlFor="posthil" className="text-xs">Post-HIL</Label>
             </div>
           </div>
+        </div>
+      </div>
 
-          {/* Toolbar Component */}
-          <div>
-            <h3 className="text-sm font-semibold mb-3">Interactive Toolbar</h3>
-            <MatchMetricsToolbar
-              metrics={mockMetrics}
-              isPostHIL={isPostHIL}
-              isLoading={isLoading}
-              jobDescription={mockJobDescription}
-              enhancedMatchData={mockEnhancedMatchData}
-              onEditGoals={handleEditGoals}
-              onEnhanceSection={handleEnhanceSection}
-              onAddMetrics={handleAddMetrics}
-            />
-          </div>
+      {/* Main Content Area */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Sidebar - Toolbar */}
+        <div className="border-r bg-card">
+          <MatchMetricsToolbar
+            metrics={mockMetrics}
+            isPostHIL={isPostHIL}
+            isLoading={isLoading}
+            jobDescription={mockJobDescription}
+            enhancedMatchData={mockEnhancedMatchData}
+            onEditGoals={handleEditGoals}
+            onEnhanceSection={handleEnhanceSection}
+            onAddMetrics={handleAddMetrics}
+            className="h-full border-0 rounded-none"
+          />
+        </div>
 
-          {/* Instructions */}
-          <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-            <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">
-              How to Use This Preview
-            </h3>
-            <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1 list-disc list-inside">
-              <li>Click toolbar items on the left to switch between different metrics</li>
-              <li>View detailed breakdowns in the drawer area on the right</li>
-              <li>Toggle "Show Loading State" to see skeleton loading UI</li>
-              <li>Toggle "Post-HIL State" to simulate after-review metrics</li>
-              <li>CTAs (Enhance, Add Metrics, Edit Goals) show alerts for demo purposes</li>
-            </ul>
+        {/* Right Content Area */}
+        <div className="flex-1 overflow-y-auto bg-muted/30">
+          <div className="max-w-4xl mx-auto p-6 space-y-6">
+            {/* Tabs */}
+            <Tabs value={mainTabValue} onValueChange={(value) => setMainTabValue(value as 'job-description' | 'cover-letter')}>
+              <TabsList className="grid w-fit grid-cols-2">
+                <TabsTrigger value="cover-letter" className="flex items-center gap-2">
+                  <Wand2 className="h-4 w-4" />
+                  Cover Letter
+                </TabsTrigger>
+                <TabsTrigger value="job-description" className="flex items-center gap-2">
+                  <Upload className="h-4 w-4" />
+                  Job Description
+                </TabsTrigger>
+              </TabsList>
+
+              {/* Job Description Tab */}
+              <TabsContent value="job-description" className="space-y-6 mt-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Job Description</CardTitle>
+                    <CardDescription>
+                      The job description used to generate this cover letter
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Job Description Content</label>
+                      <div className="rounded-md border bg-muted/30 p-4 text-sm whitespace-pre-wrap">
+                        Senior Product Manager position requiring 5+ years of experience in product management, strong analytical skills, and experience with cross-functional team leadership. The role involves driving product strategy, analyzing user behavior, and optimizing conversion funnels. Experience with SQL/Python, Tableau/Looker, and fintech is preferred.
+                      </div>
+                    </div>
+                    <Button variant="secondary" className="w-full flex items-center gap-2" size="lg">
+                      <Wand2 className="h-4 w-4" />
+                      Re-Generate Cover Letter
+                    </Button>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Cover Letter Tab */}
+              <TabsContent value="cover-letter" className="space-y-6 mt-6">
+                {mockSections.map((section) => {
+                  const sectionTitle = getSectionTitle(section.type);
+                  const requirements = getRequirementsForSection(section.type);
+                  const gaps = getGapsForSection(section.type);
+
+                  return (
+                    <ContentCard
+                      key={section.id}
+                      title={sectionTitle}
+                      content={section.content || undefined}
+                      tags={requirements}
+                      hasGaps={gaps.length > 0}
+                      gaps={gaps}
+                      gapSummary={null}
+                      isGapResolved={false}
+                      onGenerateContent={handleAddStory ? () => handleAddStory() : undefined}
+                      tagsLabel="Requirements Met"
+                      showUsage={false}
+                      renderChildrenBeforeTags={true}
+                    >
+                      <div className="mb-6">
+                        <Textarea
+                          value={section.content}
+                          onChange={() => {}}
+                          className="resize-none overflow-hidden"
+                          placeholder="Enter cover letter content..."
+                          rows={section.content ? Math.max(3, section.content.split('\n').length) : 3}
+                        />
+                      </div>
+                    </ContentCard>
+                  );
+                })}
+              </TabsContent>
+            </Tabs>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
