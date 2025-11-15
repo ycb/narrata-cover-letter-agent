@@ -1,5 +1,12 @@
 # Content Card Requirement Tags - Improvement Plan
 
+**Status:** 📋 Ready for Agent Handoff  
+**Priority:** HIGH - Critical bug + UX improvements  
+**Estimated Effort:** 5-6 hours (6 independent tasks)  
+**Dependencies:** None - can start immediately  
+
+---
+
 ## Problem Statement
 
 **Current Issue:** Requirement tags on content cards show ALL met requirements on EVERY section, instead of showing which requirements each specific section addresses.
@@ -471,4 +478,23 @@ Example:
 - Drag-and-drop tags to different sections to reassign evidence
 - Toggle view: "Show all requirements" vs "Show only this section's requirements"
 - Export requirements coverage report (which sections address which requirements)
+
+---
+
+## Quick Start for Agent
+
+1. **Read this entire plan** (understand data flow and architecture)
+2. **Start with Task 1** (fix filtering bug - CRITICAL)
+3. **Verify with test:** Create Supio draft → check Introduction tags ≠ Experience tags
+4. **Then proceed to Tasks 2-6** in order (each builds on previous)
+5. **Test after each task** using manual QA checklist
+6. **Commit after completing all 6 tasks** (atomic feature)
+
+**Key Files:**
+- `src/components/cover-letters/CoverLetterDraftView.tsx` (main logic - line 103)
+- `src/components/shared/ContentCard.tsx` (rendering)
+- `src/prompts/enhancedMetricsAnalysis.ts` (LLM prompt validation)
+
+**Questions?** All implementation details, code examples, and edge cases are documented in the tasks above. The plan is comprehensive and ready to execute.
+
 
