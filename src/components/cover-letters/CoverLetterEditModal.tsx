@@ -107,7 +107,7 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl h-[90vh] overflow-y-auto flex flex-col">
         <DialogHeader className="pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -143,9 +143,9 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
         </DialogHeader>
 
         {/* Main Tabs */}
-        <div className="w-full">
-          <Tabs value={mainTabValue} onValueChange={(value) => setMainTabValue(value as 'job-description' | 'cover-letter')}>
-            <TabsList className="grid w-fit grid-cols-2 mb-4">
+        <div className="w-full flex-1 flex flex-col overflow-hidden">
+          <Tabs value={mainTabValue} onValueChange={(value) => setMainTabValue(value as 'job-description' | 'cover-letter')} className="flex flex-col h-full">
+            <TabsList className="grid w-fit grid-cols-2 mb-4 flex-shrink-0">
               <TabsTrigger value="cover-letter" className="flex items-center gap-2">
                 <Wand2 className="h-4 w-4" />
                 Cover Letter
@@ -157,7 +157,7 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
             </TabsList>
 
             {/* Job Description Tab - Shows full JD with Re-Generate button */}
-            <TabsContent value="job-description" className="space-y-6">
+            <TabsContent value="job-description" className="space-y-6 flex-1 overflow-y-auto">
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Job Description</CardTitle>
@@ -188,7 +188,7 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
             </TabsContent>
 
             {/* Cover Letter Tab - Shows draft with content cards */}
-            <TabsContent value="cover-letter" className="space-y-6">
+            <TabsContent value="cover-letter" className="space-y-6 flex-1 overflow-y-auto">
               {/* Use shared CoverLetterDraftView component */}
               <CoverLetterDraftView
                 sections={editedContent.content?.sections || []}
@@ -199,21 +199,34 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
                   id: jobDescriptionRecord.id,
                   role: jobDescriptionRecord.role,
                   company: jobDescriptionRecord.company,
-                  structuredData: jobDescriptionRecord.structured_data,
-                  // Provide multiple potential locations for requirement arrays to ensure UI has JD lists
-                  standardRequirements: (jobDescriptionRecord as any).standard_requirements ?? (jobDescriptionRecord as any).standardRequirements ?? jobDescriptionRecord.analysis?.llm?.standardRequirements,
-                  preferredRequirements: (jobDescriptionRecord as any).preferred_requirements ?? (jobDescriptionRecord as any).preferredRequirements ?? jobDescriptionRecord.analysis?.llm?.preferredRequirements,
-                  analysis: jobDescriptionRecord.analysis,
-                  // Map core JD metadata used by GoalsMatchService
-                  salary: (jobDescriptionRecord as any)?.structured_data?.salary
-                    ?? (jobDescriptionRecord as any)?.structured_data?.compensation
-                    ?? (jobDescriptionRecord as any)?.analysis?.llm?.structuredData?.compensation
+                  // Normalized fields for UI consumption
+                  standardRequirements:
+                    (jobDescriptionRecord as any).standard_requirements
+                    ?? (jobDescriptionRecord as any).standardRequirements
+                    ?? jobDescriptionRecord.analysis?.llm?.standardRequirements
+                    ?? jobDescriptionRecord.structured_data?.standardRequirements
+                    ?? [],
+                  preferredRequirements:
+                    (jobDescriptionRecord as any).preferred_requirements
+                    ?? (jobDescriptionRecord as any).preferredRequirements
+                    ?? jobDescriptionRecord.analysis?.llm?.preferredRequirements
+                    ?? jobDescriptionRecord.structured_data?.preferredRequirements
+                    ?? [],
+                  salary:
+                    jobDescriptionRecord.structured_data?.salary
+                    ?? jobDescriptionRecord.structured_data?.compensation
+                    ?? jobDescriptionRecord.analysis?.llm?.structuredData?.compensation
                     ?? undefined,
-                  location: (jobDescriptionRecord as any)?.structured_data?.location
-                    ?? (jobDescriptionRecord as any)?.analysis?.llm?.structuredData?.location
+                  location:
+                    jobDescriptionRecord.structured_data?.location
+                    ?? jobDescriptionRecord.analysis?.llm?.structuredData?.location
+                    ?? undefined,
+                  workType:
+                    jobDescriptionRecord.structured_data?.workType
+                    ?? jobDescriptionRecord.analysis?.llm?.structuredData?.workType
                     ?? undefined,
                 } : null}
-                onEditGoals={onEditGoals}
+                onEditGoals={() => setShowGoalsModal(true)}
                 onAddStory={onAddStory}
                 onEnhanceSection={onEnhanceSection}
                 onAddMetrics={onAddMetrics}

@@ -41,15 +41,9 @@ export function RequirementsTooltip({
             <div className="flex-1 min-w-0">
               <h4 className="text-sm font-medium text-muted-foreground">
                 {title?.toLowerCase().includes('preferred')
-                  ? 'Preferred requirements: Not specified'
-                  : 'Requirements: Not specified'}
+                  ? 'Preferred Requirements: Unknown'
+                  : 'Requirements: Unknown'}
               </h4>
-            </div>
-          </div>
-          <div className="ml-6 text-xs">
-            <div>
-              <span className="font-medium text-foreground/90">This job:</span>{' '}
-              <span className="text-foreground/80">Unknown</span>
             </div>
           </div>
         </div>

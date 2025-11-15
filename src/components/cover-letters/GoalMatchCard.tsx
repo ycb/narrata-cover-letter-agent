@@ -121,20 +121,6 @@ export function GoalMatchCard({
             {jobValue || 'Unknown'}
           </span>
         </div>
-
-        {/* Evidence/explanation - only if not redundant */}
-        {evidence && !evidence.toLowerCase().includes('matches target') && !evidence.toLowerCase().includes('not specified') && (
-          <div className={`${isMatch ? 'text-foreground/70' : 'text-muted-foreground'} pt-1 border-t border-current/10 italic`}>
-            {evidence}
-          </div>
-        )}
-
-        {/* Manual verification flag */}
-        {requiresManualVerification && (
-          <div className="text-muted-foreground italic pt-1">
-            ℹ️ Requires manual verification
-          </div>
-        )}
       </div>
     </div>
   );

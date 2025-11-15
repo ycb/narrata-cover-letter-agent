@@ -47,6 +47,7 @@ interface JobDescription {
   company?: string;
   location?: string;
   salary?: string;
+  workType?: string;
 }
 
 export class GoalsMatchService {
@@ -136,24 +137,27 @@ export class GoalsMatchService {
       });
     }
 
-    // 3. Work Type / Geography Match
+    // 3. Work Type Match (Remote/Hybrid/In-person), separate from Geography/Location
     if (userGoals?.workType && userGoals.workType.length > 0) {
-      const geoMismatch = goNoGoAnalysis?.mismatches.find(m => m.type === 'geography');
       const isDealBreaker = (userGoals?.dealBreakers?.workType?.length ?? 0) > 0;
-      
-      // Determine match state: match, no-match, or unknown
-      const hasJobData = jobDescription.location && jobDescription.location.toLowerCase() !== 'unknown';
-      const matchState = !hasJobData ? 'unknown' : geoMismatch ? 'no-match' : 'match';
-      const isMatch = matchState === 'match';
+      const jdWorkType = jobDescription.workType || '';
+      const hasJobData = jdWorkType && jdWorkType.toLowerCase() !== 'unknown';
+      const normalizedJd = jdWorkType.toLowerCase();
+      const isMatch =
+        hasJobData &&
+        userGoals.workType.some(w => normalizedJd.includes((w || '').toLowerCase()));
+      const matchState: 'match' | 'no-match' | 'unknown' = !hasJobData ? 'unknown' : (isMatch ? 'match' : 'no-match');
 
       matches.push({
         id: 'goal-worktype',
         goalType: 'Work Type',
         userValue: `${userGoals.workType.join(', ')}${isDealBreaker ? ' (Deal-breaker)' : ''}`,
-        jobValue: jobDescription.location || null,
+        jobValue: hasJobData ? jdWorkType : null,
         met: isMatch,
         matchState,
-        evidence: geoMismatch?.description || (hasJobData ? 'Work type matches your preferences' : 'Work type not specified in JD'),
+        evidence: hasJobData
+          ? (isMatch ? 'Work type matches your preferences' : 'Work type differs from your preferences')
+          : 'Work type not specified in JD',
         criterion: `Work Type: ${userGoals.workType.join(', ')}${isDealBreaker ? ' (Deal-breaker)' : ''}`, // Legacy
       });
     } else {
@@ -162,7 +166,7 @@ export class GoalsMatchService {
         id: 'goal-worktype',
         goalType: 'Work Type',
         userValue: null,
-        jobValue: jobDescription.location || null,
+        jobValue: jobDescription.workType || null,
         met: false,
         matchState: 'unknown',
         evidence: 'Work type not specified in your career goals',
@@ -192,6 +196,18 @@ export class GoalsMatchService {
         met: true, // Remote is always a match if that's what user wants
         evidence: 'Remote work preference - location not a constraint',
         criterion: 'Preferred Location: Remote', // Legacy
+      });
+    } else {
+      // User hasn't specified preferred cities - still show JD location as unknown state
+      matches.push({
+        id: 'goal-cities',
+        goalType: 'Preferred Location',
+        userValue: null,
+        jobValue: jobDescription.location || null,
+        met: false,
+        matchState: 'unknown',
+        evidence: 'Preferred location not specified in your career goals',
+        criterion: 'Preferred Location', // Legacy
       });
     }
 

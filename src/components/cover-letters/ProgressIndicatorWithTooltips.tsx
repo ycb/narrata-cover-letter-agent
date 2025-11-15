@@ -41,6 +41,7 @@ interface ProgressIndicatorWithTooltipsProps {
     company?: string;
     location?: string;
     salary?: string;
+    workType?: string;
     // Allow multiple shapes coming from JD storage
     standardRequirements?: Array<any>;
     preferredRequirements?: Array<any>;
@@ -209,8 +210,8 @@ export function ProgressIndicatorWithTooltips({
         <MatchGoalsTooltip goalMatches={goalMatches} isPostHIL={isPostHIL} onEditGoals={onEditGoals}>
           <div className="flex flex-col items-center justify-center">
             <div className="text-xs text-muted-foreground mb-2 underline underline-offset-2">MATCH WITH GOALS</div>
-            <Badge variant="outline" className={getRatingColor(metrics.goalsMatch)}>
-              {metrics.goalsMatch || 'N/A'}
+            <Badge variant="outline" className={getATSScoreColor(goalMatches.length > 0 ? (goalMatches.filter(g => g.met).length / goalMatches.length) * 100 : 0)}>
+              {goalMatches.filter(g => g.met).length}/{goalMatches.length || 7}
             </Badge>
           </div>
         </MatchGoalsTooltip>
