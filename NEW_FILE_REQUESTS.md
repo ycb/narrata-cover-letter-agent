@@ -24,3 +24,11 @@
 
 - `src/services/evaluationLoggingService.ts`: Searched `src/services` and `src/utils` for centralized evaluation logging (`evaluationLogging`, `evalLogging`, `logEvaluation`) and found only direct Supabase inserts in FileUploadService and PMLevelsService. New service required for composition-friendly evaluation run creation, updates, token sampling, and failure tracking to support cover letter draft logging.
 
+## 2025-11-15
+
+- `src/components/cover-letters/useMatchMetricsDetails.ts`: Reviewed `src/components/cover-letters`, `src/hooks`, and `src/components/ui` for shared helpers or hooks around match metric data prep (`matchMetrics`, `metricsHook`, `useMatch`) and confirmed only inline logic inside `ProgressIndicatorWithTooltips`. Need a reusable hook that normalizes goal matches and requirement lists so multiple components can share identical data.
+
+- `src/components/cover-letters/MatchMetricsToolbar.tsx`: Looked through `src/components/cover-letters` and `src/components/metrics` for toolbar/drawer-style match summaries (`Toolbar`, `Drawer`, `MatchToolbar`) and found only the tooltip-based `ProgressIndicatorWithTooltips`. A separate component is required to prototype the new horizontal toolbar with expandable drawers before swapping the legacy UI.
+
+- `src/components/cover-letters/__tests__/MatchMetricsToolbar.test.tsx`: Checked `src/components/cover-letters/__tests__` for coverage of match metric UIs (`Match`, `MetricsToolbar`) and only saw modal/finalization tests. Need a dedicated test to verify toolbar interactions and drawer content rendering.
+

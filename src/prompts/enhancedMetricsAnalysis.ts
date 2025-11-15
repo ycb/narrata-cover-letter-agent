@@ -1,9 +1,49 @@
 /**
  * Enhanced Metrics Analysis Prompt
- * 
+ *
  * Agent C: Consolidated match intelligence prompt for cover letter evaluation
  * Returns detailed breakdowns, differentiator analysis, and CTA hooks in a single LLM call
  */
+
+export const SECTION_GUIDANCE = {
+  introduction: {
+    title: 'Introduction',
+    summary:
+      'Open strong with credibility, highlight the sharpest achievement, and connect it to the company/mission.',
+    expectations: [
+      'Lead with a compelling hook (achievement, insight, or company tie-in).',
+      'Establish domain credibility and 1-2 quantifiable proof points.',
+      'Show mission/product alignment tied to the JD.',
+    ],
+  },
+  experience: {
+    title: 'Experience',
+    summary:
+      'Translate resume achievements into story-driven paragraphs that prove you can meet core requirements.',
+    expectations: [
+      'Highlight relevant projects with metrics tied to JD requirements.',
+      'Demonstrate cross-functional leadership/collaboration as needed.',
+      'Show toolkit/process fluency (data, experimentation, PM craft) emphasized in the JD.',
+    ],
+  },
+  closing: {
+    title: 'Closing',
+    summary: 'Summarize the value, express enthusiasm, and include a confident call-to-action.',
+    expectations: [
+      'Reinforce differentiating value (1-2 proof points).',
+      'State clear enthusiasm tied to company mission or product.',
+      'Close with a confident CTA about next steps.',
+    ],
+  },
+  signature: {
+    title: 'Signature',
+    summary: 'Keep it professional and actionable.',
+    expectations: [
+      'Use a concise, professional sign-off.',
+      'Optionally restate contact info or availability if missing elsewhere.',
+    ],
+  },
+} as const;
 
 export const ENHANCED_METRICS_SYSTEM_PROMPT = `You are an expert cover letter reviewer and career coach. Your task is to provide a COMPREHENSIVE match analysis that evaluates:
 
@@ -133,6 +173,37 @@ Respond ONLY with valid JSON following this EXACT schema:
       "strengthAreas": ["AI/ML experience", "Growth metrics", "B2B SaaS"],
       "gapAreas": ["Limited fintech exposure"]
     },
+    "sectionGapInsights": [
+      {
+        "sectionSlug": "introduction",
+        "sectionType": "introduction",
+        "sectionTitle": "Introduction",
+        "promptSummary": "Intro must open with credibility, metrics, and mission alignment.",
+        "requirementGaps": [
+          {
+            "id": "intro-credibility",
+            "label": "Professional summary to establish credibility",
+            "severity": "high",
+            "requirementType": "narrative",
+            "rationale": "No metrics or seniority indicators mentioned in first paragraph.",
+            "recommendation": "Start with strongest leadership metric (e.g., 40% growth) to anchor expertise."
+          },
+          {
+            "id": "intro-mission",
+            "label": "Mission alignment",
+            "severity": "medium",
+            "requirementType": "differentiator",
+            "rationale": "Company mission or product impact never referenced.",
+            "recommendation": "Reference Company X's marketplace expansion and why it resonates with previous work."
+          }
+        ],
+        "recommendedMoves": [
+          "Open with quantified career highlight (growth metric or launch stat).",
+          "Reference Company X's mission or latest milestone to show research."
+        ],
+        "nextAction": "add-story"
+      }
+    ],
     "ctaHooks": [
       {
         "type": "add-story",

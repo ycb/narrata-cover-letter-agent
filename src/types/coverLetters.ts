@@ -185,6 +185,9 @@ export interface EnhancedMatchData {
   coreExperienceDetails?: ExperienceMatchDetail[];
   preferredExperienceDetails?: ExperienceMatchDetail[];
   
+  // Section-specific writing insights
+  sectionGapInsights?: SectionGapInsight[];
+  
   // Differentiator analysis
   differentiatorAnalysis?: {
     summary: string;
@@ -195,6 +198,23 @@ export interface EnhancedMatchData {
   
   // CTA hooks for actions
   ctaHooks?: CTAHook[];
+}
+
+export interface SectionGapInsight {
+  sectionSlug: string;
+  sectionType: 'introduction' | 'experience' | 'closing' | 'signature' | 'custom';
+  sectionTitle?: string;
+  promptSummary: string;
+  requirementGaps: Array<{
+    id: string;
+    label: string;
+    severity: 'high' | 'medium' | 'low';
+    requirementType?: 'core' | 'preferred' | 'differentiator' | 'narrative';
+    rationale: string;
+    recommendation: string;
+  }>;
+  recommendedMoves: string[];
+  nextAction?: string;
 }
 
 export interface DifferentiatorInsight {

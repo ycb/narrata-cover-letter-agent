@@ -975,14 +975,6 @@ export const CoverLetterCreateModal = ({
                 and draft a tailored cover letter.
               </DialogDescription>
             </div>
-            <div className="flex gap-2">
-              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
-                AI assisted
-              </Badge>
-              <Badge variant="outline" className="bg-success/10 text-success border-success/20">
-                Role targeted
-              </Badge>
-            </div>
           </div>
         </DialogHeader>
 
