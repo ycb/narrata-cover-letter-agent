@@ -1485,6 +1485,13 @@ export class CoverLetterDraftService {
         ? (row.analytics as Record<string, unknown>)
         : undefined;
 
+    // Extract enhancedMatchData from llm_feedback
+    const llmFeedback = (row.llm_feedback as Record<string, unknown>) ?? {
+      generatedAt: null,
+      metrics: [],
+    };
+    const enhancedMatchData = llmFeedback?.enhancedMatchData as EnhancedMatchData | undefined;
+
     return {
       id: row.id,
       userId: row.user_id,
@@ -1495,11 +1502,8 @@ export class CoverLetterDraftService {
       metrics,
       atsScore,
       differentiatorSummary,
-      llmFeedback:
-        (row.llm_feedback as Record<string, unknown>) ?? {
-          generatedAt: null,
-          metrics: [],
-        },
+      llmFeedback,
+      enhancedMatchData, // Extract to top-level for easy access
       analytics: analytics as unknown as CoverLetterDraft['analytics'],
       createdAt: row.created_at,
       updatedAt: row.updated_at,
