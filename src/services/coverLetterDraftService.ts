@@ -1216,31 +1216,127 @@ export class CoverLetterDraftService {
   }
 
   private async fetchStories(userId: string): Promise<ApprovedContentRow[]> {
-    const { data, error } = await this.supabaseClient
+    // Check for synthetic user context and filter by source_id if needed
+    let allowedSourceIds: string[] | undefined;
+    try {
+      const { SyntheticUserService } = await import('./syntheticUserService');
+      const syntheticService = new SyntheticUserService();
+      const syntheticContext = await syntheticService.getSyntheticUserContext();
+      
+      if (syntheticContext.isSyntheticTestingEnabled && syntheticContext.currentUser?.profileId) {
+        const profileId = syntheticContext.currentUser.profileId.toUpperCase();
+        
+        // Find sources matching the profile (e.g., P01_resume.txt, P01-cover-letter.txt)
+        const { data: sourceRows } = await this.supabaseClient
+          .from('sources')
+          .select('id, file_name')
+          .eq('user_id', userId);
+        
+        if (sourceRows && sourceRows.length > 0) {
+          const matchingSources = sourceRows.filter((row: any) => {
+            const fileName = (row.file_name || '').toUpperCase();
+            return (
+              fileName.startsWith(`${profileId}_`) ||
+              fileName.startsWith(`${profileId}-`) ||
+              fileName.startsWith(`${profileId} `) ||
+              fileName.startsWith(`${profileId}.`)
+            );
+          });
+          
+          if (matchingSources.length > 0) {
+            allowedSourceIds = matchingSources.map((s: any) => s.id);
+            console.log(`[CoverLetterDraftService] Filtering stories by ${allowedSourceIds.length} source IDs for profile ${profileId}`);
+          } else {
+            console.warn(`[CoverLetterDraftService] No sources found matching profile ${profileId}`);
+          }
+        }
+      }
+    } catch (syntheticError) {
+      // If synthetic service fails, continue without filtering (non-blocking)
+      console.warn('[CoverLetterDraftService] Unable to load synthetic user context:', syntheticError);
+    }
+
+    let query = this.supabaseClient
       .from('approved_content')
       .select('*')
-      .eq('user_id', userId)
-      .eq('status', 'approved');
+      .eq('user_id', userId);
+      // Note: No longer filtering by status - all stories are available for matching
+
+    // Filter by source_id if synthetic profile is active
+    if (allowedSourceIds && allowedSourceIds.length > 0) {
+      query = query.in('source_id', allowedSourceIds);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('[CoverLetterDraftService] Failed to load approved content:', error);
       return [];
     }
 
+    console.log(`[CoverLetterDraftService] Loaded ${data?.length || 0} stories${allowedSourceIds ? ` (filtered by profile)` : ''}`);
     return data ?? [];
   }
 
   private async fetchSavedSections(userId: string): Promise<SavedSectionRow[]> {
-    const { data, error } = await this.supabaseClient
+    // Check for synthetic user context and filter by source_id if needed
+    let allowedSourceIds: string[] | undefined;
+    try {
+      const { SyntheticUserService } = await import('./syntheticUserService');
+      const syntheticService = new SyntheticUserService();
+      const syntheticContext = await syntheticService.getSyntheticUserContext();
+      
+      if (syntheticContext.isSyntheticTestingEnabled && syntheticContext.currentUser?.profileId) {
+        const profileId = syntheticContext.currentUser.profileId.toUpperCase();
+        
+        // Find sources matching the profile (e.g., P01_resume.txt, P01-cover-letter.txt)
+        const { data: sourceRows } = await this.supabaseClient
+          .from('sources')
+          .select('id, file_name')
+          .eq('user_id', userId);
+        
+        if (sourceRows && sourceRows.length > 0) {
+          const matchingSources = sourceRows.filter((row: any) => {
+            const fileName = (row.file_name || '').toUpperCase();
+            return (
+              fileName.startsWith(`${profileId}_`) ||
+              fileName.startsWith(`${profileId}-`) ||
+              fileName.startsWith(`${profileId} `) ||
+              fileName.startsWith(`${profileId}.`)
+            );
+          });
+          
+          if (matchingSources.length > 0) {
+            allowedSourceIds = matchingSources.map((s: any) => s.id);
+            console.log(`[CoverLetterDraftService] Filtering saved sections by ${allowedSourceIds.length} source IDs for profile ${profileId}`);
+          } else {
+            console.warn(`[CoverLetterDraftService] No sources found matching profile ${profileId} for saved sections`);
+          }
+        }
+      }
+    } catch (syntheticError) {
+      // If synthetic service fails, continue without filtering (non-blocking)
+      console.warn('[CoverLetterDraftService] Unable to load synthetic user context for saved sections:', syntheticError);
+    }
+
+    let query = this.supabaseClient
       .from('saved_sections')
       .select('*')
       .eq('user_id', userId);
+
+    // Filter by source_id if synthetic profile is active
+    if (allowedSourceIds && allowedSourceIds.length > 0) {
+      query = query.in('source_id', allowedSourceIds);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('[CoverLetterDraftService] Failed to load saved sections:', error);
       return [];
     }
 
+    console.log(`[CoverLetterDraftService] Loaded ${data?.length || 0} saved sections${allowedSourceIds ? ` (filtered by profile)` : ''}`);
     return data ?? [];
   }
 
@@ -1339,6 +1435,12 @@ export class CoverLetterDraftService {
     const { templateSections, stories, savedSections, jobDescription, userGoals, onSectionBuilt } = input;
     const nowIso = this.now().toISOString();
 
+    console.log(`[CoverLetterDraftService] buildSections: ${templateSections.length} template sections, ${stories.length} stories, ${savedSections.length} saved sections`);
+    
+    // Log dynamic sections
+    const dynamicSections = templateSections.filter(s => !s.isStatic);
+    console.log(`[CoverLetterDraftService] buildSections: ${dynamicSections.length} dynamic sections:`, dynamicSections.map(s => ({ title: s.title, contentType: s.contentType })));
+
     const differentiatorWeights = new Map(
       jobDescription.differentiatorRequirements.map(req => [req.id, req]),
     );
@@ -1385,7 +1487,8 @@ export class CoverLetterDraftService {
             });
           } else {
             const bestStory = this.pickBestStory(section, stories, jobDescription, userGoals);
-            if (bestStory) {
+            if (bestStory && bestStory.content?.trim()) {
+              // Only use story if it has actual content
               const requirementsMatched = this.matchRequirements(bestStory.content, jobDescription);
               builtSection = this.createSection({
                 id: sectionId,
@@ -1401,7 +1504,12 @@ export class CoverLetterDraftService {
                 nowIso,
               });
             } else {
-              const fallbackContent = section.staticContent || section.title || '';
+              // No story found - provide helpful fallback message
+              const hasStories = stories.length > 0;
+              const fallbackContent = hasStories
+                ? 'None of your existing stories were a strong enough match for this section based on the job description. Consider adding a story that better aligns with the role requirements, or use the "Generate Content" button to create new content.'
+                : 'No stories available for this section. Add stories to your work history or use the "Generate Content" button to create new content.';
+              
               builtSection = this.createSection({
                 id: sectionId,
                 slug,
@@ -1419,7 +1527,8 @@ export class CoverLetterDraftService {
           }
         } else {
           const bestStory = this.pickBestStory(section, stories, jobDescription, userGoals);
-          if (bestStory) {
+          if (bestStory && bestStory.content?.trim()) {
+            // Only use story if it has actual content
             const requirementsMatched = this.matchRequirements(bestStory.content, jobDescription);
             builtSection = this.createSection({
               id: sectionId,
@@ -1435,7 +1544,12 @@ export class CoverLetterDraftService {
               nowIso,
             });
           } else {
-            const fallbackContent = section.staticContent || section.title || '';
+            // No story found - provide helpful fallback message
+            const hasStories = stories.length > 0;
+            const fallbackContent = hasStories
+              ? 'None of your existing stories were a strong enough match for this section based on the job description. Consider adding a story that better aligns with the role requirements, or use the "Generate Content" button to create new content.'
+              : 'No stories available for this section. Add stories to your work history or use the "Generate Content" button to create new content.';
+            
             builtSection = this.createSection({
               id: sectionId,
               slug,
@@ -1516,7 +1630,10 @@ export class CoverLetterDraftService {
     jobDescription: ParsedJobDescription,
     userGoals: Awaited<ReturnType<typeof UserPreferencesService.loadGoals>> | null,
   ): ApprovedContentRow | null {
-    if (!stories.length) return null;
+    if (!stories.length) {
+      console.log(`[CoverLetterDraftService] No stories available for section "${section.title || 'unnamed'}"`);
+      return null;
+    }
 
     const goals = section.blurbCriteria?.goals ?? [];
     const differentiatorIds = new Set(jobDescription.differentiatorRequirements.map(req => req.id));
@@ -1526,6 +1643,11 @@ export class CoverLetterDraftService {
 
     for (const story of stories) {
       const content = story.content || '';
+      if (!content.trim()) {
+        console.warn(`[CoverLetterDraftService] Story "${story.title || story.id}" has empty content, skipping`);
+        continue;
+      }
+
       const requirementsMatched = this.matchRequirements(content, jobDescription);
       const differentiatorMatches = requirementsMatched.filter(reqId => differentiatorIds.has(reqId));
 
@@ -1554,6 +1676,22 @@ export class CoverLetterDraftService {
         bestScore = score;
         bestStory = story;
       }
+    }
+
+    if (bestStory) {
+      console.log(`[CoverLetterDraftService] Selected best story "${bestStory.title || bestStory.id}" for section "${section.title || 'unnamed'}" (score: ${bestScore})`);
+    } else if (stories.length > 0) {
+      // If no story was selected but stories exist, try to find one with content
+      // This handles edge cases where all stories have empty content or very low scores
+      const fallbackStory = stories.find(s => s.content?.trim());
+      if (fallbackStory) {
+        console.warn(`[CoverLetterDraftService] No story selected for section "${section.title || 'unnamed'}" (${stories.length} stories evaluated, score: ${bestScore}), using fallback with content: "${fallbackStory.title || fallbackStory.id}"`);
+        return fallbackStory;
+      }
+      // If all stories have empty content, return null so caller can show helpful message
+      console.warn(`[CoverLetterDraftService] All ${stories.length} stories have empty content for section "${section.title || 'unnamed'}"`);
+    } else {
+      console.warn(`[CoverLetterDraftService] No stories available for section "${section.title || 'unnamed'}"`);
     }
 
     return bestStory;

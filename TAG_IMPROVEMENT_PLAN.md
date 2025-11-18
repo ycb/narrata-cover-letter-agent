@@ -497,4 +497,168 @@ Example:
 
 **Questions?** All implementation details, code examples, and edge cases are documented in the tasks above. The plan is comprehensive and ready to execute.
 
+---
+
+## Section-Specific Gap Insights (Agent C, D & E)
+
+### Overview
+Cover letter sections now receive **section-specific gap insights** instead of global gaps. This provides targeted guidance for introduction, experience, closing, and signature sections.
+
+### Data Contract
+
+#### Type Definition
+```typescript
+interface SectionGapInsight {
+  sectionSlug: string;
+  sectionType: 'introduction' | 'experience' | 'closing' | 'signature' | 'custom';
+  sectionTitle?: string;
+  promptSummary: string; // Rubric guidance for the section
+  requirementGaps: Array<{
+    id: string;
+    label: string; // Short title (e.g., "Missing quantified impact")
+    severity: 'high' | 'medium' | 'low';
+    requirementType?: 'core' | 'preferred' | 'differentiator' | 'narrative';
+    rationale: string; // Why this is a gap
+    recommendation: string; // How to fix it
+  }>;
+  recommendedMoves: string[]; // Quick actions (e.g., "Add metrics")
+  nextAction?: string; // Primary CTA
+}
+```
+
+#### Backend → Frontend Flow
+1. **Draft Generation:** Backend creates `enhancedMatchData.sectionGapInsights` during metrics calculation
+2. **Structure:** Array of `SectionGapInsight` objects, one per section
+3. **Frontend Consumption:** `CoverLetterDraftView` calls `getSectionGapInsights(sectionId, sectionType)`
+4. **Display:** `ContentCard` renders gap banner with `promptSummary` and structured gaps
+
+### Flow Diagram
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI as CoverLetterDraftView
+    participant Service as CoverLetterDraftService
+    participant LLM as OpenAI API
+    participant Heuristics as SectionGapEvaluator
+
+    User->>UI: Edit section content
+    UI->>Heuristics: evaluateSectionGap(section, jd)
+    Heuristics-->>UI: Heuristic insight (instant)
+    UI->>UI: Show gap banner with heuristic data
+
+    Note over UI: User sees instant feedback
+
+    UI->>Service: refreshMetrics() [background]
+    Service->>LLM: streamText(enhancedMetricsPrompt)
+    LLM-->>Service: sectionGapInsights JSON
+    Service->>Service: Update draft.enhancedMatchData
+    Service-->>UI: Notify metrics updated
+
+    UI->>UI: Replace heuristic with LLM insights
+    UI->>UI: Show gap banner with rich LLM data
+
+    Note over UI: User sees detailed, context-aware guidance
+```
+
+### Priority Fallback Logic
+
+```typescript
+function getSectionGapInsights(sectionId: string, sectionType: string) {
+  // Priority 1: LLM insights (most accurate)
+  if (enhancedMatchData?.sectionGapInsights) {
+    const insight = enhancedMatchData.sectionGapInsights.find(
+      i => i.sectionSlug === sectionType
+    );
+    if (insight) return { ...insight, isLoading: false };
+  }
+
+  // Priority 2: Heuristic insights (fast, immediate)
+  if (pendingSectionInsights[sectionId]) {
+    return { 
+      ...pendingSectionInsights[sectionId], 
+      isLoading: true // Indicates LLM refresh pending
+    };
+  }
+
+  // Priority 3: Legacy fallback (global unmet requirements)
+  if (enhancedMatchData?.coreRequirementDetails) {
+    const unmetReqs = [
+      ...enhancedMatchData.coreRequirementDetails.filter(r => !r.demonstrated),
+      ...enhancedMatchData.preferredRequirementDetails.filter(r => !r.demonstrated)
+    ];
+    return {
+      promptSummary: null,
+      gaps: unmetReqs.map(r => ({ id: r.id, title: r.requirement, description: r.evidence })),
+      isLoading: false
+    };
+  }
+
+  // No insights available
+  return { promptSummary: null, gaps: [], isLoading: true };
+}
+```
+
+### Adding New Section Types
+
+To add support for a new section type (e.g., "portfolio-showcase"):
+
+1. **Update `SectionGapInsight['sectionType']` in `types/coverLetters.ts`:**
+   ```typescript
+   sectionType: 'introduction' | 'experience' | 'closing' | 'signature' | 'portfolio-showcase' | 'custom';
+   ```
+
+2. **Add heuristic evaluation in `lib/coverLetters/sectionGapHeuristics.ts`:**
+   ```typescript
+   function evaluatePortfolioShowcase(section, jd): SectionGapInsight['requirementGaps'] {
+     const gaps = [];
+     
+     // Check for portfolio link
+     if (!section.content.match(/https?:\/\//)) {
+       gaps.push({
+         id: 'portfolio-no-link',
+         label: 'No portfolio link provided',
+         severity: 'high',
+         requirementType: 'core',
+         rationale: 'Portfolio section should include a clickable link',
+         recommendation: 'Add your portfolio URL (e.g., https://yourportfolio.com)'
+       });
+     }
+     
+     return gaps;
+   }
+   ```
+
+3. **Update `normalizeSectionType()` in `CoverLetterDraftView.tsx`:**
+   ```typescript
+   const aliases: Record<string, string[]> = {
+     // ... existing aliases
+     'portfolio-showcase': ['portfolio-showcase', 'portfolio', 'work-samples'],
+   };
+   ```
+
+4. **Update LLM prompt in `prompts/enhancedMetricsAnalysis.ts`:**
+   - Add rubric guidance for portfolio section
+   - Include examples of portfolio-specific gaps
+
+### Known Limitations
+
+- **Custom sections:** Sections with `type: 'custom'` fall back to generic "experience" rubric
+- **Single-word sections:** Sections with <50 characters may not receive accurate heuristic analysis
+- **Real-time updates:** Heuristic insights update after 1-2 second debounce (not keystroke-by-keystroke)
+- **LLM latency:** Full LLM refresh can take 5-15 seconds depending on draft length
+
+### Test Fixtures
+
+Mock data for testing and design work is available in:
+- **File:** `tests/fixtures/mockSectionGapInsights.json`
+- **Scenarios:** Complete (all gaps), heuristic-only, minimal, no gaps, edge cases
+- **Usage:** Import in component tests, Storybook stories, and E2E tests
+
+### QA & Documentation
+
+For comprehensive testing matrix, regression checklist, and E2E scenarios, see:
+- **File:** `QA_DOCUMENTATION_PLAN.md`
+- **Coverage:** Happy path, fallback mode, edit flow, edge cases, tooling
+
 

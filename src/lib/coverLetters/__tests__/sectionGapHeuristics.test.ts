@@ -151,7 +151,7 @@ describe('evaluateSectionGap - Experience', () => {
     const section: SectionInput = {
       slug: 'exp-3',
       type: 'experience',
-      content: `I collaborated with the engineering team and increased user satisfaction by 40%. I led quarterly planning sessions and delivered key initiatives.`,
+      content: `I collaborated with engineers and increased user satisfaction by 40%. I organized quarterly sessions and delivered key initiatives.`,
     };
 
     const result = evaluateSectionGap(section, mockJobDescription);
@@ -238,7 +238,7 @@ describe('evaluateSectionGap - Closing', () => {
     const section: SectionInput = {
       slug: 'closing-3',
       type: 'closing',
-      content: `I'm thrilled about this opportunity and passionate about TechCorp's mission.\n\nSincerely,`,
+      content: `I'm thrilled about working at TechCorp and passionate about your mission.\n\nSincerely,`,
     };
 
     const result = evaluateSectionGap(section, mockJobDescription);

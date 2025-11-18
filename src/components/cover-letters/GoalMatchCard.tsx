@@ -95,9 +95,18 @@ export function GoalMatchCard({
         </div>
         <div className="flex-1 min-w-0">
           {userValue ? (
-            <h4 className="text-sm font-medium text-foreground">
-              {goalType}: <span className="font-normal text-foreground/80">{userValue}</span>
-            </h4>
+            onEditGoals ? (
+              <button
+                onClick={onEditGoals}
+                className="text-sm font-medium text-foreground hover:text-foreground/80 transition-colors underline decoration-dotted underline-offset-2 cursor-pointer text-left"
+              >
+                {goalType}: <span className="font-normal text-foreground/80">{userValue}</span>
+              </button>
+            ) : (
+              <h4 className="text-sm font-medium text-foreground">
+                {goalType}: <span className="font-normal text-foreground/80">{userValue}</span>
+              </h4>
+            )
           ) : onEditGoals ? (
             <button
               onClick={onEditGoals}

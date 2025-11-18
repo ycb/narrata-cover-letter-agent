@@ -1,0 +1,303 @@
+{
+  "complete": {
+    "description": "All sections with various gap scenarios",
+    "enhancedMatchData": {
+      "sectionGapInsights": [
+        {
+          "sectionSlug": "introduction",
+          "sectionType": "introduction",
+          "sectionTitle": "Introduction",
+          "promptSummary": "Strong introduction should hook the reader with quantified achievements, show enthusiasm for the role, and demonstrate alignment with company mission.",
+          "requirementGaps": [
+            {
+              "id": "intro-gap-1",
+              "label": "Missing quantified impact",
+              "severity": "high",
+              "requirementType": "core",
+              "rationale": "Introduction lacks specific metrics or achievements. Vague language like 'several years' or 'extensive experience' does not demonstrate impact.",
+              "recommendation": "Add 1-2 quantified achievements: 'Led 15-person engineering team and increased revenue by 45% ($2.5M) through data-driven experimentation'"
+            },
+            {
+              "id": "intro-gap-2",
+              "label": "No company mission reference",
+              "severity": "medium",
+              "requirementType": "narrative",
+              "rationale": "Introduction does not mention company mission, values, or why you're specifically interested in this company.",
+              "recommendation": "Add 1 sentence referencing company mission: 'I deeply align with TechCorp's mission to democratize data access for all'"
+            }
+          ],
+          "recommendedMoves": [
+            "Add quantified metrics",
+            "Reference company mission",
+            "Show enthusiasm for role"
+          ],
+          "nextAction": "Enhance introduction with specific numbers and company alignment"
+        },
+        {
+          "sectionSlug": "experience",
+          "sectionType": "experience",
+          "sectionTitle": "Experience",
+          "promptSummary": "Experience section should demonstrate technical skills and leadership with concrete evidence. Use CAR (Context, Action, Result) structure.",
+          "requirementGaps": [
+            {
+              "id": "exp-gap-1",
+              "label": "No SQL/data analysis evidence",
+              "severity": "high",
+              "requirementType": "core",
+              "rationale": "Job requires SQL and analytics skills but draft does not demonstrate them. Generic statements like 'worked with data' are not sufficient.",
+              "recommendation": "Add a story showing SQL analysis: 'Built SQL dashboard analyzing 2M+ user sessions, identified 3 high-impact product improvements that increased retention by 18%'"
+            },
+            {
+              "id": "exp-gap-2",
+              "label": "Weak leadership evidence",
+              "severity": "medium",
+              "requirementType": "preferred",
+              "rationale": "Draft mentions 'leading' but lacks specifics about team size, scope, or outcomes.",
+              "recommendation": "Enhance leadership story with specifics: 'Led cross-functional team of 8 (3 engineers, 2 designers, 2 data analysts, 1 marketer) to ship feature in 6 weeks'"
+            }
+          ],
+          "recommendedMoves": [
+            "Add technical skills story with SQL/analytics",
+            "Enhance leadership story with team size and outcomes"
+          ],
+          "nextAction": "Add story demonstrating SQL analysis or data-driven decision making"
+        },
+        {
+          "sectionSlug": "closing",
+          "sectionType": "closing",
+          "sectionTitle": "Closing",
+          "promptSummary": "Strong closing should express enthusiasm, reiterate fit, and include a clear call to action.",
+          "requirementGaps": [
+            {
+              "id": "closing-gap-1",
+              "label": "No call to action",
+              "severity": "low",
+              "requirementType": "narrative",
+              "rationale": "Closing does not invite next steps or express availability for interview.",
+              "recommendation": "Add call to action: 'I would welcome the opportunity to discuss how my experience can contribute to TechCorp's growth. I am available for an interview at your convenience.'"
+            }
+          ],
+          "recommendedMoves": [
+            "Add call to action",
+            "Express availability for interview"
+          ],
+          "nextAction": "Add call to action inviting interview"
+        },
+        {
+          "sectionSlug": "signature",
+          "sectionType": "signature",
+          "sectionTitle": "Signature",
+          "promptSummary": "Signature should be professional and include contact information.",
+          "requirementGaps": [],
+          "recommendedMoves": [],
+          "nextAction": null
+        }
+      ],
+      "coreRequirementDetails": [
+        {
+          "id": "req-1",
+          "requirement": "Product strategy",
+          "demonstrated": true,
+          "evidence": "Mentioned strategic initiatives in introduction",
+          "sectionIds": ["introduction"],
+          "severity": "critical"
+        },
+        {
+          "id": "req-2",
+          "requirement": "SQL proficiency",
+          "demonstrated": false,
+          "evidence": "Not mentioned in draft",
+          "sectionIds": [],
+          "severity": "critical"
+        },
+        {
+          "id": "req-3",
+          "requirement": "A/B testing",
+          "demonstrated": true,
+          "evidence": "Mentioned data-driven experimentation in introduction",
+          "sectionIds": ["introduction"],
+          "severity": "critical"
+        }
+      ],
+      "preferredRequirementDetails": [
+        {
+          "id": "req-4",
+          "requirement": "Team leadership",
+          "demonstrated": true,
+          "evidence": "Mentioned leading 15 engineers in introduction",
+          "sectionIds": ["introduction"],
+          "severity": "nice-to-have"
+        },
+        {
+          "id": "req-5",
+          "requirement": "Cross-functional collaboration",
+          "demonstrated": false,
+          "evidence": "Not mentioned",
+          "sectionIds": [],
+          "severity": "nice-to-have"
+        }
+      ]
+    }
+  },
+  "heuristic": {
+    "description": "Heuristic-only insights (no LLM data)",
+    "pendingSectionInsights": {
+      "intro-section-id": {
+        "sectionSlug": "introduction",
+        "sectionType": "introduction",
+        "promptSummary": "Quick analysis (calculating full metrics...)",
+        "requirementGaps": [
+          {
+            "id": "heuristic-gap-1",
+            "label": "Missing quantified impact",
+            "severity": "high",
+            "requirementType": "core",
+            "rationale": "No metrics or percentages detected in introduction",
+            "recommendation": "Add specific numbers to demonstrate impact"
+          }
+        ],
+        "recommendedMoves": ["Add metrics"],
+        "nextAction": null
+      },
+      "exp-section-id": {
+        "sectionSlug": "experience",
+        "sectionType": "experience",
+        "promptSummary": "Quick analysis (calculating full metrics...)",
+        "requirementGaps": [
+          {
+            "id": "heuristic-gap-2",
+            "label": "No technical keywords",
+            "severity": "high",
+            "requirementType": "core",
+            "rationale": "Job requires SQL but section does not mention it",
+            "recommendation": "Add story demonstrating SQL or data analysis"
+          }
+        ],
+        "recommendedMoves": ["Add technical story"],
+        "nextAction": null
+      }
+    }
+  },
+  "minimal": {
+    "description": "Single section with single gap (minimal case)",
+    "enhancedMatchData": {
+      "sectionGapInsights": [
+        {
+          "sectionSlug": "introduction",
+          "sectionType": "introduction",
+          "promptSummary": "Add quantified achievements to make introduction more compelling",
+          "requirementGaps": [
+            {
+              "id": "intro-gap-1",
+              "label": "Missing metrics",
+              "severity": "high",
+              "requirementType": "core",
+              "rationale": "No specific numbers",
+              "recommendation": "Add 1-2 quantified achievements"
+            }
+          ],
+          "recommendedMoves": ["Add metrics"],
+          "nextAction": "Add quantified achievements"
+        }
+      ],
+      "coreRequirementDetails": [],
+      "preferredRequirementDetails": []
+    }
+  },
+  "noGaps": {
+    "description": "All sections clean (no gaps)",
+    "enhancedMatchData": {
+      "sectionGapInsights": [
+        {
+          "sectionSlug": "introduction",
+          "sectionType": "introduction",
+          "promptSummary": "Introduction is strong and well-structured",
+          "requirementGaps": [],
+          "recommendedMoves": [],
+          "nextAction": null
+        },
+        {
+          "sectionSlug": "experience",
+          "sectionType": "experience",
+          "promptSummary": "Experience section effectively demonstrates all key requirements",
+          "requirementGaps": [],
+          "recommendedMoves": [],
+          "nextAction": null
+        },
+        {
+          "sectionSlug": "closing",
+          "sectionType": "closing",
+          "promptSummary": "Closing is professional and includes clear call to action",
+          "requirementGaps": [],
+          "recommendedMoves": [],
+          "nextAction": null
+        }
+      ],
+      "coreRequirementDetails": [
+        {
+          "id": "req-1",
+          "requirement": "Product strategy",
+          "demonstrated": true,
+          "evidence": "Mentioned in introduction",
+          "sectionIds": ["introduction"],
+          "severity": "critical"
+        },
+        {
+          "id": "req-2",
+          "requirement": "SQL proficiency",
+          "demonstrated": true,
+          "evidence": "Demonstrated in experience section",
+          "sectionIds": ["experience"],
+          "severity": "critical"
+        }
+      ],
+      "preferredRequirementDetails": [
+        {
+          "id": "req-3",
+          "requirement": "Team leadership",
+          "demonstrated": true,
+          "evidence": "Mentioned in introduction",
+          "sectionIds": ["introduction"],
+          "severity": "nice-to-have"
+        }
+      ]
+    }
+  },
+  "edgeCases": {
+    "description": "Edge cases: missing JD fields, custom sections, single section drafts",
+    "minimalJD": {
+      "company": "TechCorp",
+      "role": "Senior PM",
+      "summary": "Leading product strategy",
+      "standardRequirements": [
+        {
+          "id": "req-1",
+          "label": "Product strategy",
+          "keywords": ["strategy"]
+        }
+      ],
+      "preferredRequirements": []
+    },
+    "singleSectionDraft": {
+      "sections": [
+        {
+          "id": "intro-only",
+          "slug": "introduction",
+          "type": "introduction",
+          "content": "Sample intro content"
+        }
+      ]
+    },
+    "customSectionDraft": {
+      "sections": [
+        {
+          "id": "custom-1",
+          "slug": "portfolio-showcase",
+          "type": "custom",
+          "content": "Portfolio link: example.com"
+        }
+      ]
+    }
+  }
+}
+

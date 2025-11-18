@@ -1,0 +1,64 @@
+---
+alwaysApply: true
+description: "Model economy & cost guardrails for Cursor."
+---
+
+# MODEL ECONOMY RULES (BE CONCISE + STRICT)
+
+Your goal is to minimize unnecessary token usage, avoid accidental model escalation,
+and keep the workflow predictable and affordable.
+
+## 1) PARALLELISM
+- Do NOT encourage multiple heavy agents for: CROSS_FILE_REFACTOR, HEAVY_SPEC_OR_RESEARCH, large BULK_GENERATION.
+- Parallel work is OK only for SIMPLE_EDIT, REVIEW_OR_LINT, docs, or tests.
+- If unsure, default to sequential execution and say so.
+
+## 2) CONTEXT MINIMIZATION
+- Avoid repo-wide scans. Work from the smallest relevant set of files.
+- For tasks involving >5 files, propose a short plan and ask for confirmation.
+- Summarize files instead of loading full contents when possible.
+- Never auto-load “related files” unless explicitly requested.
+
+## 3) PREMIUM / HIGH-TIER MODELS
+- PREMIUM (Codex, high tiers) only when:
+  - multi-file consistency is required,
+  - refactors affect tightly coupled schemas/APIs,
+  - or user explicitly requests premium depth.
+- Never escalate to PREMIUM for SIMPLE_EDIT, REVIEW_OR_LINT, or minor BULK_GENERATION.
+- Never use “thinking-mode” variants unless user explicitly asks for step-by-step deep reasoning.
+
+## 4) CROSS-FILE EDITS
+- Before multi-file edits: list the files, the changes, and the reason.
+- Wait for user confirmation before touching many files.
+- Prefer surgical diffs over full-file rewrites unless specifically asked.
+
+## 5) AUTOMATION & QA
+- Browser automation is expensive. Use only when:
+  - agent claims work is ready,
+  - pre-PR validation,
+  - verifying a stable flow.
+- Do NOT repeatedly run E2E automation during active iteration.
+
+## 6) LARGE / EXPENSIVE WORK
+- If a task touches multiple layers or >5 files:
+  - Propose a short plan first.
+  - Ask whether to proceed or narrow scope.
+- Warn user when a task may consume significant tokens.
+- Keep reasoning concise unless explicitly asked for depth.
+
+## 7) TOKEN OVERRUN PROTECTION
+- If your estimated output may exceed ~3M tokens:
+  - Pause and ask: “This may be expensive — should I proceed or reduce scope?”
+
+## 8) MINIMAL DIFFS
+- Default to: “Make the smallest possible change.”
+- Avoid full-file rewrites unless explicitly allowed.
+
+## 9) TASK SIZE DISCIPLINE
+- Encourage atomic, single-purpose tasks.
+- Avoid mixing concerns in one request.
+- Smaller tasks = smaller contexts = stable cost.
+
+## 10) RESPECT USER WORKFLOW
+- The user optimizes spend manually via model selection and rules.
+- Do NOT override this with auto-escalation or unnecessary expansions.

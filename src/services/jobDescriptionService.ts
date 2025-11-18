@@ -393,7 +393,7 @@ export class JobDescriptionService {
           throw new Error('Failed to parse job description analysis. Please try again.');
         }
 
-        const parsed = this.transformParsedResponse(parsedJson);
+        const parsed = await this.transformParsedResponse(parsedJson);
         return { parsed, raw: parsedJson };
       } catch (error) {
         lastError = error instanceof Error ? error : new Error('Unknown error during JD parse');
@@ -642,7 +642,7 @@ export class JobDescriptionService {
     };
   }
 
-  private transformParsedResponse(payload: Record<string, unknown>): ParsedJobDescription {
+  private async transformParsedResponse(payload: Record<string, unknown>): Promise<ParsedJobDescription> {
     // Extract basic fields
     const company =
       typeof payload.company === 'string' && payload.company.trim().length > 0
@@ -689,8 +689,45 @@ export class JobDescriptionService {
       reasoning: '',
     }));
 
-    // No more differentiatorRequirements in new format
-    const differentiatorRequirements: RequirementInsight[] = [];
+    // Apply intelligent ranking to requirements
+    let updatedCore = standardRequirements;
+    let updatedPreferred = preferredRequirements;
+    let differentiatorRequirements: RequirementInsight[] = [];
+    
+    try {
+      const { rankRequirements, updatePriorityFromRanking, identifyDifferentiators } = await import('./requirementRankingService');
+      
+      // Rank and update priorities for core requirements
+      const rankedCore = rankRequirements(standardRequirements, role);
+      updatedCore = rankedCore.map(req => ({
+        ...req,
+        priority: updatePriorityFromRanking(req),
+      }));
+      
+      // Rank and update priorities for preferred requirements
+      const rankedPreferred = rankRequirements(preferredRequirements, role);
+      updatedPreferred = rankedPreferred.map(req => ({
+        ...req,
+        priority: updatePriorityFromRanking(req),
+      }));
+      
+      // Identify differentiator requirements (most unique/high-priority from both lists)
+      const allRanked = [...rankedCore, ...rankedPreferred];
+      const differentiators = identifyDifferentiators(allRanked, 3);
+      differentiatorRequirements = differentiators.map(diff => ({
+        id: diff.id,
+        label: diff.label,
+        detail: diff.detail,
+        category: 'differentiator' as RequirementCategory,
+        priority: diff.priority,
+        keywords: diff.keywords,
+        signals: diff.signals,
+        reasoning: diff.reasoning,
+      }));
+    } catch (error) {
+      // If ranking fails, use original requirements with default priorities
+      console.warn('[JobDescriptionService] Requirement ranking failed, using defaults:', error);
+    }
 
     // Extract new structured fields
     const salary = typeof payload.salary === 'string' ? payload.salary : null;
@@ -719,8 +756,8 @@ export class JobDescriptionService {
       companyValues,
       workType,
       salary,
-      standardRequirements: standardRequirements,
-      preferredRequirements: preferredRequirements,
+      standardRequirements: updatedCore.map(({ ranking, rank, ...req }) => req),
+      preferredRequirements: updatedPreferred.map(({ ranking, rank, ...req }) => req),
     };
 
     // Generate keywords from company industry, business model, and requirements
@@ -746,9 +783,9 @@ export class JobDescriptionService {
       company,
       role,
       summary,
-      standardRequirements,
+      standardRequirements: updatedCore.map(({ ranking, rank, ...req }) => req), // Remove ranking metadata
+      preferredRequirements: updatedPreferred.map(({ ranking, rank, ...req }) => req), // Remove ranking metadata
       differentiatorRequirements,
-      preferredRequirements,
       boilerplateSignals,
       differentiatorSignals,
       keywords,

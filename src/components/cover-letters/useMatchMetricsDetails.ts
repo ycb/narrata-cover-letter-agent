@@ -143,6 +143,7 @@ export function useMatchMetricsDetails({
       jobDescription?.structuredData?.standardRequirements ||
       jobDescription?.standardRequirements ||
       (jobDescription as any)?.standard_requirements ||
+      jobDescription?.analysis?.llm?.coreRequirements || // LLM returns coreRequirements, not standardRequirements
       jobDescription?.analysis?.llm?.standardRequirements ||
       [];
     const jdPref =
@@ -156,13 +157,19 @@ export function useMatchMetricsDetails({
       req: any,
       analyzedById: Map<any, any>,
       analyzedByText: Map<any, any>,
+      index: number,
     ): RequirementDisplayItem => {
+      // Handle string arrays from LLM (coreRequirements/preferredRequirements are strings)
+      const requirementText = typeof req === 'string' 
+        ? req 
+        : (req.requirement || req.label || req.detail || '');
+      
       const id =
         req.id ||
         req.requirementId ||
         req.key ||
-        normalizeReqText(req.requirement || req.label || req.detail);
-      const requirementText = req.requirement || req.label || req.detail || '';
+        (typeof req === 'string' ? `req-${index}` : normalizeReqText(requirementText));
+      
       const analyzed = (id && analyzedById.get(id)) || analyzedByText.get(normalizeReqText(requirementText));
 
       return {
@@ -193,8 +200,8 @@ export function useMatchMetricsDetails({
       })) || [];
 
     return {
-      coreRequirementList: jdCore.length > 0 ? jdCore.map((r: any) => buildReq(r, analyzedCoreById, analyzedCoreByText)) : fallbackCore,
-      preferredRequirementList: jdPref.length > 0 ? jdPref.map((r: any) => buildReq(r, analyzedPrefById, analyzedPrefByText)) : fallbackPreferred,
+      coreRequirementList: jdCore.length > 0 ? jdCore.map((r: any, i: number) => buildReq(r, analyzedCoreById, analyzedCoreByText, i)) : fallbackCore,
+      preferredRequirementList: jdPref.length > 0 ? jdPref.map((r: any, i: number) => buildReq(r, analyzedPrefById, analyzedPrefByText, i)) : fallbackPreferred,
     };
   }, [jobDescription, enhancedMatchData?.coreRequirementDetails, enhancedMatchData?.preferredRequirementDetails]);
 
