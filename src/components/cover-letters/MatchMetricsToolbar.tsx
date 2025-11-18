@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronRight, HelpCircle } from 'lucide-react';
+import { Check, X, HelpCircle } from 'lucide-react';
 import { GoalMatchCard } from './GoalMatchCard';
 import { CoverLetterRatingInsights } from './CoverLetterRatingTooltip';
 import { ATSScoreInsights } from './ATSScoreTooltip';
@@ -76,14 +76,14 @@ export function MatchMetricsToolbar({
       },
       {
         key: 'preferred',
-        label: 'Preferred Requirements',
+        label: 'Pref Requirements',
         value: isLoading ? '' : `${preferredRequirements.summary.met}/${preferredRequirements.summary.total || 0}`,
         badgeClass: getATSScoreColor(preferredRequirements.summary.percentage),
         disabled: isLoading,
       },
       {
         key: 'rating',
-        label: 'Cover Letter Rating',
+        label: 'Overall Rating',
         value: isLoading ? '' : metrics.coverLetterRating || 'N/A',
         badgeClass: getRatingColor(metrics.coverLetterRating),
         disabled: isLoading,
@@ -98,36 +98,30 @@ export function MatchMetricsToolbar({
     ];
   }, [coreRequirements.summary, goalsSummary, isLoading, metrics.atsScore, metrics.coverLetterRating, preferredRequirements.summary]);
 
-  const firstAvailable = toolbarItems.find((item) => !item.disabled) ?? toolbarItems[0];
-  const [activeMetric, setActiveMetric] = useState<MetricKey | null>(firstAvailable.key);
-
-  useEffect(() => {
-    if (firstAvailable) {
-      setActiveMetric(firstAvailable.key);
-    }
-  }, [firstAvailable]);
+  const [activeMetric, setActiveMetric] = useState<MetricKey | null>(null);
 
   const hasExpandedItem = activeMetric !== null;
 
   return (
-    <div className={`w-full bg-card border rounded-lg ${className || ''}`}>
+    <div className={`w-full h-full bg-card border flex flex-col ${className || ''}`}>
       <div
-        className={`flex flex-col gap-2 p-3 border-b md:border-b-0 md:border-r transition-all duration-300 ease-in-out ${
+        className={`flex flex-col border-b md:border-b-0 transition-all duration-300 ease-in-out overflow-y-auto flex-1 min-h-0 ${
           hasExpandedItem ? 'md:w-96' : 'md:w-48'
         }`}
       >
-        {toolbarItems.map((item) => {
+        {toolbarItems.map((item, index) => {
           const isActive = activeMetric === item.key;
+          const isLast = index === toolbarItems.length - 1;
           return (
-            <div key={item.key} className="flex flex-col">
+            <div key={item.key} className={`flex flex-col ${index > 0 ? 'border-t border-border/30' : ''} ${isLast ? 'border-b border-border/30' : ''}`}>
               {isLoading ? (
-                <div className="h-14 w-full rounded-md bg-muted animate-pulse" aria-hidden="true" />
+                <div className="h-14 w-full bg-muted animate-pulse" aria-hidden="true" />
               ) : (
                 <>
                   <button
                     type="button"
                     onClick={() => setActiveMetric(isActive ? null : item.key)}
-                    className={`w-full rounded-md border px-3 py-2 text-left transition ${
+                    className={`w-full border px-3 py-2 text-left transition ${
                       isActive
                         ? 'bg-black dark:bg-white border-black dark:border-white text-white dark:text-black'
                         : 'bg-transparent border-transparent hover:bg-muted/40 text-muted-foreground'
@@ -135,34 +129,22 @@ export function MatchMetricsToolbar({
                     aria-pressed={isActive}
                     aria-expanded={isActive}
                   >
-                    <div className="flex flex-col w-full">
-                      <div className="flex items-center justify-between">
-                        <span className={`text-base font-semibold ${isActive ? 'text-white dark:text-black' : 'text-foreground'}`}>
-                          {item.value}
-                        </span>
-                        <Badge 
-                          variant="outline" 
-                          className={item.badgeClass}
-                        >
-                          {isActive ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4" />
-                          )}
-                        </Badge>
-                      </div>
-                      <span className={`text-[11px] uppercase tracking-wide mt-1 ${isActive ? 'text-white dark:text-black' : 'text-muted-foreground'}`}>
+                    <div className="flex items-center justify-between w-full">
+                      <span className={`text-[11px] uppercase tracking-wide ${isActive ? 'text-white dark:text-black' : 'text-muted-foreground'}`}>
                         {item.label}
+                      </span>
+                      <span className={`text-base font-semibold ${isActive ? 'text-white dark:text-black' : 'text-foreground'}`}>
+                        {item.value}
                       </span>
                     </div>
                   </button>
                   <div
-                    className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                    className={`overflow-hidden transition-[max-height,opacity] duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${
                       isActive && activeMetric ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
                     }`}
                   >
                     {isActive && activeMetric && (
-                      <div className="p-4 border-t mt-2" id="match-metrics-drawer">
+                      <div className="border-t border-b pl-6" id="match-metrics-drawer">
                         <MetricDrawerContent
                           activeMetric={activeMetric}
                           goalMatches={goalMatches}
@@ -221,8 +203,6 @@ function MetricDrawerContent({
     case 'core':
       return (
         <RequirementsDrawerContent
-          title="Core Requirements"
-          description="Essential requirements addressed in your draft"
           requirements={coreRequirements}
           onEnhanceSection={onEnhanceSection}
           onAddMetrics={onAddMetrics}
@@ -231,8 +211,6 @@ function MetricDrawerContent({
     case 'preferred':
       return (
         <RequirementsDrawerContent
-          title="Preferred Requirements"
-          description="Nice-to-have requirements addressed in your draft"
           requirements={preferredRequirements}
           onEnhanceSection={onEnhanceSection}
           onAddMetrics={onAddMetrics}
@@ -247,52 +225,64 @@ function MetricDrawerContent({
 }
 
 interface RequirementsDrawerContentProps {
-  title: string;
-  description: string;
   requirements: RequirementDisplayItem[];
   onEnhanceSection?: (sectionId: string, requirement?: string) => void;
   onAddMetrics?: (sectionId?: string) => void;
 }
 
 function RequirementsDrawerContent({
-  title,
-  description,
   requirements,
   onEnhanceSection,
   onAddMetrics,
 }: RequirementsDrawerContentProps) {
   if (!requirements.length) {
     return (
-      <div className="flex items-center gap-3 border rounded-lg p-4 bg-muted/20">
-        <HelpCircle className="h-5 w-5 text-muted-foreground" />
-        <div>
-          <p className="text-sm font-medium text-foreground">{title}</p>
-          <p className="text-xs text-muted-foreground">{description}</p>
+      <div className="p-2 flex items-center gap-2">
+        <div className="flex-shrink-0 p-2 flex items-center">
+          <HelpCircle className="h-4 w-4 text-muted-foreground" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="mb-1.5">
+            <h4 className="text-sm font-medium text-foreground">No requirements</h4>
+          </div>
+          <div className="text-xs">
+            <div>
+              <span className="text-muted-foreground">No requirements to display</span>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
-      <div>
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-        <p className="text-xs text-muted-foreground">{description}</p>
-      </div>
-      {requirements.map((req) => (
+    <div>
+      {requirements.map((req, index) => (
         <div
           key={req.id}
-          className={`border rounded-lg p-3 ${req.demonstrated ? 'bg-success/10 border-success/20' : 'bg-destructive/10 border-destructive/20'}`}
+          className={`p-2 flex items-center gap-2 ${index > 0 ? 'border-t border-border/30' : ''}`}
         >
-          <div className="flex items-start justify-between gap-2">
-            <div>
+          <div className="flex-1 min-w-0">
+            <div className="mb-1.5">
               <h4 className="text-sm font-medium text-foreground">{req.requirement}</h4>
-              <p className={`text-xs mt-1 ${req.demonstrated ? 'text-foreground/80' : 'text-muted-foreground'}`}>
-                {req.evidence || (req.demonstrated ? 'Mentioned in draft' : 'Not mentioned in draft')}
-              </p>
             </div>
+            <div className="text-xs">
+              <div>
+                <span className="font-medium text-foreground/90">Status:</span>{' '}
+                <span className={`${req.demonstrated ? 'text-foreground/80' : 'text-muted-foreground'}`}>
+                  {req.evidence || (req.demonstrated ? 'Mentioned in draft' : 'Not mentioned in draft')}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="flex-shrink-0 p-2 flex items-center gap-2">
+            {req.demonstrated ? (
+              <Check className="h-4 w-4 text-success" />
+            ) : (
+              <X className="h-4 w-4 text-destructive" />
+            )}
             {req.demonstrated && (
-              <div className="flex gap-2">
+              <>
                 {onEnhanceSection && req.section && (
                   <Button
                     size="sm"
@@ -313,7 +303,7 @@ function RequirementsDrawerContent({
                     Add Metrics
                   </Button>
                 )}
-              </div>
+              </>
             )}
           </div>
         </div>
@@ -354,20 +344,21 @@ function GoalsDrawerContent({ goalMatches, onEditGoals }: GoalsDrawerContentProp
   }
 
   return (
-    <div className="space-y-3">
-      {sortedMatches.map((match) => (
-        <GoalMatchCard
-          key={match.id}
-          goalType={match.goalType}
-          userValue={match.userValue}
-          jobValue={match.jobValue}
-          met={match.met}
-          matchState={match.matchState}
-          evidence={match.evidence}
-          requiresManualVerification={match.requiresManualVerification}
-          emptyState={match.emptyState}
-          onEditGoals={onEditGoals}
-        />
+    <div>
+      {sortedMatches.map((match, index) => (
+        <div key={match.id} className={index > 0 ? 'border-t border-border/30' : ''}>
+          <GoalMatchCard
+            goalType={match.goalType}
+            userValue={match.userValue}
+            jobValue={match.jobValue}
+            met={match.met}
+            matchState={match.matchState}
+            evidence={match.evidence}
+            requiresManualVerification={match.requiresManualVerification}
+            emptyState={match.emptyState}
+            onEditGoals={onEditGoals}
+          />
+        </div>
       ))}
     </div>
   );

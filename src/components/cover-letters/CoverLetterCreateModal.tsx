@@ -52,7 +52,7 @@ import { supabase } from '@/lib/supabase';
 import { JobDescriptionService } from '@/services/jobDescriptionService';
 import { CoverLetterDraftService } from '@/services/coverLetterDraftService';
 import { useCoverLetterDraft } from '@/hooks/useCoverLetterDraft';
-import { ProgressIndicatorWithTooltips } from './ProgressIndicatorWithTooltips';
+import { MatchMetricsToolbar } from './MatchMetricsToolbar';
 import { CoverLetterFinalization } from './CoverLetterFinalization';
 import { CoverLetterSkeleton } from './CoverLetterSkeleton';
 import { ContentCard } from '@/components/shared/ContentCard';
@@ -751,84 +751,83 @@ export const CoverLetterCreateModal = ({
       );
     }
 
+    // Transform draft.metrics to HILProgressMetrics format
+    const metricsMap = new Map(draft.metrics.map(m => [m.key, m]));
+    
+    const goalsMetric = metricsMap.get('goals');
+    const experienceMetric = metricsMap.get('experience');
+    const ratingMetric = metricsMap.get('rating');
+    const atsMetric = metricsMap.get('ats');
+    const coreReqsMetric = metricsMap.get('coreRequirements');
+    const preferredReqsMetric = metricsMap.get('preferredRequirements');
+    
+    const hilMetrics = {
+      goalsMatch: goalsMetric && goalsMetric.type === 'strength' 
+        ? goalsMetric.strength 
+        : 'weak',
+      experienceMatch: experienceMetric && experienceMetric.type === 'strength'
+        ? experienceMetric.strength
+        : 'weak',
+      coverLetterRating: ratingMetric && ratingMetric.type === 'strength'
+        ? ratingMetric.strength
+        : 'weak',
+      atsScore: atsMetric && atsMetric.type === 'score'
+        ? Math.round(atsMetric.value)
+        : draft.atsScore || 0,
+      coreRequirementsMet: coreReqsMetric && coreReqsMetric.type === 'requirement'
+        ? { met: coreReqsMetric.met, total: coreReqsMetric.total }
+        : { met: 0, total: 0 },
+      preferredRequirementsMet: preferredReqsMetric && preferredReqsMetric.type === 'requirement'
+        ? { met: preferredReqsMetric.met, total: preferredReqsMetric.total }
+        : { met: 0, total: 0 },
+    };
+
     return (
-      <div className="space-y-6">
-        {(generationError || jobInputError) && (
-          <Alert variant="destructive">
-            <AlertTitle>Cover letter generation issue</AlertTitle>
-            <AlertDescription>
-              {generationError ?? jobInputError ?? 'Unable to generate cover letter.'}
-            </AlertDescription>
-          </Alert>
-        )}
+      <div className="flex h-full overflow-hidden">
+        {/* Left Sidebar - Toolbar */}
+        <div className="bg-card flex-shrink-0">
+          <MatchMetricsToolbar
+            metrics={hilMetrics}
+            isPostHIL={false}
+            isLoading={metricsLoading}
+            enhancedMatchData={draft.enhancedMatchData}
+            goNoGoAnalysis={undefined}
+            jobDescription={normalizedJobDescription ?? undefined}
+            onEditGoals={() => setShowGoalsModal(true)}
+            onEnhanceSection={(sectionId, requirement) => {
+              // TODO: Open section enhancement flow
+              console.log('Enhance section:', sectionId, 'for requirement:', requirement);
+            }}
+            onAddMetrics={(sectionId) => {
+              // TODO: Open metrics addition flow
+              console.log('Add metrics to section:', sectionId);
+            }}
+            className="h-full border-0"
+          />
+        </div>
 
-        {/* AGENT D: Show metrics loading indicator */}
-        {metricsLoading && (
-          <Alert className="border-primary/20 bg-primary/5">
-            <Loader2 className="h-4 w-4 animate-spin text-primary" />
-            <AlertTitle>Calculating match metrics</AlertTitle>
-            <AlertDescription>
-              Analyzing how well your draft matches the job requirements. You can edit sections while this completes.
-            </AlertDescription>
-          </Alert>
-        )}
+        {/* Right Content Area */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="space-y-6 pl-6 pb-6">
+            {(generationError || jobInputError) && (
+              <Alert variant="destructive">
+                <AlertTitle>Cover letter generation issue</AlertTitle>
+                <AlertDescription>
+                  {generationError ?? jobInputError ?? 'Unable to generate cover letter.'}
+                </AlertDescription>
+              </Alert>
+            )}
 
-        {(() => {
-          // Transform draft.metrics to HILProgressMetrics format
-          const metricsMap = new Map(draft.metrics.map(m => [m.key, m]));
-          
-          const goalsMetric = metricsMap.get('goals');
-          const experienceMetric = metricsMap.get('experience');
-          const ratingMetric = metricsMap.get('rating');
-          const atsMetric = metricsMap.get('ats');
-          const coreReqsMetric = metricsMap.get('coreRequirements');
-          const preferredReqsMetric = metricsMap.get('preferredRequirements');
-          
-          const hilMetrics = {
-            goalsMatch: goalsMetric && goalsMetric.type === 'strength' 
-              ? goalsMetric.strength 
-              : 'weak',
-            experienceMatch: experienceMetric && experienceMetric.type === 'strength'
-              ? experienceMetric.strength
-              : 'weak',
-            coverLetterRating: ratingMetric && ratingMetric.type === 'strength'
-              ? ratingMetric.strength
-              : 'weak',
-            atsScore: atsMetric && atsMetric.type === 'score'
-              ? Math.round(atsMetric.value)
-              : draft.atsScore || 0,
-            coreRequirementsMet: coreReqsMetric && coreReqsMetric.type === 'requirement'
-              ? { met: coreReqsMetric.met, total: coreReqsMetric.total }
-              : { met: 0, total: 0 },
-            preferredRequirementsMet: preferredReqsMetric && preferredReqsMetric.type === 'requirement'
-              ? { met: preferredReqsMetric.met, total: preferredReqsMetric.total }
-              : { met: 0, total: 0 },
-          };
-          
-          return (
-            <ProgressIndicatorWithTooltips
-              metrics={hilMetrics}
-              isPostHIL={false}
-              isLoading={metricsLoading} // AGENT D: Pass metrics loading state
-              enhancedMatchData={draft.enhancedMatchData}
-              goNoGoAnalysis={undefined}
-              jobDescription={normalizedJobDescription ?? undefined}
-              onEditGoals={() => setShowGoalsModal(true)}
-              onAddStory={(requirement, severity) => {
-                // TODO: Open story creation modal
-                console.log('Add story for requirement:', requirement);
-              }}
-              onEnhanceSection={(sectionId, requirement) => {
-                // TODO: Open section enhancement flow
-                console.log('Enhance section:', sectionId, 'for requirement:', requirement);
-              }}
-              onAddMetrics={(sectionId) => {
-                // TODO: Open metrics addition flow
-                console.log('Add metrics to section:', sectionId);
-              }}
-            />
-          );
-        })()}
+            {/* AGENT D: Show metrics loading indicator */}
+            {metricsLoading && (
+              <Alert className="border-primary/20 bg-primary/5">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <AlertTitle>Calculating match metrics</AlertTitle>
+                <AlertDescription>
+                  Analyzing how well your draft matches the job requirements. You can edit sections while this completes.
+                </AlertDescription>
+              </Alert>
+            )}
 
         {jobDescriptionRecord && (
           <Card className="border-muted-foreground/20 bg-muted/10">
@@ -1052,6 +1051,8 @@ export const CoverLetterCreateModal = ({
             </Button>
           </div>
         </div>
+          </div>
+        </div>
       </div>
     );
   };
@@ -1059,7 +1060,7 @@ export const CoverLetterCreateModal = ({
   return (
     <>
     <Dialog open={isOpen} onOpenChange={open => (!open ? handleClose() : undefined)}>
-      <DialogContent className="max-w-6xl h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader className="pb-6">
           <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
             <div>
@@ -1074,16 +1075,16 @@ export const CoverLetterCreateModal = ({
           </div>
         </DialogHeader>
 
-        <Tabs value={mainTab} onValueChange={setMainTab} className="space-y-6">
-          <TabsList className="grid grid-cols-2 md:w-96">
+        <Tabs value={mainTab} onValueChange={setMainTab} className="flex flex-col flex-1 min-h-0">
+          <TabsList className="grid grid-cols-2 w-full flex-shrink-0 mb-4">
             <TabsTrigger value="job-description">Job description</TabsTrigger>
             <TabsTrigger value="cover-letter" disabled={!draft}>
               Cover letter
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="job-description">{renderJobDescriptionTab()}</TabsContent>
-          <TabsContent value="cover-letter">{renderDraftTab()}</TabsContent>
+          <TabsContent value="job-description" className="flex-1 overflow-y-auto">{renderJobDescriptionTab()}</TabsContent>
+          <TabsContent value="cover-letter" className="flex-1 overflow-hidden">{renderDraftTab()}</TabsContent>
         </Tabs>
       </DialogContent>
       {draft && (

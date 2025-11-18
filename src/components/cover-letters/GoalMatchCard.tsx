@@ -38,7 +38,7 @@ export function GoalMatchCard({
   // Empty state: No goals configured at all (special case for entire goals system)
   if (emptyState === 'no-goals') {
     return (
-      <div className="border rounded-lg p-4 bg-muted/30 border-muted">
+      <div className="p-2">
         <div className="flex items-start gap-3">
           <div className="flex-shrink-0 mt-0.5">
             <Settings className="h-5 w-5 text-muted-foreground" />
@@ -74,26 +74,11 @@ export function GoalMatchCard({
   const isMatch = effectiveMatchState === 'match';
   const isUnknown = effectiveMatchState === 'unknown';
   
-  const cardBgClass = isMatch
-    ? 'bg-success/10 border-success/20'
-    : isUnknown
-    ? 'bg-muted/10 border-muted/40'
-    : 'bg-destructive/10 border-destructive/20';
-
   return (
-    <div className={`border rounded-lg p-3 ${cardBgClass}`}>
-      {/* Goal type with user value in heading */}
-      <div className="flex items-start gap-2 mb-1.5">
-        <div className="flex-shrink-0 mt-0.5">
-          {isMatch ? (
-            <Check className="h-4 w-4 text-success" />
-          ) : isUnknown ? (
-            <HelpCircle className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <X className="h-4 w-4 text-destructive" />
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
+    <div className="p-2 flex items-center gap-2">
+      <div className="flex-1 min-w-0">
+        {/* Goal type with user value in heading */}
+        <div className="mb-1.5">
           {userValue ? (
             onEditGoals ? (
               <button
@@ -120,16 +105,27 @@ export function GoalMatchCard({
             </h4>
           )}
         </div>
-      </div>
 
-      {/* Show what the job offers */}
-      <div className="ml-6 text-xs">
-        <div>
-          <span className="font-medium text-foreground/90">This job:</span>{' '}
-          <span className="text-foreground/80">
-            {jobValue || 'Unknown'}
-          </span>
+        {/* Show what the job offers */}
+        <div className="text-xs">
+          <div>
+            <span className="font-medium text-foreground/90">This job:</span>{' '}
+            <span className="text-foreground/80">
+              {jobValue || 'Unknown'}
+            </span>
+          </div>
         </div>
+      </div>
+      
+      {/* Icon column - full height, vertically centered */}
+      <div className="flex-shrink-0 p-2 flex items-center">
+        {isMatch ? (
+          <Check className="h-4 w-4 text-success" />
+        ) : isUnknown ? (
+          <HelpCircle className="h-4 w-4 text-muted-foreground" />
+        ) : (
+          <X className="h-4 w-4 text-destructive" />
+        )}
       </div>
     </div>
   );

@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { ContentCard } from '@/components/shared/ContentCard';
-import { ProgressIndicatorWithTooltips } from './ProgressIndicatorWithTooltips';
+import { MatchMetricsToolbar } from './MatchMetricsToolbar';
 import { cn } from '@/lib/utils';
 import type { EnhancedMatchData, SectionGapInsight } from '@/types/coverLetters';
 
@@ -289,24 +289,29 @@ export function CoverLetterDraftView({
   };
 
   return (
-    <div className={cn('space-y-6', className)}>
-      {/* Progress Indicators */}
+    <div className={cn('flex h-full overflow-hidden', className)}>
+      {/* Left Sidebar - Toolbar */}
       {hilProgressMetrics && (
-        <ProgressIndicatorWithTooltips
-          metrics={hilProgressMetrics}
-          isPostHIL={hilCompleted}
-          goNoGoAnalysis={goNoGoAnalysis || undefined}
-          jobDescription={jobDescription || undefined}
-          enhancedMatchData={enhancedMatchData || undefined}
-          onEditGoals={onEditGoals}
-          onAddStory={onAddStory}
-          onEnhanceSection={onEnhanceSection}
-          onAddMetrics={onAddMetrics}
-        />
+        <div className="bg-card flex-shrink-0">
+          <MatchMetricsToolbar
+            metrics={hilProgressMetrics}
+            isPostHIL={hilCompleted}
+            isLoading={false}
+            goNoGoAnalysis={goNoGoAnalysis || undefined}
+            jobDescription={jobDescription || undefined}
+            enhancedMatchData={enhancedMatchData || undefined}
+            onEditGoals={onEditGoals}
+            onEnhanceSection={onEnhanceSection}
+            onAddMetrics={onAddMetrics}
+            className="h-full border-0"
+          />
+        </div>
       )}
 
-      {/* Cover Letter Sections */}
-      {sections.map((section) => {
+      {/* Right Content Area */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="space-y-6 pl-6 pb-6">
+          {sections.map((section) => {
         const sectionTitle = getSectionTitle(section.type);
         const requirements = getRequirementsForParagraph(section.type);
 
@@ -341,18 +346,34 @@ export function CoverLetterDraftView({
                   value={section.content}
                   ref={(textarea) => {
                     if (textarea) {
-                      // Set initial height based on content
+                      // Set initial height based on content, but respect max-height
                       textarea.style.height = 'auto';
-                      textarea.style.height = `${textarea.scrollHeight}px`;
+                      const scrollHeight = textarea.scrollHeight;
+                      const maxHeight = 600;
+                      if (scrollHeight <= maxHeight) {
+                        textarea.style.height = `${scrollHeight}px`;
+                        textarea.style.overflowY = 'hidden';
+                      } else {
+                        textarea.style.height = `${maxHeight}px`;
+                        textarea.style.overflowY = 'auto';
+                      }
                     }
                   }}
                   onChange={(e) => {
                     onSectionChange(section.id, e.target.value);
-                    // Auto-resize textarea
+                    // Auto-resize textarea, but respect max-height
                     e.target.style.height = 'auto';
-                    e.target.style.height = `${e.target.scrollHeight}px`;
+                    const scrollHeight = e.target.scrollHeight;
+                    const maxHeight = 600;
+                    if (scrollHeight <= maxHeight) {
+                      e.target.style.height = `${scrollHeight}px`;
+                      e.target.style.overflowY = 'hidden';
+                    } else {
+                      e.target.style.height = `${maxHeight}px`;
+                      e.target.style.overflowY = 'auto';
+                    }
                   }}
-                  className="resize-none overflow-hidden"
+                  className="resize-none min-h-[100px]"
                   placeholder="Enter cover letter content..."
                   rows={1}
                 />
@@ -361,6 +382,8 @@ export function CoverLetterDraftView({
           </ContentCard>
         );
       })}
+        </div>
+      </div>
     </div>
   );
 }
