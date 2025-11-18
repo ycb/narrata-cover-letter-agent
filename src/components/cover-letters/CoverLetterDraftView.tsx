@@ -109,22 +109,33 @@ export function CoverLetterDraftView({
   const normalizeSectionType = (sectionType: string): string[] => {
     const aliases: Record<string, string[]> = {
       'introduction': ['introduction', 'intro', 'opening'],
-      'experience': ['experience', 'exp', 'background', 'body'],
-      'closing': ['closing', 'conclusion', 'signature'],
-      'signature': ['signature', 'closing', 'signoff'],
+      'experience': ['experience', 'exp', 'background', 'body', 'paragraph'], // 'paragraph' is the section type for experience sections
+      'closing': ['closing', 'conclusion', 'closer'],
+      'signature': ['signature', 'signoff'],
     };
     
     const lowerType = sectionType.toLowerCase();
     
+    // Map section type values to their canonical names
+    // CoverLetterSection uses: 'intro' | 'paragraph' | 'closer' | 'signature'
+    const typeMapping: Record<string, string> = {
+      'intro': 'introduction',
+      'paragraph': 'experience',
+      'closer': 'closing',
+    };
+    
+    // First check if we need to map the type
+    const mappedType = typeMapping[lowerType] || lowerType;
+    
     // Find canonical type and return all aliases
     for (const [canonical, variations] of Object.entries(aliases)) {
-      if (variations.includes(lowerType)) {
+      if (canonical === mappedType || variations.includes(mappedType) || variations.includes(lowerType)) {
         return variations;
       }
     }
     
-    // If not found in aliases, return the type itself
-    return [lowerType];
+    // If not found in aliases, return the mapped type or original type
+    return [mappedType, lowerType];
   };
 
   const getRequirementsForParagraph = (paragraphType: string) => {
@@ -300,6 +311,7 @@ export function CoverLetterDraftView({
             goNoGoAnalysis={goNoGoAnalysis || undefined}
             jobDescription={jobDescription || undefined}
             enhancedMatchData={enhancedMatchData || undefined}
+            sections={sections.map(s => ({ id: s.id, type: s.type }))}
             onEditGoals={onEditGoals}
             onEnhanceSection={onEnhanceSection}
             onAddMetrics={onAddMetrics}

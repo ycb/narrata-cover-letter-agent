@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Check, X, HelpCircle } from 'lucide-react';
+import { Check, X, HelpCircle, AlertTriangle } from 'lucide-react';
 import { GoalMatchCard } from './GoalMatchCard';
 import { CoverLetterRatingInsights } from './CoverLetterRatingTooltip';
 import { ATSScoreInsights } from './ATSScoreTooltip';
@@ -17,7 +17,7 @@ import {
 } from './useMatchMetricsDetails';
 import type { EnhancedMatchData } from '@/types/coverLetters';
 
-type MetricKey = 'goals' | 'core' | 'preferred' | 'rating' | 'ats';
+type MetricKey = 'gaps' | 'goals' | 'core' | 'preferred' | 'rating' | 'ats';
 
 interface MatchMetricsToolbarProps {
   metrics: HILProgressMetrics;
@@ -27,6 +27,7 @@ interface MatchMetricsToolbarProps {
   goNoGoAnalysis?: GoNoGoAnalysis;
   jobDescription?: MatchJobDescription;
   enhancedMatchData?: EnhancedMatchData;
+  sections?: Array<{ id: string; type: string }>;
   onEditGoals?: () => void;
   onEnhanceSection?: (sectionId: string, requirement?: string) => void;
   onAddMetrics?: (sectionId?: string) => void;
@@ -48,6 +49,7 @@ export function MatchMetricsToolbar({
   goNoGoAnalysis,
   jobDescription,
   enhancedMatchData,
+  sections = [],
   onEditGoals,
   onEnhanceSection,
   onAddMetrics,
@@ -58,8 +60,116 @@ export function MatchMetricsToolbar({
     goNoGoAnalysis,
   });
 
+  // Normalize section types to handle variations
+  const normalizeSectionType = (sectionType: string): string[] => {
+    const aliases: Record<string, string[]> = {
+      'introduction': ['introduction', 'intro', 'opening'],
+      'experience': ['experience', 'exp', 'background', 'body', 'paragraph'],
+      'closing': ['closing', 'conclusion', 'closer'],
+      'signature': ['signature', 'signoff'],
+    };
+    
+    const lowerType = sectionType.toLowerCase();
+    const typeMapping: Record<string, string> = {
+      'intro': 'introduction',
+      'paragraph': 'experience',
+      'closer': 'closing',
+    };
+    
+    const mappedType = typeMapping[lowerType] || lowerType;
+    
+    for (const [canonical, variations] of Object.entries(aliases)) {
+      if (canonical === mappedType || variations.includes(mappedType) || variations.includes(lowerType)) {
+        return variations;
+      }
+    }
+    
+    return [mappedType, lowerType];
+  };
+
+  // Collect gaps: count sections with gaps (not individual gap items)
+  // Each section that has at least one gap counts as 1 gap
+  const allGaps = useMemo(() => {
+    if (!enhancedMatchData?.sectionGapInsights || !sections.length) return [];
+    
+    const gaps: Array<{ sectionId: string; sectionTitle: string; gap: any }> = [];
+    
+    // For each section in the draft, check if it has gaps
+    sections.forEach((section) => {
+      const normalizedTypes = normalizeSectionType(section.type);
+      
+      // Find matching section insight
+      const sectionInsight = enhancedMatchData.sectionGapInsights?.find((insight) => {
+        const normalizedSlug = insight.sectionSlug.toLowerCase();
+        return normalizedTypes.includes(normalizedSlug) || normalizedSlug.includes(normalizedTypes[0]);
+      });
+      
+      // If this section has gaps, add all its gaps
+      if (sectionInsight && sectionInsight.requirementGaps.length > 0) {
+        const getSectionTitle = (type: string) => {
+          const lowerType = type.toLowerCase();
+          if (lowerType === 'intro' || lowerType === 'introduction') return 'Introduction';
+          if (lowerType === 'paragraph' || lowerType === 'experience') return 'Experience';
+          if (lowerType === 'closer' || lowerType === 'closing') return 'Closing';
+          if (lowerType === 'signature') return 'Signature';
+          return sectionInsight.sectionSlug || type;
+        };
+        
+        const sectionTitle = getSectionTitle(section.type);
+        
+        // Add all gaps for this section
+        sectionInsight.requirementGaps.forEach((gap: any) => {
+          gaps.push({
+            sectionId: section.id,
+            sectionTitle,
+            gap,
+          });
+        });
+      }
+    });
+    
+    return gaps;
+  }, [enhancedMatchData?.sectionGapInsights, sections]);
+
+  // Count sections with gaps (not individual gap items)
+  const gapsCount = useMemo(() => {
+    if (!enhancedMatchData?.sectionGapInsights || !sections.length) return 0;
+    
+    let count = 0;
+    
+    sections.forEach((section) => {
+      const normalizedTypes = normalizeSectionType(section.type);
+      
+      const sectionInsight = enhancedMatchData.sectionGapInsights?.find((insight) => {
+        const normalizedSlug = insight.sectionSlug.toLowerCase();
+        return normalizedTypes.includes(normalizedSlug) || normalizedSlug.includes(normalizedTypes[0]);
+      });
+      
+      // Count this section as 1 gap if it has any gaps
+      if (sectionInsight && sectionInsight.requirementGaps.length > 0) {
+        count++;
+      }
+    });
+    
+    return count;
+  }, [enhancedMatchData?.sectionGapInsights, sections]);
+
   const toolbarItems = useMemo<ToolbarItem[]>(() => {
-    return [
+    const items: ToolbarItem[] = [];
+    
+    // Add Gaps item at the top if there are gaps
+    if (gapsCount > 0) {
+      items.push({
+        key: 'gaps',
+        label: 'Gaps',
+        value: isLoading ? '' : String(gapsCount),
+        badgeClass: 'border-warning bg-warning/10 text-warning',
+        disabled: isLoading,
+      });
+    }
+    
+    // Add other items
+    items.push(
       {
         key: 'goals',
         label: 'Match with Goals',
@@ -94,9 +204,11 @@ export function MatchMetricsToolbar({
         value: isLoading ? '' : `${metrics.atsScore ?? 0}%`,
         badgeClass: getATSScoreColor(metrics.atsScore ?? 0),
         disabled: isLoading,
-      },
-    ];
-  }, [coreRequirements.summary, goalsSummary, isLoading, metrics.atsScore, metrics.coverLetterRating, preferredRequirements.summary]);
+      }
+    );
+    
+    return items;
+  }, [coreRequirements.summary, goalsSummary, gapsCount, isLoading, metrics.atsScore, metrics.coverLetterRating, preferredRequirements.summary]);
 
   const [activeMetric, setActiveMetric] = useState<MetricKey | null>(null);
 
@@ -133,9 +245,19 @@ export function MatchMetricsToolbar({
                       <span className={`text-[11px] uppercase tracking-wide ${isActive ? 'text-white dark:text-black' : 'text-muted-foreground'}`}>
                         {item.label}
                       </span>
-                      <span className={`text-base font-semibold ${isActive ? 'text-white dark:text-black' : 'text-foreground'}`}>
-                        {item.value}
-                      </span>
+                      {item.key === 'gaps' ? (
+                        <Badge
+                          variant="outline"
+                          className={`${item.badgeClass} cursor-pointer hover:opacity-80 transition-opacity`}
+                        >
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          {item.value}
+                        </Badge>
+                      ) : (
+                        <span className={`text-base font-semibold ${isActive ? 'text-white dark:text-black' : 'text-foreground'}`}>
+                          {item.value}
+                        </span>
+                      )}
                     </div>
                   </button>
                   <div
@@ -152,6 +274,7 @@ export function MatchMetricsToolbar({
                           preferredRequirements={preferredRequirements.list}
                           isPostHIL={isPostHIL}
                           metrics={metrics}
+                          allGaps={allGaps}
                           onEditGoals={onEditGoals}
                           onEnhanceSection={onEnhanceSection}
                           onAddMetrics={onAddMetrics}
@@ -176,6 +299,7 @@ interface MetricDrawerContentProps {
   preferredRequirements: RequirementDisplayItem[];
   isPostHIL: boolean;
   metrics: HILProgressMetrics;
+  allGaps: Array<{ sectionId: string; sectionTitle: string; gap: any }>;
   onEditGoals?: () => void;
   onEnhanceSection?: (sectionId: string, requirement?: string) => void;
   onAddMetrics?: (sectionId?: string) => void;
@@ -188,11 +312,14 @@ function MetricDrawerContent({
   preferredRequirements,
   isPostHIL,
   metrics,
+  allGaps,
   onEditGoals,
   onEnhanceSection,
   onAddMetrics,
 }: MetricDrawerContentProps) {
   switch (activeMetric) {
+    case 'gaps':
+      return <GapsDrawerContent allGaps={allGaps} onEnhanceSection={onEnhanceSection} />;
     case 'goals':
       return (
         <GoalsDrawerContent
@@ -358,6 +485,77 @@ function GoalsDrawerContent({ goalMatches, onEditGoals }: GoalsDrawerContentProp
             emptyState={match.emptyState}
             onEditGoals={onEditGoals}
           />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+interface GapsDrawerContentProps {
+  allGaps: Array<{ sectionId: string; sectionTitle: string; gap: any }>;
+  onEnhanceSection?: (sectionId: string, requirement?: string) => void;
+}
+
+function GapsDrawerContent({ allGaps, onEnhanceSection }: GapsDrawerContentProps) {
+  if (!allGaps.length) {
+    return (
+      <div className="p-2 flex items-center gap-2">
+        <div className="flex-shrink-0 p-2 flex items-center">
+          <HelpCircle className="h-4 w-4 text-muted-foreground" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="mb-1.5">
+            <h4 className="text-sm font-medium text-foreground">No gaps</h4>
+          </div>
+          <div className="text-xs">
+            <div>
+              <span className="text-muted-foreground">No gaps detected</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Group gaps by section
+  const gapsBySection = useMemo(() => {
+    const grouped: Record<string, Array<{ sectionId: string; sectionTitle: string; gap: any }>> = {};
+    allGaps.forEach((item) => {
+      if (!grouped[item.sectionTitle]) {
+        grouped[item.sectionTitle] = [];
+      }
+      grouped[item.sectionTitle].push(item);
+    });
+    return grouped;
+  }, [allGaps]);
+
+  return (
+    <div>
+      {Object.entries(gapsBySection).map(([sectionTitle, sectionGaps], sectionIndex) => (
+        <div key={sectionTitle} className={sectionIndex > 0 ? 'border-t border-border/30' : ''}>
+          <div className="p-2">
+            <h4 className="text-sm font-medium text-foreground mb-2">{sectionTitle}</h4>
+            <div>
+              {sectionGaps.map((item, gapIndex) => (
+                <div
+                  key={item.gap.id || `gap-${gapIndex}`}
+                  className={`p-2 flex items-start gap-2 ${gapIndex > 0 ? 'border-t border-border/30' : ''}`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="mb-1.5">
+                      <div className="text-sm font-medium text-foreground flex items-center gap-1">
+                        <span>•</span>
+                        <span>{item.gap.label || item.gap.title || 'Missing requirement'}</span>
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {item.gap.rationale || item.gap.description || 'Not explicitly mentioned in current draft'}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       ))}
     </div>

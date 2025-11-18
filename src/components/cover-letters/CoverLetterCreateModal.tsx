@@ -793,6 +793,7 @@ export const CoverLetterCreateModal = ({
             enhancedMatchData={draft.enhancedMatchData}
             goNoGoAnalysis={undefined}
             jobDescription={normalizedJobDescription ?? undefined}
+            sections={draft.sections.map(s => ({ id: s.id, type: s.type }))}
             onEditGoals={() => setShowGoalsModal(true)}
             onEnhanceSection={(sectionId, requirement) => {
               // TODO: Open section enhancement flow
