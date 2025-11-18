@@ -60,7 +60,7 @@ interface CoverLetterDraftViewProps {
   onSectionDuplicate?: (sectionId: string) => void;
   onEditGoals?: () => void;
   onAddStory?: (requirement?: string, severity?: string) => void; // Agent C: add story CTA
-  onEnhanceSection?: (sectionId: string, requirement?: string) => void; // Agent C: enhance section CTA
+  onEnhanceSection?: (sectionId: string, requirement?: string, gapData?: { gaps?: Array<{ id: string; title?: string; description: string }>; gapSummary?: string | null }) => void; // Agent C: enhance section CTA
   onAddMetrics?: (sectionId?: string) => void; // Agent C: add metrics CTA
   className?: string;
 }
@@ -331,6 +331,9 @@ export function CoverLetterDraftView({
         // AGENT D: Pass sectionId to enable pending insights lookup
         const { promptSummary, gaps: gapObjects, isLoading: gapsLoading } = getSectionGapInsights(section.id, section.type);
         const hasGaps = gapObjects.length > 0;
+        
+        // Strip trailing periods from gap summary for cover letters
+        const cleanGapSummary = promptSummary ? promptSummary.replace(/\.+$/, '') : null;
 
         return (
           <ContentCard
@@ -340,9 +343,17 @@ export function CoverLetterDraftView({
             tags={requirements} // Always pass tags array (empty or populated)
             hasGaps={hasGaps}
             gaps={gapObjects}
-            gapSummary={promptSummary} // Agent C: Pass rubric summary for section guidance
+            gapSummary={cleanGapSummary} // Agent C: Pass rubric summary for section guidance (no trailing periods)
             isGapResolved={false}
-            onGenerateContent={onAddStory ? () => onAddStory() : undefined} // Hook up to HIL story creation
+            onGenerateContent={onEnhanceSection ? () => {
+              // Always open HIL workflow - use onEnhanceSection to trigger ContentGenerationModal
+              // If no gaps exist, onEnhanceSection will create synthetic gap
+              const firstGap = gapObjects[0];
+              onEnhanceSection(section.id, firstGap?.description, {
+                gaps: gapObjects,
+                gapSummary: cleanGapSummary
+              });
+            } : undefined}
             // NOTE: Don't pass onEdit for tags - requirement tags are system-generated, not user-editable
             // onEdit is for section content editing (handled by Textarea), not for adding tags
             onDuplicate={onSectionDuplicate ? () => onSectionDuplicate(section.id) : undefined}

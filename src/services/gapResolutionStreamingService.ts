@@ -6,7 +6,7 @@
  */
 
 import { streamText } from 'ai';
-import { openai } from '@openai/ai-sdk-provider';
+import { createOpenAI } from '@ai-sdk/openai';
 import type { Gap } from './gapTransformService';
 import type { CoverLetterSection } from './coverLetterDraftService';
 
@@ -18,13 +18,18 @@ export interface StreamingOptions {
 
 export class GapResolutionStreamingService {
   private apiKey: string;
+  private openai: ReturnType<typeof createOpenAI>;
 
   constructor() {
-    this.apiKey = import.meta.env.VITE_OPENAI_API_KEY || '';
-    
+    this.apiKey = import.meta.env.VITE_OPENAI_KEY || '';
+
     if (!this.apiKey) {
       console.error('[GapResolutionStreamingService] No API key found');
     }
+
+    this.openai = createOpenAI({
+      apiKey: this.apiKey,
+    });
   }
 
   /**
@@ -46,7 +51,7 @@ export class GapResolutionStreamingService {
       let fullContent = '';
 
       const result = await streamText({
-        model: openai('gpt-4'),
+        model: this.openai('gpt-4'),
         prompt,
         temperature: 0.7,
         maxTokens: 800,
@@ -58,6 +63,9 @@ export class GapResolutionStreamingService {
         options.onUpdate?.(fullContent);
       }
 
+      // Post-process: Remove wrapping quotes if LLM added them
+      fullContent = this.stripWrappingQuotes(fullContent);
+
       options.onComplete?.(fullContent);
       return fullContent;
     } catch (error) {
@@ -65,6 +73,25 @@ export class GapResolutionStreamingService {
       options.onError?.(err);
       throw err;
     }
+  }
+
+  /**
+   * Strip wrapping quotation marks from generated content
+   */
+  private stripWrappingQuotes(content: string): string {
+    const trimmed = content.trim();
+
+    // Remove wrapping double quotes
+    if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+      return trimmed.slice(1, -1).trim();
+    }
+
+    // Remove wrapping single quotes
+    if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
+      return trimmed.slice(1, -1).trim();
+    }
+
+    return trimmed;
   }
 
   /**
@@ -139,7 +166,13 @@ Generate compelling cover letter content that addresses this gap. The content sh
 
     prompt += `
 **Output Format:**
-Provide ONLY the new/improved content paragraph. Do not include any meta-commentary, explanations, or labels like "Introduction:" or "Content:". Just the polished cover letter text.`;
+Provide ONLY the new/improved content paragraph. Do not include:
+- Any meta-commentary or explanations
+- Labels like "Introduction:" or "Content:"
+- Quotation marks around the content
+- Any formatting markers
+
+Just output the raw, polished cover letter text ready to be inserted directly into the document.`;
 
     return prompt;
   }

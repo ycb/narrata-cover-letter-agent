@@ -12,7 +12,8 @@ import {
   TrendingUp,
   Tags,
   Trash2,
-  Plus
+  Plus,
+  Sparkles
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -155,14 +156,20 @@ export const ContentCard = ({
                   Duplicate
                 </DropdownMenuItem>
               )}
-              {(onEdit || onDuplicate) && onDelete && <DropdownMenuSeparator />}
+              {onGenerateContent && (
+                <DropdownMenuItem onClick={onGenerateContent}>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Generate Content
+                </DropdownMenuItem>
+              )}
+              {(onEdit || onDuplicate || onGenerateContent) && onDelete && <DropdownMenuSeparator />}
               {onDelete && (
                 <DropdownMenuItem onClick={onDelete} className="text-destructive">
                   <Trash2 className="mr-2 h-4 w-4" />
                   Delete
                 </DropdownMenuItem>
               )}
-              {!onEdit && !onDuplicate && !onDelete && (
+              {!onEdit && !onDuplicate && !onGenerateContent && !onDelete && (
                 <DropdownMenuItem disabled>No actions available</DropdownMenuItem>
               )}
             </DropdownMenuContent>

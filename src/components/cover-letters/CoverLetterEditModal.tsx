@@ -9,10 +9,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { CoverLetterDraftView } from './CoverLetterDraftView';
 import { CoverLetterViewModal } from './CoverLetterViewModal';
 import { UserGoalsModal } from '@/components/user-goals/UserGoalsModal';
+import { ContentGenerationModal } from '@/components/hil/ContentGenerationModal';
 import { useUserGoals } from '@/contexts/UserGoalsContext';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import type { Gap } from '@/services/gapTransformService';
 
 interface CoverLetterEditModalProps {
   isOpen: boolean;
@@ -20,7 +22,7 @@ interface CoverLetterEditModalProps {
   coverLetter: any;
   onEditGoals?: () => void; // Agent C: goals CTA handler
   onAddStory?: (requirement?: string, severity?: string) => void; // Agent C: add story CTA
-  onEnhanceSection?: (sectionId: string, requirement?: string) => void; // Agent C: enhance section CTA
+  onEnhanceSection?: (sectionId: string, requirement?: string, gapData?: { gaps?: Array<{ id: string; title?: string; description: string }>; gapSummary?: string | null }) => void; // Agent C: enhance section CTA
   onAddMetrics?: (sectionId?: string) => void; // Agent C: add metrics CTA
 }
 
@@ -32,6 +34,8 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
   const [isSaving, setIsSaving] = useState(false);
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [showContentGenerationModal, setShowContentGenerationModal] = useState(false);
+  const [selectedGap, setSelectedGap] = useState<Gap & { section_id?: string } | null>(null);
   const [jobDescriptionRecord, setJobDescriptionRecord] = useState<any | null>(null);
 
   // Initialize edited content when cover letter changes
@@ -214,7 +218,43 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
                   } : null}
                   onEditGoals={() => setShowGoalsModal(true)}
                   onAddStory={onAddStory}
-                  onEnhanceSection={onEnhanceSection}
+                  onEnhanceSection={(sectionId, requirement, gapData) => {
+                    // Always open HIL workflow - create gap object for ContentGenerationModal
+                    const section = editedContent.content?.sections?.find((s: any) => s.id === sectionId);
+                    if (section) {
+                      const existingContent = section.content ?? '';
+                      // Map section type to paragraphId for the gap service
+                      const paragraphIdMap: Record<string, string> = {
+                        'intro': 'intro',
+                        'introduction': 'intro',
+                        'paragraph': 'experience',
+                        'experience': 'experience',
+                        'closer': 'closing',
+                        'closing': 'closing',
+                        'signature': 'closing'
+                      };
+                      const paragraphId = paragraphIdMap[section.type] || paragraphIdMap[section.slug] || 'experience';
+
+                      setSelectedGap({
+                        id: requirement ? `section-${sectionId}-${requirement}` : `section-${sectionId}-enhancement`,
+                        type: 'content-enhancement',
+                        severity: 'medium',
+                        description: requirement || `Enhance ${section.title || section.type} section with more specific content and quantifiable achievements`,
+                        suggestion: requirement || `Add detail that directly speaks to ${(section.title || section.type).toLowerCase()} requirements and demonstrates your experience`,
+                        origin: 'ai',
+                        section_id: sectionId,
+                        paragraphId: paragraphId,
+                        existingContent: existingContent,
+                        // Pass through rich gap structure from ContentCard
+                        gaps: gapData?.gaps,
+                        gapSummary: gapData?.gapSummary
+                      });
+                      setShowContentGenerationModal(true);
+                    } else if (onEnhanceSection) {
+                      // Fallback to parent handler if section not found
+                      onEnhanceSection(sectionId, requirement);
+                    }
+                  }}
                   onAddMetrics={onAddMetrics}
                   isEditable={true}
                   hilCompleted={false}
@@ -258,6 +298,43 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
           });
         }}
         initialGoals={goals || undefined}
+      />
+
+      {/* Content Generation Modal */}
+      <ContentGenerationModal
+        isOpen={showContentGenerationModal}
+        onClose={() => {
+          setShowContentGenerationModal(false);
+          setSelectedGap(null);
+        }}
+        gap={selectedGap ? {
+          id: selectedGap.id,
+          type: selectedGap.type,
+          severity: selectedGap.severity,
+          description: selectedGap.description,
+          suggestion: selectedGap.suggestion,
+          paragraphId: selectedGap.paragraphId,
+          origin: selectedGap.origin,
+          existingContent: selectedGap.existingContent,
+          // Pass through rich gap structure
+          gaps: selectedGap.gaps,
+          gapSummary: selectedGap.gapSummary
+        } : null}
+        onApplyContent={async (content: string) => {
+          if (!selectedGap || !editedContent) return;
+          
+          const sectionId = selectedGap.section_id;
+          if (sectionId) {
+            // Update the section content
+            handleSectionChange(sectionId, content);
+            
+            // TODO: Save to database
+            console.log('[CoverLetterEditModal] Content generated for section:', sectionId);
+          }
+          
+          setShowContentGenerationModal(false);
+          setSelectedGap(null);
+        }}
       />
     </Dialog>
   );

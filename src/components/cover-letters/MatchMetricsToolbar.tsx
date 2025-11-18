@@ -94,6 +94,9 @@ export function MatchMetricsToolbar({
     
     const gaps: Array<{ sectionId: string; sectionTitle: string; gap: any }> = [];
     
+    // Track paragraph index for unique titles
+    let paragraphIndex = 0;
+    
     // For each section in the draft, check if it has gaps
     sections.forEach((section) => {
       const normalizedTypes = normalizeSectionType(section.type);
@@ -109,7 +112,10 @@ export function MatchMetricsToolbar({
         const getSectionTitle = (type: string) => {
           const lowerType = type.toLowerCase();
           if (lowerType === 'intro' || lowerType === 'introduction') return 'Introduction';
-          if (lowerType === 'paragraph' || lowerType === 'experience') return 'Experience';
+          if (lowerType === 'paragraph' || lowerType === 'experience') {
+            paragraphIndex++;
+            return `Paragraph ${paragraphIndex}`;
+          }
           if (lowerType === 'closer' || lowerType === 'closing') return 'Closing';
           if (lowerType === 'signature') return 'Signature';
           return sectionInsight.sectionSlug || type;
@@ -125,6 +131,12 @@ export function MatchMetricsToolbar({
             gap,
           });
         });
+      } else {
+        // Still increment paragraph index even if no gaps (for correct numbering)
+        const lowerType = section.type.toLowerCase();
+        if (lowerType === 'paragraph' || lowerType === 'experience') {
+          paragraphIndex++;
+        }
       }
     });
     
@@ -517,24 +529,28 @@ function GapsDrawerContent({ allGaps, onEnhanceSection }: GapsDrawerContentProps
     );
   }
 
-  // Group gaps by section
+  // Group gaps by section ID (not title) to keep each section separate
   const gapsBySection = useMemo(() => {
     const grouped: Record<string, Array<{ sectionId: string; sectionTitle: string; gap: any }>> = {};
     allGaps.forEach((item) => {
-      if (!grouped[item.sectionTitle]) {
-        grouped[item.sectionTitle] = [];
+      // Use sectionId as the key to keep each section separate
+      if (!grouped[item.sectionId]) {
+        grouped[item.sectionId] = [];
       }
-      grouped[item.sectionTitle].push(item);
+      grouped[item.sectionId].push(item);
     });
     return grouped;
   }, [allGaps]);
 
   return (
     <div>
-      {Object.entries(gapsBySection).map(([sectionTitle, sectionGaps], sectionIndex) => (
-        <div key={sectionTitle} className={sectionIndex > 0 ? 'border-t border-border/30' : ''}>
-          <div className="p-2">
-            <h4 className="text-sm font-medium text-foreground mb-2">{sectionTitle}</h4>
+      {Object.entries(gapsBySection).map(([sectionId, sectionGaps], sectionIndex) => {
+        // Get section title from first gap item (all gaps in a group have the same title)
+        const sectionTitle = sectionGaps[0]?.sectionTitle || 'Section';
+        return (
+          <div key={sectionId} className={sectionIndex > 0 ? 'border-t border-border/30' : ''}>
+            <div className="p-2">
+              <h4 className="text-sm font-medium text-foreground mb-2">{sectionTitle}</h4>
             <div>
               {sectionGaps.map((item, gapIndex) => (
                 <div
@@ -557,7 +573,8 @@ function GapsDrawerContent({ allGaps, onEnhanceSection }: GapsDrawerContentProps
             </div>
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

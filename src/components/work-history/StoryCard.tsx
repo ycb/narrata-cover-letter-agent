@@ -3,7 +3,7 @@ import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
 import { CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { 
   Layers, 
   Link as LinkIcon,
@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import type { WorkHistoryBlurb, ExternalLink } from "@/types/workHistory";
 import { cn } from "@/lib/utils";
+import { generateGapSummary } from "@/utils/gapSummaryGenerator";
 
 // Function to highlight changes between original story and variation
 const highlightChanges = (originalContent: string, variationContent: string): React.ReactNode[] => {
@@ -91,6 +92,37 @@ export const StoryCard = ({
     description: "Story needs more specific examples and quantifiable results."
   }] : []);
 
+  // Generate gapSummary from gap categories
+  const gapSummary = useMemo(() => {
+    if (!hasGaps || storyGaps.length === 0) return null;
+    
+    // Extract gap categories from gaps (they may have gap_category property)
+    const gapCategories = storyGaps
+      .map(gap => (gap as any).gap_category)
+      .filter(Boolean) as string[];
+    
+    // If no categories, try to infer from description or use default
+    if (gapCategories.length === 0) {
+      // Check if gaps have standard categories
+      const allCategories = storyGaps.map(g => {
+        const desc = g.description?.toLowerCase() || '';
+        if (desc.includes('structure') || desc.includes('star')) return 'incomplete_story';
+        if (desc.includes('metric')) return 'missing_metrics';
+        if (desc.includes('generic')) return 'too_generic';
+        return null;
+      }).filter(Boolean) as string[];
+      
+      if (allCategories.length > 0) {
+        return generateGapSummary(allCategories, 'story');
+      }
+      
+      // Default summary if we can't determine categories
+      return 'Story needs improvement';
+    }
+    
+    return generateGapSummary(gapCategories, 'story');
+  }, [hasGaps, storyGaps]);
+
   return (
     <ContentCard
       title={story.title}
@@ -100,6 +132,7 @@ export const StoryCard = ({
       lastUsed={story.lastUsed}
       hasGaps={hasGaps}
       gaps={storyGaps}
+      gapSummary={gapSummary}
       isGapResolved={isGapResolved}
       onGenerateContent={onGenerateContent}
       onDismissGap={onDismissGap}

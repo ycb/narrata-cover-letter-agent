@@ -937,6 +937,9 @@ export const CoverLetterCreateModal = ({
             const { promptSummary, gaps: gapObjects, isLoading: gapsLoading } = getSectionGapInsights(section.slug);
             const hasGaps = gapObjects.length > 0;
             
+            // Strip trailing periods from gap summary for cover letters
+            const cleanGapSummary = promptSummary ? promptSummary.replace(/\.+$/, '') : null;
+            
             return (
               <ContentCard
                 key={section.id}
@@ -945,29 +948,56 @@ export const CoverLetterCreateModal = ({
                 tags={getRequirementTagsForSection(section)}
                 hasGaps={hasGaps}
                 gaps={gapObjects}
-                gapSummary={promptSummary} // Agent C: Pass rubric summary for section guidance
+                gapSummary={cleanGapSummary} // Agent C: Pass rubric summary for section guidance (no trailing periods)
                 isGapResolved={!hasGaps}
-                onGenerateContent={hasGaps ? () => {
-                  // Open HIL workflow with first gap
+                onGenerateContent={() => {
+                  // Always open HIL workflow - create gap object if no gaps exist
+                  const existingContent = sectionDrafts[section.id] ?? section.content ?? '';
+                  // Map section type to paragraphId for the gap service
+                  const paragraphIdMap: Record<string, string> = {
+                    'intro': 'intro',
+                    'introduction': 'intro',
+                    'paragraph': 'experience',
+                    'experience': 'experience',
+                    'closer': 'closing',
+                    'closing': 'closing',
+                    'signature': 'closing'
+                  };
+                  const paragraphId = paragraphIdMap[section.type] || paragraphIdMap[section.slug] || 'experience';
+                  
                   const firstGap = gapObjects[0];
                   if (firstGap) {
-                    setSelectedGap({ 
-                      id: firstGap.id, 
+                    // Use existing gap
+                    setSelectedGap({
+                      id: firstGap.id,
                       type: 'core-requirement',
                       severity: 'high',
                       description: firstGap.description,
                       suggestion: firstGap.description,
                       origin: 'ai',
-                      section_id: section.id
+                      section_id: section.id,
+                      paragraphId: paragraphId,
+                      existingContent: existingContent,
+                      // Pass through rich gap structure from ContentCard
+                      gaps: gapObjects,
+                      gapSummary: cleanGapSummary
                     });
-                    setShowContentGenerationModal(true);
+                  } else {
+                    // Create synthetic gap for HIL flow when no gaps exist
+                    setSelectedGap({
+                      id: `section-${section.id}-enhancement`,
+                      type: 'content-enhancement',
+                      severity: 'medium',
+                      description: `Enhance ${section.title} section with more specific content and quantifiable achievements`,
+                      suggestion: `Add detail that directly speaks to ${section.title.toLowerCase()} requirements and demonstrates your experience`,
+                      origin: 'ai',
+                      section_id: section.id,
+                      paragraphId: paragraphId,
+                      existingContent: existingContent
+                    });
                   }
-                } : undefined}
-                onDismissGap={hasGaps ? () => {
-                  // Note: Dismissing gaps not currently supported in MVP
-                  // Would require updating enhancedMatchData or persisting dismissed state
-                  console.log('Gap dismissed for section:', section.id);
-                } : undefined}
+                  setShowContentGenerationModal(true);
+                }}
                 tagsLabel="Job Requirements"
                 showUsage={false}
                 renderChildrenBeforeTags={true}
@@ -1123,6 +1153,10 @@ export const CoverLetterCreateModal = ({
           suggestion: selectedGap.suggestion,
           paragraphId: selectedGap.paragraphId,
           origin: selectedGap.origin,
+          existingContent: selectedGap.existingContent,
+          // Pass through rich gap structure
+          gaps: selectedGap.gaps,
+          gapSummary: selectedGap.gapSummary
         } : null}
         onApplyContent={async (content: string) => {
           if (!selectedGap || !draft) return;

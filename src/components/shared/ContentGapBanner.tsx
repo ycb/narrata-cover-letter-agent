@@ -38,8 +38,8 @@ export const ContentGapBanner = ({
   // Support both single description (backward compat) and gaps array
   const displayGaps = gaps || (description ? [{ id: 'single', description }] : []);
 
-  // Default to "Gap Detected" (singular or plural based on count)
-  const displayTitle = title || (displayGaps.length > 1 ? "Gaps Detected" : "Gap Detected");
+  // Use gapSummary as the title if available, otherwise fall back to default title
+  const displayTitle = gapSummary || title || (displayGaps.length > 1 ? "Gaps Detected" : "Gap Detected");
 
   return (
     <div 
@@ -81,14 +81,6 @@ export const ContentGapBanner = ({
             </TooltipProvider>
           )}
         </div>
-        
-        {/* Agent C: Show rubric/prompt summary if provided */}
-        {gapSummary && (
-          <div className="mb-3 p-3 bg-amber-50/50 rounded-md border border-amber-200/50">
-            <p className="text-xs font-medium text-amber-900 mb-1">Section Guidance</p>
-            <p className="text-xs text-amber-800">{gapSummary}</p>
-          </div>
-        )}
         
         {/* Agent C: Support structured gaps with title + description */}
         {displayGaps.length === 1 ? (
