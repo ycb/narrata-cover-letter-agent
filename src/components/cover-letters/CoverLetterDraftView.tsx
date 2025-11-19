@@ -5,15 +5,7 @@ import { ContentCard } from '@/components/shared/ContentCard';
 import { MatchMetricsToolbar } from './MatchMetricsToolbar';
 import { cn } from '@/lib/utils';
 import type { EnhancedMatchData, SectionGapInsight } from '@/types/coverLetters';
-
-interface HILProgressMetrics {
-  goalsMatch: 'strong' | 'average' | 'weak';
-  experienceMatch: 'strong' | 'average' | 'weak';
-  coverLetterRating: 'strong' | 'average' | 'weak';
-  atsScore: number;
-  coreRequirementsMet: { met: number; total: number };
-  preferredRequirementsMet: { met: number; total: number };
-}
+import type { MatchMetricsData } from './useMatchMetricsDetails';
 
 interface GoNoGoAnalysis {
   decision: 'go' | 'no-go';
@@ -48,7 +40,7 @@ interface JobDescription {
 
 interface CoverLetterDraftViewProps {
   sections: CoverLetterSection[];
-  hilProgressMetrics?: HILProgressMetrics | null;
+  matchMetrics?: MatchMetricsData | null;
   enhancedMatchData?: EnhancedMatchData | null; // Agent C: detailed match data
   pendingSectionInsights?: Record<string, SectionGapInsight>; // Agent D: heuristic insights
   goNoGoAnalysis?: GoNoGoAnalysis | null;
@@ -71,7 +63,7 @@ interface CoverLetterDraftViewProps {
  */
 export function CoverLetterDraftView({
   sections,
-  hilProgressMetrics,
+  matchMetrics,
   enhancedMatchData,
   pendingSectionInsights = {}, // Agent D: default to empty object
   goNoGoAnalysis,
@@ -237,10 +229,18 @@ export function CoverLetterDraftView({
     
     // Priority 1: LLM insights from sectionGapInsights (if available)
     if (enhancedMatchData.sectionGapInsights) {
-      const normalizedTypes = normalizeSectionType(sectionType);
-      const sectionInsight = enhancedMatchData.sectionGapInsights.find(
-        insight => normalizedTypes.includes(insight.sectionSlug.toLowerCase())
+      // Try exact sectionId match first (for cover letters with multiple sections of same type)
+      let sectionInsight = enhancedMatchData.sectionGapInsights.find(
+        insight => insight.sectionId === sectionId
       );
+
+      // Fall back to semantic type matching (for other content types or legacy data)
+      if (!sectionInsight) {
+        const normalizedTypes = normalizeSectionType(sectionType);
+        sectionInsight = enhancedMatchData.sectionGapInsights.find(
+          insight => normalizedTypes.includes(insight.sectionSlug.toLowerCase())
+        );
+      }
 
       if (sectionInsight) {
         // LLM insight found - use it (most accurate)
@@ -299,19 +299,28 @@ export function CoverLetterDraftView({
     return { promptSummary: null, gaps: [], isLoading: false };
   };
 
+  // Diagnostic logging (Task 3.3)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[CoverLetterDraftView] matchMetrics truthy?', !!matchMetrics, matchMetrics);
+  }
+
+  // Always render toolbar - matchMetrics should never be null due to fallback in parent
+  // But keep check for safety in case of edge cases
+  const shouldRenderToolbar = matchMetrics !== null && matchMetrics !== undefined;
+
   return (
     <div className={cn('flex h-full overflow-hidden', className)}>
       {/* Left Sidebar - Toolbar */}
-      {hilProgressMetrics && (
+      {shouldRenderToolbar && (
         <div className="bg-card flex-shrink-0">
           <MatchMetricsToolbar
-            metrics={hilProgressMetrics}
+            metrics={matchMetrics}
             isPostHIL={hilCompleted}
             isLoading={false}
             goNoGoAnalysis={goNoGoAnalysis || undefined}
             jobDescription={jobDescription || undefined}
             enhancedMatchData={enhancedMatchData || undefined}
-            sections={sections.map(s => ({ id: s.id, type: s.type }))}
+            sections={sections.map(s => ({ id: s.id, type: s.type, title: s.title }))}
             onEditGoals={onEditGoals}
             onEnhanceSection={onEnhanceSection}
             onAddMetrics={onAddMetrics}
@@ -324,7 +333,9 @@ export function CoverLetterDraftView({
       <div className="flex-1 overflow-y-auto">
         <div className="space-y-6 pl-6 pb-6">
           {sections.map((section) => {
-        const sectionTitle = getSectionTitle(section.type);
+        // Use actual section title from template (e.g., "Body Paragraph 1")
+        // Fall back to generating from type if not available
+        const sectionTitle = section.title || getSectionTitle(section.type);
         const requirements = getRequirementsForParagraph(section.type);
 
         // Agent C: Get section-specific gap insights

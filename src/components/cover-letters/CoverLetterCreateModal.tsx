@@ -59,6 +59,7 @@ import { ContentCard } from '@/components/shared/ContentCard';
 import { ContentGenerationModal } from '@/components/hil/ContentGenerationModal';
 import { UserGoalsModal } from '@/components/user-goals/UserGoalsModal';
 import { useUserGoals } from '@/contexts/UserGoalsContext';
+import { transformMetricsToMatchData } from './useMatchMetricsDetails';
 import type { CoverLetterDraft, JobDescriptionRecord } from '@/types/coverLetters';
 import type { Gap } from '@/services/gapTransformService';
 
@@ -751,43 +752,59 @@ export const CoverLetterCreateModal = ({
       );
     }
 
-    // Transform draft.metrics to HILProgressMetrics format
-    const metricsMap = new Map(draft.metrics.map(m => [m.key, m]));
+    // Transform draft.metrics to MatchMetricsData format
+    let matchMetrics = transformMetricsToMatchData(draft.metrics || []);
     
-    const goalsMetric = metricsMap.get('goals');
-    const experienceMetric = metricsMap.get('experience');
-    const ratingMetric = metricsMap.get('rating');
-    const atsMetric = metricsMap.get('ats');
-    const coreReqsMetric = metricsMap.get('coreRequirements');
-    const preferredReqsMetric = metricsMap.get('preferredRequirements');
+    // FIX 1: Check analytics.overallScore first (for finalized drafts)
+    const analyticsScore = draft.analytics?.overallScore;
+    if (analyticsScore !== undefined && analyticsScore !== null) {
+      matchMetrics.overallScore = analyticsScore;
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[CoverLetterCreateModal] Using analytics.overallScore:', analyticsScore);
+      }
+    }
     
-    const hilMetrics = {
-      goalsMatch: goalsMetric && goalsMetric.type === 'strength' 
-        ? goalsMetric.strength 
-        : 'weak',
-      experienceMatch: experienceMetric && experienceMetric.type === 'strength'
-        ? experienceMetric.strength
-        : 'weak',
-      coverLetterRating: ratingMetric && ratingMetric.type === 'strength'
-        ? ratingMetric.strength
-        : 'weak',
-      atsScore: atsMetric && atsMetric.type === 'score'
-        ? Math.round(atsMetric.value)
-        : draft.atsScore || 0,
-      coreRequirementsMet: coreReqsMetric && coreReqsMetric.type === 'requirement'
-        ? { met: coreReqsMetric.met, total: coreReqsMetric.total }
-        : { met: 0, total: 0 },
-      preferredRequirementsMet: preferredReqsMetric && preferredReqsMetric.type === 'requirement'
-        ? { met: preferredReqsMetric.met, total: preferredReqsMetric.total }
-        : { met: 0, total: 0 },
-    };
+    // FIX 2: Calculate score from criteria data if rating metric missing
+    if (matchMetrics.overallScore === undefined) {
+      // Check for criteria data in llmFeedback.rating or llmFeedback.metrics.rating
+      const ratingData = draft.llmFeedback?.rating || 
+                        (draft.llmFeedback?.metrics as any)?.rating ||
+                        (draft.llmFeedback?.metrics as any)?.raw?.rating;
+      
+      if (ratingData?.criteria && Array.isArray(ratingData.criteria)) {
+        const metCount = ratingData.criteria.filter((c: any) => c.met === true).length;
+        const totalCount = ratingData.criteria.length;
+        if (totalCount > 0) {
+          const calculatedScore = Math.round((metCount / totalCount) * 100);
+          matchMetrics.overallScore = calculatedScore;
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[CoverLetterCreateModal] Calculated score from criteria:', calculatedScore, `(${metCount}/${totalCount})`);
+          }
+        }
+      } else {
+        // FIX 3: Calculate score from hardcoded criteria logic (matches CoverLetterRatingInsights)
+        // When isPostHIL=false: 3/11 criteria met (hardcoded true) = 27%
+        // When isPostHIL=true: 10/11 criteria met (7 from isPostHIL + 3 hardcoded) = 91%
+        // Drafts are not finalized, so isPostHIL=false
+        const calculatedScore = 27;
+        matchMetrics.overallScore = calculatedScore;
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[CoverLetterCreateModal] Calculated score from draft status (draft, not finalized):', calculatedScore);
+        }
+      }
+    }
+    
+    // Ensure atsScore falls back to draft.atsScore if metric unavailable
+    if (matchMetrics.atsScore === 0 && draft.atsScore) {
+      matchMetrics.atsScore = draft.atsScore;
+    }
 
     return (
       <div className="flex h-full overflow-hidden">
         {/* Left Sidebar - Toolbar */}
         <div className="bg-card flex-shrink-0">
           <MatchMetricsToolbar
-            metrics={hilMetrics}
+            metrics={matchMetrics}
             isPostHIL={false}
             isLoading={metricsLoading}
             enhancedMatchData={draft.enhancedMatchData}

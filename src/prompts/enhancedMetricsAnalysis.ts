@@ -175,6 +175,7 @@ Respond ONLY with valid JSON following this EXACT schema:
     },
     "sectionGapInsights": [
       {
+        "sectionId": "section-1-static",
         "sectionSlug": "introduction",
         "sectionType": "introduction",
         "sectionTitle": "Introduction",
@@ -251,7 +252,12 @@ CRITICAL RULES:
      * "demonstrated": false, "sectionIds": [] - requirement not addressed
 8. For experience details: Check work history and stories, reference IDs
 9. For differentiatorAnalysis: Focus on what makes THIS role unique
-10. For sectionGapInsights: Return one entry per section (in draft order). Tie every recommendation to BOTH the rubric expectations and JD requirements.
+10. For sectionGapInsights:
+   - Return one entry per section (in draft order)
+   - CRITICAL: Include sectionId field - copy the exact "id" value from each section in the draft
+   - This is essential for cover letters with multiple sections of the same type (e.g., multiple "experience" paragraphs)
+   - Also include sectionSlug (semantic type) for backward compatibility
+   - Tie every recommendation to BOTH the rubric expectations and JD requirements
 11. For CTAs: Provide 3-5 actionable suggestions with clear labels
 12. Return ONLY the JSON object, no markdown, no explanations
 `;
@@ -259,6 +265,7 @@ CRITICAL RULES:
 export const buildEnhancedMetricsUserPrompt = (payload: {
   draft: string;
   sections: Array<{
+    id: string; // Unique section ID for multi-section types
     slug: string;
     title: string;
     content: string;
@@ -325,7 +332,7 @@ ${workHistorySection}
 ${storiesSection}
 
 === COVER LETTER DRAFT ===
-${payload.sections.map(s => `[${s.slug}] ${s.title}
+${payload.sections.map(s => `[id: ${s.id}] [slug: ${s.slug}] ${s.title}
 ${s.content}
 Requirements Matched: ${s.requirementsMatched.join(', ') || 'None'}`).join('\n\n')}
 

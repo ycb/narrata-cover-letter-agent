@@ -15,9 +15,9 @@ vi.mock('@/services/goalsMatchService', () => ({
 }));
 
 const baseMetrics = {
-  goalsMatch: '3/7',
-  experienceMatch: 'N/A',
-  coverLetterRating: 'Strong',
+  goalsMatchScore: 75,
+  experienceMatchScore: 70,
+  overallScore: 85,
   atsScore: 82,
   coreRequirementsMet: { met: 3, total: 5 },
   preferredRequirementsMet: { met: 2, total: 4 },

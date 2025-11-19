@@ -41,7 +41,6 @@ import NewUserDashboard from "./pages/NewUserDashboard";
 
 import { HILDemo } from "./pages/HILDemo";
 import TooltipDemo from "./pages/TooltipDemo";
-import MatchMetricsPreview from "./pages/MatchMetricsPreview";
 import ShowAllStories from "./pages/ShowAllStories";
 import ShowAllLinks from "./pages/ShowAllLinks";
 import SavedSections from "./pages/SavedSections";
@@ -168,12 +167,6 @@ function AppLayout() {
           <ProtectedRoute>
             <Header />
             <TooltipDemo />
-          </ProtectedRoute>
-        } />
-        <Route path="/match-metrics-preview" element={
-          <ProtectedRoute>
-            <Header />
-            <MatchMetricsPreview />
           </ProtectedRoute>
         } />
         <Route path="/show-all-stories" element={

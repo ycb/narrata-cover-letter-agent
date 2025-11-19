@@ -1,12 +1,12 @@
 import { useMemo } from 'react';
 import { GoalsMatchService, type GoalMatch } from '@/services/goalsMatchService';
 import { useUserGoals } from '@/contexts/UserGoalsContext';
-import type { EnhancedMatchData, GoalMatchDetail } from '@/types/coverLetters';
+import type { EnhancedMatchData, GoalMatchDetail, CoverLetterMatchMetric, MatchStrength } from '@/types/coverLetters';
 
-export interface HILProgressMetrics {
-  goalsMatch: string;
-  experienceMatch: string;
-  coverLetterRating: string;
+export interface MatchMetricsData {
+  goalsMatchScore?: number;
+  experienceMatchScore?: number;
+  overallScore?: number;
   atsScore: number;
   coreRequirementsMet: { met: number; total: number };
   preferredRequirementsMet: { met: number; total: number };
@@ -81,18 +81,103 @@ export type GoalMatchDisplay = (GoalMatch | GoalMatchDetail) & {
 
 const DEFAULT_TOTAL_GOALS = 7;
 
-export const getRatingColor = (rating: string | undefined) => {
-  if (!rating) return 'bg-muted/10 text-muted-foreground border-muted/20';
-  switch (rating.toLowerCase()) {
+/**
+ * Converts a MatchStrength label to a numeric score
+ */
+export const strengthToScore = (strength: MatchStrength): number => {
+  switch (strength) {
     case 'strong':
-      return 'bg-success/10 text-success border-success/20';
+      return 90;
     case 'average':
-      return 'bg-warning/10 text-warning border-warning/20';
+      return 70;
     case 'weak':
-      return 'bg-destructive/10 text-destructive border-destructive/20';
+      return 45;
     default:
-      return 'bg-muted/10 text-muted-foreground border-muted/20';
+      return 0;
   }
+};
+
+/**
+ * Converts a CoverLetterMatchMetric to a numeric score
+ * Handles both 'score' and 'strength' types
+ */
+export const convertMetricToScore = (metric: CoverLetterMatchMetric | undefined): number | undefined => {
+  if (!metric) return undefined;
+  if (metric.type === 'score') {
+    return Math.round(metric.value);
+  }
+  if (metric.type === 'strength') {
+    return strengthToScore(metric.strength);
+  }
+  return undefined;
+};
+
+/**
+ * Transforms an array of CoverLetterMatchMetric to MatchMetricsData format
+ */
+export const transformMetricsToMatchData = (metrics: CoverLetterMatchMetric[]): MatchMetricsData => {
+  // Diagnostic logging (Task 2.2)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[transformMetricsToMatchData] Input metrics:', metrics);
+    console.log('[transformMetricsToMatchData] Metrics length:', metrics?.length);
+    console.log('[transformMetricsToMatchData] Is array:', Array.isArray(metrics));
+  }
+  
+  // Handle edge cases
+  if (!metrics || !Array.isArray(metrics) || metrics.length === 0) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[transformMetricsToMatchData] Empty or invalid metrics array, returning default values');
+    }
+    return {
+      goalsMatchScore: undefined,
+      experienceMatchScore: undefined,
+      overallScore: undefined,
+      atsScore: 0,
+      coreRequirementsMet: { met: 0, total: 0 },
+      preferredRequirementsMet: { met: 0, total: 0 },
+    };
+  }
+  
+  const metricsMap = new Map(metrics.map(m => [m.key, m]));
+  
+  const goalsMetric = metricsMap.get('goals');
+  const experienceMetric = metricsMap.get('experience');
+  const ratingMetric = metricsMap.get('rating');
+  const atsMetric = metricsMap.get('ats');
+  const coreReqsMetric = metricsMap.get('coreRequirements');
+  const preferredReqsMetric = metricsMap.get('preferredRequirements');
+  
+  const result = {
+    goalsMatchScore: convertMetricToScore(goalsMetric),
+    experienceMatchScore: convertMetricToScore(experienceMetric),
+    overallScore: convertMetricToScore(ratingMetric),
+    atsScore: atsMetric && atsMetric.type === 'score'
+      ? Math.round(atsMetric.value)
+      : 0,
+    coreRequirementsMet: coreReqsMetric && coreReqsMetric.type === 'requirement'
+      ? { met: coreReqsMetric.met, total: coreReqsMetric.total }
+      : { met: 0, total: 0 },
+    preferredRequirementsMet: preferredReqsMetric && preferredReqsMetric.type === 'requirement'
+      ? { met: preferredReqsMetric.met, total: preferredReqsMetric.total }
+      : { met: 0, total: 0 },
+  };
+  
+  // Diagnostic logging (Task 2.2)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[transformMetricsToMatchData] Result:', result);
+  }
+  
+  return result;
+};
+
+/**
+ * Gets color class for a numeric score (0-100)
+ */
+export const getScoreColor = (score: number | undefined): string => {
+  if (score === undefined) return 'bg-muted/10 text-muted-foreground border-muted/20';
+  if (score >= 80) return 'bg-success/10 text-success border-success/20';
+  if (score >= 60) return 'bg-warning/10 text-warning border-warning/20';
+  return 'bg-destructive/10 text-destructive border-destructive/20';
 };
 
 export const getATSScoreColor = (score: number) => {

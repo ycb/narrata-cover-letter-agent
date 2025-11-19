@@ -209,14 +209,8 @@ export function CoverLetterFinalization({
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 text-center text-sm">
                   <MetricChip label="ATS Score" value={atsScore !== null ? `${atsScore}%` : '—'} />
                   <MetricChip
-                    label="Overall Rating"
-                    value={
-                      ratingMetric?.type === 'strength'
-                        ? ratingMetric.strength.toUpperCase()
-                        : ratingScore !== null
-                        ? `${ratingScore}`
-                        : '—'
-                    }
+                    label="Overall Score"
+                    value={ratingScore !== null ? `${ratingScore}%` : '—'}
                   />
                   <MetricChip label="Core Reqs Met" value={`${coreCoverage.met}/${coreCoverage.total}`} />
                   <MetricChip

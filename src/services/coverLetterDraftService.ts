@@ -101,6 +101,7 @@ const createDefaultMetricsStreamer = (): MetricsStreamer => {
     const payload = {
       draft: letterText,
       sections: draft.map(section => ({
+        id: section.id, // Unique section ID for multi-section types
         slug: section.slug,
         title: section.title,
         content: section.content,
@@ -1888,6 +1889,12 @@ export class CoverLetterDraftService {
     metrics: CoverLetterMatchMetric[],
     atsScore: number,
   ): CoverLetterDraft {
+    // Diagnostic logging (Task 1.2)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[mapCoverLetterRow] Top-level metrics parameter:', metrics);
+      console.log('[mapCoverLetterRow] Top-level metrics isArray:', Array.isArray(metrics));
+      console.log('[mapCoverLetterRow] Top-level metrics length:', metrics?.length);
+    }
     const sections = this.normaliseDraftSections(row.sections);
     const differentiatorSummary = Array.isArray(row.differentiator_summary)
       ? (row.differentiator_summary as DifferentiatorInsight[])
@@ -1902,6 +1909,14 @@ export class CoverLetterDraftService {
       generatedAt: null,
       metrics: [],
     };
+    
+    // Diagnostic logging (Task 1.1)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[mapCoverLetterRow] llmFeedback.metrics:', llmFeedback?.metrics);
+      console.log('[mapCoverLetterRow] llmFeedback.metrics type:', typeof llmFeedback?.metrics);
+      console.log('[mapCoverLetterRow] llmFeedback.metrics isArray:', Array.isArray(llmFeedback?.metrics));
+    }
+    
     const enhancedMatchData = llmFeedback?.enhancedMatchData as EnhancedMatchData | undefined;
 
     return {
@@ -1924,9 +1939,25 @@ export class CoverLetterDraftService {
   }
 
   private normaliseMatchMetrics(payload: CoverLetterRow['metrics']): CoverLetterMatchMetric[] {
-    if (!payload) return [];
+    // Diagnostic logging (Task 1.2)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[normaliseMatchMetrics] Input payload:', payload);
+      console.log('[normaliseMatchMetrics] Payload type:', typeof payload);
+      console.log('[normaliseMatchMetrics] Payload isArray:', Array.isArray(payload));
+    }
+    
+    if (!payload) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[normaliseMatchMetrics] Payload is null/undefined, returning empty array');
+      }
+      return [];
+    }
     if (Array.isArray(payload)) {
-      return payload as CoverLetterMatchMetric[];
+      const result = payload as CoverLetterMatchMetric[];
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[normaliseMatchMetrics] Returning array with', result.length, 'metrics');
+      }
+      return result;
     }
 
     if (typeof payload === 'object') {

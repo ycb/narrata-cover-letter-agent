@@ -5,15 +5,16 @@
  * Recalculates only affected metrics instead of full regenerate.
  */
 
-import type { HILProgressMetrics, DetailedMatchAnalysis, CoverLetterSection } from './coverLetterDraftService';
+import type { DetailedMatchAnalysis, CoverLetterSection } from './coverLetterDraftService';
+import type { MatchMetricsData } from '@/components/cover-letters/useMatchMetricsDetails';
 import type { Gap } from './gapTransformService';
 import { RequirementsMatchService } from './requirementsMatchService';
 
 export interface MetricsDelta {
-  before: HILProgressMetrics;
-  after: HILProgressMetrics;
+  before: MatchMetricsData;
+  after: MatchMetricsData;
   changes: {
-    metric: keyof HILProgressMetrics;
+    metric: keyof MatchMetricsData;
     before: any;
     after: any;
     improved: boolean;
@@ -32,13 +33,13 @@ export class MetricsUpdateService {
    * Performs incremental update instead of full recalculation
    */
   async updateMetricsAfterGapResolution(
-    currentMetrics: HILProgressMetrics,
+    currentMetrics: MatchMetricsData,
     currentAnalysis: DetailedMatchAnalysis,
     resolvedGap: Gap,
     updatedSections: CoverLetterSection[],
     coreRequirements: string[],
     preferredRequirements: string[]
-  ): Promise<{ metrics: HILProgressMetrics; delta: MetricsDelta }> {
+  ): Promise<{ metrics: MatchMetricsData; delta: MetricsDelta }> {
     const before = { ...currentMetrics };
     const after = { ...currentMetrics };
 
@@ -224,7 +225,7 @@ export class MetricsUpdateService {
     sections: CoverLetterSection[],
     coreRequirements: string[],
     preferredRequirements: string[]
-  ): Partial<HILProgressMetrics> {
+  ): Partial<MatchMetricsData> {
     const requirementsMatch = this.requirementsMatchService.analyzeRequirementsMatch(
       coreRequirements,
       preferredRequirements,

@@ -201,7 +201,8 @@ export interface EnhancedMatchData {
 }
 
 export interface SectionGapInsight {
-  sectionSlug: string;
+  sectionId?: string; // COVER LETTER ONLY: Unique ID for the specific section (for multi-section types like "experience")
+  sectionSlug: string; // Semantic type or content ID (introduction/experience/closing for CL, or story ID for other content)
   sectionType: 'introduction' | 'experience' | 'closing' | 'signature' | 'custom';
   sectionTitle?: string;
   promptSummary: string;

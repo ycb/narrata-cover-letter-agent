@@ -1,17 +1,7 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ProgressIndicatorWithTooltips } from '@/components/cover-letters/ProgressIndicatorWithTooltips';
 
 export default function TooltipDemo() {
-  // Mock metrics data
-  const mockMetrics = {
-    goalsMatch: 'strong',
-    experienceMatch: 'average',
-    coverLetterRating: 'weak',
-    atsScore: 65,
-    coreRequirementsMet: { met: 2, total: 4 },
-    preferredRequirementsMet: { met: 1, total: 4 }
-  };
 
   return (
     <div className="min-h-screen bg-background p-8">
@@ -57,16 +47,18 @@ export default function TooltipDemo() {
           </CardContent>
         </Card>
 
-        {/* Progress Indicator with Tooltips */}
+        {/* Progress Indicator with Tooltips - Deprecated component removed */}
         <Card>
           <CardHeader>
             <CardTitle>Cover Letter Progress Analysis</CardTitle>
             <CardDescription>
-              Hover over any metric to see detailed breakdown and recommendations in a full-width tooltip
+              This demo page is deprecated. Use MatchMetricsToolbar in cover letter modals instead.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ProgressIndicatorWithTooltips metrics={mockMetrics} />
+            <p className="text-sm text-muted-foreground">
+              ProgressIndicatorWithTooltips has been removed. The MatchMetricsToolbar component is now used in CoverLetterCreateModal and CoverLetterEditModal.
+            </p>
           </CardContent>
         </Card>
 

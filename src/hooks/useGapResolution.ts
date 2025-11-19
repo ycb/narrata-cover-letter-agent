@@ -13,11 +13,12 @@ import { GapResolutionStreamingService } from '@/services/gapResolutionStreaming
 import { CoverLetterVariationService, type VariationMetadata } from '@/services/coverLetterVariationService';
 import { MetricsUpdateService, type MetricsDelta } from '@/services/metricsUpdateService';
 import type { Gap } from '@/services/gapTransformService';
-import type { CoverLetterSection, HILProgressMetrics, DetailedMatchAnalysis } from '@/services/coverLetterDraftService';
+import type { CoverLetterSection, DetailedMatchAnalysis } from '@/services/coverLetterDraftService';
+import type { MatchMetricsData } from '@/components/cover-letters/useMatchMetricsDetails';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface UseGapResolutionOptions {
-  onMetricsUpdated?: (metrics: HILProgressMetrics, delta: MetricsDelta) => void;
+  onMetricsUpdated?: (metrics: MatchMetricsData, delta: MetricsDelta) => void;
   onVariationSaved?: (variationId: string) => void;
   onError?: (error: Error) => void;
 }
@@ -54,7 +55,7 @@ export function useGapResolution(options: UseGapResolutionOptions = {}) {
         preferredRequirements?: string[];
       },
       currentSections: CoverLetterSection[],
-      currentMetrics: HILProgressMetrics,
+      currentMetrics: MatchMetricsData,
       currentAnalysis: DetailedMatchAnalysis,
       options: {
         saveVariation?: boolean;
@@ -63,7 +64,7 @@ export function useGapResolution(options: UseGapResolutionOptions = {}) {
     ): Promise<{
       content: string;
       variationId?: string;
-      updatedMetrics?: HILProgressMetrics;
+      updatedMetrics?: MatchMetricsData;
       delta?: MetricsDelta;
     }> => {
       if (!user) {

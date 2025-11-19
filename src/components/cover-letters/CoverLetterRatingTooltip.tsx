@@ -6,15 +6,15 @@ interface CoverLetterRatingTooltipProps {
   children: React.ReactNode;
   className?: string;
   isPostHIL?: boolean;
-  ratingLabel?: string;
+  overallScore?: number;
 }
 
 export interface CoverLetterRatingInsightsProps {
   isPostHIL?: boolean;
-  ratingLabel?: string;
+  overallScore?: number;
 }
 
-export function CoverLetterRatingInsights({ isPostHIL = false, ratingLabel }: CoverLetterRatingInsightsProps) {
+export function CoverLetterRatingInsights({ isPostHIL = false, overallScore }: CoverLetterRatingInsightsProps) {
   const criteria = [
     { name: 'Compelling Opening', description: 'Strong hook that captures attention', passed: isPostHIL },
     { name: 'Understanding of Business/Users', description: 'Demonstrates knowledge of company', passed: isPostHIL },
@@ -66,9 +66,9 @@ export function CoverLetterRatingTooltip({
   children,
   className,
   isPostHIL = false,
-  ratingLabel,
+  overallScore,
 }: CoverLetterRatingTooltipProps) {
-  const content = <CoverLetterRatingInsights isPostHIL={isPostHIL} ratingLabel={ratingLabel} />;
+  const content = <CoverLetterRatingInsights isPostHIL={isPostHIL} overallScore={overallScore} />;
 
   return (
     <FullWidthTooltip

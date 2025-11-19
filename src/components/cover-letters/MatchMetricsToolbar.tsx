@@ -7,11 +7,11 @@ import { CoverLetterRatingInsights } from './CoverLetterRatingTooltip';
 import { ATSScoreInsights } from './ATSScoreTooltip';
 import {
   getATSScoreColor,
-  getRatingColor,
+  getScoreColor,
   useMatchMetricsDetails,
   type GoalMatchDisplay,
   type GoNoGoAnalysis,
-  type HILProgressMetrics,
+  type MatchMetricsData,
   type MatchJobDescription,
   type RequirementDisplayItem,
 } from './useMatchMetricsDetails';
@@ -20,14 +20,14 @@ import type { EnhancedMatchData } from '@/types/coverLetters';
 type MetricKey = 'gaps' | 'goals' | 'core' | 'preferred' | 'rating' | 'ats';
 
 interface MatchMetricsToolbarProps {
-  metrics: HILProgressMetrics;
+  metrics: MatchMetricsData;
   className?: string;
   isPostHIL?: boolean;
   isLoading?: boolean;
   goNoGoAnalysis?: GoNoGoAnalysis;
   jobDescription?: MatchJobDescription;
   enhancedMatchData?: EnhancedMatchData;
-  sections?: Array<{ id: string; type: string }>;
+  sections?: Array<{ id: string; type: string; title?: string }>;
   onEditGoals?: () => void;
   onEnhanceSection?: (sectionId: string, requirement?: string) => void;
   onAddMetrics?: (sectionId?: string) => void;
@@ -99,18 +99,26 @@ export function MatchMetricsToolbar({
     
     // For each section in the draft, check if it has gaps
     sections.forEach((section) => {
-      const normalizedTypes = normalizeSectionType(section.type);
-      
-      // Find matching section insight
-      const sectionInsight = enhancedMatchData.sectionGapInsights?.find((insight) => {
-        const normalizedSlug = insight.sectionSlug.toLowerCase();
-        return normalizedTypes.includes(normalizedSlug) || normalizedSlug.includes(normalizedTypes[0]);
+      // Try exact sectionId match first (for cover letters with multiple sections of same type)
+      let sectionInsight = enhancedMatchData.sectionGapInsights?.find((insight) => {
+        return insight.sectionId === section.id;
       });
+
+      // Fall back to semantic type matching (for other content types or legacy data)
+      if (!sectionInsight) {
+        const normalizedTypes = normalizeSectionType(section.type);
+        sectionInsight = enhancedMatchData.sectionGapInsights?.find((insight) => {
+          const normalizedSlug = insight.sectionSlug.toLowerCase();
+          return normalizedTypes.includes(normalizedSlug) || normalizedSlug.includes(normalizedTypes[0]);
+        });
+      }
       
       // If this section has gaps, add all its gaps
       if (sectionInsight && sectionInsight.requirementGaps.length > 0) {
-        const getSectionTitle = (type: string) => {
-          const lowerType = type.toLowerCase();
+        // Use actual section title from draft (e.g., "Body Paragraph 1" from template)
+        // Fall back to generating title from type if not available
+        const sectionTitle = section.title || (() => {
+          const lowerType = section.type.toLowerCase();
           if (lowerType === 'intro' || lowerType === 'introduction') return 'Introduction';
           if (lowerType === 'paragraph' || lowerType === 'experience') {
             paragraphIndex++;
@@ -118,10 +126,8 @@ export function MatchMetricsToolbar({
           }
           if (lowerType === 'closer' || lowerType === 'closing') return 'Closing';
           if (lowerType === 'signature') return 'Signature';
-          return sectionInsight.sectionSlug || type;
-        };
-        
-        const sectionTitle = getSectionTitle(section.type);
+          return sectionInsight.sectionSlug || section.type;
+        })();
         
         // Add all gaps for this section
         sectionInsight.requirementGaps.forEach((gap: any) => {
@@ -150,12 +156,19 @@ export function MatchMetricsToolbar({
     let count = 0;
     
     sections.forEach((section) => {
-      const normalizedTypes = normalizeSectionType(section.type);
-      
-      const sectionInsight = enhancedMatchData.sectionGapInsights?.find((insight) => {
-        const normalizedSlug = insight.sectionSlug.toLowerCase();
-        return normalizedTypes.includes(normalizedSlug) || normalizedSlug.includes(normalizedTypes[0]);
+      // Try exact sectionId match first
+      let sectionInsight = enhancedMatchData.sectionGapInsights?.find((insight) => {
+        return insight.sectionId === section.id;
       });
+
+      // Fall back to semantic type matching
+      if (!sectionInsight) {
+        const normalizedTypes = normalizeSectionType(section.type);
+        sectionInsight = enhancedMatchData.sectionGapInsights?.find((insight) => {
+          const normalizedSlug = insight.sectionSlug.toLowerCase();
+          return normalizedTypes.includes(normalizedSlug) || normalizedSlug.includes(normalizedTypes[0]);
+        });
+      }
       
       // Count this section as 1 gap if it has any gaps
       if (sectionInsight && sectionInsight.requirementGaps.length > 0) {
@@ -185,8 +198,8 @@ export function MatchMetricsToolbar({
       {
         key: 'goals',
         label: 'Match with Goals',
-        value: isLoading ? '' : `${goalsSummary.met}/${goalsSummary.total}`,
-        badgeClass: getATSScoreColor(goalsSummary.percentage),
+        value: isLoading ? '' : (metrics.goalsMatchScore !== undefined ? `${metrics.goalsMatchScore}%` : `${goalsSummary.met}/${goalsSummary.total}`),
+        badgeClass: metrics.goalsMatchScore !== undefined ? getScoreColor(metrics.goalsMatchScore) : getATSScoreColor(goalsSummary.percentage),
         disabled: isLoading,
       },
       {
@@ -205,9 +218,20 @@ export function MatchMetricsToolbar({
       },
       {
         key: 'rating',
-        label: 'Overall Rating',
-        value: isLoading ? '' : metrics.coverLetterRating || 'N/A',
-        badgeClass: getRatingColor(metrics.coverLetterRating),
+        label: 'Overall Score',
+        value: isLoading ? '' : (() => {
+          // Calculate score if undefined but we have isPostHIL context
+          // This matches the hardcoded criteria logic in CoverLetterRatingInsights
+          // When isPostHIL=false: 3/11 criteria met (hardcoded true) = 27%
+          // When isPostHIL=true: 10/11 criteria met (7 from isPostHIL + 3 hardcoded) = 91%
+          if (metrics.overallScore !== undefined) {
+            return `${metrics.overallScore}%`;
+          }
+          // Fallback calculation based on isPostHIL (matches CoverLetterRatingInsights logic)
+          const calculatedScore = isPostHIL ? 91 : 27; // 10/11 or 3/11
+          return `${calculatedScore}%`;
+        })(),
+        badgeClass: getScoreColor(metrics.overallScore ?? (isPostHIL ? 91 : 27)),
         disabled: isLoading,
       },
       {
@@ -220,7 +244,7 @@ export function MatchMetricsToolbar({
     );
     
     return items;
-  }, [coreRequirements.summary, goalsSummary, gapsCount, isLoading, metrics.atsScore, metrics.coverLetterRating, preferredRequirements.summary]);
+  }, [coreRequirements.summary, goalsSummary, gapsCount, isLoading, metrics.atsScore, metrics.overallScore, metrics.goalsMatchScore, preferredRequirements.summary, isPostHIL]);
 
   const [activeMetric, setActiveMetric] = useState<MetricKey | null>(null);
 
@@ -310,7 +334,7 @@ interface MetricDrawerContentProps {
   coreRequirements: RequirementDisplayItem[];
   preferredRequirements: RequirementDisplayItem[];
   isPostHIL: boolean;
-  metrics: HILProgressMetrics;
+  metrics: MatchMetricsData;
   allGaps: Array<{ sectionId: string; sectionTitle: string; gap: any }>;
   onEditGoals?: () => void;
   onEnhanceSection?: (sectionId: string, requirement?: string) => void;
@@ -356,7 +380,9 @@ function MetricDrawerContent({
         />
       );
     case 'rating':
-      return <CoverLetterRatingInsights isPostHIL={isPostHIL} ratingLabel={metrics.coverLetterRating || 'N/A'} />;
+      // Calculate score if undefined (matches hardcoded criteria logic)
+      const displayScore = metrics.overallScore ?? (isPostHIL ? 91 : 27);
+      return <CoverLetterRatingInsights isPostHIL={isPostHIL} overallScore={displayScore} />;
     case 'ats':
     default:
       return <ATSScoreInsights isPostHIL={isPostHIL} score={metrics.atsScore ?? 0} />;
