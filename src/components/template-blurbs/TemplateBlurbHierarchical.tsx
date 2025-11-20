@@ -43,7 +43,9 @@ interface TemplateBlurbHierarchicalProps {
   onSelectBlurb: (blurb: TemplateBlurb) => void;
   onCreateBlurb: (type?: 'intro' | 'paragraph' | 'closer' | 'signature' | string) => void;
   onEditBlurb: (blurb: TemplateBlurb) => void;
+  onEditSectionLabel?: (type: string, currentLabel: string) => void; // Edit parent section label only
   onDeleteBlurb: (blurbId: string) => void;
+  onDeleteSection?: (type: string) => void; // Delete entire section
   onGenerateContent?: (blurb: TemplateBlurb) => void;
   onTagSuggestions?: (blurb: TemplateBlurb) => void;
   resolvedGaps?: Set<string>;
@@ -64,7 +66,9 @@ export const TemplateBlurbHierarchical = ({
   onSelectBlurb,
   onCreateBlurb,
   onEditBlurb,
+  onEditSectionLabel,
   onDeleteBlurb,
+  onDeleteSection,
   onGenerateContent,
   onTagSuggestions,
   resolvedGaps = new Set(),
@@ -330,15 +334,15 @@ export const TemplateBlurbHierarchical = ({
                         </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
                             <DropdownMenuItem
-                              disabled={isDefaultType || !firstBlurb}
-                              onClick={() => firstBlurb && onEditBlurb(firstBlurb)}
+                              disabled={isDefaultType || !onEditSectionLabel}
+                              onClick={() => onEditSectionLabel?.(group.type, group.label)}
                             >
                             <Edit className="mr-2 h-4 w-4" />
                             Edit Section
                           </DropdownMenuItem>
-                          <DropdownMenuItem 
-                              disabled={isDefaultType || !firstBlurb}
-                              onClick={() => firstBlurb && onDeleteBlurb(firstBlurb.id)}
+                          <DropdownMenuItem
+                              disabled={isDefaultType || !onDeleteSection}
+                              onClick={() => onDeleteSection?.(group.type)}
                             className="text-destructive"
                           >
                             <Trash2 className="mr-2 h-4 w-4" />

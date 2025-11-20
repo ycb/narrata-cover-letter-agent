@@ -3,6 +3,40 @@ import { GoalsMatchService, type GoalMatch } from '@/services/goalsMatchService'
 import { useUserGoals } from '@/contexts/UserGoalsContext';
 import type { EnhancedMatchData, GoalMatchDetail, CoverLetterMatchMetric, MatchStrength } from '@/types/coverLetters';
 
+export interface CoverLetterCriterion {
+  id: string;
+  label: string;
+  met: boolean;
+  evidence: string;
+  suggestion?: string;
+}
+
+/**
+ * Extract unresolved (unmet) rating criteria for HIL content generation
+ * Returns criteria where met === false, mapped to gap-like structure
+ */
+export const getUnresolvedRatingCriteria = (criteria?: CoverLetterCriterion[]): Array<{
+  id: string;
+  label: string;
+  description: string;
+  suggestion: string;
+  evidence: string;
+}> => {
+  if (!criteria || !Array.isArray(criteria)) {
+    return [];
+  }
+  
+  return criteria
+    .filter(c => c.met === false)
+    .map(c => ({
+      id: c.id,
+      label: c.label,
+      description: c.evidence || c.label,
+      suggestion: c.suggestion || `Improve ${c.label.toLowerCase()}`,
+      evidence: c.evidence || '',
+    }));
+};
+
 export interface MatchMetricsData {
   goalsMatchScore?: number;
   experienceMatchScore?: number;
@@ -10,6 +44,7 @@ export interface MatchMetricsData {
   atsScore: number;
   coreRequirementsMet: { met: number; total: number };
   preferredRequirementsMet: { met: number; total: number };
+  ratingCriteria?: CoverLetterCriterion[];
 }
 
 export interface GoNoGoMismatch {

@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Sparkles, RefreshCw, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { ContentGapBanner } from '@/components/shared/ContentGapBanner';
+import type { Gap } from '@/services/gapTransformService';
 interface GapAnalysis {
   id: string;
   type: 'core-requirement' | 'preferred-requirement' | 'best-practice' | 'content-enhancement';
@@ -21,6 +22,8 @@ interface GapAnalysis {
   // Rich gap structure for ContentGapBanner display
   gaps?: Array<{ id: string; title?: string; description: string }>;
   gapSummary?: string | null;
+  // Rating criteria gaps stored separately from requirement gaps
+  ratingCriteriaGaps?: Array<{ id: string; title?: string; description: string }>;
 }
 
 interface TagSuggestion {
@@ -113,7 +116,7 @@ export function ContentGenerationModal({
       };
       
       // Convert GapAnalysis to Gap type for the service
-      const gapForService = {
+      const gapForService: Gap = {
         id: gap.id,
         type: gap.type,
         severity: gap.severity,
@@ -124,6 +127,9 @@ export function ContentGenerationModal({
         origin: gap.origin,
         addresses: gap.addresses,
         existingContent: gap.existingContent,
+        gaps: gap.gaps, // Requirement gaps only
+        gapSummary: gap.gapSummary,
+        ratingCriteriaGaps: gap.ratingCriteriaGaps, // Rating criteria gaps stored separately
       };
       
       console.log('[ContentGenerationModal] Calling streamGapResolution with:', { gapForService, jobContext });
@@ -255,6 +261,21 @@ export function ContentGenerationModal({
                   ]}
                   gapSummary={gap.gapSummary || `${gap.severity === 'high' ? 'High' : gap.severity === 'medium' ? 'Medium' : 'Low'} Priority • ${gap.type.replace('-', ' ')}`}
                 />
+                
+                {/* Rating Criteria Section - Show content quality criteria that need improvement */}
+                {gap.ratingCriteriaGaps && gap.ratingCriteriaGaps.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-border/30">
+                    <h4 className="text-sm font-semibold mb-2 text-foreground">Content Quality Criteria to Improve</h4>
+                    <div className="space-y-2">
+                      {gap.ratingCriteriaGaps.map((criterionGap) => (
+                        <div key={criterionGap.id} className="text-xs p-2 bg-muted/30 rounded border border-border/20">
+                          <div className="font-medium text-foreground mb-1">{criterionGap.title}</div>
+                          <div className="text-muted-foreground">{criterionGap.description}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -323,7 +344,7 @@ export function ContentGenerationModal({
                   </div>
                   {onRetry && (
                     <Button
-                      variant="outline"
+                      variant="secondary"
                       size="sm"
                       onClick={onRetry}
                       className="w-full"

@@ -164,6 +164,20 @@ Generate compelling cover letter content that addresses this gap. The content sh
 `;
     }
 
+    // Add rating criteria context if present
+    if (gap.ratingCriteriaGaps && gap.ratingCriteriaGaps.length > 0) {
+      prompt += `
+**Content Quality Criteria to Address:**
+The following content quality criteria need improvement. Your generated content should help address these:
+${gap.ratingCriteriaGaps.map((criterion, idx) => `${idx + 1}. ${criterion.title || criterion.id}: ${criterion.description}`).join('\n')}
+
+When generating content, ensure it:
+- Addresses the specific quality criteria listed above
+- Improves the overall content quality score
+- Incorporates best practices for cover letter writing
+`;
+    }
+
     prompt += `
 **Output Format:**
 Provide ONLY the new/improved content paragraph. Do not include:

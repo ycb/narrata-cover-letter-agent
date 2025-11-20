@@ -112,6 +112,7 @@ export interface TemplateBlurb {
 export interface CoverLetterSection {
   id: string;
   type: 'intro' | 'paragraph' | 'closer' | 'signature';
+  title?: string; // Template section title (e.g., "Body Paragraph 1", "Introduction")
   contentType?: 'work-history' | 'saved'; // Story from Work History or Saved Cover Letter Section
   savedSectionId?: string;
   isStatic: boolean; // true = static text, false = uses blurb matching

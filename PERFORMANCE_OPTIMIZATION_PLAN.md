@@ -1,560 +1,737 @@
-# Cover Letter Draft Performance Optimization Plan
+# Cover Letter Generation Performance Optimization Plan (V2)
 
-**Goal:** Reduce perceived wait time from 57 seconds to ~15 seconds by implementing progressive disclosure, streaming sections, skeleton UI, and pre-parsing JD on paste.
+**Goal:** Reduce perceived wait time from 75 seconds to <5 seconds actionable, <30 seconds complete
 
----
-
-## Current Flow (57 seconds to value)
-
-```
-User pastes JD → Selects template → Clicks "Generate"
-  ↓
-  JD Parse (10s) → Build Sections (5s) → Calculate Metrics (35s) → Save Draft (2s) → Show UI
-  ↓
-  User sees draft (57s total) ✅
-```
+**Current State:** Draft loads in 3s ✅, but metrics take 72s → Total 75s before actionable
+**Target State:** Draft in 3s ✅ + Heuristic gaps in 5s ⚡ + Progressive LLM in 30s ✅
 
 ---
 
-## Target Flow (15 seconds to value)
+## Current Architecture (What's Already Done)
 
-```
-User pastes JD → [JD Parse starts in background 10s]
-  ↓
-Selects template → Clicks "Generate"
-  ↓
-  Show Skeleton UI (instant) ✅
-  ↓
-  Build Section 1 (2s) → Stream to UI ✅
-  ↓
-  Build Section 2 (2s) → Stream to UI ✅
-  ↓
-  Build Section 3 (2s) → Stream to UI ✅
-  ↓
-  Build Section 4 (2s) → Stream to UI ✅
-  ↓
-  [User sees full draft at ~15s] ✅ ✅ ✅
-  ↓
-  Calculate Metrics in Background (35s) → Update Match Bar ✅
-  ↓
-  [Match bar updates at ~50s]
-```
+### ✅ Phase Split Already Exists
+- `generateDraftFast()`: Creates draft in ~3s with placeholder metrics
+- `calculateMetricsForDraft()`: Runs in background for full LLM analysis
+- Hook orchestrates: Draft first, then metrics async
 
-**Key improvements:**
-- User sees skeleton at **0 seconds** (instant feedback)
-- User sees first content at **~5 seconds** (streaming)
-- User sees full draft at **~15 seconds** (can start editing)
-- Metrics appear at **~50 seconds** (but user already engaged)
+### ✅ UI Infrastructure Ready
+- `pendingSectionInsights` prop wired in `CoverLetterDraftView`
+- Agent D pattern supported (heuristic → LLM replacement)
+- Skeleton UI exists (shows during generation)
+
+### ❌ What's Missing
+- **Heuristic gap generation** (instant feedback using existing data)
+- **Progressive metrics streaming** (3 parallel LLM calls instead of 1 massive call)
+- **Token/prompt optimization** (reduce latency per call)
 
 ---
 
-## Implementation Tasks (4 Independent Agents)
+## Problem Analysis
 
-### **AGENT A: Pre-Parse JD on Paste (Backend)**
-**Goal:** Start JD parsing immediately when user pastes content, before clicking "Generate"
+### Current Bottleneck Timeline
+```
+0-3s:    generateDraftFast() ✅
+         - Load JD, template, stories, saved sections
+         - Build sections with content matching
+         - Insert draft with placeholder metrics
 
-**Files to Modify:**
-- `src/components/cover-letters/CoverLetterCreateModal.tsx`
-- `src/services/jobDescriptionService.ts`
+3-75s:   calculateMetricsForDraft() ❌ BLOCKING
+         - Single massive LLM call (metricsStreamer)
+         - Input: ~2000-3000 tokens
+         - Output: up to 4000 tokens
+         - Model: GPT-4
+         - Returns: ALL metrics in one JSON blob
 
-**Implementation Steps:**
+75s+:    UI finally shows gaps and actionable feedback
+```
 
-1. **Add state for pre-parsed JD:**
-   ```typescript
-   const [preParsedJD, setPreParsedJD] = useState<JobDescriptionRecord | null>(null);
-   const [isPreParsing, setIsPreParsing] = useState(false);
-   ```
+### Why It's Slow
+1. **Token Volume**: Sends entire draft + all work history + section guidance in one prompt
+2. **Response Complexity**: LLM must generate 6 metrics + 7 goal matches + N requirement details + section insights + 11 rating criteria + CTAs
+3. **Single Blocking Call**: UI waits for complete response before showing anything
+4. **No Heuristics**: Zero instant feedback using data we already have
 
-2. **Trigger parse on paste/input change:**
-   ```typescript
-   const handleJobContentChange = useCallback(
-     debounce(async (content: string) => {
-       if (content.length >= MIN_JOB_DESCRIPTION_LENGTH && user?.id) {
-         setIsPreParsing(true);
-         try {
-           const record = await jobDescriptionService.parseAndCreate(
-             user.id,
-             content,
-             { onProgress: () => {}, onToken: () => {} } // Silent background parse
-           );
-           setPreParsedJD(record);
-         } catch (error) {
-           console.warn('Pre-parse failed, will parse on generate', error);
-         } finally {
-           setIsPreParsing(false);
-         }
-       }
-     }, 1000), // Debounce 1s after user stops typing
-     [user?.id]
-   );
-   ```
+---
 
-3. **Use pre-parsed JD in handleGenerate:**
-   ```typescript
-   const handleGenerate = async () => {
-     // If we already have a pre-parsed JD, skip parsing step
-     const record = preParsedJD || await jobDescriptionService.parseAndCreate(...);
-     
-     // Continue with draft generation
-     const { draft } = await generateDraft({
-       templateId: selectedTemplateId,
-       jobDescriptionId: record.id,
-     });
-   };
-   ```
+## Solution Architecture
 
-4. **Add subtle UI indicator:**
-   - Show spinner/checkmark in textarea corner when pre-parsing
-   - "✓ Job description analyzed" when complete
+### New Timeline (Phased Rollout)
+```
+Phase 1: Heuristic Gaps (Quick Win)
+0-3s:    generateDraftFast() ✅
+3-5s:    HeuristicGapService ⚡ NEW
+         - Keyword matching for metrics detection
+         - STAR format checking
+         - Requirement coverage analysis
+         - Generate synthetic SectionGapInsights
+5s+:     USER CAN START EDITING WITH GUIDANCE ⚡⚡⚡
+
+Phase 2: Progressive LLM Streaming
+5-10s:   Basic Metrics Call (parallel) ⚡ NEW
+         - Input: draft + JD + goals (~800 tokens)
+         - Output: goals + experience + rating (~1000 tokens)
+         - Update sidebar immediately
+
+5-15s:   Requirement Analysis Call (parallel) ⚡ NEW
+         - Input: draft + requirements + work history (~1200 tokens)
+         - Output: requirement details + experience validation (~1500 tokens)
+         - Update requirement tags immediately
+
+5-20s:   Gap Insights Call (parallel) ⚡ NEW
+         - Input: draft + section guidance + requirements (~1500 tokens)
+         - Output: sectionGapInsights + differentiators + CTAs (~2000 tokens)
+         - Replace heuristic gaps with LLM insights
+
+20-30s:  ALL METRICS COMPLETE ✅ (vs 75s current)
+
+Phase 3: Token & Prompt Optimization
+- Use actual tokenizer (vs char/3.5 estimation)
+- Trim verbose prompts (50% reduction target)
+- Smart context inclusion (only relevant data per call)
+- Result: 30s → 20-25s
+```
+
+---
+
+## Implementation Plan (4 Phases)
+
+## PHASE 1: Heuristic Gap Detection (Agent D) 🎯
+**Timeline:** 3-4 hours | **Priority:** HIGH | **Risk:** LOW
+
+### What & Why
+Generate instant gap insights using keyword matching and templates (no LLM calls). Provides actionable feedback in 5 seconds while waiting for LLM analysis.
+
+### Files to Create/Modify
+```
+CREATE: src/services/heuristicGapService.ts
+MODIFY: src/services/coverLetterDraftService.ts
+MODIFY: src/hooks/useCoverLetterDraft.ts
+MODIFY: Database schema (add heuristic_insights JSONB column)
+```
+
+### Implementation Tasks
+
+#### 1.1 Create Heuristic Gap Service
+- [ ] **File**: `src/services/heuristicGapService.ts`
+- [ ] **Exports**: `HeuristicGapService` class
+- [ ] **Methods**:
+  ```typescript
+  class HeuristicGapService {
+    // Analyze single section for gaps
+    generateSectionGaps(
+      section: CoverLetterDraftSection,
+      jobDescription: ParsedJobDescription,
+      sectionType: string
+    ): SectionGapInsight
+
+    // Analyze all sections in draft
+    generateGapsForDraft(
+      sections: CoverLetterDraftSection[],
+      jobDescription: ParsedJobDescription
+    ): Record<string, SectionGapInsight>
+  }
+  ```
+
+#### 1.2 Implement Detection Logic
+- [ ] **Metrics Detection**
+  - Regex patterns: `/\d+%/`, `/\$[\d,]+/`, `/\d+[xX]/` (multipliers)
+  - Count occurrences per section
+  - If count < 1, flag as "missing_metrics" gap
+
+- [ ] **STAR Format Checking**
+  - Keywords: "led", "managed", "achieved", "resulted in", "improved"
+  - Check for action verbs (beginning of sentences)
+  - Flag if < 2 action verbs in experience sections
+
+- [ ] **Requirement Coverage**
+  - Use existing `matchRequirements()` from draft service
+  - Compare matched IDs vs total requirements
+  - Create gap for each unmatched core requirement
+
+- [ ] **Section-Specific Rules**
+  ```typescript
+  // Introduction
+  - Check for company name mention
+  - Check for role-specific keywords
+  - Check for metrics in first paragraph
+
+  // Experience
+  - Check for quantified results
+  - Check for technical keywords from JD
+  - Check for leadership indicators
+
+  // Closing
+  - Check for call-to-action keywords
+  - Check for enthusiasm indicators ("excited", "eager")
+  ```
+
+#### 1.3 Generate SectionGapInsight Objects
+- [ ] **Structure**:
+  ```typescript
+  {
+    sectionId: string,
+    sectionSlug: string,
+    promptSummary: "Quick analysis (full AI insights loading...)",
+    requirementGaps: [
+      {
+        id: string,
+        label: string,
+        severity: "high" | "medium" | "low",
+        requirementType: "core" | "preferred" | "narrative",
+        rationale: string,
+        recommendation: string
+      }
+    ],
+    recommendedMoves: string[],
+    nextAction: "add-story" | "add-metrics" | null
+  }
+  ```
+
+#### 1.4 Wire into generateDraftFast
+- [ ] Call `HeuristicGapService.generateGapsForDraft()` after sections built
+- [ ] Store in draft row: `heuristic_insights` JSONB column
+- [ ] Return alongside draft in result object
+- [ ] **Database Migration**:
+  ```sql
+  ALTER TABLE cover_letters
+  ADD COLUMN heuristic_insights JSONB;
+  ```
+
+#### 1.5 Update useCoverLetterDraft Hook
+- [ ] Extract `heuristicInsights` from draft result
+- [ ] Set state: `setPendingSectionInsights(heuristicInsights)`
+- [ ] Pass to `CoverLetterDraftView` component
+- [ ] Clear when LLM insights arrive
+
+#### 1.6 Validation
+- [ ] Generate draft → verify gaps appear in UI within 5s
+- [ ] Check gap quality (reasonable recommendations)
+- [ ] Verify gaps are replaced when `enhancedMatchData.sectionGapInsights` arrives
+- [ ] Test with empty work history (edge case)
+- [ ] Test with sparse JD (few requirements)
 
 **Acceptance Criteria:**
-- [x] JD parsing starts automatically 1s after user stops typing
-- [x] Pre-parsed JD is reused in handleGenerate if available
-- [x] UI shows subtle feedback during pre-parsing
-- [x] Falls back gracefully if pre-parse fails
-- [x] Saves ~10 seconds from total wait time
+- [x] Gaps display in UI within 5 seconds of draft completion
+- [x] Gap recommendations are relevant (not perfect, but helpful)
+- [x] Heuristic gaps replaced seamlessly by LLM insights
+- [x] No errors if work history or requirements missing
+- [x] User can start editing immediately with guidance
 
-**Implementation Notes:**
-- Added `preParsedJD`, `isPreParsing`, and `preParsedContent` state to track pre-parsing status
-- Created useEffect hook that debounces JD parsing by 1 second after user stops typing
-- Pre-parse only triggers when content >= 50 chars, user is signed in, and content changed
-- Added subtle UI indicators in textarea corner: spinner during parsing, checkmark when complete
-- Modified `handleGenerateDraft` to reuse pre-parsed JD if content matches, skipping the ~10s parse step
-- Silent error handling: if pre-parse fails, it falls back to normal parsing on Generate button click
-- Pre-parse state is cleared when modal closes or content changes significantly
+**Deliverable:** Actionable feedback in 5 seconds (15x improvement over 75s)
 
 ---
 
-### **AGENT B: Skeleton UI (Frontend)**
-**Goal:** Show immediate skeleton with company/role while draft generates
+## PHASE 2: Progressive LLM Streaming (3 Parallel Calls) 🚀
+**Timeline:** 6-8 hours | **Priority:** HIGH | **Risk:** MEDIUM
 
-**Files to Modify:**
-- `src/components/cover-letters/CoverLetterCreateModal.tsx`
-- `src/components/cover-letters/CoverLetterSkeleton.tsx` (new)
+### What & Why
+Replace single 72s LLM call with 3 smaller parallel calls. Each call updates UI immediately when complete. Reduces max wait from 72s to ~30s.
 
-**Implementation Steps:**
+### Architecture Overview
+```
+┌─────────────────────────────────────────────────┐
+│ calculateMetricsForDraft() (current)            │
+│ ├── Load data (draft, JD, goals, work history) │
+│ └── Single metricsStreamer call (72s) ❌        │
+└─────────────────────────────────────────────────┘
 
-1. **Create CoverLetterSkeleton component:**
-   ```typescript
-   // src/components/cover-letters/CoverLetterSkeleton.tsx
-   export const CoverLetterSkeleton = ({ 
-     company, 
-     role, 
-     userName, 
-     userEmail 
-   }: SkeletonProps) => {
-     return (
-       <div className="space-y-6 animate-pulse">
-         {/* Header with real data */}
-         <div className="text-right">
-           <p className="font-medium">{userName}</p>
-           <p className="text-sm text-muted-foreground">{userEmail}</p>
-           <p className="text-sm text-muted-foreground mt-4">{new Date().toLocaleDateString()}</p>
-         </div>
-         
-         <div>
-           <p className="font-medium">{company}</p>
-           <p className="text-sm text-muted-foreground">{role}</p>
-         </div>
-         
-         {/* Skeleton content blocks */}
-         <div className="space-y-3">
-           <div className="h-4 bg-muted rounded w-3/4"></div>
-           <div className="h-4 bg-muted rounded w-full"></div>
-           <div className="h-4 bg-muted rounded w-5/6"></div>
-         </div>
-         
-         <div className="space-y-3">
-           <div className="h-4 bg-muted rounded w-full"></div>
-           <div className="h-4 bg-muted rounded w-4/5"></div>
-           <div className="h-4 bg-muted rounded w-full"></div>
-           <div className="h-4 bg-muted rounded w-3/4"></div>
-         </div>
-         
-         {/* Repeat for 3-4 sections */}
-       </div>
-     );
-   };
-   ```
+                    ↓ REPLACE WITH ↓
 
-2. **Update CoverLetterCreateModal to show skeleton first:**
-   ```typescript
-   const renderDraftTab = () => {
-     if (!draft && isGenerating && jobDescriptionRecord) {
-       // Show skeleton while generating
-       return (
-         <CoverLetterSkeleton
-           company={jobDescriptionRecord.company}
-           role={jobDescriptionRecord.role}
-           userName={user?.user_metadata?.full_name || 'Your Name'}
-           userEmail={user?.email || ''}
-         />
-       );
-     }
-     
-     if (!draft) {
-       return <EmptyState />;
-     }
-     
-     // Show actual draft content
-     return <CoverLetterDraftView {...} />;
-   };
-   ```
+┌──────────────────────────────────────────────────────────┐
+│ calculateMetricsProgressive() (new)                      │
+│ ├── Load data (shared across all calls)                 │
+│ └── Promise.all([                                        │
+│     ├── basicMetricsCall() → 10-15s ⚡                   │
+│     ├── requirementAnalysisCall() → 15-20s ⚡            │
+│     └── gapInsightsCall() → 20-30s ⚡                    │
+│    ])                                                     │
+│ └── Merge results → return EnhancedMatchData             │
+└──────────────────────────────────────────────────────────┘
+```
+
+### Files to Create/Modify
+```
+CREATE: src/services/progressiveMetricsService.ts
+CREATE: src/prompts/basicMetricsAnalysis.ts
+CREATE: src/prompts/requirementAnalysis.ts
+CREATE: src/prompts/gapInsightsAnalysis.ts
+MODIFY: src/services/coverLetterDraftService.ts
+MODIFY: src/hooks/useCoverLetterDraft.ts
+```
+
+### Implementation Tasks
+
+#### 2.1 Create Progressive Metrics Service
+- [ ] **File**: `src/services/progressiveMetricsService.ts`
+- [ ] **Class**: `ProgressiveMetricsService`
+- [ ] **Dependencies**: OpenAI client, prompt builders, shared types
+
+#### 2.2 Implement basicMetricsCall()
+- [ ] **Input**: `{ draft, jobDescription, userGoals }`
+- [ ] **Prompt**: Lightweight analysis for match quality only
+- [ ] **Output Schema**:
+  ```typescript
+  {
+    metrics: {
+      goals: { strength, summary, tooltip, differentiatorHighlights },
+      experience: { strength, summary, tooltip, differentiatorHighlights },
+      rating: {
+        score,
+        summary,
+        tooltip,
+        criteria: [
+          { id, label, met, evidence, suggestion } // All 11 criteria
+        ]
+      }
+    }
+  }
+  ```
+- [ ] **Estimated Tokens**: 800 input → 1000 output
+- [ ] **Model**: GPT-4 or GPT-3.5-turbo (faster)
+- [ ] **Completion Time**: 10-15s
+
+#### 2.3 Implement requirementAnalysisCall()
+- [ ] **Input**: `{ draft, jobDescription, workHistory, approvedContent }`
+- [ ] **Prompt**: Focused on requirement matching + experience validation
+- [ ] **Output Schema**:
+  ```typescript
+  {
+    enhancedMatchData: {
+      coreRequirementDetails: [
+        { id, requirement, demonstrated, evidence, sectionIds, severity }
+      ],
+      preferredRequirementDetails: [...],
+      coreExperienceDetails: [
+        { requirement, confidence, matchedWorkItemIds, matchedStoryIds, evidence }
+      ],
+      preferredExperienceDetails: [...]
+    }
+  }
+  ```
+- [ ] **Estimated Tokens**: 1200 input → 1500 output
+- [ ] **Completion Time**: 15-20s
+
+#### 2.4 Implement gapInsightsCall()
+- [ ] **Input**: `{ draft, sections, jobDescription, sectionGuidance }`
+- [ ] **Prompt**: Deep section-level analysis with SECTION_GUIDANCE rubric
+- [ ] **Output Schema**:
+  ```typescript
+  {
+    enhancedMatchData: {
+      sectionGapInsights: [
+        {
+          sectionId, sectionSlug, sectionType, sectionTitle,
+          promptSummary,
+          requirementGaps: [
+            { id, label, severity, requirementType, rationale, recommendation }
+          ],
+          recommendedMoves,
+          nextAction
+        }
+      ],
+      differentiatorAnalysis: {
+        summary, userPositioning, strengthAreas, gapAreas
+      },
+      ctaHooks: [
+        { type, label, requirement, severity, actionPayload }
+      ]
+    }
+  }
+  ```
+- [ ] **Estimated Tokens**: 1500 input → 2000 output
+- [ ] **Completion Time**: 20-30s
+
+#### 2.5 Implement Orchestrator
+- [ ] **Method**: `calculateMetricsProgressive()`
+- [ ] **Logic**:
+  ```typescript
+  async calculateMetricsProgressive(
+    draftId: string,
+    userId: string,
+    jobDescriptionId: string,
+    onProgressiveUpdate?: (partial: Partial<EnhancedMatchData>) => void
+  ): Promise<EnhancedMatchData> {
+    // 1. Load shared data
+    const [draft, jobDescription, userGoals, workHistory, approvedContent] =
+      await Promise.all([...]);
+
+    // 2. Launch 3 calls in parallel
+    const [basicMetrics, requirementAnalysis, gapInsights] = await Promise.all([
+      this.basicMetricsCall(...).then(result => {
+        // Update UI immediately
+        onProgressiveUpdate?.({
+          metrics: result.metrics
+        });
+        this.updateDraftPartial(draftId, { metrics: result.metrics });
+        return result;
+      }),
+
+      this.requirementAnalysisCall(...).then(result => {
+        onProgressiveUpdate?.({
+          coreRequirementDetails: result.core,
+          preferredRequirementDetails: result.preferred,
+          coreExperienceDetails: result.coreExp,
+          preferredExperienceDetails: result.prefExp
+        });
+        this.updateDraftPartial(draftId, { ...result });
+        return result;
+      }),
+
+      this.gapInsightsCall(...).then(result => {
+        onProgressiveUpdate?.({
+          sectionGapInsights: result.insights,
+          differentiatorAnalysis: result.differentiators,
+          ctaHooks: result.ctas
+        });
+        this.updateDraftPartial(draftId, { ...result });
+        return result;
+      })
+    ]);
+
+    // 3. Merge all results
+    const merged = this.mergeMetricsResults(basicMetrics, requirementAnalysis, gapInsights);
+
+    // 4. Final update to draft
+    await this.updateDraftFinal(draftId, merged);
+
+    return merged;
+  }
+  ```
+
+#### 2.6 Create Lightweight Prompts
+- [ ] **basicMetricsAnalysis.ts**
+  - Strip down ENHANCED_METRICS_SYSTEM_PROMPT
+  - Remove: requirement details, experience details, gap insights, CTAs
+  - Keep: goals, experience, rating criteria
+  - Target: 295 lines → ~80 lines (70% reduction)
+
+- [ ] **requirementAnalysis.ts**
+  - Focus on requirement matching logic
+  - Remove: basic metrics, gaps, differentiators
+  - Keep: requirement details, experience validation
+  - Target: 295 lines → ~100 lines (66% reduction)
+
+- [ ] **gapInsightsAnalysis.ts**
+  - Include SECTION_GUIDANCE rubric
+  - Remove: basic metrics, requirement matching
+  - Keep: sectionGapInsights, differentiatorAnalysis, ctaHooks
+  - Target: 295 lines → ~120 lines (59% reduction)
+
+#### 2.7 Integrate into Draft Service
+- [ ] Update `calculateMetricsForDraft()`
+- [ ] Replace `this.metricsStreamer()` with `ProgressiveMetricsService.calculateMetricsProgressive()`
+- [ ] Add progressive update handler:
+  ```typescript
+  const enhancedMatchData = await progressiveService.calculateMetricsProgressive(
+    draftId,
+    userId,
+    jobDescriptionId,
+    (partialMetrics) => {
+      // Pass progressive updates to hook via callback
+      onProgress?.('metrics', 'Partial metrics calculated');
+      onProgressiveMetrics?.(partialMetrics);
+    }
+  );
+  ```
+
+#### 2.8 Update useCoverLetterDraft Hook
+- [ ] Add `onProgressiveMetrics` callback to draft service call
+- [ ] Update state incrementally:
+  ```typescript
+  const handleProgressiveMetrics = (partial: Partial<EnhancedMatchData>) => {
+    setState(prev => ({
+      ...prev,
+      draft: prev.draft ? {
+        ...prev.draft,
+        enhancedMatchData: {
+          ...prev.draft.enhancedMatchData,
+          ...partial
+        }
+      } : prev.draft
+    }));
+  };
+  ```
+
+#### 2.9 Validation
+- [ ] **Test Parallel Execution**
+  - Verify all 3 calls start simultaneously
+  - Check max completion time (~30s, not 72s)
+  - Monitor network tab for parallel requests
+
+- [ ] **Test Progressive UI Updates**
+  - Basic metrics appear ~10-15s
+  - Requirement tags populate ~15-20s
+  - Heuristic gaps replaced with LLM insights ~20-30s
+
+- [ ] **Test Error Handling**
+  - Kill 1 of 3 calls → others still complete
+  - Verify partial results are usable
+  - Fallback to heuristics if all calls fail
+
+- [ ] **Test Merge Logic**
+  - No duplicate data in merged result
+  - Schema validation passes
+  - No TypeScript errors
 
 **Acceptance Criteria:**
-- [x] Skeleton appears instantly when "Generate" is clicked
-- [x] Skeleton shows real company, role, user name/email
-- [x] Animated shimmer effect on placeholder content
-- [x] Seamlessly transitions to real content when available
-- [x] User feels progress happening immediately
+- [x] Metrics calculation reduced from 72s to ~30s
+- [x] UI updates progressively (3 stages)
+- [x] Partial failures don't break entire flow
+- [x] Merged result matches quality of original single call
+- [x] No race conditions in state updates
 
-**Implementation Status:** ✅ COMPLETED
-
-**Files Modified:**
-- Created: `src/components/cover-letters/CoverLetterSkeleton.tsx`
-- Modified: `src/components/cover-letters/CoverLetterCreateModal.tsx`
-
-**Implementation Details:**
-- Skeleton component displays real job details (company, role) and user info (name, email, date)
-- Animated pulse effect on placeholder content blocks simulating paragraphs
-- Conditionally rendered in `renderDraftTab()` when `isGenerating && !draft && jobDescriptionRecord`
-- Wrapped in Card with progress indicator showing generation status
-- Seamlessly transitions to actual CoverLetterDraftView when draft is available
+**Deliverable:** 72s → 30s reduction (2.4x speedup)
 
 ---
 
-### **AGENT C: Streaming Section Builder (Backend)**
-**Goal:** Build and emit draft sections progressively instead of all at once
+## PHASE 3: Token & Prompt Optimization 🔧
+**Timeline:** 4-5 hours | **Priority:** MEDIUM | **Risk:** LOW
 
-**Files to Modify:**
-- `src/services/coverLetterDraftService.ts`
-- `src/hooks/useCoverLetterDraft.ts`
+### What & Why
+Reduce per-call latency by optimizing token usage and prompts. Target 20-30% reduction in completion time per call.
 
-**Implementation Steps:**
+### Implementation Tasks
 
-1. **Add section streaming to DraftGenerationOptions:**
-   ```typescript
-   interface DraftGenerationOptions {
-     // ... existing fields
-     onSectionBuilt?: (section: CoverLetterDraftSection, index: number, total: number) => void;
-   }
-   ```
+#### 3.1 Use Actual Tokenizer
+- [ ] Install: `npm install gpt-tokenizer`
+- [ ] Replace estimation logic in `metricsStreamer`:
+  ```typescript
+  // OLD
+  const contentTokens = Math.ceil(contentForAnalysis.length / 3.5);
 
-2. **Update buildSections to emit sections as built:**
-   ```typescript
-   private buildSections({ 
-     templateSections, 
-     stories, 
-     savedSections, 
-     jobDescription, 
-     userGoals,
-     onSectionBuilt // NEW
-   }: BuildSectionsOptions) {
-     const sections: CoverLetterDraftSection[] = [];
-     
-     templateSections.forEach((template, index) => {
-       // Build section logic (existing)
-       const section = {
-         id: template.id,
-         slug: template.slug,
-         title: template.title,
-         content: matchedContent || template.staticContent,
-         // ... rest of section
-       };
-       
-       sections.push(section);
-       
-       // NEW: Emit section immediately
-       onSectionBuilt?.(section, index, templateSections.length);
-     });
-     
-     return { sections, matchState };
-   }
-   ```
+  // NEW
+  import { encode } from 'gpt-tokenizer';
+  const contentTokens = encode(contentForAnalysis).length;
+  ```
+- [ ] Calculate optimal `maxTokens` per call (not 4000 for all):
+  ```typescript
+  basicMetricsCall:      maxTokens: 1200
+  requirementAnalysis:   maxTokens: 2000
+  gapInsightsCall:       maxTokens: 2500
+  ```
 
-3. **Update generateDraft to support streaming:**
-   ```typescript
-   async generateDraft(options: DraftGenerationOptions): Promise<DraftGenerationResult> {
-     const { userId, templateId, jobDescriptionId, onProgress, onSectionBuilt, signal } = options;
-     
-     // ... JD loading, content loading (existing)
-     
-     const { sections, matchState } = this.buildSections({
-       templateSections,
-       stories,
-       savedSections,
-       jobDescription,
-       userGoals,
-       onSectionBuilt, // Pass through
-     });
-     
-     // NOTE: Don't wait for metrics before returning sections!
-     // Metrics will be calculated in background
-     
-     // ... rest of method
-   }
-   ```
+#### 3.2 Audit & Trim Prompts
+- [ ] Remove redundant examples from system prompts
+- [ ] Use bullet points instead of verbose paragraphs
+- [ ] Consolidate overlapping instructions
+- [ ] Target: 20-30% token reduction per prompt
 
-4. **Update useCoverLetterDraft hook:**
-   ```typescript
-   const [streamingSections, setStreamingSections] = useState<CoverLetterDraftSection[]>([]);
-   
-   const generateDraft = async (options) => {
-     setStreamingSections([]); // Reset
-     
-     const result = await service.generateDraft({
-       ...options,
-       onSectionBuilt: (section, index, total) => {
-         setStreamingSections(prev => [...prev, section]);
-         setProgress(prev => [...prev, {
-           phase: 'content_generation',
-           message: `Building section ${index + 1} of ${total}...`,
-           timestamp: Date.now(),
-         }]);
-       },
-     });
-     
-     return result;
-   };
-   ```
+#### 3.3 Smart Context Inclusion
+- [ ] **basicMetricsCall**: Don't send work history (not needed for match quality)
+- [ ] **requirementAnalysisCall**: Don't send section guidance (not needed for requirement matching)
+- [ ] **gapInsightsCall**: Don't send full work history (only needed for requirement analysis)
+
+#### 3.4 Retry Logic Optimization
+- [ ] Per-call retries (already achieved in Phase 2)
+- [ ] Tune exponential backoff:
+  ```typescript
+  // Current: [750ms, 1500ms]
+  // Optimized: [500ms, 1000ms, 2000ms]
+  const RETRY_DELAYS_MS = [500, 1000, 2000];
+  const MAX_RETRIES = 2; // 3 total attempts
+  ```
+
+#### 3.5 Smarter Failure Handling
+- [ ] If `basicMetricsCall` fails → use heuristic strength estimates
+- [ ] If `requirementAnalysisCall` fails → use keyword matching
+- [ ] If `gapInsightsCall` fails → keep heuristic gaps
+- [ ] **Result**: Never show empty state to user
+
+#### 3.6 Prompt Optimization Techniques
+- [ ] Remove verbose examples (keep 1-2 concise ones)
+- [ ] Use JSON Schema mode if available (structured outputs)
+- [ ] Simplify rating criteria (11 → 6 grouped categories)
+- [ ] Estimated savings: ~500 output tokens
+
+#### 3.7 Validation
+- [ ] Measure token counts before/after optimization
+- [ ] Compare completion times (baseline vs optimized)
+- [ ] Verify output quality unchanged
+- [ ] Run quality regression tests
 
 **Acceptance Criteria:**
-- [x] Sections are emitted one-by-one as they're built
-- [x] `onSectionBuilt` callback fires for each section
-- [x] UI can render sections progressively
-- [x] Total build time unchanged (~5s) but perceived as faster
-- [x] No breaking changes to existing API
+- [x] 20-30% token reduction per prompt
+- [x] 30s → 20-25s completion time
+- [x] Output quality maintained
+- [x] Retry penalties reduced (smaller calls = faster retries)
 
-**Implementation Status:** ✅ COMPLETE
-
-**Implementation Summary:**
-1. Added `onSectionBuilt` callback to `DraftGenerationOptions` interface
-2. Updated `buildSections` method to emit sections as they're created
-3. Modified `generateDraft` to pass through the streaming callback
-4. Enhanced `useCoverLetterDraft` hook with `streamingSections` state
-5. Added progressive progress updates for each section built
+**Deliverable:** 30s → 20-25s further reduction (1.2x speedup)
 
 ---
 
-### **AGENT D: Background Metrics Calculation (Backend + Frontend)**
-**Goal:** Calculate metrics in background after showing draft, update match bar when done
+## PHASE 4: Testing & Validation ✅
+**Timeline:** 2-3 hours | **Priority:** HIGH | **Risk:** LOW
 
-**Files to Modify:**
-- `src/services/coverLetterDraftService.ts`
-- `src/components/cover-letters/CoverLetterCreateModal.tsx`
-- `src/hooks/useCoverLetterDraft.ts`
+### Performance Benchmarks
+- [ ] Measure end-to-end timeline (3 test drafts)
+- [ ] Compare against baseline (75s)
+- [ ] Target: <30s to full completion, <5s to actionable
+- [ ] Document results in spreadsheet
 
-**Implementation Steps:**
+### Quality Validation
+- [ ] Compare heuristic gaps vs LLM gaps (accuracy check)
+  - Sample: 10 drafts
+  - Metric: % of heuristic gaps that match LLM gaps
+  - Target: >60% alignment
 
-1. **Split generateDraft into two phases:**
-   ```typescript
-   // Phase 1: Fast draft generation (no metrics)
-   async generateDraftFast(options: DraftGenerationOptions): Promise<{
-     draft: CoverLetterDraft; // Without enhancedMatchData
-     workpad: DraftWorkpad;
-     jobDescription: ParsedJobDescription;
-   }> {
-     // ... existing logic up to section building
-     
-     const sections = this.buildSections({...});
-     
-     // Save draft WITHOUT metrics
-     const insertPayload = {
-       user_id: userId,
-       template_id: templateId,
-       job_description_id: jobDescriptionId,
-       status: 'draft',
-       sections: sections,
-       llm_feedback: null, // No metrics yet
-       metrics: [], // Empty
-     };
-     
-     const { data: draftRow } = await this.supabaseClient
-       .from('cover_letters')
-       .insert(insertPayload)
-       .select()
-       .single();
-     
-     return { 
-       draft: this.mapCoverLetterRow(draftRow, [], 0),
-       workpad: workpadRow,
-       jobDescription,
-     };
-   }
-   
-   // Phase 2: Calculate metrics in background
-   async calculateMetricsForDraft(
-     draftId: string,
-     userId: string,
-     jobDescriptionId: string,
-     onProgress?: (phase: string, message: string) => void
-   ): Promise<EnhancedMatchData> {
-     const [draft, jobDescription, userGoals, workHistory, approvedContent] = await Promise.all([
-       this.fetchDraft(draftId),
-       this.fetchJobDescription(userId, jobDescriptionId),
-       UserPreferencesService.loadGoals(userId),
-       this.fetchWorkHistory(userId),
-       this.fetchApprovedContent(userId),
-     ]);
-     
-     onProgress?.('metrics', 'Calculating match metrics...');
-     
-     const metricResult = await this.metricsStreamer({
-       draft: draft.sections,
-       jobDescription,
-       userGoals,
-       workHistory,
-       approvedContent,
-       signal: undefined,
-       onToken: undefined,
-     });
-     
-     // Update draft with metrics
-     await this.supabaseClient
-       .from('cover_letters')
-       .update({
-         llm_feedback: {
-           generatedAt: this.now().toISOString(),
-           metrics: metricResult.raw,
-           enhancedMatchData: metricResult.enhancedMatchData,
-         },
-         metrics: metricResult.metrics,
-         analytics: {
-           atsScore: metricResult.atsScore,
-           generatedAt: this.now().toISOString(),
-         },
-         updated_at: this.now().toISOString(),
-       })
-       .eq('id', draftId);
-     
-     return metricResult.enhancedMatchData;
-   }
-   ```
+- [ ] Verify progressive updates don't show stale data
+  - Check: Heuristic gaps are replaced (not duplicated)
+  - Check: Metrics update without flicker
 
-2. **Update useCoverLetterDraft to support two-phase generation:**
-   ```typescript
-   const [metricsLoading, setMetricsLoading] = useState(false);
-   
-   const generateDraft = async (options) => {
-     try {
-       setIsGenerating(true);
-       
-       // Phase 1: Fast draft (15s)
-       const { draft, workpad, jobDescription } = await service.generateDraftFast(options);
-       
-       setDraft(draft);
-       setWorkpad(workpad);
-       setIsGenerating(false); // Draft is ready!
-       
-       // Phase 2: Background metrics (35s)
-       setMetricsLoading(true);
-       setProgress(prev => [...prev, {
-         phase: 'metrics',
-         message: 'Calculating match metrics in background...',
-         timestamp: Date.now(),
-       }]);
-       
-       const enhancedMatchData = await service.calculateMetricsForDraft(
-         draft.id,
-         options.userId,
-         options.jobDescriptionId,
-         (phase, message) => {
-           setProgress(prev => [...prev, { phase, message, timestamp: Date.now() }]);
-         }
-       );
-       
-       // Update draft with metrics
-       setDraft(prev => prev ? { ...prev, enhancedMatchData } : prev);
-       setMetricsLoading(false);
-       
-     } catch (error) {
-       setError(error);
-       setIsGenerating(false);
-       setMetricsLoading(false);
-     }
-   };
-   ```
+- [ ] Validate merged metrics match quality of original
+  - Schema validation
+  - Manual review of 5 sample outputs
 
-3. **Update CoverLetterCreateModal UI:**
-   ```typescript
-   const renderDraftTab = () => {
-     if (!draft) {
-       if (isGenerating && jobDescriptionRecord) {
-         return <CoverLetterSkeleton {...} />;
-       }
-       return <EmptyState />;
-     }
-     
-     return (
-       <>
-         {/* Show match bar with loading state if metrics calculating */}
-         {metricsLoading && (
-           <div className="mb-4 text-sm text-muted-foreground">
-             Calculating match metrics...
-           </div>
-         )}
-         
-         <ProgressIndicatorWithTooltips
-           metrics={draft.enhancedMatchData ? hilMetrics : placeholderMetrics}
-           enhancedMatchData={draft.enhancedMatchData}
-           isLoading={metricsLoading}
-           // ... rest of props
-         />
-         
-         {/* Draft content - user can edit while metrics load */}
-         <CoverLetterDraftView
-           sections={streamingSections.length > 0 ? streamingSections : draft.sections}
-           // ... rest of props
-         />
-       </>
-     );
-   };
-   ```
-
-**Acceptance Criteria:**
-- [ ] Draft appears in ~15s without metrics
-- [ ] Metrics calculate in background (non-blocking)
-- [ ] Match bar shows loading state while metrics calculate
-- [ ] Match bar updates when metrics complete (~50s total)
-- [ ] User can edit draft while metrics are calculating
-- [ ] No data loss if user navigates away during metrics calculation
-
----
-
-## Testing Plan
-
-### **Integration Test:**
-1. Paste Supio JD → verify pre-parse starts automatically
-2. Select template → click "Generate"
-3. Verify skeleton appears instantly
-4. Verify sections stream in progressively (~5s, ~10s, ~15s)
-5. Verify draft is editable at ~15s
-6. Verify match bar updates at ~50s with all metrics
-
-### **Edge Cases:**
-- [ ] User navigates away during generation
-- [ ] Pre-parse fails (should fall back to normal parse)
-- [ ] Network timeout during metrics calculation
+### Edge Case Testing
+- [ ] Empty work history (no experience data)
+- [ ] Sparse JD (< 3 requirements)
+- [ ] Network failure during background calculation
+- [ ] User edits section while LLM gaps calculating
 - [ ] User closes modal before metrics complete
 
----
+### User Experience Review
+- [ ] Gap banners update smoothly (no flicker)
+- [ ] Loading states are clear and helpful
+- [ ] Progressive updates feel natural (not jarring)
+- [ ] Error messages are user-friendly
 
-## Timeline Estimate
+**Acceptance Criteria:**
+- [x] All performance targets met
+- [x] Quality maintained (>60% heuristic alignment)
+- [x] Edge cases handled gracefully
+- [x] UX polish complete
 
-- **Agent A (Pre-Parse JD):** 2-3 hours
-- **Agent B (Skeleton UI):** 1-2 hours
-- **Agent C (Streaming Sections):** 3-4 hours
-- **Agent D (Background Metrics):** 4-5 hours
-
-**Total:** ~10-14 hours with 4 agents working in parallel = **2.5-3.5 hours wall clock time**
+**Deliverable:** Production-ready optimized flow
 
 ---
 
 ## Success Metrics
 
-- [ ] Time to first content: **<5 seconds** (vs 57s currently)
-- [ ] Time to full draft: **~15 seconds** (vs 57s currently)
-- [ ] Time to metrics: **~50 seconds** (same, but non-blocking)
-- [ ] User can start editing 3.8x faster
-- [ ] Perceived performance dramatically improved
+| Metric | Baseline | Phase 1 Target | Phase 2 Target | Phase 3 Target |
+|--------|----------|----------------|----------------|----------------|
+| Time to actionable feedback | 75s | **5s** ⚡ | 5s | 5s |
+| Time to basic metrics | 75s | 75s | **15s** ⚡ | **12s** ⚡ |
+| Time to requirement tags | 75s | 75s | **20s** ⚡ | **16s** ⚡ |
+| Time to full analysis | 75s | 75s | **30s** ⚡ | **25s** ⚡ |
+| User can start editing | After 75s | **After 5s** | After 5s | After 5s |
+| Failed LLM recovery | Empty state | Heuristics | Partial results | Partial results |
 
+**Overall Improvement:**
+- **Perceived performance**: 75s → 5s (15x faster)
+- **Full completion**: 75s → 25s (3x faster)
+- **Resilience**: Empty on fail → Useful fallbacks
+
+---
+
+## Implementation Order
+
+### ✅ Sprint 1: Quick Win (Phase 1 - Heuristic Gaps)
+- **Duration**: 3-4 hours
+- **Goal**: Actionable feedback in 5 seconds
+- **Risk**: LOW (pure addition, no existing changes)
+- **Validation**: Generate draft → verify gaps appear in 5s
+- **Rollout**: Feature flag → gradual rollout
+
+### ✅ Sprint 2: Core Optimization (Phase 2 - Progressive LLM)
+- **Duration**: 6-8 hours
+- **Goal**: 72s → 30s completion time
+- **Risk**: MEDIUM (replacing core metrics flow)
+- **Validation**: Parallel execution, progressive updates, error handling
+- **Rollout**: Feature flag → beta users → all users
+
+### ✅ Sprint 3: Polish (Phase 3 - Token/Prompt Optimization)
+- **Duration**: 4-5 hours
+- **Goal**: 30s → 25s completion time
+- **Risk**: LOW (refinement only)
+- **Validation**: Token audits, quality checks
+- **Rollout**: Enable for all users
+
+### ✅ Sprint 4: Verification (Phase 4 - Testing)
+- **Duration**: 2-3 hours
+- **Goal**: Production readiness
+- **Risk**: LOW (testing only)
+- **Validation**: Comprehensive test suite
+- **Rollout**: Monitor production metrics
+
+**Total Timeline**: 15-20 hours over 4 sprints
+
+---
+
+## Risk Mitigation
+
+### Risk: Heuristic gaps are too low quality
+- **Mitigation**: Label as "Quick Analysis (AI refining...)" in UI
+- **Fallback**: Make heuristics optional (feature flag)
+- **Monitoring**: Track user engagement with heuristic vs LLM gaps
+
+### Risk: 3 parallel calls hit OpenAI rate limits
+- **Mitigation**: Add stagger delay (0ms, 100ms, 200ms)
+- **Fallback**: Sequential execution with same optimized prompts
+- **Monitoring**: Log rate limit errors, auto-fallback if detected
+
+### Risk: Progressive updates cause UI jank/flicker
+- **Mitigation**: Debounce updates (100ms)
+- **Fallback**: Batch updates, only show when complete
+- **Monitoring**: Track render counts, performance profiling
+
+### Risk: Merged metrics have inconsistencies
+- **Mitigation**: Schema validation before merge
+- **Fallback**: Full recalculation if merge fails
+- **Monitoring**: Log merge failures, alert if >1% failure rate
+
+---
+
+## Notes
+
+- **JD Parsing**: Already non-blocking (done in `generateDraftFast`) ✅
+- **Existing 2-phase split**: Keep and enhance (don't rebuild) ✅
+- **Caching**: Skipped (not real-world scenario)
+- **Streaming**: Already enabled for content generation, now adding for metrics
+- **Agent D Infrastructure**: Already exists (`pendingSectionInsights` prop), just needs heuristic service
+
+---
+
+## Next Steps
+
+1. ✅ Review and approve plan
+2. ⏳ Confirm phasing (Quick Win → Core → Polish → Verify)
+3. ⏳ Start Phase 1 implementation (heuristic gaps)
+4. ⏳ Validate each phase before proceeding to next
+
+---
+
+## Appendix: Technical Details
+
+### Database Schema Changes
+```sql
+-- Phase 1: Add heuristic insights column
+ALTER TABLE cover_letters
+ADD COLUMN heuristic_insights JSONB;
+
+-- No other schema changes needed (reuse existing columns)
+```
+
+### Type Definitions
+```typescript
+// Phase 1: Heuristic insights match LLM structure
+interface SectionGapInsight {
+  sectionId: string;
+  sectionSlug: string;
+  promptSummary: string;
+  requirementGaps: RequirementGap[];
+  recommendedMoves: string[];
+  nextAction: 'add-story' | 'add-metrics' | null;
+}
+
+// Phase 2: Progressive metrics callbacks
+type ProgressiveMetricsCallback = (partial: Partial<EnhancedMatchData>) => void;
+
+interface ProgressiveMetricsService {
+  calculateMetricsProgressive(
+    draftId: string,
+    userId: string,
+    jobDescriptionId: string,
+    onProgressiveUpdate?: ProgressiveMetricsCallback
+  ): Promise<EnhancedMatchData>;
+}
+```

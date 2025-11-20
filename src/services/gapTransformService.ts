@@ -19,6 +19,11 @@ export interface Gap {
   origin: 'ai' | 'human' | 'library';
   addresses?: string[];
   existingContent?: string;
+  // Requirement gaps (for ContentGapBanner display)
+  gaps?: Array<{ id: string; title?: string; description: string }>;
+  gapSummary?: string | null;
+  // Rating criteria gaps stored separately from requirement gaps
+  ratingCriteriaGaps?: Array<{ id: string; title?: string; description: string }>;
 }
 
 export class GapTransformService {

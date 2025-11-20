@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,8 +15,9 @@ import { useToast } from '@/hooks/use-toast';
 import { transformMetricsToMatchData, type MatchMetricsData } from './useMatchMetricsDetails';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import { CoverLetterDraftService } from '@/services/coverLetterDraftService';
 import type { Gap } from '@/services/gapTransformService';
-import type { CoverLetterMatchMetric } from '@/types/coverLetters';
+import type { CoverLetterMatchMetric, ParsedJobDescription } from '@/types/coverLetters';
 
 interface CoverLetterEditModalProps {
   isOpen: boolean;
@@ -31,14 +32,17 @@ interface CoverLetterEditModalProps {
 export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals, onAddStory, onEnhanceSection, onAddMetrics }: CoverLetterEditModalProps) {
   const { goals, setGoals } = useUserGoals();
   const { toast } = useToast();
+  const coverLetterDraftService = useMemo(() => new CoverLetterDraftService(), []);
   const [editedContent, setEditedContent] = useState<any>(null);
   const [mainTabValue, setMainTabValue] = useState<'cover-letter' | 'job-description'>('cover-letter');
   const [isSaving, setIsSaving] = useState(false);
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showContentGenerationModal, setShowContentGenerationModal] = useState(false);
-  const [selectedGap, setSelectedGap] = useState<Gap & { section_id?: string } | null>(null);
+  const [selectedGap, setSelectedGap] = useState<Gap & { section_id?: string; gaps?: Array<{ id: string; title?: string; description: string }>; gapSummary?: string | null } | null>(null);
   const [jobDescriptionRecord, setJobDescriptionRecord] = useState<any | null>(null);
+  const [sectionFocusContent, setSectionFocusContent] = useState<Record<string, string>>({});
+  const [isRecalculating, setIsRecalculating] = useState(false);
 
   // Initialize edited content when cover letter changes
   useEffect(() => {
@@ -96,6 +100,78 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
         )
       }
     });
+  };
+
+  const handleSectionFocus = (sectionId: string) => {
+    // Track content at focus time
+    const section = editedContent?.content?.sections?.find((s: any) => s.id === sectionId);
+    if (section) {
+      setSectionFocusContent(prev => ({
+        ...prev,
+        [sectionId]: section.content || '',
+      }));
+    }
+  };
+
+  const handleSectionBlur = async (sectionId: string, newContent: string) => {
+    const focusContent = sectionFocusContent[sectionId];
+    const section = editedContent?.content?.sections?.find((s: any) => s.id === sectionId);
+    const originalContent = section?.content || '';
+    
+    // Only recalculate if content changed since focus
+    if (newContent !== focusContent && newContent !== originalContent && editedContent?.id) {
+      try {
+        // Save the section first
+        const updatedDraft = await coverLetterDraftService.updateDraftSection(
+          editedContent.id,
+          sectionId,
+          newContent
+        );
+        
+        // Update local state with saved draft
+        setEditedContent({
+          ...editedContent,
+          ...updatedDraft,
+        });
+        
+        // Trigger metrics recalculation
+        setIsRecalculating(true);
+        try {
+          await coverLetterDraftService.calculateMetricsForDraft(
+            editedContent.id,
+            editedContent.userId || coverLetter.userId,
+            editedContent.jobDescriptionId || coverLetter.jobDescriptionId,
+            (phase, message) => {
+              console.log('[CoverLetterEditModal] Metrics calculation:', phase, message);
+            }
+          );
+          console.log('[CoverLetterEditModal] Metrics recalculated after manual edit');
+          
+          // Refresh editedContent to get updated metrics
+          const { data: updatedRow } = await supabase
+            .from('cover_letters')
+            .select('*')
+            .eq('id', editedContent.id)
+            .single();
+          
+          if (updatedRow) {
+            setEditedContent(updatedRow);
+          }
+        } catch (error) {
+          console.error('[CoverLetterEditModal] Failed to recalculate metrics:', error);
+          // Don't block UI on recalculation failure
+        } finally {
+          setIsRecalculating(false);
+        }
+      } catch (error) {
+        console.error('[CoverLetterEditModal] Failed to save section:', error);
+        toast({
+          title: "Failed to save section",
+          description: error instanceof Error ? error.message : "Please try again.",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   const handleSave = async () => {
@@ -237,6 +313,18 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
                   }
                 }
                 
+                // Extract rating criteria from llmFeedback
+                const ratingDataForCriteria = editedContent?.llmFeedback?.rating as any;
+                if (ratingDataForCriteria?.criteria && Array.isArray(ratingDataForCriteria.criteria) && matchMetrics) {
+                  matchMetrics.ratingCriteria = ratingDataForCriteria.criteria.map((c: any) => ({
+                    id: c.id || '',
+                    label: c.label || '',
+                    met: c.met === true,
+                    evidence: c.evidence || '',
+                    suggestion: c.suggestion || '',
+                  }));
+                }
+                
                 // FIX 1: Check analytics.overallScore first (for finalized drafts)
                 const analyticsScore = editedContent?.analytics?.overallScore;
                 if (analyticsScore !== undefined && analyticsScore !== null) {
@@ -259,28 +347,12 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
                 
                 // FIX 2: Calculate score from criteria data if rating metric missing
                 if (!matchMetrics || matchMetrics.overallScore === undefined) {
-                  // Check for criteria data in llmFeedback.rating or llmFeedback.metrics.rating
-                  const ratingData = editedContent?.llmFeedback?.rating || 
-                                    (editedContent?.llmFeedback?.metrics as any)?.rating ||
-                                    (editedContent?.llmFeedback?.metrics as any)?.raw?.rating;
-                  
-                  if (ratingData?.criteria && Array.isArray(ratingData.criteria)) {
-                    const metCount = ratingData.criteria.filter((c: any) => c.met === true).length;
-                    const totalCount = ratingData.criteria.length;
+                  if (matchMetrics?.ratingCriteria && matchMetrics.ratingCriteria.length > 0) {
+                    const metCount = matchMetrics.ratingCriteria.filter(c => c.met).length;
+                    const totalCount = matchMetrics.ratingCriteria.length;
                     if (totalCount > 0) {
                       const calculatedScore = Math.round((metCount / totalCount) * 100);
-                      if (!matchMetrics) {
-                        matchMetrics = {
-                          goalsMatchScore: undefined,
-                          experienceMatchScore: undefined,
-                          overallScore: calculatedScore,
-                          atsScore: 0,
-                          coreRequirementsMet: { met: 0, total: 0 },
-                          preferredRequirementsMet: { met: 0, total: 0 },
-                        };
-                      } else {
-                        matchMetrics.overallScore = calculatedScore;
-                      }
+                      matchMetrics.overallScore = calculatedScore;
                       if (process.env.NODE_ENV === 'development') {
                         console.log('[CoverLetterEditModal] Calculated score from criteria:', calculatedScore, `(${metCount}/${totalCount})`);
                       }
@@ -329,9 +401,10 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
                   <CoverLetterDraftView
                     sections={editedContent.content?.sections || []}
                     matchMetrics={matchMetrics}
-                  enhancedMatchData={editedContent.llmFeedback?.enhancedMatchData || editedContent.enhancedMatchData || null}
-                  goNoGoAnalysis={editedContent.llmFeedback?.goNoGoAnalysis || null}
-                  jobDescription={jobDescriptionRecord ? {
+                    ratingCriteria={matchMetrics?.ratingCriteria}
+                    enhancedMatchData={editedContent.llmFeedback?.enhancedMatchData || editedContent.enhancedMatchData || null}
+                    goNoGoAnalysis={editedContent.llmFeedback?.goNoGoAnalysis || null}
+                    jobDescription={jobDescriptionRecord ? {
                     id: jobDescriptionRecord.id,
                     role: jobDescriptionRecord.role,
                     company: jobDescriptionRecord.company,
@@ -364,7 +437,7 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
                   } : null}
                   onEditGoals={() => setShowGoalsModal(true)}
                   onAddStory={onAddStory}
-                  onEnhanceSection={(sectionId, requirement, gapData) => {
+                  onEnhanceSection={(sectionId, requirement, ratingCriteria) => {
                     // Always open HIL workflow - create gap object for ContentGenerationModal
                     const section = editedContent.content?.sections?.find((s: any) => s.id === sectionId);
                     if (section) {
@@ -381,6 +454,36 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
                       };
                       const paragraphId = paragraphIdMap[section.type] || paragraphIdMap[section.slug] || 'experience';
 
+                      // Get requirement gaps for this section from enhancedMatchData
+                      const enhancedMatchData = editedContent.llmFeedback?.enhancedMatchData || editedContent.enhancedMatchData;
+                      const sectionInsight = enhancedMatchData?.sectionGapInsights?.find(
+                        (insight: any) => insight.sectionId === sectionId || insight.sectionSlug === section.slug || insight.sectionSlug === section.type
+                      );
+                      const requirementGaps = sectionInsight?.requirementGaps?.map((gap: any) => ({
+                        id: gap.id,
+                        title: gap.label,
+                        description: `${gap.rationale} ${gap.recommendation}`,
+                      })) || [];
+
+                      // Convert rating criteria to gap format if provided
+                      // Note: ratingCriteria structure is { id, label, description, suggestion, evidence }
+                      const gapsFromRating = ratingCriteria?.map(rc => ({
+                        id: rc.id,
+                        title: rc.label,
+                        description: `${rc.evidence || rc.description || ''}. ${rc.suggestion || ''}`.trim(),
+                      })) || [];
+                      
+                      console.log('[CoverLetterEditModal] gapsFromRating:', gapsFromRating);
+
+                      // Keep requirement gaps and rating criteria gaps separate
+                      const gapSummaryParts: string[] = [];
+                      if (requirementGaps.length > 0) {
+                        gapSummaryParts.push(`${requirementGaps.length} requirement gap${requirementGaps.length > 1 ? 's' : ''}`);
+                      }
+                      if (gapsFromRating.length > 0) {
+                        gapSummaryParts.push(`${gapsFromRating.length} content quality criteria: ${gapsFromRating.map(g => g.title).join(', ')}`);
+                      }
+
                       setSelectedGap({
                         id: requirement ? `section-${sectionId}-${requirement}` : `section-${sectionId}-enhancement`,
                         type: 'content-enhancement',
@@ -391,20 +494,32 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
                         section_id: sectionId,
                         paragraphId: paragraphId,
                         existingContent: existingContent,
-                        // Pass through rich gap structure from ContentCard
-                        gaps: gapData?.gaps,
-                        gapSummary: gapData?.gapSummary
+                        // Store requirement gaps and rating criteria gaps separately
+                        gaps: requirementGaps,
+                        ratingCriteriaGaps: gapsFromRating,
+                        gapSummary: gapSummaryParts.length > 0 ? gapSummaryParts.join(' • ') : null,
                       });
                       setShowContentGenerationModal(true);
                     } else if (onEnhanceSection) {
                       // Fallback to parent handler if section not found
-                      onEnhanceSection(sectionId, requirement);
+                      // Convert ratingCriteria to gapData format
+                      const gapData = ratingCriteria ? {
+                        gaps: ratingCriteria.map(rc => ({
+                          id: rc.id,
+                          title: rc.label,
+                          description: `${rc.description}. ${rc.suggestion}`,
+                        })),
+                        gapSummary: `Improve ${ratingCriteria.length} content quality criteria: ${ratingCriteria.map(rc => rc.label).join(', ')}`,
+                      } : undefined;
+                      onEnhanceSection(sectionId, requirement, gapData);
                     }
                   }}
                     onAddMetrics={onAddMetrics}
                     isEditable={true}
                     hilCompleted={editedContent?.status === 'finalized' || editedContent?.status === 'reviewed'}
                     onSectionChange={handleSectionChange}
+                    onSectionFocus={handleSectionFocus}
+                    onSectionBlur={handleSectionBlur}
                     onSectionDelete={(sectionId) => {
                     console.log('Delete section:', sectionId);
                     // TODO: Implement delete section
@@ -466,18 +581,68 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
           existingContent: selectedGap.existingContent,
           // Pass through rich gap structure
           gaps: selectedGap.gaps,
-          gapSummary: selectedGap.gapSummary
+          gapSummary: selectedGap.gapSummary,
+          ratingCriteriaGaps: selectedGap.ratingCriteriaGaps
         } : null}
         onApplyContent={async (content: string) => {
           if (!selectedGap || !editedContent) return;
           
           const sectionId = selectedGap.section_id;
-          if (sectionId) {
-            // Update the section content
+          if (sectionId && editedContent.id) {
+            // Update local state first
             handleSectionChange(sectionId, content);
             
-            // TODO: Save to database
-            console.log('[CoverLetterEditModal] Content generated for section:', sectionId);
+            // Save the section to database
+            try {
+              const updatedDraft = await coverLetterDraftService.updateDraftSection(
+                editedContent.id,
+                sectionId,
+                content
+              );
+              
+              // Update local state with saved draft
+              setEditedContent({
+                ...editedContent,
+                ...updatedDraft,
+              });
+              
+              // Trigger metrics recalculation after HIL content is applied
+              setIsRecalculating(true);
+              try {
+                await coverLetterDraftService.calculateMetricsForDraft(
+                  editedContent.id,
+                  editedContent.userId || coverLetter.userId,
+                  editedContent.jobDescriptionId || coverLetter.jobDescriptionId,
+                  (phase, message) => {
+                    console.log('[CoverLetterEditModal] Metrics calculation:', phase, message);
+                  }
+                );
+                console.log('[CoverLetterEditModal] Metrics recalculated after HIL content applied');
+                
+                // Refresh editedContent to get updated metrics
+                const { data: updatedRow } = await supabase
+                  .from('cover_letters')
+                  .select('*')
+                  .eq('id', editedContent.id)
+                  .single();
+                
+                if (updatedRow) {
+                  setEditedContent(updatedRow);
+                }
+              } catch (error) {
+                console.error('[CoverLetterEditModal] Failed to recalculate metrics:', error);
+                // Don't block UI on recalculation failure
+              } finally {
+                setIsRecalculating(false);
+              }
+            } catch (error) {
+              console.error('[CoverLetterEditModal] Failed to save section:', error);
+              toast({
+                title: "Failed to save section",
+                description: error instanceof Error ? error.message : "Please try again.",
+                variant: "destructive",
+              });
+            }
           }
           
           setShowContentGenerationModal(false);

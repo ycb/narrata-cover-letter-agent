@@ -76,6 +76,11 @@ export default function SavedSections() {
   const [tagEntityId, setTagEntityId] = useState<string | undefined>();
   const [existingTags, setExistingTags] = useState<string[]>([]);
 
+  // Section label editing state
+  const [isEditingSectionLabel, setIsEditingSectionLabel] = useState(false);
+  const [editingSectionType, setEditingSectionType] = useState<string | null>(null);
+  const [editingSectionLabel, setEditingSectionLabel] = useState('');
+
   const mountedRef = useRef(true);
 
   // Load saved sections from database
@@ -229,6 +234,51 @@ export default function SavedSections() {
       console.error('Error deleting saved section:', err);
       toast({
         title: 'Unable to delete saved section',
+        description: err instanceof Error ? err.message : 'Please try again.',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  // New handler for editing section labels (parent level)
+  const handleEditSectionLabel = (type: string, currentLabel: string) => {
+    setEditingSectionType(type);
+    setEditingSectionLabel(currentLabel);
+    setIsEditingSectionLabel(true);
+  };
+
+  // New handler for deleting entire section (parent level)
+  const handleDeleteSectionType = async (type: string) => {
+    if (!user?.id) return;
+
+    // Find all sections of this type
+    const sectionsToDelete = savedSections.filter(s => s.type === type);
+
+    if (sectionsToDelete.length === 0) return;
+
+    // Confirm deletion
+    if (!window.confirm(`Delete all ${sectionsToDelete.length} ${type} sections? This cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      // Delete all sections of this type
+      await Promise.all(
+        sectionsToDelete.map(section =>
+          CoverLetterTemplateService.deleteSavedSection(section.id)
+        )
+      );
+
+      setSavedSections(prev => prev.filter(section => section.type !== type));
+
+      toast({
+        title: 'Section deleted',
+        description: `Deleted ${sectionsToDelete.length} ${type} section(s).`,
+      });
+    } catch (err) {
+      console.error('Error deleting sections:', err);
+      toast({
+        title: 'Unable to delete sections',
         description: err instanceof Error ? err.message : 'Please try again.',
         variant: 'destructive'
       });
@@ -451,7 +501,9 @@ export default function SavedSections() {
             onSelectBlurb={handleSelectSectionFromLibrary}
             onCreateBlurb={handleCreateSection}
             onEditBlurb={handleEditSection}
+            onEditSectionLabel={handleEditSectionLabel}
             onDeleteBlurb={handleDeleteSection}
+            onDeleteSection={handleDeleteSectionType}
             onGenerateContent={handleGenerateContent}
             resolvedGaps={resolvedGaps}
             dismissedSuccessCards={dismissedSuccessCards}
@@ -479,6 +531,73 @@ export default function SavedSections() {
                 />
         )}
       </div>
+
+      {/* Edit Section Label Modal (Parent Level) */}
+      {isEditingSectionLabel && editingSectionType && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <Card className="w-full max-w-md">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <div>
+                <CardTitle>Edit Section Label</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Update the display name for this section type.
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setIsEditingSectionLabel(false);
+                  setEditingSectionType(null);
+                  setEditingSectionLabel('');
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="section-label">Section Label</Label>
+                <Input
+                  id="section-label"
+                  value={editingSectionLabel}
+                  onChange={(e) => setEditingSectionLabel(e.target.value)}
+                  placeholder="e.g., Introduction, Body Paragraph"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsEditingSectionLabel(false);
+                    setEditingSectionType(null);
+                    setEditingSectionLabel('');
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    // Note: This would update the contentTypes prop labels
+                    // For now, just close the modal as labels are static in contentTypes
+                    toast({
+                      title: 'Section label customization',
+                      description: 'Section label customization will be available in a future update.',
+                      variant: 'default'
+                    });
+                    setIsEditingSectionLabel(false);
+                    setEditingSectionType(null);
+                    setEditingSectionLabel('');
+                  }}
+                >
+                  Save Changes
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Edit Saved Section Modal */}
       {isEditingSection && editingSection && (

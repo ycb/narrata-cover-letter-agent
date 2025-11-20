@@ -216,87 +216,67 @@ export const useCoverLetterDraft = (options: UseCoverLetterDraftOptions): UseCov
         });
 
         // Phase 1 complete: Draft is ready, user can start editing
+        // AGENT D: Set heuristic insights for instant gap feedback
+        console.log('[AGENT D] useCoverLetterDraft - Setting pendingSectionInsights:', {
+          heuristicInsights: result.heuristicInsights,
+          insightKeys: result.heuristicInsights ? Object.keys(result.heuristicInsights) : []
+        });
+
         setState(prev => ({
           ...prev,
           draft: result.draft,
           workpad: result.workpad,
           isGenerating: false,
-          metricsLoading: true, // Start background metrics
+          metricsLoading: true, // Metrics calculation happening in background (3 parallel calls)
           streamingSections: [], // Clear streaming sections once draft is complete
+          pendingSectionInsights: result.heuristicInsights || {}, // AGENT D: Heuristic gaps
           progress: [
             ...prev.progress,
             {
               phase: 'metrics',
-              message: 'Calculating match metrics in background...',
+              message: 'Calculating match metrics (~45 seconds)...',
               timestamp: Date.now(),
             },
           ],
         }));
 
-        // AGENT D: Phase 2 - Background metrics calculation (~35s, non-blocking)
-        // Run in background - user can edit while this runs
-        service.calculateMetricsForDraft(
-          result.draft.id,
-          options.userId,
-          resolvedJobDescriptionId,
-          (phase, message) => {
-            setState(prev => ({
-              ...prev,
-              progress: [
-                ...prev.progress,
-                {
-                  phase: phase as DraftGenerationProgressUpdate['phase'],
-                  message,
-                  timestamp: Date.now(),
-                },
-              ],
-            }));
+        // PHASE 2: Metrics calculating in background with 3 parallel calls
+        // Set up polling to check when metrics are complete
+        const pollForMetrics = async () => {
+          const maxAttempts = 15; // 15 attempts * 4s = 60s max
+          for (let i = 0; i < maxAttempts; i++) {
+            await new Promise(resolve => setTimeout(resolve, 4000)); // Check every 4s
+
+            try {
+              const updatedDraft = await service.getDraft(result.draft.id);
+              if (updatedDraft?.metrics && updatedDraft.metrics.length > 0) {
+                // Metrics are complete!
+                setState(prev => ({
+                  ...prev,
+                  draft: updatedDraft,
+                  metricsLoading: false,
+                  pendingSectionInsights: {}, // Clear heuristic gaps once LLM metrics complete
+                }));
+                return;
+              }
+            } catch (error) {
+              console.error('[useCoverLetterDraft] Failed to poll for metrics:', error);
+            }
           }
-        ).then(async (enhancedMatchData) => {
-          // Metrics calculation complete - update draft with results
-          try {
-            const updatedDraft = await service.getDraft(result.draft.id);
-            setState(prev => ({
-              ...prev,
-              draft: updatedDraft ? {
-                ...updatedDraft,
-                enhancedMatchData,
-              } : prev.draft,
-              metricsLoading: false,
-              progress: [
-                ...prev.progress,
-                {
-                  phase: 'metrics',
-                  message: 'Match metrics calculated successfully!',
-                  timestamp: Date.now(),
-                },
-              ],
-            }));
-          } catch (error) {
-            console.error('[useCoverLetterDraft] Failed to fetch updated metrics:', error);
-            // Still clear loading state even if fetch fails
-            setState(prev => ({
-              ...prev,
-              metricsLoading: false,
-            }));
-          }
-        }).catch((error) => {
-          console.error('[useCoverLetterDraft] Background metrics calculation failed:', error);
+
+          // Timeout after 60s
           setState(prev => ({
             ...prev,
             metricsLoading: false,
-            progress: [
-              ...prev.progress,
-              {
-                phase: 'metrics',
-                message: 'Metrics calculation failed (draft is still usable)',
-                timestamp: Date.now(),
-              },
-            ],
+            pendingSectionInsights: {}, // Clear heuristic gaps even on timeout
           }));
+        };
+
+        // Start polling in background
+        pollForMetrics().catch(error => {
+          console.error('[useCoverLetterDraft] Metrics polling failed:', error);
         });
 
-        // Return immediately - metrics will update in background
         return result;
       } catch (error) {
         const message =
@@ -550,6 +530,28 @@ export const useCoverLetterDraft = (options: UseCoverLetterDraftOptions): UseCov
                 },
               ],
             }));
+          },
+          // Progressive callback for refresh
+          (partial) => {
+            setState(prev => {
+              const currentDraft = prev.draft;
+              if (!currentDraft) return prev;
+
+              const mergedEnhancedMatchData = {
+                ...(currentDraft.enhancedMatchData || {}),
+                ...(partial.enhancedMatchData || {}),
+              };
+
+              return {
+                ...prev,
+                draft: {
+                  ...currentDraft,
+                  ...(partial.metrics ? { metrics: partial.metrics } : {}),
+                  ...(partial.atsScore !== undefined ? { atsScore: partial.atsScore } : {}),
+                  enhancedMatchData: mergedEnhancedMatchData,
+                },
+              };
+            });
           }
         );
 

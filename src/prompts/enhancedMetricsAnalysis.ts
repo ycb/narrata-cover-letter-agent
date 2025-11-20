@@ -73,7 +73,23 @@ Respond ONLY with valid JSON following this EXACT schema:
     "rating": {
       "score": 85,
       "summary": "Brief summary",
-      "tooltip": "Detailed explanation"
+      "tooltip": "Detailed explanation",
+      "criteria": [
+        {
+          "id": "compelling_opening",
+          "label": "Compelling Opening",
+          "met": true,
+          "evidence": "Opening paragraph starts with a strong hook: 'I am an accomplished product manager...'",
+          "suggestion": ""
+        },
+        {
+          "id": "business_understanding",
+          "label": "Understanding of Business/Users",
+          "met": false,
+          "evidence": "No specific mention of company's business model or user needs",
+          "suggestion": "Reference the company's target users or business model to show understanding"
+        }
+      ]
     },
     "ats": {
       "score": 78,
@@ -259,7 +275,23 @@ CRITICAL RULES:
    - Also include sectionSlug (semantic type) for backward compatibility
    - Tie every recommendation to BOTH the rubric expectations and JD requirements
 11. For CTAs: Provide 3-5 actionable suggestions with clear labels
-12. Return ONLY the JSON object, no markdown, no explanations
+12. For rating.criteria: MUST evaluate ALL 11 criteria below. For each criterion:
+    - Set "met": true if the draft demonstrates this quality, false otherwise
+    - Provide "evidence": specific text from the draft that supports your evaluation (quote relevant sentences/phrases)
+    - Provide "suggestion": actionable improvement advice if met=false, empty string if met=true
+    - The 11 criteria are:
+      1. "compelling_opening" - "Compelling Opening": Strong hook that captures attention in first paragraph
+      2. "business_understanding" - "Understanding of Business/Users": Demonstrates knowledge of company and users
+      3. "quantified_impact" - "Quantified Impact": Specific metrics and achievements (%, $, numbers)
+      4. "action_verbs" - "Action Verbs": Strong, active language showing ownership
+      5. "concise_length" - "Concise Length": 3-4 paragraphs, under 400 words
+      6. "error_free" - "Error-Free Writing": No spelling or grammar errors
+      7. "personalized" - "Personalized Content": Tailored to specific role and company
+      8. "specific_examples" - "Specific Examples": Concrete examples from work history
+      9. "professional_tone" - "Professional Tone": Appropriate formality level
+      10. "company_research" - "Company Research": Shows understanding of company culture/mission
+      11. "role_understanding" - "Role Understanding": Clear grasp of job responsibilities
+13. Return ONLY the JSON object, no markdown, no explanations
 `;
 
 export const buildEnhancedMetricsUserPrompt = (payload: {
@@ -350,6 +382,25 @@ Expectations:
 - ${guidance.expectations.join('\n- ')}
 `;
 }).join('\n')}
+
+=== CONTENT QUALITY EVALUATION ===
+Evaluate the cover letter draft against these 11 quality criteria. For each criterion:
+- Determine if it's met (true/false) based on the draft content
+- Provide specific evidence: quote the exact text from the draft that supports your evaluation
+- If not met, provide a concrete suggestion for improvement
+
+The 11 criteria to evaluate:
+1. Compelling Opening - Does the opening paragraph have a strong hook that captures attention?
+2. Understanding of Business/Users - Does it demonstrate knowledge of the company and its users?
+3. Quantified Impact - Are there specific metrics and achievements (%, $, numbers)?
+4. Action Verbs - Does it use strong, active language showing ownership?
+5. Concise Length - Is it 3-4 paragraphs and under 400 words?
+6. Error-Free Writing - Are there no spelling or grammar errors?
+7. Personalized Content - Is it tailored to the specific role and company?
+8. Specific Examples - Are there concrete examples from work history?
+9. Professional Tone - Is the formality level appropriate?
+10. Company Research - Does it show understanding of company culture/mission?
+11. Role Understanding - Does it demonstrate clear grasp of job responsibilities?
 
 Analyze this cover letter draft comprehensively and return the structured JSON response.`;
 };

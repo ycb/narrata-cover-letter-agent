@@ -4,6 +4,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ContentCard } from '@/components/shared/ContentCard';
 import { MatchMetricsToolbar } from './MatchMetricsToolbar';
 import { cn } from '@/lib/utils';
+import { getUnresolvedRatingCriteria } from './useMatchMetricsDetails';
 import type { EnhancedMatchData, SectionGapInsight } from '@/types/coverLetters';
 import type { MatchMetricsData } from './useMatchMetricsDetails';
 
@@ -21,6 +22,7 @@ interface GoNoGoAnalysis {
 interface CoverLetterSection {
   id: string;
   type: string;
+  title: string;
   content: string;
   isEnhanced?: boolean;
 }
@@ -38,6 +40,14 @@ interface JobDescription {
   preferredRequirements?: Array<any>;
 }
 
+interface CoverLetterCriterion {
+  id: string;
+  label: string;
+  met: boolean;
+  evidence: string;
+  suggestion?: string;
+}
+
 interface CoverLetterDraftViewProps {
   sections: CoverLetterSection[];
   matchMetrics?: MatchMetricsData | null;
@@ -47,12 +57,21 @@ interface CoverLetterDraftViewProps {
   jobDescription?: JobDescription | null;
   isEditable?: boolean;
   hilCompleted?: boolean;
+  ratingCriteria?: CoverLetterCriterion[]; // Rating criteria to pass to Generate Content buttons
   onSectionChange?: (sectionId: string, newContent: string) => void;
+  onSectionFocus?: (sectionId: string) => void; // Track when user clicks into field
+  onSectionBlur?: (sectionId: string, newContent: string) => void; // Track when user clicks out of field
   onSectionDelete?: (sectionId: string) => void;
   onSectionDuplicate?: (sectionId: string) => void;
   onEditGoals?: () => void;
   onAddStory?: (requirement?: string, severity?: string) => void; // Agent C: add story CTA
-  onEnhanceSection?: (sectionId: string, requirement?: string, gapData?: { gaps?: Array<{ id: string; title?: string; description: string }>; gapSummary?: string | null }) => void; // Agent C: enhance section CTA
+  onEnhanceSection?: (sectionId: string, requirement?: string, ratingCriteria?: Array<{
+    id: string;
+    label: string;
+    description: string;
+    suggestion: string;
+    evidence: string;
+  }>, gapData?: { gaps?: Array<{ id: string; title?: string; description: string }>; gapSummary?: string | null }) => void; // Agent C: enhance section CTA
   onAddMetrics?: (sectionId?: string) => void; // Agent C: add metrics CTA
   className?: string;
 }
@@ -70,7 +89,10 @@ export function CoverLetterDraftView({
   jobDescription,
   isEditable = false,
   hilCompleted = false,
+  ratingCriteria,
   onSectionChange,
+  onSectionFocus,
+  onSectionBlur,
   onSectionDelete,
   onSectionDuplicate,
   onEditGoals,
@@ -201,11 +223,24 @@ export function CoverLetterDraftView({
   const getSectionGapInsights = (sectionId: string, sectionType: string) => {
     // AGENT D: Check for pending heuristic insight first
     const pendingInsight = pendingSectionInsights[sectionId];
-    
+
+    // AGENT D: Debug logging
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[AGENT D] getSectionGapInsights for section ${sectionId}:`, {
+        sectionId,
+        sectionType,
+        hasPendingInsight: !!pendingInsight,
+        pendingInsight,
+        hasEnhancedMatchData: !!enhancedMatchData,
+        pendingSectionInsightsKeys: Object.keys(pendingSectionInsights)
+      });
+    }
+
     // If no enhancedMatchData at all, we're likely still loading metrics
     // Check if we have pending insight to show meanwhile
     if (!enhancedMatchData) {
       if (pendingInsight) {
+        console.log(`[AGENT D] Showing heuristic gaps for section ${sectionId}:`, pendingInsight);
         // Show pending heuristic insight while waiting for LLM
         const gaps = pendingInsight.requirementGaps.map(gap => ({
           id: gap.id,
@@ -219,7 +254,8 @@ export function CoverLetterDraftView({
           isLoading: true, // Still loading LLM insights
         };
       }
-      
+
+      console.log(`[AGENT D] No pending insight found for section ${sectionId}, returning empty`);
       return {
         promptSummary: null,
         gaps: [],
@@ -333,8 +369,7 @@ export function CoverLetterDraftView({
       <div className="flex-1 overflow-y-auto">
         <div className="space-y-6 pl-6 pb-6">
           {sections.map((section) => {
-        // Use actual section title from template (e.g., "Body Paragraph 1")
-        // Fall back to generating from type if not available
+        // Use template title, fallback to generated title
         const sectionTitle = section.title || getSectionTitle(section.type);
         const requirements = getRequirementsForParagraph(section.type);
 
@@ -342,7 +377,7 @@ export function CoverLetterDraftView({
         // AGENT D: Pass sectionId to enable pending insights lookup
         const { promptSummary, gaps: gapObjects, isLoading: gapsLoading } = getSectionGapInsights(section.id, section.type);
         const hasGaps = gapObjects.length > 0;
-        
+
         // Strip trailing periods from gap summary for cover letters
         const cleanGapSummary = promptSummary ? promptSummary.replace(/\.+$/, '') : null;
 
@@ -360,7 +395,13 @@ export function CoverLetterDraftView({
               // Always open HIL workflow - use onEnhanceSection to trigger ContentGenerationModal
               // If no gaps exist, onEnhanceSection will create synthetic gap
               const firstGap = gapObjects[0];
-              onEnhanceSection(section.id, firstGap?.description, {
+              
+              // Extract unresolved rating criteria to pass to HIL workflow
+              const unresolvedRatingCriteria = ratingCriteria 
+                ? getUnresolvedRatingCriteria(ratingCriteria)
+                : undefined;
+              
+              onEnhanceSection(section.id, firstGap?.description, unresolvedRatingCriteria, {
                 gaps: gapObjects,
                 gapSummary: cleanGapSummary
               });
@@ -393,6 +434,9 @@ export function CoverLetterDraftView({
                       }
                     }
                   }}
+                  onFocus={() => {
+                    onSectionFocus?.(section.id);
+                  }}
                   onChange={(e) => {
                     onSectionChange(section.id, e.target.value);
                     // Auto-resize textarea, but respect max-height
@@ -406,6 +450,9 @@ export function CoverLetterDraftView({
                       e.target.style.height = `${maxHeight}px`;
                       e.target.style.overflowY = 'auto';
                     }
+                  }}
+                  onBlur={(e) => {
+                    onSectionBlur?.(section.id, e.target.value);
                   }}
                   className="resize-none min-h-[100px]"
                   placeholder="Enter cover letter content..."

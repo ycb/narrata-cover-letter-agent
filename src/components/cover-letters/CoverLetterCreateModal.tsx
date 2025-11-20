@@ -55,12 +55,13 @@ import { useCoverLetterDraft } from '@/hooks/useCoverLetterDraft';
 import { MatchMetricsToolbar } from './MatchMetricsToolbar';
 import { CoverLetterFinalization } from './CoverLetterFinalization';
 import { CoverLetterSkeleton } from './CoverLetterSkeleton';
+import { CoverLetterDraftView } from './CoverLetterDraftView';
 import { ContentCard } from '@/components/shared/ContentCard';
 import { ContentGenerationModal } from '@/components/hil/ContentGenerationModal';
 import { UserGoalsModal } from '@/components/user-goals/UserGoalsModal';
 import { useUserGoals } from '@/contexts/UserGoalsContext';
-import { transformMetricsToMatchData } from './useMatchMetricsDetails';
-import type { CoverLetterDraft, JobDescriptionRecord } from '@/types/coverLetters';
+import { transformMetricsToMatchData, getUnresolvedRatingCriteria } from './useMatchMetricsDetails';
+import type { CoverLetterDraft, JobDescriptionRecord, ParsedJobDescription } from '@/types/coverLetters';
 import type { Gap } from '@/services/gapTransformService';
 
 const MIN_JOB_DESCRIPTION_LENGTH = 50;
@@ -102,6 +103,8 @@ export const CoverLetterCreateModal = ({
   const [showContentGenerationModal, setShowContentGenerationModal] = useState(false);
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [mainTab, setMainTab] = useState<'job-description' | 'cover-letter'>('job-description');
+  const [sectionFocusContent, setSectionFocusContent] = useState<Record<string, string>>({}); // Track content at focus time
+  const [isRecalculating, setIsRecalculating] = useState(false);
   const [finalizationOpen, setFinalizationOpen] = useState(false);
   const [finalizationError, setFinalizationError] = useState<string | null>(null);
   const preParseControllerRef = useRef<AbortController | null>(null);
@@ -120,12 +123,12 @@ export const CoverLetterCreateModal = ({
       company: jobDescriptionRecord.company,
       standardRequirements:
         structured.standardRequirements ??
-        jobDescriptionRecord.standard_requirements ??
+        jobDescriptionRecord.standardRequirements ??
         llmAnalysis.standardRequirements ??
         [],
       preferredRequirements:
         structured.preferredRequirements ??
-        jobDescriptionRecord.preferred_requirements ??
+        jobDescriptionRecord.preferredRequirements ??
         llmAnalysis.preferredRequirements ??
         [],
       salary:
@@ -145,9 +148,9 @@ export const CoverLetterCreateModal = ({
     const analysis = normalizedJobDescription?.analysis ?? {};
     const llmRequirements = (analysis as Record<string, any>).llm ?? {};
     const allRequirements = [
-      ...(structured.standardRequirements ?? jobDescriptionRecord.standard_requirements ?? []),
-      ...(structured.differentiatorRequirements ?? jobDescriptionRecord.differentiator_requirements ?? []),
-      ...(structured.preferredRequirements ?? jobDescriptionRecord.preferred_requirements ?? []),
+      ...(structured.standardRequirements ?? jobDescriptionRecord.standardRequirements ?? []),
+      ...(structured.differentiatorRequirements ?? jobDescriptionRecord.differentiatorRequirements ?? []),
+      ...(structured.preferredRequirements ?? jobDescriptionRecord.preferredRequirements ?? []),
       ...(llmRequirements.standardRequirements ?? []),
       ...(llmRequirements.preferredRequirements ?? []),
     ];
@@ -182,6 +185,7 @@ export const CoverLetterCreateModal = ({
     progress,
     isGenerating,
     metricsLoading, // AGENT D: Extract metrics loading state
+    pendingSectionInsights, // AGENT D: Heuristic gap insights
     isMutating,
     isFinalizing,
     error: generationError,
@@ -672,7 +676,7 @@ export const CoverLetterCreateModal = ({
               </Button>
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 onClick={() => setJobContent('')}
                 disabled={isBusy}
               >
@@ -705,7 +709,7 @@ export const CoverLetterCreateModal = ({
             <CardContent>
               <CoverLetterDraftView
                 sections={streamingSections}
-                jobDescription={normalizedJobDescription ?? undefined}
+                jobDescription={normalizedJobDescription ? { ...normalizedJobDescription, id: jobDescriptionRecord?.id || '' } : undefined}
               />
             </CardContent>
           </Card>
@@ -755,6 +759,18 @@ export const CoverLetterCreateModal = ({
     // Transform draft.metrics to MatchMetricsData format
     let matchMetrics = transformMetricsToMatchData(draft.metrics || []);
     
+    // Extract rating criteria from llmFeedback
+    const ratingData = draft.llmFeedback?.rating as any;
+    if (ratingData?.criteria && Array.isArray(ratingData.criteria)) {
+      matchMetrics.ratingCriteria = ratingData.criteria.map((c: any) => ({
+        id: c.id || '',
+        label: c.label || '',
+        met: c.met === true,
+        evidence: c.evidence || '',
+        suggestion: c.suggestion || '',
+      }));
+    }
+    
     // FIX 1: Check analytics.overallScore first (for finalized drafts)
     const analyticsScore = draft.analytics?.overallScore;
     if (analyticsScore !== undefined && analyticsScore !== null) {
@@ -766,14 +782,9 @@ export const CoverLetterCreateModal = ({
     
     // FIX 2: Calculate score from criteria data if rating metric missing
     if (matchMetrics.overallScore === undefined) {
-      // Check for criteria data in llmFeedback.rating or llmFeedback.metrics.rating
-      const ratingData = draft.llmFeedback?.rating || 
-                        (draft.llmFeedback?.metrics as any)?.rating ||
-                        (draft.llmFeedback?.metrics as any)?.raw?.rating;
-      
-      if (ratingData?.criteria && Array.isArray(ratingData.criteria)) {
-        const metCount = ratingData.criteria.filter((c: any) => c.met === true).length;
-        const totalCount = ratingData.criteria.length;
+      if (matchMetrics.ratingCriteria && matchMetrics.ratingCriteria.length > 0) {
+        const metCount = matchMetrics.ratingCriteria.filter(c => c.met).length;
+        const totalCount = matchMetrics.ratingCriteria.length;
         if (totalCount > 0) {
           const calculatedScore = Math.round((metCount / totalCount) * 100);
           matchMetrics.overallScore = calculatedScore;
@@ -812,9 +823,65 @@ export const CoverLetterCreateModal = ({
             jobDescription={normalizedJobDescription ?? undefined}
             sections={draft.sections.map(s => ({ id: s.id, type: s.type }))}
             onEditGoals={() => setShowGoalsModal(true)}
-            onEnhanceSection={(sectionId, requirement) => {
-              // TODO: Open section enhancement flow
-              console.log('Enhance section:', sectionId, 'for requirement:', requirement);
+            onEnhanceSection={(sectionId, requirement, ratingCriteria) => {
+              // Open section enhancement flow with rating criteria if provided
+              const section = draft.sections.find(s => s.id === sectionId);
+              if (section) {
+                const existingContent = sectionDrafts[sectionId] ?? section.content ?? '';
+                const paragraphIdMap: Record<string, string> = {
+                  'intro': 'intro',
+                  'introduction': 'intro',
+                  'paragraph': 'experience',
+                  'experience': 'experience',
+                  'closer': 'closing',
+                  'closing': 'closing',
+                  'signature': 'closing'
+                };
+                const paragraphId = paragraphIdMap[section.type] || paragraphIdMap[section.slug] || 'experience';
+                
+                // Get requirement gaps for this section from enhancedMatchData
+                const sectionInsight = draft.enhancedMatchData?.sectionGapInsights?.find(
+                  (insight: any) => insight.sectionId === sectionId || insight.sectionSlug === section.slug || insight.sectionSlug === section.type
+                );
+                const requirementGaps = sectionInsight?.requirementGaps?.map((gap: any) => ({
+                  id: gap.id,
+                  title: gap.label,
+                  description: `${gap.rationale} ${gap.recommendation}`,
+                })) || [];
+                
+                // Convert rating criteria to gap format if provided
+                const gapsFromRating = ratingCriteria?.map(rc => ({
+                  id: rc.id,
+                  title: rc.label,
+                  description: `${rc.description}. ${rc.suggestion}`,
+                })) || [];
+                
+                // Keep requirement gaps and rating criteria gaps separate
+                const gapSummaryParts: string[] = [];
+                if (requirementGaps.length > 0) {
+                  gapSummaryParts.push(`${requirementGaps.length} requirement gap${requirementGaps.length > 1 ? 's' : ''}`);
+                }
+                if (gapsFromRating.length > 0) {
+                  gapSummaryParts.push(`${gapsFromRating.length} content quality criteria: ${gapsFromRating.map(g => g.title).join(', ')}`);
+                }
+                
+                setSelectedGap({
+                  id: requirement ? `section-${sectionId}-${requirement}` : `section-${sectionId}-enhancement`,
+                  type: 'content-enhancement',
+                  severity: 'medium',
+                  description: requirement || `Enhance ${section.title || section.type} section to improve content quality score`,
+                  suggestion: requirement || `Add detail that directly addresses content quality criteria`,
+                  origin: 'ai',
+                  section_id: sectionId,
+                  paragraphId: paragraphId,
+                  existingContent: existingContent,
+                  // Store requirement gaps and rating criteria gaps separately
+                  gaps: requirementGaps,
+                  ratingCriteriaGaps: gapsFromRating,
+                  gapSummary: gapSummaryParts.length > 0 ? gapSummaryParts.join(' • ') : null,
+                });
+                setShowContentGenerationModal(true);
+              }
             }}
             onAddMetrics={(sectionId) => {
               // TODO: Open metrics addition flow
@@ -879,7 +946,23 @@ export const CoverLetterCreateModal = ({
             const isSaving = !!savingSections[section.id];
             
             // Agent C: Get section-specific gap insights (same helper as CoverLetterDraftView)
-            const getSectionGapInsights = (sectionSlug: string) => {
+            // AGENT D: Now also checks pendingSectionInsights for instant feedback
+            const getSectionGapInsights = (sectionId: string, sectionSlug: string) => {
+              // AGENT D: Check for pending heuristic insight first
+              const pendingInsight = pendingSectionInsights[sectionId];
+
+              console.log(`[AGENT D] Modal getSectionGapInsights for section ${sectionId}:`, {
+                sectionId,
+                sectionSlug,
+                hasPendingInsight: !!pendingInsight,
+                pendingInsight,
+                hasEnhancedMatchData: !!draft.enhancedMatchData,
+                sectionGapInsights: draft.enhancedMatchData?.sectionGapInsights,
+                sectionGapInsightsCount: draft.enhancedMatchData?.sectionGapInsights?.length,
+                fullEnhancedMatchData: draft.enhancedMatchData,
+                pendingSectionInsightsKeys: Object.keys(pendingSectionInsights)
+              });
+
               // Normalize section slug to match sectionGapInsights
               const normalizeSlug = (slug: string) => {
                 const aliases: Record<string, string[]> = {
@@ -888,7 +971,7 @@ export const CoverLetterCreateModal = ({
                   'closing': ['closing', 'conclusion', 'signature'],
                   'signature': ['signature', 'closing', 'signoff'],
                 };
-                
+
                 const lowerSlug = slug.toLowerCase();
                 for (const [canonical, variations] of Object.entries(aliases)) {
                   if (variations.includes(lowerSlug)) {
@@ -897,9 +980,27 @@ export const CoverLetterCreateModal = ({
                 }
                 return [lowerSlug];
               };
-              
-              // If no enhancedMatchData at all, we're likely still loading
+
+              // If no enhancedMatchData at all, we're likely still loading metrics
+              // Check if we have pending insight to show meanwhile
               if (!draft.enhancedMatchData) {
+                if (pendingInsight) {
+                  console.log(`[AGENT D] Showing heuristic gaps for section ${sectionId}:`, pendingInsight);
+                  // Show pending heuristic insight while waiting for LLM
+                  const gaps = pendingInsight.requirementGaps.map(gap => ({
+                    id: gap.id,
+                    title: gap.label,
+                    description: `${gap.rationale} ${gap.recommendation}`,
+                  }));
+
+                  return {
+                    promptSummary: pendingInsight.promptSummary || 'Quick analysis (calculating full metrics...)',
+                    gaps,
+                    isLoading: true, // Still loading LLM insights
+                  };
+                }
+
+                console.log(`[AGENT D] No pending insight found for section ${sectionId}, returning empty`);
                 return {
                   promptSummary: null,
                   gaps: [],
@@ -929,11 +1030,19 @@ export const CoverLetterCreateModal = ({
               }
               
               // New behavior: use sectionGapInsights
-              const normalizedSlugs = normalizeSlug(sectionSlug);
-              const sectionInsight = draft.enhancedMatchData.sectionGapInsights.find(
-                insight => normalizedSlugs.includes(insight.sectionSlug.toLowerCase())
+              // PHASE 2: Match by sectionId first (exact match), fallback to sectionSlug
+              let sectionInsight = draft.enhancedMatchData.sectionGapInsights.find(
+                insight => insight.sectionId === sectionId
               );
-              
+
+              // Fallback: if no exact ID match, try slug matching (for backward compatibility)
+              if (!sectionInsight) {
+                const normalizedSlugs = normalizeSlug(sectionSlug);
+                sectionInsight = draft.enhancedMatchData.sectionGapInsights.find(
+                  insight => normalizedSlugs.includes(insight.sectionSlug?.toLowerCase())
+                );
+              }
+
               if (!sectionInsight) {
                 return { promptSummary: null, gaps: [], isLoading: false };
               }
@@ -951,7 +1060,7 @@ export const CoverLetterCreateModal = ({
               };
             };
             
-            const { promptSummary, gaps: gapObjects, isLoading: gapsLoading } = getSectionGapInsights(section.slug);
+            const { promptSummary, gaps: gapObjects, isLoading: gapsLoading } = getSectionGapInsights(section.id, section.slug);
             const hasGaps = gapObjects.length > 0;
             
             // Strip trailing periods from gap summary for cover letters
@@ -982,6 +1091,18 @@ export const CoverLetterCreateModal = ({
                   };
                   const paragraphId = paragraphIdMap[section.type] || paragraphIdMap[section.slug] || 'experience';
                   
+                  // Extract unresolved rating criteria to pass to HIL workflow
+                  const unresolvedRatingCriteria = matchMetrics?.ratingCriteria 
+                    ? getUnresolvedRatingCriteria(matchMetrics.ratingCriteria)
+                    : undefined;
+                  
+                  // Convert rating criteria to gap format if provided
+                  const gapsFromRating = unresolvedRatingCriteria?.map(rc => ({
+                    id: rc.id,
+                    title: rc.label,
+                    description: `${rc.evidence || rc.description || ''}. ${rc.suggestion || ''}`.trim(),
+                  })) || [];
+                  
                   const firstGap = gapObjects[0];
                   if (firstGap) {
                     // Use existing gap
@@ -997,10 +1118,16 @@ export const CoverLetterCreateModal = ({
                       existingContent: existingContent,
                       // Pass through rich gap structure from ContentCard
                       gaps: gapObjects,
+                      ratingCriteriaGaps: gapsFromRating,
                       gapSummary: cleanGapSummary
                     });
                   } else {
                     // Create synthetic gap for HIL flow when no gaps exist
+                    const gapSummaryParts: string[] = [];
+                    if (gapsFromRating.length > 0) {
+                      gapSummaryParts.push(`${gapsFromRating.length} content quality criteria: ${gapsFromRating.map(g => g.title).join(', ')}`);
+                    }
+                    
                     setSelectedGap({
                       id: `section-${section.id}-enhancement`,
                       type: 'content-enhancement',
@@ -1010,7 +1137,9 @@ export const CoverLetterCreateModal = ({
                       origin: 'ai',
                       section_id: section.id,
                       paragraphId: paragraphId,
-                      existingContent: existingContent
+                      existingContent: existingContent,
+                      ratingCriteriaGaps: gapsFromRating,
+                      gapSummary: gapSummaryParts.length > 0 ? gapSummaryParts.join(' • ') : null
                     });
                   }
                   setShowContentGenerationModal(true);
@@ -1024,7 +1153,43 @@ export const CoverLetterCreateModal = ({
                 <div className="mb-6">
                   <Textarea
                     value={editedContent}
+                    onFocus={() => {
+                      // Track content at focus time
+                      setSectionFocusContent(prev => ({
+                        ...prev,
+                        [section.id]: editedContent,
+                      }));
+                    }}
                     onChange={event => handleSectionChange(section.id, event.target.value)}
+                    onBlur={async (event) => {
+                      const newContent = event.target.value;
+                      const focusContent = sectionFocusContent[section.id] ?? section.content;
+                      
+                      // Only recalculate if content changed since focus
+                      if (newContent !== focusContent && jobDescriptionRecord && goals && draft) {
+                        // Save the section first
+                        try {
+                          await handleSectionSave(section.id);
+                          
+                          // Trigger metrics recalculation
+                          setIsRecalculating(true);
+                          try {
+                            await recalculateMetrics({
+                              jobDescription: jobDescriptionRecord as ParsedJobDescription,
+                              userGoals: goals,
+                            });
+                            console.log('[CoverLetterCreateModal] Metrics recalculated after manual edit');
+                          } catch (error) {
+                            console.error('[CoverLetterCreateModal] Failed to recalculate metrics:', error);
+                            // Don't block UI on recalculation failure
+                          } finally {
+                            setIsRecalculating(false);
+                          }
+                        } catch (error) {
+                          console.error('[CoverLetterCreateModal] Failed to save section:', error);
+                        }
+                      }
+                    }}
                     rows={8}
                     className="resize-y"
                     placeholder="Enter cover letter content..."
@@ -1052,7 +1217,7 @@ export const CoverLetterCreateModal = ({
                     <Button
                       type="button"
                       size="sm"
-                      variant="outline"
+                      variant="secondary"
                       onClick={() => handleSectionReset(section.id)}
                       disabled={!isDirty || isSaving}
                     >
@@ -1090,7 +1255,7 @@ export const CoverLetterCreateModal = ({
           )}
 
           <div className="flex flex-wrap gap-3">
-            <Button type="button" variant="outline" onClick={() => handleClose()}>
+            <Button type="button" variant="secondary" onClick={() => handleClose()}>
               Close
             </Button>
             <Button type="button" className="gap-2" onClick={handleFinalize}>
@@ -1123,7 +1288,7 @@ export const CoverLetterCreateModal = ({
           </div>
         </DialogHeader>
 
-        <Tabs value={mainTab} onValueChange={setMainTab} className="flex flex-col flex-1 min-h-0">
+        <Tabs value={mainTab} onValueChange={(value) => setMainTab(value as 'job-description' | 'cover-letter')} className="flex flex-col flex-1 min-h-0">
           <TabsList className="grid grid-cols-2 w-full flex-shrink-0 mb-4">
             <TabsTrigger value="job-description">Job description</TabsTrigger>
             <TabsTrigger value="cover-letter" disabled={!draft}>
@@ -1173,7 +1338,8 @@ export const CoverLetterCreateModal = ({
           existingContent: selectedGap.existingContent,
           // Pass through rich gap structure
           gaps: selectedGap.gaps,
-          gapSummary: selectedGap.gapSummary
+          gapSummary: selectedGap.gapSummary,
+          ratingCriteriaGaps: selectedGap.ratingCriteriaGaps
         } : null}
         onApplyContent={async (content: string) => {
           if (!selectedGap || !draft) return;
@@ -1191,6 +1357,20 @@ export const CoverLetterCreateModal = ({
             // Save the section
             try {
               await handleSectionSave(sectionId);
+              
+              // Trigger metrics recalculation after HIL content is applied (immediately, no debounce)
+              if (jobDescriptionRecord && goals && draft) {
+                try {
+                  await recalculateMetrics({
+                    jobDescription: jobDescriptionRecord as ParsedJobDescription,
+                    userGoals: goals,
+                  });
+                  console.log('[CoverLetterCreateModal] Metrics recalculated after HIL content applied');
+                } catch (error) {
+                  console.error('[CoverLetterCreateModal] Failed to recalculate metrics:', error);
+                  // Don't block UI on recalculation failure
+                }
+              }
               
               // Note: Gap resolution is tracked via enhancedMatchData in the database
               // After HIL, metrics are recalculated and gaps are updated

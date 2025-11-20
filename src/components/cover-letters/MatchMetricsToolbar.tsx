@@ -29,7 +29,13 @@ interface MatchMetricsToolbarProps {
   enhancedMatchData?: EnhancedMatchData;
   sections?: Array<{ id: string; type: string; title?: string }>;
   onEditGoals?: () => void;
-  onEnhanceSection?: (sectionId: string, requirement?: string) => void;
+  onEnhanceSection?: (sectionId: string, requirement?: string, ratingCriteria?: Array<{
+    id: string;
+    label: string;
+    description: string;
+    suggestion: string;
+    evidence: string;
+  }>) => void;
   onAddMetrics?: (sectionId?: string) => void;
 }
 
@@ -314,6 +320,7 @@ export function MatchMetricsToolbar({
                           onEditGoals={onEditGoals}
                           onEnhanceSection={onEnhanceSection}
                           onAddMetrics={onAddMetrics}
+                          sections={sections}
                         />
                       </div>
                     )}
@@ -337,8 +344,15 @@ interface MetricDrawerContentProps {
   metrics: MatchMetricsData;
   allGaps: Array<{ sectionId: string; sectionTitle: string; gap: any }>;
   onEditGoals?: () => void;
-  onEnhanceSection?: (sectionId: string, requirement?: string) => void;
+  onEnhanceSection?: (sectionId: string, requirement?: string, ratingCriteria?: Array<{
+    id: string;
+    label: string;
+    description: string;
+    suggestion: string;
+    evidence: string;
+  }>) => void;
   onAddMetrics?: (sectionId?: string) => void;
+  sections?: Array<{ id: string; type: string; title?: string }>;
 }
 
 function MetricDrawerContent({
@@ -352,6 +366,7 @@ function MetricDrawerContent({
   onEditGoals,
   onEnhanceSection,
   onAddMetrics,
+  sections = [],
 }: MetricDrawerContentProps) {
   switch (activeMetric) {
     case 'gaps':
@@ -382,7 +397,13 @@ function MetricDrawerContent({
     case 'rating':
       // Calculate score if undefined (matches hardcoded criteria logic)
       const displayScore = metrics.overallScore ?? (isPostHIL ? 91 : 27);
-      return <CoverLetterRatingInsights isPostHIL={isPostHIL} overallScore={displayScore} />;
+      return (
+        <CoverLetterRatingInsights 
+          isPostHIL={isPostHIL} 
+          overallScore={displayScore} 
+          criteria={metrics.ratingCriteria}
+        />
+      );
     case 'ats':
     default:
       return <ATSScoreInsights isPostHIL={isPostHIL} score={metrics.atsScore ?? 0} />;
