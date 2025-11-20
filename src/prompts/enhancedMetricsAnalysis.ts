@@ -1,0 +1,407 @@
+/**
+ * Enhanced Metrics Analysis Prompt
+ *
+ * Agent C: Consolidated match intelligence prompt for cover letter evaluation
+ * Returns detailed breakdowns, differentiator analysis, and CTA hooks in a single LLM call
+ */
+
+export const SECTION_GUIDANCE = {
+  introduction: {
+    title: 'Introduction',
+    summary:
+      'Open strong with credibility, highlight the sharpest achievement, and connect it to the company/mission.',
+    expectations: [
+      'Lead with a compelling hook (achievement, insight, or company tie-in).',
+      'Establish domain credibility and 1-2 quantifiable proof points.',
+      'Show mission/product alignment tied to the JD.',
+    ],
+  },
+  experience: {
+    title: 'Experience',
+    summary:
+      'Translate resume achievements into story-driven paragraphs that prove you can meet core requirements.',
+    expectations: [
+      'Highlight relevant projects with metrics tied to JD requirements.',
+      'Demonstrate cross-functional leadership/collaboration as needed.',
+      'Show toolkit/process fluency (data, experimentation, PM craft) emphasized in the JD.',
+    ],
+  },
+  closing: {
+    title: 'Closing',
+    summary: 'Summarize the value, express enthusiasm, and include a confident call-to-action.',
+    expectations: [
+      'Reinforce differentiating value (1-2 proof points).',
+      'State clear enthusiasm tied to company mission or product.',
+      'Close with a confident CTA about next steps.',
+    ],
+  },
+  signature: {
+    title: 'Signature',
+    summary: 'Keep it professional and actionable.',
+    expectations: [
+      'Use a concise, professional sign-off.',
+      'Optionally restate contact info or availability if missing elsewhere.',
+    ],
+  },
+} as const;
+
+export const ENHANCED_METRICS_SYSTEM_PROMPT = `You are an expert cover letter reviewer and career coach. Your task is to provide a COMPREHENSIVE match analysis that evaluates:
+
+1. GOALS MATCH: How well the job aligns with user's career goals
+2. EXPERIENCE MATCH: What user has demonstrated in their work history (not draft)
+3. DRAFT QUALITY: How well the cover letter addresses requirements
+4. ATS OPTIMIZATION: Keyword coverage and formatting
+5. DIFFERENTIATOR POSITIONING: How user can stand out for this specific role
+6. ACTIONABLE CTAs: Specific improvement suggestions
+
+Respond ONLY with valid JSON following this EXACT schema:
+
+{
+  "metrics": {
+    "goals": {
+      "strength": "strong|average|weak",
+      "summary": "Brief 1-sentence summary",
+      "tooltip": "Detailed explanation for tooltip (2-3 sentences)",
+      "differentiatorHighlights": ["highlight1", "highlight2"]
+    },
+    "experience": {
+      "strength": "strong|average|weak",
+      "summary": "Brief 1-sentence summary",
+      "tooltip": "Detailed explanation",
+      "differentiatorHighlights": ["highlight1"]
+    },
+    "rating": {
+      "score": 85,
+      "summary": "Brief summary",
+      "tooltip": "Detailed explanation",
+      "criteria": [
+        {
+          "id": "compelling_opening",
+          "label": "Compelling Opening",
+          "met": true,
+          "evidence": "Opening paragraph starts with a strong hook: 'I am an accomplished product manager...'",
+          "suggestion": ""
+        },
+        {
+          "id": "business_understanding",
+          "label": "Understanding of Business/Users",
+          "met": false,
+          "evidence": "No specific mention of company's business model or user needs",
+          "suggestion": "Reference the company's target users or business model to show understanding"
+        }
+      ]
+    },
+    "ats": {
+      "score": 78,
+      "summary": "Brief summary",
+      "tooltip": "Detailed explanation",
+      "differentiatorHighlights": ["highlight1"]
+    },
+    "coreRequirements": {
+      "met": 4,
+      "total": 5,
+      "summary": "Brief summary",
+      "tooltip": "Detailed explanation",
+      "differentiatorHighlights": ["highlight1"]
+    },
+    "preferredRequirements": {
+      "met": 2,
+      "total": 3,
+      "summary": "Brief summary",
+      "tooltip": "Detailed explanation",
+      "differentiatorHighlights": ["highlight1"]
+    }
+  },
+  "enhancedMatchData": {
+    "goalMatches": [
+      {
+        "id": "goal-title",
+        "goalType": "Target Title",
+        "userValue": "Senior PM, Lead PM",
+        "jobValue": "Product Manager",
+        "met": true,
+        "evidence": "Job title matches target",
+        "requiresManualVerification": false
+      },
+      {
+        "id": "goal-salary",
+        "goalType": "Minimum Salary",
+        "userValue": "$180,000",
+        "jobValue": null,
+        "met": false,
+        "evidence": "Salary not specified in JD",
+        "requiresManualVerification": false
+      },
+      {
+        "id": "goal-worktype",
+        "goalType": "Work Type",
+        "userValue": null,
+        "jobValue": null,
+        "met": false,
+        "evidence": "Work type not specified in career goals",
+        "emptyState": "goal-not-set",
+        "requiresManualVerification": false
+      }
+    ],
+    "coreRequirementDetails": [
+      {
+        "id": "core-0",
+        "requirement": "5+ years PM experience",
+        "demonstrated": true,
+        "evidence": "Mentioned in experience section",
+        "sectionIds": ["experience"],
+        "severity": "critical"
+      }
+    ],
+    "preferredRequirementDetails": [
+      {
+        "id": "pref-0",
+        "requirement": "SQL proficiency",
+        "demonstrated": false,
+        "evidence": "Not mentioned in draft",
+        "sectionIds": [],
+        "severity": "nice-to-have"
+      }
+    ],
+    "coreExperienceDetails": [
+      {
+        "requirement": "5+ years PM experience",
+        "confidence": "high",
+        "matchedWorkItemIds": ["work-1"],
+        "matchedStoryIds": ["story-1"],
+        "evidence": "User has 8 years PM experience",
+        "missingDetails": null
+      }
+    ],
+    "preferredExperienceDetails": [
+      {
+        "requirement": "SQL proficiency",
+        "confidence": "low",
+        "matchedWorkItemIds": [],
+        "matchedStoryIds": [],
+        "evidence": "No SQL mentioned in work history",
+        "missingDetails": "Consider highlighting any data analysis work"
+      }
+    ],
+    "differentiatorAnalysis": {
+      "summary": "This role seeks AI/ML product experience with growth focus",
+      "userPositioning": "Emphasize AI/ML background and metrics-driven approach",
+      "strengthAreas": ["AI/ML experience", "Growth metrics", "B2B SaaS"],
+      "gapAreas": ["Limited fintech exposure"]
+    },
+    "sectionGapInsights": [
+      {
+        "sectionId": "section-1-static",
+        "sectionSlug": "introduction",
+        "sectionType": "introduction",
+        "sectionTitle": "Introduction",
+        "promptSummary": "Intro must open with credibility, metrics, and mission alignment.",
+        "requirementGaps": [
+          {
+            "id": "intro-credibility",
+            "label": "Professional summary to establish credibility",
+            "severity": "high",
+            "requirementType": "narrative",
+            "rationale": "No metrics or seniority indicators mentioned in first paragraph.",
+            "recommendation": "Start with strongest leadership metric (e.g., 40% growth) to anchor expertise."
+          },
+          {
+            "id": "intro-mission",
+            "label": "Mission alignment",
+            "severity": "medium",
+            "requirementType": "differentiator",
+            "rationale": "Company mission or product impact never referenced.",
+            "recommendation": "Reference Company X's marketplace expansion and why it resonates with previous work."
+          }
+        ],
+        "recommendedMoves": [
+          "Open with quantified career highlight (growth metric or launch stat).",
+          "Reference Company X's mission or latest milestone to show research."
+        ],
+        "nextAction": "add-story"
+      }
+    ],
+    "ctaHooks": [
+      {
+        "type": "add-story",
+        "label": "Add story about AI/ML product work",
+        "requirement": "AI/ML product experience",
+        "severity": "high",
+        "actionPayload": {"suggestedTags": ["AI", "ML", "product"]}
+      },
+      {
+        "type": "edit-goals",
+        "label": "Update career goals to include fintech interest",
+        "requirement": "Industry alignment",
+        "severity": "medium"
+      }
+    ]
+  }
+}
+
+CRITICAL RULES:
+1. Be thorough but concise - focus on actionable insights
+2. Use "high"/"medium"/"low" for confidence and severity
+3. Use "strong"/"average"/"weak" for strength ratings
+4. Scores should be 0-100
+5. For goalMatches: MUST include ALL 7 goal categories in this exact order:
+   - "Target Title" (goal-title) - jobValue from JD role
+   - "Minimum Salary" (goal-salary) - jobValue from JD salary field if present
+   - "Work Type" (goal-worktype) - jobValue from JD workType field (Remote/Hybrid/In-person)
+   - "Preferred Location" (goal-cities) - jobValue from JD location field
+   - "Company Maturity" (goal-maturity) - jobValue from JD companyMaturity field
+   - "Industry" (goal-industry) - jobValue from JD companyIndustry field
+   - "Business Model" (goal-business-model) - jobValue from JD companyBusinessModel field
+   
+   IMPORTANT: Use the JD structured data (salary, workType, location, companyMaturity, companyIndustry, companyBusinessModel) 
+   to populate jobValue fields. These were extracted during JD parsing.
+   For goals not set by user: set userValue=null, met=false, emptyState="goal-not-set"
+6. For requirement details: "demonstrated" means it's IN THE DRAFT, not just in work history
+7. For sectionIds: CRITICAL - Populate this field for ALL demonstrated requirements
+   - Use the section slugs from the draft: "introduction", "experience", "closing", "signature"
+   - Match the exact slug name used in the draft sections (check [slug] prefix in draft)
+   - If a requirement is addressed in multiple sections, include ALL relevant slugs in the array
+   - If a requirement is NOT demonstrated (demonstrated: false), leave sectionIds as empty array []
+   - Examples:
+     * "demonstrated": true, "sectionIds": ["introduction"] - requirement only in intro
+     * "demonstrated": true, "sectionIds": ["introduction", "experience"] - requirement in multiple sections
+     * "demonstrated": false, "sectionIds": [] - requirement not addressed
+8. For experience details: Check work history and stories, reference IDs
+9. For differentiatorAnalysis: Focus on what makes THIS role unique
+10. For sectionGapInsights:
+   - Return one entry per section (in draft order)
+   - CRITICAL: Include sectionId field - copy the exact "id" value from each section in the draft
+   - This is essential for cover letters with multiple sections of the same type (e.g., multiple "experience" paragraphs)
+   - Also include sectionSlug (semantic type) for backward compatibility
+   - Tie every recommendation to BOTH the rubric expectations and JD requirements
+11. For CTAs: Provide 3-5 actionable suggestions with clear labels
+12. For rating.criteria: MUST evaluate ALL 11 criteria below. For each criterion:
+    - Set "met": true if the draft demonstrates this quality, false otherwise
+    - Provide "evidence": specific text from the draft that supports your evaluation (quote relevant sentences/phrases)
+    - Provide "suggestion": actionable improvement advice if met=false, empty string if met=true
+    - The 11 criteria are:
+      1. "compelling_opening" - "Compelling Opening": Strong hook that captures attention in first paragraph
+      2. "business_understanding" - "Understanding of Business/Users": Demonstrates knowledge of company and users
+      3. "quantified_impact" - "Quantified Impact": Specific metrics and achievements (%, $, numbers)
+      4. "action_verbs" - "Action Verbs": Strong, active language showing ownership
+      5. "concise_length" - "Concise Length": 3-4 paragraphs, under 400 words
+      6. "error_free" - "Error-Free Writing": No spelling or grammar errors
+      7. "personalized" - "Personalized Content": Tailored to specific role and company
+      8. "specific_examples" - "Specific Examples": Concrete examples from work history
+      9. "professional_tone" - "Professional Tone": Appropriate formality level
+      10. "company_research" - "Company Research": Shows understanding of company culture/mission
+      11. "role_understanding" - "Role Understanding": Clear grasp of job responsibilities
+13. Return ONLY the JSON object, no markdown, no explanations
+`;
+
+export const buildEnhancedMetricsUserPrompt = (payload: {
+  draft: string;
+  sections: Array<{
+    id: string; // Unique section ID for multi-section types
+    slug: string;
+    title: string;
+    content: string;
+    requirementsMatched: string[];
+    sectionType?: string;
+  }>;
+  jobDescription: {
+    company: string;
+    role: string;
+    summary: string;
+    standardRequirements: any[];
+    preferredRequirements: any[];
+    differentiatorRequirements: any[];
+    differentiatorSignals: string[];
+  };
+  userGoals: any;
+  workHistory?: Array<{
+    id: string;
+    company: string;
+    title: string;
+    description: string;
+    achievements: string[];
+  }>;
+  approvedContent?: Array<{
+    id: string;
+    title: string;
+    content: string;
+  }>;
+  sectionGuidance?: typeof SECTION_GUIDANCE;
+}): string => {
+  const guidanceMap = payload.sectionGuidance ?? SECTION_GUIDANCE;
+  const workHistorySection = payload.workHistory && payload.workHistory.length > 0
+    ? `\n\n=== USER'S WORK HISTORY ===
+${payload.workHistory.map(w => `[${w.id}] ${w.title} at ${w.company}
+Description: ${w.description || 'N/A'}
+Achievements: ${w.achievements.join('; ') || 'N/A'}`).join('\n\n')}`
+    : '';
+
+  const storiesSection = payload.approvedContent && payload.approvedContent.length > 0
+    ? `\n\n=== USER'S APPROVED STORIES ===
+${payload.approvedContent.map(s => `[${s.id}] "${s.title}"
+Content: ${s.content}`).join('\n\n')}`
+    : '';
+
+  return `=== JOB INFORMATION ===
+Company: ${payload.jobDescription.company}
+Role: ${payload.jobDescription.role}
+Summary: ${payload.jobDescription.summary}
+
+CORE REQUIREMENTS (must-have):
+${payload.jobDescription.standardRequirements.map((req, i) => `${i + 1}. ${req.label}${req.detail ? ` - ${req.detail}` : ''}`).join('\n')}
+
+PREFERRED REQUIREMENTS (nice-to-have):
+${payload.jobDescription.preferredRequirements.map((req, i) => `${i + 1}. ${req.label}${req.detail ? ` - ${req.detail}` : ''}`).join('\n')}
+
+DIFFERENTIATOR REQUIREMENTS (what makes this role unique):
+${payload.jobDescription.differentiatorRequirements.map((req, i) => `${i + 1}. ${req.label}${req.detail ? ` - ${req.detail}` : ''}`).join('\n')}
+
+Differentiator Signals: ${payload.jobDescription.differentiatorSignals.join(', ')}
+
+=== USER'S CAREER GOALS ===
+${payload.userGoals ? JSON.stringify(payload.userGoals, null, 2) : 'No career goals specified'}
+${workHistorySection}
+${storiesSection}
+
+=== COVER LETTER DRAFT ===
+${payload.sections.map(s => `[id: ${s.id}] [slug: ${s.slug}] ${s.title}
+${s.content}
+Requirements Matched: ${s.requirementsMatched.join(', ') || 'None'}`).join('\n\n')}
+
+=== SECTION RUBRIC & EXPECTATIONS ===
+${payload.sections.map(section => {
+  const normalizedType =
+    (section.sectionType as keyof typeof guidanceMap) ??
+    ((section.slug as keyof typeof guidanceMap) in guidanceMap
+      ? (section.slug as keyof typeof guidanceMap)
+      : 'experience');
+  const guidance = guidanceMap[normalizedType] ?? guidanceMap.experience;
+  return `[${section.slug}] ${guidance.title}
+Summary: ${guidance.summary}
+Expectations:
+- ${guidance.expectations.join('\n- ')}
+`;
+}).join('\n')}
+
+=== CONTENT QUALITY EVALUATION ===
+Evaluate the cover letter draft against these 11 quality criteria. For each criterion:
+- Determine if it's met (true/false) based on the draft content
+- Provide specific evidence: quote the exact text from the draft that supports your evaluation
+- If not met, provide a concrete suggestion for improvement
+
+The 11 criteria to evaluate:
+1. Compelling Opening - Does the opening paragraph have a strong hook that captures attention?
+2. Understanding of Business/Users - Does it demonstrate knowledge of the company and its users?
+3. Quantified Impact - Are there specific metrics and achievements (%, $, numbers)?
+4. Action Verbs - Does it use strong, active language showing ownership?
+5. Concise Length - Is it 3-4 paragraphs and under 400 words?
+6. Error-Free Writing - Are there no spelling or grammar errors?
+7. Personalized Content - Is it tailored to the specific role and company?
+8. Specific Examples - Are there concrete examples from work history?
+9. Professional Tone - Is the formality level appropriate?
+10. Company Research - Does it show understanding of company culture/mission?
+11. Role Understanding - Does it demonstrate clear grasp of job responsibilities?
+
+Analyze this cover letter draft comprehensively and return the structured JSON response.`;
+};
+

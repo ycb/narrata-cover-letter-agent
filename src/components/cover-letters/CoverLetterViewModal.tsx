@@ -8,6 +8,10 @@ interface CoverLetterViewModalProps {
   isOpen: boolean;
   onClose: () => void;
   coverLetter: any;
+  onEditGoals?: () => void; // Agent C: goals CTA handler (for consistency)
+  onAddStory?: (requirement?: string, severity?: string) => void; // Agent C: add story CTA
+  onEnhanceSection?: (sectionId: string, requirement?: string) => void; // Agent C: enhance section CTA
+  onAddMetrics?: (sectionId?: string) => void; // Agent C: add metrics CTA
 }
 
 export function CoverLetterViewModal({ isOpen, onClose, coverLetter }: CoverLetterViewModalProps) {

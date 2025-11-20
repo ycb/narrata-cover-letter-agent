@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TagSuggestionButton } from "@/components/ui/TagSuggestionButton";
 import { ContentGapBanner } from "@/components/shared/ContentGapBanner";
+import { RequirementTagTooltip } from "@/components/cover-letters/RequirementTagTooltip";
 import { 
   Calendar,
   MoreHorizontal,
@@ -11,7 +12,8 @@ import {
   TrendingUp,
   Tags,
   Trash2,
-  Plus
+  Plus,
+  Sparkles
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -21,15 +23,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import type { RequirementTag } from "@/types/coverLetters";
 
 interface ContentCardProps {
   title: string;
-  content: string;
-  tags: string[];
+  content?: string; // Made optional to support empty state
+  tags?: (string | RequirementTag)[]; // Support both simple strings and structured tags
   timesUsed?: number;
   lastUsed?: string;
   hasGaps?: boolean;
-  gaps?: Array<{ id: string; description: string }>;
+  gaps?: Array<{ id: string; title?: string; description: string }>; // Agent C: title is optional for structured gaps
+  gapSummary?: string | null; // Agent C: Rubric/prompt summary to show at top of gaps
   isGapResolved?: boolean;
   onGenerateContent?: () => void;
   onDismissGap?: () => void; // Callback for gap dismissal
@@ -64,6 +68,7 @@ export const ContentCard = ({
   lastUsed,
   hasGaps = false,
   gaps = [],
+  gapSummary = null,
   isGapResolved = false,
   onGenerateContent,
   onEdit,
@@ -76,6 +81,30 @@ export const ContentCard = ({
   children,
   renderChildrenBeforeTags = false
 }: ContentCardProps) => {
+  // Helper to check if a tag is structured
+  const isStructuredTag = (tag: string | RequirementTag): tag is RequirementTag => {
+    return typeof tag === 'object' && 'id' in tag && 'type' in tag;
+  };
+
+  // Helper to get badge variant based on tag type
+  const getTagVariant = (tag: RequirementTag): "default" | "secondary" => {
+    return tag.type === 'core' ? 'default' : 'secondary';
+  };
+
+  // Helper to get badge className based on tag type
+  const getTagClassName = (tag: RequirementTag): string => {
+    if (tag.type === 'core') {
+      return 'bg-green-100 text-green-800 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700';
+    } else {
+      return 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700';
+    }
+  };
+
+  // Helper to get tag label
+  const getTagLabel = (tag: RequirementTag): string => {
+    return tag.label;
+  };
+
   return (
     <Card className={cn(
       "hover:shadow-md transition-shadow",
@@ -107,69 +136,93 @@ export const ContentCard = ({
           </div>
 
           {/* Overflow Menu */}
-          {(onEdit || onDuplicate || onDelete) && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                  <span className="sr-only">Open menu</span>
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {onEdit && (
-                  <DropdownMenuItem onClick={onEdit}>
-                    <Edit className="mr-2 h-4 w-4" />
-                    Edit
-                  </DropdownMenuItem>
-                )}
-                {onDuplicate && (
-                  <DropdownMenuItem onClick={onDuplicate}>
-                    <Copy className="mr-2 h-4 w-4" />
-                    Duplicate
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuSeparator />
-                {onDelete && (
-                  <DropdownMenuItem 
-                    onClick={onDelete}
-                    className="text-destructive"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <span className="sr-only">Open menu</span>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {onEdit && (
+                <DropdownMenuItem onClick={onEdit}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit
+                </DropdownMenuItem>
+              )}
+              {onDuplicate && (
+                <DropdownMenuItem onClick={onDuplicate}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Duplicate
+                </DropdownMenuItem>
+              )}
+              {onGenerateContent && (
+                <DropdownMenuItem onClick={onGenerateContent}>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Generate Content
+                </DropdownMenuItem>
+              )}
+              {(onEdit || onDuplicate || onGenerateContent) && onDelete && <DropdownMenuSeparator />}
+              {onDelete && (
+                <DropdownMenuItem onClick={onDelete} className="text-destructive">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              )}
+              {!onEdit && !onDuplicate && !onGenerateContent && !onDelete && (
+                <DropdownMenuItem disabled>No actions available</DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </CardHeader>
 
       <CardContent className="pt-0">
-        {/* Content - Show read-only preview if children provided (for inline editing), otherwise show content */}
-        {!children && (
-        <div className="mb-6">
-          <p className="text-sm text-muted-foreground whitespace-pre-line">
-            {content}
-          </p>
-        </div>
+        {/* Primary content preview - only show if content exists */}
+        {content && (
+          <div className="mb-6">
+            <p className="text-sm text-muted-foreground">{content}</p>
+          </div>
         )}
 
         {/* Render children before tags if requested (for cover letter inline editing) */}
         {renderChildrenBeforeTags && children}
 
         {/* Tags */}
-        {(tags.length > 0 || onEdit) && (
+        {tagsLabel && (
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-2">
               <Tags className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">{tagsLabel}</span>
             </div>
             <div className="flex flex-wrap gap-1">
-              {tags.length > 0 && tags.map((tag) => (
-                <Badge key={tag} variant="secondary" className="text-xs">
-                  {tag}
-                </Badge>
-              ))}
+              {tags.length > 0 && tags.map((tag, index) => {
+                // If structured tag, wrap with tooltip
+                if (isStructuredTag(tag)) {
+                  return (
+                    <RequirementTagTooltip key={tag.id} tag={tag}>
+                      <Badge 
+                        variant={getTagVariant(tag)}
+                        className={cn("text-xs cursor-help", getTagClassName(tag))}
+                        data-severity={tag.severity}
+                      >
+                        {getTagLabel(tag)}
+                      </Badge>
+                    </RequirementTagTooltip>
+                  );
+                }
+                
+                // Simple string tag (no tooltip)
+                return (
+                  <Badge 
+                    key={`${tag}-${index}`}
+                    variant="secondary"
+                    className="text-xs"
+                  >
+                    {tag}
+                  </Badge>
+                );
+              })}
               {tags.length === 0 && onEdit && (
                 <Badge 
                   variant="outline" 
@@ -180,6 +233,14 @@ export const ContentCard = ({
                   Add tag
                 </Badge>
               )}
+              {tags.length === 0 && !onEdit && (
+                <Badge 
+                  variant="outline" 
+                  className="text-xs text-muted-foreground border-dashed bg-muted/30"
+                >
+                  None yet
+                </Badge>
+              )}
             </div>
           </div>
         )}
@@ -188,9 +249,10 @@ export const ContentCard = ({
         {!renderChildrenBeforeTags && children}
 
         {/* Gap Banner - Inside card at bottom */}
-        {hasGaps && !isGapResolved && gaps.length > 0 && onGenerateContent && (
+        {hasGaps && !isGapResolved && gaps.length > 0 && (
           <ContentGapBanner
             gaps={gaps}
+            gapSummary={gapSummary}
             onGenerateContent={onGenerateContent}
             onDismiss={onDismissGap}
             isResolved={isGapResolved}

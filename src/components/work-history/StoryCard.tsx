@@ -3,7 +3,7 @@ import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
 import { CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { 
   Layers, 
   Link as LinkIcon,
@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import type { WorkHistoryBlurb, ExternalLink } from "@/types/workHistory";
 import { cn } from "@/lib/utils";
+import { generateGapSummary } from "@/utils/gapSummaryGenerator";
 
 // Function to highlight changes between original story and variation
 const highlightChanges = (originalContent: string, variationContent: string): React.ReactNode[] => {
@@ -91,6 +92,37 @@ export const StoryCard = ({
     description: "Story needs more specific examples and quantifiable results."
   }] : []);
 
+  // Generate gapSummary from gap categories
+  const gapSummary = useMemo(() => {
+    if (!hasGaps || storyGaps.length === 0) return null;
+    
+    // Extract gap categories from gaps (they may have gap_category property)
+    const gapCategories = storyGaps
+      .map(gap => (gap as any).gap_category)
+      .filter(Boolean) as string[];
+    
+    // If no categories, try to infer from description or use default
+    if (gapCategories.length === 0) {
+      // Check if gaps have standard categories
+      const allCategories = storyGaps.map(g => {
+        const desc = g.description?.toLowerCase() || '';
+        if (desc.includes('structure') || desc.includes('star')) return 'incomplete_story';
+        if (desc.includes('metric')) return 'missing_metrics';
+        if (desc.includes('generic')) return 'too_generic';
+        return null;
+      }).filter(Boolean) as string[];
+      
+      if (allCategories.length > 0) {
+        return generateGapSummary(allCategories, 'story');
+      }
+      
+      // Default summary if we can't determine categories
+      return 'Story needs improvement';
+    }
+    
+    return generateGapSummary(gapCategories, 'story');
+  }, [hasGaps, storyGaps]);
+
   return (
     <ContentCard
       title={story.title}
@@ -100,6 +132,7 @@ export const StoryCard = ({
       lastUsed={story.lastUsed}
       hasGaps={hasGaps}
       gaps={storyGaps}
+      gapSummary={gapSummary}
       isGapResolved={isGapResolved}
       onGenerateContent={onGenerateContent}
       onDismissGap={onDismissGap}
@@ -156,56 +189,50 @@ export const StoryCard = ({
       {/* Variations */}
       {story.variations && story.variations.length > 0 && (
         <div className="mb-6 pt-4 border-t border-muted">
-          {(() => {
-            const variations = story.variations ?? [];
-            const anyExpanded = variations.some(variation => expandedVariations[variation.id]);
-            const allExpanded = variations.length > 0 && variations.every(variation => expandedVariations[variation.id]);
-
-            return (
-          <div 
+          <div
             className="flex items-center gap-2 mb-3 cursor-pointer hover:bg-muted/30 rounded-lg p-2 transition-colors group"
             onClick={() => {
-                  const variationsList = story.variations ?? [];
-                  const shouldExpand = !anyExpanded;
-              const newState: Record<string, boolean> = {};
-
-                  variationsList.forEach(variation => {
-                    newState[variation.id] = shouldExpand;
+              const variations = story.variations ?? [];
+              const allExpanded =
+                variations.length > 0 &&
+                variations.every(variation => expandedVariations[variation.id]);
+              const nextState: Record<string, boolean> = {};
+              variations.forEach(variation => {
+                nextState[variation.id] = !allExpanded;
               });
-
-              setExpandedVariations(newState);
+              setExpandedVariations(nextState);
             }}
           >
             <Layers className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
             <span className="text-sm font-medium group-hover:text-primary transition-colors">
               Variations ({story.variations.length})
             </span>
-                {allExpanded ? (
+            {story.variations.every(variation => expandedVariations[variation.id]) ? (
               <ChevronUp className="h-4 w-4 text-muted-foreground ml-auto group-hover:text-primary transition-colors" />
             ) : (
               <ChevronDown className="h-4 w-4 text-muted-foreground ml-auto group-hover:text-primary transition-colors" />
             )}
           </div>
-            );
-          })()}
-          
+
           {/* Variations content - only show when expanded */}
-          {(story.variations ?? []).some(variation => expandedVariations[variation.id]) && (
+          {story.variations.some(variation => expandedVariations[variation.id]) && (
             <div className="space-y-2">
               {story.variations.map((variation, index) => (
                 <div key={variation.id} className="p-3 bg-muted/30 rounded-lg border-l-4 border-primary">
                   {/* Header */}
                   <div className="mb-3">
                     <div className="text-sm font-medium text-foreground mb-1">
-                      {variation.filledGap ? `Fills Gap: ${variation.filledGap}` : 
-                       variation.developedForJobTitle ? `For ${variation.developedForJobTitle}` : 
-                       `Variant #${index + 1}`}
+                      {variation.filledGap
+                        ? `Fills Gap: ${variation.filledGap}`
+                        : variation.developedForJobTitle
+                        ? `For ${variation.developedForJobTitle}`
+                        : `Variant #${index + 1}`}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       {new Date(variation.createdAt).toLocaleDateString()}
                     </div>
                   </div>
-                  
+
                   {/* Content area */}
                   <div className="text-sm text-muted-foreground mb-3">
                     {highlightChanges(story.content, variation.content)}
@@ -217,7 +244,7 @@ export const StoryCard = ({
                         <span className="text-sm font-medium">Gap Tags</span>
                       </div>
                       <div className="flex flex-wrap gap-1">
-                        {variation.tags.map((tag) => (
+                        {variation.tags.map(tag => (
                           <Badge key={tag} variant="secondary" className="text-xs">
                             {tag}
                           </Badge>

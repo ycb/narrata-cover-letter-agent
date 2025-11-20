@@ -13,7 +13,7 @@ export const FullWidthTooltip: React.FC<FullWidthTooltipProps> = ({
   className = '',
 }) => {
   const [isVisible, setIsVisible] = useState(false);
-  const [position, setPosition] = useState({ top: 0, left: 0, width: 0, triangleLeft: 0 });
+  const [position, setPosition] = useState({ top: 0, left: 0, width: 0, triangleLeft: 0, triggerBottom: 0 });
   const triggerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -23,25 +23,28 @@ export const FullWidthTooltip: React.FC<FullWidthTooltipProps> = ({
 
     const rect = triggerRef.current.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
-    
+
     // Find the progress region container (assuming it's a parent with class containing 'progress' or similar)
     const progressContainer = triggerRef.current.closest('[class*="progress"], [class*="grid"]') || document.body;
     const progressRect = progressContainer.getBoundingClientRect();
     const progressWidth = progressRect.width;
-    
+
     const tooltipWidth = Math.min(progressWidth * 0.95, 1200); // 95% of progress region, max 1200px
     const left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
-    
+
     // Ensure tooltip stays within viewport bounds with consistent margins
     const margin = (viewportWidth - tooltipWidth) / 2;
     const clampedLeft = Math.max(margin, Math.min(left, viewportWidth - tooltipWidth - margin));
-    
+
+    const tooltipTop = rect.bottom + 8; // Reduced gap - 8px instead of 12px
+
     setPosition({
-      top: rect.bottom + 12, // 12px gap below the metric
+      top: tooltipTop,
       left: clampedLeft,
       width: tooltipWidth,
       // Calculate triangle position relative to the metric center
       triangleLeft: rect.left + (rect.width / 2) - clampedLeft - 8, // Position relative to tooltip left, adjusted for triangle width
+      triggerBottom: rect.bottom, // Start bridge from bottom of trigger element
     });
   };
 
@@ -56,7 +59,7 @@ export const FullWidthTooltip: React.FC<FullWidthTooltipProps> = ({
   const hideTooltip = () => {
     timeoutRef.current = setTimeout(() => {
       setIsVisible(false);
-    }, 150); // Small delay to allow mousing into tooltip
+    }, 300); // Increased delay to allow easier mousing into tooltip
   };
 
   const handleMouseEnter = () => {
@@ -101,32 +104,50 @@ export const FullWidthTooltip: React.FC<FullWidthTooltipProps> = ({
       </div>
 
       {isVisible && createPortal(
-        <div
-          ref={tooltipRef}
-          className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg"
-          style={{
-            top: position.top,
-            left: position.left,
-            width: position.width,
-          }}
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-        >
-          {/* Up triangle tail */}
-          <div 
-            className="absolute w-0 h-0 border-l-8 border-r-8 border-b-8 border-transparent"
+        <>
+          {/* Invisible bridge to prevent tooltip from closing when moving mouse from trigger to tooltip */}
+          {/* This covers the entire gap from trigger bottom to tooltip top */}
+          <div
+            className="fixed z-40"
             style={{
-              left: position.triangleLeft,
-              top: '-8px', // Back to previous working position
-              borderBottomColor: '#e5e7eb', // gray-200
+              top: position.triggerBottom,
+              left: 0,
+              width: '100%',
+              height: Math.max(0, position.top - position.triggerBottom), // Cover entire gap from trigger to tooltip
+              pointerEvents: 'auto', // Explicitly enable pointer events
             }}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
           />
-          
-          {/* Tooltip content */}
-          <div className="p-4 text-left">
-            {content}
+
+          <div
+            ref={tooltipRef}
+            className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg"
+            style={{
+              top: position.top,
+              left: position.left,
+              width: position.width,
+              pointerEvents: 'auto', // Ensure tooltip content is interactive
+            }}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+          >
+            {/* Up triangle tail */}
+            <div
+              className="absolute w-0 h-0 border-l-8 border-r-8 border-b-8 border-transparent"
+              style={{
+                left: position.triangleLeft,
+                top: '-8px',
+                borderBottomColor: '#e5e7eb', // gray-200
+              }}
+            />
+
+            {/* Tooltip content */}
+            <div className="p-4 text-left">
+              {content}
+            </div>
           </div>
-        </div>,
+        </>,
         document.body
       )}
     </>

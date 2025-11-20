@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -15,11 +15,11 @@ import {
   MessageSquare,
   CheckCircle,
   AlertCircle,
-  Clock
+  Clock,
 } from 'lucide-react';
 import { useHIL } from '@/contexts/HILContext';
 import type { WorkHistoryBlurb, BlurbVariation } from '@/types/workHistory';
-import type { HILContentMetadata, MockAISuggestion, GapAnalysis } from '@/types/content';
+import type { HILContentMetadata, GapAnalysis, PMCompetency } from '@/types/content';
 
 interface HILEditorPanelProps {
   variation: BlurbVariation;
@@ -41,6 +41,69 @@ export function HILEditorPanel({
   const [isEditing, setIsEditing] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [activeTab, setActiveTab] = useState('editor');
+
+  const activeAnalysis = useMemo<GapAnalysis | null>(() => {
+    if (!state.gapAnalysis) return null;
+    return state.gapAnalysis.variationId === variation.id ? state.gapAnalysis : null;
+  }, [state.gapAnalysis, variation.id]);
+
+  const deriveAutoTagging = () => {
+    const tagSet = new Set<string>(metadata.tags ?? []);
+    (variation.tags ?? []).forEach(tag => tagSet.add(tag));
+    (variation.jdTags ?? []).forEach(tag => tagSet.add(tag));
+    activeAnalysis?.autoTags?.forEach(tag => tagSet.add(tag));
+
+    const combinedText = [
+      variation.content,
+      ...(activeAnalysis?.paragraphGaps.map(g => `${g.gap} ${g.suggestion}`) ?? []),
+      ...(activeAnalysis?.suggestions.map(s => `${s.type} ${s.content}`) ?? []),
+    ]
+      .join(' ')
+      .toLowerCase();
+
+    const competencyMap: Array<[PMCompetency, string[]]> = [
+      ['execution', ['metric', 'conversion', 'launch', 'deliver', 'ship']],
+      ['product-strategy', ['strategy', 'roadmap', 'vision', 'planning']],
+      ['team-leadership', ['team', 'people', 'leadership', 'coach', 'management']],
+      ['stakeholder-management', ['stakeholder', 'alignment', 'ownership', 'cross-functional']],
+      ['technical-understanding', ['technical', 'technology', 'architecture', 'stack', 'engineering']],
+      ['communication', ['communication', 'story', 'tone', 'narrative']],
+      ['data-analysis', ['data', 'analysis', 'metric', 'quant']],
+      ['user-research', ['customer', 'user', 'research', 'interview']],
+      ['business-acumen', ['revenue', 'market', 'business', 'growth']],
+      ['prioritization', ['prioritize', 'priority', 'trade-off', 'sequencing']],
+    ];
+
+    const competencySet = new Set<PMCompetency>(metadata.competencyTags ?? []);
+
+    competencyMap.forEach(([competency, keywords]) => {
+      if (keywords.some(keyword => combinedText.includes(keyword))) {
+        competencySet.add(competency);
+      }
+    });
+
+    if (variation.filledGap) {
+      const filledGap = variation.filledGap.toLowerCase();
+      if (filledGap.includes('people') || filledGap.includes('team')) {
+        competencySet.add('team-leadership');
+      }
+      if (filledGap.includes('strategy')) {
+        competencySet.add('product-strategy');
+      }
+    }
+
+    return {
+      tags: Array.from(tagSet),
+      competencies: Array.from(competencySet),
+    };
+  };
+
+  const buildAutoNotes = (autoTags: string[], competencies: PMCompetency[]) => {
+    if (!activeAnalysis) return metadata.notes ?? '';
+    const appliedSummary = `${competencies.length} competencies highlighted; ${autoTags.slice(0, 3).join(', ') || 'key differentiators'} tagged.`;
+    const gapSummary = `Addressed ${activeAnalysis.paragraphGaps.length} gap${activeAnalysis.paragraphGaps.length === 1 ? '' : 's'} via HIL refinement.`;
+    return `${appliedSummary} ${gapSummary}`.trim();
+  };
 
   // Track changes
   useEffect(() => {
@@ -78,14 +141,18 @@ export function HILEditorPanel({
   }, [variation.id]);
 
   const handleSave = () => {
+    const autoTagging = deriveAutoTagging();
     const updatedMetadata: HILContentMetadata = {
       ...metadata,
       changeType: 'modification',
       lastVerified: new Date().toISOString(),
-      usageCount: metadata.usageCount + 1
+      usageCount: (metadata.usageCount ?? 0) + 1,
+      linkedVariations: Array.from(new Set([...(metadata.linkedVariations ?? []), variation.id])),
+      competencyTags: autoTagging.competencies,
+      tags: autoTagging.tags,
+      notes: buildAutoNotes(autoTagging.tags, autoTagging.competencies),
     };
 
-    // Add to content history
     dispatch({
       type: 'ADD_CONTENT_VERSION',
       payload: {
@@ -95,15 +162,14 @@ export function HILEditorPanel({
         version: 1,
         changeType: 'modification',
         changeReason: 'User edit in HIL editor',
-        createdBy: 'user'
-      }
+        createdBy: 'user',
+      },
     });
 
     onSave(content, updatedMetadata);
     setIsEditing(false);
     setHasChanges(false);
-    
-    // Clear draft
+
     localStorage.removeItem(`hil-draft-${variation.id}`);
   };
 

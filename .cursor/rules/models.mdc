@@ -1,0 +1,17 @@
+---
+alwaysApply: true
+description: "Lightweight model check header for cost awareness."
+---
+
+At the top of every reply, output exactly one line:
+
+[model-check] task=<short_label> tier=<CHEAP|STANDARD|PREMIUM> note=<short message>
+
+Then answer normally.
+
+Guidelines:
+- CHEAP = simple edits, reviews, mechanical changes.
+- STANDARD = single-file logic, moderate reasoning.
+- PREMIUM = cross-file refactors, schema cascades, explicit user request.
+- Keep `note` under 100 characters.
+- Skip only if user says #no-model-check.

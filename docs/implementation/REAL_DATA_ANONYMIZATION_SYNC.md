@@ -45,3 +45,5 @@ Define the safeguards, reversible mapping strategy, and Supabase upload workflow
 - **Placeholder collision**: re-run anonymizer on affected resume (ID-specific) to regenerate mappings; update mapping file accordingly.
 - **Supabase breach**: rotate storage keys, trace affected resume IDs via bucket listing, restore from local anonymized directory after incident is resolved.
 
+
+

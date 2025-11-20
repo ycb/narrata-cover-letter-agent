@@ -5,6 +5,9 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Sparkles, RefreshCw, CheckCircle, AlertTriangle } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
+import { ContentGapBanner } from '@/components/shared/ContentGapBanner';
+import type { Gap } from '@/services/gapTransformService';
 interface GapAnalysis {
   id: string;
   type: 'core-requirement' | 'preferred-requirement' | 'best-practice' | 'content-enhancement';
@@ -16,6 +19,11 @@ interface GapAnalysis {
   origin: 'ai' | 'human' | 'library';
   addresses?: string[];
   existingContent?: string;
+  // Rich gap structure for ContentGapBanner display
+  gaps?: Array<{ id: string; title?: string; description: string }>;
+  gapSummary?: string | null;
+  // Rating criteria gaps stored separately from requirement gaps
+  ratingCriteriaGaps?: Array<{ id: string; title?: string; description: string }>;
 }
 
 interface TagSuggestion {
@@ -61,14 +69,15 @@ export function ContentGenerationModal({
   onRetry
 }: ContentGenerationModalProps) {
   console.log('ContentGenerationModal render:', { isOpen, mode, suggestedTags, isSearching, searchError });
+  const { toast } = useToast();
   const [generatedContent, setGeneratedContent] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [contentQuality, setContentQuality] = useState<'draft' | 'review' | 'ready'>('draft');
-  
+
   // Tag suggestion state
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isGeneratingTags, setIsGeneratingTags] = useState(false);
-  
+
   // Reset selected tags when modal opens/closes or suggested tags change
   useEffect(() => {
     if (isOpen && mode === 'tag-suggestion') {
@@ -76,57 +85,111 @@ export function ContentGenerationModal({
     }
   }, [isOpen, mode, suggestedTags]);
 
+  // Auto-start content generation when modal opens in gap-detection mode
+  useEffect(() => {
+    if (isOpen && mode === 'gap-detection' && gap && !generatedContent && !isGenerating) {
+      handleGenerate();
+    }
+  }, [isOpen, mode, gap]); // Only trigger on modal open, not on content changes
+
   const handleGenerate = async () => {
+    if (!gap) {
+      console.error('[ContentGenerationModal] No gap provided');
+      return;
+    }
+    
+    console.log('[ContentGenerationModal] Starting generation with gap:', gap);
+    setIsGenerating(true);
+    setGeneratedContent(''); // Clear previous content
+    
+    try {
+      // Use real streaming service
+      const { GapResolutionStreamingService } = await import('@/services/gapResolutionStreamingService');
+      const streamingService = new GapResolutionStreamingService();
+      
+      // Extract job description context from gap or use defaults
+      const jobContext = {
+        role: gap.paragraphId === 'intro' ? 'the role' : undefined,
+        company: undefined,
+        coreRequirements: gap.addresses || [],
+        preferredRequirements: [],
+      };
+      
+      // Convert GapAnalysis to Gap type for the service
+      const gapForService: Gap = {
+        id: gap.id,
+        type: gap.type,
+        severity: gap.severity,
+        description: gap.description,
+        suggestion: gap.suggestion,
+        paragraphId: gap.paragraphId,
+        requirementId: gap.requirementId,
+        origin: gap.origin,
+        addresses: gap.addresses,
+        existingContent: gap.existingContent,
+        gaps: gap.gaps, // Requirement gaps only
+        gapSummary: gap.gapSummary,
+        ratingCriteriaGaps: gap.ratingCriteriaGaps, // Rating criteria gaps stored separately
+      };
+      
+      console.log('[ContentGenerationModal] Calling streamGapResolution with:', { gapForService, jobContext });
+      
+      await streamingService.streamGapResolution(gapForService, jobContext, {
+        onUpdate: (content) => {
+          setGeneratedContent(content);
+        },
+        onComplete: (content) => {
+          setGeneratedContent(content);
+          setContentQuality('review');
+          setIsGenerating(false);
+        },
+        onError: (error) => {
+          console.error('[ContentGenerationModal] Streaming error:', error);
+          setIsGenerating(false);
+          toast({
+            title: "Generation Failed",
+            description: "Failed to generate content. Using fallback content instead.",
+            variant: "destructive",
+          });
+          // Fallback to mock content on error
+          handleGenerateFallback();
+        }
+      });
+    } catch (error) {
+      console.error('[ContentGenerationModal] Failed to initialize streaming:', error);
+      setIsGenerating(false);
+      toast({
+        title: "Generation Failed",
+        description: "Failed to initialize content generation. Using fallback content instead.",
+        variant: "destructive",
+      });
+      // Fallback to mock content on error
+      handleGenerateFallback();
+    }
+  };
+
+  const handleGenerateFallback = () => {
     if (!gap) return;
     
-    setIsGenerating(true);
+    // Fallback mock content generation
+    let content = '';
     
-          // Mock content generation based on gap type, suggestion, and paragraph context
-      setTimeout(() => {
-        let content = '';
-        
-        // Generate content specific to the paragraph and gap
-        switch (gap.paragraphId) {
-          case 'intro':
-            if (gap.type === 'best-practice') {
-              content = `I am writing to express my strong interest in the Senior Product Manager position at TechCorp. With over 5 years of experience in product management and a passion for data-driven decision making, I have consistently delivered measurable results that demonstrate my value. ${gap.suggestion}.\n\nFor example, in my previous role at InnovateTech, I increased user engagement by 35% through A/B testing and optimization, reduced customer churn by 40% through improved onboarding flows, and directly contributed to a 25% improvement in overall team productivity through streamlined processes and clear KPIs. My experience with SQL, Python, and analytics tools like Tableau has enabled me to make data-informed decisions that drive business growth.`;
-            } else {
-              content = `I am writing to express my strong interest in this position. ${gap.suggestion}.\n\nMy background includes extensive experience with the required technologies, and I am confident I can contribute immediately to your team's success.`;
-            }
-            break;
-            
-          case 'experience':
-            if (gap.type === 'core-requirement') {
-              content = `In my previous role as a Senior Product Manager at InnovateTech, I successfully ${gap.suggestion.toLowerCase()}.\n\nSpecifically, I led cross-functional teams of 8-12 engineers, designers, and analysts to deliver products that met both user needs and business objectives. My hands-on experience with SQL, Python, and analytics platforms like Tableau and Looker has enabled me to dive deep into data to inform product decisions and measure success. I've consistently delivered products that exceed user expectations while meeting business goals.`;
-            } else if (gap.type === 'preferred-requirement') {
-              content = `Beyond technical skills, I also bring strong leadership experience to the table. ${gap.suggestion}.\n\nI led a team of 8 product managers and successfully delivered 12 major product launches on time and under budget, demonstrating my ability to manage both technical and business challenges. My experience in SaaS and fintech has given me deep insights into user behavior and market dynamics.`;
-            }
-            break;
-            
-          case 'closing':
-            content = `I am particularly excited about this opportunity at TechCorp because ${gap.suggestion.toLowerCase()}.\n\nYour focus on sustainable technology solutions and commitment to innovation aligns perfectly with my values and experience. I led a green technology initiative that reduced our infrastructure costs by 30% while improving performance, demonstrating my ability to balance technical excellence with business impact and environmental responsibility. My combination of technical expertise, proven track record of delivering results, and passion for sustainable solutions makes me confident I can contribute significantly to your team's success. I look forward to discussing how my background aligns with your needs and how I can help drive TechCorp's mission forward.`;
-            break;
-            
-          case 'role-description':
-            content = `Led product strategy for core platform. I increased user engagement by 35% through data-driven product decisions, reduced customer churn by 40% through improved user experience flows, and delivered $2M in additional revenue through strategic feature launches. My experience with SQL, Python, and analytics tools like Tableau enabled me to make informed decisions that drove measurable business impact.`;
-            break;
-            
-          case 'outcome-metrics':
-            content = `Increased user engagement by 25% and reduced churn by 15%, ${gap.suggestion.toLowerCase()}.\n\nSpecifically, I achieved a 35% increase in daily active users through A/B testing and optimization, reduced customer acquisition cost by 30% through improved conversion funnels, and delivered $1.5M in additional revenue through strategic product initiatives. These metrics were measured over a 12-month period and validated through user research and business impact analysis.`;
-            break;
-            
-          case 'story-content':
-            content = `Successfully launched new product features that improved user experience, ${gap.suggestion.toLowerCase()}.\n\nSpecifically, I led the development of a recommendation engine that increased user engagement by 45%, implemented a streamlined checkout process that reduced cart abandonment by 25%, and introduced personalization features that boosted user retention by 30%. These features were built using React, Node.js, and machine learning algorithms, resulting in $500K in additional monthly revenue.`;
-            break;
-            
-          default:
-            content = `I am confident that my background and experience make me an excellent fit for this position. ${gap.suggestion}.\n\nI look forward to discussing how I can contribute to your team's success.`;
-        }
-        
-        setGeneratedContent(content);
-        setContentQuality('review');
-        setIsGenerating(false);
-      }, 2000);
+    switch (gap.paragraphId) {
+      case 'intro':
+        content = `I am writing to express my strong interest in this position. ${gap.suggestion}. My background includes relevant experience that directly aligns with your requirements.`;
+        break;
+      case 'experience':
+        content = `In my previous role, I successfully ${gap.suggestion.toLowerCase()}. Specifically, I delivered measurable results that demonstrate my capabilities in this area.`;
+        break;
+      case 'closing':
+        content = `I am particularly excited about this opportunity because ${gap.suggestion.toLowerCase()}. I look forward to discussing how my background aligns with your needs.`;
+        break;
+      default:
+        content = `${gap.suggestion}. I am confident I can contribute to your team's success.`;
+    }
+    
+    setGeneratedContent(content);
+    setContentQuality('review');
   };
 
   const handleRegenerate = () => {
@@ -168,56 +231,51 @@ export function ContentGenerationModal({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Gap Context - Only show in gap detection mode */}
-          {mode === 'gap-detection' && gap && (
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">Gap Analysis</CardTitle>
-                  <div className="flex items-center gap-2">
-                    <Badge className={gap.severity === 'high' ? 'bg-destructive text-destructive-foreground' : 'bg-warning text-warning-foreground'}>
-                      {gap.severity} priority
-                    </Badge>
-                    <Badge variant="outline">
-                      {gap.type.replace('-', ' ')}
-                    </Badge>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-              
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <h4 className="font-medium text-sm">Issue:</h4>
-                  <p className="text-sm text-muted-foreground">{gap.description}</p>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <h4 className="font-medium text-sm">Suggestion:</h4>
-                  <p className="text-sm text-muted-foreground">{gap.suggestion}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          )}
-
-          {/* Existing Content - Only show in gap detection mode */}
+          {/* Existing Content with Gap Banner - Only show in gap detection mode */}
           {mode === 'gap-detection' && gap && (
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg">Existing Content</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="p-3 bg-muted/30 rounded-lg">
-                  <p className="text-sm text-muted-foreground">
-                    {gap.existingContent || 
-                      (gap.paragraphId === 'intro' && "I am writing to express my strong interest in the Senior Software Engineer position at TechCorp. With over 5 years of experience in full-stack development and a passion for creating innovative solutions, I am excited about the opportunity to contribute to your team's mission of building cutting-edge technology.") ||
+              <CardContent className="pt-0">
+                {/* Content without background box - matching ContentCard pattern */}
+                <div className="mb-6">
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    {gap.existingContent ||
+                      (gap.paragraphId === 'intro' && "Dear Hiring Team,\n\nI'm a product manager with experience leading growth initiatives. I've learned that compounding growth comes from disciplined experimentation and clear measurement. Over the past several years, I've helped teams translate strategy into shipped impact across web and mobile platforms.") ||
                       (gap.paragraphId === 'experience' && "In my previous role as a Lead Developer at InnovateTech, I successfully architected and implemented a microservices platform that reduced system latency by 40% and improved scalability for over 100,000 daily active users. My expertise in React, Node.js, and cloud technologies aligns perfectly with TechCorp's technology stack.") ||
                       (gap.paragraphId === 'closing' && "What particularly excites me about TechCorp is your commitment to innovation and sustainable technology solutions. I led a green technology initiative that reduced our infrastructure costs by 30% while improving performance, demonstrating my ability to balance technical excellence with business impact.") ||
                       "No existing content available."
                     }
                   </p>
                 </div>
+
+                {/* Integrated Gap Banner - matches ContentCard pattern */}
+                <ContentGapBanner
+                  gaps={gap.gaps || [
+                    {
+                      id: gap.id,
+                      title: gap.description,
+                      description: gap.suggestion
+                    }
+                  ]}
+                  gapSummary={gap.gapSummary || `${gap.severity === 'high' ? 'High' : gap.severity === 'medium' ? 'Medium' : 'Low'} Priority • ${gap.type.replace('-', ' ')}`}
+                />
+                
+                {/* Rating Criteria Section - Show content quality criteria that need improvement */}
+                {gap.ratingCriteriaGaps && gap.ratingCriteriaGaps.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-border/30">
+                    <h4 className="text-sm font-semibold mb-2 text-foreground">Content Quality Criteria to Improve</h4>
+                    <div className="space-y-2">
+                      {gap.ratingCriteriaGaps.map((criterionGap) => (
+                        <div key={criterionGap.id} className="text-xs p-2 bg-muted/30 rounded border border-border/20">
+                          <div className="font-medium text-foreground mb-1">{criterionGap.title}</div>
+                          <div className="text-muted-foreground">{criterionGap.description}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -286,7 +344,7 @@ export function ContentGenerationModal({
                   </div>
                   {onRetry && (
                     <Button
-                      variant="outline"
+                      variant="secondary"
                       size="sm"
                       onClick={onRetry}
                       className="w-full"
@@ -340,53 +398,49 @@ export function ContentGenerationModal({
                 </div>
               ) : null}
             </div>
-          ) : !generatedContent ? (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground mb-4">
-                Click "Generate Content" to create AI-powered content that addresses this gap.
-              </p>
-              <Button onClick={handleGenerate} disabled={isGenerating} className="w-full">
-                {isGenerating ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    Generate Content
-                  </>
-                )}
-              </Button>
-            </div>
           ) : (
                 <>
-                  <Textarea
-                    value={generatedContent}
-                    onChange={(e) => setGeneratedContent(e.target.value)}
-                    placeholder="Generated content will appear here..."
-                    rows={8}
-                    className="resize-none"
-                  />
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="flex gap-2">
-                      <Button variant="secondary" onClick={handleRegenerate}>
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Regenerate
-                      </Button>
+                  {/* Show generating state while streaming */}
+                  {isGenerating && !generatedContent && (
+                    <div className="text-center py-8">
+                      <div className="flex items-center justify-center mb-4">
+                        <RefreshCw className="h-5 w-5 animate-spin text-primary mr-2" />
+                        <span className="text-muted-foreground">Generating enhanced content...</span>
+                      </div>
                     </div>
-                    
-                    <div className="flex gap-2">
-                      <Button variant="secondary" onClick={handleClose}>
-                        Cancel
-                      </Button>
-                      <Button onClick={handleApply}>
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Apply Content
-                      </Button>
-                    </div>
-                  </div>
+                  )}
+
+                  {/* Show textarea once content starts streaming or is complete */}
+                  {(generatedContent || !isGenerating) && (
+                    <>
+                      <Textarea
+                        value={generatedContent}
+                        onChange={(e) => setGeneratedContent(e.target.value)}
+                        placeholder="Generated content will appear here..."
+                        rows={8}
+                        className="resize-none"
+                      />
+
+                      <div className="flex items-center justify-between mt-4">
+                        <div className="flex gap-2">
+                          <Button variant="secondary" onClick={handleRegenerate} disabled={isGenerating}>
+                            <RefreshCw className={`h-4 w-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
+                            Regenerate
+                          </Button>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <Button variant="secondary" onClick={handleClose}>
+                            Cancel
+                          </Button>
+                          <Button onClick={handleApply} disabled={isGenerating || !generatedContent}>
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            Apply Content
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </CardContent>

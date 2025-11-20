@@ -33,6 +33,7 @@ import {
 import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
 import { TagSuggestionButton } from "@/components/ui/TagSuggestionButton";
 import { ContentGapBanner } from "@/components/shared/ContentGapBanner";
+import { generateGapSummary } from "@/utils/gapSummaryGenerator";
 import { LinkedInDataSource } from "./LinkedInDataSource";
 import { ResumeDataSource } from "./ResumeDataSource";
 import { useAuth } from "@/contexts/AuthContext";
@@ -261,16 +262,27 @@ export const WorkHistoryDetail = ({
     (story: WorkHistoryBlurb) => {
       const storyGaps = getGapsForEntity(story.id);
       const gap = pickTopGap(storyGaps);
-      if (!gap) {
-        toast({
-          title: 'No story gaps detected',
-          description: 'This story has no unresolved gaps to address.',
-        });
-        return;
+      if (gap) {
+        // Use existing gap if available
+        openGapModal(gap, 'approved_content', story.id, story.content);
+      } else {
+        // Create synthetic gap for HIL flow when no gaps exist
+        const syntheticGap: Gap = {
+          id: `story-${story.id}-enhancement`,
+          user_id: user?.id || '',
+          entity_type: 'approved_content',
+          entity_id: story.id,
+          gap_type: 'best_practice',
+          gap_category: 'content_enhancement',
+          severity: 'medium',
+          description: 'Enhance story with more specific details and quantifiable achievements',
+          suggestions: ['Add structure, metrics, and specific details'],
+          resolved: false,
+        };
+        openGapModal(syntheticGap, 'approved_content', story.id, story.content);
       }
-      openGapModal(gap, 'approved_content', story.id, story.content);
     },
-    [getGapsForEntity, pickTopGap, toast, openGapModal],
+    [getGapsForEntity, pickTopGap, openGapModal, user?.id],
   );
 
   const handleGenerateCompanyContent = useCallback(() => {
@@ -469,7 +481,6 @@ export const WorkHistoryDetail = ({
         gap_context_entity_external_links: targetCompany.externalLinks || [],
         gap_context_entity_outcome_metrics: targetCompany.outcomeMetrics || [],
         gap_context_entity_gaps: targetCompany.gaps || [],
-        gap_context_entity_id: targetCompany.id,
       },
       entityType: 'company',
       entityId: targetCompany.id,
@@ -1321,9 +1332,17 @@ export const WorkHistoryDetail = ({
                              gap.gap_category === 'generic_role_description' ||
                              gap.gap_category === 'missing_role_description';
                     }) || [];
+                    const descriptionGapCategories = descriptionGaps
+                      .map(gap => gap.gap_category)
+                      .filter(Boolean) as string[];
+                    const descriptionGapSummary = descriptionGapCategories.length > 0
+                      ? generateGapSummary(descriptionGapCategories, 'role_description')
+                      : null;
+                    
                     return descriptionGaps.length > 0 && !resolvedGaps.has('role-description-gap') ? (
                       <ContentGapBanner
                         gaps={descriptionGaps}
+                        gapSummary={descriptionGapSummary}
                         onGenerateContent={() => handleRoleDescriptionGenerate()}
                         onDismiss={() => {
                           // Resolve all description gaps (use first gap's ID for DB, but keep local ID for state)
@@ -1356,7 +1375,26 @@ export const WorkHistoryDetail = ({
                   return metricsGaps.length > 0 && !resolvedGaps.has('role-metrics-gap');
                 })() && "border-warning"
               )}>
-                <CardContent className="pt-6">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">Outcome Metrics</CardTitle>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <span className="sr-only">Open menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={handleRoleMetricsGenerate}>
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          Generate Content
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0">
                   {/* Always show OutcomeMetrics (it handles empty state internally) */}
                   <OutcomeMetrics
                     metrics={selectedRole.outcomeMetrics || []}
@@ -1369,9 +1407,17 @@ export const WorkHistoryDetail = ({
                       gap.gap_category === 'missing_role_metrics' || 
                       gap.gap_category === 'insufficient_role_metrics'
                     ) || [];
+                    const metricsGapCategories = metricsGaps
+                      .map(gap => gap.gap_category)
+                      .filter(Boolean) as string[];
+                    const metricsGapSummary = metricsGapCategories.length > 0
+                      ? generateGapSummary(metricsGapCategories, 'role_metrics')
+                      : null;
+                    
                     return metricsGaps.length > 0 && !resolvedGaps.has('role-metrics-gap') ? (
                       <ContentGapBanner
                         gaps={metricsGaps}
+                        gapSummary={metricsGapSummary}
                         onGenerateContent={() => handleRoleMetricsGenerate()}
                         onDismiss={() => {
                           // Resolve all metrics gaps (use first gap's ID for DB, but keep local ID for state)
@@ -1450,9 +1496,10 @@ export const WorkHistoryDetail = ({
                             isGapResolved={resolvedGaps.has(`story-content-gap-${story.id}`)}
                             hasGaps={(story as any).hasGaps}
                             gaps={(story as any).gaps}
-                            onGenerateContent={(story as any).hasGaps && !resolvedGaps.has(`story-content-gap-${story.id}`) ? () => {
+                            onGenerateContent={() => {
+                              // Always open HIL workflow, even if no gaps
                               handleStoryContentGenerate(story);
-                            } : undefined}
+                            }}
                             onDismissGap={(story as any).hasGaps && !resolvedGaps.has(`story-content-gap-${story.id}`) ? () => {
                               // Resolve all story gaps using real database IDs
                               const storyGaps = (story as any).gaps || [];

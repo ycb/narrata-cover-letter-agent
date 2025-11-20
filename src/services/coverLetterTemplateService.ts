@@ -148,6 +148,7 @@ export interface SavedSection {
 export interface TemplateSection {
   id: string;
   type: 'intro' | 'paragraph' | 'closer' | 'signature';
+  title?: string; // Template section title (e.g., "Body Paragraph 1", "Introduction")
   isStatic: boolean;
   staticContent?: string;
   savedSectionId?: string; // Reference to saved_sections table
@@ -236,6 +237,7 @@ export class CoverLetterTemplateService {
       const templateSection: TemplateSection = {
         id: `${type}-${paragraph.index ?? order - 1}`,
         type,
+        title: this.generateTemplateSectionTitle(type, templateStructure.filter(s => s.type === type).length),
         isStatic: true,
         staticContent: content,
         order
@@ -1020,6 +1022,28 @@ export class CoverLetterTemplateService {
     }
 
     return `Professional ${baseTitle}`;
+  }
+
+  /**
+   * Generate template section title based on type and index
+   * Examples: "Introduction", "Body Paragraph 1", "Body Paragraph 2", "Closing", "Signature"
+   */
+  private static generateTemplateSectionTitle(
+    type: 'intro' | 'paragraph' | 'closer' | 'signature',
+    existingCountOfType: number
+  ): string {
+    switch (type) {
+      case 'intro':
+        return 'Introduction';
+      case 'paragraph':
+        return `Body Paragraph ${existingCountOfType + 1}`;
+      case 'closer':
+        return 'Closing';
+      case 'signature':
+        return 'Signature';
+      default:
+        return `Section ${existingCountOfType + 1}`;
+    }
   }
 
   private static parseSections(value: any): TemplateSection[] {

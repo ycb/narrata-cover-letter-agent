@@ -1,0 +1,53 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - region "Notifications alt+T"
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - heading "Narrata" [level=1] [ref=e7]
+      - paragraph [ref=e8]: to your narrative engine
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - heading "Sign In" [level=3] [ref=e11]
+        - paragraph [ref=e12]: Access your truth-based cover letter platform
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - button "Continue with LinkedIn" [ref=e15] [cursor=pointer]:
+            - img
+            - text: Continue with LinkedIn
+          - button "Continue with Google" [ref=e16] [cursor=pointer]:
+            - img
+            - text: Continue with Google
+        - generic [ref=e20]: Or continue with email
+        - generic [ref=e21]:
+          - generic [ref=e22]:
+            - text: Email
+            - generic [ref=e23]:
+              - img [ref=e24]
+              - textbox "Email" [ref=e27]:
+                - /placeholder: john@example.com
+          - generic [ref=e28]:
+            - generic [ref=e30]: Password
+            - generic [ref=e31]:
+              - img [ref=e32]
+              - textbox "Password" [ref=e35]:
+                - /placeholder: Enter your password
+              - button [ref=e36] [cursor=pointer]:
+                - img [ref=e37]
+          - generic [ref=e40]:
+            - generic [ref=e41]:
+              - checkbox "Remember me for 30 days" [ref=e42] [cursor=pointer]
+              - checkbox
+              - generic [ref=e43]: Remember me for 30 days
+            - link "Forgot password?" [ref=e44] [cursor=pointer]:
+              - /url: /forgot-password
+          - button "Sign In" [ref=e45] [cursor=pointer]
+        - generic [ref=e46]:
+          - text: Don't have an account?
+          - link "Create account" [ref=e47] [cursor=pointer]:
+            - /url: /signup
+    - paragraph [ref=e49]: © 2024 Narrata. All rights reserved.
+```

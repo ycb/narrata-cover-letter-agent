@@ -251,7 +251,12 @@ ${jobContext.keywords ? `- Key Requirements: ${jobContext.keywords.join(', ')}` 
 
 **Gap to Address**:
 - Issue: ${gap.description}
-- Suggestion: ${gap.suggestions && gap.suggestions.length > 0 ? gap.suggestions.join('; ') : 'Make content more specific and compelling'}
+- Suggestion: ${gap.suggestions && gap.suggestions.length > 0 ? gap.suggestions.join('; ') : gap.suggestion || 'Make content more specific and compelling'}
+${gap.gaps && gap.gaps.length > 0 ? `
+**Specific Issues to Address**:
+${gap.gaps.map((g, idx) => `${idx + 1}. ${g.title || g.id}: ${g.description}`).join('\n')}
+` : ''}
+${gap.gapSummary ? `**Summary**: ${gap.gapSummary}` : ''}
 
 **Existing Content**:
 ${existingContent || 'No existing content'}

@@ -53,6 +53,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import LinkedInCallback from "./pages/LinkedInCallback";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
+import JobCleaningTest from "./pages/JobCleaningTest";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -214,6 +215,12 @@ function AppLayout() {
           <ProtectedRoute>
             <Header />
             <EvaluationDashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/dev/job-cleaning" element={
+          <ProtectedRoute>
+            <Header />
+            <JobCleaningTest />
           </ProtectedRoute>
         } />
         <Route path="/signup" element={<ProtectedRoute requireAuth={false}><SignUp /></ProtectedRoute>} />

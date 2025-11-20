@@ -25,6 +25,8 @@ import {
 import CoverLetterCreateModal from "@/components/cover-letters/CoverLetterCreateModal";
 import { CoverLetterViewModal } from "@/components/cover-letters/CoverLetterViewModal";
 import { CoverLetterEditModal } from "@/components/cover-letters/CoverLetterEditModal";
+import { UserGoalsModal } from "@/components/user-goals/UserGoalsModal";
+import { AddStoryModal } from "@/components/work-history/AddStoryModal";
 import { useTour } from "@/contexts/TourContext";
 import { TourBannerFull } from "@/components/onboarding/TourBannerFull";
 import { useAuth } from "@/contexts/AuthContext";
@@ -77,6 +79,7 @@ interface ModalCoverLetterPayload extends CoverLetterListItem {
     }>;
   };
   jobDescription: string;
+  enhancedMatchData?: import('@/types/coverLetters').EnhancedMatchData; // Agent C: detailed match data
 }
 
 const parseAtsScore = (feedback: Record<string, unknown> | null): number | null => {
@@ -190,10 +193,15 @@ const toModalPayload = (coverLetter: CoverLetterListItem): ModalCoverLetterPaylo
     };
   });
 
+  // Agent C: Extract enhancedMatchData from llmFeedback
+  const enhancedMatchData = coverLetter.llmFeedback?.enhancedMatchData as 
+    import('@/types/coverLetters').EnhancedMatchData | undefined;
+
   return {
     ...coverLetter,
     content: { sections },
-    jobDescription: coverLetter.jobDescriptionContent
+    jobDescription: coverLetter.jobDescriptionContent,
+    enhancedMatchData, // Agent C: pass through to modals
   };
 };
 
@@ -241,15 +249,29 @@ export default function CoverLetters() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | CoverLetterStatus>("all");
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  // Persist modal state in sessionStorage to prevent loss on tab switch
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(() => {
+    const saved = sessionStorage.getItem('coverLetterCreateModalOpen');
+    return saved === 'true';
+  });
+
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isGoalsModalOpen, setIsGoalsModalOpen] = useState(false); // Agent C: goals CTA
+  const [isAddStoryModalOpen, setIsAddStoryModalOpen] = useState(false); // Agent C: add story CTA
+  const [storyCTAContext, setStoryCTAContext] = useState<{requirement?: string; severity?: string} | null>(null);
   const [selectedCoverLetter, setSelectedCoverLetter] = useState<CoverLetterListItem | null>(null);
   const [coverLetters, setCoverLetters] = useState<CoverLetterListItem[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const mountedRef = useRef(true);
+
+  // Persist create modal state to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem('coverLetterCreateModalOpen', String(isCreateModalOpen));
+  }, [isCreateModalOpen]);
 
   const fetchCoverLetters = useCallback(async () => {
     if (!user?.id) {
@@ -377,6 +399,46 @@ export default function CoverLetters() {
   const handleEdit = (coverLetter: CoverLetterListItem) => {
     setSelectedCoverLetter(coverLetter);
     setIsEditModalOpen(true);
+  };
+
+  // Agent C: Handler for "Edit Goals" CTA
+  const handleEditGoals = () => {
+    setIsGoalsModalOpen(true);
+  };
+
+  const handleGoalsSaved = async () => {
+    setIsGoalsModalOpen(false);
+    // Optionally refresh data to show updated goals
+    await fetchCoverLetters();
+  };
+
+  // Agent C: Handler for "Add Story" CTA
+  const handleAddStory = (requirement?: string, severity?: string) => {
+    setStoryCTAContext({ requirement, severity });
+    setIsAddStoryModalOpen(true);
+  };
+
+  const handleStorySaved = async (story: any) => {
+    console.log('Story saved:', story);
+    setIsAddStoryModalOpen(false);
+    setStoryCTAContext(null);
+    // TODO: Optionally show success toast
+    // Optionally refresh data to show new story in experience matching
+    await fetchCoverLetters();
+  };
+
+  // Agent C: Handler for "Enhance Section" CTA
+  const handleEnhanceSection = (sectionId: string, requirement?: string) => {
+    console.log('Enhance section:', sectionId, 'for requirement:', requirement);
+    // This will be handled by the edit modal itself
+    // Just pass the handler through so components can trigger it
+  };
+
+  // Agent C: Handler for "Add Metrics" CTA
+  const handleAddMetrics = (sectionId?: string) => {
+    console.log('Add metrics to section:', sectionId);
+    // This will be handled by the edit modal itself
+    // Just pass the handler through so components can trigger it
   };
 
   const modalPayload = selectedCoverLetter ? toModalPayload(selectedCoverLetter) : null;
@@ -619,7 +681,11 @@ export default function CoverLetters() {
 
       <CoverLetterCreateModal
         isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
+        onClose={async () => {
+          setIsCreateModalOpen(false);
+          // Refresh list in case a draft was created
+          await fetchCoverLetters();
+        }}
         onCoverLetterCreated={handleCoverLetterCreated}
       />
       
@@ -627,12 +693,33 @@ export default function CoverLetters() {
         isOpen={isViewModalOpen}
         onClose={() => setIsViewModalOpen(false)}
         coverLetter={modalPayload}
+        onEditGoals={handleEditGoals}
+        onAddStory={handleAddStory}
+        onEnhanceSection={handleEnhanceSection}
+        onAddMetrics={handleAddMetrics}
       />
       
       <CoverLetterEditModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         coverLetter={modalPayload}
+        onEditGoals={handleEditGoals}
+        onAddStory={handleAddStory}
+        onEnhanceSection={handleEnhanceSection}
+        onAddMetrics={handleAddMetrics}
+      />
+
+      <UserGoalsModal
+        isOpen={isGoalsModalOpen}
+        onClose={() => setIsGoalsModalOpen(false)}
+        onSave={handleGoalsSaved}
+      />
+
+      <AddStoryModal
+        open={isAddStoryModalOpen}
+        onOpenChange={setIsAddStoryModalOpen}
+        onSave={handleStorySaved}
+        isViewAllContext={true}
       />
       
       {isTourActive && (

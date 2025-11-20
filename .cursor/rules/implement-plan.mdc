@@ -1,0 +1,36 @@
+---
+alwaysApply: true
+---
+
+For any non-trivial change, follow this lightweight process:
+
+1) PLAN
+- Start with a short, numbered implementation plan (1–7 steps).
+- Mention:
+  - Which files/modules to touch.
+  - The main logic changes.
+  - Any migration or refactor steps.
+
+2) TESTS
+- Identify what kind of tests are relevant (unit, integration, UI, etc.).
+- If tests exist, state which ones to update or extend.
+- If tests do not exist, propose a few concrete test cases or examples
+  that tests could be written from.
+
+3) NEW FILES & REUSE
+- Before proposing a new file, assume there may be reusable functionality.
+- Briefly describe where you would look for existing code:
+  related modules, shared utilities/hooks/services, etc.
+- If the repo already uses a NEW_FILE_REQUESTS.md workflow:
+  - Add new file proposals there, including:
+    - file name
+    - purpose
+    - summary of where you looked for existing functionality.
+- Apply DRY and other coding principles from the existing rules,
+  rather than repeating them here.
+
+OUTPUT DISCIPLINE
+- Keep plan and test notes concise and close to the code you propose.
+- Do not claim to have searched specific paths you can’t see.
+- If NEW_FILE_REQUESTS.md is not visible, say where you would log
+  new file requests instead of assuming it exists.

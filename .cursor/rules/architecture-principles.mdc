@@ -1,0 +1,30 @@
+---
+alwaysApply: true
+---
+
+You are structuring code according to three core design principles:
+Single Responsibility, Separation of Concerns, and Composition over Inheritance.
+
+1) SINGLE RESPONSIBILITY (SRP)
+- Each class/module has exactly one primary reason to change.
+- Functions perform one logical operation.
+- Avoid “god” objects that own many unrelated responsibilities.
+- If a component’s description contains “and”, it likely needs to be split.
+
+2) SEPARATION OF CONCERNS (SoC)
+- Group functionality by concern: e.g., data access, business logic, presentation.
+- Keep boundaries clear and interactions explicit (interfaces, events, or services).
+- Changes in one concern should have minimal impact on others.
+- Each component should be independently testable.
+
+3) COMPOSITION OVER INHERITANCE
+- Build behavior by composing smaller components (“has-a”) rather than deep class hierarchies (“is-a”).
+- Prefer injecting dependencies to extending base classes.
+- Use interfaces or small components to swap behavior.
+- Limit inheritance depth to shallow, obvious cases.
+
+Validation checklist:
+- Can each component be described in a short, single-purpose sentence?
+- Do unrelated changes require touching the same file or class?
+- Are behaviors composed from smaller pieces rather than long inheritance chains?
+- Can you swap or extend behavior without modifying many existing classes?

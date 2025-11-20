@@ -1,12 +1,14 @@
 import React from 'react';
 import { FullWidthTooltip } from '@/components/ui/full-width-tooltip';
-import { Check, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Check, X, Wand2, TrendingUp, HelpCircle } from 'lucide-react';
 
 interface Requirement {
   id: string;
-  text: string;
+  requirement: string; // Changed from 'text' to match RequirementsMatchService
   demonstrated: boolean;
   evidence?: string;
+  section?: string; // Which section mentions this requirement
 }
 
 interface RequirementsTooltipProps {
@@ -15,64 +17,91 @@ interface RequirementsTooltipProps {
   title: string;
   requirements: Requirement[];
   description?: string;
+  onEnhanceSection?: (sectionId: string, requirement?: string) => void; // Agent C: enhance section CTA
+  onAddMetrics?: (sectionId?: string) => void; // Agent C: add metrics CTA
 }
 
-export function RequirementsTooltip({ 
-  children, 
+export function RequirementsTooltip({
+  children,
   className,
   title,
   requirements,
-  description
+  description,
+  onEnhanceSection,
+  onAddMetrics
 }: RequirementsTooltipProps) {
   const content = (
     <div className="space-y-3">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Left side - Requirements */}
-        <div className="space-y-2">
-          {requirements.map((req) => (
-            <div key={req.id} className={`flex items-center gap-2 p-2 rounded ${req.demonstrated ? 'bg-success/10' : 'bg-destructive/10'}`}>
-              <div className="flex-shrink-0">
-                {req.demonstrated ? (
-                  <Check className="h-3 w-3 text-success" />
-                ) : (
-                  <X className="h-3 w-3 text-destructive" />
+      {requirements.length === 0 ? (
+        <div className="border rounded-lg p-3 bg-muted/10 border-muted/40">
+          <div className="flex items-start gap-2 mb-1.5">
+            <div className="flex-shrink-0 mt-0.5">
+              <HelpCircle className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-sm font-medium text-muted-foreground">
+                {title?.toLowerCase().includes('preferred')
+                  ? 'Preferred Requirements: Unknown'
+                  : 'Requirements: Unknown'}
+              </h4>
+            </div>
+          </div>
+        </div>
+      ) : requirements.map((req) => (
+        <div
+          key={req.id}
+          className={`border rounded-lg p-3 ${req.demonstrated ? 'bg-success/10 border-success/20' : 'bg-destructive/10 border-destructive/20'}`}
+        >
+          {/* Requirement as title */}
+          <div className="flex items-start gap-2 mb-2">
+            <div className="flex-shrink-0 mt-0.5">
+              {req.demonstrated ? (
+                <Check className="h-4 w-4 text-success" />
+              ) : (
+                <X className="h-4 w-4 text-destructive" />
+              )}
+            </div>
+            <h4 className="text-sm font-medium text-foreground flex-1">
+              {req.requirement}
+            </h4>
+          </div>
+
+          {/* Evidence as body */}
+          <div className="ml-6 space-y-2">
+            <p className={`text-xs ${req.demonstrated ? 'text-foreground/80' : 'text-muted-foreground'}`}>
+              {req.evidence || (req.demonstrated ? 'Mentioned in draft' : 'Not mentioned in current draft')}
+            </p>
+            
+            {/* CTAs for demonstrated requirements */}
+            {req.demonstrated && (
+              <div className="flex gap-2">
+                {onEnhanceSection && req.section && (
+                  <Button 
+                    size="sm" 
+                    variant="secondary"
+                    className="h-7 text-xs"
+                    onClick={() => onEnhanceSection(req.section!, req.requirement)}
+                  >
+                    <Wand2 className="h-3 w-3 mr-1" />
+                    Enhance This Section
+                  </Button>
+                )}
+                {onAddMetrics && req.section && (
+                  <Button 
+                    size="sm" 
+                    variant="secondary"
+                    className="h-7 text-xs"
+                    onClick={() => onAddMetrics(req.section)}
+                  >
+                    <TrendingUp className="h-3 w-3 mr-1" />
+                    Add Metrics
+                  </Button>
                 )}
               </div>
-              <div className="flex-1 min-w-0">
-                <span className="text-sm text-gray-900">
-                  {req.text}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-
-                  {/* Right side - Evidence/Status */}
-          <div className="space-y-2">
-            {requirements.map((req) => (
-              <div key={req.id} className={`flex items-center gap-2 p-2 rounded ${req.demonstrated ? 'bg-success/10' : 'bg-destructive/10'}`}>
-                <div className="flex-shrink-0">
-                  {req.demonstrated ? (
-                    <Check className="h-3 w-3 text-success" />
-                  ) : (
-                    <X className="h-3 w-3 text-destructive" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  {req.evidence ? (
-                    <span className={`text-sm ${req.demonstrated ? 'text-gray-700' : 'text-gray-500'}`}>
-                      {req.evidence}
-                    </span>
-                  ) : (
-                    <span className={`text-sm ${req.demonstrated ? 'text-gray-700' : 'text-gray-500'}`}>
-                      {req.demonstrated ? 'Demonstrated' : 'Not demonstrated'}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
+            )}
           </div>
-      </div>
+        </div>
+      ))}
     </div>
   );
 
@@ -86,61 +115,3 @@ export function RequirementsTooltip({
   );
 }
 
-// Helper function to create mock requirements data
-export function createMockRequirements(type: 'core' | 'preferred'): Requirement[] {
-  if (type === 'core') {
-    return [
-      {
-        id: 'core-1',
-        text: 'JavaScript proficiency',
-        demonstrated: false,
-        evidence: 'JavaScript experience not clearly demonstrated'
-      },
-      {
-        id: 'core-2',
-        text: 'React development experience',
-        demonstrated: true,
-        evidence: 'Highlighted React projects and component development'
-      },
-      {
-        id: 'core-3',
-        text: 'Node.js backend development',
-        demonstrated: false,
-        evidence: 'Limited Node.js experience mentioned'
-      },
-      {
-        id: 'core-4',
-        text: 'API design and integration',
-        demonstrated: true,
-        evidence: 'API integration experience mentioned'
-      }
-    ];
-  } else {
-    return [
-      {
-        id: 'pref-1',
-        text: 'Python programming experience',
-        demonstrated: false,
-        evidence: 'Python experience not mentioned in current draft'
-      },
-      {
-        id: 'pref-2',
-        text: 'Leadership and team management',
-        demonstrated: false,
-        evidence: 'No team leadership experience highlighted'
-      },
-      {
-        id: 'pref-3',
-        text: 'Metrics and KPI tracking',
-        demonstrated: false,
-        evidence: 'Quantifiable achievements need more emphasis'
-      },
-      {
-        id: 'pref-4',
-        text: 'Agile methodology experience',
-        demonstrated: true,
-        evidence: 'Mentioned working in agile development teams'
-      }
-    ];
-  }
-}

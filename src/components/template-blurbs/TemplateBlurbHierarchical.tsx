@@ -12,6 +12,8 @@ import { ContentCard } from "@/components/shared/ContentCard";
 import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { generateGapSummary } from "@/utils/gapSummaryGenerator";
+import { useMemo } from "react";
 
 interface TemplateBlurb {
   id: string;
@@ -41,7 +43,9 @@ interface TemplateBlurbHierarchicalProps {
   onSelectBlurb: (blurb: TemplateBlurb) => void;
   onCreateBlurb: (type?: 'intro' | 'paragraph' | 'closer' | 'signature' | string) => void;
   onEditBlurb: (blurb: TemplateBlurb) => void;
+  onEditSectionLabel?: (type: string, currentLabel: string) => void; // Edit parent section label only
   onDeleteBlurb: (blurbId: string) => void;
+  onDeleteSection?: (type: string) => void; // Delete entire section
   onGenerateContent?: (blurb: TemplateBlurb) => void;
   onTagSuggestions?: (blurb: TemplateBlurb) => void;
   resolvedGaps?: Set<string>;
@@ -62,7 +66,9 @@ export const TemplateBlurbHierarchical = ({
   onSelectBlurb,
   onCreateBlurb,
   onEditBlurb,
+  onEditSectionLabel,
   onDeleteBlurb,
+  onDeleteSection,
   onGenerateContent,
   onTagSuggestions,
   resolvedGaps = new Set(),
@@ -328,15 +334,15 @@ export const TemplateBlurbHierarchical = ({
                         </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
                             <DropdownMenuItem
-                              disabled={isDefaultType || !firstBlurb}
-                              onClick={() => firstBlurb && onEditBlurb(firstBlurb)}
+                              disabled={isDefaultType || !onEditSectionLabel}
+                              onClick={() => onEditSectionLabel?.(group.type, group.label)}
                             >
                             <Edit className="mr-2 h-4 w-4" />
                             Edit Section
                           </DropdownMenuItem>
-                          <DropdownMenuItem 
-                              disabled={isDefaultType || !firstBlurb}
-                              onClick={() => firstBlurb && onDeleteBlurb(firstBlurb.id)}
+                          <DropdownMenuItem
+                              disabled={isDefaultType || !onDeleteSection}
+                              onClick={() => onDeleteSection?.(group.type)}
                             className="text-destructive"
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
@@ -360,9 +366,15 @@ export const TemplateBlurbHierarchical = ({
                       const gaps = blurbHasGaps
                         ? blurbGapCategories.map((category, index) => ({
                             id: `blurb-gap-${blurb.id}-${index}`,
-                            description: formatGapCategory(category)
+                            description: formatGapCategory(category),
+                            gap_category: category // Preserve category for gapSummary generation
                           }))
                         : [];
+
+                      // Generate gapSummary from gap categories
+                      const gapSummary = blurbHasGaps && blurbGapCategories.length > 0
+                        ? generateGapSummary(blurbGapCategories, 'saved_section')
+                        : null;
 
                     return (
                       <React.Fragment key={blurb.id}>
@@ -374,6 +386,7 @@ export const TemplateBlurbHierarchical = ({
                           lastUsed={blurb.lastUsed}
                           hasGaps={blurbHasGaps}
                           gaps={gaps}
+                          gapSummary={gapSummary}
                           isGapResolved={resolvedGaps.has(`blurb-gap-${blurb.id}`)}
                           onGenerateContent={onGenerateContent ? () => onGenerateContent(blurb) : undefined}
                           onDismissGap={blurbHasGaps ? () => {
