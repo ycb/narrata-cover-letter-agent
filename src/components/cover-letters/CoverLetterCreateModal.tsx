@@ -1132,7 +1132,9 @@ export const CoverLetterCreateModal = ({
                       // Pass through rich gap structure from ContentCard
                       gaps: gapObjects,
                       ratingCriteriaGaps: gapsFromRating,
-                      gapSummary: cleanGapSummary
+                      gapSummary: cleanGapSummary,
+                      // Pass section attribution to show what's working in HIL
+                      sectionAttribution: hasAttributionData ? sectionAttribution : undefined
                     });
                   } else {
                     // Create synthetic gap for HIL flow when no gaps exist
@@ -1140,7 +1142,7 @@ export const CoverLetterCreateModal = ({
                     if (gapsFromRating.length > 0) {
                       gapSummaryParts.push(`${gapsFromRating.length} content quality criteria: ${gapsFromRating.map(g => g.title).join(', ')}`);
                     }
-                    
+
                     setSelectedGap({
                       id: `section-${section.id}-enhancement`,
                       type: 'content-enhancement',
@@ -1152,7 +1154,9 @@ export const CoverLetterCreateModal = ({
                       paragraphId: paragraphId,
                       existingContent: existingContent,
                       ratingCriteriaGaps: gapsFromRating,
-                      gapSummary: gapSummaryParts.length > 0 ? gapSummaryParts.join(' • ') : null
+                      gapSummary: gapSummaryParts.length > 0 ? gapSummaryParts.join(' • ') : null,
+                      // Pass section attribution to show what's working in HIL
+                      sectionAttribution: hasAttributionData ? sectionAttribution : undefined
                     });
                   }
                   setShowContentGenerationModal(true);
@@ -1351,7 +1355,9 @@ export const CoverLetterCreateModal = ({
           // Pass through rich gap structure
           gaps: selectedGap.gaps,
           gapSummary: selectedGap.gapSummary,
-          ratingCriteriaGaps: selectedGap.ratingCriteriaGaps
+          ratingCriteriaGaps: selectedGap.ratingCriteriaGaps,
+          // Pass section attribution to show what's working in HIL
+          sectionAttribution: selectedGap.sectionAttribution
         } : null}
         onApplyContent={async (content: string) => {
           if (!selectedGap || !draft) return;

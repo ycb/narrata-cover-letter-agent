@@ -24,6 +24,8 @@ export interface Gap {
   gapSummary?: string | null;
   // Rating criteria gaps stored separately from requirement gaps
   ratingCriteriaGaps?: Array<{ id: string; title?: string; description: string }>;
+  // Section attribution (for cover letters only - shows what requirements/standards are met)
+  sectionAttribution?: import('../components/cover-letters/SectionInspector').SectionAttributionData;
 }
 
 export class GapTransformService {
