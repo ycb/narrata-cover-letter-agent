@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, Check, X } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Collapsible,
@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/collapsible';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { RequirementItem } from './RequirementItem';
 
 export interface SectionAttributionData {
   coreReqs: {
@@ -94,147 +95,56 @@ export function SectionInspector({ data, className, isLoading = false, defaultOp
 
       <CollapsibleContent className="mt-4">
         <Tabs defaultValue="core" className="w-full">
-          <TabsList className="w-full">
-            <TabsTrigger value="core" className="flex-1">
-              Core Requirements
-              <Badge variant="outline" className="ml-2 text-xs">
-                {coreMetCount}/{totalCoreReqs}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger value="pref" className="flex-1">
-              Preferred Requirements
-              <Badge variant="outline" className="ml-2 text-xs">
-                {prefMetCount}/{totalPrefReqs}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger value="standards" className="flex-1">
-              Content Standards
-              <Badge variant="outline" className="ml-2 text-xs">
-                {standardsMetCount}/{totalStandards}
-              </Badge>
-            </TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto -mx-3 px-3">
+            <TabsList className="w-full min-w-max">
+              <TabsTrigger value="core" className="flex-1 min-w-fit whitespace-nowrap px-2 sm:px-4">
+                <span className="hidden md:inline">Core Requirements</span>
+                <span className="md:hidden">Core</span>
+                <Badge variant="outline" className="ml-1 sm:ml-2 text-xs">
+                  {coreMetCount}/{totalCoreReqs}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="pref" className="flex-1 min-w-fit whitespace-nowrap px-2 sm:px-4">
+                <span className="hidden md:inline">Preferred Requirements</span>
+                <span className="md:hidden">Preferred</span>
+                <Badge variant="outline" className="ml-1 sm:ml-2 text-xs">
+                  {prefMetCount}/{totalPrefReqs}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="standards" className="flex-1 min-w-fit whitespace-nowrap px-2 sm:px-4">
+                <span className="hidden md:inline">Content Standards</span>
+                <span className="md:hidden">Standards</span>
+                <Badge variant="outline" className="ml-1 sm:ml-2 text-xs">
+                  {standardsMetCount}/{totalStandards}
+                </Badge>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="core" className="space-y-1">
             {data.coreReqs.met.map((req) => (
-              <div key={req.id} className="p-2 flex items-center gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="mb-1.5">
-                    <h4 className="text-sm font-medium text-foreground">{req.label}</h4>
-                  </div>
-                  {req.evidence && (
-                    <div className="text-xs">
-                      <div>
-                        <span className="font-medium text-foreground/90">Status:</span>{' '}
-                        <span className="text-foreground/80">{req.evidence}</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div className="flex-shrink-0 p-2 flex items-center gap-2">
-                  <Check className="h-4 w-4 text-success" />
-                </div>
-              </div>
+              <RequirementItem key={req.id} label={req.label} type="met" evidence={req.evidence} />
             ))}
             {data.coreReqs.unmet.map((req) => (
-              <div key={req.id} className="p-2 flex items-center gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="mb-1.5">
-                    <h4 className="text-sm font-medium text-foreground">{req.label}</h4>
-                  </div>
-                  <div className="text-xs">
-                    <div>
-                      <span className="font-medium text-foreground/90">Status:</span>{' '}
-                      <span className="text-foreground/80">Not mentioned in draft.</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex-shrink-0 p-2 flex items-center gap-2">
-                  <X className="h-4 w-4 text-muted-foreground" />
-                </div>
-              </div>
+              <RequirementItem key={req.id} label={req.label} type="unmet" />
             ))}
           </TabsContent>
 
           <TabsContent value="pref" className="space-y-1">
             {data.prefReqs.met.map((req) => (
-              <div key={req.id} className="p-2 flex items-center gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="mb-1.5">
-                    <h4 className="text-sm font-medium text-foreground">{req.label}</h4>
-                  </div>
-                  {req.evidence && (
-                    <div className="text-xs">
-                      <div>
-                        <span className="font-medium text-foreground/90">Status:</span>{' '}
-                        <span className="text-foreground/80">{req.evidence}</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div className="flex-shrink-0 p-2 flex items-center gap-2">
-                  <Check className="h-4 w-4 text-success" />
-                </div>
-              </div>
+              <RequirementItem key={req.id} label={req.label} type="met" evidence={req.evidence} />
             ))}
             {data.prefReqs.unmet.map((req) => (
-              <div key={req.id} className="p-2 flex items-center gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="mb-1.5">
-                    <h4 className="text-sm font-medium text-foreground">{req.label}</h4>
-                  </div>
-                  <div className="text-xs">
-                    <div>
-                      <span className="font-medium text-foreground/90">Status:</span>{' '}
-                      <span className="text-foreground/80">Not mentioned in draft.</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex-shrink-0 p-2 flex items-center gap-2">
-                  <X className="h-4 w-4 text-muted-foreground" />
-                </div>
-              </div>
+              <RequirementItem key={req.id} label={req.label} type="unmet" />
             ))}
           </TabsContent>
 
           <TabsContent value="standards" className="space-y-1">
             {data.standards.met.map((standard) => (
-              <div key={standard.id} className="p-2 flex items-center gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="mb-1.5">
-                    <h4 className="text-sm font-medium text-foreground">{standard.label}</h4>
-                  </div>
-                  {standard.evidence && (
-                    <div className="text-xs">
-                      <div>
-                        <span className="font-medium text-foreground/90">Status:</span>{' '}
-                        <span className="text-foreground/80">{standard.evidence}</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div className="flex-shrink-0 p-2 flex items-center gap-2">
-                  <Check className="h-4 w-4 text-success" />
-                </div>
-              </div>
+              <RequirementItem key={standard.id} label={standard.label} type="met" evidence={standard.evidence} />
             ))}
             {data.standards.unmet.map((standard) => (
-              <div key={standard.id} className="p-2 flex items-center gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="mb-1.5">
-                    <h4 className="text-sm font-medium text-foreground">{standard.label}</h4>
-                  </div>
-                  <div className="text-xs">
-                    <div>
-                      <span className="font-medium text-foreground/90">Suggestion:</span>{' '}
-                      <span className="text-foreground/80">{standard.suggestion || 'Not mentioned in draft.'}</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex-shrink-0 p-2 flex items-center gap-2">
-                  <X className="h-4 w-4 text-muted-foreground" />
-                </div>
-              </div>
+              <RequirementItem key={standard.id} label={standard.label} type="unmet" suggestion={standard.suggestion || 'Not mentioned in draft.'} />
             ))}
           </TabsContent>
         </Tabs>

@@ -178,6 +178,88 @@ When generating content, ensure it:
 `;
     }
 
+    // Add section attribution context if present (what's working vs what's missing)
+    if (gap.sectionAttribution) {
+      const { coreReqs, prefReqs, standards } = gap.sectionAttribution;
+
+      // Calculate totals
+      const totalCoreMet = coreReqs.met.length;
+      const totalCoreUnmet = coreReqs.unmet.length;
+      const totalPrefMet = prefReqs.met.length;
+      const totalPrefUnmet = prefReqs.unmet.length;
+      const totalStandardsMet = standards.met.length;
+      const totalStandardsUnmet = standards.unmet.length;
+
+      prompt += `
+**Section Attribution Analysis:**
+
+CRITICAL: This section already addresses some requirements successfully. Your enhanced content MUST preserve these matches while addressing gaps.
+
+**✓ What's Working - PRESERVE THESE:**
+`;
+
+      // Core Requirements Met
+      if (totalCoreMet > 0) {
+        prompt += `
+Core Requirements Met (${totalCoreMet}/${totalCoreMet + totalCoreUnmet}):
+${coreReqs.met.map(req => `- ${req.label}\n  Evidence: ${req.evidence || 'Addressed in section'}`).join('\n')}
+`;
+      }
+
+      // Preferred Requirements Met
+      if (totalPrefMet > 0) {
+        prompt += `
+Preferred Requirements Met (${totalPrefMet}/${totalPrefMet + totalPrefUnmet}):
+${prefReqs.met.map(req => `- ${req.label}\n  Evidence: ${req.evidence || 'Addressed in section'}`).join('\n')}
+`;
+      }
+
+      // Content Standards Met
+      if (totalStandardsMet > 0) {
+        prompt += `
+Content Standards Met (${totalStandardsMet}/${totalStandardsMet + totalStandardsUnmet}):
+${standards.met.map(std => `- ${std.label}\n  Evidence: ${std.evidence || 'Standard satisfied'}`).join('\n')}
+`;
+      }
+
+      prompt += `
+**✗ What's Missing - ADDRESS THESE:**
+`;
+
+      // Core Requirements Unmet
+      if (totalCoreUnmet > 0) {
+        prompt += `
+Core Requirements Not Yet Addressed:
+${coreReqs.unmet.map(req => `- ${req.label}`).join('\n')}
+`;
+      }
+
+      // Preferred Requirements Unmet
+      if (totalPrefUnmet > 0) {
+        prompt += `
+Preferred Requirements Not Yet Addressed:
+${prefReqs.unmet.map(req => `- ${req.label}`).join('\n')}
+`;
+      }
+
+      // Content Standards Unmet
+      if (totalStandardsUnmet > 0) {
+        prompt += `
+Content Standards Not Yet Met:
+${standards.unmet.map(std => `- ${std.label}${std.suggestion ? `\n  Suggestion: ${std.suggestion}` : ''}`).join('\n')}
+`;
+      }
+
+      prompt += `
+**INSTRUCTIONS FOR ENHANCEMENT:**
+1. PRESERVE: Keep content that satisfies the requirements/standards marked as "met" above
+2. You may rephrase or improve met requirements, but DO NOT remove or invalidate the match
+3. EXPAND: Add new content to address the unmet requirements/standards
+4. INTEGRATE: Blend the preserved and new content into a cohesive, natural paragraph
+5. DO NOT go backwards - if a requirement is marked as met, the enhanced content must still meet it
+`;
+    }
+
     prompt += `
 **Output Format:**
 Provide ONLY the new/improved content paragraph. Do not include:
