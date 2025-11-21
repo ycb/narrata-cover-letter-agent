@@ -8,7 +8,7 @@ import { Sparkles, RefreshCw, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { ContentGapBanner } from '@/components/shared/ContentGapBanner';
 import type { Gap } from '@/services/gapTransformService';
-import type { SectionAttributionData } from '@/components/cover-letters/SectionInspector';
+import { SectionInspector, type SectionAttributionData } from '@/components/cover-letters/SectionInspector';
 
 interface GapAnalysis {
   id: string;
@@ -273,93 +273,8 @@ export function ContentGenerationModal({
                   gap.sectionAttribution.standards.met.length > 0
                 ) && (
                   <div className="mt-4 pt-4 border-t border-border/30">
-                    <h4 className="text-sm font-semibold mb-3 text-success flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4" />
-                      What's Working in This Section
-                    </h4>
-                    <div className="space-y-3">
-                      {gap.sectionAttribution.coreReqs.met.length > 0 && (
-                        <div>
-                          <div className="font-medium text-foreground mb-2">Core Requirements Met ({gap.sectionAttribution.coreReqs.met.length})</div>
-                          <div className="space-y-1">
-                            {gap.sectionAttribution.coreReqs.met.map((req) => (
-                              <div key={req.id} className="p-2 flex items-center gap-2">
-                                <div className="flex-1 min-w-0">
-                                  <div className="mb-1.5">
-                                    <h4 className="text-sm font-medium text-foreground">{req.label}</h4>
-                                  </div>
-                                  {req.evidence && (
-                                    <div className="text-xs">
-                                      <div>
-                                        <span className="font-medium text-foreground/90">Status:</span>{' '}
-                                        <span className="text-foreground/80">{req.evidence}</span>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="flex-shrink-0 p-2 flex items-center gap-2">
-                                  <CheckCircle className="h-4 w-4 text-success" />
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {gap.sectionAttribution.prefReqs.met.length > 0 && (
-                        <div>
-                          <div className="font-medium text-foreground mb-2">Preferred Requirements Met ({gap.sectionAttribution.prefReqs.met.length})</div>
-                          <div className="space-y-1">
-                            {gap.sectionAttribution.prefReqs.met.map((req) => (
-                              <div key={req.id} className="p-2 flex items-center gap-2">
-                                <div className="flex-1 min-w-0">
-                                  <div className="mb-1.5">
-                                    <h4 className="text-sm font-medium text-foreground">{req.label}</h4>
-                                  </div>
-                                  {req.evidence && (
-                                    <div className="text-xs">
-                                      <div>
-                                        <span className="font-medium text-foreground/90">Status:</span>{' '}
-                                        <span className="text-foreground/80">{req.evidence}</span>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="flex-shrink-0 p-2 flex items-center gap-2">
-                                  <CheckCircle className="h-4 w-4 text-success" />
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {gap.sectionAttribution.standards.met.length > 0 && (
-                        <div>
-                          <div className="font-medium text-foreground mb-2">Content Standards Met ({gap.sectionAttribution.standards.met.length})</div>
-                          <div className="space-y-1">
-                            {gap.sectionAttribution.standards.met.map((standard) => (
-                              <div key={standard.id} className="p-2 flex items-center gap-2">
-                                <div className="flex-1 min-w-0">
-                                  <div className="mb-1.5">
-                                    <h4 className="text-sm font-medium text-foreground">{standard.label}</h4>
-                                  </div>
-                                  {standard.evidence && (
-                                    <div className="text-xs">
-                                      <div>
-                                        <span className="font-medium text-foreground/90">Status:</span>{' '}
-                                        <span className="text-foreground/80">{standard.evidence}</span>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="flex-shrink-0 p-2 flex items-center gap-2">
-                                  <CheckCircle className="h-4 w-4 text-success" />
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    {/* Use actual SectionInspector component - no DRY violation, starts collapsed */}
+                    <SectionInspector data={gap.sectionAttribution} />
                   </div>
                 )}
 

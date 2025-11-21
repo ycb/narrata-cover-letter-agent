@@ -28,6 +28,7 @@ interface SectionInspectorProps {
   data?: SectionAttributionData; // Optional: undefined during streaming (shows skeleton)
   className?: string;
   isLoading?: boolean; // Explicit loading state
+  defaultOpen?: boolean; // Whether to start expanded (default: false)
 }
 
 /**
@@ -37,8 +38,8 @@ interface SectionInspectorProps {
  * Used in cover letter content cards to give user visibility into
  * what's working without opening HIL modal
  */
-export function SectionInspector({ data, className, isLoading = false }: SectionInspectorProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function SectionInspector({ data, className, isLoading = false, defaultOpen = false }: SectionInspectorProps) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
 
   // Determine if we're in skeleton state (no data OR explicitly loading)
   const showSkeleton = !data || isLoading;

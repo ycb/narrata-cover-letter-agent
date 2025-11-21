@@ -476,14 +476,11 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
                       
                       console.log('[CoverLetterEditModal] gapsFromRating:', gapsFromRating);
 
-                      // Keep requirement gaps and rating criteria gaps separate
-                      const gapSummaryParts: string[] = [];
-                      if (requirementGaps.length > 0) {
-                        gapSummaryParts.push(`${requirementGaps.length} requirement gap${requirementGaps.length > 1 ? 's' : ''}`);
-                      }
-                      if (gapsFromRating.length > 0) {
-                        gapSummaryParts.push(`${gapsFromRating.length} content quality criteria: ${gapsFromRating.map(g => g.title).join(', ')}`);
-                      }
+                      // Use promptSummary from sectionInsight if available (matches ContentCard pattern)
+                      // Strip trailing periods for consistency with CreateModal
+                      const cleanGapSummary = sectionInsight?.promptSummary
+                        ? sectionInsight.promptSummary.replace(/\.+$/, '')
+                        : null;
 
                       // Compute section attribution for HIL modal
                       const { attribution: sectionAttribution } = computeSectionAttribution({
@@ -506,7 +503,7 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
                         // Store requirement gaps and rating criteria gaps separately
                         gaps: requirementGaps,
                         ratingCriteriaGaps: gapsFromRating,
-                        gapSummary: gapSummaryParts.length > 0 ? gapSummaryParts.join(' • ') : null,
+                        gapSummary: cleanGapSummary,
                         // Pass section attribution to show what's working in HIL
                         sectionAttribution: sectionAttribution
                       });
