@@ -38,7 +38,6 @@ interface ContentCardProps {
   tags?: (string | RequirementTag)[]; // Support both simple strings and structured tags (legacy for non-cover-letter cards)
   sectionAttribution?: SectionAttributionSummary; // NEW: Section-level attribution summary for cover letters
   sectionAttributionData?: SectionAttributionData; // NEW: Full attribution data for SectionInspector (undefined = skeleton)
-  showAttributionSkeleton?: boolean; // NEW: Show attribution skeleton (e.g., during streaming)
   timesUsed?: number;
   lastUsed?: string;
   hasGaps?: boolean;
@@ -75,7 +74,6 @@ export const ContentCard = ({
   tags = [],
   sectionAttribution,
   sectionAttributionData,
-  showAttributionSkeleton = false,
   timesUsed = 0,
   onDismissGap,
   lastUsed,
@@ -202,8 +200,8 @@ export const ContentCard = ({
         {renderChildrenBeforeTags && children}
 
         {/* Section Attribution (for cover letters) OR Tags (for other content) */}
-        {showAttributionSkeleton || sectionAttributionData !== undefined ? (
-          // Cover letters: show Requirements Met (skeleton if no data, actual data when loaded)
+        {sectionAttributionData !== undefined ? (
+          // Cover letters: show Requirements Met (undefined = skeleton, data = render)
           <div className="mb-6">
             <SectionInspector data={sectionAttributionData} />
           </div>

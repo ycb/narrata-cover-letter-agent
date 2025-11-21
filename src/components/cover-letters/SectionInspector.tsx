@@ -28,7 +28,6 @@ export interface SectionAttributionData {
 interface SectionInspectorProps {
   data?: SectionAttributionData; // Optional: undefined during streaming (shows skeleton)
   className?: string;
-  isLoading?: boolean; // Explicit loading state
   defaultOpen?: boolean; // Whether to start expanded (default: false)
 }
 
@@ -39,21 +38,11 @@ interface SectionInspectorProps {
  * Used in cover letter content cards to give user visibility into
  * what's working without opening HIL modal
  */
-export function SectionInspector({ data, className, isLoading = false, defaultOpen = false }: SectionInspectorProps) {
+export function SectionInspector({ data, className, defaultOpen = false }: SectionInspectorProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
-  // Determine if we're in skeleton state (no data OR explicitly loading)
-  const showSkeleton = !data || isLoading;
-
-  const coreMetCount = data?.coreReqs.met.length ?? 0;
-  const prefMetCount = data?.prefReqs.met.length ?? 0;
-  const standardsMetCount = data?.standards.met.length ?? 0;
-  const totalCoreReqs = (data?.coreReqs.met.length ?? 0) + (data?.coreReqs.unmet.length ?? 0);
-  const totalPrefReqs = (data?.prefReqs.met.length ?? 0) + (data?.prefReqs.unmet.length ?? 0);
-  const totalStandards = (data?.standards.met.length ?? 0) + (data?.standards.unmet.length ?? 0);
-
-  // Show skeleton state during loading
-  if (showSkeleton) {
+  // Show skeleton when no data provided (undefined during streaming)
+  if (!data) {
     return (
       <div className={cn('w-full p-3 rounded-md bg-muted/20', className)}>
         <div className="flex items-center gap-3 flex-wrap">
@@ -65,6 +54,14 @@ export function SectionInspector({ data, className, isLoading = false, defaultOp
       </div>
     );
   }
+
+  // Data is guaranteed to exist at this point
+  const coreMetCount = data.coreReqs.met.length;
+  const prefMetCount = data.prefReqs.met.length;
+  const standardsMetCount = data.standards.met.length;
+  const totalCoreReqs = data.coreReqs.met.length + data.coreReqs.unmet.length;
+  const totalPrefReqs = data.prefReqs.met.length + data.prefReqs.unmet.length;
+  const totalStandards = data.standards.met.length + data.standards.unmet.length;
 
   // Build summary badges - count only with regular tag style
   return (
