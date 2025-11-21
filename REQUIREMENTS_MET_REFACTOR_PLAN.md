@@ -1,8 +1,8 @@
 # Requirements Met - Refactor Plan
 
 **Date**: 2025-11-21
-**Status**: Draft - Pending user approval
-**Context**: Implementation complete, ready for refactoring to improve maintainability
+**Status**: Phase 1 Complete (Option A implemented)
+**Context**: Implementation complete, Phase 1 refactoring done, ready for Phase 2
 
 ---
 
@@ -33,19 +33,21 @@ CoverLetterDraftView/CreateModal
 ```
 
 ### Files
-- `src/components/cover-letters/SectionInspector.tsx` (244 lines)
+- `src/components/cover-letters/SectionInspector.tsx` (~150 lines - reduced via Option A)
+- `src/components/cover-letters/RequirementItem.tsx` (60 lines - NEW, extracted component)
 - `src/components/cover-letters/useSectionAttribution.ts` (218 lines)
 - `src/components/shared/ContentCard.tsx` (integration logic)
 - `src/components/cover-letters/CoverLetterDraftView.tsx` (usage)
 - `src/components/cover-letters/CoverLetterCreateModal.tsx` (usage)
+- `src/services/gapResolutionStreamingService.ts` (section attribution in HIL prompts)
 
 ---
 
 ## Problems to Solve
 
-### 1. Code Duplication (HIGH PRIORITY)
+### 1. Code Duplication (✅ RESOLVED - Option A Implemented)
 
-**Problem**: TabsContent sections for core/pref/standards are nearly identical (138 lines of duplicated JSX)
+**Problem**: TabsContent sections for core/pref/standards were nearly identical (138 lines of duplicated JSX)
 
 **Evidence**:
 ```tsx
@@ -237,8 +239,15 @@ export function RequirementItem({ label, type, evidence, suggestion }: Requireme
 </TabsContent>
 ```
 
-**Effort**: 1-2 hours
+**Effort**: ✅ COMPLETED (commit e9a4706)
 **Risk**: Low (pure extraction, no logic changes)
+
+**Results**:
+- Created `RequirementItem.tsx` (60 lines)
+- Reduced `SectionInspector.tsx` from 244 → ~150 lines
+- Eliminated 138 lines of duplicated JSX
+- Added responsive tab labels (full on desktop, short on mobile)
+- Added horizontal scrolling for constrained layouts
 
 ---
 
@@ -488,14 +497,26 @@ If refactor introduces bugs:
 
 ## Status
 
-**Next Step**: Get user approval for refactor sequence
+**Completed**:
+- [x] **Option A**: RequirementItem extraction (commit e9a4706)
+  - Eliminated 138 lines of duplication
+  - Added responsive tabs for mobile/constrained layouts
+  - Added section attribution to HIL LLM prompt
+
+**Next Steps**:
+- [ ] **Option B**: Simplify skeleton logic (30 min - optional cleanup)
+- [ ] **Phase 2 Logging**: Validate section ID matching behavior
+  - Log actual `sectionIds` from LLM responses
+  - Determine if normalization is needed
+  - Check `ratingCriteria` availability
+- [ ] **Option C or D**: Based on logging data (architectural improvement)
 
 **Pending Decisions**:
-- [ ] Approve Phase 1 (RequirementItem + skeleton simplification)
-- [ ] Run Phase 2 logging to determine normalization fate
-- [ ] Choose Option C vs Option D for Phase 3
+- [ ] Should we keep semantic type fallback normalization?
+- [ ] Should we add TypeScript branded types for section IDs?
+- [ ] Why is `ratingCriteria` sometimes undefined?
 
-**Blocked On**:
-- User testing of current implementation
-- Decision on whether to keep semantic type fallback
-- Resolution of `ratingCriteria` undefined issue
+**Not Blocking**:
+- Current implementation works correctly
+- All improvements are optional optimizations
+- Can defer Phase 2/3 until real-world usage data is collected
