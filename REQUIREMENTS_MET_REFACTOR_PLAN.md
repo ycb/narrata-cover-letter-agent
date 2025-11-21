@@ -1,8 +1,8 @@
 # Requirements Met - Refactor Plan
 
 **Date**: 2025-11-21
-**Status**: Phase 1 Complete (Option A implemented)
-**Context**: Implementation complete, Phase 1 refactoring done, ready for Phase 2
+**Status**: Phase 1 Complete (Options A & B implemented)
+**Context**: Quick wins complete, ready for Phase 2 observability or deployment
 
 ---
 
@@ -251,7 +251,7 @@ export function RequirementItem({ label, type, evidence, suggestion }: Requireme
 
 ---
 
-### Option B: Simplify Skeleton Logic
+### Option B: Simplify Skeleton Logic (✅ COMPLETED)
 
 **Goal**: Single source of truth for skeleton display
 
@@ -291,8 +291,14 @@ if (!data) {
 }
 ```
 
-**Effort**: 30 minutes
+**Effort**: ✅ COMPLETED (commit e7e6085)
 **Risk**: Low (simplification, no new logic)
+
+**Results**:
+- Removed 2 redundant props (`showAttributionSkeleton`, `isLoading`)
+- Reduced conditional complexity in ContentCard
+- Early return pattern in SectionInspector for cleaner code
+- Removed optional chaining (data guaranteed after undefined check)
 
 ---
 
@@ -502,9 +508,12 @@ If refactor introduces bugs:
   - Eliminated 138 lines of duplication
   - Added responsive tabs for mobile/constrained layouts
   - Added section attribution to HIL LLM prompt
+- [x] **Option B**: Simplify skeleton logic (commit e7e6085)
+  - Removed `showAttributionSkeleton` and `isLoading` props
+  - Single source of truth: `data === undefined` triggers skeleton
+  - Clearer API and easier to reason about
 
 **Next Steps**:
-- [ ] **Option B**: Simplify skeleton logic (30 min - optional cleanup)
 - [ ] **Phase 2 Logging**: Validate section ID matching behavior
   - Log actual `sectionIds` from LLM responses
   - Determine if normalization is needed
