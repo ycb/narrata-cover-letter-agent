@@ -13,6 +13,7 @@ import { ContentGenerationModal } from '@/components/hil/ContentGenerationModal'
 import { useUserGoals } from '@/contexts/UserGoalsContext';
 import { useToast } from '@/hooks/use-toast';
 import { transformMetricsToMatchData, type MatchMetricsData } from './useMatchMetricsDetails';
+import { computeSectionAttribution } from './useSectionAttribution';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { CoverLetterDraftService } from '@/services/coverLetterDraftService';
@@ -484,6 +485,14 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
                         gapSummaryParts.push(`${gapsFromRating.length} content quality criteria: ${gapsFromRating.map(g => g.title).join(', ')}`);
                       }
 
+                      // Compute section attribution for HIL modal
+                      const { attribution: sectionAttribution } = computeSectionAttribution({
+                        sectionId: section.id,
+                        sectionType: section.slug || section.type,
+                        enhancedMatchData: enhancedMatchData,
+                        ratingCriteria: matchMetrics?.ratingCriteria,
+                      });
+
                       setSelectedGap({
                         id: requirement ? `section-${sectionId}-${requirement}` : `section-${sectionId}-enhancement`,
                         type: 'content-enhancement',
@@ -498,6 +507,8 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
                         gaps: requirementGaps,
                         ratingCriteriaGaps: gapsFromRating,
                         gapSummary: gapSummaryParts.length > 0 ? gapSummaryParts.join(' • ') : null,
+                        // Pass section attribution to show what's working in HIL
+                        sectionAttribution: sectionAttribution
                       });
                       setShowContentGenerationModal(true);
                     } else if (onEnhanceSection) {
@@ -582,7 +593,9 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
           // Pass through rich gap structure
           gaps: selectedGap.gaps,
           gapSummary: selectedGap.gapSummary,
-          ratingCriteriaGaps: selectedGap.ratingCriteriaGaps
+          ratingCriteriaGaps: selectedGap.ratingCriteriaGaps,
+          // Pass section attribution to show what's working in HIL
+          sectionAttribution: selectedGap.sectionAttribution
         } : null}
         onApplyContent={async (content: string) => {
           if (!selectedGap || !editedContent) return;
