@@ -3,6 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Textarea } from '@/components/ui/textarea';
 import { ContentCard } from '@/components/shared/ContentCard';
 import { MatchMetricsToolbar } from './MatchMetricsToolbar';
+import { SectionInspector } from './SectionInspector';
+import { useSectionAttribution } from './useSectionAttribution';
 import { cn } from '@/lib/utils';
 import { getUnresolvedRatingCriteria } from './useMatchMetricsDetails';
 import type { EnhancedMatchData, SectionGapInsight } from '@/types/coverLetters';
@@ -22,6 +24,7 @@ interface GoNoGoAnalysis {
 interface CoverLetterSection {
   id: string;
   type: string;
+  slug?: string; // Semantic type like "introduction", "experience", "closing" - used for LLM attribution
   title: string;
   content: string;
   isEnhanced?: boolean;
@@ -71,7 +74,11 @@ interface CoverLetterDraftViewProps {
     description: string;
     suggestion: string;
     evidence: string;
-  }>, gapData?: { gaps?: Array<{ id: string; title?: string; description: string }>; gapSummary?: string | null }) => void; // Agent C: enhance section CTA
+  }>, gapData?: {
+    gaps?: Array<{ id: string; title?: string; description: string }>;
+    gapSummary?: string | null;
+    sectionAttribution?: import('./SectionInspector').SectionAttributionData;
+  }) => void; // Agent C: enhance section CTA
   onAddMetrics?: (sectionId?: string) => void; // Agent C: add metrics CTA
   className?: string;
 }
@@ -371,7 +378,16 @@ export function CoverLetterDraftView({
           {sections.map((section) => {
         // Use template title, fallback to generated title
         const sectionTitle = section.title || getSectionTitle(section.type);
-        const requirements = getRequirementsForParagraph(section.type);
+
+        // NEW: Compute section-level attribution for requirements and standards
+        // During streaming (no data), show skeleton. Once data loads, show actual attribution.
+        const hasAttributionData = enhancedMatchData != null || (ratingCriteria && ratingCriteria.length > 0);
+        const { attribution, summary } = useSectionAttribution({
+          sectionId: section.id,
+          sectionType: section.slug || section.type, // Use slug (semantic type) if available, fallback to type
+          enhancedMatchData,
+          ratingCriteria,
+        });
 
         // Agent C: Get section-specific gap insights
         // AGENT D: Pass sectionId to enable pending insights lookup
@@ -386,31 +402,34 @@ export function CoverLetterDraftView({
             key={section.id}
             title={sectionTitle}
             content={isEditable ? undefined : section.content} // Don't show content if editable (textarea will display it)
-            tags={requirements} // Always pass tags array (empty or populated)
+            // NEW: Pass section attribution (skeleton during streaming, data when loaded)
+            sectionAttribution={summary}
+            sectionAttributionData={hasAttributionData ? attribution : undefined}
+            showAttributionSkeleton={!hasAttributionData}
             hasGaps={hasGaps}
             gaps={gapObjects}
             gapSummary={cleanGapSummary} // Agent C: Pass rubric summary for section guidance (no trailing periods)
             isGapResolved={false}
             onGenerateContent={onEnhanceSection ? () => {
               // Always open HIL workflow - use onEnhanceSection to trigger ContentGenerationModal
-              // If no gaps exist, onEnhanceSection will create synthetic gap
+              // Pass section attribution data to HIL for context
               const firstGap = gapObjects[0];
-              
+
               // Extract unresolved rating criteria to pass to HIL workflow
-              const unresolvedRatingCriteria = ratingCriteria 
+              const unresolvedRatingCriteria = ratingCriteria
                 ? getUnresolvedRatingCriteria(ratingCriteria)
                 : undefined;
-              
+
               onEnhanceSection(section.id, firstGap?.description, unresolvedRatingCriteria, {
                 gaps: gapObjects,
-                gapSummary: cleanGapSummary
+                gapSummary: cleanGapSummary,
+                sectionAttribution: attribution, // NEW: Pass full attribution for HIL context
               });
             } : undefined}
             // NOTE: Don't pass onEdit for tags - requirement tags are system-generated, not user-editable
             // onEdit is for section content editing (handled by Textarea), not for adding tags
             onDuplicate={onSectionDuplicate ? () => onSectionDuplicate(section.id) : undefined}
             onDelete={onSectionDelete ? () => onSectionDelete(section.id) : undefined}
-            tagsLabel="Requirements Met" // Always show label, even when empty
             showUsage={false}
             renderChildrenBeforeTags={isEditable}
             className={cn(section.isEnhanced && 'border-success/30')}

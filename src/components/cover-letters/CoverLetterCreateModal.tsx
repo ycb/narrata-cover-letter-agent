@@ -61,6 +61,7 @@ import { ContentGenerationModal } from '@/components/hil/ContentGenerationModal'
 import { UserGoalsModal } from '@/components/user-goals/UserGoalsModal';
 import { useUserGoals } from '@/contexts/UserGoalsContext';
 import { transformMetricsToMatchData, getUnresolvedRatingCriteria } from './useMatchMetricsDetails';
+import { computeSectionAttribution } from './useSectionAttribution';
 import type { CoverLetterDraft, JobDescriptionRecord, ParsedJobDescription } from '@/types/coverLetters';
 import type { Gap } from '@/services/gapTransformService';
 
@@ -710,6 +711,8 @@ export const CoverLetterCreateModal = ({
               <CoverLetterDraftView
                 sections={streamingSections}
                 jobDescription={normalizedJobDescription ? { ...normalizedJobDescription, id: jobDescriptionRecord?.id || '' } : undefined}
+                enhancedMatchData={null}
+                ratingCriteria={undefined}
               />
             </CardContent>
           </Card>
@@ -1062,16 +1065,26 @@ export const CoverLetterCreateModal = ({
             
             const { promptSummary, gaps: gapObjects, isLoading: gapsLoading } = getSectionGapInsights(section.id, section.slug);
             const hasGaps = gapObjects.length > 0;
-            
+
             // Strip trailing periods from gap summary for cover letters
             const cleanGapSummary = promptSummary ? promptSummary.replace(/\.+$/, '') : null;
-            
+
+            // Compute section-level attribution using pure function (safe to call in map)
+            const hasAttributionData = draft.enhancedMatchData != null || (matchMetrics?.ratingCriteria && matchMetrics.ratingCriteria.length > 0);
+            const { attribution: sectionAttribution } = computeSectionAttribution({
+              sectionId: section.id,
+              sectionType: section.slug || section.type,
+              enhancedMatchData: draft.enhancedMatchData,
+              ratingCriteria: matchMetrics?.ratingCriteria,
+            });
+
             return (
               <ContentCard
                 key={section.id}
                 title={section.title}
                 content={undefined} // Don't show preview when editable (Textarea displays it)
-                tags={getRequirementTagsForSection(section)}
+                sectionAttributionData={hasAttributionData ? sectionAttribution : undefined}
+                showAttributionSkeleton={!hasAttributionData}
                 hasGaps={hasGaps}
                 gaps={gapObjects}
                 gapSummary={cleanGapSummary} // Agent C: Pass rubric summary for section guidance (no trailing periods)
@@ -1144,7 +1157,6 @@ export const CoverLetterCreateModal = ({
                   }
                   setShowContentGenerationModal(true);
                 }}
-                tagsLabel="Job Requirements"
                 showUsage={false}
                 renderChildrenBeforeTags={true}
                 className={cn(hasGaps && 'border-warning')}

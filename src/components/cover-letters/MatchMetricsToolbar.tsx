@@ -239,14 +239,15 @@ export function MatchMetricsToolbar({
         })(),
         badgeClass: getScoreColor(metrics.overallScore ?? (isPostHIL ? 91 : 27)),
         disabled: isLoading,
-      },
-      {
-        key: 'ats',
-        label: 'ATS',
-        value: isLoading ? '' : `${metrics.atsScore ?? 0}%`,
-        badgeClass: getATSScoreColor(metrics.atsScore ?? 0),
-        disabled: isLoading,
       }
+      // MVP: ATS Score hidden until properly implemented
+      // {
+      //   key: 'ats',
+      //   label: 'ATS',
+      //   value: isLoading ? '' : `${metrics.atsScore ?? 0}%`,
+      //   badgeClass: getATSScoreColor(metrics.atsScore ?? 0),
+      //   disabled: isLoading,
+      // }
     );
     
     return items;

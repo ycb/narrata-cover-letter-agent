@@ -8,6 +8,8 @@ import { Sparkles, RefreshCw, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { ContentGapBanner } from '@/components/shared/ContentGapBanner';
 import type { Gap } from '@/services/gapTransformService';
+import type { SectionAttributionData } from '@/components/cover-letters/SectionInspector';
+
 interface GapAnalysis {
   id: string;
   type: 'core-requirement' | 'preferred-requirement' | 'best-practice' | 'content-enhancement';
@@ -24,6 +26,8 @@ interface GapAnalysis {
   gapSummary?: string | null;
   // Rating criteria gaps stored separately from requirement gaps
   ratingCriteriaGaps?: Array<{ id: string; title?: string; description: string }>;
+  // Section attribution (for cover letters only)
+  sectionAttribution?: SectionAttributionData;
 }
 
 interface TagSuggestion {
@@ -261,7 +265,68 @@ export function ContentGenerationModal({
                   ]}
                   gapSummary={gap.gapSummary || `${gap.severity === 'high' ? 'High' : gap.severity === 'medium' ? 'Medium' : 'Low'} Priority • ${gap.type.replace('-', ' ')}`}
                 />
-                
+
+                {/* Section Attribution - Show what requirements/standards this section currently meets */}
+                {gap.sectionAttribution && (
+                  gap.sectionAttribution.coreReqs.met.length > 0 ||
+                  gap.sectionAttribution.prefReqs.met.length > 0 ||
+                  gap.sectionAttribution.standards.met.length > 0
+                ) && (
+                  <div className="mt-4 pt-4 border-t border-border/30">
+                    <h4 className="text-sm font-semibold mb-3 text-success flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4" />
+                      What's Working in This Section
+                    </h4>
+                    <div className="space-y-3 text-xs">
+                      {gap.sectionAttribution.coreReqs.met.length > 0 && (
+                        <div>
+                          <div className="font-medium text-foreground mb-1.5">Core Requirements Met ({gap.sectionAttribution.coreReqs.met.length})</div>
+                          <div className="space-y-1">
+                            {gap.sectionAttribution.coreReqs.met.map((req) => (
+                              <div key={req.id} className="p-2 bg-success/10 rounded border border-success/20">
+                                <div className="font-medium text-foreground">{req.label}</div>
+                                {req.evidence && (
+                                  <div className="text-muted-foreground mt-1 italic">"{req.evidence}"</div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {gap.sectionAttribution.prefReqs.met.length > 0 && (
+                        <div>
+                          <div className="font-medium text-foreground mb-1.5">Preferred Requirements Met ({gap.sectionAttribution.prefReqs.met.length})</div>
+                          <div className="space-y-1">
+                            {gap.sectionAttribution.prefReqs.met.map((req) => (
+                              <div key={req.id} className="p-2 bg-blue-50 dark:bg-blue-950/20 rounded border border-blue-200 dark:border-blue-800">
+                                <div className="font-medium text-foreground">{req.label}</div>
+                                {req.evidence && (
+                                  <div className="text-muted-foreground mt-1 italic">"{req.evidence}"</div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {gap.sectionAttribution.standards.met.length > 0 && (
+                        <div>
+                          <div className="font-medium text-foreground mb-1.5">Content Standards Met ({gap.sectionAttribution.standards.met.length})</div>
+                          <div className="space-y-1">
+                            {gap.sectionAttribution.standards.met.map((standard) => (
+                              <div key={standard.id} className="p-2 bg-success/10 rounded border border-success/20">
+                                <div className="font-medium text-foreground">{standard.label}</div>
+                                {standard.evidence && (
+                                  <div className="text-muted-foreground mt-1 italic">"{standard.evidence}"</div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Rating Criteria Section - Show content quality criteria that need improvement */}
                 {gap.ratingCriteriaGaps && gap.ratingCriteriaGaps.length > 0 && (
                   <div className="mt-4 pt-4 border-t border-border/30">

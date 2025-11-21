@@ -31,7 +31,7 @@ Respond ONLY with valid JSON following this EXACT schema:
         "requirement": "5+ years PM experience",
         "demonstrated": true,
         "evidence": "Mentioned in experience section",
-        "sectionIds": ["experience"],
+        "sectionIds": ["section-2-2"],
         "severity": "critical"
       }
     ],
@@ -89,8 +89,9 @@ CRITICAL RULES:
 2. For requirement details: "demonstrated" means it's IN THE DRAFT, not just in work history
 
 3. For sectionIds: CRITICAL - Populate this field for ALL demonstrated requirements
-   - Use the section slugs from the draft (e.g., "introduction", "experience", "closing")
-   - If a requirement is addressed in multiple sections, include ALL relevant slugs
+   - Use the section ID values from the draft (look for [id: section-X-X] prefix in each section)
+   - Example: If requirement is in first section, use ["section-1-1"]
+   - If a requirement is addressed in multiple sections, include ALL relevant IDs
    - If a requirement is NOT demonstrated, leave sectionIds as empty array []
 
 4. For experience details: Check work history and stories, reference IDs

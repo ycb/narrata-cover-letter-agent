@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { TagSuggestionButton } from "@/components/ui/TagSuggestionButton";
 import { ContentGapBanner } from "@/components/shared/ContentGapBanner";
 import { RequirementTagTooltip } from "@/components/cover-letters/RequirementTagTooltip";
+import { SectionInspector, type SectionAttributionData } from "@/components/cover-letters/SectionInspector";
 import { 
   Calendar,
   MoreHorizontal,
@@ -25,10 +26,19 @@ import {
 import { cn } from "@/lib/utils";
 import type { RequirementTag } from "@/types/coverLetters";
 
+interface SectionAttributionSummary {
+  coreMetCount: number;
+  prefMetCount: number;
+  standardsMetCount: number;
+}
+
 interface ContentCardProps {
   title: string;
   content?: string; // Made optional to support empty state
-  tags?: (string | RequirementTag)[]; // Support both simple strings and structured tags
+  tags?: (string | RequirementTag)[]; // Support both simple strings and structured tags (legacy for non-cover-letter cards)
+  sectionAttribution?: SectionAttributionSummary; // NEW: Section-level attribution summary for cover letters
+  sectionAttributionData?: SectionAttributionData; // NEW: Full attribution data for SectionInspector (undefined = skeleton)
+  showAttributionSkeleton?: boolean; // NEW: Show attribution skeleton (e.g., during streaming)
   timesUsed?: number;
   lastUsed?: string;
   hasGaps?: boolean;
@@ -63,6 +73,9 @@ export const ContentCard = ({
   title,
   content,
   tags = [],
+  sectionAttribution,
+  sectionAttributionData,
+  showAttributionSkeleton = false,
   timesUsed = 0,
   onDismissGap,
   lastUsed,
@@ -188,8 +201,13 @@ export const ContentCard = ({
         {/* Render children before tags if requested (for cover letter inline editing) */}
         {renderChildrenBeforeTags && children}
 
-        {/* Tags */}
-        {tagsLabel && (
+        {/* Section Attribution (for cover letters) OR Tags (for other content) */}
+        {showAttributionSkeleton || sectionAttributionData !== undefined ? (
+          // Cover letters: show Requirements Met (skeleton if no data, actual data when loaded)
+          <div className="mb-6">
+            <SectionInspector data={sectionAttributionData} />
+          </div>
+        ) : tagsLabel && (
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-2">
               <Tags className="h-4 w-4 text-muted-foreground" />
@@ -201,7 +219,7 @@ export const ContentCard = ({
                 if (isStructuredTag(tag)) {
                   return (
                     <RequirementTagTooltip key={tag.id} tag={tag}>
-                      <Badge 
+                      <Badge
                         variant={getTagVariant(tag)}
                         className={cn("text-xs cursor-help", getTagClassName(tag))}
                         data-severity={tag.severity}
@@ -211,10 +229,10 @@ export const ContentCard = ({
                     </RequirementTagTooltip>
                   );
                 }
-                
+
                 // Simple string tag (no tooltip)
                 return (
-                  <Badge 
+                  <Badge
                     key={`${tag}-${index}`}
                     variant="secondary"
                     className="text-xs"
@@ -224,8 +242,8 @@ export const ContentCard = ({
                 );
               })}
               {tags.length === 0 && onEdit && (
-                <Badge 
-                  variant="outline" 
+                <Badge
+                  variant="outline"
                   className="text-xs cursor-pointer hover:bg-muted border-dashed"
                   onClick={onEdit}
                 >
