@@ -1133,8 +1133,8 @@ export const CoverLetterCreateModal = ({
                       gaps: gapObjects,
                       ratingCriteriaGaps: gapsFromRating,
                       gapSummary: cleanGapSummary,
-                      // Pass section attribution to show what's working in HIL
-                      sectionAttribution: hasAttributionData ? sectionAttribution : undefined
+                      // Pass section attribution to show what's working in HIL (always pass, even if empty)
+                      sectionAttribution: sectionAttribution
                     });
                   } else {
                     // Create synthetic gap for HIL flow when no gaps exist
@@ -1155,8 +1155,8 @@ export const CoverLetterCreateModal = ({
                       existingContent: existingContent,
                       ratingCriteriaGaps: gapsFromRating,
                       gapSummary: gapSummaryParts.length > 0 ? gapSummaryParts.join(' • ') : null,
-                      // Pass section attribution to show what's working in HIL
-                      sectionAttribution: hasAttributionData ? sectionAttribution : undefined
+                      // Pass section attribution to show what's working in HIL (always pass, even if empty)
+                      sectionAttribution: sectionAttribution
                     });
                   }
                   setShowContentGenerationModal(true);
