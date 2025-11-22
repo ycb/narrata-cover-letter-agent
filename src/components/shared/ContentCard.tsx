@@ -87,7 +87,7 @@ export const ContentCard = ({
   onDelete,
   onTagSuggestions,
   className,
-  tagsLabel = "Tags",
+  tagsLabel, // No default - explicitly required for legacy content (stories, saved sections)
   showUsage = true,
   children,
   renderChildrenBeforeTags = false
