@@ -140,7 +140,7 @@ export function AddSectionFromLibraryModal({
     const itemTitle = "title" in selectedContent ? selectedContent.title : "";
 
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]">
         <div className="w-full max-w-3xl max-h-[90vh] bg-background rounded-lg shadow-2xl overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b">

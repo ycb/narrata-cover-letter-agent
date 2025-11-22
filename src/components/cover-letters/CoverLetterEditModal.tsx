@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +17,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { transformMetricsToMatchData, type MatchMetricsData } from './useMatchMetricsDetails';
 import { computeSectionAttribution } from './useSectionAttribution';
-import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { CoverLetterDraftService } from '@/services/coverLetterDraftService';
 import { CoverLetterTemplateService, type SavedSection } from '@/services/coverLetterTemplateService';
@@ -456,8 +456,9 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl h-[90vh] overflow-hidden flex flex-col">
+    <>
+      <Dialog open={isOpen && !showLibraryModal} onOpenChange={onClose}>
+        <DialogContent className="max-w-6xl h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader className="pb-2 pr-12">
           <div className="flex items-center justify-between">
             <div>
@@ -789,6 +790,7 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
                     // TODO: Implement duplicate section
                   }}
                     onInsertFromLibrary={handleInsertFromLibrary}
+                    onInsertBetweenSections={handleInsertBetweenSections}
                     className="flex-1 min-h-0"
                   />
                 );
@@ -913,8 +915,10 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
         }}
       />
 
-      {/* Library Modal */}
-      {libraryInvocation && (
+      </Dialog>
+
+      {/* Library Modal - Rendered outside Dialog using Portal to escape stacking context */}
+      {libraryInvocation && createPortal(
         <AddSectionFromLibraryModal
           isOpen={showLibraryModal}
           onClose={() => {
@@ -930,8 +934,9 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
           onReplace={handleReplaceSection}
           onInsertBelow={handleInsertBelow}
           onInsertHere={handleInsertHere}
-        />
+        />,
+        document.body
       )}
-    </Dialog>
+    </>
   );
 }

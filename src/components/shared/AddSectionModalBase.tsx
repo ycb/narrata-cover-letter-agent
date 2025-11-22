@@ -96,11 +96,19 @@ export function AddSectionModalBase({
   }, [isOpen, initialContentType, initialMethod]);
 
   const handleContentTypeChange = (type: ContentType) => {
+    console.log('[AddSectionModalBase] handleContentTypeChange called', { type, mode });
     setSelectedContentType(type);
     // Reset selection state when changing content type
     setSelectedCompany('');
     setSelectedRole('');
     setSelectedSectionType('');
+
+    // In letter mode: auto-select static method AND immediately show selection panel
+    if (mode === 'letter') {
+      console.log('[AddSectionModalBase] Letter mode - auto-selecting static and showing panel');
+      setContentMethod('static');
+      setShowSelectionPanel(true);
+    }
   };
 
   const handleMethodChange = (method: ContentMethod) => {
@@ -108,6 +116,12 @@ export function AddSectionModalBase({
   };
 
   const handleContinue = () => {
+    console.log('[AddSectionModalBase] handleContinue called', {
+      selectedContentType,
+      contentMethod,
+      showSelectionPanel,
+    });
+
     if (contentMethod === 'dynamic' && onDynamicModeSelected) {
       // For dynamic mode, just notify parent and close
       onDynamicModeSelected(selectedContentType!);
@@ -120,6 +134,7 @@ export function AddSectionModalBase({
         onContentSelected(initialContent);
       } else {
         // Show selection panel
+        console.log('[AddSectionModalBase] Setting showSelectionPanel to true');
         setShowSelectionPanel(true);
       }
     }
@@ -146,8 +161,15 @@ export function AddSectionModalBase({
 
   if (!isOpen) return null;
 
+  console.log('[AddSectionModalBase] Render state:', {
+    mode,
+    selectedContentType,
+    contentMethod,
+    showSelectionPanel,
+  });
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]">
       <div className="w-full max-w-6xl max-h-[90vh] bg-background rounded-lg shadow-2xl overflow-hidden">
         {/* Modal Header */}
         <div className="flex items-center justify-between p-6 border-b">
@@ -179,7 +201,7 @@ export function AddSectionModalBase({
                   <Button
                     variant={selectedContentType === 'story' ? 'default' : 'secondary'}
                     onClick={() => handleContentTypeChange('story')}
-                    className="flex-1 h-20 flex-col justify-center items-center gap-1"
+                    className="flex-1 h-20 flex-col justify-center items-center gap-1 cursor-pointer"
                   >
                     <div className="text-center">
                       <div className="font-medium">Story</div>
@@ -189,7 +211,7 @@ export function AddSectionModalBase({
                   <Button
                     variant={selectedContentType === 'saved' ? 'default' : 'secondary'}
                     onClick={() => handleContentTypeChange('saved')}
-                    className="flex-1 h-20 flex-col justify-center items-center gap-1"
+                    className="flex-1 h-20 flex-col justify-center items-center gap-1 cursor-pointer"
                   >
                     <div className="text-center">
                       <div className="font-medium">Saved Sections</div>
@@ -199,12 +221,12 @@ export function AddSectionModalBase({
                 </div>
               </div>
 
-              {/* Step 2: Content Method */}
-              <div className="mt-4">
-                <Label className="text-base font-medium">2. Choose Method</Label>
-                <div className="flex gap-3 mt-2">
-                  {/* Dynamic Mode - Only show in template mode */}
-                  {mode === 'template' && (
+              {/* Step 2: Content Method (Template mode only) */}
+              {mode === 'template' && (
+                <div className="mt-4">
+                  <Label className="text-base font-medium">2. Choose Method</Label>
+                  <div className="flex gap-3 mt-2">
+                    {/* Dynamic Mode */}
                     <Button
                       variant={contentMethod === 'dynamic' ? 'default' : 'secondary'}
                       onClick={() => handleMethodChange('dynamic')}
@@ -217,23 +239,23 @@ export function AddSectionModalBase({
                         </span>
                       </div>
                     </Button>
-                  )}
 
-                  {/* Static Mode - Always visible */}
-                  <Button
-                    variant={contentMethod === 'static' ? 'default' : 'secondary'}
-                    onClick={() => handleMethodChange('static')}
-                    className={`${mode === 'template' ? 'flex-1' : 'w-full'} h-20 flex-col justify-center items-center gap-1`}
-                  >
-                    <div className="text-center">
-                      <span className="font-medium">Static (Custom)</span>
-                      <span className="text-sm text-muted-foreground block">
-                        Choose specific content from your library
-                      </span>
-                    </div>
-                  </Button>
+                    {/* Static Mode */}
+                    <Button
+                      variant={contentMethod === 'static' ? 'default' : 'secondary'}
+                      onClick={() => handleMethodChange('static')}
+                      className="flex-1 h-20 flex-col justify-center items-center gap-1"
+                    >
+                      <div className="text-center">
+                        <span className="font-medium">Static (Custom)</span>
+                        <span className="text-sm text-muted-foreground block">
+                          Choose specific content from your library
+                        </span>
+                      </div>
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* CTA Button */}
               <div className="pt-4 flex justify-end">

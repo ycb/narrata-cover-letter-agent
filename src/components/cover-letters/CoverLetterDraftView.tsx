@@ -4,6 +4,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ContentCard } from '@/components/shared/ContentCard';
 import { MatchMetricsToolbar } from './MatchMetricsToolbar';
 import { SectionInspector } from './SectionInspector';
+import { SectionInsertButton } from './SectionInsertButton';
 import { useSectionAttribution } from './useSectionAttribution';
 import { cn } from '@/lib/utils';
 import { getUnresolvedRatingCriteria } from './useMatchMetricsDetails';
@@ -68,6 +69,7 @@ interface CoverLetterDraftViewProps {
   onSectionDelete?: (sectionId: string) => void;
   onSectionDuplicate?: (sectionId: string) => void;
   onInsertFromLibrary?: (sectionId: string) => void; // NEW: Insert content from library
+  onInsertBetweenSections?: (insertIndex: number) => void; // NEW: Insert section at specific position
   onEditGoals?: () => void;
   onAddStory?: (requirement?: string, severity?: string) => void; // Agent C: add story CTA
   onEnhanceSection?: (sectionId: string, requirement?: string, ratingCriteria?: Array<{
@@ -106,6 +108,7 @@ export function CoverLetterDraftView({
   onSectionDelete,
   onSectionDuplicate,
   onInsertFromLibrary,
+  onInsertBetweenSections,
   onEditGoals,
   onAddStory,
   onEnhanceSection,
@@ -379,7 +382,12 @@ export function CoverLetterDraftView({
       {/* Right Content Area */}
       <div className="flex-1 overflow-y-auto">
         <div className="space-y-6 pl-6 pb-6">
-          {sections.map((section) => {
+          {/* Add Section button at the top if editable */}
+          {isEditable && onInsertBetweenSections && (
+            <SectionInsertButton onClick={() => onInsertBetweenSections(0)} />
+          )}
+
+          {sections.map((section, sectionIndex) => {
         // Use template title, fallback to generated title
         const sectionTitle = section.title || getSectionTitle(section.type);
 
@@ -403,89 +411,97 @@ export function CoverLetterDraftView({
         const cleanGapSummary = promptSummary ? promptSummary.replace(/\.+$/, '') : null;
 
         return (
-          <ContentCard
-            key={section.id}
-            title={sectionTitle}
-            content={isEditable ? undefined : section.content} // Don't show content if editable (textarea will display it)
-            // NEW: Pass section attribution (skeleton during streaming, data when loaded)
-            sectionAttribution={summary}
-            sectionAttributionData={hasAttributionData ? attribution : undefined}
-            tagsLabel={undefined} // Cover letters don't use legacy tags - show SectionInspector instead
-            hasGaps={hasGaps}
-            gaps={gapObjects}
-            gapSummary={cleanGapSummary} // Agent C: Pass rubric summary for section guidance (no trailing periods)
-            isGapResolved={false}
-            onGenerateContent={onEnhanceSection ? () => {
-              // Always open HIL workflow - use onEnhanceSection to trigger ContentGenerationModal
-              // Pass section attribution data to HIL for context
-              const firstGap = gapObjects[0];
+          <React.Fragment key={section.id}>
+            <ContentCard
+              title={sectionTitle}
+              content={isEditable ? undefined : section.content} // Don't show content if editable (textarea will display it)
+              // NEW: Pass section attribution (skeleton during streaming, data when loaded)
+              sectionAttribution={summary}
+              sectionAttributionData={hasAttributionData ? attribution : undefined}
+              tagsLabel={undefined} // Cover letters don't use legacy tags - show SectionInspector instead
+              hasGaps={hasGaps}
+              gaps={gapObjects}
+              gapSummary={cleanGapSummary} // Agent C: Pass rubric summary for section guidance (no trailing periods)
+              isGapResolved={false}
+              onGenerateContent={onEnhanceSection ? () => {
+                // Always open HIL workflow - use onEnhanceSection to trigger ContentGenerationModal
+                // Pass section attribution data to HIL for context
+                const firstGap = gapObjects[0];
 
-              // Extract unresolved rating criteria to pass to HIL workflow
-              const unresolvedRatingCriteria = ratingCriteria
-                ? getUnresolvedRatingCriteria(ratingCriteria)
-                : undefined;
+                // Extract unresolved rating criteria to pass to HIL workflow
+                const unresolvedRatingCriteria = ratingCriteria
+                  ? getUnresolvedRatingCriteria(ratingCriteria)
+                  : undefined;
 
-              onEnhanceSection(section.id, firstGap?.description, unresolvedRatingCriteria, {
-                gaps: gapObjects,
-                gapSummary: cleanGapSummary,
-                sectionAttribution: attribution, // NEW: Pass full attribution for HIL context
-              });
-            } : undefined}
-            // NOTE: Don't pass onEdit for tags - requirement tags are system-generated, not user-editable
-            // onEdit is for section content editing (handled by Textarea), not for adding tags
-            onDuplicate={onSectionDuplicate ? () => onSectionDuplicate(section.id) : undefined}
-            onDelete={onSectionDelete ? () => onSectionDelete(section.id) : undefined}
-            onInsertFromLibrary={onInsertFromLibrary ? () => onInsertFromLibrary(section.id) : undefined}
-            showUsage={false}
-            renderChildrenBeforeTags={isEditable}
-            className={cn(section.isEnhanced && 'border-success/30')}
-          >
-            {isEditable && onSectionChange ? (
-              <div className="mb-6">
-                <Textarea
-                  value={section.content}
-                  ref={(textarea) => {
-                    if (textarea) {
-                      // Set initial height based on content, but respect max-height
-                      textarea.style.height = 'auto';
-                      const scrollHeight = textarea.scrollHeight;
+                onEnhanceSection(section.id, firstGap?.description, unresolvedRatingCriteria, {
+                  gaps: gapObjects,
+                  gapSummary: cleanGapSummary,
+                  sectionAttribution: attribution, // NEW: Pass full attribution for HIL context
+                });
+              } : undefined}
+              // NOTE: Don't pass onEdit for tags - requirement tags are system-generated, not user-editable
+              // onEdit is for section content editing (handled by Textarea), not for adding tags
+              onDuplicate={onSectionDuplicate ? () => onSectionDuplicate(section.id) : undefined}
+              onDelete={onSectionDelete ? () => onSectionDelete(section.id) : undefined}
+              onInsertFromLibrary={onInsertFromLibrary ? () => onInsertFromLibrary(section.id) : undefined}
+              showUsage={false}
+              renderChildrenBeforeTags={isEditable}
+              className={cn(section.isEnhanced && 'border-success/30')}
+            >
+              {isEditable && onSectionChange ? (
+                <div className="mb-6">
+                  <Textarea
+                    value={section.content}
+                    ref={(textarea) => {
+                      if (textarea) {
+                        // Set initial height based on content, but respect max-height
+                        textarea.style.height = 'auto';
+                        const scrollHeight = textarea.scrollHeight;
+                        const maxHeight = 600;
+                        if (scrollHeight <= maxHeight) {
+                          textarea.style.height = `${scrollHeight}px`;
+                          textarea.style.overflowY = 'hidden';
+                        } else {
+                          textarea.style.height = `${maxHeight}px`;
+                          textarea.style.overflowY = 'auto';
+                        }
+                      }
+                    }}
+                    onFocus={() => {
+                      onSectionFocus?.(section.id);
+                    }}
+                    onChange={(e) => {
+                      onSectionChange(section.id, e.target.value);
+                      // Auto-resize textarea, but respect max-height
+                      e.target.style.height = 'auto';
+                      const scrollHeight = e.target.scrollHeight;
                       const maxHeight = 600;
                       if (scrollHeight <= maxHeight) {
-                        textarea.style.height = `${scrollHeight}px`;
-                        textarea.style.overflowY = 'hidden';
+                        e.target.style.height = `${scrollHeight}px`;
+                        e.target.style.overflowY = 'hidden';
                       } else {
-                        textarea.style.height = `${maxHeight}px`;
-                        textarea.style.overflowY = 'auto';
+                        e.target.style.height = `${maxHeight}px`;
+                        e.target.style.overflowY = 'auto';
                       }
-                    }
-                  }}
-                  onFocus={() => {
-                    onSectionFocus?.(section.id);
-                  }}
-                  onChange={(e) => {
-                    onSectionChange(section.id, e.target.value);
-                    // Auto-resize textarea, but respect max-height
-                    e.target.style.height = 'auto';
-                    const scrollHeight = e.target.scrollHeight;
-                    const maxHeight = 600;
-                    if (scrollHeight <= maxHeight) {
-                      e.target.style.height = `${scrollHeight}px`;
-                      e.target.style.overflowY = 'hidden';
-                    } else {
-                      e.target.style.height = `${maxHeight}px`;
-                      e.target.style.overflowY = 'auto';
-                    }
-                  }}
-                  onBlur={(e) => {
-                    onSectionBlur?.(section.id, e.target.value);
-                  }}
-                  className="resize-none min-h-[100px]"
-                  placeholder="Enter cover letter content..."
-                  rows={1}
-                />
-              </div>
-            ) : null}
-          </ContentCard>
+                    }}
+                    onBlur={(e) => {
+                      onSectionBlur?.(section.id, e.target.value);
+                    }}
+                    className="resize-none min-h-[100px]"
+                    placeholder="Enter cover letter content..."
+                    rows={1}
+                  />
+                </div>
+              ) : null}
+            </ContentCard>
+
+            {/* Add Section button after each section if editable */}
+            {isEditable && onInsertBetweenSections && (
+              <SectionInsertButton
+                onClick={() => onInsertBetweenSections(sectionIndex + 1)}
+              />
+            )}
+          </React.Fragment>
         );
       })}
         </div>
