@@ -5,7 +5,7 @@ import { TagSuggestionButton } from "@/components/ui/TagSuggestionButton";
 import { ContentGapBanner } from "@/components/shared/ContentGapBanner";
 import { RequirementTagTooltip } from "@/components/cover-letters/RequirementTagTooltip";
 import { SectionInspector, type SectionAttributionData } from "@/components/cover-letters/SectionInspector";
-import { 
+import {
   Calendar,
   MoreHorizontal,
   Edit,
@@ -14,7 +14,8 @@ import {
   Tags,
   Trash2,
   Plus,
-  Sparkles
+  Sparkles,
+  Library
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -45,6 +46,7 @@ interface ContentCardProps {
   gapSummary?: string | null; // Agent C: Rubric/prompt summary to show at top of gaps
   isGapResolved?: boolean;
   onGenerateContent?: () => void;
+  onInsertFromLibrary?: () => void; // NEW: Cover letter editor - insert content from library
   onDismissGap?: () => void; // Callback for gap dismissal
   onEdit?: () => void;
   onDuplicate?: () => void;
@@ -82,6 +84,7 @@ export const ContentCard = ({
   gapSummary = null,
   isGapResolved = false,
   onGenerateContent,
+  onInsertFromLibrary,
   onEdit,
   onDuplicate,
   onDelete,
@@ -173,14 +176,20 @@ export const ContentCard = ({
                   Generate Content
                 </DropdownMenuItem>
               )}
-              {(onEdit || onDuplicate || onGenerateContent) && onDelete && <DropdownMenuSeparator />}
+              {onInsertFromLibrary && (
+                <DropdownMenuItem onClick={onInsertFromLibrary}>
+                  <Library className="mr-2 h-4 w-4" />
+                  Insert from Library...
+                </DropdownMenuItem>
+              )}
+              {(onEdit || onDuplicate || onGenerateContent || onInsertFromLibrary) && onDelete && <DropdownMenuSeparator />}
               {onDelete && (
                 <DropdownMenuItem onClick={onDelete} className="text-destructive">
                   <Trash2 className="mr-2 h-4 w-4" />
                   Delete
                 </DropdownMenuItem>
               )}
-              {!onEdit && !onDuplicate && !onGenerateContent && !onDelete && (
+              {!onEdit && !onDuplicate && !onGenerateContent && !onInsertFromLibrary && !onDelete && (
                 <DropdownMenuItem disabled>No actions available</DropdownMenuItem>
               )}
             </DropdownMenuContent>
