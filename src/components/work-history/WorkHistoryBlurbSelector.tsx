@@ -108,9 +108,9 @@ export const WorkHistoryBlurbSelector = ({
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Select Work History Blurb</CardTitle>
+              <CardTitle>Select Work History Story</CardTitle>
               <CardDescription>
-                Choose a blurb from your work history to use as static content
+                Choose a story from your work history to use as static content
               </CardDescription>
               <div className="text-sm text-muted-foreground">
                 {breadcrumbPath()}
@@ -130,7 +130,7 @@ export const WorkHistoryBlurbSelector = ({
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search companies, roles, or blurbs..."
+              placeholder="Search companies, roles, or stories..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9"
