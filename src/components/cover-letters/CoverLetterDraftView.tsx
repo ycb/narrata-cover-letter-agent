@@ -405,7 +405,7 @@ export function CoverLetterDraftView({
             // NEW: Pass section attribution (skeleton during streaming, data when loaded)
             sectionAttribution={summary}
             sectionAttributionData={hasAttributionData ? attribution : undefined}
-            showAttributionSkeleton={!hasAttributionData}
+            tagsLabel={undefined} // Cover letters don't use legacy tags - show SectionInspector instead
             hasGaps={hasGaps}
             gaps={gapObjects}
             gapSummary={cleanGapSummary} // Agent C: Pass rubric summary for section guidance (no trailing periods)
