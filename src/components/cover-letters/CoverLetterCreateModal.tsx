@@ -713,6 +713,7 @@ export const CoverLetterCreateModal = ({
                 jobDescription={normalizedJobDescription ? { ...normalizedJobDescription, id: jobDescriptionRecord?.id || '' } : undefined}
                 enhancedMatchData={null}
                 ratingCriteria={undefined}
+                contentStandards={null}
               />
             </CardContent>
           </Card>
@@ -773,7 +774,10 @@ export const CoverLetterCreateModal = ({
         suggestion: c.suggestion || '',
       }));
     }
-    
+
+    // Extract content standards from llmFeedback (NEW: section-level attribution)
+    const contentStandards = draft.llmFeedback?.contentStandards as any;
+
     // FIX 1: Check analytics.overallScore first (for finalized drafts)
     const analyticsScore = draft.analytics?.overallScore;
     if (analyticsScore !== undefined && analyticsScore !== null) {
@@ -1070,12 +1074,13 @@ export const CoverLetterCreateModal = ({
             const cleanGapSummary = promptSummary ? promptSummary.replace(/\.+$/, '') : null;
 
             // Compute section-level attribution using pure function (safe to call in map)
-            const hasAttributionData = draft.enhancedMatchData != null || (matchMetrics?.ratingCriteria && matchMetrics.ratingCriteria.length > 0);
+            const hasAttributionData = draft.enhancedMatchData != null || contentStandards != null || (matchMetrics?.ratingCriteria && matchMetrics.ratingCriteria.length > 0);
             const { attribution: sectionAttribution } = computeSectionAttribution({
               sectionId: section.id,
               sectionType: section.slug || section.type,
               enhancedMatchData: draft.enhancedMatchData,
               ratingCriteria: matchMetrics?.ratingCriteria,
+              contentStandards: contentStandards || null,
             });
 
             return (

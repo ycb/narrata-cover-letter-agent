@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import type { EnhancedMatchData } from '@/types/coverLetters';
+import type { EnhancedMatchData, ContentStandardsAnalysis } from '@/types/coverLetters';
 import type { SectionAttributionData } from './SectionInspector';
+import { getStandardConfig } from '@/config/contentStandards';
 
 export interface CoverLetterCriterion {
   id: string;
@@ -67,11 +68,13 @@ export function computeSectionAttribution({
   sectionType,
   enhancedMatchData,
   ratingCriteria,
+  contentStandards,
 }: {
   sectionId: string;
   sectionType: string;
   enhancedMatchData?: EnhancedMatchData | null;
   ratingCriteria?: CoverLetterCriterion[];
+  contentStandards?: ContentStandardsAnalysis | null;
 }): {
   attribution: SectionAttributionData;
   summary: {
@@ -179,10 +182,36 @@ export function computeSectionAttribution({
     }));
   }
 
-  // 3. Process Content Standards (from rating criteria)
-  // Note: Standards are letter-level, not section-level
-  // We show ALL standards but highlight which are met
-  if (ratingCriteria && ratingCriteria.length > 0) {
+  // 3. Process Content Standards
+  // PRIORITY: Use new contentStandards data if available, fallback to legacy ratingCriteria
+  if (contentStandards?.perSection) {
+    // NEW PATH: Section-level content standards from ContentStandardsAnalysis
+    const sectionResult = contentStandards.perSection.find(s => s.sectionId === sectionId);
+
+    if (sectionResult) {
+      const metStandards = sectionResult.standards.filter(s => s.status === 'met');
+      const unmetStandards = sectionResult.standards.filter(s => s.status === 'not_met');
+
+      attribution.standards.met = metStandards.map(s => {
+        const config = getStandardConfig(s.standardId);
+        return {
+          id: s.standardId,
+          label: config?.label || s.standardId,
+          evidence: s.evidence,
+        };
+      });
+
+      attribution.standards.unmet = unmetStandards.map(s => {
+        const config = getStandardConfig(s.standardId);
+        return {
+          id: s.standardId,
+          label: config?.label || s.standardId,
+          suggestion: s.evidence, // Evidence explains why it's not met
+        };
+      });
+    }
+  } else if (ratingCriteria && ratingCriteria.length > 0) {
+    // LEGACY PATH: Letter-level rating criteria (fallback)
     const metStandards = ratingCriteria.filter(c => c.met);
     const unmetStandards = ratingCriteria.filter(c => !c.met);
 
@@ -227,11 +256,13 @@ export function useSectionAttribution({
   sectionType,
   enhancedMatchData,
   ratingCriteria,
+  contentStandards,
 }: {
   sectionId: string;
   sectionType: string;
   enhancedMatchData?: EnhancedMatchData | null;
   ratingCriteria?: CoverLetterCriterion[];
+  contentStandards?: ContentStandardsAnalysis | null;
 }): {
   attribution: SectionAttributionData;
   summary: {
@@ -246,6 +277,7 @@ export function useSectionAttribution({
       sectionType,
       enhancedMatchData,
       ratingCriteria,
+      contentStandards,
     });
 
     // PHASE 2 OBSERVABILITY: Comprehensive logging for validation
@@ -286,13 +318,17 @@ export function useSectionAttribution({
       })),
     });
 
-    // Log if ratingCriteria is undefined (known issue)
-    if (!ratingCriteria || ratingCriteria.length === 0) {
-      console.warn('⚠️ ratingCriteria is undefined or empty - standards will be empty');
+    // Log content standards source
+    if (contentStandards?.perSection) {
+      console.log('✓ Using NEW contentStandards (section-level)');
+    } else if (ratingCriteria && ratingCriteria.length > 0) {
+      console.log('⚠️ Using LEGACY ratingCriteria (letter-level)');
+    } else {
+      console.warn('⚠️ No standards data available (neither contentStandards nor ratingCriteria)');
     }
 
     console.groupEnd();
 
     return result;
-  }, [sectionId, sectionType, enhancedMatchData, ratingCriteria]);
+  }, [sectionId, sectionType, enhancedMatchData, ratingCriteria, contentStandards]);
 }

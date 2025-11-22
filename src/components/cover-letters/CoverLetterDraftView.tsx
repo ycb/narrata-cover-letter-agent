@@ -7,7 +7,7 @@ import { SectionInspector } from './SectionInspector';
 import { useSectionAttribution } from './useSectionAttribution';
 import { cn } from '@/lib/utils';
 import { getUnresolvedRatingCriteria } from './useMatchMetricsDetails';
-import type { EnhancedMatchData, SectionGapInsight } from '@/types/coverLetters';
+import type { EnhancedMatchData, SectionGapInsight, ContentStandardsAnalysis } from '@/types/coverLetters';
 import type { MatchMetricsData } from './useMatchMetricsDetails';
 
 interface GoNoGoAnalysis {
@@ -60,7 +60,8 @@ interface CoverLetterDraftViewProps {
   jobDescription?: JobDescription | null;
   isEditable?: boolean;
   hilCompleted?: boolean;
-  ratingCriteria?: CoverLetterCriterion[]; // Rating criteria to pass to Generate Content buttons
+  ratingCriteria?: CoverLetterCriterion[]; // LEGACY: Letter-level rating criteria (fallback)
+  contentStandards?: ContentStandardsAnalysis | null; // NEW: Section-level content standards
   onSectionChange?: (sectionId: string, newContent: string) => void;
   onSectionFocus?: (sectionId: string) => void; // Track when user clicks into field
   onSectionBlur?: (sectionId: string, newContent: string) => void; // Track when user clicks out of field
@@ -97,6 +98,7 @@ export function CoverLetterDraftView({
   isEditable = false,
   hilCompleted = false,
   ratingCriteria,
+  contentStandards,
   onSectionChange,
   onSectionFocus,
   onSectionBlur,
@@ -381,12 +383,13 @@ export function CoverLetterDraftView({
 
         // NEW: Compute section-level attribution for requirements and standards
         // During streaming (no data), show skeleton. Once data loads, show actual attribution.
-        const hasAttributionData = enhancedMatchData != null || (ratingCriteria && ratingCriteria.length > 0);
+        const hasAttributionData = enhancedMatchData != null || contentStandards != null || (ratingCriteria && ratingCriteria.length > 0);
         const { attribution, summary } = useSectionAttribution({
           sectionId: section.id,
           sectionType: section.slug || section.type, // Use slug (semantic type) if available, fallback to type
           enhancedMatchData,
           ratingCriteria,
+          contentStandards,
         });
 
         // Agent C: Get section-specific gap insights
