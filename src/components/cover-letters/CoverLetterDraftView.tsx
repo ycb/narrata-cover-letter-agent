@@ -67,6 +67,7 @@ interface CoverLetterDraftViewProps {
   onSectionBlur?: (sectionId: string, newContent: string) => void; // Track when user clicks out of field
   onSectionDelete?: (sectionId: string) => void;
   onSectionDuplicate?: (sectionId: string) => void;
+  onInsertFromLibrary?: (sectionId: string) => void; // NEW: Insert content from library
   onEditGoals?: () => void;
   onAddStory?: (requirement?: string, severity?: string) => void; // Agent C: add story CTA
   onEnhanceSection?: (sectionId: string, requirement?: string, ratingCriteria?: Array<{
@@ -104,6 +105,7 @@ export function CoverLetterDraftView({
   onSectionBlur,
   onSectionDelete,
   onSectionDuplicate,
+  onInsertFromLibrary,
   onEditGoals,
   onAddStory,
   onEnhanceSection,
@@ -433,6 +435,7 @@ export function CoverLetterDraftView({
             // onEdit is for section content editing (handled by Textarea), not for adding tags
             onDuplicate={onSectionDuplicate ? () => onSectionDuplicate(section.id) : undefined}
             onDelete={onSectionDelete ? () => onSectionDelete(section.id) : undefined}
+            onInsertFromLibrary={onInsertFromLibrary ? () => onInsertFromLibrary(section.id) : undefined}
             showUsage={false}
             renderChildrenBeforeTags={isEditable}
             className={cn(section.isEnhanced && 'border-success/30')}

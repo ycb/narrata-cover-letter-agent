@@ -10,13 +10,17 @@ import { CoverLetterDraftView } from './CoverLetterDraftView';
 import { CoverLetterViewModal } from './CoverLetterViewModal';
 import { UserGoalsModal } from '@/components/user-goals/UserGoalsModal';
 import { ContentGenerationModal } from '@/components/hil/ContentGenerationModal';
+import { AddSectionFromLibraryModal, type InvocationType } from './AddSectionFromLibraryModal';
 import { useUserGoals } from '@/contexts/UserGoalsContext';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { transformMetricsToMatchData, type MatchMetricsData } from './useMatchMetricsDetails';
 import { computeSectionAttribution } from './useSectionAttribution';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { CoverLetterDraftService } from '@/services/coverLetterDraftService';
+import { CoverLetterTemplateService, type SavedSection } from '@/services/coverLetterTemplateService';
+import type { WorkHistoryCompany } from '@/types/workHistory';
 import type { Gap } from '@/services/gapTransformService';
 import type { CoverLetterMatchMetric, ParsedJobDescription } from '@/types/coverLetters';
 
@@ -32,6 +36,7 @@ interface CoverLetterEditModalProps {
 
 export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals, onAddStory, onEnhanceSection, onAddMetrics }: CoverLetterEditModalProps) {
   const { goals, setGoals } = useUserGoals();
+  const { user } = useAuth();
   const { toast } = useToast();
   const coverLetterDraftService = useMemo(() => new CoverLetterDraftService(), []);
   const [editedContent, setEditedContent] = useState<any>(null);
@@ -44,6 +49,14 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
   const [jobDescriptionRecord, setJobDescriptionRecord] = useState<any | null>(null);
   const [sectionFocusContent, setSectionFocusContent] = useState<Record<string, string>>({});
   const [isRecalculating, setIsRecalculating] = useState(false);
+
+  // Library modal state
+  const [showLibraryModal, setShowLibraryModal] = useState(false);
+  const [libraryInvocation, setLibraryInvocation] = useState<InvocationType | null>(null);
+  const [workHistoryLibrary, setWorkHistoryLibrary] = useState<WorkHistoryCompany[]>([]);
+  const [savedSections, setSavedSections] = useState<SavedSection[]>([]);
+  const [isLibraryLoading, setIsLibraryLoading] = useState(false);
+  const [libraryError, setLibraryError] = useState<string | null>(null);
 
   // Initialize edited content when cover letter changes
   useEffect(() => {
@@ -88,6 +101,102 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
     };
     loadJD();
   }, [coverLetter?.jobDescriptionId]);
+
+  // Load work history and saved sections for library modal
+  useEffect(() => {
+    const loadLibraryData = async () => {
+      if (!user?.id) return;
+
+      setIsLibraryLoading(true);
+      setLibraryError(null);
+
+      try {
+        // Load work history companies with stories
+        const { data: workItems } = await supabase
+          .from('work_items')
+          .select('id, title, company_id')
+          .eq('user_id', user.id);
+
+        const { data: stories } = await supabase
+          .from('approved_content')
+          .select('id, title, content, work_item_id')
+          .eq('user_id', user.id);
+
+        const { data: companies } = await supabase
+          .from('companies')
+          .select('id, name, description')
+          .eq('user_id', user.id);
+
+        // Build work history structure
+        const companyMap = new Map<string, WorkHistoryCompany>();
+
+        (companies || []).forEach((company) => {
+          companyMap.set(company.id, {
+            id: company.id,
+            name: company.name,
+            description: company.description || '',
+            tags: [],
+            source: 'resume',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            roles: [],
+          });
+        });
+
+        (workItems || []).forEach((item) => {
+          const company = companyMap.get(item.company_id);
+          if (company) {
+            const itemStories = (stories || []).filter(s => s.work_item_id === item.id);
+            company.roles.push({
+              id: item.id,
+              companyId: item.company_id,
+              title: item.title,
+              type: 'full-time',
+              startDate: '',
+              description: '',
+              tags: [],
+              outcomeMetrics: [],
+              blurbs: itemStories.map(s => ({
+                id: s.id,
+                roleId: item.id,
+                title: s.title,
+                content: s.content || '',
+                outcomeMetrics: [],
+                tags: [],
+                source: 'resume',
+                status: 'approved',
+                confidence: 'high',
+                timesUsed: 0,
+                linkedExternalLinks: [],
+                hasGaps: false,
+                gapCount: 0,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              })),
+              externalLinks: [],
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            });
+          }
+        });
+
+        setWorkHistoryLibrary(Array.from(companyMap.values()).filter(c => c.roles.length > 0));
+
+        // Load saved sections
+        const sections = await CoverLetterTemplateService.getUserSavedSections(user.id);
+        setSavedSections(sections);
+      } catch (error) {
+        console.error('[CoverLetterEditModal] Failed to load library data:', error);
+        setLibraryError(error instanceof Error ? error.message : 'Failed to load library');
+      } finally {
+        setIsLibraryLoading(false);
+      }
+    };
+
+    if (isOpen) {
+      loadLibraryData();
+    }
+  }, [user?.id, isOpen]);
 
   if (!coverLetter || !editedContent) return null;
 
@@ -180,10 +289,10 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
     try {
       // TODO: Implement save functionality
       console.log("Saving edited cover letter:", editedContent);
-      
+
       // Simulate save delay
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
       onClose();
     } catch (error) {
       console.error('Save failed:', error);
@@ -192,6 +301,149 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
     }
   };
 
+  // Library insertion handlers
+  const handleInsertFromLibrary = (sectionId: string) => {
+    const section = editedContent.content?.sections?.find((s: any) => s.id === sectionId);
+    if (!section) return;
+
+    const sectionIndex = editedContent.content.sections.findIndex((s: any) => s.id === sectionId);
+    const sectionType = section.type === 'intro' ? 'intro' : section.type === 'closing' || section.type === 'closer' ? 'closing' : 'body';
+
+    setLibraryInvocation({
+      type: 'replace_or_insert_below',
+      sectionId,
+      sectionType,
+      sectionIndex,
+    });
+    setShowLibraryModal(true);
+  };
+
+  const handleInsertBetweenSections = (insertIndex: number) => {
+    const sections = editedContent.content?.sections || [];
+
+    // Infer section type from neighbors
+    let preferredType: 'intro' | 'body' | 'closing' = 'body';
+    if (insertIndex === 0) {
+      preferredType = 'intro';
+    } else if (insertIndex >= sections.length) {
+      preferredType = 'closing';
+    }
+
+    setLibraryInvocation({
+      type: 'insert_here',
+      insertIndex,
+      preferredSectionType: preferredType,
+    });
+    setShowLibraryModal(true);
+  };
+
+  const handleReplaceSection = async (sectionId: string, content: string, source: { kind: "library"; contentType: "story" | "saved_section"; itemId: string }) => {
+    try {
+      // Update section content
+      const updatedSections = editedContent.content.sections.map((section: any) =>
+        section.id === sectionId ? { ...section, content, source } : section
+      );
+
+      setEditedContent({
+        ...editedContent,
+        content: {
+          ...editedContent.content,
+          sections: updatedSections,
+        },
+      });
+
+      // Save to database
+      await coverLetterDraftService.updateDraftSection(editedContent.id, sectionId, content);
+
+      toast({
+        title: "Section replaced",
+        description: "Content from library has been inserted",
+      });
+
+      setShowLibraryModal(false);
+    } catch (error) {
+      console.error('[CoverLetterEditModal] Failed to replace section:', error);
+      toast({
+        title: "Failed to replace section",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleInsertBelow = async (sectionIndex: number, sectionType: string, content: string, source: { kind: "library"; contentType: "story" | "saved_section"; itemId: string }) => {
+    try {
+      const newSection = {
+        id: `section-${Date.now()}`,
+        type: sectionType,
+        title: '',
+        content,
+        source,
+      };
+
+      const updatedSections = [...editedContent.content.sections];
+      updatedSections.splice(sectionIndex + 1, 0, newSection);
+
+      setEditedContent({
+        ...editedContent,
+        content: {
+          ...editedContent.content,
+          sections: updatedSections,
+        },
+      });
+
+      toast({
+        title: "Section inserted",
+        description: "New section added from library",
+      });
+
+      setShowLibraryModal(false);
+    } catch (error) {
+      console.error('[CoverLetterEditModal] Failed to insert section:', error);
+      toast({
+        title: "Failed to insert section",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleInsertHere = async (insertIndex: number, sectionType: string, content: string, source: { kind: "library"; contentType: "story" | "saved_section"; itemId: string }) => {
+    try {
+      const newSection = {
+        id: `section-${Date.now()}`,
+        type: sectionType,
+        title: '',
+        content,
+        source,
+      };
+
+      const updatedSections = [...editedContent.content.sections];
+      updatedSections.splice(insertIndex, 0, newSection);
+
+      setEditedContent({
+        ...editedContent,
+        content: {
+          ...editedContent.content,
+          sections: updatedSections,
+        },
+      });
+
+      toast({
+        title: "Section inserted",
+        description: "New section added from library",
+      });
+
+      setShowLibraryModal(false);
+    } catch (error) {
+      console.error('[CoverLetterEditModal] Failed to insert section:', error);
+      toast({
+        title: "Failed to insert section",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
+      });
+    }
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -536,6 +788,7 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
                     console.log('Duplicate section:', sectionId);
                     // TODO: Implement duplicate section
                   }}
+                    onInsertFromLibrary={handleInsertFromLibrary}
                     className="flex-1 min-h-0"
                   />
                 );
@@ -659,6 +912,26 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
           setSelectedGap(null);
         }}
       />
+
+      {/* Library Modal */}
+      {libraryInvocation && (
+        <AddSectionFromLibraryModal
+          isOpen={showLibraryModal}
+          onClose={() => {
+            setShowLibraryModal(false);
+            setLibraryInvocation(null);
+          }}
+          invocation={libraryInvocation}
+          jobDescription={jobDescriptionRecord?.structured_data?.rawText || jobDescriptionRecord?.analysis?.llm?.rawText}
+          workHistoryLibrary={workHistoryLibrary}
+          savedSections={savedSections}
+          isLibraryLoading={isLibraryLoading}
+          libraryError={libraryError}
+          onReplace={handleReplaceSection}
+          onInsertBelow={handleInsertBelow}
+          onInsertHere={handleInsertHere}
+        />
+      )}
     </Dialog>
   );
 }
