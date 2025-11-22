@@ -336,3 +336,103 @@ export interface CreateJobDescriptionPayload {
   rawSections?: string[];
 }
 
+// ============================================================================
+// Content Standards Configuration Types (Section-Level Attribution)
+// ============================================================================
+
+/**
+ * Where a content standard is evaluated
+ * - section: Evaluated per-section (e.g., "compelling opening" only applies to intro)
+ * - letter: Evaluated globally for the entire letter (e.g., "concise length")
+ */
+export type StandardScope = 'section' | 'letter';
+
+/**
+ * How a section-scoped standard aggregates to letter-level status
+ * - any_section: Met if ANY applicable section meets it
+ * - all_sections: Met only if ALL applicable sections meet it
+ * - global: Not applicable (letter-scoped standards don't aggregate)
+ */
+export type AggregationRule = 'any_section' | 'all_sections' | 'global';
+
+/**
+ * Which sections a standard applies to
+ * - all_sections: Applies to intro, body, and closing
+ * - intro_only: Only intro sections
+ * - body_only: Only body/experience sections
+ * - closing_only: Only closing sections
+ */
+export type ApplicabilityRule =
+  | 'all_sections'
+  | 'intro_only'
+  | 'body_only'
+  | 'closing_only';
+
+/**
+ * Configuration for a single content standard
+ * Defines evaluation scope, aggregation logic, and applicability
+ */
+export interface ContentStandardConfig {
+  id: string;
+  label: string;
+  description: string;
+  scope: StandardScope;
+  aggregation: AggregationRule;
+  applicability: ApplicabilityRule;
+}
+
+/**
+ * Status of a standard for a specific section
+ * - met: Standard is satisfied
+ * - not_met: Standard is not satisfied
+ * - not_applicable: Standard doesn't apply to this section type
+ */
+export type SectionStandardStatus = 'met' | 'not_met' | 'not_applicable';
+
+/**
+ * Per-section evaluation result
+ * Contains status and evidence for each standard applicable to this section
+ */
+export interface SectionStandardResult {
+  sectionId: string;
+  standards: Array<{
+    standardId: string;
+    status: SectionStandardStatus;
+    evidence: string;
+  }>;
+}
+
+/**
+ * Letter-level evaluation result
+ * Used for global standards (e.g., concise length, professional tone)
+ */
+export interface LetterStandardResult {
+  standardId: string;
+  status: 'met' | 'not_met';
+  evidence: string;
+}
+
+/**
+ * Aggregated standard result (letter-level view)
+ * Shows which sections contributed to meeting this standard
+ */
+export interface AggregatedStandardResult {
+  standardId: string;
+  status: 'met' | 'not_met';
+  contributingSections: string[]; // Section IDs that met this standard
+  evidence: string;
+}
+
+/**
+ * Complete content standards analysis for a cover letter
+ * Contains per-section, per-letter, and aggregated results
+ */
+export interface ContentStandardsAnalysis {
+  perSection: SectionStandardResult[];
+  perLetter: LetterStandardResult[];
+  aggregated: {
+    standards: AggregatedStandardResult[];
+    overallScore: number; // 0-100, percentage of standards met
+  };
+}
+
