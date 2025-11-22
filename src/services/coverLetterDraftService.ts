@@ -28,6 +28,9 @@ import { ENHANCED_METRICS_SYSTEM_PROMPT, SECTION_GUIDANCE, buildEnhancedMetricsU
 import { BASIC_METRICS_SYSTEM_PROMPT, buildBasicMetricsUserPrompt } from '@/prompts/basicMetrics';
 import { REQUIREMENT_ANALYSIS_SYSTEM_PROMPT, buildRequirementAnalysisUserPrompt } from '@/prompts/requirementAnalysis';
 import { SECTION_GAPS_SYSTEM_PROMPT, buildSectionGapsUserPrompt } from '@/prompts/sectionGaps';
+import { ContentStandardsEvaluationService } from './contentStandardsEvaluationService';
+import { aggregateContentStandards, extractSectionsMeta, mapDraftSectionType } from './contentStandardsService';
+import type { ContentStandardsAnalysis, SectionStandardResult, LetterStandardResult } from '@/types/coverLetters';
 
 type SupabaseClient = typeof supabase;
 
@@ -555,13 +558,14 @@ export class CoverLetterDraftService {
 
     const sections = this.normaliseDraftSections(draftRow.sections);
 
-    // PHASE 2: Run 3 parallel LLM calls for 1.6x speedup (45s vs 72s)
+    // PHASE 2: Run 4 parallel LLM calls for optimized performance
     onProgress?.('metrics', 'Analyzing match quality with AI (this takes ~45 seconds)...');
 
     // Storage for results
     let basicResult: Awaited<ReturnType<typeof this.calculateBasicMetrics>> | undefined;
     let reqResult: { enhancedMatchData: Partial<EnhancedMatchData> } | undefined;
     let gapResult: { enhancedMatchData: Partial<EnhancedMatchData>; ratingCriteria?: any[] } | undefined;
+    let contentStandardsResult: ContentStandardsAnalysis | null = null;
 
     // Fire all 3 calls in parallel - each has independent retry logic
     const call1Promise = (async () => {
@@ -631,11 +635,33 @@ export class CoverLetterDraftService {
       return { enhancedMatchData: {}, ratingCriteria: [] };
     })();
 
-    // Wait for all 3 to complete in parallel (~45s vs 72s sequential)
-    [basicResult, reqResult, gapResult] = await Promise.all([
+    const call4Promise = (async () => {
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          if (attempt > 0) {
+            const delay = RETRY_DELAYS_MS[attempt - 1] ?? RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
+            await sleep(delay);
+          }
+          return await this.calculateContentStandards({
+            sections,
+            jobDescription,
+          });
+        } catch (error) {
+          if (attempt === MAX_RETRIES) {
+            console.warn('[CoverLetterDraftService] Content standards failed');
+            return null;
+          }
+        }
+      }
+      return null;
+    })();
+
+    // Wait for all 4 to complete in parallel
+    [basicResult, reqResult, gapResult, contentStandardsResult] = await Promise.all([
       call1Promise,
       call2Promise,
       call3Promise,
+      call4Promise,
     ]);
 
     // Merge results from all 3 calls
@@ -675,10 +701,12 @@ export class CoverLetterDraftService {
           metrics: metricResult.raw,
           enhancedMatchData: metricResult.enhancedMatchData,
           ...(ratingData ? { rating: ratingData } : {}),
+          ...(contentStandardsResult ? { contentStandards: contentStandardsResult } : {}),
         } as unknown as Record<string, unknown>,
         metrics: metricResult.metrics as unknown as Record<string, unknown>,
         analytics: {
           atsScore: metricResult.atsScore,
+          ...(contentStandardsResult ? { overallScore: contentStandardsResult.aggregated.overallScore } : {}),
           generatedAt: this.now().toISOString(),
         } as unknown as Record<string, unknown>,
         updated_at: this.now().toISOString(),
@@ -1016,6 +1044,88 @@ export class CoverLetterDraftService {
       enhancedMatchData: parsed.enhancedMatchData,
       ratingCriteria: parsed.ratingCriteria,
     };
+  }
+
+  /**
+   * PHASE 2: Calculate Content Standards (Parallel Call 4 of 4)
+   * Evaluates sections and letter against content quality standards
+   */
+  private async calculateContentStandards(input: {
+    sections: CoverLetterDraftSection[];
+    jobDescription: ParsedJobDescription;
+  }): Promise<ContentStandardsAnalysis | null> {
+    const evaluationService = new ContentStandardsEvaluationService();
+
+    if (!evaluationService.isAvailable()) {
+      console.warn('[CoverLetterDraftService] Content standards evaluation unavailable (no API key)');
+      return null;
+    }
+
+    try {
+      // Prepare section metadata
+      const sectionsMeta = extractSectionsMeta(input.sections);
+
+      // Full letter text for letter-level evaluation
+      const fullLetterText = input.sections
+        .sort((a, b) => a.order - b.order)
+        .map(section => section.content.trim())
+        .filter(Boolean)
+        .join('\n\n');
+
+      // Calculate word count and paragraph count
+      const wordCount = countWords(fullLetterText);
+      const paragraphCount = input.sections.length;
+
+      // Job description text for context
+      const jobDescriptionText = `${input.jobDescription.company} - ${input.jobDescription.role}\n\n${input.jobDescription.summary}`;
+
+      // Evaluate each section in parallel
+      const perSectionPromises = input.sections.map(section => {
+        const sectionType = mapDraftSectionType(section.type);
+        return evaluationService.evaluateSection(
+          section.id,
+          section.content,
+          sectionType,
+          jobDescriptionText
+        );
+      });
+
+      // Evaluate letter-level standards
+      const perLetterPromise = evaluationService.evaluateLetter(
+        fullLetterText,
+        wordCount,
+        paragraphCount
+      );
+
+      // Wait for all evaluations
+      const [perSectionResults, perLetterResults] = await Promise.all([
+        Promise.all(perSectionPromises),
+        perLetterPromise,
+      ]);
+
+      // Filter out null section results (failed evaluations)
+      const validPerSection: SectionStandardResult[] = perSectionResults.filter(
+        (r): r is SectionStandardResult => r !== null
+      );
+
+      // Aggregate results
+      const analysis = aggregateContentStandards(
+        sectionsMeta,
+        validPerSection,
+        perLetterResults
+      );
+
+      console.log('[CoverLetterDraftService] Content standards calculated:', {
+        overallScore: analysis.aggregated.overallScore,
+        standardsEvaluated: analysis.aggregated.standards.length,
+        sectionsEvaluated: validPerSection.length,
+      });
+
+      return analysis;
+    } catch (error) {
+      console.error('[CoverLetterDraftService] Content standards calculation failed:', error);
+      return null;
+    }
   }
 
   /**
