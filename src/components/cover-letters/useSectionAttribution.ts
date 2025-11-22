@@ -10,8 +10,21 @@ export interface CoverLetterCriterion {
   suggestion?: string;
 }
 
-// Normalize section type for matching
+/**
+ * Normalize section type for semantic matching
+ *
+ * CONTEXT: System supports TWO formats for sectionIds from LLM:
+ * 1. UUID format: "section-1-1", "section-2-3" (PREFERRED - from requirementAnalysis.ts)
+ * 2. Semantic format: "introduction", "experience", "closing" (LEGACY - from enhancedMetricsAnalysis.ts)
+ *
+ * This function handles semantic matching for backward compatibility and
+ * cases where LLM returns slugs instead of UUIDs.
+ *
+ * @param type - Section type/slug from the draft (e.g., "introduction", "paragraph", "dynamic-story")
+ * @returns Array of semantic aliases to match against LLM sectionIds
+ */
 const normalizeSectionType = (type: string): string[] => {
+  // Canonical semantic types and their aliases
   const aliases: Record<string, string[]> = {
     'introduction': ['introduction', 'intro', 'opening'],
     'experience': ['experience', 'exp', 'background', 'body', 'paragraph'],
@@ -20,20 +33,28 @@ const normalizeSectionType = (type: string): string[] => {
   };
 
   const lowerType = type.toLowerCase();
+
+  // Map DraftSectionType values to semantic types
   const typeMapping: Record<string, string> = {
     'intro': 'introduction',
     'paragraph': 'experience',
     'closer': 'closing',
+    // Dynamic section types map to experience by default
+    'static': 'introduction',
+    'dynamic-story': 'experience',
+    'dynamic-saved': 'experience',
   };
 
   const mappedType = typeMapping[lowerType] || lowerType;
 
+  // Find canonical variations
   for (const [canonical, variations] of Object.entries(aliases)) {
     if (canonical === mappedType || variations.includes(mappedType) || variations.includes(lowerType)) {
       return variations;
     }
   }
 
+  // Fallback: return both original and mapped type
   return [mappedType, lowerType];
 };
 
@@ -78,14 +99,27 @@ export function computeSectionAttribution({
       const sectionIds = req.sectionIds || [];
 
       // Check if this section is mentioned
-      return sectionIds.some(sid => {
-        // Direct UUID match (service uses section.id which is UUID)
-        if (sid === sectionId) return true;
+      // Priority: UUID match (exact) > Semantic match (fuzzy)
+      const matched = sectionIds.some(sid => {
+        // Path 1: Direct UUID match (PREFERRED)
+        // Example: sid="section-1-1" === sectionId="section-1-1"
+        if (sid === sectionId) {
+          console.log(`[MATCH PATH 1] ✓ UUID Match for "${req.requirement}": ${sid} === ${sectionId}`);
+          return true;
+        }
 
-        // Normalized type match (for LLM responses that use semantic types like "introduction", "experience")
+        // Path 2: Semantic type match (LEGACY/FALLBACK)
+        // Example: sid="introduction" matches normalizedTypes=["introduction", "intro", "opening"]
+        // Used when LLM returns semantic slugs instead of UUIDs
         const lowerSid = sid.toLowerCase();
-        return normalizedTypes.some(nt => lowerSid.includes(nt) || nt.includes(lowerSid));
+        const semanticMatch = normalizedTypes.some(nt => lowerSid.includes(nt) || nt.includes(lowerSid));
+        if (semanticMatch) {
+          console.log(`[MATCH PATH 2] ⚠️ Semantic Type Match for "${req.requirement}": ${sid} → ${normalizedTypes.join(', ')}`);
+        }
+        return semanticMatch;
       });
+
+      return matched;
     });
 
     attribution.coreReqs.met = metInSection.map(req => ({
@@ -111,14 +145,24 @@ export function computeSectionAttribution({
       if (!req.demonstrated) return false;
       const sectionIds = req.sectionIds || [];
 
-      return sectionIds.some(sid => {
-        // Direct UUID match
-        if (sid === sectionId) return true;
+      // Priority: UUID match (exact) > Semantic match (fuzzy)
+      const matched = sectionIds.some(sid => {
+        // Path 1: Direct UUID match (PREFERRED)
+        if (sid === sectionId) {
+          console.log(`[MATCH PATH 1] ✓ UUID Match (Pref) for "${req.requirement}": ${sid} === ${sectionId}`);
+          return true;
+        }
 
-        // Normalized type match
+        // Path 2: Semantic type match (LEGACY/FALLBACK)
         const lowerSid = sid.toLowerCase();
-        return normalizedTypes.some(nt => lowerSid.includes(nt) || nt.includes(lowerSid));
+        const semanticMatch = normalizedTypes.some(nt => lowerSid.includes(nt) || nt.includes(lowerSid));
+        if (semanticMatch) {
+          console.log(`[MATCH PATH 2] ⚠️ Semantic Type Match (Pref) for "${req.requirement}": ${sid} → ${normalizedTypes.join(', ')}`);
+        }
+        return semanticMatch;
       });
+
+      return matched;
     });
 
     attribution.prefReqs.met = metInSection.map(req => ({
@@ -197,21 +241,58 @@ export function useSectionAttribution({
   };
 } {
   return useMemo(() => {
-    // DEBUG: Log what we're working with
-    console.log('[ATTRIBUTION DEBUG]', {
-      sectionId,
-      sectionType,
-      coreReqCount: enhancedMatchData?.coreRequirementDetails?.length,
-      sampleSectionIds: enhancedMatchData?.coreRequirementDetails?.[0]?.sectionIds,
-      ratingCriteriaCount: ratingCriteria?.length
-    });
-
-    // Delegate to pure function
-    return computeSectionAttribution({
+    const result = computeSectionAttribution({
       sectionId,
       sectionType,
       enhancedMatchData,
       ratingCriteria,
     });
+
+    // PHASE 2 OBSERVABILITY: Comprehensive logging for validation
+    console.group(`[SECTION ATTRIBUTION] ${sectionId}`);
+    console.log('Input:', {
+      sectionId,
+      sectionType,
+      normalizedTypes: normalizeSectionType(sectionType),
+    });
+
+    // Log all sectionIds from LLM responses
+    if (enhancedMatchData?.coreRequirementDetails) {
+      const allSectionIds = enhancedMatchData.coreRequirementDetails
+        .flatMap(req => req.sectionIds || []);
+      const uniqueSectionIds = Array.from(new Set(allSectionIds));
+
+      console.log('LLM Response Analysis (Core Reqs):', {
+        totalRequirements: enhancedMatchData.coreRequirementDetails.length,
+        uniqueSectionIds,
+        sectionIdTypes: uniqueSectionIds.map(sid => ({
+          value: sid,
+          isUUID: /^[0-9a-f-]{36}$/i.test(sid),
+          isSemanticType: ['introduction', 'intro', 'experience', 'exp', 'closing', 'conclusion', 'signature'].some(type =>
+            sid.toLowerCase().includes(type)
+          ),
+        })),
+      });
+    }
+
+    // Log matching results
+    console.log('Matching Results:', {
+      coreMetCount: result.summary.coreMetCount,
+      prefMetCount: result.summary.prefMetCount,
+      standardsMetCount: result.summary.standardsMetCount,
+      coreMetDetails: result.attribution.coreReqs.met.map(r => ({
+        label: r.label,
+        hasEvidence: !!r.evidence,
+      })),
+    });
+
+    // Log if ratingCriteria is undefined (known issue)
+    if (!ratingCriteria || ratingCriteria.length === 0) {
+      console.warn('⚠️ ratingCriteria is undefined or empty - standards will be empty');
+    }
+
+    console.groupEnd();
+
+    return result;
   }, [sectionId, sectionType, enhancedMatchData, ratingCriteria]);
 }
