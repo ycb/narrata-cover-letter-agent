@@ -569,19 +569,7 @@ export const CoverLetterCreateModal = ({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
-          {/* Show JD streaming messages (takes priority over jd_parse phase) */}
-          {jdStreamingMessages.length > 0 && jdStreamingMessages[jdStreamingMessages.length - 1] && (
-            <div className="flex items-start gap-2">
-              <span className="text-xs font-semibold text-foreground/80 uppercase tracking-wide min-w-[180px]">
-                Job Description Analysis
-              </span>
-              <span className="text-sm text-muted-foreground flex-1">
-                {jdStreamingMessages[jdStreamingMessages.length - 1]}
-              </span>
-            </div>
-          )}
-
-          {/* Show other phases */}
+          {/* Show phases */}
           {filteredPhases.map(([phase, message]) => (
             <div key={phase} className="flex items-start gap-2">
               <span className="text-xs font-semibold text-foreground/80 uppercase tracking-wide min-w-[180px]">
@@ -685,12 +673,7 @@ export const CoverLetterCreateModal = ({
                 {isParsingJobDescription || isGenerating ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    {isParsingJobDescription ? 'Job Description Analysis' :
-                     progress[progress.length - 1]?.phase === 'jd_parse' ? 'Parsing' :
-                     progress[progress.length - 1]?.phase === 'content_match' ? 'Draft Generation' :
-                     progress[progress.length - 1]?.phase === 'metrics' ? 'Calculating Metrics' :
-                     progress[progress.length - 1]?.phase === 'gap_detection' ? 'Gap Detection' :
-                     'Generating'}
+                    Generating
                   </>
                 ) : (
                   <>
