@@ -73,6 +73,13 @@ export function ContentGenerationModal({
   onRetry
 }: ContentGenerationModalProps) {
   console.log('ContentGenerationModal render:', { isOpen, mode, suggestedTags, isSearching, searchError });
+  console.log('ContentGenerationModal gap data:', {
+    hasGap: !!gap,
+    hasSectionAttribution: !!gap?.sectionAttribution,
+    sectionAttribution: gap?.sectionAttribution,
+    gaps: gap?.gaps,
+    gapSummary: gap?.gapSummary
+  });
   const { toast } = useToast();
   const [generatedContent, setGeneratedContent] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -268,10 +275,6 @@ export function ContentGenerationModal({
 
                 {/* Section Attribution - Show what requirements/standards this section currently meets */}
                 {gap.sectionAttribution && (
-                  gap.sectionAttribution.coreReqs.met.length > 0 ||
-                  gap.sectionAttribution.prefReqs.met.length > 0 ||
-                  gap.sectionAttribution.standards.met.length > 0
-                ) && (
                   <div className="mt-4 pt-4 border-t border-border/30">
                     {/* Use actual SectionInspector component - no DRY violation, starts collapsed */}
                     <SectionInspector data={gap.sectionAttribution} />
