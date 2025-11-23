@@ -696,8 +696,6 @@ export const CoverLetterCreateModal = ({
             </div>
           </CardContent>
         </Card>
-
-        {renderProgress()}
       </div>
     );
   };
