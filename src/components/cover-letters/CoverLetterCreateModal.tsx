@@ -1060,10 +1060,15 @@ export const CoverLetterCreateModal = ({
               contentStandards: contentStandards || null,
             });
 
+            // Format section title: replace dashes with spaces and capitalize first letter
+            const formattedTitle = section.title
+              ? section.title.replace(/-/g, ' ').charAt(0).toUpperCase() + section.title.replace(/-/g, ' ').slice(1)
+              : '';
+
             return (
               <ContentCard
                 key={section.id}
-                title={section.title}
+                title={formattedTitle}
                 content={undefined} // Don't show preview when editable (Textarea displays it)
                 sectionAttributionData={hasAttributionData ? sectionAttribution : undefined}
                 tagsLabel={undefined} // Cover letters don't use legacy tags - show SectionInspector instead
