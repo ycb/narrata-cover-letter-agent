@@ -4,8 +4,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { ContentCard } from '@/components/shared/ContentCard';
 import { MatchMetricsToolbar } from './MatchMetricsToolbar';
 import { SectionInspector } from './SectionInspector';
-import { SectionInsertButton } from './SectionInsertButton';
-import { useSectionAttribution } from './useSectionAttribution';
+import { SectionInsertButton } from '@/components/template-blurbs/SectionInsertButton';
+import { computeSectionAttribution } from './useSectionAttribution';
 import { cn } from '@/lib/utils';
 import { getUnresolvedRatingCriteria } from './useMatchMetricsDetails';
 import type { EnhancedMatchData, SectionGapInsight, ContentStandardsAnalysis } from '@/types/coverLetters';
@@ -384,7 +384,7 @@ export function CoverLetterDraftView({
         <div className="space-y-6 pl-6 pb-6">
           {/* Add Section button at the top if editable */}
           {isEditable && onInsertBetweenSections && (
-            <SectionInsertButton onClick={() => onInsertBetweenSections(0)} />
+            <SectionInsertButton onClick={() => onInsertBetweenSections(0)} variant="default" />
           )}
 
           {sections.map((section, sectionIndex) => {
@@ -394,7 +394,7 @@ export function CoverLetterDraftView({
         // NEW: Compute section-level attribution for requirements and standards
         // During streaming (no data), show skeleton. Once data loads, show actual attribution.
         const hasAttributionData = enhancedMatchData != null || contentStandards != null || (ratingCriteria && ratingCriteria.length > 0);
-        const { attribution, summary } = useSectionAttribution({
+        const { attribution, summary } = computeSectionAttribution({
           sectionId: section.id,
           sectionType: section.slug || section.type, // Use slug (semantic type) if available, fallback to type
           enhancedMatchData,
@@ -499,6 +499,7 @@ export function CoverLetterDraftView({
             {isEditable && onInsertBetweenSections && (
               <SectionInsertButton
                 onClick={() => onInsertBetweenSections(sectionIndex + 1)}
+                variant="default"
               />
             )}
           </React.Fragment>

@@ -1164,7 +1164,7 @@ const persistTemplate = async () => {
                         {index < template.sections.length - 1 && (
                           <SectionInsertButton
                             onClick={() => addSection(index)}
-                            variant="subtle"
+                            variant="default"
                           />
                         )}
                       </div>
@@ -1213,7 +1213,7 @@ const persistTemplate = async () => {
                   ) : (
                     <SectionInsertButton
                       onClick={() => addSection()}
-                      variant="subtle"
+                      variant="default"
                     />
                   )}
                 </div>

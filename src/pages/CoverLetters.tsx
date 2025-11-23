@@ -74,8 +74,10 @@ interface ModalCoverLetterPayload extends CoverLetterListItem {
     sections: Array<{
       id: string;
       type: string;
+      title?: string;
       content: string;
       isEnhanced: boolean;
+      source?: any;
     }>;
   };
   jobDescription: string;
@@ -185,11 +187,13 @@ const toModalPayload = (coverLetter: CoverLetterListItem): ModalCoverLetterPaylo
     return {
       id: section.id ?? section.sectionId ?? `section-${index}`,
       type: templateSection?.type ?? fallbackType,
+      title: (section as any).title ?? templateSection?.title,
       content:
         (section as CoverLetterGeneratedSection).content ??
         templateSection?.staticContent ??
         "",
-      isEnhanced: templateSection?.isStatic === false
+      isEnhanced: templateSection?.isStatic === false,
+      source: (section as any).source
     };
   });
 
@@ -703,6 +707,7 @@ export default function CoverLetters() {
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         coverLetter={modalPayload}
+        onSave={fetchCoverLetters}
         onEditGoals={handleEditGoals}
         onAddStory={handleAddStory}
         onEnhanceSection={handleEnhanceSection}

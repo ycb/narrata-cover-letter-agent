@@ -17,11 +17,9 @@ interface CoverLetterViewModalProps {
 export function CoverLetterViewModal({ isOpen, onClose, coverLetter }: CoverLetterViewModalProps) {
   const [copied, setCopied] = useState(false);
 
-  if (!coverLetter) return null;
-
   const formatCoverLetter = () => {
-    if (!coverLetter.content?.sections) return "";
-    
+    if (!coverLetter?.content?.sections) return "";
+
     return coverLetter.content.sections
       .map((section: any) => section.content)
       .join("\n\n");
@@ -38,6 +36,7 @@ export function CoverLetterViewModal({ isOpen, onClose, coverLetter }: CoverLett
   };
 
   const handleDownload = () => {
+    if (!coverLetter?.title) return;
     const element = document.createElement('a');
     const file = new Blob([formatCoverLetter()], { type: 'text/plain' });
     element.href = URL.createObjectURL(file);
@@ -48,6 +47,7 @@ export function CoverLetterViewModal({ isOpen, onClose, coverLetter }: CoverLett
   };
 
   const handleShare = async () => {
+    if (!coverLetter) return;
     console.log('Share button clicked!');
     const text = formatCoverLetter();
     const title = coverLetter.title;
@@ -76,6 +76,11 @@ export function CoverLetterViewModal({ isOpen, onClose, coverLetter }: CoverLett
   };
 
   const finalLetter = formatCoverLetter();
+
+  // Conditional render without early return to maintain consistent hook calls
+  if (!coverLetter) {
+    return null;
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

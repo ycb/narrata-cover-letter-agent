@@ -41,7 +41,7 @@ export function SectionInsertButton({
             </Button>
           </div>
         </TooltipTrigger>
-        <TooltipContent side="right" className="max-w-xs">
+        <TooltipContent side="top" className="max-w-xs">
           <p>Click to add a new section here</p>
         </TooltipContent>
       </Tooltip>

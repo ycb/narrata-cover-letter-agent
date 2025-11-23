@@ -28,13 +28,14 @@ interface CoverLetterEditModalProps {
   isOpen: boolean;
   onClose: () => void;
   coverLetter: any;
+  onSave?: () => void; // Callback to refetch data after save
   onEditGoals?: () => void; // Agent C: goals CTA handler
   onAddStory?: (requirement?: string, severity?: string) => void; // Agent C: add story CTA
   onEnhanceSection?: (sectionId: string, requirement?: string, gapData?: { gaps?: Array<{ id: string; title?: string; description: string }>; gapSummary?: string | null }) => void; // Agent C: enhance section CTA
   onAddMetrics?: (sectionId?: string) => void; // Agent C: add metrics CTA
 }
 
-export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals, onAddStory, onEnhanceSection, onAddMetrics }: CoverLetterEditModalProps) {
+export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onSave, onEditGoals, onAddStory, onEnhanceSection, onAddMetrics }: CoverLetterEditModalProps) {
   const { goals, setGoals } = useUserGoals();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -198,9 +199,8 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
     }
   }, [user?.id, isOpen]);
 
-  if (!coverLetter || !editedContent) return null;
-
   const handleSectionChange = (sectionId: string, newContent: string) => {
+    if (!editedContent) return;
     setEditedContent({
       ...editedContent,
       content: {
@@ -287,15 +287,35 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // TODO: Implement save functionality
-      console.log("Saving edited cover letter:", editedContent);
+      // Save the sections to database (cover_letters table uses 'sections' column, not 'content')
+      const { error } = await supabase
+        .from('cover_letters')
+        .update({
+          sections: editedContent.content.sections,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', editedContent.id);
 
-      // Simulate save delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (error) throw error;
+
+      toast({
+        title: "Cover letter saved",
+        description: "Your changes have been saved successfully",
+      });
+
+      // Notify parent to refetch data
+      if (onSave) {
+        onSave();
+      }
 
       onClose();
     } catch (error) {
       console.error('Save failed:', error);
+      toast({
+        title: "Failed to save",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -337,11 +357,11 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
     setShowLibraryModal(true);
   };
 
-  const handleReplaceSection = async (sectionId: string, content: string, source: { kind: "library"; contentType: "story" | "saved_section"; itemId: string }) => {
+  const handleReplaceSection = async (sectionId: string, content: string, source: { kind: "library"; contentType: "story" | "saved_section"; itemId: string; title?: string }) => {
     try {
       // Update section content
       const updatedSections = editedContent.content.sections.map((section: any) =>
-        section.id === sectionId ? { ...section, content, source } : section
+        section.id === sectionId ? { ...section, content, source, title: source.title || section.title } : section
       );
 
       setEditedContent({
@@ -371,12 +391,12 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
     }
   };
 
-  const handleInsertBelow = async (sectionIndex: number, sectionType: string, content: string, source: { kind: "library"; contentType: "story" | "saved_section"; itemId: string }) => {
+  const handleInsertBelow = async (sectionIndex: number, sectionType: string, content: string, source: { kind: "library"; contentType: "story" | "saved_section"; itemId: string; title?: string }) => {
     try {
       const newSection = {
         id: `section-${Date.now()}`,
         type: sectionType,
-        title: '',
+        title: source.title || '',
         content,
         source,
       };
@@ -408,12 +428,12 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
     }
   };
 
-  const handleInsertHere = async (insertIndex: number, sectionType: string, content: string, source: { kind: "library"; contentType: "story" | "saved_section"; itemId: string }) => {
+  const handleInsertHere = async (insertIndex: number, sectionType: string, content: string, source: { kind: "library"; contentType: "story" | "saved_section"; itemId: string; title?: string }) => {
     try {
       const newSection = {
         id: `section-${Date.now()}`,
         type: sectionType,
-        title: '',
+        title: source.title || '',
         content,
         source,
       };
@@ -445,6 +465,69 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
     }
   };
 
+  const handleDeleteSection = (sectionId: string) => {
+    try {
+      const updatedSections = editedContent.content.sections.filter((section: any) => section.id !== sectionId);
+
+      setEditedContent({
+        ...editedContent,
+        content: {
+          ...editedContent.content,
+          sections: updatedSections,
+        },
+      });
+
+      toast({
+        title: "Section deleted",
+        description: "The section has been removed",
+      });
+    } catch (error) {
+      console.error('[CoverLetterEditModal] Failed to delete section:', error);
+      toast({
+        title: "Failed to delete section",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDuplicateSection = (sectionId: string) => {
+    try {
+      const sectionIndex = editedContent.content.sections.findIndex((s: any) => s.id === sectionId);
+      if (sectionIndex === -1) return;
+
+      const sectionToDuplicate = editedContent.content.sections[sectionIndex];
+      const duplicatedSection = {
+        ...sectionToDuplicate,
+        id: `section-${Date.now()}`,
+        title: `${sectionToDuplicate.title} (Copy)`,
+      };
+
+      const updatedSections = [...editedContent.content.sections];
+      updatedSections.splice(sectionIndex + 1, 0, duplicatedSection);
+
+      setEditedContent({
+        ...editedContent,
+        content: {
+          ...editedContent.content,
+          sections: updatedSections,
+        },
+      });
+
+      toast({
+        title: "Section duplicated",
+        description: "A copy has been created below the original",
+      });
+    } catch (error) {
+      console.error('[CoverLetterEditModal] Failed to duplicate section:', error);
+      toast({
+        title: "Failed to duplicate section",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
+      });
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -454,6 +537,11 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
       minute: '2-digit'
     });
   };
+
+  // Conditional render without early return to maintain consistent hook calls
+  if (!coverLetter || !editedContent) {
+    return null;
+  }
 
   return (
     <>
@@ -781,14 +869,8 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
                     onSectionChange={handleSectionChange}
                     onSectionFocus={handleSectionFocus}
                     onSectionBlur={handleSectionBlur}
-                    onSectionDelete={(sectionId) => {
-                    console.log('Delete section:', sectionId);
-                    // TODO: Implement delete section
-                  }}
-                  onSectionDuplicate={(sectionId) => {
-                    console.log('Duplicate section:', sectionId);
-                    // TODO: Implement duplicate section
-                  }}
+                    onSectionDelete={handleDeleteSection}
+                  onSectionDuplicate={handleDuplicateSection}
                     onInsertFromLibrary={handleInsertFromLibrary}
                     onInsertBetweenSections={handleInsertBetweenSections}
                     className="flex-1 min-h-0"
@@ -916,6 +998,14 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onEditGoals
       />
 
       </Dialog>
+
+      {/* Placeholder background to show edit modal is still "there" when library modal opens */}
+      {showLibraryModal && isOpen && createPortal(
+        <div className="fixed inset-0 z-40 bg-black/80">
+          <div className="fixed left-[50%] top-[50%] translate-x-[-50%] translate-y-[-50%] w-full max-w-6xl h-[90vh] bg-background border shadow-lg rounded-lg" />
+        </div>,
+        document.body
+      )}
 
       {/* Library Modal - Rendered outside Dialog using Portal to escape stacking context */}
       {libraryInvocation && createPortal(
