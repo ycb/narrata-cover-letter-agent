@@ -542,11 +542,20 @@ export const CoverLetterCreateModal = ({
     }, {} as Record<string, string>);
 
     const phaseLabels: Record<string, string> = {
-      jd_parse: 'Parsing',
+      jd_parse: 'Job Description Analysis',
       content_match: 'Draft Generation',
       metrics: 'Calculating Metrics',
       gap_detection: 'Gap Detection',
+      finalized: 'Finalized',
     };
+
+    // Filter out phases we don't want to show (jd_parse if we have streaming messages, metrics if metricsLoading, finalized always)
+    const filteredPhases = Object.entries(phaseGroups).filter(([phase]) => {
+      if (phase === 'finalized') return false; // Never show finalized
+      if (phase === 'jd_parse' && jdStreamingMessages.length > 0) return false; // Use streaming messages instead
+      if (phase === 'metrics' && metricsLoading) return false; // Use metricsLoading UI instead
+      return true;
+    });
 
     return (
       <Card className="border-muted-foreground/20 bg-muted/20">
@@ -557,6 +566,7 @@ export const CoverLetterCreateModal = ({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
+          {/* Show JD streaming messages (takes priority over jd_parse phase) */}
           {jdStreamingMessages.length > 0 && jdStreamingMessages[jdStreamingMessages.length - 1] && (
             <div className="flex items-start gap-2">
               <span className="text-xs font-semibold text-foreground/80 uppercase tracking-wide min-w-[180px]">
@@ -568,7 +578,8 @@ export const CoverLetterCreateModal = ({
             </div>
           )}
 
-          {Object.entries(phaseGroups).map(([phase, message]) => (
+          {/* Show other phases */}
+          {filteredPhases.map(([phase, message]) => (
             <div key={phase} className="flex items-start gap-2">
               <span className="text-xs font-semibold text-foreground/80 uppercase tracking-wide min-w-[180px]">
                 {phaseLabels[phase] || phase}
@@ -577,7 +588,7 @@ export const CoverLetterCreateModal = ({
             </div>
           ))}
 
-          {/* Show metrics loading if active */}
+          {/* Show metrics loading if active (takes priority over metrics phase) */}
           {metricsLoading && (
             <div className="flex items-start gap-2">
               <span className="text-xs font-semibold text-foreground/80 uppercase tracking-wide min-w-[180px] flex items-center gap-2">
