@@ -779,7 +779,7 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onSave, onE
                   } : null}
                   onEditGoals={() => setShowGoalsModal(true)}
                   onAddStory={onAddStory}
-                  onEnhanceSection={(sectionId, requirement, ratingCriteria) => {
+                  onEnhanceSection={(sectionId, requirement, ratingCriteria, providedGapData) => {
                     // Always open HIL workflow - create gap object for ContentGenerationModal
                     const section = editedContent.content?.sections?.find((s: any) => s.id === sectionId);
                     if (section) {
@@ -823,13 +823,13 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onSave, onE
                         ? sectionInsight.promptSummary.replace(/\.+$/, '')
                         : null;
 
-                      // Compute section attribution for HIL modal
-                      const { attribution: sectionAttribution } = computeSectionAttribution({
+                      // Compute section attribution for HIL modal (or use provided)
+                      const sectionAttribution = providedGapData?.sectionAttribution || computeSectionAttribution({
                         sectionId: section.id,
                         sectionType: section.slug || section.type,
                         enhancedMatchData: enhancedMatchData,
                         ratingCriteria: matchMetrics?.ratingCriteria,
-                      });
+                      }).attribution;
 
                       setSelectedGap({
                         id: requirement ? `section-${sectionId}-${requirement}` : `section-${sectionId}-enhancement`,
@@ -841,10 +841,10 @@ export function CoverLetterEditModal({ isOpen, onClose, coverLetter, onSave, onE
                         section_id: sectionId,
                         paragraphId: paragraphId,
                         existingContent: existingContent,
-                        // Store requirement gaps and rating criteria gaps separately
-                        gaps: requirementGaps,
+                        // Store requirement gaps and rating criteria gaps separately - prefer provided data
+                        gaps: providedGapData?.gaps || requirementGaps,
                         ratingCriteriaGaps: gapsFromRating,
-                        gapSummary: cleanGapSummary,
+                        gapSummary: providedGapData?.gapSummary || cleanGapSummary,
                         // Pass section attribution to show what's working in HIL
                         sectionAttribution: sectionAttribution
                       });
