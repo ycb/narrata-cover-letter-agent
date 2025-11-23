@@ -767,6 +767,11 @@ export const CoverLetterCreateModal = ({
 
     // Transform draft.metrics to MatchMetricsData format
     let matchMetrics = transformMetricsToMatchData(draft.metrics || []);
+
+    // Calculate job-level totals for requirement denominators (fixes "2/0" display bug)
+    const totalCoreReqs = draft.enhancedMatchData?.coreRequirementDetails?.length ?? 0;
+    const totalPrefReqs = draft.enhancedMatchData?.preferredRequirementDetails?.length ?? 0;
+    const totalStandards = 11; // Total possible content standards
     
     // Extract rating criteria from llmFeedback
     const ratingData = draft.llmFeedback?.rating as any;
@@ -1066,6 +1071,9 @@ export const CoverLetterCreateModal = ({
                 title={formattedTitle}
                 content={undefined} // Don't show preview when editable (Textarea displays it)
                 sectionAttributionData={hasAttributionData ? sectionAttribution : undefined}
+                totalCoreReqs={totalCoreReqs}
+                totalPrefReqs={totalPrefReqs}
+                totalStandards={totalStandards}
                 tagsLabel={undefined} // Cover letters don't use legacy tags - show SectionInspector instead
                 hasGaps={hasGaps}
                 gaps={gapObjects}

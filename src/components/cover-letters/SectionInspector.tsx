@@ -29,6 +29,11 @@ interface SectionInspectorProps {
   data?: SectionAttributionData; // Optional: undefined during streaming (shows skeleton)
   className?: string;
   defaultOpen?: boolean; // Whether to start expanded (default: false)
+  // Job-level totals for denominators (fixes "2/0" display bug)
+  // These represent the total count of requirements/standards for the entire job
+  totalCoreReqs?: number;
+  totalPrefReqs?: number;
+  totalStandards?: number;
 }
 
 /**
@@ -38,7 +43,14 @@ interface SectionInspectorProps {
  * Used in cover letter content cards to give user visibility into
  * what's working without opening HIL modal
  */
-export function SectionInspector({ data, className, defaultOpen = false }: SectionInspectorProps) {
+export function SectionInspector({
+  data,
+  className,
+  defaultOpen = false,
+  totalCoreReqs: jobTotalCoreReqs,
+  totalPrefReqs: jobTotalPrefReqs,
+  totalStandards: jobTotalStandards,
+}: SectionInspectorProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   // Show skeleton when no data provided (undefined during streaming)
@@ -59,9 +71,12 @@ export function SectionInspector({ data, className, defaultOpen = false }: Secti
   const coreMetCount = data.coreReqs.met.length;
   const prefMetCount = data.prefReqs.met.length;
   const standardsMetCount = data.standards.met.length;
-  const totalCoreReqs = data.coreReqs.met.length + data.coreReqs.unmet.length;
-  const totalPrefReqs = data.prefReqs.met.length + data.prefReqs.unmet.length;
-  const totalStandards = data.standards.met.length + data.standards.unmet.length;
+
+  // CRITICAL FIX: Use job-level totals as denominators (not section-level met + unmet)
+  // Fallback to section data if job totals not provided (backward compatibility)
+  const totalCoreReqs = jobTotalCoreReqs ?? (data.coreReqs.met.length + data.coreReqs.unmet.length);
+  const totalPrefReqs = jobTotalPrefReqs ?? (data.prefReqs.met.length + data.prefReqs.unmet.length);
+  const totalStandards = jobTotalStandards ?? (data.standards.met.length + data.standards.unmet.length);
 
   // Build summary badges - count only with regular tag style
   return (

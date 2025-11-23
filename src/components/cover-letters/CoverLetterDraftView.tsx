@@ -115,6 +115,11 @@ export function CoverLetterDraftView({
   onAddMetrics,
   className,
 }: CoverLetterDraftViewProps) {
+  // Calculate job-level totals for requirement denominators (fixes "2/0" display bug)
+  const totalCoreReqs = enhancedMatchData?.coreRequirementDetails?.length ?? 0;
+  const totalPrefReqs = enhancedMatchData?.preferredRequirementDetails?.length ?? 0;
+  const totalStandards = 11; // Total possible content standards
+
   const getSectionTitle = (type: string) => {
     switch (type) {
       case 'intro':
@@ -418,6 +423,9 @@ export function CoverLetterDraftView({
               // NEW: Pass section attribution (skeleton during streaming, data when loaded)
               sectionAttribution={summary}
               sectionAttributionData={hasAttributionData ? attribution : undefined}
+              totalCoreReqs={totalCoreReqs}
+              totalPrefReqs={totalPrefReqs}
+              totalStandards={totalStandards}
               tagsLabel={undefined} // Cover letters don't use legacy tags - show SectionInspector instead
               hasGaps={hasGaps}
               gaps={gapObjects}

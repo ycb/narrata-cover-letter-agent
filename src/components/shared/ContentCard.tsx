@@ -39,6 +39,10 @@ interface ContentCardProps {
   tags?: (string | RequirementTag)[]; // Support both simple strings and structured tags (legacy for non-cover-letter cards)
   sectionAttribution?: SectionAttributionSummary; // NEW: Section-level attribution summary for cover letters
   sectionAttributionData?: SectionAttributionData; // NEW: Full attribution data for SectionInspector (undefined = skeleton)
+  // Job-level totals for requirement denominators (fixes "2/0" display bug)
+  totalCoreReqs?: number;
+  totalPrefReqs?: number;
+  totalStandards?: number;
   timesUsed?: number;
   lastUsed?: string;
   hasGaps?: boolean;
@@ -76,6 +80,9 @@ export const ContentCard = ({
   tags = [],
   sectionAttribution,
   sectionAttributionData,
+  totalCoreReqs,
+  totalPrefReqs,
+  totalStandards,
   timesUsed = 0,
   onDismissGap,
   lastUsed,
@@ -214,7 +221,12 @@ export const ContentCard = ({
         {sectionAttributionData !== undefined ? (
           // Cover letters: show Requirements Met (undefined = skeleton, data = render)
           <div className="mb-6">
-            <SectionInspector data={sectionAttributionData} />
+            <SectionInspector
+              data={sectionAttributionData}
+              totalCoreReqs={totalCoreReqs}
+              totalPrefReqs={totalPrefReqs}
+              totalStandards={totalStandards}
+            />
           </div>
         ) : tagsLabel && (
           <div className="mb-6">
