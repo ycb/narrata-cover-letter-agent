@@ -129,9 +129,11 @@ export const ContentCard = ({
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
             <div className="mb-2">
-              <CardTitle className="text-lg truncate">{title}</CardTitle>
+              <CardTitle className="text-lg truncate">
+                {title ? title.charAt(0).toUpperCase() + title.slice(1) : ''}
+              </CardTitle>
             </div>
-            
+
             {/* Usage Stats */}
             {showUsage && (
               <div className="flex items-center gap-4 text-sm text-muted-foreground">

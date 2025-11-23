@@ -272,11 +272,8 @@ export const CoverLetterCreateModal = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  useEffect(() => {
-    if (draft && mainTab !== 'cover-letter') {
-      setMainTab('cover-letter');
-    }
-  }, [draft, mainTab]);
+  // Removed: Auto-switching to cover-letter tab prevents users from viewing job description
+  // Users should be able to freely switch between tabs
 
   // Pre-parse job description in the background when user pastes content
   useEffect(() => {
@@ -535,7 +532,7 @@ export const CoverLetterCreateModal = ({
   const isBusy = isGenerating || isParsingJobDescription;
 
   const renderProgress = () => {
-    const hasProgress = progress.length > 0 || jdStreamingMessages.length > 0;
+    const hasProgress = progress.length > 0 || jdStreamingMessages.length > 0 || metricsLoading;
     if (!hasProgress) return null;
 
     // Group progress by phase and show only the latest message per phase
@@ -579,6 +576,19 @@ export const CoverLetterCreateModal = ({
               <span className="text-sm text-muted-foreground flex-1">{message}</span>
             </div>
           ))}
+
+          {/* Show metrics loading if active */}
+          {metricsLoading && (
+            <div className="flex items-start gap-2">
+              <span className="text-xs font-semibold text-foreground/80 uppercase tracking-wide min-w-[180px] flex items-center gap-2">
+                <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                Calculating Metrics
+              </span>
+              <span className="text-sm text-muted-foreground flex-1">
+                Analyzing how well your draft matches the job requirements...
+              </span>
+            </div>
+          )}
         </CardContent>
       </Card>
     );
@@ -697,6 +707,7 @@ export const CoverLetterCreateModal = ({
     if (!draft && streamingSections.length > 0 && jobDescriptionRecord) {
       return (
         <div className="space-y-6">
+          {renderProgress()}
           <Card className="border-primary/20 bg-primary/5">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-2 text-primary">
@@ -717,7 +728,6 @@ export const CoverLetterCreateModal = ({
               />
             </CardContent>
           </Card>
-          {renderProgress()}
         </div>
       );
     }
@@ -726,6 +736,7 @@ export const CoverLetterCreateModal = ({
     if (!draft && isGenerating && jobDescriptionRecord && user) {
       return (
         <div className="space-y-6">
+          {renderProgress()}
           <Card className="border-muted-foreground/20 bg-muted/10">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -745,7 +756,6 @@ export const CoverLetterCreateModal = ({
               />
             </CardContent>
           </Card>
-          {renderProgress()}
         </div>
       );
     }
@@ -910,41 +920,8 @@ export const CoverLetterCreateModal = ({
               </Alert>
             )}
 
-            {/* AGENT D: Show metrics loading indicator */}
-            {metricsLoading && (
-              <Alert className="border-primary/20 bg-primary/5">
-                <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                <AlertTitle>Calculating match metrics</AlertTitle>
-                <AlertDescription>
-                  Analyzing how well your draft matches the job requirements. You can edit sections while this completes.
-                </AlertDescription>
-              </Alert>
-            )}
-
-        {jobDescriptionRecord && (
-          <Card className="border-muted-foreground/20 bg-muted/10">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold">Job description snapshot</CardTitle>
-              <CardDescription className="text-xs text-muted-foreground">
-                We parsed these details from the job description to guide the draft.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-3 text-sm md:grid-cols-2">
-              <div className="space-y-1">
-                <span className="text-xs font-semibold uppercase text-muted-foreground">
-                  Company
-                </span>
-                <p className="font-medium">{jobDescriptionRecord.company}</p>
-              </div>
-              <div className="space-y-1">
-                <span className="text-xs font-semibold uppercase text-muted-foreground">
-                  Role
-                </span>
-                <p className="font-medium">{jobDescriptionRecord.role}</p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+            {/* Show progress card at top when metrics are loading */}
+            {renderProgress()}
 
         <div className="space-y-4">
           {draft.sections.map(section => {
