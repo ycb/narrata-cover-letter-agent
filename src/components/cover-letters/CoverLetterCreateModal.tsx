@@ -532,6 +532,9 @@ export const CoverLetterCreateModal = ({
   const isBusy = isGenerating || isParsingJobDescription;
 
   const renderProgress = () => {
+    // Hide progress card once everything is complete
+    if (draft && !isGenerating && !metricsLoading) return null;
+
     const hasProgress = progress.length > 0 || jdStreamingMessages.length > 0 || metricsLoading;
     if (!hasProgress) return null;
 
