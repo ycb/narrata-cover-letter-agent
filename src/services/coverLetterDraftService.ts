@@ -536,9 +536,9 @@ export class CoverLetterDraftService {
     draftId: string,
     userId: string,
     jobDescriptionId: string,
-    onProgress?: (phase: string, message: string) => void
+    onProgress?: DraftGenerationOptions['onProgress']
   ): Promise<EnhancedMatchData | undefined> {
-    onProgress?.('metrics', 'Loading data for metrics calculation...');
+    this.emitProgress(onProgress, 'metrics', 'Loading data for metrics calculation...');
 
     const [draftRow, jobDescription, userGoals, workHistory, approvedContent] = await Promise.all([
       this.supabaseClient
@@ -559,7 +559,7 @@ export class CoverLetterDraftService {
     const sections = this.normaliseDraftSections(draftRow.sections);
 
     // PHASE 2: Run 4 parallel LLM calls for optimized performance
-    onProgress?.('metrics', 'Analyzing match quality with AI (this takes ~45 seconds)...');
+    this.emitProgress(onProgress, 'metrics', 'Analyzing match quality with AI (this takes ~45 seconds)...');
 
     // Storage for results
     let basicResult: Awaited<ReturnType<typeof this.calculateBasicMetrics>> | undefined;
@@ -713,7 +713,7 @@ export class CoverLetterDraftService {
       })
       .eq('id', draftId);
 
-    onProgress?.('metrics', 'Match metrics calculated successfully!');
+    this.emitProgress(onProgress, 'metrics', 'Match metrics calculated successfully!');
 
     return metricResult.enhancedMatchData;
   }
