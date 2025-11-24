@@ -75,17 +75,9 @@ export function CoverLetterRatingInsights({
             <div className="text-xs space-y-1">
               {criterion.evidence && (
                 <div>
-                  <span className="font-medium text-foreground/90">Evidence:</span>{' '}
+                  <span className="font-medium text-foreground/90">Status:</span>{' '}
                   <span className={`${criterion.met ? 'text-foreground/80' : 'text-muted-foreground'}`}>
                     {criterion.evidence}
-                  </span>
-                </div>
-              )}
-              {!criterion.met && criterion.suggestion && (
-                <div>
-                  <span className="font-medium text-foreground/90">Suggestion:</span>{' '}
-                  <span className="text-muted-foreground">
-                    {criterion.suggestion}
                   </span>
                 </div>
               )}
