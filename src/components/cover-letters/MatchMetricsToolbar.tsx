@@ -75,23 +75,42 @@ export function MatchMetricsToolbar({
       'closing': ['closing', 'conclusion', 'closer'],
       'signature': ['signature', 'signoff'],
     };
-    
+
     const lowerType = sectionType.toLowerCase();
     const typeMapping: Record<string, string> = {
       'intro': 'introduction',
       'paragraph': 'experience',
       'closer': 'closing',
     };
-    
+
     const mappedType = typeMapping[lowerType] || lowerType;
-    
+
     for (const [canonical, variations] of Object.entries(aliases)) {
       if (canonical === mappedType || variations.includes(mappedType) || variations.includes(lowerType)) {
         return variations;
       }
     }
-    
+
     return [mappedType, lowerType];
+  };
+
+  // Format slug into sentence case title
+  // Examples: "launched-fleet-health-monitoring-system" → "Launched fleet health monitoring system"
+  //           "section-3" → "Section 3"
+  //           "introduction" → "Introduction"
+  const formatSectionTitle = (slug: string): string => {
+    if (!slug) return 'Section';
+
+    // Replace dashes and underscores with spaces
+    const words = slug.replace(/[-_]/g, ' ').split(' ');
+
+    // Capitalize first word only (sentence case)
+    return words.map((word, index) => {
+      if (index === 0) {
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      }
+      return word.toLowerCase();
+    }).join(' ');
   };
 
   // Collect gaps: count sections with gaps (not individual gap items)
@@ -133,7 +152,8 @@ export function MatchMetricsToolbar({
           }
           if (lowerType === 'closer' || lowerType === 'closing') return 'Closing';
           if (lowerType === 'signature') return 'Signature';
-          return sectionInsight.sectionSlug || section.type;
+          // Format slug into sentence case (e.g., "launched-fleet-health" → "Launched fleet health")
+          return formatSectionTitle(sectionInsight.sectionSlug || section.type);
         })();
         
         // Add all gaps for this section
