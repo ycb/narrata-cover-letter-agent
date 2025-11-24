@@ -8,6 +8,7 @@ import { SectionInsertButton } from '@/components/template-blurbs/SectionInsertB
 import { computeSectionAttribution } from './useSectionAttribution';
 import { cn } from '@/lib/utils';
 import { getUnresolvedRatingCriteria } from './useMatchMetricsDetails';
+import { getApplicableStandards } from '@/config/contentStandards';
 import type { EnhancedMatchData, SectionGapInsight, ContentStandardsAnalysis } from '@/types/coverLetters';
 import type { MatchMetricsData } from './useMatchMetricsDetails';
 
@@ -118,7 +119,7 @@ export function CoverLetterDraftView({
   // Calculate job-level totals for requirement denominators (fixes "2/0" display bug)
   const totalCoreReqs = enhancedMatchData?.coreRequirementDetails?.length ?? 0;
   const totalPrefReqs = enhancedMatchData?.preferredRequirementDetails?.length ?? 0;
-  const totalStandards = 11; // Total possible content standards
+  // Note: totalStandards is calculated per-section based on section type (intro/body/closing)
 
   const getSectionTitle = (type: string) => {
     switch (type) {
@@ -396,6 +397,13 @@ export function CoverLetterDraftView({
         // Use template title, fallback to generated title
         const sectionTitle = section.title || getSectionTitle(section.type);
 
+        // Calculate section-type-specific totalStandards
+        const sectionTypeForStandards =
+          section.type === 'intro' || section.slug === 'intro' || section.slug === 'introduction' ? 'intro' :
+          section.type === 'closer' || section.slug === 'closer' || section.slug === 'closing' ? 'closing' :
+          'body';
+        const totalStandardsForSection = getApplicableStandards(sectionTypeForStandards).length;
+
         // NEW: Compute section-level attribution for requirements and standards
         // During streaming (no data), show skeleton. Once data loads, show actual attribution.
         const hasAttributionData = enhancedMatchData != null || contentStandards != null || (ratingCriteria && ratingCriteria.length > 0);
@@ -425,7 +433,7 @@ export function CoverLetterDraftView({
               sectionAttributionData={hasAttributionData ? attribution : undefined}
               totalCoreReqs={totalCoreReqs}
               totalPrefReqs={totalPrefReqs}
-              totalStandards={totalStandards}
+              totalStandards={totalStandardsForSection}
               tagsLabel={undefined} // Cover letters don't use legacy tags - show SectionInspector instead
               hasGaps={hasGaps}
               gaps={gapObjects}

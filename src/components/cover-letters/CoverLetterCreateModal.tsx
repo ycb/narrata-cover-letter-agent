@@ -64,6 +64,7 @@ import { transformMetricsToMatchData, getUnresolvedRatingCriteria } from './useM
 import { computeSectionAttribution } from './useSectionAttribution';
 import type { CoverLetterDraft, JobDescriptionRecord, ParsedJobDescription } from '@/types/coverLetters';
 import type { Gap } from '@/services/gapTransformService';
+import { getApplicableStandards } from '@/config/contentStandards';
 
 const MIN_JOB_DESCRIPTION_LENGTH = 50;
 
@@ -771,7 +772,7 @@ export const CoverLetterCreateModal = ({
     // Calculate job-level totals for requirement denominators (fixes "2/0" display bug)
     const totalCoreReqs = draft.enhancedMatchData?.coreRequirementDetails?.length ?? 0;
     const totalPrefReqs = draft.enhancedMatchData?.preferredRequirementDetails?.length ?? 0;
-    const totalStandards = 11; // Total possible content standards
+    // Note: totalStandards is calculated per-section based on section type (intro/body/closing)
     
     // Extract rating criteria from llmFeedback
     const ratingData = draft.llmFeedback?.rating as any;
@@ -1065,6 +1066,13 @@ export const CoverLetterCreateModal = ({
               ? section.title.replace(/-/g, ' ').charAt(0).toUpperCase() + section.title.replace(/-/g, ' ').slice(1)
               : '';
 
+            // Calculate section-type-specific totalStandards
+            const sectionTypeForStandards =
+              section.type === 'intro' || section.slug === 'intro' || section.slug === 'introduction' ? 'intro' :
+              section.type === 'closer' || section.slug === 'closer' || section.slug === 'closing' ? 'closing' :
+              'body';
+            const totalStandardsForSection = getApplicableStandards(sectionTypeForStandards).length;
+
             return (
               <ContentCard
                 key={section.id}
@@ -1073,7 +1081,7 @@ export const CoverLetterCreateModal = ({
                 sectionAttributionData={hasAttributionData ? sectionAttribution : undefined}
                 totalCoreReqs={totalCoreReqs}
                 totalPrefReqs={totalPrefReqs}
-                totalStandards={totalStandards}
+                totalStandards={totalStandardsForSection}
                 tagsLabel={undefined} // Cover letters don't use legacy tags - show SectionInspector instead
                 hasGaps={hasGaps}
                 gaps={gapObjects}
