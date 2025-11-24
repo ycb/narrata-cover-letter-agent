@@ -1067,10 +1067,22 @@ export const CoverLetterCreateModal = ({
               : '';
 
             // Calculate section-type-specific totalStandards
-            const sectionTypeForStandards =
-              section.type === 'intro' || section.slug === 'intro' || section.slug === 'introduction' ? 'intro' :
-              section.type === 'closer' || section.slug === 'closer' || section.slug === 'closing' ? 'closing' :
-              'body';
+            // Use position as fallback if slug/type don't match known values
+            const sectionIndex = draft.sections.findIndex(s => s.id === section.id);
+            const sectionTypeForStandards: 'intro' | 'body' | 'closing' = (() => {
+              // First try slug (semantic type from LLM)
+              if (section.slug === 'intro' || section.slug === 'introduction') return 'intro';
+              if (section.slug === 'closing' || section.slug === 'conclusion' || section.slug === 'closer') return 'closing';
+
+              // Then try type (UI display type)
+              if (section.type === 'intro' || section.type === 'introduction') return 'intro';
+              if (section.type === 'closing' || section.type === 'conclusion' || section.type === 'closer') return 'closing';
+
+              // Fallback: Use position-based heuristic
+              if (sectionIndex === 0) return 'intro'; // First section is intro
+              if (sectionIndex === draft.sections.length - 1) return 'closing'; // Last section is closing
+              return 'body'; // Everything else is body
+            })();
             const totalStandardsForSection = getApplicableStandards(sectionTypeForStandards).length;
 
             return (
