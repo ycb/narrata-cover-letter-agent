@@ -121,10 +121,26 @@ export const CONTENT_STANDARDS: ContentStandardConfig[] = [
 ];
 
 /**
+ * Normalize legacy standard IDs to current format
+ * Maps old snake_case IDs (from legacy LLM responses) to current IDs
+ */
+function normalizeStandardId(standardId: string): string {
+  const legacyMapping: Record<string, string> = {
+    'action_verbs_ownership': 'action_verbs',
+    'personalized_to_role': 'personalized',
+    // Add other legacy mappings as discovered
+  };
+
+  return legacyMapping[standardId] || standardId;
+}
+
+/**
  * Get standard configuration by ID
+ * Handles both current and legacy ID formats for backward compatibility
  */
 export function getStandardConfig(standardId: string): ContentStandardConfig | undefined {
-  return CONTENT_STANDARDS.find((s) => s.id === standardId);
+  const normalizedId = normalizeStandardId(standardId);
+  return CONTENT_STANDARDS.find((s) => s.id === normalizedId);
 }
 
 /**
