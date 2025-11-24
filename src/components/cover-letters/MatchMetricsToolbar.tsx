@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Check, X, HelpCircle, AlertTriangle } from 'lucide-react';
+import { HelpCircle, AlertTriangle } from 'lucide-react';
 import { GoalMatchCard } from './GoalMatchCard';
 import { CoverLetterRatingInsights } from './CoverLetterRatingTooltip';
 import { ATSScoreInsights } from './ATSScoreTooltip';
+import { StatusIcon } from './StatusIcon';
 import {
   getATSScoreColor,
   getScoreColor,
@@ -463,11 +464,7 @@ function RequirementsDrawerContent({
             </div>
           </div>
           <div className="flex-shrink-0 p-2 flex items-center gap-2">
-            {req.demonstrated ? (
-              <Check className="h-4 w-4 text-success" />
-            ) : (
-              <X className="h-4 w-4 text-destructive" />
-            )}
+            <StatusIcon met={req.demonstrated} />
             {req.demonstrated && (
               <>
                 {onEnhanceSection && req.section && (

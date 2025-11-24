@@ -1,6 +1,6 @@
 import React from 'react';
 import { FullWidthTooltip } from '@/components/ui/full-width-tooltip';
-import { Check, X } from 'lucide-react';
+import { StatusIcon } from './StatusIcon';
 
 interface CoverLetterCriterion {
   id: string;
@@ -92,11 +92,7 @@ export function CoverLetterRatingInsights({
             </div>
           </div>
           <div className="flex-shrink-0 p-2 flex items-center">
-            {criterion.met ? (
-              <Check className="h-4 w-4 text-success" />
-            ) : (
-              <X className="h-4 w-4 text-destructive" />
-            )}
+            <StatusIcon met={criterion.met} />
           </div>
         </div>
       ))}
