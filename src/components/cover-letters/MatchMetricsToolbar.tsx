@@ -468,11 +468,11 @@ function RequirementsDrawerContent({
       {requirements.map((req, index) => (
         <div
           key={req.id}
-          className={`p-2 flex items-center gap-2 ${index > 0 ? 'border-t border-border/30' : ''}`}
+          className={`p-2 flex items-start gap-2 ${index > 0 ? 'border-t border-border/30' : ''}`}
         >
-          <div className="flex-1 min-w-0">
+          <div className="flex-1">
             <div className="mb-1.5">
-              <h4 className="text-sm font-medium text-foreground">{req.requirement}</h4>
+              <h4 className="text-sm font-medium text-foreground break-words">{req.requirement}</h4>
             </div>
             <div className="text-xs">
               <div>
