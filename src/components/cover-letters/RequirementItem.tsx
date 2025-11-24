@@ -1,4 +1,4 @@
-import { Check, X } from 'lucide-react';
+import { StatusIcon } from './StatusIcon';
 
 interface RequirementItemProps {
   label: string;
@@ -48,11 +48,7 @@ export function RequirementItem({ label, type, evidence, suggestion }: Requireme
         )}
       </div>
       <div className="flex-shrink-0 p-2 flex items-center gap-2">
-        {type === 'met' ? (
-          <Check className="h-4 w-4 text-success" />
-        ) : (
-          <X className="h-4 w-4 text-muted-foreground" />
-        )}
+        <StatusIcon met={type === 'met'} />
       </div>
     </div>
   );
