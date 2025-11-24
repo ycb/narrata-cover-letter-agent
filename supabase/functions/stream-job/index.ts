@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
+import { executeCoverLetterPipeline } from './_shared/pipelines/cover-letter.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -186,77 +187,9 @@ serve(async (req) => {
 });
 
 // ============================================================================
-// Pipeline Executors (Placeholder implementations)
+// Pipeline Executors (Placeholder implementations for onboarding & pmLevels)
 // ============================================================================
-
-async function executeCoverLetterPipeline(
-  job: any,
-  supabase: any,
-  send: (event: string, data: any) => void
-) {
-  // Stage 1: Basic Metrics (placeholder)
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  send('progress', {
-    jobId: job.id,
-    stage: 'basicMetrics',
-    data: {
-      atsScore: 0,
-      goalsMatch: 0,
-      experienceMatch: 0,
-      topThemes: [],
-      initialFitScore: 0,
-    },
-    timestamp: new Date().toISOString(),
-  });
-
-  // Stage 2: Requirement Analysis (placeholder)
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  send('progress', {
-    jobId: job.id,
-    stage: 'requirementAnalysis',
-    data: {
-      coreRequirements: [],
-      preferredRequirements: [],
-      requirementsMet: 0,
-      totalRequirements: 0,
-    },
-    timestamp: new Date().toISOString(),
-  });
-
-  // Stage 3: Section Gaps (placeholder)
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  send('progress', {
-    jobId: job.id,
-    stage: 'sectionGaps',
-    data: {
-      sections: [],
-      totalGaps: 0,
-    },
-    timestamp: new Date().toISOString(),
-  });
-
-  // Final: Save result
-  const result = {
-    draftId: 'placeholder',
-    metrics: {
-      atsScore: 0,
-      experienceMatch: 0,
-      goalsMatch: 0,
-      requirementsMet: 0,
-      rating: 0,
-    },
-    gapCount: 0,
-  };
-
-  await supabase
-    .from('jobs')
-    .update({
-      status: 'complete',
-      result,
-      completed_at: new Date().toISOString(),
-    })
-    .eq('id', job.id);
-}
+// Note: Cover letter pipeline is now imported from _shared/pipelines/cover-letter.ts
 
 async function executeOnboardingPipeline(
   job: any,
