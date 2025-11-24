@@ -236,15 +236,11 @@ export function useJobStream(
 
           const authToken = session.access_token;
 
-          // Construct SSE URL
-          const streamUrl = `${supabaseUrl}/functions/v1/stream-job?jobId=${jobId}`;
+          // Construct SSE URL with token
+          // Note: EventSource doesn't support custom headers, so we pass the auth token as a query param
+          const streamUrl = `${supabaseUrl}/functions/v1/stream-job?jobId=${jobId}&access_token=${authToken}`;
 
-          // Create EventSource with auth header
-          // Note: EventSource doesn't support custom headers, so we'll use a workaround
-          // We'll pass the token as a query parameter (Edge Function will need to handle this)
-          const urlWithAuth = `${streamUrl}&token=${authToken}`;
-
-          const eventSource = new EventSource(urlWithAuth);
+          const eventSource = new EventSource(streamUrl);
           eventSourceRef.current = eventSource;
 
           // Set timeout

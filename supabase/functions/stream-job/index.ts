@@ -19,9 +19,10 @@ serve(async (req) => {
   }
 
   try {
-    // Get job ID from query params
+    // Get job ID and access token from query params
     const url = new URL(req.url);
     const jobId = url.searchParams.get('jobId');
+    const accessToken = url.searchParams.get('access_token');
 
     if (!jobId) {
       return new Response(
@@ -30,11 +31,11 @@ serve(async (req) => {
       );
     }
 
-    // Get auth token
-    const authHeader = req.headers.get('Authorization');
+    // Get auth token (from header or query param for EventSource compatibility)
+    const authHeader = req.headers.get('Authorization') || (accessToken ? `Bearer ${accessToken}` : null);
     if (!authHeader) {
       return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
+        JSON.stringify({ error: 'Missing authorization' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

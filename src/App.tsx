@@ -41,6 +41,7 @@ import NewUserDashboard from "./pages/NewUserDashboard";
 
 import { HILDemo } from "./pages/HILDemo";
 import TooltipDemo from "./pages/TooltipDemo";
+import StreamingDemo from "./pages/StreamingDemo";
 import ShowAllStories from "./pages/ShowAllStories";
 import ShowAllLinks from "./pages/ShowAllLinks";
 import SavedSections from "./pages/SavedSections";
@@ -167,6 +168,12 @@ function AppLayout() {
           <ProtectedRoute>
             <Header />
             <TooltipDemo />
+          </ProtectedRoute>
+        } />
+        <Route path="/streaming-demo" element={
+          <ProtectedRoute>
+            <Header />
+            <StreamingDemo />
           </ProtectedRoute>
         } />
         <Route path="/show-all-stories" element={
