@@ -104,6 +104,7 @@ serve(async (req) => {
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder();
+        let heartbeatInterval: number | null = null;
 
         // Helper to send SSE message
         const send = (event: string, data: any) => {
@@ -113,6 +114,13 @@ serve(async (req) => {
             console.error('Error sending SSE message:', e);
           }
         };
+
+        // Start heartbeat (keep connection alive)
+        heartbeatInterval = setInterval(() => {
+          send('heartbeat', {
+            timestamp: new Date().toISOString(),
+          });
+        }, 15000); // Every 15 seconds
 
         // Update job status to running
         await supabase
@@ -145,6 +153,11 @@ serve(async (req) => {
             timestamp: new Date().toISOString(),
           });
 
+          // Clean up
+          if (heartbeatInterval) {
+            clearInterval(heartbeatInterval);
+          }
+
           // Close stream
           controller.close();
         } catch (error) {
@@ -166,6 +179,11 @@ serve(async (req) => {
             error: error.message || 'Pipeline execution failed',
             timestamp: new Date().toISOString(),
           });
+
+          // Clean up
+          if (heartbeatInterval) {
+            clearInterval(heartbeatInterval);
+          }
 
           controller.close();
         }

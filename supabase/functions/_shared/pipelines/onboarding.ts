@@ -13,6 +13,7 @@ import {
   callOpenAI,
   parseJSONResponse,
 } from '../pipeline-utils.ts';
+import { PipelineTelemetry } from '../telemetry.ts';
 
 // ============================================================================
 // Stage 1: Parse Inputs (Fast - 3-8s)
@@ -177,29 +178,34 @@ export async function executeOnboardingPipeline(
   supabase: any,
   send: (event: string, data: any) => void
 ) {
-  // Get OpenAI API key from environment
-  const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
-  if (!openaiApiKey) {
-    throw new Error('OPENAI_API_KEY not configured');
-  }
+  // Initialize telemetry
+  const telemetry = new PipelineTelemetry(job.id, job.type);
 
-  // Define pipeline stages
-  const stages: PipelineStage[] = [
-    parseInputsStage,
-    skeletonProfileStage,
-    detailedProfileStage,
-  ];
+  try {
+    // Get OpenAI API key from environment
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openaiApiKey) {
+      throw new Error('OPENAI_API_KEY not configured');
+    }
 
-  // Create pipeline context
-  const context: PipelineContext = {
-    job,
-    supabase,
-    send,
-    openaiApiKey,
-  };
+    // Define pipeline stages
+    const stages: PipelineStage[] = [
+      parseInputsStage,
+      skeletonProfileStage,
+      detailedProfileStage,
+    ];
 
-  // Execute pipeline
-  const results = await executePipeline(stages, context);
+    // Create pipeline context
+    const context: PipelineContext = {
+      job,
+      supabase,
+      send,
+      openaiApiKey,
+      telemetry,
+    };
+
+    // Execute pipeline
+    const results = await executePipeline(stages, context);
 
   // In real implementation, we'd create the actual profile here
   // For MVP, we'll create a placeholder profile ID
@@ -227,16 +233,24 @@ export async function executeOnboardingPipeline(
     skillsCount: results.parseInputs?.skillsCount || 0,
   };
 
-  // Save final result to job
-  await supabase
-    .from('jobs')
-    .update({
-      status: 'complete',
-      result: finalResult,
-      completed_at: new Date().toISOString(),
-    })
-    .eq('id', job.id);
+    // Save final result to job
+    await supabase
+      .from('jobs')
+      .update({
+        status: 'complete',
+        result: finalResult,
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', job.id);
 
-  return finalResult;
+    // Mark telemetry as complete
+    telemetry.complete(true);
+
+    return finalResult;
+  } catch (error) {
+    // Mark telemetry as failed
+    telemetry.complete(false, error.message);
+    throw error;
+  }
 }
 

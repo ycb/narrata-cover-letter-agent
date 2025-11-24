@@ -3,6 +3,7 @@
  */
 
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
+import { PipelineTelemetry } from './telemetry.ts';
 
 // ============================================================================
 // Types
@@ -15,6 +16,7 @@ export interface PipelineContext {
   supabase: SupabaseClient;
   send: SSESender;
   openaiApiKey: string;
+  telemetry?: PipelineTelemetry;
 }
 
 export interface PipelineStage {
@@ -91,18 +93,23 @@ export async function executePipeline(
   context: PipelineContext
 ): Promise<any> {
   const results: Record<string, any> = {};
+  const telemetry = context.telemetry;
 
   for (const stage of stages) {
     try {
       console.log(`[Pipeline] Executing stage: ${stage.name}`);
-      const startTime = Date.now();
+      
+      // Start telemetry for this stage
+      if (telemetry) {
+        telemetry.startStage(stage.name);
+      }
 
       // Execute stage with timeout
       const stagePromise = stage.execute(context);
       const timeoutPromise = stage.timeout
         ? new Promise((_, reject) =>
             setTimeout(
-              () => reject(new Error(`Stage ${stage.name} timed out`)),
+              () => reject(new Error(`Stage ${stage.name} timed out after ${stage.timeout}ms`)),
               stage.timeout
             )
           )
@@ -112,8 +119,10 @@ export async function executePipeline(
         ? await Promise.race([stagePromise, timeoutPromise])
         : await stagePromise;
 
-      const duration = Date.now() - startTime;
-      console.log(`[Pipeline] Stage ${stage.name} completed in ${duration}ms`);
+      // End telemetry for this stage
+      if (telemetry) {
+        telemetry.endStage(true);
+      }
 
       // Store result
       results[stage.name] = result;
@@ -127,7 +136,17 @@ export async function executePipeline(
       });
     } catch (error) {
       console.error(`[Pipeline] Stage ${stage.name} failed:`, error);
-      throw new Error(`Stage ${stage.name} failed: ${error.message}`);
+      
+      // End telemetry with error
+      if (telemetry) {
+        telemetry.endStage(false, error.message);
+      }
+      
+      throw new PipelineError(
+        `Stage ${stage.name} failed: ${error.message}`,
+        stage.name,
+        error
+      );
     }
   }
 
