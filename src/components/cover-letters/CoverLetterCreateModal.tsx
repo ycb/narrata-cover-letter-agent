@@ -640,12 +640,6 @@ export const CoverLetterCreateModal = ({
                   Analyzing...
                 </div>
               )}
-              {preParsedJD && jobContent.trim() === preParsedContent && !isPreParsing && (
-                <div className="absolute top-2 right-2 flex items-center gap-2 text-xs text-success bg-success/10 backdrop-blur-sm px-2 py-1 rounded-md border border-success/20">
-                  <span className="text-success">✓</span>
-                  Job description analyzed
-                </div>
-              )}
             </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>{jobContent.trim().length} characters</span>
