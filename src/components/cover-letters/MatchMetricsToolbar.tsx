@@ -596,22 +596,19 @@ function GapsDrawerContent({ allGaps, onEnhanceSection }: GapsDrawerContentProps
           <div key={sectionId} className={sectionIndex > 0 ? 'border-t border-border/30' : ''}>
             <div className="p-2">
               <h4 className="text-sm font-medium text-foreground mb-2">{sectionTitle}</h4>
-            <div>
+            <div className="space-y-2">
               {sectionGaps.map((item, gapIndex) => (
                 <div
                   key={item.gap.id || `gap-${gapIndex}`}
-                  className={`p-2 flex items-start gap-2 ${gapIndex > 0 ? 'border-t border-border/30' : ''}`}
+                  className="text-xs"
                 >
-                  <div className="flex-1 min-w-0">
-                    <div className="mb-1.5">
-                      <div className="text-sm font-medium text-foreground flex items-center gap-1">
-                        <span>•</span>
-                        <span>{item.gap.label || item.gap.title || 'Missing requirement'}</span>
-                      </div>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
+                  <div>
+                    <span className="font-medium text-foreground/90">
+                      {item.gap.label || item.gap.title || 'Missing requirement'}:
+                    </span>{' '}
+                    <span className="text-foreground/80">
                       {item.gap.rationale || item.gap.description || 'Not explicitly mentioned in current draft'}
-                    </div>
+                    </span>
                   </div>
                 </div>
               ))}
