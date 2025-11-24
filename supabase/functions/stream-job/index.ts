@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 import { executeCoverLetterPipeline } from './_shared/pipelines/cover-letter.ts';
 import { executeOnboardingPipeline } from './_shared/pipelines/onboarding.ts';
+import { executePMLevelsPipeline } from './_shared/pipelines/pm-levels.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -189,37 +190,9 @@ serve(async (req) => {
 });
 
 // ============================================================================
-// Pipeline Executors (Placeholder implementations for pmLevels)
+// All pipelines imported from _shared/pipelines/
 // ============================================================================
-// Note: Cover letter and onboarding pipelines imported from _shared/pipelines/
-
-async function executePMLevelsPipeline(
-  job: any,
-  supabase: any,
-  send: (event: string, data: any) => void
-) {
-  // Placeholder implementation
-  send('progress', {
-    jobId: job.id,
-    stage: 'baselineAssessment',
-    data: { icLevel: 0, roleToLevelMapping: {}, assessmentBand: '' },
-    timestamp: new Date().toISOString(),
-  });
-
-  const result = {
-    assessmentId: 'placeholder',
-    icLevel: 0,
-    competencies: {},
-    specializations: [],
-  };
-
-  await supabase
-    .from('jobs')
-    .update({
-      status: 'complete',
-      result,
-      completed_at: new Date().toISOString(),
-    })
-    .eq('id', job.id);
-}
+// - Cover Letter: executeCoverLetterPipeline
+// - Onboarding: executeOnboardingPipeline
+// - PM Levels: executePMLevelsPipeline
 
