@@ -228,7 +228,7 @@ export const CoverLetterCreateModal = ({
       if (!jobState?.result?.draftId) return;
       const draftId = jobState.result.draftId as string;
       const { data: fetched, error } = await supabase
-        .from('cover_letter_drafts')
+        .from('cover_letters')
         .select('*')
         .eq('id', draftId)
         .single();
