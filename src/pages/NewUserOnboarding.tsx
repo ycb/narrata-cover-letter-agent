@@ -23,6 +23,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { useLinkedInUpload } from "@/hooks/useFileUpload";
 import { useOnboardingJobStream } from "@/hooks/useJobStream";
+import { StageStepper } from "@/components/streaming/StageStepper";
 import { isValidLinkedInUrl, normalizeLinkedInUrl } from "@/utils/linkedinUtils";
 
 type OnboardingStep = 'welcome' | 'upload' | 'review';
@@ -727,24 +728,23 @@ export default function NewUserOnboarding() {
               {isOnboardingStreaming || onboardingJob?.status === 'running' ? (
                 <div className="mb-4 p-4 border rounded-lg">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">Analyzing your profile… {obPct}%</div>
-                      <div className="text-sm text-muted-foreground mt-1">
-                        Streaming stages:
-                      </div>
-                    </div>
+                    <div className="font-medium">Analyzing your profile… {obPct}%</div>
                     <Badge variant="secondary">{onboardingJob?.status ?? 'pending'}</Badge>
                   </div>
-                  <div className="flex gap-2 mt-3">
-                    {obStageOrder.map((s) => {
-                      const done = (onboardingJob?.stages as any)?.[s]?.status === 'complete';
-                      return (
-                        <Badge key={s} variant={done ? 'default' : 'secondary'}>
-                          {s}{done ? ' ✓' : ' …'}
-                        </Badge>
-                      );
-                    })}
-                  </div>
+                  <StageStepper
+                    className="mt-3"
+                    percent={obPct}
+                    stages={[
+                      { key: 'linkedInFetch', label: 'LinkedIn fetch' },
+                      { key: 'profileStructuring', label: 'Profile structuring' },
+                      { key: 'derivedArtifacts', label: 'Templates & baseline' },
+                    ]}
+                    statusByKey={{
+                      linkedInFetch: (onboardingJob?.stages as any)?.linkedInFetch?.status || 'running',
+                      profileStructuring: (onboardingJob?.stages as any)?.profileStructuring?.status || 'pending',
+                      derivedArtifacts: (onboardingJob?.stages as any)?.derivedArtifacts?.status || 'pending',
+                    }}
+                  />
                 </div>
               ) : null}
               {renderReviewStep()}

@@ -53,6 +53,7 @@ import { JobDescriptionService } from '@/services/jobDescriptionService';
 import { CoverLetterDraftService } from '@/services/coverLetterDraftService';
 import { useCoverLetterDraft } from '@/hooks/useCoverLetterDraft';
 import { useCoverLetterJobStream } from '@/hooks/useJobStream';
+import { StageStepper } from '@/components/streaming/StageStepper';
 import { MatchMetricsToolbar } from './MatchMetricsToolbar';
 import { CoverLetterFinalization } from './CoverLetterFinalization';
 import { CoverLetterSkeleton } from './CoverLetterSkeleton';
@@ -409,22 +410,25 @@ export const CoverLetterCreateModal = ({
     if (!isJobStreaming && jobState?.status !== 'running' && jobState?.status !== 'pending') {
       return null;
     }
+    const statusMap: Record<string, any> = jobState?.stages || {};
+    const stepperStages = [
+      { key: 'basicMetrics', label: 'Basic metrics' },
+      { key: 'requirementAnalysis', label: 'Requirements' },
+      { key: 'sectionGaps', label: 'Section gaps' },
+    ];
+    const statusByKey = Object.fromEntries(
+      stepperStages.map(s => {
+        const st = statusMap[s.key]?.status;
+        return [s.key, st || (jobState?.status === 'pending' || jobState?.status === 'running' ? 'running' : 'pending')];
+      })
+    );
     return (
       <Alert className="mb-4">
         <AlertTitle>
           Generating cover letter… {clProgressPct}%
         </AlertTitle>
         <AlertDescription>
-          <div className="flex gap-2 mt-2">
-            {clStageOrder.map((stage) => {
-              const done = (jobState?.stages as any)?.[stage]?.status === 'complete';
-              return (
-                <Badge key={stage} variant={done ? 'default' : 'secondary'}>
-                  {stage}{done ? ' ✓' : ' …'}
-                </Badge>
-              );
-            })}
-          </div>
+          <StageStepper stages={stepperStages} statusByKey={statusByKey as any} percent={clProgressPct} className="mt-2" />
         </AlertDescription>
       </Alert>
     );
