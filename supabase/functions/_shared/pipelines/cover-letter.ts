@@ -304,7 +304,7 @@ export async function executeCoverLetterPipeline(
       basicMetricsStage,
       requirementAnalysisStage,
       sectionGapsStage,
-      // draftGenerationStage, // Optional - commented out for MVP
+      draftGenerationStage,
     ];
 
     // Create pipeline context
@@ -317,9 +317,9 @@ export async function executeCoverLetterPipeline(
     };
 
     // Execute pipeline
-    console.log('[executeCoverLetterPipeline] Starting executePipeline with', stages.length, 'stages');
+    try { const { elog } = await import('../log.ts'); elog.info('[executeCoverLetterPipeline] Starting executePipeline with ' + stages.length + ' stages'); } catch (_) {}
     const results = await executePipeline(stages, context);
-    console.log('[executeCoverLetterPipeline] Pipeline complete, results:', Object.keys(results));
+    try { const { elog } = await import('../log.ts'); elog.info('[executeCoverLetterPipeline] Pipeline complete, results: ' + Object.keys(results).join(',')); } catch (_) {}
 
   // Compile final result
   const finalResult = {
