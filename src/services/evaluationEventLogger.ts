@@ -87,7 +87,13 @@ export class EvaluationEventLogger {
         .select('id');
 
       if (error) {
-        console.error('[EvaluationEventLogger] JD parse logging failed:', error);
+        console.error('[EvaluationEventLogger] JD parse logging failed:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          payload: JSON.stringify(payload, null, 2)
+        });
         return { success: false, error: error.message };
       }
 
