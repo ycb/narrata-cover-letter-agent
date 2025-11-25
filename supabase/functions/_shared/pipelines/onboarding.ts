@@ -16,61 +16,39 @@ import {
 import { PipelineTelemetry } from '../telemetry.ts';
 
 // ============================================================================
-// Stage 1: Parse Inputs (Fast - 3-8s)
+// Stage 0: LinkedIn Fetch (Fast - no LLM)
 // ============================================================================
 
-const parseInputsStage: PipelineStage = {
-  name: 'parseInputs',
-  timeout: 12000, // 12s timeout
+const linkedInFetchStage: PipelineStage = {
+  name: 'linkedInFetch',
+  timeout: 8000, // 8s timeout
   execute: async (ctx: PipelineContext) => {
-    const { job, openaiApiKey } = ctx;
-    const { resumeText, coverLetterText, linkedInData } = job.input;
+    const { job } = ctx;
+    const { linkedInData } = job.input || {};
 
-    // Build combined input text
-    const inputText = [
-      resumeText && `RESUME:\n${resumeText}`,
-      coverLetterText && `COVER LETTER:\n${coverLetterText}`,
-      linkedInData && `LINKEDIN DATA:\n${JSON.stringify(linkedInData, null, 2)}`,
-    ]
-      .filter(Boolean)
-      .join('\n\n---\n\n');
-
-    const prompt = `Extract structured information from these documents:
-
-${inputText}
-
-You MUST respond with ONLY a valid JSON object (no markdown, no explanation) with this exact structure:
-{
-  "jobsCount": number (number of distinct jobs/roles found),
-  "skillsCount": number (number of distinct skills found),
-  "profileFieldsExtracted": string[] (fields extracted: name, email, location, etc.)
-}
-
-Be quick and approximate. This is for initial progress indication.`;
-
-    const response = await callOpenAI({
-      apiKey: openaiApiKey,
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.3,
-      maxTokens: 1000,
-    });
-
-    const result = parseJSONResponse(response.choices[0].message.content);
+    // No LLM: just summarize LI payload if provided
+    const positions = Array.isArray(linkedInData?.positions) ? linkedInData.positions.length : 0;
+    const headline = linkedInData?.headline ? String(linkedInData.headline) : null;
+    const namePresent = !!(linkedInData?.firstName || linkedInData?.lastName);
 
     return {
-      jobsCount: result.jobsCount || 0,
-      skillsCount: result.skillsCount || 0,
-      profileFieldsExtracted: result.profileFieldsExtracted || [],
+      jobsCount: positions,
+      skillsCount: Array.isArray(linkedInData?.skills) ? linkedInData.skills.length : 0,
+      profileFieldsExtracted: [
+        ...(namePresent ? ['name'] : []),
+        ...(headline ? ['headline'] : []),
+      ],
+      headline: headline || undefined,
     };
   },
 };
 
 // ============================================================================
-// Stage 2: Skeleton Profile (Medium - 8-20s)
+// Stage 1: Profile Structuring (LLM #1)
 // ============================================================================
 
-const skeletonProfileStage: PipelineStage = {
-  name: 'skeletonProfile',
+const profileStructuringStage: PipelineStage = {
+  name: 'profileStructuring',
   timeout: 25000, // 25s timeout
   execute: async (ctx: PipelineContext) => {
     const { job, openaiApiKey, supabase } = ctx;
@@ -112,11 +90,11 @@ Focus on identifying key patterns and themes.`;
 };
 
 // ============================================================================
-// Stage 3: Detailed Profile (Slow - 20-60s)
+// Stage 2: Derived Artifacts (LLM #2)
 // ============================================================================
 
-const detailedProfileStage: PipelineStage = {
-  name: 'detailedProfile',
+const derivedArtifactsStage: PipelineStage = {
+  name: 'derivedArtifacts',
   timeout: 70000, // 70s timeout
   execute: async (ctx: PipelineContext) => {
     const { job, openaiApiKey, supabase } = ctx;
@@ -184,9 +162,9 @@ export async function executeOnboardingPipeline(
 
     // Define pipeline stages
     const stages: PipelineStage[] = [
-      parseInputsStage,
-      skeletonProfileStage,
-      detailedProfileStage,
+      linkedInFetchStage,       // no LLM
+      profileStructuringStage,  // LLM #1
+      derivedArtifactsStage,    // LLM #2
     ];
 
     // Create pipeline context
@@ -222,9 +200,9 @@ export async function executeOnboardingPipeline(
   // Compile final result
   const finalResult = {
     profileId: profile?.id || 'placeholder',
-    workHistoryCount: results.skeletonProfile?.workHistoryItems || 0,
-    storiesCount: results.skeletonProfile?.storiesIdentified || 0,
-    skillsCount: results.parseInputs?.skillsCount || 0,
+    workHistoryCount: results.profileStructuring?.workHistoryItems || 0,
+    storiesCount: results.profileStructuring?.storiesIdentified || 0,
+    skillsCount: results.linkedInFetch?.skillsCount || 0,
   };
 
     // Save final result to job
