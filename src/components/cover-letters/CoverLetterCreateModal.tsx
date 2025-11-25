@@ -52,6 +52,7 @@ import { supabase } from '@/lib/supabase';
 import { JobDescriptionService } from '@/services/jobDescriptionService';
 import { CoverLetterDraftService } from '@/services/coverLetterDraftService';
 import { useCoverLetterDraft } from '@/hooks/useCoverLetterDraft';
+import { useCoverLetterJobStream } from '@/hooks/useJobStream';
 import { MatchMetricsToolbar } from './MatchMetricsToolbar';
 import { CoverLetterFinalization } from './CoverLetterFinalization';
 import { CoverLetterSkeleton } from './CoverLetterSkeleton';
@@ -205,6 +206,34 @@ export const CoverLetterCreateModal = ({
     userId: user?.id ?? '',
     service: coverLetterDraftService,
   });
+
+  // Streaming job (polling) for cover letter generation
+  const {
+    state: jobState,
+    createJob: createCoverLetterJob,
+    isStreaming: isJobStreaming,
+    error: jobError,
+  } = useCoverLetterJobStream({ pollIntervalMs: 2000, timeout: 300000 });
+
+  // When streaming result arrives with a draftId, fetch and load into existing UI
+  useEffect(() => {
+    const applyDraftFromJob = async () => {
+      if (!jobState?.result?.draftId) return;
+      const draftId = jobState.result.draftId as string;
+      const { data: fetched, error } = await supabase
+        .from('cover_letter_drafts')
+        .select('*')
+        .eq('id', draftId)
+        .single();
+      if (!error && fetched) {
+        // hydrate existing UI using existing hook setters
+        setDraft(fetched as any);
+        setMainTab('cover-letter');
+      }
+    };
+    applyDraftFromJob();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobState?.result?.draftId]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -425,20 +454,13 @@ export const CoverLetterCreateModal = ({
       
       setJobDescriptionRecord(record);
       setJobDescriptionId(record.id);
-      
-      const { draft: generatedDraft } = await generateDraft({
-        templateId: selectedTemplateId,
+
+      // Start streaming job (polling). Draft will be loaded when result arrives.
+      await createCoverLetterJob('coverLetter', {
         jobDescriptionId: record.id,
-      });
-      
-      // Note: We don't call onCoverLetterCreated here because it closes the modal
-      // The draft is saved to DB and will appear in the list when user closes/finalizes
-      // onCoverLetterCreated is only called when finalizing (see handleFinalize)
-      
-      // Note: Gap detection is now handled via enhancedMatchData (no need for separate GapDetectionService calls)
-      // Gaps are already calculated during draft generation and stored in draft.enhancedMatchData
-      // The old GapDetectionService calls were causing an 8-second delay
-      
+        templateId: selectedTemplateId,
+      } as any);
+      // Switch to cover-letter tab to show progress UI while streaming
       setMainTab('cover-letter');
     } catch (error) {
       const message =
