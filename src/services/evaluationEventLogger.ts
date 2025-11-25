@@ -41,7 +41,9 @@ export class EvaluationEventLogger {
 
       const payload = {
         user_id: event.userId,
-        session_id: event.syntheticProfileId ? `synthetic-${event.syntheticProfileId}` : undefined,
+        session_id: event.syntheticProfileId 
+          ? `synthetic-${event.syntheticProfileId}` 
+          : `jd-parse-${Date.now()}-${Math.random().toString(36).substring(7)}`,
         source_id: null, // JD parsing is not tied to a file source
         file_type: 'jd_parse',
         user_type: event.syntheticProfileId ? 'synthetic' : 'real',
@@ -109,7 +111,9 @@ export class EvaluationEventLogger {
 
       const payload = {
         user_id: event.userId,
-        session_id: event.draftId ? `draft-${event.draftId}` : undefined,
+        session_id: event.draftId 
+          ? `draft-${event.draftId}` 
+          : `hil-story-${Date.now()}-${Math.random().toString(36).substring(7)}`,
         source_id: event.storyId || null,
         file_type: 'hil_story',
         user_type: event.syntheticProfileId ? 'synthetic' : 'real',
@@ -172,7 +176,9 @@ export class EvaluationEventLogger {
 
       const payload = {
         user_id: event.userId,
-        session_id: event.draftId ? `draft-${event.draftId}` : undefined,
+        session_id: event.draftId 
+          ? `draft-${event.draftId}` 
+          : `hil-section-${Date.now()}-${Math.random().toString(36).substring(7)}`,
         source_id: event.savedSectionId || null,
         file_type: 'hil_saved_section',
         user_type: event.syntheticProfileId ? 'synthetic' : 'real',
