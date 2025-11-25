@@ -883,7 +883,7 @@ export const CoverLetterCreateModal = ({
           <MatchMetricsToolbar
             metrics={matchMetrics}
             isPostHIL={false}
-            isLoading={metricsLoading}
+            isLoading={metricsLoading || isJobStreaming}
             enhancedMatchData={draft.enhancedMatchData}
             goNoGoAnalysis={undefined}
             jobDescription={normalizedJobDescription ?? undefined}
