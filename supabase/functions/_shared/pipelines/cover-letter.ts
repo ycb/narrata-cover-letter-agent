@@ -34,29 +34,27 @@ const basicMetricsStage: PipelineStage = {
     const jd = await fetchJobDescription(supabase, jobDescriptionId);
 
     // Simplified prompt for quick analysis
-    const prompt = `Analyze this job description and provide quick metrics:
+    const prompt = `Analyze this job description and provide quick metrics.
 
 JOB DESCRIPTION:
 ${jd.raw_text || jd.content}
 
-Provide a JSON response with:
+You MUST respond with ONLY a valid JSON object (no markdown, no explanation) with this exact structure:
 {
   "atsScore": number (0-100, keywords match),
   "goalsMatch": number (0-100, career goals alignment),
   "experienceMatch": number (0-100, experience fit),
-  "topThemes": string[] (3-5 key themes),
+  "topThemes": ["theme1", "theme2", "theme3"],
   "initialFitScore": number (0-100, overall fit)
 }
 
-Be concise. Focus on quick analysis.`;
+Be concise. Focus on quick analysis. Return ONLY the JSON object.`;
 
     const response = await callOpenAI({
       apiKey: openaiApiKey,
-      model: 'gpt-4',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.3,
       maxTokens: 1500,
-      responseFormat: { type: 'json_object' },
     });
 
     const result = parseJSONResponse(response.choices[0].message.content);
@@ -107,7 +105,7 @@ ${workHistoryText}
 CANDIDATE STORIES:
 ${storiesText}
 
-Provide a JSON response with:
+You MUST respond with ONLY a valid JSON object (no markdown, no explanation) with this exact structure:
 {
   "coreRequirements": [
     {
@@ -133,11 +131,9 @@ Extract 5-10 core and 3-5 preferred requirements. Be specific with evidence.`;
 
     const response = await callOpenAI({
       apiKey: openaiApiKey,
-      model: 'gpt-4',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.4,
       maxTokens: 2500,
-      responseFormat: { type: 'json_object' },
     });
 
     const result = parseJSONResponse(response.choices[0].message.content);
@@ -185,7 +181,7 @@ ${template ? `TEMPLATE STRUCTURE:\n${JSON.stringify(template.sections, null, 2)}
 
 For standard cover letter sections (intro, experience paragraphs, closing), identify gaps:
 
-Provide a JSON response with:
+You MUST respond with ONLY a valid JSON object (no markdown, no explanation) with this exact structure:
 {
   "sections": [
     {
@@ -207,11 +203,9 @@ Focus on 2-4 sections with 1-3 gaps each.`;
 
     const response = await callOpenAI({
       apiKey: openaiApiKey,
-      model: 'gpt-4',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.5,
       maxTokens: 3500,
-      responseFormat: { type: 'json_object' },
     });
 
     const result = parseJSONResponse(response.choices[0].message.content);
@@ -255,7 +249,6 @@ Return as plain text (not JSON).`;
 
     const response = await callOpenAI({
       apiKey: openaiApiKey,
-      model: 'gpt-4',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.7,
       maxTokens: 2000,
@@ -324,7 +317,9 @@ export async function executeCoverLetterPipeline(
     };
 
     // Execute pipeline
+    console.log('[executeCoverLetterPipeline] Starting executePipeline with', stages.length, 'stages');
     const results = await executePipeline(stages, context);
+    console.log('[executeCoverLetterPipeline] Pipeline complete, results:', Object.keys(results));
 
   // Compile final result
   const finalResult = {

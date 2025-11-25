@@ -1,38 +1,80 @@
 import { useState } from 'react';
 import { useCoverLetterJobStream } from '../hooks/useJobStream';
+
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Progress } from '../components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
-import { CheckCircle2, Loader2, XCircle, TrendingUp, Target, Briefcase } from 'lucide-react';
+
+import {
+  CheckCircle2,
+  Loader2,
+  XCircle,
+  TrendingUp,
+  Target,
+  Briefcase
+} from 'lucide-react';
+
 import type { CoverLetterStreamState } from '../types/jobs';
 
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
 export default function StreamingDemo() {
-  const [jobDescriptionId, setJobDescriptionId] = useState('');
+  const [jobDescriptionId, setJobDescriptionId] = useState(
+    '73efcffd-bd5f-48da-98ca-5f319474fcd9'
+  );
+
   const { state, createJob, isStreaming, error, reset } = useCoverLetterJobStream({
     onProgress: (stage, data) => {
-      console.log(`[Demo] Progress - ${stage}:`, data);
+      console.log(`[Demo] Progress: ${stage}`, data);
     },
     onComplete: (result) => {
-      console.log('[Demo] Complete:', result);
+      console.log('[Demo] COMPLETE:', result);
     },
     onError: (err) => {
-      console.error('[Demo] Error:', err);
+      console.error('[Demo] ERROR:', err);
     },
   });
 
+  const typedState = state as CoverLetterStreamState | null;
+
+  const basic = typedState?.stages.basicMetrics;
+  const reqs = typedState?.stages.requirementAnalysis;
+  const gaps = typedState?.stages.sectionGaps;
+
+  // --------------------------------------------------------------------------
+  // **PROGRESS CALCULATION**
+  // --------------------------------------------------------------------------
+
+  const computeProgress = () => {
+    if (!typedState) return 0;
+
+    const TARGET_STAGES = [
+      'basicMetrics',
+      'requirementAnalysis',
+      'sectionGaps'
+    ] as const;
+
+    const completed = TARGET_STAGES.filter(
+      (stage) => typedState.stages?.[stage]?.status === 'complete'
+    ).length;
+
+    return Math.round((completed / TARGET_STAGES.length) * 100);
+  };
+
+  // --------------------------------------------------------------------------
+  // HANDLERS
+  // --------------------------------------------------------------------------
+
   const handleStart = async () => {
-    if (!jobDescriptionId) {
-      alert('Please enter a job description ID');
-      return;
-    }
+    if (!jobDescriptionId) return;
 
     try {
-      await createJob('coverLetter', {
-        jobDescriptionId,
-      });
+      await createJob('coverLetter', { jobDescriptionId });
     } catch (err) {
-      console.error('Failed to create job:', err);
+      console.error('Job creation failed:', err);
     }
   };
 
@@ -41,18 +83,11 @@ export default function StreamingDemo() {
     setJobDescriptionId('');
   };
 
-  const typedState = state as CoverLetterStreamState | null;
-  const basicMetrics = typedState?.stages.basicMetrics;
-  const requirements = typedState?.stages.requirementAnalysis;
-  const gaps = typedState?.stages.sectionGaps;
+  const progress = computeProgress();
 
-  // Calculate progress percentage
-  const getProgress = () => {
-    if (!typedState) return 0;
-    const stages = Object.keys(typedState.stages).length;
-    const total = 3; // basicMetrics, requirementAnalysis, sectionGaps
-    return (stages / total) * 100;
-  };
+  // ========================================================================
+  // RENDER
+  // ========================================================================
 
   return (
     <div className="container mx-auto p-6 max-w-6xl">
@@ -61,7 +96,7 @@ export default function StreamingDemo() {
         <div>
           <h1 className="text-3xl font-bold">Streaming MVP Demo</h1>
           <p className="text-muted-foreground">
-            Test the new SSE-based streaming architecture for cover letter generation
+            Real-time staged pipeline for cover letters (polling-based)
           </p>
         </div>
 
@@ -69,34 +104,33 @@ export default function StreamingDemo() {
         <Card>
           <CardHeader>
             <CardTitle>Start New Job</CardTitle>
-            <CardDescription>
-              Enter a job description ID to test the streaming pipeline
-            </CardDescription>
+            <CardDescription>Enter a job description ID to test pipeline</CardDescription>
           </CardHeader>
+
           <CardContent className="space-y-4">
             <div className="flex gap-4">
               <input
                 type="text"
                 value={jobDescriptionId}
                 onChange={(e) => setJobDescriptionId(e.target.value)}
-                placeholder="Job Description ID (UUID)"
+                placeholder="Job Description ID"
                 className="flex-1 px-3 py-2 border rounded-md"
                 disabled={isStreaming}
               />
+
               <Button onClick={handleStart} disabled={isStreaming || !jobDescriptionId}>
                 {isStreaming ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Streaming...
+                    Processing…
                   </>
                 ) : (
                   'Start Job'
                 )}
               </Button>
+
               {typedState && (
-                <Button onClick={handleReset} variant="outline">
-                  Reset
-                </Button>
+                <Button onClick={handleReset} variant="outline">Reset</Button>
               )}
             </div>
 
@@ -117,147 +151,66 @@ export default function StreamingDemo() {
               <CardTitle>Job Status</CardTitle>
               <CardDescription>Job ID: {typedState.jobId}</CardDescription>
             </CardHeader>
+
             <CardContent className="space-y-4">
+              {/* Progress Bar */}
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span>Status: {typedState.status}</span>
-                  <span>{Math.round(getProgress())}%</span>
+                  <span>{progress}%</span>
                 </div>
-                <Progress value={getProgress()} />
+                <Progress value={progress} />
               </div>
 
-              {/* Stage indicators */}
+              {/* Stage Cards */}
               <div className="grid grid-cols-3 gap-4">
                 <StageCard
                   title="Basic Metrics"
-                  status={basicMetrics ? 'complete' : isStreaming ? 'loading' : 'pending'}
                   icon={<TrendingUp className="h-5 w-5" />}
+                  complete={basic?.status === 'complete'}
+                  loading={isStreaming && !basic}
                 />
+
                 <StageCard
                   title="Requirements"
-                  status={requirements ? 'complete' : isStreaming ? 'loading' : 'pending'}
                   icon={<Target className="h-5 w-5" />}
+                  complete={reqs?.status === 'complete'}
+                  loading={isStreaming && !reqs}
                 />
+
                 <StageCard
                   title="Section Gaps"
-                  status={gaps ? 'complete' : isStreaming ? 'loading' : 'pending'}
                   icon={<Briefcase className="h-5 w-5" />}
+                  complete={gaps?.status === 'complete'}
+                  loading={isStreaming && !gaps}
                 />
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Stage Results */}
-        {basicMetrics && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Basic Metrics</CardTitle>
-              <CardDescription>Quick analysis results</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <MetricCard label="ATS Score" value={basicMetrics.atsScore} max={100} />
-                <MetricCard label="Goals Match" value={basicMetrics.goalsMatch} max={100} />
-                <MetricCard label="Experience" value={basicMetrics.experienceMatch} max={100} />
-                <MetricCard label="Fit Score" value={basicMetrics.initialFitScore} max={100} />
-              </div>
-              {basicMetrics.topThemes && basicMetrics.topThemes.length > 0 && (
-                <div className="mt-4">
-                  <h4 className="text-sm font-medium mb-2">Top Themes</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {basicMetrics.topThemes.map((theme: string, i: number) => (
-                      <span
-                        key={i}
-                        className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm"
-                      >
-                        {theme}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        {/* BASIC METRICS */}
+        {basic && (
+          <MetricsSection basic={basic.data} />
         )}
 
-        {requirements && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Requirement Analysis</CardTitle>
-              <CardDescription>
-                {requirements.requirementsMet} of {requirements.totalRequirements} requirements met
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {requirements.coreRequirements &&
-                  requirements.coreRequirements.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium mb-2">Core Requirements</h4>
-                      <div className="space-y-2">
-                        {requirements.coreRequirements.map((req: any, i: number) => (
-                          <RequirementCard key={i} requirement={req} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                {requirements.preferredRequirements &&
-                  requirements.preferredRequirements.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium mb-2">Preferred Requirements</h4>
-                      <div className="space-y-2">
-                        {requirements.preferredRequirements.map((req: any, i: number) => (
-                          <RequirementCard key={i} requirement={req} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-              </div>
-            </CardContent>
-          </Card>
+        {/* REQUIREMENTS */}
+        {reqs && (
+          <RequirementsSection reqs={reqs.data} />
         )}
 
+        {/* GAPS */}
         {gaps && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Section Gaps</CardTitle>
-              <CardDescription>{gaps.totalGaps} gaps identified</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {gaps.sections &&
-                  gaps.sections.map((section: any, i: number) => (
-                    <div key={i} className="border rounded-lg p-4">
-                      <h4 className="font-medium mb-2">{section.title}</h4>
-                      {section.gaps && section.gaps.length > 0 ? (
-                        <div className="space-y-2">
-                          {section.gaps.map((gap: any, j: number) => (
-                            <div key={j} className="bg-muted p-3 rounded-md text-sm">
-                              <div className="font-medium text-orange-600">{gap.type}</div>
-                              <div className="text-muted-foreground">{gap.description}</div>
-                              <div className="mt-1 text-primary">{gap.suggestion}</div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">No gaps found</p>
-                      )}
-                    </div>
-                  ))}
-              </div>
-            </CardContent>
-          </Card>
+          <GapsSection gaps={gaps.data} />
         )}
 
-        {/* Complete Result */}
+        {/* Job Complete */}
         {typedState?.status === 'complete' && typedState.result && (
           <Alert>
             <CheckCircle2 className="h-4 w-4" />
-            <AlertTitle>Job Complete!</AlertTitle>
+            <AlertTitle>Job Complete</AlertTitle>
             <AlertDescription>
-              Final metrics: ATS {typedState.result.metrics.atsScore}, {typedState.result.gapCount}{' '}
-              gaps identified
+              ATS {typedState.result.metrics.atsScore}, {typedState.result.gapCount} gaps found
             </AlertDescription>
           </Alert>
         )}
@@ -267,87 +220,211 @@ export default function StreamingDemo() {
 }
 
 // ============================================================================
-// Helper Components
+// SUBCOMPONENTS
 // ============================================================================
 
 function StageCard({
   title,
-  status,
   icon,
+  complete,
+  loading
 }: {
   title: string;
-  status: 'pending' | 'loading' | 'complete';
   icon: React.ReactNode;
+  complete: boolean;
+  loading: boolean;
 }) {
+  const status = complete ? 'complete' : loading ? 'loading' : 'pending';
+
   return (
     <div
       className={`flex items-center gap-3 p-4 border rounded-lg ${
         status === 'complete'
           ? 'bg-green-50 border-green-200'
           : status === 'loading'
-            ? 'bg-blue-50 border-blue-200'
-            : 'bg-gray-50 border-gray-200'
+          ? 'bg-blue-50 border-blue-200'
+          : 'bg-gray-50 border-gray-200'
       }`}
     >
-      <div
-        className={
-          status === 'complete'
-            ? 'text-green-600'
-            : status === 'loading'
-              ? 'text-blue-600'
-              : 'text-gray-400'
-        }
-      >
-        {status === 'loading' ? <Loader2 className="h-5 w-5 animate-spin" /> : icon}
+      <div className={
+        status === 'complete'
+          ? 'text-green-600'
+          : status === 'loading'
+          ? 'text-blue-600'
+          : 'text-gray-400'
+      }>
+        {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : icon}
       </div>
-      <div className="flex-1 min-w-0">
+
+      <div className="flex-1">
         <div className="font-medium text-sm">{title}</div>
         <div className="text-xs text-muted-foreground capitalize">{status}</div>
       </div>
-      {status === 'complete' && <CheckCircle2 className="h-4 w-4 text-green-600" />}
+
+      {complete && <CheckCircle2 className="h-4 w-4 text-green-600" />}
     </div>
   );
 }
 
-function MetricCard({ label, value, max }: { label: string; value: number; max: number }) {
-  const percentage = (value / max) * 100;
+// ---------------------------------------------------------------------------
+// METRICS SECTION
+// ---------------------------------------------------------------------------
+
+function MetricsSection({ basic }: { basic: any }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Basic Metrics</CardTitle>
+        <CardDescription>Quick assessment</CardDescription>
+      </CardHeader>
+
+      <CardContent>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <MetricCard label="ATS Score" value={basic.atsScore} />
+          <MetricCard label="Goals Match" value={basic.goalsMatch} />
+          <MetricCard label="Experience" value={basic.experienceMatch} />
+          <MetricCard label="Fit Score" value={basic.initialFitScore} />
+        </div>
+
+        {basic.topThemes?.length > 0 && (
+          <div className="mt-4">
+            <h4 className="text-sm font-medium mb-2">Top Themes</h4>
+            <div className="flex flex-wrap gap-2">
+              {basic.topThemes.map((t: string, i: number) => (
+                <span key={i} className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
+                  {t}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// REQUIREMENTS SECTION
+// ---------------------------------------------------------------------------
+
+function RequirementsSection({ reqs }: { reqs: any }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Requirement Analysis</CardTitle>
+        <CardDescription>
+          {reqs.requirementsMet} of {reqs.totalRequirements} requirements met
+        </CardDescription>
+      </CardHeader>
+
+      <CardContent>
+        <div className="space-y-4">
+          {reqs.coreRequirements?.length > 0 && (
+            <RequirementGroup title="Core Requirements" list={reqs.coreRequirements} />
+          )}
+
+          {reqs.preferredRequirements?.length > 0 && (
+            <RequirementGroup title="Preferred Requirements" list={reqs.preferredRequirements} />
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function RequirementGroup({ title, list }: any) {
+  return (
+    <div>
+      <h4 className="text-sm font-medium mb-2">{title}</h4>
+      <div className="space-y-2">
+        {list.map((req: any, i: number) => (
+          <div
+            key={i}
+            className={`flex items-start gap-3 p-3 border rounded-lg ${
+              req.met ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+            }`}
+          >
+            <div className="mt-1">
+              {req.met ? (
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+              ) : (
+                <XCircle className="h-4 w-4 text-gray-400" />
+              )}
+            </div>
+
+            <div className="flex-1">
+              <div className="text-sm font-medium">{req.text}</div>
+              {req.evidence && (
+                <p className="text-sm text-muted-foreground mt-1">{req.evidence}</p>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// GAPS SECTION
+// ---------------------------------------------------------------------------
+
+function GapsSection({ gaps }: { gaps: any }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Section Gaps</CardTitle>
+        <CardDescription>{gaps.totalGaps} gaps identified</CardDescription>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        {gaps.sections.map((sec: any, idx: number) => (
+          <div key={idx} className="border rounded-lg p-4">
+            <h4 className="font-medium mb-2">{sec.title}</h4>
+
+            {sec.gaps?.length > 0 ? (
+              <div className="space-y-2">
+                {sec.gaps.map((g: any, j: number) => (
+                  <div
+                    key={j}
+                    className="bg-muted p-3 rounded-md text-sm"
+                  >
+                    <div className="font-medium text-orange-600">{g.type}</div>
+                    <div className="text-muted-foreground">{g.description}</div>
+                    <div className="mt-1 text-primary">{g.suggestion}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No gaps found</p>
+            )}
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// METRIC CARD
+// ---------------------------------------------------------------------------
+
+function MetricCard({ label, value }: { label: string; value: number }) {
+  const pct = Math.min(100, Math.max(0, value));
+
   return (
     <div className="border rounded-lg p-4">
       <div className="text-2xl font-bold">{value}</div>
       <div className="text-sm text-muted-foreground">{label}</div>
+
       <div className="mt-2 h-2 bg-gray-200 rounded-full overflow-hidden">
         <div
           className={`h-full ${
-            percentage >= 70 ? 'bg-green-500' : percentage >= 40 ? 'bg-yellow-500' : 'bg-red-500'
+            pct >= 70 ? 'bg-green-500' : pct >= 40 ? 'bg-yellow-500' : 'bg-red-500'
           }`}
-          style={{ width: `${percentage}%` }}
+          style={{ width: `${pct}%` }}
         />
       </div>
     </div>
   );
 }
-
-function RequirementCard({ requirement }: { requirement: any }) {
-  return (
-    <div
-      className={`flex items-start gap-3 p-3 border rounded-lg ${
-        requirement.met ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
-      }`}
-    >
-      <div className="mt-1">
-        {requirement.met ? (
-          <CheckCircle2 className="h-4 w-4 text-green-600" />
-        ) : (
-          <XCircle className="h-4 w-4 text-gray-400" />
-        )}
-      </div>
-      <div className="flex-1">
-        <div className="text-sm font-medium">{requirement.text}</div>
-        {requirement.evidence && (
-          <div className="text-sm text-muted-foreground mt-1">{requirement.evidence}</div>
-        )}
-      </div>
-    </div>
-  );
-}
-

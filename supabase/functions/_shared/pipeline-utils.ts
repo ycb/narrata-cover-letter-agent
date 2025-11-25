@@ -9,7 +9,7 @@ import { PipelineTelemetry } from './telemetry.ts';
 // Types
 // ============================================================================
 
-export type SSESender = (event: string, data: any) => void;
+export type SSESender = (event: string, data: any) => void | Promise<void>;
 
 export interface PipelineContext {
   job: any;
@@ -35,15 +35,15 @@ export async function callOpenAI(params: {
   messages: Array<{ role: string; content: string }>;
   temperature?: number;
   maxTokens?: number;
-  responseFormat?: { type: string };
+  responseFormat?: { type: string }; // Deprecated - kept for compatibility but ignored
 }): Promise<any> {
   const {
     apiKey,
-    model = 'gpt-4',
+    model = 'gpt-4o-mini', // Updated to a model that's widely available
     messages,
     temperature = 0.7,
     maxTokens = 4000,
-    responseFormat,
+    // responseFormat is ignored - we parse JSON manually instead
   } = params;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -57,7 +57,7 @@ export async function callOpenAI(params: {
       messages,
       temperature,
       max_tokens: maxTokens,
-      ...(responseFormat && { response_format: responseFormat }),
+      // Removed response_format - parse JSON manually from response
     }),
   });
 
@@ -127,8 +127,8 @@ export async function executePipeline(
       // Store result
       results[stage.name] = result;
 
-      // Send progress event
-      context.send('progress', {
+      // Send progress event (await in case it's async, e.g. database update)
+      await context.send('progress', {
         jobId: context.job.id,
         stage: stage.name,
         data: result,
@@ -187,13 +187,14 @@ export async function fetchUserProfile(supabase: SupabaseClient, userId: string)
 
 export async function fetchWorkHistory(supabase: SupabaseClient, userId: string) {
   const { data, error } = await supabase
-    .from('work_history')
-    .select('*')
+    .from('work_items')
+    .select('*, companies(*)')
     .eq('user_id', userId)
     .order('start_date', { ascending: false });
 
   if (error) {
-    throw new Error(`Failed to fetch work history: ${error.message}`);
+    console.warn(`Failed to fetch work items: ${error.message}`);
+    return []; // Return empty array if table doesn't exist or user has no data
   }
 
   return data || [];
@@ -201,12 +202,14 @@ export async function fetchWorkHistory(supabase: SupabaseClient, userId: string)
 
 export async function fetchStories(supabase: SupabaseClient, userId: string) {
   const { data, error } = await supabase
-    .from('stories')
-    .select('*')
-    .eq('user_id', userId);
+    .from('approved_content')
+    .select('*, work_items!inner(*), companies(*)')
+    .eq('user_id', userId)
+    .eq('status', 'approved');
 
   if (error) {
-    throw new Error(`Failed to fetch stories: ${error.message}`);
+    console.warn(`Failed to fetch stories: ${error.message}`);
+    return []; // Return empty array if table doesn't exist or user has no data
   }
 
   return data || [];

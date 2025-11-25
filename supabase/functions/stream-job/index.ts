@@ -1,8 +1,8 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
-import { executeCoverLetterPipeline } from './_shared/pipelines/cover-letter.ts';
-import { executeOnboardingPipeline } from './_shared/pipelines/onboarding.ts';
-import { executePMLevelsPipeline } from './_shared/pipelines/pm-levels.ts';
+import { executeCoverLetterPipeline } from '../_shared/pipelines/cover-letter.ts';
+import { executeOnboardingPipeline } from '../_shared/pipelines/onboarding.ts';
+import { executePMLevelsPipeline } from '../_shared/pipelines/pm-levels.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,6 +26,12 @@ serve(async (req) => {
     const jobId = url.searchParams.get('jobId');
     const accessToken = url.searchParams.get('access_token');
 
+    console.log('[stream-job] Request received:', {
+      hasJobId: !!jobId,
+      hasAccessToken: !!accessToken,
+      url: url.pathname,
+    });
+
     if (!jobId) {
       return new Response(
         JSON.stringify({ error: 'Missing jobId parameter' }),
@@ -36,33 +42,40 @@ serve(async (req) => {
     // Get auth token (from header or query param for EventSource compatibility)
     const authHeader = req.headers.get('Authorization') || (accessToken ? `Bearer ${accessToken}` : null);
     if (!authHeader) {
+      console.error('[stream-job] Missing auth:', {
+        hasAuthHeader: !!req.headers.get('Authorization'),
+        hasAccessToken: !!accessToken,
+        queryParams: Array.from(url.searchParams.keys()),
+      });
       return new Response(
-        JSON.stringify({ error: 'Missing authorization' }),
+        JSON.stringify({ error: 'Missing authorization', details: 'No auth header or access_token query param' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Create Supabase client
+    // Create Supabase clients
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: {
-        headers: { Authorization: authHeader },
-      },
-    });
-
-    // Get user from auth token
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    // Validate user's JWT token
+    const token = authHeader.replace('Bearer ', '');
+    const supabaseAuth = createClient(supabaseUrl, supabaseServiceKey);
+    
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await supabaseAuth.auth.getUser(token);
 
     if (authError || !user) {
+      console.error('Auth validation failed in stream-job:', authError?.message);
       return new Response(
-        JSON.stringify({ error: 'Invalid auth token' }),
+        JSON.stringify({ error: 'Invalid auth token', details: authError?.message }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    
+    // Use service role key for database operations
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Fetch job from database
     const { data: job, error: jobError } = await supabase

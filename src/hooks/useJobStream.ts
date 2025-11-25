@@ -3,7 +3,6 @@ import { supabase } from '../lib/supabase';
 import type {
   JobType,
   JobStreamState,
-  SSEEvent,
   CreateJobRequest,
   CreateJobResponse,
   JobInput,
@@ -20,24 +19,6 @@ interface UseJobStreamOptions {
    * @default true
    */
   autoStart?: boolean;
-
-  /**
-   * Reconnect on disconnect
-   * @default true
-   */
-  autoReconnect?: boolean;
-
-  /**
-   * Max reconnect attempts
-   * @default 3
-   */
-  maxReconnectAttempts?: number;
-
-  /**
-   * Reconnect delay in ms
-   * @default 1000
-   */
-  reconnectDelay?: number;
 
   /**
    * Timeout for job completion (ms)
@@ -109,9 +90,6 @@ export function useJobStream(
 ): UseJobStreamReturn {
   const {
     autoStart = true,
-    autoReconnect = true,
-    maxReconnectAttempts = 3,
-    reconnectDelay = 1000,
     timeout = 300000, // 5 minutes
     onComplete,
     onError,
@@ -124,30 +102,34 @@ export function useJobStream(
   const [error, setError] = useState<string | null>(null);
 
   // Refs
-  const eventSourceRef = useRef<EventSource | null>(null);
-  const reconnectAttemptsRef = useRef(0);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pollTimerRef = useRef<number | null>(null);
+  const timeoutRef = useRef<number | null>(null);
   const jobIdRef = useRef<string | undefined>(initialJobId);
 
   // ============================================================================
-  // Helper Functions
+  // Helpers
   // ============================================================================
 
-  const clearTimeout = useCallback(() => {
-    if (timeoutRef.current) {
-      global.clearTimeout(timeoutRef.current);
+  const clearPollTimer = useCallback(() => {
+    if (pollTimerRef.current !== null) {
+      window.clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  }, []);
+
+  const clearTimeoutTimer = useCallback(() => {
+    if (timeoutRef.current !== null) {
+      window.clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
   }, []);
 
-  const closeEventSource = useCallback(() => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-    }
+  const disconnect = useCallback(() => {
+    console.log('[useJobStream] disconnect() called');
+    clearPollTimer();
+    clearTimeoutTimer();
     setIsStreaming(false);
-    clearTimeout();
-  }, [clearTimeout]);
+  }, [clearPollTimer, clearTimeoutTimer]);
 
   // ============================================================================
   // Create Job
@@ -159,18 +141,18 @@ export function useJobStream(
         setError(null);
 
         // Get auth session
-        const { data: { session } } = await supabase.auth.getSession();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
         if (!session) {
           throw new Error('Not authenticated');
         }
 
         // Call Edge Function to create job
-        const { data, error: fetchError } = await supabase.functions.invoke<CreateJobResponse>(
-          'create-job',
-          {
+        const { data, error: fetchError } =
+          await supabase.functions.invoke<CreateJobResponse>('create-job', {
             body: { type, input } as CreateJobRequest,
-          }
-        );
+          });
 
         if (fetchError) {
           throw new Error(fetchError.message || 'Failed to create job');
@@ -180,24 +162,45 @@ export function useJobStream(
           throw new Error('No job ID returned');
         }
 
+        const jobId = data.jobId;
+        console.log('[useJobStream] Created job:', jobId);
+
         // Initialize state
         setState({
-          jobId: data.jobId,
+          jobId,
           type,
           status: 'pending',
           stages: {},
         });
 
-        jobIdRef.current = data.jobId;
+        jobIdRef.current = jobId;
+
+        // Trigger the pipeline processing (fire and forget)
+        console.log('[useJobStream] Triggering stream-job-process for jobId:', jobId);
+        supabase.functions
+          .invoke('stream-job-process', {
+            body: { jobId },
+          })
+          .then((result) => {
+            console.log(
+              '[useJobStream] stream-job-process triggered successfully:',
+              result
+            );
+          })
+          .catch((err) => {
+            console.error('[useJobStream] Failed to trigger pipeline:', err);
+          });
 
         // Auto-connect if enabled
         if (autoStart) {
-          connect(data.jobId);
+          connect(jobId);
         }
 
-        return data.jobId;
+        return jobId;
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to create job';
+        const errorMessage =
+          err instanceof Error ? err.message : 'Failed to create job';
+        console.error('[useJobStream] createJob error:', errorMessage, err);
         setError(errorMessage);
         onError?.(errorMessage);
         throw err;
@@ -207,176 +210,149 @@ export function useJobStream(
   );
 
   // ============================================================================
-  // Connect to Stream
-  // ============================================================================
+  // Connect (Polling implementation)
+// ============================================================================
 
   const connect = useCallback(
     (jobId: string) => {
-      // Close existing connection
-      closeEventSource();
+      console.log('[useJobStream] Starting polling for job:', jobId);
 
-      try {
-        setError(null);
-        setIsStreaming(true);
-        jobIdRef.current = jobId;
+      // Clean up any previous job
+      disconnect();
 
-        // Get Supabase URL and anon key
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      setError(null);
+      setIsStreaming(true);
+      jobIdRef.current = jobId;
 
-        if (!supabaseUrl || !supabaseAnonKey) {
-          throw new Error('Missing Supabase configuration');
+      const pollInterval = 2000; // 2 seconds
+      let pollCount = 0;
+
+      const poll = async () => {
+        const currentJobId = jobIdRef.current;
+        if (!currentJobId) {
+          console.warn(
+            '[useJobStream] Poll called with no jobIdRef, stopping poll.'
+          );
+          disconnect();
+          return;
         }
 
-        // Get current session token
-        supabase.auth.getSession().then(({ data: { session } }) => {
-          if (!session) {
-            throw new Error('Not authenticated');
+        pollCount++;
+        console.log(
+          '[useJobStream] Polling (#' + pollCount + ') for jobId:',
+          currentJobId
+        );
+
+        try {
+          const { data: job, error: queryError } = await supabase
+            .from('jobs')
+            .select('*')
+            .eq('id', currentJobId)
+            .single();
+
+          if (queryError || !job) {
+            console.error('[useJobStream] Error fetching job:', queryError);
+            const msg = queryError?.message || 'Job not found';
+            setError(msg);
+            onError?.(msg);
+            disconnect();
+            return;
           }
 
-          const authToken = session.access_token;
+          console.log('[useJobStream] Poll result FULL DATA:', job);
+          console.log('[useJobStream] Poll result summary:', {
+            status: job.status,
+            stagesCount: Object.keys(job.stages || {}).length,
+            stageKeys: Object.keys(job.stages || {}),
+            hasBasicMetrics: !!job.stages?.basicMetrics,
+            hasRequirements: !!job.stages?.requirementAnalysis,
+            hasGaps: !!job.stages?.sectionGaps,
+          });
 
-          // Construct SSE URL with token
-          // Note: EventSource doesn't support custom headers, so we pass the auth token as a query param
-          const streamUrl = `${supabaseUrl}/functions/v1/stream-job?jobId=${jobId}&access_token=${authToken}`;
+          // Update state
+          setState({
+            jobId: job.id,
+            type: job.type,
+            status: job.status,
+            stages: job.stages || {},
+            result: job.result,
+            error: job.error_message,
+            createdAt: job.created_at ? new Date(job.created_at) : undefined,
+            startedAt: job.started_at ? new Date(job.started_at) : undefined,
+            completedAt: job.completed_at
+              ? new Date(job.completed_at)
+              : undefined,
+          });
 
-          const eventSource = new EventSource(streamUrl);
-          eventSourceRef.current = eventSource;
-
-          // Set timeout
-          if (timeout > 0) {
-            timeoutRef.current = setTimeout(() => {
-              closeEventSource();
-              setError('Job timed out');
-              onError?.('Job timed out');
-            }, timeout);
+          // Fire progress callbacks
+          if (job.stages) {
+            Object.entries(job.stages).forEach(
+              ([stageName, stageData]: [string, any]) => {
+                if (stageData?.status === 'complete') {
+                  onProgress?.(stageName, stageData.data);
+                }
+              }
+            );
           }
 
-          // Event handlers
-          eventSource.addEventListener('progress', (e) => {
-            try {
-              const event = JSON.parse(e.data) as SSEEvent;
-              if (event.type === 'progress') {
-                setState((prev) => {
-                  if (!prev) return null;
-                  return {
-                    ...prev,
-                    status: 'running',
-                    stages: {
-                      ...prev.stages,
-                      [event.stage]: event.data,
-                    },
-                  };
-                });
-                onProgress?.(event.stage, event.data);
-              }
-            } catch (err) {
-              console.error('Failed to parse progress event:', err);
+          // Handle terminal states
+          if (job.status === 'complete') {
+            console.log('[useJobStream] Job complete:', job.id);
+            if (job.result) {
+              onComplete?.(job.result);
             }
-          });
+            disconnect();
+            return;
+          }
 
-          eventSource.addEventListener('complete', (e) => {
-            try {
-              const event = JSON.parse(e.data) as SSEEvent;
-              if (event.type === 'complete') {
-                setState((prev) => {
-                  if (!prev) return null;
-                  return {
-                    ...prev,
-                    status: 'complete',
-                    result: event.result,
-                    completedAt: new Date(),
-                  };
-                });
-                onComplete?.(event.result);
-                closeEventSource();
-              }
-            } catch (err) {
-              console.error('Failed to parse complete event:', err);
-            }
-          });
+          if (job.status === 'error') {
+            console.error('[useJobStream] Job failed:', job.error_message);
+            const msg = job.error_message || 'Job failed';
+            setError(msg);
+            onError?.(msg);
+            disconnect();
+            return;
+          }
 
-          eventSource.addEventListener('error', (e) => {
-            try {
-              const event = JSON.parse((e as MessageEvent).data) as SSEEvent;
-              if (event.type === 'error') {
-                const errorMsg = event.error || 'Unknown error';
-                setState((prev) => {
-                  if (!prev) return null;
-                  return {
-                    ...prev,
-                    status: 'error',
-                    error: errorMsg,
-                    completedAt: new Date(),
-                  };
-                });
-                setError(errorMsg);
-                onError?.(errorMsg);
-                closeEventSource();
-              }
-            } catch (err) {
-              console.error('Failed to parse error event:', err);
-            }
-          });
+          // Otherwise: pending / running → keep polling
+        } catch (err) {
+          console.error('[useJobStream] Poll error:', err);
+          const msg = err instanceof Error ? err.message : 'Polling failed';
+          setError(msg);
+          onError?.(msg);
+          disconnect();
+        }
+      };
 
-          eventSource.onerror = (err) => {
-            console.error('EventSource error:', err);
+      // Kick off immediately, then every interval
+      poll();
+      pollTimerRef.current = window.setInterval(poll, pollInterval);
 
-            // Auto-reconnect logic
-            if (autoReconnect && reconnectAttemptsRef.current < maxReconnectAttempts) {
-              reconnectAttemptsRef.current++;
-              console.log(
-                `Reconnecting... (attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts})`
-              );
-              setTimeout(() => {
-                connect(jobId);
-              }, reconnectDelay);
-            } else {
-              setError('Connection lost');
-              onError?.('Connection lost');
-              closeEventSource();
-            }
-          };
-        });
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Failed to connect';
-        setError(errorMessage);
-        onError?.(errorMessage);
-        closeEventSource();
+      // Set timeout if configured
+      if (timeout > 0) {
+        timeoutRef.current = window.setTimeout(() => {
+          console.warn('[useJobStream] Job timed out, disconnecting');
+          disconnect();
+          const msg = 'Job timed out';
+          setError(msg);
+          onError?.(msg);
+        }, timeout);
       }
     },
-    [
-      closeEventSource,
-      timeout,
-      autoReconnect,
-      maxReconnectAttempts,
-      reconnectDelay,
-      onProgress,
-      onComplete,
-      onError,
-    ]
+    [disconnect, onComplete, onError, onProgress, timeout]
   );
-
-  // ============================================================================
-  // Disconnect
-  // ============================================================================
-
-  const disconnect = useCallback(() => {
-    closeEventSource();
-    reconnectAttemptsRef.current = 0;
-  }, [closeEventSource]);
 
   // ============================================================================
   // Reset
   // ============================================================================
 
   const reset = useCallback(() => {
-    closeEventSource();
+    console.log('[useJobStream] reset() called');
+    disconnect();
     setState(null);
     setError(null);
-    reconnectAttemptsRef.current = 0;
     jobIdRef.current = undefined;
-  }, [closeEventSource]);
+  }, [disconnect]);
 
   // ============================================================================
   // Auto-start on mount
@@ -386,11 +362,8 @@ export function useJobStream(
     if (autoStart && initialJobId) {
       connect(initialJobId);
     }
-
-    return () => {
-      closeEventSource();
-    };
-  }, [autoStart, initialJobId, connect, closeEventSource]);
+    // No cleanup - polling is self-cleaning (stops on complete/error/timeout)
+  }, [autoStart, initialJobId, connect]);
 
   // ============================================================================
   // Return API
@@ -422,4 +395,3 @@ export function useOnboardingJobStream(options?: UseJobStreamOptions) {
 export function usePMLevelsJobStream(options?: UseJobStreamOptions) {
   return useJobStream(undefined, options);
 }
-

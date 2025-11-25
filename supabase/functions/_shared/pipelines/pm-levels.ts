@@ -43,7 +43,7 @@ ${workHistoryText}
 
 ${targetRole ? `TARGET ROLE: ${targetRole}` : ''}
 
-Provide a JSON response with:
+You MUST respond with ONLY a valid JSON object (no markdown, no explanation) with this exact structure:
 {
   "icLevel": number (1-9, IC level assessment based on Meta/FAANG scale),
   "roleToLevelMapping": {
@@ -65,11 +65,9 @@ Be conservative and evidence-based.`;
 
     const response = await callOpenAI({
       apiKey: openaiApiKey,
-      model: 'gpt-4',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.3,
       maxTokens: 1500,
-      responseFormat: { type: 'json_object' },
     });
 
     const result = parseJSONResponse(response.choices[0].message.content);
@@ -120,7 +118,7 @@ Rate these core PM competencies (0-10 scale):
 3. **Customer Insight**: User research, empathy, customer development, insights
 4. **Influence**: Stakeholder management, leadership without authority, communication
 
-Provide a JSON response with:
+You MUST respond with ONLY a valid JSON object (no markdown, no explanation) with this exact structure:
 {
   "execution": number (0-10),
   "strategy": number (0-10),
@@ -132,11 +130,9 @@ Be specific and evidence-based. Consider scope and impact.`;
 
     const response = await callOpenAI({
       apiKey: openaiApiKey,
-      model: 'gpt-4',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.4,
       maxTokens: 2000,
-      responseFormat: { type: 'json_object' },
     });
 
     const result = parseJSONResponse(response.choices[0].message.content);
@@ -188,7 +184,7 @@ Rate these PM specializations (0-10 scale, 0 = no evidence):
 3. **AI/ML PM**: ML products, data pipelines, AI features, model productization
 4. **Founding PM**: 0-1, startups, entrepreneurship, building from scratch
 
-Provide a JSON response with:
+You MUST respond with ONLY a valid JSON object (no markdown, no explanation) with this exact structure:
 {
   "growth": number (0-10, omit if no evidence),
   "platform": number (0-10, omit if no evidence),
@@ -200,11 +196,9 @@ Only include specializations with clear evidence. Be selective.`;
 
     const response = await callOpenAI({
       apiKey: openaiApiKey,
-      model: 'gpt-4',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.4,
       maxTokens: 2500,
-      responseFormat: { type: 'json_object' },
     });
 
     const result = parseJSONResponse(response.choices[0].message.content);

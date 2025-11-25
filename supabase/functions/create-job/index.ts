@@ -27,27 +27,40 @@ serve(async (req) => {
       );
     }
 
-    // Create Supabase client
+    // Create Supabase clients
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: {
-        headers: { Authorization: authHeader },
-      },
-    });
-
-    // Get user from auth token
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    
+    // Client 1: Validate user's JWT token using service role key
+    // We need to extract the JWT token and verify it
+    const token = authHeader.replace('Bearer ', '');
+    const supabaseAuth = createClient(supabaseUrl, supabaseServiceKey);
+    
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await supabaseAuth.auth.getUser(token);
 
     if (authError || !user) {
+      console.error('Auth validation failed:', {
+        hasAuthHeader: !!authHeader,
+        authHeaderPrefix: authHeader?.substring(0, 20),
+        authError: authError?.message,
+        hasUser: !!user,
+      });
       return new Response(
-        JSON.stringify({ error: 'Invalid auth token' }),
+        JSON.stringify({ 
+          error: 'Invalid auth token',
+          details: authError?.message || 'No user found',
+        }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    
+    console.log('Auth successful for user:', user.id);
+    
+    // Client 2: Use service role key for database operations
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Parse request body
     const body: CreateJobRequest = await req.json();
@@ -100,7 +113,12 @@ serve(async (req) => {
       );
     }
 
-    // Return job ID
+    console.log('Job created successfully:', job.id);
+
+    // Note: The frontend triggers stream-job-process after job creation
+    // (Edge Functions can't reliably call each other)
+
+    // Return job ID immediately
     return new Response(
       JSON.stringify({
         jobId: job.id,

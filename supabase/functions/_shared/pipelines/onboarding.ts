@@ -39,7 +39,7 @@ const parseInputsStage: PipelineStage = {
 
 ${inputText}
 
-Provide a JSON response with:
+You MUST respond with ONLY a valid JSON object (no markdown, no explanation) with this exact structure:
 {
   "jobsCount": number (number of distinct jobs/roles found),
   "skillsCount": number (number of distinct skills found),
@@ -50,11 +50,9 @@ Be quick and approximate. This is for initial progress indication.`;
 
     const response = await callOpenAI({
       apiKey: openaiApiKey,
-      model: 'gpt-4',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.3,
       maxTokens: 1000,
-      responseFormat: { type: 'json_object' },
     });
 
     const result = parseJSONResponse(response.choices[0].message.content);
@@ -84,7 +82,7 @@ const skeletonProfileStage: PipelineStage = {
 
 ${inputText}
 
-Provide a JSON response with:
+You MUST respond with ONLY a valid JSON object (no markdown, no explanation) with this exact structure:
 {
   "workHistoryItems": number (count of jobs to create),
   "storiesIdentified": number (count of achievement stories found),
@@ -95,11 +93,9 @@ Focus on identifying key patterns and themes.`;
 
     const response = await callOpenAI({
       apiKey: openaiApiKey,
-      model: 'gpt-4',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.4,
       maxTokens: 2000,
-      responseFormat: { type: 'json_object' },
     });
 
     const result = parseJSONResponse(response.choices[0].message.content);
@@ -132,7 +128,7 @@ const detailedProfileStage: PipelineStage = {
 
 ${inputText}
 
-Provide a JSON response with:
+You MUST respond with ONLY a valid JSON object (no markdown, no explanation) with this exact structure:
 {
   "impactScores": {
     "technical": number (0-100),
@@ -147,11 +143,9 @@ Be thorough and analytical.`;
 
     const response = await callOpenAI({
       apiKey: openaiApiKey,
-      model: 'gpt-4',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.5,
       maxTokens: 3000,
-      responseFormat: { type: 'json_object' },
     });
 
     const result = parseJSONResponse(response.choices[0].message.content);
