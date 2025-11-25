@@ -758,35 +758,6 @@ export const CoverLetterCreateModal = ({
   };
 
   const renderDraftTab = () => {
-    // Show progressive sections if available (streaming from backend)
-    if (!draft && streamingSections.length > 0 && jobDescriptionRecord) {
-      return (
-        <div className="space-y-6">
-          {renderProgress()}
-          <Card className="border-primary/20 bg-primary/5">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2 text-primary">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Building your personalized draft
-              </CardTitle>
-              <CardDescription className="text-xs text-muted-foreground">
-                Sections appear as soon as they are assembled so you can start reading right away.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <CoverLetterDraftView
-                sections={streamingSections}
-                jobDescription={normalizedJobDescription ? { ...normalizedJobDescription, id: jobDescriptionRecord?.id || '' } : undefined}
-                enhancedMatchData={null}
-                ratingCriteria={undefined}
-                contentStandards={null}
-              />
-            </CardContent>
-          </Card>
-        </div>
-      );
-    }
-
     // Show skeleton while generating (after JD is parsed)
     if (!draft && isGenerating && jobDescriptionRecord && user) {
       return (
