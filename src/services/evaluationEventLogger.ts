@@ -69,8 +69,8 @@ export class EvaluationEventLogger {
 
         // Standard evaluation fields
         model: event.model || 'gpt-4',
-        accuracy_score: event.status === 'success' ? '✅ Go' : '❌ No-Go',
-        relevance_score: '✅ Relevant',
+        accuracy_score: event.status === 'success' ? '✅ Accurate' : '❌ Inaccurate',
+        relevance_score: event.status === 'success' ? '✅ Relevant' : '⚠️ Partially Relevant',
         personalization_score: '✅ Personalized',
         clarity_tone_score: '✅ Clear',
         framework_score: '✅ Structured',
@@ -140,9 +140,9 @@ export class EvaluationEventLogger {
 
         // Standard evaluation fields
         model: event.model || 'gpt-4',
-        accuracy_score: event.status === 'success' ? '✅ Go' : '❌ No-Go',
+        accuracy_score: event.status === 'success' ? '✅ Accurate' : '❌ Inaccurate',
         relevance_score: '✅ Relevant',
-        personalization_score: event.action === 'ai_suggest' ? '✅ Personalized' : '⚠️ Manual',
+        personalization_score: event.action === 'ai_suggest' ? '✅ Personalized' : '⚠️ Partially Personalized',
         clarity_tone_score: '✅ Clear',
         framework_score: '✅ Structured',
         go_nogo_decision: event.status === 'success' ? '✅ Go' : '❌ No-Go',
@@ -205,9 +205,9 @@ export class EvaluationEventLogger {
 
         // Standard evaluation fields
         model: event.model || 'gpt-4',
-        accuracy_score: event.status === 'success' ? '✅ Go' : '❌ No-Go',
+        accuracy_score: event.status === 'success' ? '✅ Accurate' : '❌ Inaccurate',
         relevance_score: '✅ Relevant',
-        personalization_score: event.action === 'ai_suggest' ? '✅ Personalized' : '⚠️ Manual',
+        personalization_score: event.action === 'ai_suggest' ? '✅ Personalized' : '⚠️ Partially Personalized',
         clarity_tone_score: '✅ Clear',
         framework_score: '✅ Structured',
         go_nogo_decision: event.status === 'success' ? '✅ Go' : '❌ No-Go',
@@ -268,9 +268,9 @@ export class EvaluationEventLogger {
 
         // Standard evaluation fields
         model: event.model || 'gpt-4',
-        accuracy_score: event.status === 'success' ? '✅ Go' : '❌ No-Go',
+        accuracy_score: event.status === 'success' ? '✅ Accurate' : '❌ Inaccurate',
         relevance_score: '✅ Relevant',
-        personalization_score: event.action === 'ai_suggest' ? '✅ Personalized' : '⚠️ Manual',
+        personalization_score: event.action === 'ai_suggest' ? '✅ Personalized' : '⚠️ Partially Personalized',
         clarity_tone_score: '✅ Clear',
         framework_score: '✅ Structured',
         go_nogo_decision: event.status === 'success' ? '✅ Go' : '❌ No-Go',
