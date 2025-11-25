@@ -92,9 +92,44 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
   // NEW: Streaming job state
   const { state: jobState, createJob, isStreaming, error: jobError } = useCoverLetterJobStream();
 
-
-
-
+  // NEW: Auto-load draft when job completes (Phase 4)
+  useEffect(() => {
+    const loadDraft = async () => {
+      try {
+        if (jobState?.status === 'complete' && jobState?.result?.draftId) {
+          const { data, error } = await supabase
+            .from('cover_letters')
+            .select('*')
+            .eq('id', jobState.result.draftId)
+            .single();
+          
+          if (error) {
+            console.error('[CoverLetterCreateModal] Failed to load draft:', error);
+            setIsGenerating(false);
+      return;
+    }
+          
+          if (data) {
+            setDraft(data);
+            setCoverLetterGenerated(true);
+            setIsGenerating(false);
+            // TODO: Extract gaps and metrics from draft
+          }
+        }
+        
+        // Handle job failures
+        if (jobState?.status === 'error') {
+          console.error('[CoverLetterCreateModal] Job failed:', jobState.error);
+          setIsGenerating(false);
+        }
+      } catch (err) {
+        console.error('[CoverLetterCreateModal] Exception in loadDraft:', err);
+        setIsGenerating(false);
+      }
+    };
+    
+    loadDraft();
+  }, [jobState?.status, jobState?.result?.draftId]);
 
   // Enhanced mock data for generated cover letter
   const [generatedLetter, setGeneratedLetter] = useState({
@@ -262,7 +297,7 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
       setShowGoNoGoModal(true);
       return;
     }
-    
+
     // If go, proceed with streaming job creation
     try {
       // TODO: Replace with actual user ID and JD ID from context
@@ -359,7 +394,7 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
     const updatedSections = generatedLetter.sections.map(section => {
       if (section.type === selectedGap.paragraphId) {
         return {
-          ...section,
+      ...section,
           content: content,
           isEnhanced: true
         };
@@ -603,6 +638,28 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
 
                 {/* Cover Letter Tab - Shows draft with content cards */}
                 <TabsContent value="cover-letter" className="space-y-6">
+                  {/* NEW: Streaming Progress Banner (Phase 3) */}
+                  {isStreaming && jobState && (
+                    <Alert className="border-primary/20 bg-primary/5">
+                      <AlertTitle className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Generating cover letter… {Math.round((jobState.progress || 0) * 100)}%
+                      </AlertTitle>
+                <AlertDescription>
+                        <StageStepper 
+                          stages={[
+                            { key: 'basicMetrics', label: 'Basic metrics' },
+                            { key: 'requirementAnalysis', label: 'Requirements' },
+                            { key: 'sectionGaps', label: 'Section gaps' },
+                            { key: 'draftGeneration', label: 'Draft generation' },
+                          ]}
+                          statusByKey={jobState.stages || {}}
+                          percent={Math.round((jobState.progress || 0) * 100)}
+                        />
+                </AlertDescription>
+              </Alert>
+            )}
+
                   {/* Single Column Layout - Content Cards */}
                   {generatedLetter.sections.map((section, index) => {
                     const sectionGaps = gaps.filter(gap => gap.paragraphId === section.type);
@@ -617,7 +674,7 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
               <ContentCard
                 key={section.id}
                         title={sectionTitle}
-                        content={section.content}
+                        content={draft ? section.content : ""} // Guard undefined
                         tags={mockJDTags}
                 hasGaps={hasGaps}
                         gaps={sectionGaps.map(g => ({ id: g.id, description: g.description }))}
@@ -642,6 +699,12 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
                 showUsage={false}
                 renderChildrenBeforeTags={true}
                         className={cn((section as any).isEnhanced && 'border-success/30')}
+                        isLoading={isStreaming && !draft} // NEW: Show loading state during streaming
+                        loadingMessage={
+                          isStreaming 
+                            ? `Drafting ${sectionTitle.toLowerCase()}...` 
+                            : undefined
+                        } // NEW: Custom loading message
               >
                         {/* Inline editable Textarea - renders before tags */}
                 <div className="mb-6">
