@@ -557,7 +557,7 @@ export class JobDescriptionService {
 
       return {
         ...record,
-        evaluationRunId: logResult.runId,
+        evaluationRunId: undefined, // logResult.runId - disabled due to telemetry issue
         sessionId: `jd-parse-${Date.now()}-${checksum.slice(0, 8)}`,
       };
     } catch (error) {
