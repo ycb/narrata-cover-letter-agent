@@ -234,7 +234,12 @@ export const CoverLetterCreateModal = ({
         .single();
       if (!error && fetched) {
         // hydrate existing UI using existing hook setters
-        setDraft(fetched as any);
+        // Ensure metrics from job result are used (array format) instead of draft metrics (may be object)
+        const draftWithMetrics = {
+          ...fetched,
+          metrics: jobState?.result?.metrics || [],
+        };
+        setDraft(draftWithMetrics as any);
         setMainTab('cover-letter');
       }
     };
