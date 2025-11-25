@@ -57,6 +57,109 @@ return (
 
 ---
 
+## Implementation Notes (Critical)
+
+Before starting implementation, keep these guardrails in mind:
+
+### 1. Guard Undefined Props
+```typescript
+// ContentCard should receive empty string, not undefined
+content={draft ? section.content : ""}
+```
+
+### 2. State Management Clarity
+**Choose ONE approach**:
+- **Option A**: Keep `isGenerating` synced with `isJobStreaming`
+- **Option B**: Drop `isGenerating` entirely, use only `isJobStreaming`
+
+**Recommended**: Option B (single source of truth)
+
+### 3. Error Handling in Auto-Load
+```typescript
+useEffect(() => {
+  const loadDraft = async () => {
+    try {
+      if (jobState?.status === 'complete' && jobState?.result?.draftId) {
+        const { data, error } = await supabase
+          .from('cover_letters')
+          .select('*')
+          .eq('id', jobState.result.draftId)
+          .single();
+        
+        if (error) {
+          console.error('[CoverLetterCreateModal] Failed to load draft:', error);
+          setIsGenerating(false);
+          return;
+        }
+        
+        if (data) {
+          setDraft(data);
+          setIsGenerating(false);
+        }
+      }
+    } catch (err) {
+      console.error('[CoverLetterCreateModal] Exception loading draft:', err);
+      setIsGenerating(false);
+    }
+  };
+  
+  loadDraft();
+}, [jobState?.status, jobState?.result?.draftId]);
+```
+
+### 4. Required Imports
+Ensure these are added at the top of files:
+
+**CoverLetterCreateModal.tsx**:
+```typescript
+import { useCoverLetterJobStream } from '@/hooks/useJobStream';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { StageStepper } from '@/components/streaming/StageStepper';
+import { Loader2 } from 'lucide-react';
+```
+
+**ContentCard.tsx**:
+```typescript
+import { Loader2 } from 'lucide-react';
+```
+
+### 5. ContentCard Prop Defaults
+**IMPORTANT**: Make `isLoading` optional with default to prevent breaking existing callers:
+
+```typescript
+interface ContentCardProps {
+  // ... existing props
+  isLoading?: boolean; // Optional, defaults to false
+  loadingMessage?: string;
+}
+
+// In component:
+const { isLoading = false, loadingMessage, ...otherProps } = props;
+```
+
+### 6. Stage Key Alignment
+**CRITICAL**: Stage keys MUST match pipeline stage names exactly:
+
+**Pipeline** (`supabase/functions/_shared/pipelines/cover-letter.ts`):
+- `basicMetrics`
+- `requirementAnalysis`
+- `sectionGaps`
+- `draftGeneration`
+
+**UI** (must match exactly):
+```typescript
+const stages = [
+  { key: 'basicMetrics', label: 'Basic metrics' },
+  { key: 'requirementAnalysis', label: 'Requirements' },
+  { key: 'sectionGaps', label: 'Section gaps' },
+  { key: 'draftGeneration', label: 'Draft generation' },
+];
+```
+
+**Verification**: Check pipeline file before hardcoding stage keys.
+
+---
+
 ## Implementation Plan
 
 ### Phase 1: Make ContentCards Accept `isStreaming` Prop
@@ -67,12 +170,22 @@ return (
 
 **File**: `src/components/shared/ContentCard.tsx`
 
-**Add props**:
+**Add props** (with defaults to prevent breaking changes):
 ```typescript
 interface ContentCardProps {
   // ... existing props
-  isLoading?: boolean; // NEW
+  isLoading?: boolean; // NEW (default: false)
   loadingMessage?: string; // NEW: "Drafting section..." or "Analyzing gaps..."
+}
+
+// In component implementation:
+export function ContentCard({ 
+  isLoading = false, // ← Default prevents breaking existing callers
+  loadingMessage,
+  content,
+  ...otherProps 
+}: ContentCardProps) {
+  // ... implementation
 }
 ```
 
@@ -128,7 +241,7 @@ return sections.map(section => (
   <ContentCard
     key={section.id}
     title={section.title}
-    content={section.content}
+    content={draft ? section.content : ""} // ← Guard undefined
     isLoading={isJobStreaming && !draft} // ← NEW
     loadingMessage={
       isJobStreaming 
@@ -185,21 +298,39 @@ const handleGenerateDraft = async () => {
 
 #### Step 2.3: Auto-Load Draft When Job Completes
 
-**Add useEffect**:
+**Add useEffect** (with error handling):
 ```typescript
 useEffect(() => {
   const loadDraft = async () => {
-    if (jobState?.status === 'complete' && jobState?.result?.draftId) {
-      const { data } = await supabase
-        .from('cover_letters')
-        .select('*')
-        .eq('id', jobState.result.draftId)
-        .single();
+    try {
+      if (jobState?.status === 'complete' && jobState?.result?.draftId) {
+        const { data, error } = await supabase
+          .from('cover_letters')
+          .select('*')
+          .eq('id', jobState.result.draftId)
+          .single();
+        
+        if (error) {
+          console.error('[CoverLetterCreateModal] Failed to load draft:', error);
+          setIsGenerating(false); // Don't leave UI stuck
+          return;
+        }
+        
+        if (data) {
+          setDraft(data);
+          setIsGenerating(false);
+        }
+      }
       
-      if (data) {
-        setDraft(data);
+      // Handle job failures
+      if (jobState?.status === 'error') {
+        console.error('[CoverLetterCreateModal] Job failed:', jobState.error);
+        setGenerationError(jobState.error?.message || 'Job failed');
         setIsGenerating(false);
       }
+    } catch (err) {
+      console.error('[CoverLetterCreateModal] Exception in loadDraft:', err);
+      setIsGenerating(false);
     }
   };
   
@@ -213,7 +344,7 @@ useEffect(() => {
 
 **File**: `src/components/cover-letters/CoverLetterCreateModal.tsx`
 
-**Before ContentCards render**:
+**Before ContentCards render** (keys MUST match pipeline exactly):
 ```typescript
 {isJobStreaming && jobState && (
   <Alert className="mb-4 border-primary/20 bg-primary/5">
@@ -224,6 +355,8 @@ useEffect(() => {
     <AlertDescription>
       <StageStepper 
         stages={[
+          // ⚠️ CRITICAL: Keys must match pipeline stage names exactly
+          // Check: supabase/functions/_shared/pipelines/cover-letter.ts
           { key: 'basicMetrics', label: 'Basic metrics' },
           { key: 'requirementAnalysis', label: 'Requirements' },
           { key: 'sectionGaps', label: 'Section gaps' },
