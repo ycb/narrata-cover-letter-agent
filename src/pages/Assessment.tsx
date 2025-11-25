@@ -22,6 +22,7 @@ import { CompetencyCard } from "@/components/assessment/CompetencyCard";
 import { CareerLadder } from "@/components/assessment/CareerLadder";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { usePMLevel } from "@/hooks/usePMLevel";
+import { usePMLevelsJobStream } from "@/hooks/useJobStream";
 import { calculateEvidenceBasedConfidence } from "@/utils/confidenceCalculation";
 import { getConfidenceProgressColor, getConfidenceBadgeColor, textConfidenceToPercentage } from "@/utils/confidenceBadge";
 import { useAuth } from "@/contexts/AuthContext";
@@ -342,6 +343,35 @@ function Assessment({ initialSection = "overview" }: AssessmentProps) {
   const shouldShowStreaming = isAnalyzing || isRecalculating || isBackgroundAnalyzing;
   const isInitialAnalysisStreaming = !assessmentData && shouldShowStreaming;
 
+  // Streaming PM Levels job (polling)
+  const {
+    state: pmJob,
+    createJob: createPMJob,
+    isStreaming: isPMStreaming,
+    error: pmJobError,
+  } = usePMLevelsJobStream({ pollIntervalMs: 2000, timeout: 300000 });
+
+  const handlePMLevelsRecalcStreaming = async () => {
+    try {
+      if (!activeProfileId) {
+        await recalculate();
+        return;
+      }
+      await createPMJob("pmLevels" as any, { profileId: activeProfileId } as any);
+      // When streaming completes, refresh query
+      const timer = window.setInterval(() => {
+        if (pmJob?.status === "complete") {
+          window.clearInterval(timer);
+          // Use existing hook path to refresh UI state
+          recalculate();
+        }
+      }, 1000);
+    } catch (e) {
+      console.error("[Assessment] PM Levels streaming recalc failed", e);
+      await recalculate();
+    }
+  };
+
   const analysisSteps = useMemo<StreamingStepState[]>(() => {
     const competencyCount = Object.keys(levelData?.evidenceByCompetency ?? {}).length;
     const currentLevelLabel =
@@ -565,7 +595,7 @@ function Assessment({ initialSection = "overview" }: AssessmentProps) {
                       <RotateCw className="w-4 h-4 mr-2" />
                       Try Again
                     </Button>
-                    <Button variant="secondary" onClick={() => recalculate()} disabled={isRecalculating}>
+                    <Button variant="secondary" onClick={handlePMLevelsRecalcStreaming} disabled={isRecalculating || isPMStreaming}>
                       {isRecalculating ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
