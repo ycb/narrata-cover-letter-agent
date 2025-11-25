@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
+import { elog } from '../_shared/log.ts';
 import { executeCoverLetterPipeline } from '../_shared/pipelines/cover-letter.ts';
 import { executeOnboardingPipeline } from '../_shared/pipelines/onboarding.ts';
 import { executePMLevelsPipeline } from '../_shared/pipelines/pm-levels.ts';
@@ -40,7 +41,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('[stream-job-process] Processing job:', jobId);
+    elog.info('[stream-job-process] Processing job:', jobId);
 
     // Fetch job from database
     const { data: job, error: jobError } = await supabase
@@ -50,7 +51,7 @@ serve(async (req) => {
       .single();
 
     if (jobError || !job) {
-      console.error('[stream-job-process] Job not found:', jobError);
+      elog.error('[stream-job-process] Job not found:', jobError);
       return new Response(
         JSON.stringify({ error: 'Job not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -59,7 +60,7 @@ serve(async (req) => {
 
     // If job already processing or complete, skip
     if (job.status !== 'pending') {
-      console.log('[stream-job-process] Job already processing or complete:', job.status);
+      elog.info('[stream-job-process] Job already processing or complete:', job.status);
       return new Response(
         JSON.stringify({ message: 'Job already processing', status: job.status }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -72,14 +73,20 @@ serve(async (req) => {
       .update({ status: 'running', started_at: new Date().toISOString() })
       .eq('id', jobId);
 
-    console.log('[stream-job-process] Starting pipeline execution');
+    elog.info('[stream-job-process] Starting pipeline execution');
 
     // Helper to send SSE-like events and update database
     const send = async (event: string, data: any) => {
-      console.log(`[stream-job-process] Event: ${event}`, JSON.stringify(data).substring(0, 200));
+      const summary = JSON.stringify(data).substring(0, 200);
+      if (event === 'progress') {
+        elog.info(`[stream-job-process] Stage progress: ${data.stage}`);
+        elog.debug('[stream-job-process] progress payload:', summary);
+      } else {
+        elog.debug(`[stream-job-process] Event: ${event}`, summary);
+      }
 
       if (event === 'progress' && data.stage) {
-        console.log(`[stream-job-process] Updating stage ${data.stage} in database...`);
+        elog.debug(`[stream-job-process] Updating stage ${data.stage} in database...`);
         
         // Update stages in database
         const { data: currentJob } = await supabase
@@ -97,8 +104,8 @@ serve(async (req) => {
           },
         };
 
-        console.log(`[stream-job-process] Current stages keys:`, Object.keys(currentJob?.stages || {}));
-        console.log(`[stream-job-process] Updated stages keys:`, Object.keys(updatedStages));
+        elog.debug(`[stream-job-process] Current stages keys:`, Object.keys(currentJob?.stages || {}));
+        elog.debug(`[stream-job-process] Updated stages keys:`, Object.keys(updatedStages));
 
         const { error: updateError } = await supabase
           .from('jobs')
@@ -106,9 +113,9 @@ serve(async (req) => {
           .eq('id', jobId);
 
         if (updateError) {
-          console.error(`[stream-job-process] Failed to update stage ${data.stage}:`, updateError);
+          elog.error(`[stream-job-process] Failed to update stage ${data.stage}:`, updateError);
         } else {
-          console.log(`[stream-job-process] ✅ Stage ${data.stage} written to DB`);
+          elog.info(`[stream-job-process] ✅ Stage ${data.stage} written to DB`);
         }
       }
     };
@@ -134,7 +141,7 @@ serve(async (req) => {
           throw new Error(`Unknown job type: ${job.type}`);
       }
 
-      console.log('[stream-job-process] Pipeline execution complete, result:', result);
+      elog.info('[stream-job-process] Pipeline execution complete');
 
       // The pipeline already updates the job to complete status internally,
       // but we'll ensure it's set here too
@@ -147,14 +154,14 @@ serve(async (req) => {
         })
         .eq('id', jobId);
 
-      console.log('[stream-job-process] Job complete:', jobId);
+      elog.info('[stream-job-process] Job complete:', jobId);
 
       return new Response(
         JSON.stringify({ message: 'Job processing started', jobId }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } catch (error) {
-      console.error(`[stream-job-process] Error in ${job.type} pipeline:`, error);
+      elog.error(`[stream-job-process] Error in ${job.type} pipeline:`, error);
 
       // Update job with error
       await supabase
@@ -172,7 +179,7 @@ serve(async (req) => {
       );
     }
   } catch (error) {
-    console.error('[stream-job-process] Unexpected error:', error);
+    elog.error('[stream-job-process] Unexpected error:', error);
     return new Response(
       JSON.stringify({ error: 'Internal server error', message: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -97,7 +97,11 @@ export async function executePipeline(
 
   for (const stage of stages) {
     try {
-      console.log(`[Pipeline] Executing stage: ${stage.name}`);
+      // Stage start
+      try { // logging should never throw
+        const { elog } = await import('../_shared/log.ts');
+        elog.info(`[Pipeline] Executing stage: ${stage.name}`);
+      } catch (_) {}
       
       // Start telemetry for this stage
       if (telemetry) {
@@ -135,7 +139,10 @@ export async function executePipeline(
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      console.error(`[Pipeline] Stage ${stage.name} failed:`, error);
+      try {
+        const { elog } = await import('../_shared/log.ts');
+        elog.error(`[Pipeline] Stage ${stage.name} failed:`, error);
+      } catch (_) {}
       
       // End telemetry with error
       if (telemetry) {

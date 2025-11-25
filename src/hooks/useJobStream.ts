@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { log } from '@/lib/log';
 import { supabase } from '../lib/supabase';
 import type {
   JobType,
@@ -19,6 +20,12 @@ interface UseJobStreamOptions {
    * @default true
    */
   autoStart?: boolean;
+
+  /**
+   * Polling interval in milliseconds
+   * @default 2000
+   */
+  pollIntervalMs?: number;
 
   /**
    * Timeout for job completion (ms)
@@ -90,6 +97,7 @@ export function useJobStream(
 ): UseJobStreamReturn {
   const {
     autoStart = true,
+    pollIntervalMs = 2000,
     timeout = 300000, // 5 minutes
     onComplete,
     onError,
@@ -125,7 +133,7 @@ export function useJobStream(
   }, []);
 
   const disconnect = useCallback(() => {
-    console.log('[useJobStream] disconnect() called');
+    log.debug('[useJobStream] disconnect() called');
     clearPollTimer();
     clearTimeoutTimer();
     setIsStreaming(false);
@@ -163,7 +171,7 @@ export function useJobStream(
         }
 
         const jobId = data.jobId;
-        console.log('[useJobStream] Created job:', jobId);
+        log.info('[useJobStream] Created job:', jobId);
 
         // Initialize state
         setState({
@@ -176,19 +184,19 @@ export function useJobStream(
         jobIdRef.current = jobId;
 
         // Trigger the pipeline processing (fire and forget)
-        console.log('[useJobStream] Triggering stream-job-process for jobId:', jobId);
+        log.info('[useJobStream] Triggering stream-job-process for jobId:', jobId);
         supabase.functions
           .invoke('stream-job-process', {
             body: { jobId },
           })
           .then((result) => {
-            console.log(
+            log.info(
               '[useJobStream] stream-job-process triggered successfully:',
               result
             );
           })
           .catch((err) => {
-            console.error('[useJobStream] Failed to trigger pipeline:', err);
+            log.error('[useJobStream] Failed to trigger pipeline:', err);
           });
 
         // Auto-connect if enabled
@@ -200,7 +208,7 @@ export function useJobStream(
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : 'Failed to create job';
-        console.error('[useJobStream] createJob error:', errorMessage, err);
+        log.error('[useJobStream] createJob error:', errorMessage, err);
         setError(errorMessage);
         onError?.(errorMessage);
         throw err;
@@ -215,7 +223,7 @@ export function useJobStream(
 
   const connect = useCallback(
     (jobId: string) => {
-      console.log('[useJobStream] Starting polling for job:', jobId);
+      log.info('[useJobStream] Starting polling for job:', jobId);
 
       // Clean up any previous job
       disconnect();
@@ -224,13 +232,13 @@ export function useJobStream(
       setIsStreaming(true);
       jobIdRef.current = jobId;
 
-      const pollInterval = 2000; // 2 seconds
+      const pollInterval = pollIntervalMs; // configurable
       let pollCount = 0;
 
       const poll = async () => {
         const currentJobId = jobIdRef.current;
         if (!currentJobId) {
-          console.warn(
+          log.info(
             '[useJobStream] Poll called with no jobIdRef, stopping poll.'
           );
           disconnect();
@@ -238,7 +246,7 @@ export function useJobStream(
         }
 
         pollCount++;
-        console.log(
+        log.debug(
           '[useJobStream] Polling (#' + pollCount + ') for jobId:',
           currentJobId
         );
@@ -251,7 +259,7 @@ export function useJobStream(
             .single();
 
           if (queryError || !job) {
-            console.error('[useJobStream] Error fetching job:', queryError);
+            log.error('[useJobStream] Error fetching job:', queryError);
             const msg = queryError?.message || 'Job not found';
             setError(msg);
             onError?.(msg);
@@ -259,8 +267,8 @@ export function useJobStream(
             return;
           }
 
-          console.log('[useJobStream] Poll result FULL DATA:', job);
-          console.log('[useJobStream] Poll result summary:', {
+          log.debug('[useJobStream] Poll result FULL DATA:', job);
+          log.info('[useJobStream] Poll result summary:', {
             status: job.status,
             stagesCount: Object.keys(job.stages || {}).length,
             stageKeys: Object.keys(job.stages || {}),
@@ -297,7 +305,7 @@ export function useJobStream(
 
           // Handle terminal states
           if (job.status === 'complete') {
-            console.log('[useJobStream] Job complete:', job.id);
+            log.info('[useJobStream] Job complete:', job.id);
             if (job.result) {
               onComplete?.(job.result);
             }
@@ -306,7 +314,7 @@ export function useJobStream(
           }
 
           if (job.status === 'error') {
-            console.error('[useJobStream] Job failed:', job.error_message);
+            log.error('[useJobStream] Job failed:', job.error_message);
             const msg = job.error_message || 'Job failed';
             setError(msg);
             onError?.(msg);
@@ -316,7 +324,7 @@ export function useJobStream(
 
           // Otherwise: pending / running → keep polling
         } catch (err) {
-          console.error('[useJobStream] Poll error:', err);
+          log.error('[useJobStream] Poll error:', err);
           const msg = err instanceof Error ? err.message : 'Polling failed';
           setError(msg);
           onError?.(msg);
@@ -331,7 +339,7 @@ export function useJobStream(
       // Set timeout if configured
       if (timeout > 0) {
         timeoutRef.current = window.setTimeout(() => {
-          console.warn('[useJobStream] Job timed out, disconnecting');
+          log.info('[useJobStream] Job timed out, disconnecting');
           disconnect();
           const msg = 'Job timed out';
           setError(msg);
@@ -339,7 +347,7 @@ export function useJobStream(
         }, timeout);
       }
     },
-    [disconnect, onComplete, onError, onProgress, timeout]
+    [disconnect, onComplete, onError, onProgress, pollIntervalMs, timeout]
   );
 
   // ============================================================================
@@ -347,7 +355,7 @@ export function useJobStream(
   // ============================================================================
 
   const reset = useCallback(() => {
-    console.log('[useJobStream] reset() called');
+    log.debug('[useJobStream] reset() called');
     disconnect();
     setState(null);
     setError(null);
