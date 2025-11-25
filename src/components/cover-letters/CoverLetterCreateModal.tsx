@@ -759,7 +759,25 @@ export const CoverLetterCreateModal = ({
 
   const renderDraftTab = () => {
     // Show skeleton while generating (after JD is parsed)
-    if (!draft && isGenerating && jobDescriptionRecord && user) {
+    if (!draft && (isGenerating || isJobStreaming) && jobDescriptionRecord && user) {
+      // Determine current stage message from jobState
+      const currentStageMessage = (() => {
+        if (!jobState?.stages) {
+          return 'We\'re matching your stories to the job requirements and drafting tailored content.';
+        }
+        const runningStage = Object.entries(jobState.stages).find(([_, s]: any) => s.status === 'running');
+        if (runningStage) {
+          const stageLabels: Record<string, string> = {
+            'basicMetrics': 'Analyzing job description and calculating initial metrics',
+            'requirementAnalysis': 'Mapping your experience to job requirements',
+            'sectionGaps': 'Identifying gaps and opportunities',
+            'draftGeneration': 'Drafting your cover letter sections',
+          };
+          return `Working on: ${stageLabels[runningStage[0]] || runningStage[0]}...`;
+        }
+        return 'We\'re matching your stories to the job requirements and drafting tailored content.';
+      })();
+
       return (
         <div className="space-y-6">
           {renderProgress()}
@@ -770,7 +788,7 @@ export const CoverLetterCreateModal = ({
                 Generating your cover letter...
               </CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
-                We're matching your stories to the job requirements and drafting tailored content.
+                {currentStageMessage}
               </CardDescription>
             </CardHeader>
             <CardContent>
