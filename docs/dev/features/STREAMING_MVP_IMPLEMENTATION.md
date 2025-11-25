@@ -27,6 +27,7 @@ Successfully implemented unified SSE-based streaming architecture for Narrata's 
    - Type-safe job inputs/outputs per job type
    - Status lifecycle: `pending → running → complete/error`
    - Migration: `028_create_jobs_table.sql`
+   - Archival policy: 30-day retention, minimal fields kept (Migration: `029_add_job_cleanup_policy.sql`)
 
 2. **Backend** (Supabase Edge Functions)
    - `create-job`: Job creation endpoint (POST)
@@ -44,6 +45,46 @@ Successfully implemented unified SSE-based streaming architecture for Narrata's 
    - Cover Letter: 3 stages (basicMetrics, requirementAnalysis, sectionGaps)
    - Onboarding: 3 stages (parseInputs, skeletonProfile, detailedProfile)
    - PM Levels: 3 stages (baselineAssessment, competencyBreakdown, specializationAssessment)
+
+---
+
+## Data Ownership
+
+### Cover Letters (Durable Artifacts)
+- `cover_letters.metrics`: **Canonical source of truth**, written on job completion
+- `cover_letters.sections`: Final generated content
+- `cover_letters.analytics`: Derived scoring data
+- **Lifecycle**: Permanent, user-facing data
+
+### Jobs (Ephemeral Execution Records)
+- `jobs.result`: Execution artifact for debugging
+- `jobs.stages`: Progress tracking during execution
+- **Retention**: Archived after 30 days (keeps `draftId`, clears heavy data)
+- **Purpose**: Telemetry, debugging, real-time progress only
+
+### Onboarding Data (User Profiles)
+- `users`: Core user metadata
+- `work_items`: Work history entries
+- `approved_content`: User stories and achievements
+- **Lifecycle**: Permanent, user-managed data
+
+### PM Levels (Assessment Results)
+- `pm_level_assessments`: Current assessment state
+- `pm_level_competency_evals`: Individual competency scores
+- **Lifecycle**: Versioned, historical records maintained
+
+### Data Flow
+1. Pipeline executes → stages update incrementally in `jobs.stages`
+2. Job completes → final metrics written to BOTH `jobs.result.metrics` AND `cover_letters.metrics`
+3. Frontend loads draft → reads `cover_letters.metrics` (no job dependency)
+4. After 30 days → job archived (minimal fields retained: `id`, `user_id`, `type`, `created_at`, `status`, `result.draftId`)
+
+### Archival Policy
+- **Trigger**: Automated function `archive_old_jobs()` (runs weekly via cron)
+- **Criteria**: Jobs with `status IN ('complete', 'error')` AND `created_at < NOW() - 30 days`
+- **Retained Fields**: `id`, `user_id`, `type`, `created_at`, `status`, `result.draftId`, `result.gapCount`
+- **Cleared Fields**: Full `result` object (except minimal fields), `stages` (set to NULL)
+- **Manual Execution**: `SELECT archive_old_jobs();` (returns count of archived jobs)
 
 ---
 
