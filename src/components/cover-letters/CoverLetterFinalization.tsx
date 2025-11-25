@@ -118,9 +118,9 @@ export function CoverLetterFinalization({
   const preferredCoverage = getRequirementMetric(preferredMetric);
 
   const differentiatorCoverage = analytics?.differentiatorCoverage ?? {
-    addressed: differentiators.filter(item => item.status === 'addressed').length,
-    missing: differentiators.filter(item => item.status !== 'addressed').length,
-    total: differentiators.length,
+    addressed: differentiators?.filter(item => item.status === 'addressed').length ?? 0,
+    missing: differentiators?.filter(item => item.status !== 'addressed').length ?? 0,
+    total: differentiators?.length ?? 0,
   };
 
   const handleCopy = async () => {

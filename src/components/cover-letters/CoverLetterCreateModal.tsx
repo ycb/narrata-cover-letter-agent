@@ -1373,6 +1373,9 @@ export const CoverLetterCreateModal = ({
           </div>
         </DialogHeader>
 
+        {/* Streaming progress banner */}
+        {renderStreamingStatus()}
+
         <Tabs value={mainTab} onValueChange={(value) => setMainTab(value as 'job-description' | 'cover-letter')} className="flex flex-col flex-1 min-h-0">
           <TabsList className="grid grid-cols-2 w-full flex-shrink-0 mb-4">
             <TabsTrigger value="job-description">Job description</TabsTrigger>
