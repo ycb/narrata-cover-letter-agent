@@ -332,13 +332,48 @@ export async function executeCoverLetterPipeline(
   // Compile final result
   const finalResult = {
     draftId: results.draftGeneration?.draftId || null,
-    metrics: {
-      atsScore: results.basicMetrics?.atsScore || 0,
-      experienceMatch: results.basicMetrics?.experienceMatch || 0,
-      goalsMatch: results.basicMetrics?.goalsMatch || 0,
-      requirementsMet: results.requirementAnalysis?.requirementsMet || 0,
-      rating: 0, // TODO: Calculate from other metrics
-    },
+    metrics: [
+      {
+        key: 'ats',
+        label: 'ATS Score',
+        type: 'score',
+        value: results.basicMetrics?.atsScore || 0,
+        summary: `ATS keyword match score`,
+        tooltip: 'Based on keyword matching with job description',
+      },
+      {
+        key: 'experienceMatch',
+        label: 'Experience Match',
+        type: 'score',
+        value: results.basicMetrics?.experienceMatch || 0,
+        summary: `Experience alignment score`,
+        tooltip: 'How well your experience matches the role',
+      },
+      {
+        key: 'goalsMatch',
+        label: 'Goals Match',
+        type: 'score',
+        value: results.basicMetrics?.goalsMatch || 0,
+        summary: `Career goals alignment`,
+        tooltip: 'How well this role aligns with your goals',
+      },
+      {
+        key: 'requirementsMet',
+        label: 'Requirements Met',
+        type: 'count',
+        value: results.requirementAnalysis?.requirementsMet || 0,
+        summary: `${results.requirementAnalysis?.requirementsMet || 0} of ${results.requirementAnalysis?.totalRequirements || 0} requirements met`,
+        tooltip: 'Number of job requirements you meet',
+      },
+      {
+        key: 'rating',
+        label: 'Overall Rating',
+        type: 'score',
+        value: 0, // TODO: Calculate from other metrics
+        summary: 'Overall cover letter quality',
+        tooltip: 'Composite score based on all metrics',
+      },
+    ],
     gapCount: results.sectionGaps?.totalGaps || 0,
   };
 
