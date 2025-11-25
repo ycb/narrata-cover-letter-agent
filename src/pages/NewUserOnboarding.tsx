@@ -22,6 +22,7 @@ import { useTour } from "@/contexts/TourContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { useLinkedInUpload } from "@/hooks/useFileUpload";
+import { useOnboardingJobStream } from "@/hooks/useJobStream";
 import { isValidLinkedInUrl, normalizeLinkedInUrl } from "@/utils/linkedinUtils";
 
 type OnboardingStep = 'welcome' | 'upload' | 'review';
@@ -76,6 +77,20 @@ export default function NewUserOnboarding() {
   const { user, profile } = useAuth();
   const linkedInUpload = useLinkedInUpload();
 
+  // Streaming: onboarding analysis
+  const {
+    state: onboardingJob,
+    createJob: createOnboardingJob,
+    isStreaming: isOnboardingStreaming,
+    error: onboardingError,
+  } = useOnboardingJobStream({ pollIntervalMs: 2000, timeout: 300000 });
+
+  const obStageOrder = ['linkedInFetch', 'profileStructuring', 'derivedArtifacts'] as const;
+  const obCompleted = obStageOrder.filter(
+    (k) => (onboardingJob?.stages as any)?.[k]?.status === 'complete'
+  ).length;
+  const obPct = Math.round((obCompleted / obStageOrder.length) * 100);
+
   // Check if user signed up with LinkedIn
   const isLinkedInUser = user?.app_metadata?.provider === 'linkedin_oidc' || 
                         user?.identities?.some(identity => identity.provider === 'linkedin_oidc');
@@ -92,6 +107,10 @@ export default function NewUserOnboarding() {
         break;
       case 'upload':
         setCurrentStep('review');
+        // Kick off final analysis when entering review if uploads are present
+        if (!isOnboardingStreaming) {
+          void startFinalAnalysis();
+        }
         break;
       case 'review':
         try {
@@ -157,6 +176,20 @@ export default function NewUserOnboarding() {
 
   const handleCoverLetterText = (text: string) => {
     setOnboardingData(prev => ({ ...prev, coverLetter: text }));
+  };
+
+  const startFinalAnalysis = async () => {
+    try {
+      const linkedInData = linkedinUrl ? { url: linkedinUrl } : undefined;
+      await createOnboardingJob('onboarding' as any, {
+        linkedInData,
+        resumeText: undefined,
+        coverLetterText: onboardingData.coverLetter,
+        source: 'finalAnalysis',
+      } as any);
+    } catch (e) {
+      console.error('[Onboarding] Failed to start streaming analysis', e);
+    }
   };
 
   useEffect(() => {
@@ -689,7 +722,34 @@ export default function NewUserOnboarding() {
         case 'upload':
           return renderUploadStep();
         case 'review':
-          return renderReviewStep();
+          return (
+            <>
+              {isOnboardingStreaming || onboardingJob?.status === 'running' ? (
+                <div className="mb-4 p-4 border rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">Analyzing your profile… {obPct}%</div>
+                      <div className="text-sm text-muted-foreground mt-1">
+                        Streaming stages:
+                      </div>
+                    </div>
+                    <Badge variant="secondary">{onboardingJob?.status ?? 'pending'}</Badge>
+                  </div>
+                  <div className="flex gap-2 mt-3">
+                    {obStageOrder.map((s) => {
+                      const done = (onboardingJob?.stages as any)?.[s]?.status === 'complete';
+                      return (
+                        <Badge key={s} variant={done ? 'default' : 'secondary'}>
+                          {s}{done ? ' ✓' : ' …'}
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+              {renderReviewStep()}
+            </>
+          );
         default:
           return renderWelcomeStep();
       }

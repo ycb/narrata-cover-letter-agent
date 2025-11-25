@@ -215,6 +215,12 @@ export const CoverLetterCreateModal = ({
     error: jobError,
   } = useCoverLetterJobStream({ pollIntervalMs: 2000, timeout: 300000 });
 
+  const clStageOrder = ['basicMetrics', 'requirementAnalysis', 'sectionGaps'] as const;
+  const clCompleted = clStageOrder.filter(
+    (k) => (jobState?.stages as any)?.[k]?.status === 'complete'
+  ).length;
+  const clProgressPct = Math.round((clCompleted / clStageOrder.length) * 100);
+
   // When streaming result arrives with a draftId, fetch and load into existing UI
   useEffect(() => {
     const applyDraftFromJob = async () => {
@@ -394,6 +400,34 @@ export const CoverLetterCreateModal = ({
   const handleTemplateChange = (templateId: string) => {
     setSelectedTemplateId(templateId);
     setTemplateId(templateId);
+  };
+
+  // --------------------------------------------------------------------------
+  // Streaming status banner (Cover Letter)
+  // --------------------------------------------------------------------------
+  const renderStreamingStatus = () => {
+    if (!isJobStreaming && jobState?.status !== 'running' && jobState?.status !== 'pending') {
+      return null;
+    }
+    return (
+      <Alert className="mb-4">
+        <AlertTitle>
+          Generating cover letter… {clProgressPct}%
+        </AlertTitle>
+        <AlertDescription>
+          <div className="flex gap-2 mt-2">
+            {clStageOrder.map((stage) => {
+              const done = (jobState?.stages as any)?.[stage]?.status === 'complete';
+              return (
+                <Badge key={stage} variant={done ? 'default' : 'secondary'}>
+                  {stage}{done ? ' ✓' : ' …'}
+                </Badge>
+              );
+            })}
+          </div>
+        </AlertDescription>
+      </Alert>
+    );
   };
 
   const handleGenerateDraft = async () => {
