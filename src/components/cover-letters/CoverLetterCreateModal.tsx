@@ -234,7 +234,12 @@ export const CoverLetterCreateModal = ({
         .single();
       if (!error && fetched) {
         // hydrate existing UI using existing hook setters
-        setDraft(fetched as any);
+        // Migration guard: Convert old object-format metrics to array format
+        const normalizedDraft = {
+          ...fetched,
+          metrics: Array.isArray(fetched.metrics) ? fetched.metrics : [],
+        };
+        setDraft(normalizedDraft as any);
         setMainTab('cover-letter');
       }
     };
