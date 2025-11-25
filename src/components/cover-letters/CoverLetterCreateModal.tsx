@@ -981,6 +981,15 @@ export const CoverLetterCreateModal = ({
             // Agent C: Get section-specific gap insights (same helper as CoverLetterDraftView)
             // AGENT D: Now also checks pendingSectionInsights for instant feedback
             const getSectionGapInsights = (sectionId: string, sectionSlug: string) => {
+              // If job is still streaming and we don't have full data yet, show loading state
+              if (isJobStreaming && !draft.enhancedMatchData?.sectionGapInsights) {
+                return {
+                  promptSummary: 'Analyzing gaps...',
+                  gaps: [],
+                  isLoading: true,
+                };
+              }
+
               // AGENT D: Check for pending heuristic insight first
               const pendingInsight = pendingSectionInsights[sectionId];
 
