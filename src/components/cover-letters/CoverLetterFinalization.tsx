@@ -107,10 +107,11 @@ export function CoverLetterFinalization({
   const wordCount = analytics?.wordCount ?? computeWordCount(sortedSections);
   const sectionCount = analytics?.sections ?? sortedSections.length;
 
-  const atsMetric = metrics.find(metric => metric.key === 'ats');
-  const ratingMetric = metrics.find(metric => metric.key === 'rating');
-  const coreMetric = metrics.find(metric => metric.key === 'coreRequirements');
-  const preferredMetric = metrics.find(metric => metric.key === 'preferredRequirements');
+  const safeMetrics = Array.isArray(metrics) ? metrics : [];
+  const atsMetric = safeMetrics.find(metric => metric.key === 'ats');
+  const ratingMetric = safeMetrics.find(metric => metric.key === 'rating');
+  const coreMetric = safeMetrics.find(metric => metric.key === 'coreRequirements');
+  const preferredMetric = safeMetrics.find(metric => metric.key === 'preferredRequirements');
 
   const atsScore = getScoreFromMetric(atsMetric);
   const ratingScore = getScoreFromMetric(ratingMetric);
@@ -240,7 +241,7 @@ export function CoverLetterFinalization({
                   </Badge>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {differentiators.map(item => (
+                  {differentiators?.map(item => (
                     <div
                       key={item.requirementId}
                       className={cn(
