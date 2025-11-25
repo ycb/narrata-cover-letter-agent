@@ -258,11 +258,19 @@ Return as plain text (not JSON).`;
 
     // Save draft to database
     const { data: draft, error } = await supabase
-      .from('cover_letter_drafts')
+      .from('cover_letters')
       .insert({
         user_id: job.user_id,
         job_description_id: jobDescriptionId,
-        content: draftContent,
+        template_id: job.input.templateId || null,
+        sections: [
+          {
+            id: 'draft-content',
+            type: 'generated',
+            content: draftContent,
+            order: 1,
+          }
+        ],
         status: 'draft',
       })
       .select()
