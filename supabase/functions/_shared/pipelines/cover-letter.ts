@@ -387,6 +387,16 @@ export async function executeCoverLetterPipeline(
       })
       .eq('id', job.id);
 
+    // Update draft with final metrics (canonical source of truth)
+    if (finalResult.draftId) {
+      await supabase
+        .from('cover_letters')
+        .update({
+          metrics: finalResult.metrics,
+        })
+        .eq('id', finalResult.draftId);
+    }
+
     // Mark telemetry as complete
     telemetry.complete(true);
 
