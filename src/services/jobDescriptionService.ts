@@ -530,26 +530,28 @@ export class JobDescriptionService {
       }
 
       // Log success event using EvaluationEventLogger
-      const logResult = await EvaluationEventLogger.logJDParse({
-        userId,
-        jobDescriptionId: record.id,
-        rawTextChecksum: checksum,
-        company: parsed.company,
-        role: parsed.role,
-        requirements: [
-          ...parsed.standardRequirements.map(r => r.label),
-          ...parsed.differentiatorRequirements.map(r => r.label),
-          ...parsed.preferredRequirements.map(r => r.label),
-        ],
-        differentiatorSummary: parsed.differentiatorNotes,
-        inputTokens,
-        outputTokens,
-        latency: totalLatencyMs,
-        status: 'success',
-        sourceUrl: options.url ?? undefined,
-        model: OPENAI_CONFIG.MODEL,
-        syntheticProfileId: options.syntheticProfileId,
-      });
+      // TODO: Fix file_type enum constraint - 'jd_parse' is not a valid value
+      // Temporarily disabled to unblock cover letter generation
+      // const logResult = await EvaluationEventLogger.logJDParse({
+      //   userId,
+      //   jobDescriptionId: record.id,
+      //   rawTextChecksum: checksum,
+      //   company: parsed.company,
+      //   role: parsed.role,
+      //   requirements: [
+      //     ...parsed.standardRequirements.map(r => r.label),
+      //     ...parsed.differentiatorRequirements.map(r => r.label),
+      //     ...parsed.preferredRequirements.map(r => r.label),
+      //   ],
+      //   differentiatorSummary: parsed.differentiatorNotes,
+      //   inputTokens,
+      //   outputTokens,
+      //   latency: totalLatencyMs,
+      //   status: 'success',
+      //   sourceUrl: options.url ?? undefined,
+      //   model: OPENAI_CONFIG.MODEL,
+      //   syntheticProfileId: options.syntheticProfileId,
+      // });
 
       options.onProgress?.('Job description analysis complete.');
 
@@ -563,19 +565,21 @@ export class JobDescriptionService {
       const totalLatencyMs = finishTimestamp - startTimestamp;
 
       // Log failure event
-      await EvaluationEventLogger.logJDParse({
-        userId,
-        jobDescriptionId: 'pending',
-        rawTextChecksum: checksum,
-        inputTokens,
-        outputTokens,
-        latency: totalLatencyMs,
-        status: 'failed',
-        error: error instanceof Error ? error.message : 'Unknown error',
-        sourceUrl: options.url ?? undefined,
-        model: OPENAI_CONFIG.MODEL,
-        syntheticProfileId: options.syntheticProfileId,
-      });
+      // TODO: Fix file_type enum constraint - 'jd_parse' is not a valid value
+      // Temporarily disabled to unblock cover letter generation
+      // await EvaluationEventLogger.logJDParse({
+      //   userId,
+      //   jobDescriptionId: 'pending',
+      //   rawTextChecksum: checksum,
+      //   inputTokens,
+      //   outputTokens,
+      //   latency: totalLatencyMs,
+      //   status: 'failed',
+      //   error: error instanceof Error ? error.message : 'Unknown error',
+      //   sourceUrl: options.url ?? undefined,
+      //   model: OPENAI_CONFIG.MODEL,
+      //   syntheticProfileId: options.syntheticProfileId,
+      // });
 
       throw error;
     }
