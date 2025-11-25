@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { LinkIcon, Upload, Wand2, RefreshCw, Save, Send, AlertTriangle, CheckCircle, X, Target, Pencil, Sparkles } from "lucide-react";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { LinkIcon, Upload, Wand2, RefreshCw, Save, Send, AlertTriangle, CheckCircle, X, Target, Pencil, Sparkles, Loader2 } from "lucide-react";
 import { HILProgressPanel } from "@/components/hil/HILProgressPanel";
 import { GapAnalysisPanel } from "@/components/hil/GapAnalysisPanel";
 import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
@@ -16,6 +17,9 @@ import { UnifiedGapCard } from "@/components/hil/UnifiedGapCard";
 import { CoverLetterFinalization } from "./CoverLetterFinalization";
 import { ProgressIndicatorWithTooltips } from "./ProgressIndicatorWithTooltips";
 import { ContentCard } from "@/components/shared/ContentCard";
+import { StageStepper } from "@/components/streaming/StageStepper";
+import { useCoverLetterJobStream } from "@/hooks/useJobStream";
+import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
 interface CoverLetterCreateModalProps {
@@ -72,6 +76,7 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
 
 
   const [isGenerating, setIsGenerating] = useState(false);
+  const [draft, setDraft] = useState<any | null>(null); // NEW: Actual draft from DB
   const [coverLetterGenerated, setCoverLetterGenerated] = useState(false);
   const [goNoGoAnalysis, setGoNoGoAnalysis] = useState<GoNoGoAnalysis | null>(null);
   const [showGoNoGoModal, setShowGoNoGoModal] = useState(false);
@@ -83,6 +88,9 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
   const [selectedGap, setSelectedGap] = useState<GapAnalysis | null>(null);
   const [mainTabValue, setMainTabValue] = useState<'job-description' | 'cover-letter'>('cover-letter');
   const [showFinalizationModal, setShowFinalizationModal] = useState(false);
+
+  // NEW: Streaming job state
+  const { state: jobState, createJob, isStreaming, error: jobError } = useCoverLetterJobStream();
 
 
 
@@ -242,6 +250,7 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
 
   const handleGenerate = async () => {
     setIsGenerating(true);
+    setDraft(null); // Clear any existing draft
     
     // First, analyze Go/No-Go
     const analysis = analyzeGoNoGo(jobContent || jobUrl);
@@ -254,15 +263,21 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
       return;
     }
     
-    // If go, proceed with generation and HIL analysis
-    // After 3 seconds, show initial analysis (not post-HIL)
-    setTimeout(() => {
-      const initialAnalysis = analyzeHILProgress(jobContent || jobUrl);
-      setHilProgressMetrics(initialAnalysis.metrics);
-      setGaps(initialAnalysis.gaps);
+    // If go, proceed with streaming job creation
+    try {
+      // TODO: Replace with actual user ID and JD ID from context
+      const jobId = await createJob('coverLetter', {
+        userId: 'user-123', // PLACEHOLDER: Get from auth context
+        jobDescriptionId: 'jd-456', // PLACEHOLDER: Parse JD first
+        jobDescription: jobContent || jobUrl,
+      });
+      
+      console.log('[CoverLetterCreateModal] Streaming job created:', jobId);
+      // Job state updates will be handled by the hook
+    } catch (err) {
+      console.error('[CoverLetterCreateModal] Failed to create job:', err);
       setIsGenerating(false);
-      setCoverLetterGenerated(true); // This just means "draft is ready for HIL"
-    }, 3000);
+    }
   };
 
   const handleGoNoGoOverride = () => {
@@ -449,7 +464,7 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
     onClose();
   };
 
-  return (
+    return (
     <>
       <Dialog open={isOpen} onOpenChange={handleClose}>
         <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
@@ -471,13 +486,13 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
 
           {/* Job Description Input - Modal 1 - Only show when NOT generated */}
           {!coverLetterGenerated && (
-            <Card>
-              <CardHeader>
+        <Card>
+          <CardHeader>
                 <CardTitle className="text-lg">Job Description</CardTitle>
-                <CardDescription>
+            <CardDescription>
                   Provide the job description to generate a targeted cover letter
-                </CardDescription>
-              </CardHeader>
+            </CardDescription>
+          </CardHeader>
               <CardContent>
                                <Tabs value={jobDescriptionMethod} onValueChange={(value) => setJobDescriptionMethod(value as 'url' | 'paste')}>
                  <TabsList className="grid w-fit grid-cols-2">
@@ -506,19 +521,19 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
                   <TabsContent value="paste" className="mt-4">
                     <div className="space-y-2">
                       <Label htmlFor="job-content">Job Description</Label>
-                      <Textarea
+              <Textarea
                         id="job-content"
                         placeholder="Paste the job description here..."
-                        value={jobContent}
+                value={jobContent}
                         onChange={(e) => setJobContent(e.target.value)}
                         rows={8}
-                      />
-                    </div>
+              />
+                </div>
                   </TabsContent>
                 </Tabs>
 
                 {/* Generate Button */}
-                <Button 
+              <Button
                   onClick={handleGenerate}
                   disabled={isGenerating || (!jobUrl && !jobContent)}
                   className="w-full flex items-center gap-2 mt-4"
@@ -528,16 +543,16 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
                     <>
                       <RefreshCw className="h-4 w-4 animate-spin" />
                       Generating Cover Letter...
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="h-4 w-4" />
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="h-4 w-4" />
                       Generate Cover Letter
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
+                  </>
+                )}
+              </Button>
+          </CardContent>
+        </Card>
           )}
 
           {/* Main Tabs for Draft Modal - Only show when cover letter is generated */}
@@ -562,8 +577,8 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
                       <CardTitle className="text-lg">Job Description</CardTitle>
                       <CardDescription>
                         The job description used to generate this cover letter
-                      </CardDescription>
-                    </CardHeader>
+              </CardDescription>
+            </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="space-y-2">
                         <Label>Job Description Content</Label>
@@ -573,7 +588,7 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
                           rows={8}
                           className="resize-none"
                         />
-                      </div>
+        </div>
                       <Button 
                         variant="outline"
                         className="w-full flex items-center gap-2"
@@ -582,8 +597,8 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
                         <RefreshCw className="h-4 w-4" />
                         Re-Generate Cover Letter
                       </Button>
-                    </CardContent>
-                  </Card>
+          </CardContent>
+        </Card>
                 </TabsContent>
 
                 {/* Cover Letter Tab - Shows draft with content cards */}
@@ -597,16 +612,16 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
                            section.type === 'closing' ? 'Closing' : 
                                         section.type === 'signature' ? 'Signature' : section.type;
                     const mockJDTags = getRequirementsForParagraph(section.type);
-                    
-                    return (
-                      <ContentCard
-                        key={section.id}
+
+            return (
+              <ContentCard
+                key={section.id}
                         title={sectionTitle}
                         content={section.content}
                         tags={mockJDTags}
-                        hasGaps={hasGaps}
+                hasGaps={hasGaps}
                         gaps={sectionGaps.map(g => ({ id: g.id, description: g.description }))}
-                        isGapResolved={!hasGaps}
+                isGapResolved={!hasGaps}
                         onGenerateContent={hasGaps ? () => handleAddressGap(sectionGaps[0]) : undefined}
                         onDismissGap={hasGaps ? () => {
                           // Mock gap dismissal for now
@@ -624,13 +639,13 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
                           console.log('Delete section:', section.id);
                         }}
                         tagsLabel="Job Requirements"
-                        showUsage={false}
-                        renderChildrenBeforeTags={true}
+                showUsage={false}
+                renderChildrenBeforeTags={true}
                         className={cn((section as any).isEnhanced && 'border-success/30')}
-                      >
+              >
                         {/* Inline editable Textarea - renders before tags */}
-                        <div className="mb-6">
-                        <Textarea
+                <div className="mb-6">
+                  <Textarea
                           value={section.content}
                             ref={(textarea) => {
                               if (textarea) {
@@ -649,31 +664,31 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
                               e.target.style.height = `${e.target.scrollHeight}px`;
                             }}
                             className="resize-none overflow-hidden"
-                            placeholder="Enter cover letter content..."
+                    placeholder="Enter cover letter content..."
                             rows={1}
                           />
-                        </div>
-                      </ContentCard>
-                    );
-                  })}
+                  </div>
+              </ContentCard>
+            );
+          })}
 
                   {/* Action Buttons */}
                   <div className="flex gap-3 pt-4">
                     <Button variant="link" className="flex-1 text-muted-foreground hover:text-foreground">
                       Save Draft
-                    </Button>
+            </Button>
                     <Button className="flex-1 flex items-center gap-2" onClick={handleFinalizeLetter}>
                       <Send className="h-4 w-4" />
                       Finalize Letter
-                    </Button>
-                  </div>
+            </Button>
+          </div>
                 </TabsContent>
               </Tabs>
-            </div>
+        </div>
           )}
 
 
-        </DialogContent>
+      </DialogContent>
       </Dialog>
 
       {/* Go/No-Go Modal */}
@@ -731,8 +746,8 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
         coverLetter={generatedLetter}
         onBackToDraft={() => setShowFinalizationModal(false)}
         onSave={handleSaveCoverLetter}
-      />
-    </>
+    />
+  </>
   );
 };
 

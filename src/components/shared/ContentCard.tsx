@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import type { RequirementTag } from "@/types/coverLetters";
+import { Loader2 } from "lucide-react";
 
 interface SectionAttributionSummary {
   coreMetCount: number;
@@ -61,6 +62,8 @@ interface ContentCardProps {
   showUsage?: boolean; // Show "Used X times" (default true)
   children?: React.ReactNode; // Additional content sections (metrics, links, variations, etc.) - renders between tags and gap banner
   renderChildrenBeforeTags?: boolean; // If true, render children before tags (for cover letter inline editing)
+  isLoading?: boolean; // NEW: Streaming skeleton state (default: false)
+  loadingMessage?: string; // NEW: Custom loading message (e.g., "Drafting intro...")
 }
 
 /**
@@ -100,7 +103,9 @@ export const ContentCard = ({
   tagsLabel, // No default - explicitly required for legacy content (stories, saved sections)
   showUsage = true,
   children,
-  renderChildrenBeforeTags = false
+  renderChildrenBeforeTags = false,
+  isLoading = false, // Default: false (prevents breaking existing callers)
+  loadingMessage
 }: ContentCardProps) => {
   // Helper to check if a tag is structured
   const isStructuredTag = (tag: string | RequirementTag): tag is RequirementTag => {
@@ -207,11 +212,21 @@ export const ContentCard = ({
       </CardHeader>
 
       <CardContent className="pt-0">
-        {/* Primary content preview - only show if content exists */}
-        {content && (
-          <div className="mb-6">
-            <p className="text-sm text-muted-foreground">{content}</p>
+        {/* Loading State (Streaming Skeleton) */}
+        {isLoading ? (
+          <div className="mb-6 flex items-center gap-2 p-4 rounded-md bg-muted/30">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">
+              {loadingMessage || 'Loading content...'}
+            </p>
           </div>
+        ) : (
+          /* Primary content preview - only show if content exists */
+          content && (
+            <div className="mb-6">
+              <p className="text-sm text-muted-foreground">{content}</p>
+            </div>
+          )
         )}
 
         {/* Render children before tags if requested (for cover letter inline editing) */}
