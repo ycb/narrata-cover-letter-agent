@@ -319,42 +319,44 @@ export const CoverLetterModal = ({
   const isJobStreaming = mode === 'create' ? streamingHook.isStreaming : false;
   const createJob = mode === 'create' ? streamingHook.createJob : async () => {};
 
-  // Phase 3: Initialize draft from initialDraft prop in edit mode
+  // Phase 3: Initialize draft and load job description in edit mode
   useEffect(() => {
-    if (mode === 'edit' && initialDraft && isOpen) {
-      setLocalDraft(initialDraft);
-      // Also load the job description if available
-      if (initialDraft.jobDescriptionId) {
-        loadJobDescription(initialDraft.jobDescriptionId);
-      }
-    }
-  }, [mode, initialDraft, isOpen]);
-
-  // Helper to load job description by ID
-  const loadJobDescription = async (jdId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('job_descriptions')
-        .select('*')
-        .eq('id', jdId)
-        .single();
-      
-      if (error) {
-        console.error('[CoverLetterModal] Failed to load job description:', error);
-        return;
-      }
-      
-      if (data) {
-        setJobDescriptionRecord(data);
-        // Also set the job content for display
-        if (data.structured_data?.rawText) {
-          setJobContent(data.structured_data.rawText);
+    const initializeEditMode = async () => {
+      if (mode === 'edit' && initialDraft && isOpen) {
+        setLocalDraft(initialDraft);
+        
+        // Load the job description if available
+        if (initialDraft.jobDescriptionId) {
+          try {
+            const { data, error } = await supabase
+              .from('job_descriptions')
+              .select('*')
+              .eq('id', initialDraft.jobDescriptionId)
+              .single();
+            
+            if (error) {
+              console.error('[CoverLetterModal] Failed to load job description:', error);
+              return;
+            }
+            
+            if (data) {
+              setJobDescriptionRecord(data);
+              // Set the job content for display in the JD tab
+              if (data.structured_data?.rawText) {
+                setJobContent(data.structured_data.rawText);
+              } else if (data.structured_data?.text) {
+                setJobContent(data.structured_data.text);
+              }
+            }
+          } catch (err) {
+            console.error('[CoverLetterModal] Exception loading job description:', err);
+          }
         }
       }
-    } catch (err) {
-      console.error('[CoverLetterModal] Exception loading job description:', err);
-    }
-  };
+    };
+    
+    initializeEditMode();
+  }, [mode, initialDraft, isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
