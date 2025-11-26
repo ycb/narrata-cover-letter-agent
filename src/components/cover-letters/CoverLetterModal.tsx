@@ -323,8 +323,38 @@ export const CoverLetterModal = ({
   useEffect(() => {
     if (mode === 'edit' && initialDraft && isOpen) {
       setLocalDraft(initialDraft);
+      // Also load the job description if available
+      if (initialDraft.jobDescriptionId) {
+        loadJobDescription(initialDraft.jobDescriptionId);
+      }
     }
   }, [mode, initialDraft, isOpen]);
+
+  // Helper to load job description by ID
+  const loadJobDescription = async (jdId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('job_descriptions')
+        .select('*')
+        .eq('id', jdId)
+        .single();
+      
+      if (error) {
+        console.error('[CoverLetterModal] Failed to load job description:', error);
+        return;
+      }
+      
+      if (data) {
+        setJobDescriptionRecord(data);
+        // Also set the job content for display
+        if (data.structured_data?.rawText) {
+          setJobContent(data.structured_data.rawText);
+        }
+      }
+    } catch (err) {
+      console.error('[CoverLetterModal] Exception loading job description:', err);
+    }
+  };
 
   useEffect(() => {
     if (!isOpen) {
@@ -1239,28 +1269,16 @@ export const CoverLetterModal = ({
         </DialogHeader>
 
         <Tabs value={mainTab} onValueChange={(value) => setMainTab(value as 'job-description' | 'cover-letter')} className="flex flex-col flex-1 min-h-0">
-          {/* Phase 3: Show both tabs in create mode, only draft tab in edit mode */}
-          {mode === 'create' ? (
-            <>
-              <TabsList className="grid grid-cols-2 w-full flex-shrink-0 mb-4">
-                <TabsTrigger value="job-description">Job description</TabsTrigger>
-                <TabsTrigger value="cover-letter" disabled={!draft}>
-                  Cover letter
-                </TabsTrigger>
-              </TabsList>
+          {/* Phase 3: Both modes show both tabs. Create starts on JD tab, Edit starts on Draft tab. */}
+          <TabsList className="grid grid-cols-2 w-full flex-shrink-0 mb-4">
+            <TabsTrigger value="job-description">Job description</TabsTrigger>
+            <TabsTrigger value="cover-letter" disabled={mode === 'create' && !draft}>
+              {mode === 'create' ? 'Cover letter' : 'Draft'}
+            </TabsTrigger>
+          </TabsList>
 
-              <TabsContent value="job-description" className="flex-1 overflow-y-auto">{renderJobDescriptionTab()}</TabsContent>
-              <TabsContent value="cover-letter" className="flex-1 overflow-hidden">{renderDraftTab()}</TabsContent>
-            </>
-          ) : (
-            <>
-              <TabsList className="w-full flex-shrink-0 mb-4">
-                <TabsTrigger value="cover-letter">Draft</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="cover-letter" className="flex-1 overflow-hidden">{renderDraftTab()}</TabsContent>
-            </>
-          )}
+          <TabsContent value="job-description" className="flex-1 overflow-y-auto">{renderJobDescriptionTab()}</TabsContent>
+          <TabsContent value="cover-letter" className="flex-1 overflow-hidden">{renderDraftTab()}</TabsContent>
         </Tabs>
       </DialogContent>
       {draft && (
