@@ -19,6 +19,8 @@ import { ContentCard } from "@/components/shared/ContentCard";
 import { StageStepper } from "@/components/streaming/StageStepper";
 import { useCoverLetterJobStream } from "@/hooks/useJobStream";
 import { supabase } from "@/lib/supabase";
+import { JobDescriptionService } from "@/services/jobDescriptionService";
+import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
 interface CoverLetterCreateModalProps {
@@ -63,6 +65,7 @@ interface GapAnalysis {
 }
 
 const CoverLetterCreateModal = ({ isOpen, onClose, onCoverLetterCreated }: CoverLetterCreateModalProps) => {
+  const { user } = useAuth();
   const [jobDescriptionMethod, setJobDescriptionMethod] = useState<'url' | 'paste'>('paste');
   const [jobUrl, setJobUrl] = useState('');
   const [jobContent, setJobContent] = useState(`Senior Product Manager - Growth & SaaS Platform
@@ -283,6 +286,12 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
   };
 
   const handleGenerate = async () => {
+    if (!user?.id) {
+      console.error('[CoverLetterCreateModal] No authenticated user');
+      setIsGenerating(false);
+      return;
+    }
+
     setIsGenerating(true);
     setDraft(null); // Clear any existing draft
     
@@ -297,12 +306,25 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
       return;
     }
 
-    // If go, proceed with streaming job creation
+    // If go, proceed with JD parsing and streaming job creation
     try {
-      // TODO: Replace with actual user ID and JD ID from context
+      // Step 1: Parse job description and create record
+      console.log('[CoverLetterCreateModal] Parsing job description...');
+      const jdService = new JobDescriptionService();
+      const jdRecord = await jdService.parseAndCreate(
+        user.id,
+        jobContent || jobUrl,
+        {
+          url: jobDescriptionMethod === 'url' ? jobUrl : null,
+        }
+      );
+      
+      console.log('[CoverLetterCreateModal] JD parsed:', jdRecord.id);
+
+      // Step 2: Create streaming job with real IDs
       const jobId = await createJob('coverLetter', {
-        userId: 'user-123', // PLACEHOLDER: Get from auth context
-        jobDescriptionId: 'jd-456', // PLACEHOLDER: Parse JD first
+        userId: user.id,
+        jobDescriptionId: jdRecord.id,
         jobDescription: jobContent || jobUrl,
       });
       
