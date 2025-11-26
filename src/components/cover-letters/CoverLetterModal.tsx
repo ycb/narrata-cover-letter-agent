@@ -627,8 +627,7 @@ export const CoverLetterModal = ({
       setJobDescriptionId(record.id);
       
       // Start streaming job instead of blocking generation
-      await createJob({
-        userId: user.id,
+      await createJob('coverLetter', {
         jobDescriptionId: record.id,
         templateId: selectedTemplateId,
       });
