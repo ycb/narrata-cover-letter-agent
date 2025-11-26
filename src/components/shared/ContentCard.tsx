@@ -223,9 +223,9 @@ export const ContentCard = ({
         ) : (
           /* Primary content preview - only show if content exists */
           content && (
-            <div className="mb-6">
-              <p className="text-sm text-muted-foreground">{content}</p>
-            </div>
+          <div className="mb-6">
+            <p className="text-sm text-muted-foreground">{content}</p>
+          </div>
           )
         )}
 
