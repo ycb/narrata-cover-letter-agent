@@ -634,6 +634,12 @@ export const CoverLetterModal = ({
           templateId: selectedTemplateId,
         },
       });
+      console.log('[CoverLetterModal] Validation check:', {
+        hasRecordId: !!record.id,
+        recordId: record.id,
+        hasTemplateId: !!selectedTemplateId,
+        templateId: selectedTemplateId,
+      });
       
       await createJob('coverLetter', {
         jobDescriptionId: record.id,
