@@ -1140,7 +1140,7 @@ export const CoverLetterCreateModal = ({
 
             // Calculate section-type-specific totalStandards
             // Use position as fallback if slug/type don't match known values
-            const sectionIndex = draft.sections.findIndex(s => s.id === section.id);
+            // Note: sectionIndex comes from map signature above
             const sectionTypeForStandards: 'intro' | 'body' | 'closing' = (() => {
               // First try slug (semantic type from LLM)
               if (section.slug === 'intro' || section.slug === 'introduction') return 'intro';
