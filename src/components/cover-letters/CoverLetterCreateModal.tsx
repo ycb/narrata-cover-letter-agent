@@ -114,9 +114,67 @@ export const CoverLetterCreateModal = ({
   const [finalizationError, setFinalizationError] = useState<string | null>(null);
   const [showLibraryModal, setShowLibraryModal] = useState(false);
   const [libraryInvocation, setLibraryInvocation] = useState<InvocationType | null>(null);
+  const [workHistoryLibrary, setWorkHistoryLibrary] = useState<any[]>([]);
+  const [savedSections, setSavedSections] = useState<any[]>([]);
+  const [isLibraryLoading, setIsLibraryLoading] = useState(false);
+  const [libraryError, setLibraryError] = useState<string | null>(null);
   const { toast } = useToast();
   const preParseControllerRef = useRef<AbortController | null>(null);
   const preParseRequestIdRef = useRef(0);
+  // Load work history and saved sections for library modal
+  useEffect(() => {
+    const loadLibraryData = async () => {
+      if (!user?.id) return;
+
+      setIsLibraryLoading(true);
+      setLibraryError(null);
+
+      try {
+        // Load work history companies with stories
+        const { data: workItems } = await supabase
+          .from('work_items')
+          .select('id, title, company_id')
+          .eq('user_id', user.id);
+
+        const { data: stories } = await supabase
+          .from('approved_content')
+          .select('id, title, content, work_item_id')
+          .eq('user_id', user.id);
+
+        // Group stories by work item
+        const workItemMap = new Map<string, any[]>();
+        stories?.forEach(story => {
+          if (!workItemMap.has(story.work_item_id)) {
+            workItemMap.set(story.work_item_id, []);
+          }
+          workItemMap.get(story.work_item_id)?.push(story);
+        });
+
+        // Build company structure
+        const companies = (workItems || []).map(item => ({
+          id: item.company_id || item.id,
+          name: item.title,
+          blurbs: workItemMap.get(item.id) || [],
+        }));
+
+        setWorkHistoryLibrary(companies);
+
+        // Load saved sections (templates)
+        // For now, just set empty array - can be implemented later
+        setSavedSections([]);
+      } catch (error) {
+        console.error('[CoverLetterCreateModal] Failed to load library data:', error);
+        setLibraryError(error instanceof Error ? error.message : 'Failed to load library');
+      } finally {
+        setIsLibraryLoading(false);
+      }
+    };
+
+    if (isOpen) {
+      loadLibraryData();
+    }
+  }, [user?.id, isOpen]);
+
   const normalizedJobDescription = useMemo(() => {
     if (!jobDescriptionRecord) return null;
     const analysis = (jobDescriptionRecord.analysis as Record<string, any> | null) ?? {};
@@ -1492,13 +1550,24 @@ export const CoverLetterCreateModal = ({
     </Dialog>
 
     {/* Add Section from Library Modal - rendered outside main dialog to avoid nesting issues */}
-    <AddSectionFromLibraryModal
-      isOpen={showLibraryModal}
-      onClose={() => setShowLibraryModal(false)}
-      invocation={libraryInvocation}
-      onInsertSection={handleInsertSection}
-      coverLetterId={draft?.id}
-    />
+    {showLibraryModal && libraryInvocation && (
+      <AddSectionFromLibraryModal
+        isOpen={showLibraryModal}
+        onClose={() => {
+          setShowLibraryModal(false);
+          setLibraryInvocation(null);
+        }}
+        invocation={libraryInvocation}
+        jobDescription={jobDescriptionRecord?.structured_data?.rawText || jobDescriptionRecord?.analysis?.llm?.rawText}
+        workHistoryLibrary={workHistoryLibrary}
+        savedSections={savedSections}
+        isLibraryLoading={isLibraryLoading}
+        libraryError={libraryError}
+        onInsertHere={async (insertIndex: number, sectionType: string, content: string, source: any) => {
+          await handleInsertSection(insertIndex, content, source);
+        }}
+      />
+    )}
 
     {/* User Goals Modal - rendered outside main dialog to avoid nesting issues */}
     <UserGoalsModal
