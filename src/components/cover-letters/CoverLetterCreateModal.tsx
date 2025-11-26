@@ -59,7 +59,10 @@ import { CoverLetterDraftView } from './CoverLetterDraftView';
 import { ContentCard } from '@/components/shared/ContentCard';
 import { ContentGenerationModal } from '@/components/hil/ContentGenerationModal';
 import { UserGoalsModal } from '@/components/user-goals/UserGoalsModal';
+import { AddSectionFromLibraryModal, type InvocationType } from './AddSectionFromLibraryModal';
+import { SectionInsertButton } from '@/components/template-blurbs/SectionInsertButton';
 import { useUserGoals } from '@/contexts/UserGoalsContext';
+import { useToast } from '@/hooks/use-toast';
 import { transformMetricsToMatchData, getUnresolvedRatingCriteria } from './useMatchMetricsDetails';
 import { computeSectionAttribution } from './useSectionAttribution';
 import type { CoverLetterDraft, JobDescriptionRecord, ParsedJobDescription } from '@/types/coverLetters';
@@ -109,6 +112,9 @@ export const CoverLetterCreateModal = ({
   const [isRecalculating, setIsRecalculating] = useState(false);
   const [finalizationOpen, setFinalizationOpen] = useState(false);
   const [finalizationError, setFinalizationError] = useState<string | null>(null);
+  const [showLibraryModal, setShowLibraryModal] = useState(false);
+  const [libraryInvocation, setLibraryInvocation] = useState<InvocationType | null>(null);
+  const { toast } = useToast();
   const preParseControllerRef = useRef<AbortController | null>(null);
   const preParseRequestIdRef = useRef(0);
   const normalizedJobDescription = useMemo(() => {
@@ -492,6 +498,75 @@ export const CoverLetterCreateModal = ({
         ...prev,
         [sectionId]: false,
       }));
+    }
+  };
+
+  // Add Section from Library handlers
+  const handleInsertBetweenSections = (insertIndex: number) => {
+    if (!draft) return;
+    const sections = draft.sections || [];
+
+    // Infer section type from neighbors
+    let preferredType: 'intro' | 'body' | 'closing' = 'body';
+    if (insertIndex === 0) {
+      preferredType = 'intro';
+    } else if (insertIndex >= sections.length) {
+      preferredType = 'closing';
+    }
+
+    setLibraryInvocation({
+      type: 'insert_here',
+      insertIndex,
+      preferredSectionType: preferredType,
+    });
+    setShowLibraryModal(true);
+  };
+
+  const handleInsertSection = async (insertIndex: number, content: string, source: { kind: "library"; contentType: "story" | "saved_section"; itemId: string; title?: string }) => {
+    if (!draft) return;
+    
+    try {
+      const newSection = {
+        id: `section-${Date.now()}`,
+        type: libraryInvocation?.preferredSectionType || 'body',
+        slug: libraryInvocation?.preferredSectionType || 'body',
+        title: source.title || 'New Section',
+        content,
+        source,
+        order: insertIndex,
+      };
+
+      // Insert the new section at the specified index
+      const updatedSections = [...draft.sections];
+      updatedSections.splice(insertIndex, 0, newSection);
+
+      // Reorder all sections
+      const reorderedSections = updatedSections.map((section, index) => ({
+        ...section,
+        order: index,
+      }));
+
+      // Update draft in state
+      setDraft({ ...draft, sections: reorderedSections });
+
+      // Save to database
+      await coverLetterDraftService.updateDraft(draft.id, {
+        sections: reorderedSections,
+      });
+
+      toast({
+        title: "Section added",
+        description: "Content from library has been inserted",
+      });
+
+      setShowLibraryModal(false);
+    } catch (error) {
+      console.error('[CoverLetterCreateModal] Failed to insert section:', error);
+      toast({
+        title: "Failed to add section",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
+      });
     }
   };
 
@@ -919,7 +994,10 @@ export const CoverLetterCreateModal = ({
             {renderProgress()}
 
         <div className="space-y-4">
-          {draft.sections.map(section => {
+          {/* Add Section button at the top */}
+          <SectionInsertButton onClick={() => handleInsertBetweenSections(0)} />
+          
+          {draft.sections.map((section, sectionIndex) => {
             const editedContent = sectionDrafts[section.id] ?? section.content;
             const isDirty = editedContent !== section.content;
             const isSaving = !!savingSections[section.id];
@@ -1080,8 +1158,8 @@ export const CoverLetterCreateModal = ({
             const totalStandardsForSection = getApplicableStandards(sectionTypeForStandards).length;
 
             return (
+              <div key={section.id}>
               <ContentCard
-                key={section.id}
                 title={formattedTitle}
                 content={undefined} // Don't show preview when editable (Textarea displays it)
                 sectionAttributionData={hasAttributionData ? sectionAttribution : undefined}
@@ -1262,6 +1340,10 @@ export const CoverLetterCreateModal = ({
                   </div>
                 )}
               </ContentCard>
+              
+              {/* Add Section button after each section */}
+              <SectionInsertButton onClick={() => handleInsertBetweenSections(sectionIndex + 1)} />
+            </div>
             );
           })}
         </div>
@@ -1408,6 +1490,15 @@ export const CoverLetterCreateModal = ({
       />
 
     </Dialog>
+
+    {/* Add Section from Library Modal - rendered outside main dialog to avoid nesting issues */}
+    <AddSectionFromLibraryModal
+      isOpen={showLibraryModal}
+      onClose={() => setShowLibraryModal(false)}
+      invocation={libraryInvocation}
+      onInsertSection={handleInsertSection}
+      coverLetterId={draft?.id}
+    />
 
     {/* User Goals Modal - rendered outside main dialog to avoid nesting issues */}
     <UserGoalsModal
