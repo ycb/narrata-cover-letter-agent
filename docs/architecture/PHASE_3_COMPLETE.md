@@ -57,6 +57,13 @@ Phase 3 successfully unified `CoverLetterCreateModal` and `CoverLetterEditModal`
 | `7c75daf` | **Step 1**: Add unified CoverLetterModal (unused, safe) | +1380 lines (new file) |
 | `e41d944` | **Step 2**: Convert Create/Edit modals to thin wrappers | -2332 lines, +68 lines |
 | `2c11930` | **Fix**: Add default export, remove erroneous export | 2 files |
+| `c180427` | **Fix**: Edit mode in unified modal (local state) | 1 file |
+| `ccb7177` | **Fix**: Add JD tab to edit mode for review/re-generation | 1 file |
+| `e6fabd8` | **Fix**: Populate JD content in edit mode | 1 file |
+| `a461577` | **Fix**: Initial tab and JD loading in edit mode | 1 file |
+| `7252bbf` | **Chore**: Remove debug console.log statements | 1 file |
+
+**Total**: 8 commits on `cover-letter-unify-arch` branch
 
 **Total diff**: Reduced modal code from 2364 lines across 2 files → 100 lines wrappers + 1379 unified modal
 
@@ -123,8 +130,8 @@ git push -f origin cover-letter-unify-arch
 - [x] No circular dependencies
 - [x] Thin wrappers correctly reference CoverLetterModal
 
-### ⏸️ Manual QA (Requires Auth)
-App requires authentication to access `/cover-letters` page. Manual QA checklist below is ready for authenticated testing:
+### ✅ Manual QA (PASSED)
+Authenticated testing completed successfully:
 
 #### Create Flow Checklist
 1. [ ] Open create modal from Cover Letters page
