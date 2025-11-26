@@ -328,12 +328,10 @@ export const CoverLetterModal = ({
   useEffect(() => {
     const initializeEditMode = async () => {
       if (mode === 'edit' && initialDraft && isOpen) {
-        console.log('[CoverLetterModal Edit Mode] initialDraft:', initialDraft);
         setLocalDraft(initialDraft);
         
         // First check if draft has jobDescription field directly
         if ((initialDraft as any).jobDescription) {
-          console.log('[CoverLetterModal] Using jobDescription from draft');
           setJobContent((initialDraft as any).jobDescription);
         }
         
@@ -352,7 +350,6 @@ export const CoverLetterModal = ({
             }
             
             if (data) {
-              console.log('[CoverLetterModal] Loaded JD record:', data);
               setJobDescriptionRecord(data);
               
               // Only set jobContent if not already set from draft
@@ -364,7 +361,6 @@ export const CoverLetterModal = ({
                   || (data as any).rawText;
                 
                 if (rawText) {
-                  console.log('[CoverLetterModal] Setting jobContent from JD record');
                   setJobContent(rawText);
                 }
               }
