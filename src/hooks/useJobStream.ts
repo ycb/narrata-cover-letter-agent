@@ -157,12 +157,18 @@ export function useJobStream(
         }
 
         // Call Edge Function to create job
+        const requestBody = { type, input } as CreateJobRequest;
+        console.log('[useJobStream] Creating job with payload:', requestBody);
+        
         const { data, error: fetchError } =
           await supabase.functions.invoke<CreateJobResponse>('create-job', {
-            body: { type, input } as CreateJobRequest,
+            body: requestBody,
           });
 
+        console.log('[useJobStream] create-job response:', { data, error: fetchError });
+
         if (fetchError) {
+          console.error('[useJobStream] create-job error:', fetchError);
           throw new Error(fetchError.message || 'Failed to create job');
         }
 
@@ -278,19 +284,22 @@ export function useJobStream(
           });
 
           // Update state
-          setState({
+          const newState = {
             jobId: job.id,
             type: job.type,
             status: job.status,
             stages: job.stages || {},
             result: job.result,
             error: job.error_message,
+            progress: job.progress,
             createdAt: job.created_at ? new Date(job.created_at) : undefined,
             startedAt: job.started_at ? new Date(job.started_at) : undefined,
             completedAt: job.completed_at
               ? new Date(job.completed_at)
               : undefined,
-          });
+          };
+          console.log('[useJobStream] 🔄 jobState updated:', newState);
+          setState(newState);
 
           // Fire progress callbacks
           if (job.stages) {

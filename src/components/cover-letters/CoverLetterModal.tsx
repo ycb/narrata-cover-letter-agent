@@ -627,10 +627,20 @@ export const CoverLetterModal = ({
       setJobDescriptionId(record.id);
       
       // Start streaming job instead of blocking generation
+      console.log('[CoverLetterModal] Starting streaming job with:', {
+        type: 'coverLetter',
+        input: {
+          jobDescriptionId: record.id,
+          templateId: selectedTemplateId,
+        },
+      });
+      
       await createJob('coverLetter', {
         jobDescriptionId: record.id,
         templateId: selectedTemplateId,
       });
+      
+      console.log('[CoverLetterModal] Streaming job started successfully');
       
       // Switch to draft tab to show streaming progress
       // DraftEditor will handle the skeleton → streaming → final draft flow
