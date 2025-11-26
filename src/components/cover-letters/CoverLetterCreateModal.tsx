@@ -28,7 +28,7 @@ export const CoverLetterCreateModal = ({
   onClose,
   onCoverLetterCreated,
 }: CoverLetterCreateModalProps) => {
-    return (
+  return (
     <CoverLetterModal
       isOpen={isOpen}
       onClose={onClose}
@@ -38,3 +38,6 @@ export const CoverLetterCreateModal = ({
     />
   );
 };
+
+// Default export for backwards compatibility with existing imports
+export default CoverLetterCreateModal;

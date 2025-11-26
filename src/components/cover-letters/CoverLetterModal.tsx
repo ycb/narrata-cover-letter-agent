@@ -1375,6 +1375,3 @@ export const CoverLetterModal = ({
   </>
   );
 };
-
-export default CoverLetterCreateModal;
-
