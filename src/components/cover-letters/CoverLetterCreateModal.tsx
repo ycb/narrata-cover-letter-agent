@@ -1310,6 +1310,92 @@ export const CoverLetterCreateModal = ({
                 gaps={gapObjects}
                 gapSummary={cleanGapSummary} // Agent C: Pass rubric summary for section guidance (no trailing periods)
                 isGapResolved={!hasGaps}
+                onEdit={() => {
+                  // Focus the textarea for this section
+                  const textarea = document.querySelector(`textarea[data-section-id="${section.id}"]`) as HTMLTextAreaElement;
+                  if (textarea) {
+                    textarea.focus();
+                    textarea.select();
+                  }
+                }}
+                onDuplicate={async () => {
+                  if (!draft) return;
+                  try {
+                    const newSection = {
+                      id: `section-${Date.now()}`,
+                      type: section.type,
+                      slug: section.slug,
+                      title: `${section.title} (Copy)`,
+                      content: section.content,
+                      order: sectionIndex + 1,
+                    };
+
+                    // Insert the duplicated section after the current one
+                    const updatedSections = [...draft.sections];
+                    updatedSections.splice(sectionIndex + 1, 0, newSection);
+
+                    // Reorder all sections
+                    const reorderedSections = updatedSections.map((s, index) => ({
+                      ...s,
+                      order: index,
+                    }));
+
+                    // Update draft in state
+                    setDraft({ ...draft, sections: reorderedSections });
+
+                    // Save to database
+                    await coverLetterDraftService.updateDraft(draft.id, {
+                      sections: reorderedSections,
+                    });
+
+                    toast({
+                      title: "Section duplicated",
+                      description: "A copy has been created below this section",
+                    });
+                  } catch (error) {
+                    console.error('[CoverLetterCreateModal] Failed to duplicate section:', error);
+                    toast({
+                      title: "Failed to duplicate section",
+                      description: error instanceof Error ? error.message : "Please try again",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+                onDelete={async () => {
+                  if (!draft) return;
+                  if (!confirm(`Delete "${section.title}" section?`)) return;
+
+                  try {
+                    // Remove the section
+                    const updatedSections = draft.sections.filter(s => s.id !== section.id);
+
+                    // Reorder remaining sections
+                    const reorderedSections = updatedSections.map((s, index) => ({
+                      ...s,
+                      order: index,
+                    }));
+
+                    // Update draft in state
+                    setDraft({ ...draft, sections: reorderedSections });
+
+                    // Save to database
+                    await coverLetterDraftService.updateDraft(draft.id, {
+                      sections: reorderedSections,
+                    });
+
+                    toast({
+                      title: "Section deleted",
+                      description: "The section has been removed",
+                    });
+                  } catch (error) {
+                    console.error('[CoverLetterCreateModal] Failed to delete section:', error);
+                    toast({
+                      title: "Failed to delete section",
+                      description: error instanceof Error ? error.message : "Please try again",
+                      variant: "destructive",
+                    });
+                  }
+                }}
                 onInsertFromLibrary={() => {
                   // Open library modal for Replace or Insert Below
                   setLibraryInvocation({
@@ -1399,6 +1485,7 @@ export const CoverLetterCreateModal = ({
                 {/* Inline editable Textarea */}
                 <div className="mb-6">
                   <Textarea
+                    data-section-id={section.id}
                     value={editedContent}
                     onFocus={() => {
                       // Track content at focus time
