@@ -270,52 +270,61 @@ export const CoverLetterModal = ({
   const jobDescriptionService = useMemo(() => new JobDescriptionService(), []);
   const coverLetterDraftService = useMemo(() => new CoverLetterDraftService(), []);
 
-  const {
-    draft,
-    workpad,
-    streamingSections,
-    progress,
-    isGenerating,
-    metricsLoading, // AGENT D: Extract metrics loading state
-    pendingSectionInsights, // AGENT D: Heuristic gap insights
-    isMutating,
-    isFinalizing,
-    error: generationError,
-    generateDraft,
-    updateSection,
-    recalculateMetrics,
-    finalizeDraft,
-    setDraft,
-    setWorkpad,
-    setTemplateId,
-    setJobDescriptionId,
-    clearError,
-    resetProgress,
-  } = useCoverLetterDraft({
+  // Phase 3: Edit mode uses local state, create mode uses generation hook
+  const [localDraft, setLocalDraft] = useState<CoverLetterDraft | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Only use the draft generation hook in create mode
+  const createModeHook = useCoverLetterDraft({
     userId: user?.id ?? '',
     service: coverLetterDraftService,
   });
 
-  // Phase 2: Add streaming hook for real-time skeleton updates
-  const {
-    state: jobState,
-    isStreaming: isJobStreaming,
-    createJob,
-  } = useCoverLetterJobStream({
+  // In create mode, use the hook. In edit mode, use local state.
+  const draft = mode === 'create' ? createModeHook.draft : localDraft;
+  const setDraft = mode === 'create' ? createModeHook.setDraft : setLocalDraft;
+  const workpad = mode === 'create' ? createModeHook.workpad : null;
+  const streamingSections = mode === 'create' ? createModeHook.streamingSections : {};
+  const progress = mode === 'create' ? createModeHook.progress : 0;
+  const isGenerating = mode === 'create' ? createModeHook.isGenerating : false;
+  const metricsLoading = mode === 'create' ? createModeHook.metricsLoading : false;
+  const pendingSectionInsights = mode === 'create' ? createModeHook.pendingSectionInsights : {};
+  const isMutating = mode === 'create' ? createModeHook.isMutating : isSaving;
+  const isFinalizing = mode === 'create' ? createModeHook.isFinalizing : false;
+  const generationError = mode === 'create' ? createModeHook.error : null;
+  const generateDraft = mode === 'create' ? createModeHook.generateDraft : async () => {};
+  const updateSection = mode === 'create' ? createModeHook.updateSection : async (sectionId: string, content: string) => {
+    // Edit mode: update section locally
+    if (!draft) return;
+    const updatedSections = draft.sections?.map(s =>
+      s.id === sectionId ? { ...s, content } : s
+    ) || [];
+    setLocalDraft({ ...draft, sections: updatedSections });
+  };
+  const recalculateMetrics = mode === 'create' ? createModeHook.recalculateMetrics : async () => {};
+  const finalizeDraft = mode === 'create' ? createModeHook.finalizeDraft : async () => {};
+  const setWorkpad = mode === 'create' ? createModeHook.setWorkpad : () => {};
+  const setTemplateId = mode === 'create' ? createModeHook.setTemplateId : () => {};
+  const setJobDescriptionId = mode === 'create' ? createModeHook.setJobDescriptionId : () => {};
+  const clearError = mode === 'create' ? createModeHook.clearError : () => {};
+  const resetProgress = mode === 'create' ? createModeHook.resetProgress : () => {};
+
+  // Phase 2: Add streaming hook for real-time skeleton updates (create mode only)
+  const streamingHook = useCoverLetterJobStream({
     pollIntervalMs: 2000,
     timeout: 300000,
   });
+  
+  const jobState = mode === 'create' ? streamingHook.state : null;
+  const isJobStreaming = mode === 'create' ? streamingHook.isStreaming : false;
+  const createJob = mode === 'create' ? streamingHook.createJob : async () => {};
 
   // Phase 3: Initialize draft from initialDraft prop in edit mode
   useEffect(() => {
     if (mode === 'edit' && initialDraft && isOpen) {
-      setDraft(initialDraft);
-      // Also set job description if available
-      if (initialDraft.jobDescriptionId) {
-        setJobDescriptionId(initialDraft.jobDescriptionId);
-      }
+      setLocalDraft(initialDraft);
     }
-  }, [mode, initialDraft, isOpen, setDraft, setJobDescriptionId]);
+  }, [mode, initialDraft, isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
