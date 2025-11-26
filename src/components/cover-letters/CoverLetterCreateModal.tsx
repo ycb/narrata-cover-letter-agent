@@ -15,7 +15,6 @@ import { GapAnalysisPanel } from "@/components/hil/GapAnalysisPanel";
 import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
 import { UnifiedGapCard } from "@/components/hil/UnifiedGapCard";
 import { CoverLetterFinalization } from "./CoverLetterFinalization";
-import { ProgressIndicatorWithTooltips } from "./ProgressIndicatorWithTooltips";
 import { ContentCard } from "@/components/shared/ContentCard";
 import { StageStepper } from "@/components/streaming/StageStepper";
 import { useCoverLetterJobStream } from "@/hooks/useJobStream";
@@ -511,13 +510,14 @@ Nice to have: 1-for ROB SaaS experience, mobile app development, team leadership
           </DialogHeader>
 
           {/* Top Progress Bar with Tooltips - Show when draft is ready */}
-          {hilProgressMetrics && coverLetterGenerated && (
+          {/* TODO: Re-enable ProgressIndicatorWithTooltips component */}
+          {/* {hilProgressMetrics && coverLetterGenerated && (
             <ProgressIndicatorWithTooltips 
               metrics={hilProgressMetrics}
               className="mb-4"
               isPostHIL={hilCompleted} // Show post-HIL tooltips after HIL completion
             />
-          )}
+          )} */}
 
           {/* Job Description Input - Modal 1 - Only show when NOT generated */}
           {!coverLetterGenerated && (
