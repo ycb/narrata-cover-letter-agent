@@ -98,9 +98,12 @@ export function CoverLetterFinalization({
   const [copied, setCopied] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
 
+  // Guard: Ensure sections is always an array
+  const safeSections = Array.isArray(sections) ? sections : [];
+
   const sortedSections = useMemo(
-    () => [...sections].sort((a, b) => a.order - b.order),
-    [sections],
+    () => [...safeSections].sort((a, b) => a.order - b.order),
+    [safeSections],
   );
 
   const finalLetter = useMemo(() => buildLetter(sortedSections), [sortedSections]);
