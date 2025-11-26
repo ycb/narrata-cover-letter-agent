@@ -56,6 +56,7 @@ import { MatchMetricsToolbar } from './MatchMetricsToolbar';
 import { CoverLetterFinalization } from './CoverLetterFinalization';
 import { CoverLetterSkeleton } from './CoverLetterSkeleton';
 import { CoverLetterDraftView } from './CoverLetterDraftView';
+import { CoverLetterDraftEditor } from './CoverLetterDraftEditor'; // Phase 1: New shared editor
 import { ContentCard } from '@/components/shared/ContentCard';
 import { ContentGenerationModal } from '@/components/hil/ContentGenerationModal';
 import { UserGoalsModal } from '@/components/user-goals/UserGoalsModal';
@@ -661,6 +662,120 @@ export const CoverLetterCreateModal = ({
     }
   };
 
+  // Phase 1: Handlers extracted for DraftEditor
+  const handleSectionDuplicate = async (section: any, sectionIndex: number) => {
+    if (!draft) return;
+    try {
+      const newSection = {
+        id: `section-${Date.now()}`,
+        type: section.type,
+        slug: section.slug,
+        title: `${section.title} (Copy)`,
+        content: section.content,
+        order: sectionIndex + 1,
+      };
+
+      const updatedSections = [...draft.sections];
+      updatedSections.splice(sectionIndex + 1, 0, newSection);
+
+      const reorderedSections = updatedSections.map((s, index) => ({
+        ...s,
+        order: index,
+      }));
+
+      setDraft({ ...draft, sections: reorderedSections });
+
+      await coverLetterDraftService.updateDraft(draft.id, {
+        sections: reorderedSections,
+      });
+
+      toast({
+        title: "Section duplicated",
+        description: "A copy has been created below this section",
+      });
+    } catch (error) {
+      console.error('[CoverLetterCreateModal] Failed to duplicate section:', error);
+      toast({
+        title: "Failed to duplicate section",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSectionDelete = async (sectionId: string) => {
+    if (!draft) return;
+    const section = draft.sections.find(s => s.id === sectionId);
+    if (!section) return;
+    if (!confirm(`Delete "${section.title}" section?`)) return;
+
+    try {
+      const updatedSections = draft.sections.filter(s => s.id !== sectionId);
+
+      const reorderedSections = updatedSections.map((s, index) => ({
+        ...s,
+        order: index,
+      }));
+
+      setDraft({ ...draft, sections: reorderedSections });
+
+      await coverLetterDraftService.updateDraft(draft.id, {
+        sections: reorderedSections,
+      });
+
+      toast({
+        title: "Section deleted",
+        description: "The section has been removed",
+      });
+    } catch (error) {
+      console.error('[CoverLetterCreateModal] Failed to delete section:', error);
+      toast({
+        title: "Failed to delete section",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleInsertFromLibrary = (sectionId: string, sectionType: 'intro' | 'body' | 'closing', sectionIndex: number) => {
+    setLibraryInvocation({
+      type: 'replace_or_insert_below',
+      sectionId,
+      sectionType,
+      sectionIndex,
+    });
+    setShowLibraryModal(true);
+  };
+
+  const handleSectionFocus = (sectionId: string, content: string) => {
+    setSectionFocusContent(prev => ({
+      ...prev,
+      [sectionId]: content,
+    }));
+  };
+
+  const handleSectionBlur = async (
+    sectionId: string,
+    newContent: string,
+    jobDescriptionRecord: JobDescriptionRecord | null,
+    goals: any,
+    draftParam: CoverLetterDraft | null
+  ) => {
+    const focusContent = sectionFocusContent[sectionId] ?? draft?.sections.find(s => s.id === sectionId)?.content;
+    
+    // Only recalculate if content changed since focus
+    if (newContent !== focusContent && jobDescriptionRecord && goals && draftParam) {
+      try {
+        await handleSectionSave(sectionId);
+        
+        // Trigger metrics recalculation
+        await recalculateMetrics(draftParam, jobDescriptionRecord, goals);
+      } catch (error) {
+        console.error('[CoverLetterCreateModal] Failed to save/recalculate on blur:', error);
+      }
+    }
+  };
+
   const handleInsertBelow = async (sectionIndex: number, sectionType: string, content: string, source: { kind: "library"; contentType: "story" | "saved_section"; itemId: string; title?: string }) => {
     if (!draft) return;
 
@@ -1036,575 +1151,40 @@ export const CoverLetterCreateModal = ({
       matchMetrics.atsScore = draft.atsScore;
     }
 
+    // Phase 1: Use new CoverLetterDraftEditor component
     return (
-      <div className="flex h-full overflow-hidden">
-        {/* Left Sidebar - Toolbar */}
-        <div className="bg-card flex-shrink-0">
-          <MatchMetricsToolbar
-            metrics={matchMetrics}
-            isPostHIL={false}
-            isLoading={metricsLoading}
-            enhancedMatchData={draft.enhancedMatchData}
-            goNoGoAnalysis={undefined}
-            jobDescription={normalizedJobDescription ?? undefined}
-            sections={draft.sections.map(s => ({ id: s.id, type: s.type }))}
-            onEditGoals={() => setShowGoalsModal(true)}
-            onEnhanceSection={(sectionId, requirement, ratingCriteria) => {
-              // Open section enhancement flow with rating criteria if provided
-              const section = draft.sections.find(s => s.id === sectionId);
-              if (section) {
-                const existingContent = sectionDrafts[sectionId] ?? section.content ?? '';
-                const paragraphIdMap: Record<string, string> = {
-                  'intro': 'intro',
-                  'introduction': 'intro',
-                  'paragraph': 'experience',
-                  'experience': 'experience',
-                  'closer': 'closing',
-                  'closing': 'closing',
-                  'signature': 'closing'
-                };
-                const paragraphId = paragraphIdMap[section.type] || paragraphIdMap[section.slug] || 'experience';
-                
-                // Get requirement gaps for this section from enhancedMatchData
-                const sectionInsight = draft.enhancedMatchData?.sectionGapInsights?.find(
-                  (insight: any) => insight.sectionId === sectionId || insight.sectionSlug === section.slug || insight.sectionSlug === section.type
-                );
-                const requirementGaps = sectionInsight?.requirementGaps?.map((gap: any) => ({
-                  id: gap.id,
-                  title: gap.label,
-                  description: `${gap.rationale} ${gap.recommendation}`,
-                })) || [];
-                
-                // Convert rating criteria to gap format if provided
-                const gapsFromRating = ratingCriteria?.map(rc => ({
-                  id: rc.id,
-                  title: rc.label,
-                  description: `${rc.description}. ${rc.suggestion}`,
-                })) || [];
-                
-                // Keep requirement gaps and rating criteria gaps separate
-                const gapSummaryParts: string[] = [];
-                if (requirementGaps.length > 0) {
-                  gapSummaryParts.push(`${requirementGaps.length} requirement gap${requirementGaps.length > 1 ? 's' : ''}`);
-                }
-                if (gapsFromRating.length > 0) {
-                  gapSummaryParts.push(`${gapsFromRating.length} content quality criteria: ${gapsFromRating.map(g => g.title).join(', ')}`);
-                }
-                
-                setSelectedGap({
-                  id: requirement ? `section-${sectionId}-${requirement}` : `section-${sectionId}-enhancement`,
-                  type: 'content-enhancement',
-                  severity: 'medium',
-                  description: requirement || `Enhance ${section.title || section.type} section to improve content quality score`,
-                  suggestion: requirement || `Add detail that directly addresses content quality criteria`,
-                  origin: 'ai',
-                  section_id: sectionId,
-                  paragraphId: paragraphId,
-                  existingContent: existingContent,
-                  // Store requirement gaps and rating criteria gaps separately
-                  gaps: requirementGaps,
-                  ratingCriteriaGaps: gapsFromRating,
-                  gapSummary: gapSummaryParts.length > 0 ? gapSummaryParts.join(' • ') : null,
-                });
-                setShowContentGenerationModal(true);
-              }
-            }}
-            onAddMetrics={(sectionId) => {
-              // TODO: Open metrics addition flow
-              console.log('Add metrics to section:', sectionId);
-            }}
-            className="h-full border-0"
-          />
-        </div>
-
-        {/* Right Content Area */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="space-y-6 pl-6 pb-6">
-            {(generationError || jobInputError) && (
-              <Alert variant="destructive">
-                <AlertTitle>Cover letter generation issue</AlertTitle>
-                <AlertDescription>
-                  {generationError ?? jobInputError ?? 'Unable to generate cover letter.'}
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {/* Show progress card at top when metrics are loading */}
-            {renderProgress()}
-
-        <div className="space-y-4">
-          {/* Add Section button at the top */}
-          <SectionInsertButton onClick={() => handleInsertBetweenSections(0)} />
-          
-          {draft.sections.map((section, sectionIndex) => {
-            const editedContent = sectionDrafts[section.id] ?? section.content;
-            const isDirty = editedContent !== section.content;
-            const isSaving = !!savingSections[section.id];
-            
-            // Agent C: Get section-specific gap insights (same helper as CoverLetterDraftView)
-            // AGENT D: Now also checks pendingSectionInsights for instant feedback
-            const getSectionGapInsights = (sectionId: string, sectionSlug: string) => {
-              // AGENT D: Check for pending heuristic insight first
-              const pendingInsight = pendingSectionInsights[sectionId];
-
-              console.log(`[AGENT D] Modal getSectionGapInsights for section ${sectionId}:`, {
-                sectionId,
-                sectionSlug,
-                hasPendingInsight: !!pendingInsight,
-                pendingInsight,
-                hasEnhancedMatchData: !!draft.enhancedMatchData,
-                sectionGapInsights: draft.enhancedMatchData?.sectionGapInsights,
-                sectionGapInsightsCount: draft.enhancedMatchData?.sectionGapInsights?.length,
-                fullEnhancedMatchData: draft.enhancedMatchData,
-                pendingSectionInsightsKeys: Object.keys(pendingSectionInsights)
-              });
-
-              // Normalize section slug to match sectionGapInsights
-              const normalizeSlug = (slug: string) => {
-                const aliases: Record<string, string[]> = {
-                  'introduction': ['introduction', 'intro', 'opening'],
-                  'experience': ['experience', 'exp', 'background', 'body'],
-                  'closing': ['closing', 'conclusion', 'signature'],
-                  'signature': ['signature', 'closing', 'signoff'],
-                };
-
-                const lowerSlug = slug.toLowerCase();
-                for (const [canonical, variations] of Object.entries(aliases)) {
-                  if (variations.includes(lowerSlug)) {
-                    return variations;
-                  }
-                }
-                return [lowerSlug];
-              };
-
-              // If no enhancedMatchData at all, we're likely still loading metrics
-              // Check if we have pending insight to show meanwhile
-              if (!draft.enhancedMatchData) {
-                if (pendingInsight) {
-                  console.log(`[AGENT D] Showing heuristic gaps for section ${sectionId}:`, pendingInsight);
-                  // Show pending heuristic insight while waiting for LLM
-                  const gaps = pendingInsight.requirementGaps.map(gap => ({
-                    id: gap.id,
-                    title: gap.label,
-                    description: `${gap.rationale} ${gap.recommendation}`,
-                  }));
-
-                  return {
-                    promptSummary: pendingInsight.promptSummary || 'Quick analysis (calculating full metrics...)',
-                    gaps,
-                    isLoading: true, // Still loading LLM insights
-                  };
-                }
-
-                console.log(`[AGENT D] No pending insight found for section ${sectionId}, returning empty`);
-                return {
-                  promptSummary: null,
-                  gaps: [],
-                  isLoading: true,
-                };
-              }
-              
-              // If no sectionGapInsights, fallback to old heuristic
-              if (!draft.enhancedMatchData.sectionGapInsights) {
-                const unmetCoreReqs = draft.enhancedMatchData.coreRequirementDetails?.filter(
-                  (req: any) => !req.demonstrated
-                ) || [];
-                const unmetPreferredReqs = draft.enhancedMatchData.preferredRequirementDetails?.filter(
-                  (req: any) => !req.demonstrated
-                ) || [];
-                const allGaps = [...unmetCoreReqs, ...unmetPreferredReqs];
-                
-                return {
-                  promptSummary: null,
-                  gaps: allGaps.map((req: any, index: number) => ({
-                    id: req.id || `gap-${index}`,
-                    title: req.requirement || 'Missing requirement',
-                    description: req.evidence || 'Not addressed in draft',
-                  })),
-                  isLoading: false,
-                };
-              }
-              
-              // New behavior: use sectionGapInsights
-              // PHASE 2: Match by sectionId first (exact match), fallback to sectionSlug
-              let sectionInsight = draft.enhancedMatchData.sectionGapInsights.find(
-                insight => insight.sectionId === sectionId
-              );
-
-              // Fallback: if no exact ID match, try slug matching (for backward compatibility)
-              if (!sectionInsight) {
-                const normalizedSlugs = normalizeSlug(sectionSlug);
-                sectionInsight = draft.enhancedMatchData.sectionGapInsights.find(
-                  insight => normalizedSlugs.includes(insight.sectionSlug?.toLowerCase())
-                );
-              }
-
-              if (!sectionInsight) {
-                return { promptSummary: null, gaps: [], isLoading: false };
-              }
-              
-              const gaps = sectionInsight.requirementGaps.map(gap => ({
-                id: gap.id,
-                title: gap.label,
-                description: `${gap.rationale} ${gap.recommendation}`,
-              }));
-              
-              return {
-                promptSummary: sectionInsight.promptSummary,
-                gaps,
-                isLoading: false,
-              };
-            };
-            
-            const { promptSummary, gaps: gapObjects, isLoading: gapsLoading } = getSectionGapInsights(section.id, section.slug);
-            const hasGaps = gapObjects.length > 0;
-
-            // Strip trailing periods from gap summary for cover letters
-            const cleanGapSummary = promptSummary ? promptSummary.replace(/\.+$/, '') : null;
-
-            // Compute section-level attribution using pure function (safe to call in map)
-            const hasAttributionData = draft.enhancedMatchData != null || contentStandards != null || (matchMetrics?.ratingCriteria && matchMetrics.ratingCriteria.length > 0);
-            const { attribution: sectionAttribution } = computeSectionAttribution({
-              sectionId: section.id,
-              sectionType: section.slug || section.type,
-              enhancedMatchData: draft.enhancedMatchData,
-              ratingCriteria: matchMetrics?.ratingCriteria,
-              contentStandards: contentStandards || null,
-            });
-
-            // Format section title: replace dashes with spaces and capitalize first letter
-            const formattedTitle = section.title
-              ? section.title.replace(/-/g, ' ').charAt(0).toUpperCase() + section.title.replace(/-/g, ' ').slice(1)
-              : '';
-
-            // Calculate section-type-specific totalStandards
-            // Use position as fallback if slug/type don't match known values
-            // Note: sectionIndex comes from map signature above
-            const sectionTypeForStandards: 'intro' | 'body' | 'closing' = (() => {
-              // First try slug (semantic type from LLM)
-              if (section.slug === 'intro' || section.slug === 'introduction') return 'intro';
-              if (section.slug === 'closing' || section.slug === 'conclusion' || section.slug === 'closer') return 'closing';
-
-              // Then try type (UI display type)
-              if (section.type === 'intro' || section.type === 'introduction') return 'intro';
-              if (section.type === 'closing' || section.type === 'conclusion' || section.type === 'closer') return 'closing';
-
-              // Fallback: Use position-based heuristic
-              if (sectionIndex === 0) return 'intro'; // First section is intro
-              if (sectionIndex === draft.sections.length - 1) return 'closing'; // Last section is closing
-              return 'body'; // Everything else is body
-            })();
-            const totalStandardsForSection = getApplicableStandards(sectionTypeForStandards).length;
-
-            return (
-              <div key={section.id}>
-              <ContentCard
-                title={formattedTitle}
-                content={undefined} // Don't show preview when editable (Textarea displays it)
-                sectionAttributionData={hasAttributionData ? sectionAttribution : undefined}
-                totalCoreReqs={totalCoreReqs}
-                totalPrefReqs={totalPrefReqs}
-                totalStandards={totalStandardsForSection}
-                tagsLabel={undefined} // Cover letters don't use legacy tags - show SectionInspector instead
-                hasGaps={hasGaps}
-                gaps={gapObjects}
-                gapSummary={cleanGapSummary} // Agent C: Pass rubric summary for section guidance (no trailing periods)
-                isGapResolved={!hasGaps}
-                onEdit={() => {
-                  // Focus the textarea for this section
-                  const textarea = document.querySelector(`textarea[data-section-id="${section.id}"]`) as HTMLTextAreaElement;
-                  if (textarea) {
-                    textarea.focus();
-                    textarea.select();
-                  }
-                }}
-                onDuplicate={async () => {
-                  if (!draft) return;
-                  try {
-                    const newSection = {
-                      id: `section-${Date.now()}`,
-                      type: section.type,
-                      slug: section.slug,
-                      title: `${section.title} (Copy)`,
-                      content: section.content,
-                      order: sectionIndex + 1,
-                    };
-
-                    // Insert the duplicated section after the current one
-                    const updatedSections = [...draft.sections];
-                    updatedSections.splice(sectionIndex + 1, 0, newSection);
-
-                    // Reorder all sections
-                    const reorderedSections = updatedSections.map((s, index) => ({
-                      ...s,
-                      order: index,
-                    }));
-
-                    // Update draft in state
-                    setDraft({ ...draft, sections: reorderedSections });
-
-                    // Save to database
-                    await coverLetterDraftService.updateDraft(draft.id, {
-                      sections: reorderedSections,
-                    });
-
-                    toast({
-                      title: "Section duplicated",
-                      description: "A copy has been created below this section",
-                    });
-                  } catch (error) {
-                    console.error('[CoverLetterCreateModal] Failed to duplicate section:', error);
-                    toast({
-                      title: "Failed to duplicate section",
-                      description: error instanceof Error ? error.message : "Please try again",
-                      variant: "destructive",
-                    });
-                  }
-                }}
-                onDelete={async () => {
-                  if (!draft) return;
-                  if (!confirm(`Delete "${section.title}" section?`)) return;
-
-                  try {
-                    // Remove the section
-                    const updatedSections = draft.sections.filter(s => s.id !== section.id);
-
-                    // Reorder remaining sections
-                    const reorderedSections = updatedSections.map((s, index) => ({
-                      ...s,
-                      order: index,
-                    }));
-
-                    // Update draft in state
-                    setDraft({ ...draft, sections: reorderedSections });
-
-                    // Save to database
-                    await coverLetterDraftService.updateDraft(draft.id, {
-                      sections: reorderedSections,
-                    });
-
-                    toast({
-                      title: "Section deleted",
-                      description: "The section has been removed",
-                    });
-                  } catch (error) {
-                    console.error('[CoverLetterCreateModal] Failed to delete section:', error);
-                    toast({
-                      title: "Failed to delete section",
-                      description: error instanceof Error ? error.message : "Please try again",
-                      variant: "destructive",
-                    });
-                  }
-                }}
-                onInsertFromLibrary={() => {
-                  // Open library modal for Replace or Insert Below
-                  setLibraryInvocation({
-                    type: 'replace_or_insert_below',
-                    sectionId: section.id,
-                    sectionType: sectionTypeForStandards,
-                    sectionIndex: sectionIndex,
-                  });
-                  setShowLibraryModal(true);
-                }}
-                onGenerateContent={() => {
-                  // Always open HIL workflow - create gap object if no gaps exist
-                  const existingContent = sectionDrafts[section.id] ?? section.content ?? '';
-                  // Map section type to paragraphId for the gap service
-                  const paragraphIdMap: Record<string, string> = {
-                    'intro': 'intro',
-                    'introduction': 'intro',
-                    'paragraph': 'experience',
-                    'experience': 'experience',
-                    'closer': 'closing',
-                    'closing': 'closing',
-                    'signature': 'closing'
-                  };
-                  const paragraphId = paragraphIdMap[section.type] || paragraphIdMap[section.slug] || 'experience';
-                  
-                  // Extract unresolved rating criteria to pass to HIL workflow
-                  const unresolvedRatingCriteria = matchMetrics?.ratingCriteria 
-                    ? getUnresolvedRatingCriteria(matchMetrics.ratingCriteria)
-                    : undefined;
-                  
-                  // Convert rating criteria to gap format if provided
-                  const gapsFromRating = unresolvedRatingCriteria?.map(rc => ({
-                    id: rc.id,
-                    title: rc.label,
-                    description: `${rc.evidence || rc.description || ''}. ${rc.suggestion || ''}`.trim(),
-                  })) || [];
-                  
-                  const firstGap = gapObjects[0];
-                  if (firstGap) {
-                    // Use existing gap
-                    setSelectedGap({
-                      id: firstGap.id,
-                      type: 'core-requirement',
-                      severity: 'high',
-                      description: firstGap.description,
-                      suggestion: firstGap.description,
-                      origin: 'ai',
-                      section_id: section.id,
-                      paragraphId: paragraphId,
-                      existingContent: existingContent,
-                      // Pass through rich gap structure from ContentCard
-                      gaps: gapObjects,
-                      ratingCriteriaGaps: gapsFromRating,
-                      gapSummary: cleanGapSummary,
-                      // Pass section attribution to show what's working in HIL (always pass, even if empty)
-                      sectionAttribution: sectionAttribution
-                    });
-                  } else {
-                    // Create synthetic gap for HIL flow when no gaps exist
-                    const gapSummaryParts: string[] = [];
-                    if (gapsFromRating.length > 0) {
-                      gapSummaryParts.push(`${gapsFromRating.length} content quality criteria: ${gapsFromRating.map(g => g.title).join(', ')}`);
-                    }
-
-                    setSelectedGap({
-                      id: `section-${section.id}-enhancement`,
-                      type: 'content-enhancement',
-                      severity: 'medium',
-                      description: `Enhance ${section.title} section with more specific content and quantifiable achievements`,
-                      suggestion: `Add detail that directly speaks to ${section.title.toLowerCase()} requirements and demonstrates your experience`,
-                      origin: 'ai',
-                      section_id: section.id,
-                      paragraphId: paragraphId,
-                      existingContent: existingContent,
-                      ratingCriteriaGaps: gapsFromRating,
-                      gapSummary: gapSummaryParts.length > 0 ? gapSummaryParts.join(' • ') : null,
-                      // Pass section attribution to show what's working in HIL (always pass, even if empty)
-                      sectionAttribution: sectionAttribution
-                    });
-                  }
-                  setShowContentGenerationModal(true);
-                }}
-                showUsage={false}
-                renderChildrenBeforeTags={true}
-                className={cn(hasGaps && 'border-warning')}
-              >
-                {/* Inline editable Textarea */}
-                <div className="mb-6">
-                  <Textarea
-                    data-section-id={section.id}
-                    value={editedContent}
-                    onFocus={() => {
-                      // Track content at focus time
-                      setSectionFocusContent(prev => ({
-                        ...prev,
-                        [section.id]: editedContent,
-                      }));
-                    }}
-                    onChange={event => handleSectionChange(section.id, event.target.value)}
-                    onBlur={async (event) => {
-                      const newContent = event.target.value;
-                      const focusContent = sectionFocusContent[section.id] ?? section.content;
-                      
-                      // Only recalculate if content changed since focus
-                      if (newContent !== focusContent && jobDescriptionRecord && goals && draft) {
-                        // Save the section first
-                        try {
-                          await handleSectionSave(section.id);
-                          
-                          // Trigger metrics recalculation
-                          setIsRecalculating(true);
-                          try {
-                            await recalculateMetrics({
-                              jobDescription: jobDescriptionRecord as ParsedJobDescription,
-                              userGoals: goals,
-                            });
-                            console.log('[CoverLetterCreateModal] Metrics recalculated after manual edit');
-                          } catch (error) {
-                            console.error('[CoverLetterCreateModal] Failed to recalculate metrics:', error);
-                            // Don't block UI on recalculation failure
-                          } finally {
-                            setIsRecalculating(false);
-                          }
-                        } catch (error) {
-                          console.error('[CoverLetterCreateModal] Failed to save section:', error);
-                        }
-                      }
-                    }}
-                    rows={8}
-                    className="resize-y"
-                    placeholder="Enter cover letter content..."
-                  />
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="gap-2"
-                      onClick={() => handleSectionSave(section.id)}
-                      disabled={!isDirty || isSaving}
-                    >
-                      {isSaving ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Saving…
-                        </>
-                      ) : (
-                        <>
-                          <Save className="h-4 w-4" />
-                          Save changes
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => handleSectionReset(section.id)}
-                      disabled={!isDirty || isSaving}
-                    >
-                      Reset
-                    </Button>
-                  </div>
-                </div>
-                
-                {/* Agent C: Show loading skeleton for pending gap insights */}
-                {gapsLoading && !hasGaps && (
-                  <div className="mt-6 pt-6 border-t border-muted">
-                    <div className="bg-muted/20 rounded-lg p-4 animate-pulse">
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="h-4 w-4 bg-muted rounded"></div>
-                        <div className="h-4 w-32 bg-muted rounded"></div>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="h-3 w-full bg-muted rounded"></div>
-                        <div className="h-3 w-5/6 bg-muted rounded"></div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </ContentCard>
-              
-              {/* Add Section button after each section */}
-              <SectionInsertButton onClick={() => handleInsertBetweenSections(sectionIndex + 1)} />
-            </div>
-            );
-          })}
-        </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          {workpad && (
-            <Badge variant="outline" className="gap-1">
-              <RefreshCw className="h-3 w-3 animate-spin-slow text-primary" />
-              Last checkpoint: {workpad.lastPhase ?? 'draft'}
-            </Badge>
-          )}
-
-          <div className="flex flex-wrap gap-3">
-            <Button type="button" variant="secondary" onClick={() => handleClose()}>
-              Close
-            </Button>
-            <Button type="button" className="gap-2" onClick={handleFinalize}>
-              <FileText className="h-4 w-4" />
-              Finalize letter
-            </Button>
-          </div>
-        </div>
-          </div>
-        </div>
-      </div>
+      <CoverLetterDraftEditor
+        draft={draft}
+        jobDescription={normalizedJobDescription}
+        matchMetrics={matchMetrics}
+        isStreaming={false} // Phase 1: not wired yet
+        jobState={null} // Phase 1: not wired yet
+        isPostHIL={false}
+        metricsLoading={metricsLoading}
+        generationError={generationError}
+        jobInputError={jobInputError}
+        sectionDrafts={sectionDrafts}
+        savingSections={savingSections}
+        sectionFocusContent={sectionFocusContent}
+        pendingSectionInsights={pendingSectionInsights}
+        onSectionChange={handleSectionChange}
+        onSectionSave={handleSectionSave}
+        onSectionFocus={handleSectionFocus}
+        onSectionBlur={handleSectionBlur}
+        onSectionDuplicate={handleSectionDuplicate}
+        onSectionDelete={handleSectionDelete}
+        onInsertBetweenSections={handleInsertBetweenSections}
+        onInsertFromLibrary={handleInsertFromLibrary}
+        onEnhanceSection={(gapData) => {
+          setSelectedGap(gapData);
+          setShowContentGenerationModal(true);
+        }}
+        onAddMetrics={(sectionId) => {
+          console.log('Add metrics to section:', sectionId);
+        }}
+        onEditGoals={() => setShowGoalsModal(true)}
+        renderProgress={renderProgress}
+      />
     );
   };
 
