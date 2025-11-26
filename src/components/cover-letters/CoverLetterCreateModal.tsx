@@ -52,9 +52,10 @@ import { supabase } from '@/lib/supabase';
 import { JobDescriptionService } from '@/services/jobDescriptionService';
 import { CoverLetterDraftService } from '@/services/coverLetterDraftService';
 import { useCoverLetterDraft } from '@/hooks/useCoverLetterDraft';
+import { useCoverLetterJobStream } from '@/hooks/useJobStream'; // Phase 2: Streaming hook
 import { MatchMetricsToolbar } from './MatchMetricsToolbar';
 import { CoverLetterFinalization } from './CoverLetterFinalization';
-import { CoverLetterSkeleton } from './CoverLetterSkeleton';
+// Phase 2: CoverLetterSkeleton removed - skeleton is now a state in DraftEditor, not a separate component
 import { CoverLetterDraftView } from './CoverLetterDraftView';
 import { CoverLetterDraftEditor } from './CoverLetterDraftEditor'; // Phase 1: New shared editor
 import { ContentCard } from '@/components/shared/ContentCard';
@@ -269,6 +270,16 @@ export const CoverLetterCreateModal = ({
   } = useCoverLetterDraft({
     userId: user?.id ?? '',
     service: coverLetterDraftService,
+  });
+
+  // Phase 2: Add streaming hook for real-time skeleton updates
+  const {
+    state: jobState,
+    isStreaming: isJobStreaming,
+    createJob,
+  } = useCoverLetterJobStream({
+    pollIntervalMs: 2000,
+    timeout: 300000,
   });
 
   useEffect(() => {
@@ -1051,35 +1062,10 @@ export const CoverLetterCreateModal = ({
       );
     }
 
-    // Show skeleton while generating (after JD is parsed)
-    if (!draft && isGenerating && jobDescriptionRecord && user) {
-      return (
-        <div className="space-y-6">
-          {renderProgress()}
-          <Card className="border-muted-foreground/20 bg-muted/10">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                Generating your cover letter...
-              </CardTitle>
-              <CardDescription className="text-xs text-muted-foreground">
-                We're matching your stories to the job requirements and drafting tailored content.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <CoverLetterSkeleton
-                company={jobDescriptionRecord.company}
-                role={jobDescriptionRecord.role}
-                userName={user.user_metadata?.full_name || 'Your Name'}
-                userEmail={user.email || ''}
-              />
-            </CardContent>
-          </Card>
-        </div>
-      );
-    }
+    // Phase 2: Removed separate skeleton - DraftEditor handles skeleton state internally
+    // Skeleton now shows when isStreaming=true with placeholder sections
     
-    if (!draft) {
+    if (!draft && !isJobStreaming) {
       return (
         <Card className="border-dashed border-muted-foreground/30 bg-muted/20">
           <CardContent className="flex h-48 items-center justify-center text-sm text-muted-foreground">
@@ -1157,8 +1143,8 @@ export const CoverLetterCreateModal = ({
         draft={draft}
         jobDescription={normalizedJobDescription}
         matchMetrics={matchMetrics}
-        isStreaming={false} // Phase 1: not wired yet
-        jobState={null} // Phase 1: not wired yet
+        isStreaming={isJobStreaming} // Phase 2: wired to streaming hook
+        jobState={jobState} // Phase 2: wired to streaming hook
         isPostHIL={false}
         metricsLoading={metricsLoading}
         generationError={generationError}

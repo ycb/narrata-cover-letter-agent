@@ -81,8 +81,8 @@ export function CoverLetterDraftEditor({
   draft,
   jobDescription,
   matchMetrics,
-  isStreaming = false, // Phase 1: not used yet
-  jobState = null, // Phase 1: not used yet
+  isStreaming = false,
+  jobState = null,
   isPostHIL = false,
   metricsLoading = false,
   generationError = null,
@@ -105,26 +105,40 @@ export function CoverLetterDraftEditor({
   renderProgress,
 }: CoverLetterDraftEditorProps) {
   
-  // Early return: no draft to render
-  if (!draft) {
-    return (
-      <div className="flex items-center justify-center h-64 text-muted-foreground">
-        No draft available
-      </div>
-    );
-  }
+  // Phase 2: Read streaming data from jobState.result
+  const streamingResult = jobState?.result as any;
+  const draftFromStreaming = streamingResult?.draft;
+  const hasDraftFromStreaming = !!draftFromStreaming && !!draftFromStreaming.sections?.length;
+  
+  // Phase 2: Effective draft = streaming draft OR prop draft OR null
+  const effectiveDraft = draftFromStreaming ?? draft ?? null;
+  
+  // Phase 2: Placeholder sections when no draft yet (skeleton state)
+  const placeholderSections = [
+    { id: 'intro-placeholder', title: 'Introduction', type: 'intro', slug: 'intro', content: '' },
+    { id: 'body-placeholder', title: 'Experience', type: 'body', slug: 'experience', content: '' },
+    { id: 'closing-placeholder', title: 'Closing', type: 'closing', slug: 'closing', content: '' },
+  ];
+  
+  // Phase 2: Sections to render = effective draft sections OR placeholders
+  const sectionsToRender = effectiveDraft?.sections && effectiveDraft.sections.length > 0
+    ? effectiveDraft.sections
+    : placeholderSections;
+  
+  // Phase 2: Loading state = streaming AND no draft from streaming yet
+  const isLoadingSection = isStreaming && !hasDraftFromStreaming;
 
   // Calculate job-level totals for requirement denominators
-  const totalCoreReqs = draft.enhancedMatchData?.coreRequirementDetails?.length ?? 0;
-  const totalPrefReqs = draft.enhancedMatchData?.preferredRequirementDetails?.length ?? 0;
+  const totalCoreReqs = effectiveDraft?.enhancedMatchData?.coreRequirementDetails?.length ?? 0;
+  const totalPrefReqs = effectiveDraft?.preferredRequirementDetails?.length ?? 0;
 
-  // Extract content standards from draft
-  const contentStandards = draft.llmFeedback?.contentStandards as any;
+  // Extract content standards from effective draft
+  const contentStandards = effectiveDraft?.llmFeedback?.contentStandards as any;
 
   /**
    * Helper: Get section-specific gap insights
    * Agent D: Checks pendingSectionInsights for instant feedback
-   * Falls back to draft.enhancedMatchData.sectionGapInsights
+   * Falls back to effectiveDraft.enhancedMatchData.sectionGapInsights
    */
   const getSectionGapInsights = (sectionId: string, sectionSlug: string) => {
     // AGENT D: Check for pending heuristic insight first
@@ -148,9 +162,10 @@ export function CoverLetterDraftEditor({
       return [lowerSlug];
     };
 
+    // Phase 2: Use effectiveDraft instead of draft
     // If no enhancedMatchData at all, we're likely still loading metrics
     // Check if we have pending insight to show meanwhile
-    if (!draft.enhancedMatchData) {
+    if (!effectiveDraft?.enhancedMatchData) {
       if (pendingInsight) {
         const gaps = pendingInsight.requirementGaps.map(gap => ({
           id: gap.id,
@@ -173,11 +188,11 @@ export function CoverLetterDraftEditor({
     }
     
     // If no sectionGapInsights, fallback to old heuristic
-    if (!draft.enhancedMatchData.sectionGapInsights) {
-      const unmetCoreReqs = draft.enhancedMatchData.coreRequirementDetails?.filter(
+    if (!effectiveDraft.enhancedMatchData.sectionGapInsights) {
+      const unmetCoreReqs = effectiveDraft.enhancedMatchData.coreRequirementDetails?.filter(
         (req: any) => !req.demonstrated
       ) || [];
-      const unmetPreferredReqs = draft.enhancedMatchData.preferredRequirementDetails?.filter(
+      const unmetPreferredReqs = effectiveDraft.enhancedMatchData.preferredRequirementDetails?.filter(
         (req: any) => !req.demonstrated
       ) || [];
       const allGaps = [...unmetCoreReqs, ...unmetPreferredReqs];
@@ -195,14 +210,14 @@ export function CoverLetterDraftEditor({
     
     // New behavior: use sectionGapInsights
     // PHASE 2: Match by sectionId first (exact match), fallback to sectionSlug
-    let sectionInsight = draft.enhancedMatchData.sectionGapInsights.find(
+    let sectionInsight = effectiveDraft.enhancedMatchData.sectionGapInsights.find(
       insight => insight.sectionId === sectionId
     );
 
     // Fallback: if no exact ID match, try slug matching (for backward compatibility)
     if (!sectionInsight) {
       const normalizedSlugs = normalizeSlug(sectionSlug);
-      sectionInsight = draft.enhancedMatchData.sectionGapInsights.find(
+      sectionInsight = effectiveDraft.enhancedMatchData.sectionGapInsights.find(
         insight => normalizedSlugs.includes(insight.sectionSlug?.toLowerCase())
       );
     }
@@ -231,15 +246,15 @@ export function CoverLetterDraftEditor({
         <MatchMetricsToolbar
           metrics={matchMetrics}
           isPostHIL={isPostHIL}
-          isLoading={metricsLoading}
-          enhancedMatchData={draft.enhancedMatchData}
+          isLoading={metricsLoading || isLoadingSection}
+          enhancedMatchData={effectiveDraft?.enhancedMatchData}
           goNoGoAnalysis={undefined}
           jobDescription={jobDescription ?? undefined}
-          sections={draft.sections.map(s => ({ id: s.id, type: s.type }))}
+          sections={sectionsToRender.map(s => ({ id: s.id, type: s.type }))}
           onEditGoals={onEditGoals}
           onEnhanceSection={(sectionId, requirement, ratingCriteria) => {
             // Open section enhancement flow with rating criteria if provided
-            const section = draft.sections.find(s => s.id === sectionId);
+            const section = effectiveDraft?.sections.find(s => s.id === sectionId);
             if (section) {
               const existingContent = sectionDrafts[sectionId] ?? section.content ?? '';
               const paragraphIdMap: Record<string, string> = {
@@ -253,8 +268,8 @@ export function CoverLetterDraftEditor({
               };
               const paragraphId = paragraphIdMap[section.type] || paragraphIdMap[section.slug] || 'experience';
               
-              // Get requirement gaps for this section from enhancedMatchData
-              const sectionInsight = draft.enhancedMatchData?.sectionGapInsights?.find(
+              // Phase 2: Get requirement gaps from effectiveDraft
+              const sectionInsight = effectiveDraft?.enhancedMatchData?.sectionGapInsights?.find(
                 (insight: any) => insight.sectionId === sectionId || insight.sectionSlug === section.slug || insight.sectionSlug === section.type
               );
               const requirementGaps = sectionInsight?.requirementGaps?.map((gap: any) => ({
@@ -317,25 +332,25 @@ export function CoverLetterDraftEditor({
 
           <div className="space-y-4">
             {/* Add Section button at the top */}
-            <SectionInsertButton onClick={() => onInsertBetweenSections(0)} />
+            {!isLoadingSection && <SectionInsertButton onClick={() => onInsertBetweenSections(0)} />}
             
-            {draft.sections.map((section, sectionIndex) => {
+            {sectionsToRender.map((section, sectionIndex) => {
               const editedContent = sectionDrafts[section.id] ?? section.content;
               const isDirty = editedContent !== section.content;
               const isSaving = !!savingSections[section.id];
               
-              const { promptSummary, gaps: gapObjects, isLoading: gapsLoading } = getSectionGapInsights(section.id, section.slug);
+              const { promptSummary, gaps: gapObjects, isLoading: gapsLoading } = getSectionGapInsights(section.id, section.slug || section.type);
               const hasGaps = gapObjects.length > 0;
 
               // Strip trailing periods from gap summary for cover letters
               const cleanGapSummary = promptSummary ? promptSummary.replace(/\.+$/, '') : null;
 
-              // Compute section-level attribution using pure function (safe to call in map)
-              const hasAttributionData = draft.enhancedMatchData != null || contentStandards != null || (matchMetrics?.ratingCriteria && matchMetrics.ratingCriteria.length > 0);
+              // Phase 2: Compute section-level attribution (safe during skeleton state)
+              const hasAttributionData = effectiveDraft?.enhancedMatchData != null || contentStandards != null || (matchMetrics?.ratingCriteria && matchMetrics.ratingCriteria.length > 0);
               const { attribution: sectionAttribution } = computeSectionAttribution({
                 sectionId: section.id,
                 sectionType: section.slug || section.type,
-                enhancedMatchData: draft.enhancedMatchData,
+                enhancedMatchData: effectiveDraft?.enhancedMatchData,
                 ratingCriteria: matchMetrics?.ratingCriteria,
                 contentStandards: contentStandards || null,
               });
@@ -352,7 +367,7 @@ export function CoverLetterDraftEditor({
                 if (section.type === 'intro' || section.type === 'introduction') return 'intro';
                 if (section.type === 'closing' || section.type === 'conclusion' || section.type === 'closer') return 'closing';
                 if (sectionIndex === 0) return 'intro';
-                if (sectionIndex === draft.sections.length - 1) return 'closing';
+                if (sectionIndex === sectionsToRender.length - 1) return 'closing';
                 return 'body';
               })();
               const totalStandardsForSection = getApplicableStandards(sectionTypeForStandards).length;
@@ -371,6 +386,8 @@ export function CoverLetterDraftEditor({
                     gaps={gapObjects}
                     gapSummary={cleanGapSummary}
                     isGapResolved={!hasGaps}
+                    isLoading={isLoadingSection}
+                    loadingMessage={isLoadingSection ? `Drafting ${section.title.toLowerCase()}...` : undefined}
                     onEdit={() => {
                       const textarea = document.querySelector(`textarea[data-section-id="${section.id}"]`) as HTMLTextAreaElement;
                       if (textarea) {
@@ -447,45 +464,49 @@ export function CoverLetterDraftEditor({
                     renderChildrenBeforeTags={true}
                     className={cn(hasGaps && 'border-warning')}
                   >
-                    {/* Inline editable Textarea */}
-                    <div className="mb-6">
-                      <Textarea
-                        data-section-id={section.id}
-                        value={editedContent}
-                        onFocus={() => {
-                          onSectionFocus(section.id, editedContent);
-                        }}
-                        onChange={event => onSectionChange(section.id, event.target.value)}
-                        onBlur={async (event) => {
-                          const newContent = event.target.value;
-                          await onSectionBlur(section.id, newContent, jobDescription, null, draft);
-                        }}
-                        ref={(textarea) => {
-                          if (textarea) {
-                            textarea.style.height = 'auto';
-                            const scrollHeight = textarea.scrollHeight;
-                            const maxHeight = 600;
-                            if (scrollHeight <= maxHeight) {
-                              textarea.style.height = `${scrollHeight}px`;
-                              textarea.style.overflowY = 'hidden';
-                            } else {
-                              textarea.style.height = `${maxHeight}px`;
-                              textarea.style.overflowY = 'auto';
+                    {/* Phase 2: Only render textarea when not loading */}
+                    {!isLoadingSection && effectiveDraft && (
+                      <div className="mb-6">
+                        <Textarea
+                          data-section-id={section.id}
+                          value={editedContent}
+                          onFocus={() => {
+                            onSectionFocus(section.id, editedContent);
+                          }}
+                          onChange={event => onSectionChange(section.id, event.target.value)}
+                          onBlur={async (event) => {
+                            const newContent = event.target.value;
+                            await onSectionBlur(section.id, newContent, jobDescription, null, effectiveDraft);
+                          }}
+                          ref={(textarea) => {
+                            if (textarea) {
+                              textarea.style.height = 'auto';
+                              const scrollHeight = textarea.scrollHeight;
+                              const maxHeight = 600;
+                              if (scrollHeight <= maxHeight) {
+                                textarea.style.height = `${scrollHeight}px`;
+                                textarea.style.overflowY = 'hidden';
+                              } else {
+                                textarea.style.height = `${maxHeight}px`;
+                                textarea.style.overflowY = 'auto';
+                              }
                             }
-                          }
-                        }}
-                        className="resize-none min-h-[100px]"
-                        placeholder="Enter cover letter content..."
-                        rows={1}
-                      />
-                    </div>
+                          }}
+                          className="resize-none min-h-[100px]"
+                          placeholder="Enter cover letter content..."
+                          rows={1}
+                        />
+                      </div>
+                    )}
                   </ContentCard>
 
-                  {/* Add Section button after each section */}
-                  <SectionInsertButton
-                    onClick={() => onInsertBetweenSections(sectionIndex + 1)}
-                    variant="default"
-                  />
+                  {/* Add Section button after each section (hide during loading) */}
+                  {!isLoadingSection && (
+                    <SectionInsertButton
+                      onClick={() => onInsertBetweenSections(sectionIndex + 1)}
+                      variant="default"
+                    />
+                  )}
                 </div>
               );
             })}
