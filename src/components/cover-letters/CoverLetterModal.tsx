@@ -131,9 +131,14 @@ export const CoverLetterModal = ({
   const [showContentGenerationModal, setShowContentGenerationModal] = useState(false);
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   // Phase 3: Initial tab based on mode (create starts with JD, edit starts with draft)
-  const [mainTab, setMainTab] = useState<'job-description' | 'cover-letter'>(
-    mode === 'create' ? 'job-description' : 'cover-letter'
-  );
+  const [mainTab, setMainTab] = useState<'job-description' | 'cover-letter'>('cover-letter');
+  
+  // Set initial tab when modal opens based on mode
+  useEffect(() => {
+    if (isOpen) {
+      setMainTab(mode === 'create' ? 'job-description' : 'cover-letter');
+    }
+  }, [isOpen, mode]);
   const [sectionFocusContent, setSectionFocusContent] = useState<Record<string, string>>({}); // Track content at focus time
   const [isRecalculating, setIsRecalculating] = useState(false);
   const [finalizationOpen, setFinalizationOpen] = useState(false);
@@ -323,9 +328,16 @@ export const CoverLetterModal = ({
   useEffect(() => {
     const initializeEditMode = async () => {
       if (mode === 'edit' && initialDraft && isOpen) {
+        console.log('[CoverLetterModal Edit Mode] initialDraft:', initialDraft);
         setLocalDraft(initialDraft);
         
-        // Load the job description if available
+        // First check if draft has jobDescription field directly
+        if ((initialDraft as any).jobDescription) {
+          console.log('[CoverLetterModal] Using jobDescription from draft');
+          setJobContent((initialDraft as any).jobDescription);
+        }
+        
+        // Load the job description record for metrics/analysis
         if (initialDraft.jobDescriptionId) {
           try {
             const { data, error } = await supabase
@@ -340,12 +352,21 @@ export const CoverLetterModal = ({
             }
             
             if (data) {
+              console.log('[CoverLetterModal] Loaded JD record:', data);
               setJobDescriptionRecord(data);
-              // Set the job content for display in the JD tab
-              if (data.structured_data?.rawText) {
-                setJobContent(data.structured_data.rawText);
-              } else if (data.structured_data?.text) {
-                setJobContent(data.structured_data.text);
+              
+              // Only set jobContent if not already set from draft
+              if (!jobContent) {
+                // Try various field names for the raw text
+                const rawText = (data.structured_data as any)?.rawText 
+                  || (data.structured_data as any)?.text
+                  || (data as any).raw_text
+                  || (data as any).rawText;
+                
+                if (rawText) {
+                  console.log('[CoverLetterModal] Setting jobContent from JD record');
+                  setJobContent(rawText);
+                }
               }
             }
           } catch (err) {
