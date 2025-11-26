@@ -628,6 +628,87 @@ export const CoverLetterCreateModal = ({
     }
   };
 
+  const handleReplaceSection = async (sectionId: string, content: string, source: { kind: "library"; contentType: "story" | "saved_section"; itemId: string; title?: string }) => {
+    if (!draft) return;
+
+    try {
+      // Update section content
+      const updatedSections = draft.sections.map(section =>
+        section.id === sectionId ? { ...section, content, source, title: source.title || section.title } : section
+      );
+
+      // Update draft in state
+      setDraft({ ...draft, sections: updatedSections });
+
+      // Save to database
+      await coverLetterDraftService.updateDraft(draft.id, {
+        sections: updatedSections,
+      });
+
+      toast({
+        title: "Section replaced",
+        description: "Content from library has been inserted",
+      });
+
+      setShowLibraryModal(false);
+    } catch (error) {
+      console.error('[CoverLetterCreateModal] Failed to replace section:', error);
+      toast({
+        title: "Failed to replace section",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleInsertBelow = async (sectionIndex: number, sectionType: string, content: string, source: { kind: "library"; contentType: "story" | "saved_section"; itemId: string; title?: string }) => {
+    if (!draft) return;
+
+    try {
+      const newSection = {
+        id: `section-${Date.now()}`,
+        type: sectionType,
+        slug: sectionType,
+        title: source.title || 'New Section',
+        content,
+        source,
+        order: sectionIndex + 1,
+      };
+
+      // Insert the new section after the specified index
+      const updatedSections = [...draft.sections];
+      updatedSections.splice(sectionIndex + 1, 0, newSection);
+
+      // Reorder all sections
+      const reorderedSections = updatedSections.map((section, index) => ({
+        ...section,
+        order: index,
+      }));
+
+      // Update draft in state
+      setDraft({ ...draft, sections: reorderedSections });
+
+      // Save to database
+      await coverLetterDraftService.updateDraft(draft.id, {
+        sections: reorderedSections,
+      });
+
+      toast({
+        title: "Section added",
+        description: "Content from library has been inserted below",
+      });
+
+      setShowLibraryModal(false);
+    } catch (error) {
+      console.error('[CoverLetterCreateModal] Failed to insert section below:', error);
+      toast({
+        title: "Failed to add section",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleFinalize = () => {
     setFinalizationError(null);
     setFinalizationOpen(true);
@@ -1229,6 +1310,16 @@ export const CoverLetterCreateModal = ({
                 gaps={gapObjects}
                 gapSummary={cleanGapSummary} // Agent C: Pass rubric summary for section guidance (no trailing periods)
                 isGapResolved={!hasGaps}
+                onInsertFromLibrary={() => {
+                  // Open library modal for Replace or Insert Below
+                  setLibraryInvocation({
+                    type: 'replace_or_insert_below',
+                    sectionId: section.id,
+                    sectionType: sectionTypeForStandards,
+                    sectionIndex: sectionIndex,
+                  });
+                  setShowLibraryModal(true);
+                }}
                 onGenerateContent={() => {
                   // Always open HIL workflow - create gap object if no gaps exist
                   const existingContent = sectionDrafts[section.id] ?? section.content ?? '';
@@ -1563,6 +1654,8 @@ export const CoverLetterCreateModal = ({
         savedSections={savedSections}
         isLibraryLoading={isLibraryLoading}
         libraryError={libraryError}
+        onReplace={handleReplaceSection}
+        onInsertBelow={handleInsertBelow}
         onInsertHere={async (insertIndex: number, sectionType: string, content: string, source: any) => {
           await handleInsertSection(insertIndex, content, source);
         }}
