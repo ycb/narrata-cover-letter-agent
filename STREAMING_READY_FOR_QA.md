@@ -39,6 +39,7 @@ jobDescriptionId: 'jd-456', // ❌ PLACEHOLDER
 | Missing ProgressIndicator import | ✅ | db06495 |
 | Sections not iterable crash | ✅ | 6b745db |
 | Placeholder user/JD IDs | ✅ | 14d57a0 |
+| template_id NOT NULL constraint | ✅ | 6be53d5 |
 
 ---
 
@@ -187,9 +188,12 @@ Let me know how it goes!
 
 ---
 
-## Commits (6 total)
+## Commits (9 total)
 
 ```
+33dacc1 - docs(streaming): add bug fix documentation for template_id constraint
+6be53d5 - fix(streaming): make template_id nullable in cover_letters table ← LATEST
+3daa226 - docs(streaming): add QA readiness checklist and test guide
 14d57a0 - fix(streaming): replace placeholders with real user ID and JD parsing
 bbd697e - docs(streaming): add implementation summary for user handoff
 6b745db - fix(streaming): guard sections prop in CoverLetterFinalization
