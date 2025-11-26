@@ -53,6 +53,7 @@ import { JobDescriptionService } from '@/services/jobDescriptionService';
 import { CoverLetterDraftService } from '@/services/coverLetterDraftService';
 import { useCoverLetterDraft } from '@/hooks/useCoverLetterDraft';
 import { useCoverLetterJobStream } from '@/hooks/useJobStream'; // Phase 2: Streaming hook
+import { StageStepper } from '@/components/streaming/StageStepper';
 import { MatchMetricsToolbar } from './MatchMetricsToolbar';
 import { CoverLetterFinalization } from './CoverLetterFinalization';
 // Phase 2: CoverLetterSkeleton removed - skeleton is now a state in DraftEditor, not a separate component
@@ -375,6 +376,36 @@ export const CoverLetterModal = ({
     initializeEditMode();
   }, [mode, initialDraft, isOpen]);
 
+  // Auto-load draft when streaming job completes (create mode only)
+  useEffect(() => {
+    const loadGeneratedDraft = async () => {
+      if (mode === 'create' && jobState?.status === 'complete' && jobState?.result?.draftId) {
+        try {
+          const { data, error } = await supabase
+            .from('cover_letters')
+            .select('*')
+            .eq('id', jobState.result.draftId)
+            .single();
+          
+          if (error) {
+            console.error('[CoverLetterModal] Failed to load generated draft:', error);
+            return;
+          }
+          
+          if (data) {
+            // Set the draft in local state
+            // Note: DraftEditor has already shown streaming content, this just persists it
+            setLocalDraft(data);
+          }
+        } catch (err) {
+          console.error('[CoverLetterModal] Exception loading generated draft:', err);
+        }
+      }
+    };
+    
+    loadGeneratedDraft();
+  }, [mode, jobState?.status, jobState?.result?.draftId]);
+
   useEffect(() => {
     if (!isOpen) {
       return;
@@ -595,19 +626,15 @@ export const CoverLetterModal = ({
       setJobDescriptionRecord(record);
       setJobDescriptionId(record.id);
       
-      const { draft: generatedDraft } = await generateDraft({
-        templateId: selectedTemplateId,
+      // Start streaming job instead of blocking generation
+      await createJob({
+        userId: user.id,
         jobDescriptionId: record.id,
+        templateId: selectedTemplateId,
       });
       
-      // Note: We don't call onCoverLetterCreated here because it closes the modal
-      // The draft is saved to DB and will appear in the list when user closes/finalizes
-      // onCoverLetterCreated is only called when finalizing (see handleFinalize)
-      
-      // Note: Gap detection is now handled via enhancedMatchData (no need for separate GapDetectionService calls)
-      // Gaps are already calculated during draft generation and stored in draft.enhancedMatchData
-      // The old GapDetectionService calls were causing an 8-second delay
-      
+      // Switch to draft tab to show streaming progress
+      // DraftEditor will handle the skeleton → streaming → final draft flow
       setMainTab('cover-letter');
     } catch (error) {
       const message =
@@ -1232,7 +1259,41 @@ export const CoverLetterModal = ({
 
     // Phase 1: Use new CoverLetterDraftEditor component
     return (
-      <CoverLetterDraftEditor
+      <>
+        {/* Streaming progress banner */}
+        {isJobStreaming && jobState && (
+          <Alert className="mb-4 border-primary/20 bg-primary/5">
+            <AlertTitle className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Generating cover letter… {Math.round((jobState.progress || 0) * 100)}%
+            </AlertTitle>
+            <AlertDescription>
+              <StageStepper 
+                stages={[
+                  { key: 'basicMetrics', label: 'Analyzing metrics' },
+                  { key: 'requirementAnalysis', label: 'Extracting requirements' },
+                  { key: 'sectionGaps', label: 'Identifying gaps' },
+                  { key: 'draftGeneration', label: 'Drafting letter' },
+                ]}
+                statusByKey={jobState.stages || {}}
+                percent={Math.round((jobState.progress || 0) * 100)}
+              />
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Error handling */}
+        {jobState?.status === 'error' && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Generation Failed</AlertTitle>
+            <AlertDescription>
+              {jobState.error?.message || 'An error occurred while generating your cover letter. Please try again.'}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <CoverLetterDraftEditor
         draft={draft}
         jobDescription={normalizedJobDescription}
         matchMetrics={matchMetrics}
@@ -1264,6 +1325,7 @@ export const CoverLetterModal = ({
         onEditGoals={() => setShowGoalsModal(true)}
         renderProgress={renderProgress}
       />
+      </>
     );
   };
 
