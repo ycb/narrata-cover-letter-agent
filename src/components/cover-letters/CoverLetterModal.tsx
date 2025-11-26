@@ -1195,15 +1195,15 @@ export const CoverLetterModal = ({
     }
 
     // Transform draft.metrics to MatchMetricsData format
-    let matchMetrics = transformMetricsToMatchData(draft.metrics || []);
+    let matchMetrics = transformMetricsToMatchData(draft?.metrics || []);
 
     // Calculate job-level totals for requirement denominators (fixes "2/0" display bug)
-    const totalCoreReqs = draft.enhancedMatchData?.coreRequirementDetails?.length ?? 0;
-    const totalPrefReqs = draft.enhancedMatchData?.preferredRequirementDetails?.length ?? 0;
+    const totalCoreReqs = draft?.enhancedMatchData?.coreRequirementDetails?.length ?? 0;
+    const totalPrefReqs = draft?.enhancedMatchData?.preferredRequirementDetails?.length ?? 0;
     // Note: totalStandards is calculated per-section based on section type (intro/body/closing)
     
     // Extract rating criteria from llmFeedback
-    const ratingData = draft.llmFeedback?.rating as any;
+    const ratingData = draft?.llmFeedback?.rating as any;
     if (ratingData?.criteria && Array.isArray(ratingData.criteria)) {
       matchMetrics.ratingCriteria = ratingData.criteria.map((c: any) => ({
         id: c.id || '',
@@ -1215,10 +1215,10 @@ export const CoverLetterModal = ({
     }
 
     // Extract content standards from llmFeedback (NEW: section-level attribution)
-    const contentStandards = draft.llmFeedback?.contentStandards as any;
+    const contentStandards = draft?.llmFeedback?.contentStandards as any;
 
     // FIX 1: Check analytics.overallScore first (for finalized drafts)
-    const analyticsScore = draft.analytics?.overallScore;
+    const analyticsScore = draft?.analytics?.overallScore;
     if (analyticsScore !== undefined && analyticsScore !== null) {
       matchMetrics.overallScore = analyticsScore;
       if (process.env.NODE_ENV === 'development') {
@@ -1252,7 +1252,7 @@ export const CoverLetterModal = ({
     }
     
     // Ensure atsScore falls back to draft.atsScore if metric unavailable
-    if (matchMetrics.atsScore === 0 && draft.atsScore) {
+    if (matchMetrics.atsScore === 0 && draft?.atsScore) {
       matchMetrics.atsScore = draft.atsScore;
     }
 
