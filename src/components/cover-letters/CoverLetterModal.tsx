@@ -342,6 +342,7 @@ export const CoverLetterModal = ({
   
   // EARLY METRICS DISPLAY: Use streaming data while draft generates
   // Rule: draft overrides streaming ONLY when draft has real data (no empty override)
+  // FIX: Use stable dependencies (draft, jobState) to prevent flicker
   const effectiveMetrics = useMemo(() => {
     // Draft metrics (preferred when available)
     const draftMetrics = draft?.enhancedMatchData?.metrics;
@@ -358,9 +359,12 @@ export const CoverLetterModal = ({
       return streamingMetrics;
     }
     
-    console.log('[METRICS] No metrics available yet');
+    // Only log "no metrics" on first render to reduce console spam
+    if (!draft && !jobState) {
+      console.log('[METRICS] No metrics available yet (initial render)');
+    }
     return []; // Return empty array (not null) so transformMetricsToMatchData doesn't spam warnings
-  }, [draft?.enhancedMatchData?.metrics, jobState?.result?.metrics]);
+  }, [draft, jobState]); // Stable dependencies prevent flicker
   
   const effectiveRequirements = useMemo(() => {
     // Draft requirements (preferred when available)
@@ -378,9 +382,12 @@ export const CoverLetterModal = ({
       return streamingReqs;
     }
     
-    console.log('[REQUIREMENTS] No requirements available yet');
+    // Only log "no requirements" on first render to reduce console spam
+    if (!draft && !jobState) {
+      console.log('[REQUIREMENTS] No requirements available yet (initial render)');
+    }
     return []; // Return empty array (not null) to avoid null checks downstream
-  }, [draft?.enhancedMatchData?.coreRequirementDetails, jobState?.result?.requirementAnalysis]);
+  }, [draft, jobState]); // Stable dependencies prevent flicker
   const setDraft = mode === 'create' ? createModeHook.setDraft : setLocalDraft;
   const workpad = mode === 'create' ? createModeHook.workpad : null;
   const streamingSections = mode === 'create' ? createModeHook.streamingSections : {};
@@ -1466,6 +1473,7 @@ export const CoverLetterModal = ({
     // WEIGHTED PROGRESS: Reflects real time (analysis ~30%, draft ~70%)
     // Phase A (streaming analysis): 0% → 10% → 20% → 30% (fast, ~30s)
     // Phase B (draft generation): 30% → 100% (slow, ~60-90s)
+    // FIX: Ensure progress never decreases (prevent backwards movement)
     let progressPercent = 0;
     
     if (hasAnalysis && hasDraft) {
@@ -1483,10 +1491,11 @@ export const CoverLetterModal = ({
         progressPercent = 20; // 2nd stage done
       } else if (jobState?.stages?.basicMetrics) {
         progressPercent = 10; // 1st stage done
-      } else {
-        progressPercent = 0; // Just started
+      } else if (hasDraftStarted) {
+        progressPercent = 0; // Just started (but only if generation has started)
       }
     }
+    // If hasDraftStarted is false, keep progressPercent at 0 (don't show banner yet)
     
     // UNIFIED LOADING: Diagnostic logging at top of render
     console.log('[CoverLetterModal] Render state:', {
