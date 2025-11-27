@@ -286,6 +286,47 @@ export const CoverLetterModal = ({
     service: coverLetterDraftService,
   });
 
+  // Step 1: Initialize streaming hook (create mode only)
+  const streamingHook = useCoverLetterJobStream({
+    pollIntervalMs: 2000,
+    timeout: 300000,
+  });
+  
+  const jobState = mode === 'create' ? streamingHook.state : null;
+  const isJobStreaming = mode === 'create' ? streamingHook.isStreaming : false;
+  const createJob = mode === 'create' ? streamingHook.createJob : async () => { throw new Error('createJob not available in edit mode'); };
+
+  // Step 2: Auto-load draft when streaming job completes
+  useEffect(() => {
+    if (mode !== 'create') return;
+    if (jobState?.status !== 'complete') return;
+    if (!jobState.result?.draftId) return;
+    if (draft?.id === jobState.result.draftId) return; // Already loaded
+
+    console.log('[CoverLetterModal] Job complete, loading draft:', jobState.result.draftId);
+    
+    const loadDraft = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('cover_letter_drafts')
+          .select('*')
+          .eq('id', jobState.result.draftId)
+          .single();
+
+        if (error) throw error;
+        if (data) {
+          console.log('[CoverLetterModal] Draft loaded successfully:', data.id);
+          setDraft(data as CoverLetterDraft);
+        }
+      } catch (error) {
+        console.error('[CoverLetterModal] Failed to load generated draft:', error);
+        setJobInputError('Draft generated but failed to load. Please refresh.');
+      }
+    };
+
+    loadDraft();
+  }, [jobState?.status, jobState?.result?.draftId, draft?.id, mode, setDraft]);
+
   // In create mode, use the hook. In edit mode, use local state.
   const draft = mode === 'create' ? createModeHook.draft : localDraft;
   const setDraft = mode === 'create' ? createModeHook.setDraft : setLocalDraft;
