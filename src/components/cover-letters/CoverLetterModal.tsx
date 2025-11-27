@@ -320,7 +320,10 @@ export const CoverLetterModal = ({
   // UNIFIED LOADING: Derived flags per spec
   const hasDraftStarted = generationHasStarted; // Alias for clarity
   const hasDraft = !!draft;
-  const hasAnalysis = jobState?.status === 'complete' && !!jobState?.result;
+  // STREAMING FIX: hasAnalysis = true when ALL 3 analysis stages complete
+  // Check for sectionGaps stage (the last analysis stage) OR job status='complete'
+  const hasAnalysis = jobState?.status === 'complete' || 
+    !!jobState?.stages?.sectionGaps?.status; // Last stage (gaps) completed
   
   // UNIFIED LOADING: Single showSkeleton flag
   // Shows skeleton from Generate click until draft ready
@@ -1596,6 +1599,16 @@ export const CoverLetterModal = ({
       progressPercent,
       jobStatus: jobState?.status,
       stageKeys: Object.keys(jobState?.stages || {}),
+      stageStatuses: {
+        basicMetrics: jobState?.stages?.basicMetrics?.status,
+        requirementAnalysis: jobState?.stages?.requirementAnalysis?.status,
+        sectionGaps: jobState?.stages?.sectionGaps?.status,
+      },
+      hasStageData: {
+        basicMetrics: !!jobState?.stages?.basicMetrics?.data,
+        requirementAnalysis: !!jobState?.stages?.requirementAnalysis?.data,
+        sectionGaps: !!jobState?.stages?.sectionGaps?.data,
+      },
     });
     
     return (
