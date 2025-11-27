@@ -645,6 +645,10 @@ export const CoverLetterModal = ({
       setJobDescriptionRecord(record);
       setJobDescriptionId(record.id);
       
+      // PHASE 3: Switch to draft tab BEFORE starting operations (so skeleton shows immediately)
+      setMainTab('cover-letter');
+      console.log('[CoverLetterModal] Switched to cover-letter tab, skeleton should now be visible');
+      
       // PHASE 3: Start BOTH streaming (analysis) and draft generation IN PARALLEL
       console.log('[CoverLetterModal] Starting parallel operations:', {
         streaming: { type: 'coverLetter', jobDescriptionId: record.id, templateId: selectedTemplateId },
@@ -708,9 +712,8 @@ export const CoverLetterModal = ({
         throw new Error(`Failed to generate draft: ${draftResult.reason?.message || 'Unknown error'}`);
       }
       
-      // Switch to draft tab to show streaming progress
-      // DraftEditor will handle the skeleton → streaming → final draft flow
-      setMainTab('cover-letter');
+      // Tab already switched before operations started (so skeleton shows)
+      // Draft is now set, DraftEditor will transition from skeleton to content
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Unable to generate cover letter draft.';
