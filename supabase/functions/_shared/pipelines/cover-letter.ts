@@ -177,26 +177,41 @@ const sectionGapsStage: PipelineStage = {
       template = data;
     }
 
+    // CANONICAL SECTION IDS: Create stable templateSections snapshot
+    // Frontend will match gaps by section.id ONLY (no slug/title matching).
+    // If sectionId doesn't match a template section ID, frontend will ignore the gap.
+    const templateSections = template?.sections?.map((s: any, index: number) => ({
+      id: s.id,
+      slug: s.slug || `section-${index}`,
+      title: s.title || `Section ${index + 1}`,
+      index,
+    })) || [];
+
     const prompt = `Analyze gaps for cover letter sections for this job.
 
 JOB DESCRIPTION:
 ${jd.raw_text || jd.content}
 
-${template ? `TEMPLATE STRUCTURE:\n${JSON.stringify(template.sections, null, 2)}` : ''}
+TEMPLATE SECTIONS (YOU MUST USE THESE EXACT IDs):
+${JSON.stringify(templateSections, null, 2)}
 
-For standard cover letter sections (intro, experience paragraphs, closing), identify gaps:
+For each section in the template, identify gaps between what the job requires and what's typically included.
+
+**CRITICAL**: You MUST use the EXACT "id" field from the template sections above. Do not invent new IDs.
 
 You MUST respond with ONLY a valid JSON object (no markdown, no explanation) with this exact structure:
 {
   "sections": [
     {
-      "id": "section-intro",
-      "title": "Introduction",
-      "gaps": [
+      "sectionId": "<exact id from template sections>",
+      "sectionSlug": "<slug from template>",
+      "requirementGaps": [
         {
-          "type": "missing_hook" | "weak_connection" | "missing_differentiator",
-          "description": "what's missing or weak",
-          "suggestion": "how to fix it"
+          "id": "unique-gap-id",
+          "type": "missing_hook" | "weak_connection" | "missing_differentiator" | "missing_metrics" | "missing_specificity",
+          "requirement": "what's required or expected",
+          "suggestion": "how to address this gap",
+          "severity": "critical" | "important" | "nice-to-have"
         }
       ]
     }
@@ -204,7 +219,7 @@ You MUST respond with ONLY a valid JSON object (no markdown, no explanation) wit
   "totalGaps": number
 }
 
-Focus on 2-4 sections with 1-3 gaps each.`;
+Analyze ALL sections in the template. Focus on 1-3 gaps per section where applicable.`;
 
     const response = await callOpenAI({
       apiKey: openaiApiKey,
@@ -214,10 +229,26 @@ Focus on 2-4 sections with 1-3 gaps each.`;
     });
 
     const result = parseJSONResponse(response.choices[0].message.content);
+    
+    // CANONICAL ID VALIDATION: Ensure all returned sectionIds match template
+    const validTemplateSectionIds = new Set(templateSections.map((s: any) => s.id));
+    const validatedSections = (result.sections || []).filter((section: any) => {
+      if (!section.sectionId) {
+        console.warn('[sectionGapsStage] Section missing sectionId, skipping');
+        return false;
+      }
+      if (!validTemplateSectionIds.has(section.sectionId)) {
+        console.warn(`[sectionGapsStage] Unknown sectionId "${section.sectionId}", skipping`);
+        return false;
+      }
+      return true;
+    });
 
     return {
-      sections: result.sections || [],
-      totalGaps: result.totalGaps || 0,
+      sections: validatedSections,
+      totalGaps: validatedSections.reduce((sum: number, s: any) => 
+        sum + (s.requirementGaps?.length || 0), 0
+      ),
     };
   },
 };
