@@ -120,11 +120,11 @@ export function buildEffectiveSectionGapMap(
   // Normalize draft gaps (already array format)
   const draftSections = Array.isArray(draftGaps) ? draftGaps : [];
   
-  console.log('[GAPS] buildEffectiveSectionGapMap:', {
-    streamingInput: streamingGaps,
-    streamingSectionCount: streamingSections.length,
-    draftSectionCount: draftSections.length,
-  });
+  // Reduced logging - uncomment for debugging:
+  // console.log('[GAPS] buildEffectiveSectionGapMap:', {
+  //   streamingSectionCount: streamingSections.length,
+  //   draftSectionCount: draftSections.length,
+  // });
   
   // Collect all section IDs
   const allSectionIds = new Set<string>();
@@ -148,14 +148,16 @@ export function buildEffectiveSectionGapMap(
     
     if (dedupedGaps.length > 0) {
       effectiveGaps.set(sectionId, dedupedGaps);
-      console.log(`[GAPS] Section ${sectionId}: ${streamingGapList.length} streaming + ${draftGapList.length} draft = ${dedupedGaps.length} effective`);
+      // Reduced logging - uncomment for debugging:
+      // console.log(`[GAPS] Section ${sectionId}: ${streamingGapList.length} streaming + ${draftGapList.length} draft = ${dedupedGaps.length} effective`);
     }
   }
   
-  console.log('[GAPS] Final effective section gaps:', {
-    sectionCount: effectiveGaps.size,
-    totalGaps: Array.from(effectiveGaps.values()).reduce((sum, gaps) => sum + gaps.length, 0),
-  });
+  // Reduced logging - uncomment for debugging:
+  // console.log('[GAPS] Final effective section gaps:', {
+  //   sectionCount: effectiveGaps.size,
+  //   totalGaps: Array.from(effectiveGaps.values()).reduce((sum, gaps) => sum + gaps.length, 0),
+  // });
   
   return effectiveGaps;
 }
@@ -178,10 +180,11 @@ export function buildEffectiveGlobalGaps(
   
   const dedupedGaps = deduplicateGaps(allGaps);
   
-  console.log('[GAPS] buildEffectiveGlobalGaps:', {
-    totalBeforeDedup: allGaps.length,
-    totalAfterDedup: dedupedGaps.length,
-  });
+  // Reduced logging - uncomment for debugging:
+  // console.log('[GAPS] buildEffectiveGlobalGaps:', {
+  //   totalBeforeDedup: allGaps.length,
+  //   totalAfterDedup: dedupedGaps.length,
+  // });
   
   return dedupedGaps;
 }

@@ -361,17 +361,19 @@ export const CoverLetterModal = ({
     // Draft metrics (preferred when available)
     const draftMetrics = draft?.enhancedMatchData?.metrics;
     if (draftMetrics && Array.isArray(draftMetrics) && draftMetrics.length > 0) {
-      console.log('[METRICS] Using draft metrics:', draftMetrics.length);
       return draftMetrics;
     }
     
-    // CRITICAL FIX: basicMetrics stage returns {atsScore, goalsMatch, experienceMatch}
-    // NOT a metrics[] array. The metrics array is only in jobState.result.metrics (after pipeline completes).
-    // So we need to BUILD the metrics array from individual scores during streaming.
+    // REFINEMENT: Prefer final metrics when pipeline is complete (avoids value changes at end)
+    const finalMetrics = jobState?.result?.metrics;
+    if (finalMetrics && Array.isArray(finalMetrics) && finalMetrics.length > 0) {
+      return finalMetrics;
+    }
     
+    // During streaming: Build metrics from basicMetrics stage data
+    // basicMetrics returns {atsScore, goalsMatch, experienceMatch}, not a metrics[] array
     const basicMetricsData = jobState?.stages?.basicMetrics?.data;
     if (basicMetricsData && (basicMetricsData.atsScore !== undefined || basicMetricsData.goalsMatch !== undefined)) {
-      console.log('[METRICS] Building metrics from basicMetrics stage data:', basicMetricsData);
       return [
         { key: 'ats', label: 'ATS Score', value: basicMetricsData.atsScore || 0, maxValue: 100 },
         { key: 'goals', label: 'Goals Match', value: basicMetricsData.goalsMatch || 0, maxValue: 100 },
@@ -379,46 +381,28 @@ export const CoverLetterModal = ({
       ];
     }
     
-    // Fallback to final metrics (after pipeline completes)
-    const finalMetrics = jobState?.result?.metrics;
-    if (finalMetrics && Array.isArray(finalMetrics) && finalMetrics.length > 0) {
-      console.log('[METRICS] Using final metrics (from result):', finalMetrics.length);
-      return finalMetrics;
-    }
-    
-    // Only log "no metrics" on first render to reduce console spam
-    if (!draft && !jobState) {
-      console.log('[METRICS] No metrics available yet (initial render)');
-    }
-    return []; // Return empty array (not null) so transformMetricsToMatchData doesn't spam warnings
-  }, [draft, jobState]); // Stable dependencies prevent flicker
+    return []; // Empty array (not null) prevents transformMetricsToMatchData warnings
+  }, [draft, jobState]);
   
   const effectiveRequirements = useMemo(() => {
     // Draft requirements (preferred when available)
     const draftReqs = draft?.enhancedMatchData?.coreRequirementDetails;
     if (draftReqs && Array.isArray(draftReqs) && draftReqs.length > 0) {
-      console.log('[REQUIREMENTS] Using draft requirements:', draftReqs.length);
       return draftReqs;
     }
     
-    // STREAMING FIX: Read from stages.requirementAnalysis.data (progressive) OR result.requirements (final)
+    // Streaming requirements: progressive from stages, final from result
     // requirementAnalysis stage returns {coreRequirements, preferredRequirements, ...}
     const streamingReqs = 
       jobState?.stages?.requirementAnalysis?.data?.coreRequirements || // Progressive (during streaming)
       jobState?.result?.requirements?.coreRequirements; // Final (jobState.result.requirements = requirementAnalysis object)
       
     if (streamingReqs && Array.isArray(streamingReqs) && streamingReqs.length > 0) {
-      console.log('[REQUIREMENTS] Using streaming requirements:', streamingReqs.length,
-        jobState?.stages?.requirementAnalysis?.data ? '(from stages)' : '(from result)');
       return streamingReqs;
     }
     
-    // Only log "no requirements" on first render to reduce console spam
-    if (!draft && !jobState) {
-      console.log('[REQUIREMENTS] No requirements available yet (initial render)');
-    }
-    return []; // Return empty array (not null) to avoid null checks downstream
-  }, [draft, jobState]); // Stable dependencies prevent flicker
+    return []; // Empty array prevents null checks downstream
+  }, [draft, jobState]); prevent flicker
   const setDraft = mode === 'create' ? createModeHook.setDraft : setLocalDraft;
   const workpad = mode === 'create' ? createModeHook.workpad : null;
   const streamingSections = mode === 'create' ? createModeHook.streamingSections : {};
