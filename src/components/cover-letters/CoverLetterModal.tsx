@@ -314,8 +314,19 @@ export const CoverLetterModal = ({
   const generateDraft = mode === 'create' ? createModeHook.generateDraft : async () => {};
   
   // Step 2: Auto-load draft when streaming job completes
-  // PHASE 3: Removed - draft is set directly in handleGenerateDraft, not loaded from jobState
-  // jobState.result.draftId no longer exists after Phase 1 (pipeline is analysis-only)
+  // PHASE 3: Log streaming results when job completes
+  useEffect(() => {
+    if (mode !== 'create') return;
+    if (jobState?.status !== 'complete') return;
+    
+    console.log('[CoverLetterModal] Streaming job completed:', {
+      hasMetrics: !!jobState.result?.metrics,
+      metricsCount: jobState.result?.metrics?.length || 0,
+      hasSectionGaps: !!jobState.result?.sectionGaps,
+      hasRequirements: !!jobState.result?.requirements,
+      sectionGaps: jobState.result?.sectionGaps,
+    });
+  }, [mode, jobState?.status, jobState?.result]);
   
   const updateSection = mode === 'create' ? createModeHook.updateSection : async (sectionId: string, content: string) => {
     // Edit mode: update section locally
@@ -698,15 +709,7 @@ export const CoverLetterModal = ({
       // Handle streaming result
       if (streamingResult.status === 'fulfilled') {
         console.log('[CoverLetterModal] Streaming job started successfully, jobId:', streamingResult.value);
-        // Log streaming results once job completes
-        if (jobState?.status === 'complete') {
-          console.log('[CoverLetterModal] Streaming results:', {
-            hasMetrics: !!jobState.result?.metrics,
-            metricsCount: jobState.result?.metrics?.length || 0,
-            hasSectionGaps: !!jobState.result?.sectionGaps,
-            hasRequirements: !!jobState.result?.requirements,
-          });
-        }
+        // Results will be logged by useEffect when jobState.status becomes 'complete'
       } else {
         console.warn('[CoverLetterModal] Streaming job failed (non-blocking):', streamingResult.reason);
       }

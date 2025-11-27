@@ -158,9 +158,11 @@ export function CoverLetterDraftEditor({
   /**
    * Helper: Get section-specific gap insights
    * Agent D: Checks pendingSectionInsights for instant feedback
-   * Falls back to effectiveDraft.enhancedMatchData.sectionGapInsights
+   * Phase 3 DATA PRIORITY: draft.enhancedMatchData → streaming → heuristic
    */
   const getSectionGapInsights = (sectionId: string, sectionSlug: string) => {
+    console.log(`[DraftEditor] Getting gaps for section ${sectionId} (${sectionSlug})`);
+    
     // AGENT D: Check for pending heuristic insight first
     const pendingInsight = pendingSectionInsights[sectionId];
 
@@ -207,8 +209,36 @@ export function CoverLetterDraftEditor({
       };
     }
     
-    // If no sectionGapInsights, fallback to old heuristic
+    // PHASE 3: If no sectionGapInsights in draft, try streaming results
     if (!effectiveDraft.enhancedMatchData.sectionGapInsights) {
+      console.log('[DraftEditor] No sectionGapInsights in draft, checking streaming...');
+      
+      // Try streaming results (effectiveGaps already computed above)
+      if (effectiveGaps) {
+        console.log('[DraftEditor] Using gaps from streaming:', effectiveGaps);
+        // Map streaming gaps to section
+        const streamingGaps = Array.isArray(effectiveGaps) 
+          ? effectiveGaps.filter((g: any) => g.sectionId === sectionId || g.sectionSlug === sectionSlug)
+          : [];
+        
+        if (streamingGaps.length > 0) {
+          console.log(`[DraftEditor] Found ${streamingGaps.length} streaming gaps for section`);
+          return {
+            promptSummary: streamingGaps[0]?.promptSummary || null,
+            gaps: streamingGaps.flatMap((insight: any) => 
+              (insight.requirementGaps || []).map((gap: any) => ({
+                id: gap.id,
+                title: gap.label || gap.title,
+                description: `${gap.rationale || ''} ${gap.recommendation || ''}`.trim(),
+              }))
+            ),
+            isLoading: false,
+          };
+        }
+      }
+      
+      // Final fallback: old heuristic from coreRequirementDetails
+      console.log('[DraftEditor] No streaming gaps, using heuristic fallback');
       const unmetCoreReqs = effectiveDraft.enhancedMatchData.coreRequirementDetails?.filter(
         (req: any) => !req.demonstrated
       ) || [];
@@ -228,8 +258,10 @@ export function CoverLetterDraftEditor({
       };
     }
     
-    // New behavior: use sectionGapInsights
-    // PHASE 2: Match by sectionId first (exact match), fallback to sectionSlug
+    // PHASE 3: Draft has sectionGapInsights - use them (authoritative)
+    console.log('[DraftEditor] Using sectionGapInsights from draft (authoritative)');
+    
+    // Match by sectionId first (exact match), fallback to sectionSlug
     let sectionInsight = effectiveDraft.enhancedMatchData.sectionGapInsights.find(
       insight => insight.sectionId === sectionId
     );
