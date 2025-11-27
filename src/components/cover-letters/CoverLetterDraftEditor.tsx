@@ -40,9 +40,10 @@ interface CoverLetterDraftEditorProps {
   jobDescription?: JobDescriptionRecord | null;
   matchMetrics: MatchMetricsData | null;
   
-  // Streaming props (Phase 1: defined but not used yet)
+  // Streaming props (Phase 2: now used for skeleton)
   isStreaming?: boolean;
   jobState?: any; // Will be typed properly in Phase 2
+  templateSections?: CoverLetterSection[]; // Phase 2: Template structure for skeleton
   
   // UI state
   isPostHIL?: boolean;
@@ -83,6 +84,7 @@ export function CoverLetterDraftEditor({
   matchMetrics,
   isStreaming = false,
   jobState = null,
+  templateSections = [],
   isPostHIL = false,
   metricsLoading = false,
   generationError = null,
@@ -113,20 +115,27 @@ export function CoverLetterDraftEditor({
   // Phase 2: Effective draft = streaming draft OR prop draft OR null
   const effectiveDraft = draftFromStreaming ?? draft ?? null;
   
-  // Phase 2: Placeholder sections when no draft yet (skeleton state)
-  const placeholderSections = [
-    { id: 'intro-placeholder', title: 'Introduction', type: 'intro', slug: 'intro', content: '' },
-    { id: 'body-placeholder', title: 'Experience', type: 'body', slug: 'experience', content: '' },
-    { id: 'closing-placeholder', title: 'Closing', type: 'closing', slug: 'closing', content: '' },
-  ];
-  
-  // Phase 2: Sections to render = effective draft sections OR placeholders
+  // Phase 2: Sections to render - priority order
+  // 1. If draft exists → use draft.sections (real content)
+  // 2. Else if templateSections provided → use template structure (skeleton)
+  // 3. Else → fallback to hardcoded placeholders (should rarely happen)
   const sectionsToRender = effectiveDraft?.sections && effectiveDraft.sections.length > 0
     ? effectiveDraft.sections
-    : placeholderSections;
+    : templateSections.length > 0
+    ? templateSections.map((section, idx) => ({
+        ...section,
+        id: section.id || `skeleton-${idx}`,
+        content: '', // Empty content for skeleton
+      }))
+    : [
+        // Fallback (should not be reached if Modal passes templateSections)
+        { id: 'intro-placeholder', title: 'Introduction', type: 'intro', slug: 'intro', content: '' },
+        { id: 'body-placeholder', title: 'Experience', type: 'body', slug: 'experience', content: '' },
+        { id: 'closing-placeholder', title: 'Closing', type: 'closing', slug: 'closing', content: '' },
+      ];
   
-  // Phase 2: Loading state = streaming AND no draft from streaming yet
-  const isLoadingSection = isStreaming && !hasDraftFromStreaming;
+  // Phase 2: Loading state = streaming AND no draft yet
+  const isLoadingSection = isStreaming && !effectiveDraft;
 
   // Calculate job-level totals for requirement denominators
   const totalCoreReqs = effectiveDraft?.enhancedMatchData?.coreRequirementDetails?.length ?? 0;

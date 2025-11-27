@@ -125,6 +125,7 @@ export const CoverLetterModal = ({
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [templateError, setTemplateError] = useState<string | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [templateSections, setTemplateSections] = useState<CoverLetterSection[]>([]); // Phase 2: for skeleton
   const [jobDescriptionRecord, setJobDescriptionRecord] = useState<JobDescriptionRecord | null>(null);
   const [sectionDrafts, setSectionDrafts] = useState<Record<string, string>>({});
   const [savingSections, setSavingSections] = useState<Record<string, boolean>>({});
@@ -484,6 +485,46 @@ export const CoverLetterModal = ({
       cancelled = true;
     };
   }, [isOpen, user?.id, selectedTemplateId, setTemplateId]);
+
+  // Phase 2: Load template sections for skeleton
+  useEffect(() => {
+    if (!selectedTemplateId) {
+      setTemplateSections([]);
+      return;
+    }
+
+    let cancelled = false;
+    const fetchTemplateSections = async () => {
+      const { data, error } = await supabase
+        .from('cover_letter_templates')
+        .select('sections')
+        .eq('id', selectedTemplateId)
+        .single();
+
+      if (cancelled || error || !data) {
+        if (!cancelled && error) {
+          console.warn('[CoverLetterModal] Failed to load template sections:', error);
+        }
+        return;
+      }
+
+      // Normalize sections to expected format
+      const sections = (data.sections || []).map((section: any, idx: number) => ({
+        id: section.id || `template-${idx}`,
+        title: section.title || section.slug || 'Section',
+        slug: section.slug || `section-${idx}`,
+        type: section.type || 'body',
+        content: '', // Empty for skeleton
+      }));
+
+      setTemplateSections(sections);
+    };
+
+    fetchTemplateSections();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedTemplateId, supabase]);
 
   useEffect(() => {
     if (!draft) {
@@ -1346,6 +1387,7 @@ export const CoverLetterModal = ({
         matchMetrics={matchMetrics}
         isStreaming={isJobStreaming} // Phase 2: wired to streaming hook
         jobState={jobState} // Phase 2: wired to streaming hook
+        templateSections={templateSections} // Phase 2: for skeleton structure
         isPostHIL={false}
         metricsLoading={metricsLoading}
         generationError={generationError}
