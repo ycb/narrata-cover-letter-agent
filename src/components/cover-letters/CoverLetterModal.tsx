@@ -320,12 +320,18 @@ export const CoverLetterModal = ({
     if (mode !== 'create') return;
     if (jobState?.status !== 'complete') return;
     
+    // User-requested diagnostic logging for streaming gaps
+    console.log('[CoverLetterModal] Streaming result diagnostics:', {
+      hasSectionGaps: !!jobState.result?.sectionGaps,
+      sectionGapsLength: jobState.result?.sectionGaps?.length || 0,
+      sectionGaps: jobState.result?.sectionGaps,
+    });
+    
     console.log('[CoverLetterModal] Streaming job completed:', {
       hasMetrics: !!jobState.result?.metrics,
       metricsCount: jobState.result?.metrics?.length || 0,
       hasSectionGaps: !!jobState.result?.sectionGaps,
       hasRequirements: !!jobState.result?.requirements,
-      sectionGaps: jobState.result?.sectionGaps,
     });
   }, [mode, jobState?.status, jobState?.result]);
   
@@ -717,16 +723,26 @@ export const CoverLetterModal = ({
       
       // Handle draft generation result
       if (draftResult.status === 'fulfilled') {
-        console.log('[CoverLetterModal] Draft generated successfully:', {
-          draftId: draftResult.value.draft.id,
-          sectionCount: draftResult.value.draft.sections.length,
-          sectionTitles: draftResult.value.draft.sections.map((s: any) => s.title),
-          hasEnhancedMatchData: !!draftResult.value.draft.enhancedMatchData,
-          hasMetrics: !!draftResult.value.draft.enhancedMatchData?.metrics,
-          hasSectionGaps: !!draftResult.value.draft.enhancedMatchData?.sectionGapInsights,
-          metricsCount: draftResult.value.draft.enhancedMatchData?.metrics?.length || 0,
+        const generatedDraft = draftResult.value.draft;
+        
+        // User-requested diagnostic logging for gaps
+        console.log('[CoverLetterModal] Draft result diagnostics:', {
+          hasEnhancedMatchData: !!generatedDraft.enhancedMatchData,
+          hasSectionGapInsights: !!generatedDraft.enhancedMatchData?.sectionGapInsights,
+          sectionGapInsightsLength: generatedDraft.enhancedMatchData?.sectionGapInsights?.length || 0,
+          sectionGapInsights: generatedDraft.enhancedMatchData?.sectionGapInsights,
         });
-        setDraft(draftResult.value.draft);
+        
+        console.log('[CoverLetterModal] Draft generated successfully:', {
+          draftId: generatedDraft.id,
+          sectionCount: generatedDraft.sections.length,
+          sectionTitles: generatedDraft.sections.map((s: any) => s.title),
+          hasEnhancedMatchData: !!generatedDraft.enhancedMatchData,
+          hasMetrics: !!generatedDraft.enhancedMatchData?.metrics,
+          hasSectionGaps: !!generatedDraft.enhancedMatchData?.sectionGapInsights,
+          metricsCount: generatedDraft.enhancedMatchData?.metrics?.length || 0,
+        });
+        setDraft(generatedDraft);
         setIsGeneratingDraft(false); // Draft generation complete
       } else {
         console.error('[CoverLetterModal] Draft generation failed:', draftResult.reason);
@@ -1283,10 +1299,11 @@ export const CoverLetterModal = ({
       );
     }
 
-    // Phase 2: Removed separate skeleton - DraftEditor handles skeleton state internally
-    // Skeleton now shows when isStreaming=true with placeholder sections
+    // Phase 3: ONE LAYOUT PRINCIPLE - only show empty state if NEVER initiated generation
+    // Once user clicks Generate, ALWAYS render DraftEditor (it handles skeleton vs content)
+    const hasEverInitiatedGeneration = !!draft || isJobStreaming || isGeneratingDraft;
     
-    if (!draft && !isJobStreaming) {
+    if (!hasEverInitiatedGeneration) {
       return (
         <Card className="border-dashed border-muted-foreground/30 bg-muted/20">
           <CardContent className="flex h-48 items-center justify-center text-sm text-muted-foreground">

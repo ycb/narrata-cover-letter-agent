@@ -274,6 +274,16 @@ export function useJobStream(
           }
 
           log.debug('[useJobStream] Poll result FULL DATA:', job);
+          
+          // User-requested diagnostic logging
+          console.log('[useJobStream] POLL result:', {
+            id: job.id,
+            status: job.status,
+            progress: job.progress,
+            currentStage: job.current_stage,
+            resultKeys: Object.keys(job.result || {}),
+          });
+          
           log.info('[useJobStream] Poll result summary:', {
             status: job.status,
             stagesCount: Object.keys(job.stages || {}).length,

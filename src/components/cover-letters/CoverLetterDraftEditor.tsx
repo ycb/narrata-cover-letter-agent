@@ -209,9 +209,13 @@ export function CoverLetterDraftEditor({
       };
     }
     
-    // PHASE 3: If no sectionGapInsights in draft, try streaming results
-    // Note: We check the property itself, not truthy. Empty array = authoritative "no gaps"
-    if (!effectiveDraft.enhancedMatchData.sectionGapInsights) {
+    // PHASE 3: If no sectionGapInsights in draft (or empty array), try streaming results
+    // User requirement: Empty array should NOT block streaming fallback
+    // Only treat draft as authoritative if array has length > 0
+    const draftSectionGaps = effectiveDraft.enhancedMatchData.sectionGapInsights;
+    const hasDraftGaps = draftSectionGaps && Array.isArray(draftSectionGaps) && draftSectionGaps.length > 0;
+    
+    if (!hasDraftGaps) {
       // Try streaming results directly from jobState.result.sectionGaps
       const streamingSectionGaps = streamingResult?.sectionGaps;
       
@@ -258,16 +262,16 @@ export function CoverLetterDraftEditor({
       };
     }
     
-    // PHASE 3: Draft has sectionGapInsights - use them (authoritative, even if empty)
+    // PHASE 3: Draft has sectionGapInsights with length > 0 - use them (authoritative)
     // Match by sectionId first (exact match), fallback to sectionSlug
-    let sectionInsight = effectiveDraft.enhancedMatchData.sectionGapInsights.find(
+    let sectionInsight = draftSectionGaps.find(
       insight => insight.sectionId === sectionId
     );
 
     // Fallback: if no exact ID match, try slug matching (for backward compatibility)
     if (!sectionInsight) {
       const normalizedSlugs = normalizeSlug(sectionSlug);
-      sectionInsight = effectiveDraft.enhancedMatchData.sectionGapInsights.find(
+      sectionInsight = draftSectionGaps.find(
         insight => normalizedSlugs.includes(insight.sectionSlug?.toLowerCase())
       );
     }
