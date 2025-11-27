@@ -402,7 +402,7 @@ export const CoverLetterModal = ({
     }
     
     return []; // Empty array prevents null checks downstream
-  }, [draft, jobState]); prevent flicker
+  }, [draft, jobState]);
   const setDraft = mode === 'create' ? createModeHook.setDraft : setLocalDraft;
   const workpad = mode === 'create' ? createModeHook.workpad : null;
   const streamingSections = mode === 'create' ? createModeHook.streamingSections : {};
