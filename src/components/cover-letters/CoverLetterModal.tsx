@@ -697,7 +697,16 @@ export const CoverLetterModal = ({
       
       // Handle streaming result
       if (streamingResult.status === 'fulfilled') {
-        console.log('[CoverLetterModal] Streaming job started successfully');
+        console.log('[CoverLetterModal] Streaming job started successfully, jobId:', streamingResult.value);
+        // Log streaming results once job completes
+        if (jobState?.status === 'complete') {
+          console.log('[CoverLetterModal] Streaming results:', {
+            hasMetrics: !!jobState.result?.metrics,
+            metricsCount: jobState.result?.metrics?.length || 0,
+            hasSectionGaps: !!jobState.result?.sectionGaps,
+            hasRequirements: !!jobState.result?.requirements,
+          });
+        }
       } else {
         console.warn('[CoverLetterModal] Streaming job failed (non-blocking):', streamingResult.reason);
       }
@@ -708,6 +717,10 @@ export const CoverLetterModal = ({
           draftId: draftResult.value.draft.id,
           sectionCount: draftResult.value.draft.sections.length,
           sectionTitles: draftResult.value.draft.sections.map((s: any) => s.title),
+          hasEnhancedMatchData: !!draftResult.value.draft.enhancedMatchData,
+          hasMetrics: !!draftResult.value.draft.enhancedMatchData?.metrics,
+          hasSectionGaps: !!draftResult.value.draft.enhancedMatchData?.sectionGapInsights,
+          metricsCount: draftResult.value.draft.enhancedMatchData?.metrics?.length || 0,
         });
         setDraft(draftResult.value.draft);
         setIsGeneratingDraft(false); // Draft generation complete
