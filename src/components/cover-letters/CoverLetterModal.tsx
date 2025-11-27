@@ -322,7 +322,7 @@ export const CoverLetterModal = ({
     const loadDraft = async () => {
       try {
         const { data, error } = await supabase
-          .from('cover_letter_drafts')
+          .from('cover_letters')
           .select('*')
           .eq('id', jobState.result.draftId)
           .single();

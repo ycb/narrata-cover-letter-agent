@@ -53,6 +53,6 @@ export const CoverLetterEditModal = ({
       // onAddStory={onAddStory}
       // onEnhanceSection={onEnhanceSection}
       // onAddMetrics={onAddMetrics}
-    />
-  );
+                  />
+                );
 };

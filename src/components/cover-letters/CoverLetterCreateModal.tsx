@@ -28,7 +28,7 @@ export const CoverLetterCreateModal = ({
   onClose,
   onCoverLetterCreated,
 }: CoverLetterCreateModalProps) => {
-  return (
+    return (
     <CoverLetterModal
       isOpen={isOpen}
       onClose={onClose}
