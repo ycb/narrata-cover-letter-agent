@@ -329,18 +329,23 @@ export const CoverLetterModal = ({
   // CANONICAL GAP SYSTEM: Build merged gap store from streaming + draft
   // This is the SINGLE SOURCE OF TRUTH for gaps (no more inconsistent fallbacks)
   const effectiveSectionGaps = useMemo(() => {
-    const streamingGaps = jobState?.result?.sectionGaps;
+    // STREAMING FIX: Read from stages.sectionGaps.data (progressive) OR result (final)
+    const streamingGaps = 
+      jobState?.stages?.sectionGaps?.data?.sections || // Progressive (during streaming)
+      jobState?.result?.sectionGaps; // Final (when complete)
+      
     const draftGaps = draft?.enhancedMatchData?.sectionGapInsights;
     
     // DIAGNOSTIC: Log actual structure
-    console.log('[GAPS DEBUG] Raw streaming gaps:', streamingGaps);
+    console.log('[GAPS DEBUG] Raw streaming gaps:', streamingGaps,
+      jobState?.stages?.sectionGaps?.data ? '(from stages)' : '(from result)');
     console.log('[GAPS DEBUG] Raw draft gaps:', draftGaps);
     
     // Diagnostic logging
     logEmptyGapDiagnostic(streamingGaps, draftGaps);
     
     return buildEffectiveSectionGapMap(streamingGaps, draftGaps);
-  }, [jobState?.result?.sectionGaps, draft?.enhancedMatchData?.sectionGapInsights]);
+  }, [jobState, draft?.enhancedMatchData?.sectionGapInsights]); // Watch whole jobState for stages updates
   
   const effectiveGlobalGaps = useMemo(() => {
     return buildEffectiveGlobalGaps(effectiveSectionGaps);
@@ -357,11 +362,16 @@ export const CoverLetterModal = ({
       return draftMetrics;
     }
     
-    // Streaming metrics (early feedback)
-    // Backend returns result.metrics (array) directly
-    const streamingMetrics = jobState?.result?.metrics;
+    // STREAMING FIX: Read from stages.basicMetrics.data (progressive) OR result.metrics (final)
+    // During streaming: jobState.stages.basicMetrics.data has live data
+    // After complete: jobState.result.metrics has final data
+    const streamingMetrics = 
+      jobState?.stages?.basicMetrics?.data?.metrics || // Progressive (during streaming)
+      jobState?.result?.metrics; // Final (when complete)
+      
     if (streamingMetrics && Array.isArray(streamingMetrics) && streamingMetrics.length > 0) {
-      console.log('[METRICS] Using streaming metrics:', streamingMetrics.length);
+      console.log('[METRICS] Using streaming metrics:', streamingMetrics.length, 
+        jobState?.stages?.basicMetrics?.data ? '(from stages)' : '(from result)');
       return streamingMetrics;
     }
     
@@ -380,11 +390,14 @@ export const CoverLetterModal = ({
       return draftReqs;
     }
     
-    // Streaming requirements (early feedback)
-    const streamingReqs = jobState?.result?.requirementAnalysis?.coreRequirements;
+    // STREAMING FIX: Read from stages.requirementAnalysis.data (progressive) OR result (final)
+    const streamingReqs = 
+      jobState?.stages?.requirementAnalysis?.data?.coreRequirements || // Progressive
+      jobState?.result?.requirementAnalysis?.coreRequirements; // Final
+      
     if (streamingReqs && Array.isArray(streamingReqs) && streamingReqs.length > 0) {
-      console.log('[REQUIREMENTS] Using streaming requirements:', streamingReqs.length);
-      // May need light mapping if shapes differ - check in practice
+      console.log('[REQUIREMENTS] Using streaming requirements:', streamingReqs.length,
+        jobState?.stages?.requirementAnalysis?.data ? '(from stages)' : '(from result)');
       return streamingReqs;
     }
     
