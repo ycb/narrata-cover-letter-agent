@@ -75,7 +75,6 @@ import { useToast } from '@/hooks/use-toast';
 import { transformMetricsToMatchData, getUnresolvedRatingCriteria } from './useMatchMetricsDetails';
 import { computeSectionAttribution } from './useSectionAttribution';
 import type { CoverLetterDraft, JobDescriptionRecord, ParsedJobDescription } from '@/types/coverLetters';
-import type { Gap } from '@/services/gapTransformService';
 import { getApplicableStandards } from '@/config/contentStandards';
 
 const MIN_JOB_DESCRIPTION_LENGTH = 50;
