@@ -122,9 +122,8 @@ export function CoverLetterDraftEditor({
     || streamingResult?.metrics 
     || matchMetrics;
   
-  const effectiveGaps = effectiveDraft?.enhancedMatchData?.sectionGapInsights 
-    || streamingResult?.sectionGaps 
-    || null;
+  // Phase 3: Gaps use priority chain inside getSectionGapInsights helper
+  // (We don't compute effectiveGaps globally - each section chooses its source)
   
   // Phase 2: Sections to render - priority order
   // 1. If draft exists → use draft.sections (real content)
@@ -161,9 +160,7 @@ export function CoverLetterDraftEditor({
    * Phase 3 DATA PRIORITY: draft.enhancedMatchData → streaming → heuristic
    */
   const getSectionGapInsights = (sectionId: string, sectionSlug: string) => {
-    console.log(`[DraftEditor] Getting gaps for section ${sectionId} (${sectionSlug})`);
-    
-    // AGENT D: Check for pending heuristic insight first
+    // AGENT D: Check for pending heuristic insight first (instant feedback)
     const pendingInsight = pendingSectionInsights[sectionId];
 
     // Normalize section slug to match sectionGapInsights
@@ -189,6 +186,7 @@ export function CoverLetterDraftEditor({
     // Check if we have pending insight to show meanwhile
     if (!effectiveDraft?.enhancedMatchData) {
       if (pendingInsight) {
+        console.log(`[DraftEditor] gaps source for section ${sectionSlug}: agent-d (pending)`);
         const gaps = pendingInsight.requirementGaps.map(gap => ({
           id: gap.id,
           title: gap.label,
@@ -202,6 +200,7 @@ export function CoverLetterDraftEditor({
         };
       }
 
+      console.log(`[DraftEditor] gaps source for section ${sectionSlug}: loading (no data yet)`);
       return {
         promptSummary: null,
         gaps: [],
@@ -210,19 +209,19 @@ export function CoverLetterDraftEditor({
     }
     
     // PHASE 3: If no sectionGapInsights in draft, try streaming results
+    // Note: We check the property itself, not truthy. Empty array = authoritative "no gaps"
     if (!effectiveDraft.enhancedMatchData.sectionGapInsights) {
-      console.log('[DraftEditor] No sectionGapInsights in draft, checking streaming...');
+      // Try streaming results directly from jobState.result.sectionGaps
+      const streamingSectionGaps = streamingResult?.sectionGaps;
       
-      // Try streaming results (effectiveGaps already computed above)
-      if (effectiveGaps) {
-        console.log('[DraftEditor] Using gaps from streaming:', effectiveGaps);
-        // Map streaming gaps to section
-        const streamingGaps = Array.isArray(effectiveGaps) 
-          ? effectiveGaps.filter((g: any) => g.sectionId === sectionId || g.sectionSlug === sectionSlug)
-          : [];
+      if (streamingSectionGaps && Array.isArray(streamingSectionGaps)) {
+        // Map streaming gaps to this section
+        const streamingGaps = streamingSectionGaps.filter(
+          (g: any) => g.sectionId === sectionId || g.sectionSlug === sectionSlug
+        );
         
         if (streamingGaps.length > 0) {
-          console.log(`[DraftEditor] Found ${streamingGaps.length} streaming gaps for section`);
+          console.log(`[DraftEditor] gaps source for section ${sectionSlug}: streaming (${streamingGaps.length} insights)`);
           return {
             promptSummary: streamingGaps[0]?.promptSummary || null,
             gaps: streamingGaps.flatMap((insight: any) => 
@@ -238,7 +237,7 @@ export function CoverLetterDraftEditor({
       }
       
       // Final fallback: old heuristic from coreRequirementDetails
-      console.log('[DraftEditor] No streaming gaps, using heuristic fallback');
+      console.log(`[DraftEditor] gaps source for section ${sectionSlug}: heuristic (fallback)`);
       const unmetCoreReqs = effectiveDraft.enhancedMatchData.coreRequirementDetails?.filter(
         (req: any) => !req.demonstrated
       ) || [];
@@ -258,9 +257,7 @@ export function CoverLetterDraftEditor({
       };
     }
     
-    // PHASE 3: Draft has sectionGapInsights - use them (authoritative)
-    console.log('[DraftEditor] Using sectionGapInsights from draft (authoritative)');
-    
+    // PHASE 3: Draft has sectionGapInsights - use them (authoritative, even if empty)
     // Match by sectionId first (exact match), fallback to sectionSlug
     let sectionInsight = effectiveDraft.enhancedMatchData.sectionGapInsights.find(
       insight => insight.sectionId === sectionId
@@ -275,6 +272,7 @@ export function CoverLetterDraftEditor({
     }
 
     if (!sectionInsight) {
+      console.log(`[DraftEditor] gaps source for section ${sectionSlug}: draft (no insight for this section)`);
       return { promptSummary: null, gaps: [], isLoading: false };
     }
     
@@ -284,6 +282,7 @@ export function CoverLetterDraftEditor({
       description: `${gap.rationale} ${gap.recommendation}`,
     }));
     
+    console.log(`[DraftEditor] gaps source for section ${sectionSlug}: draft (${gaps.length} gaps)`);
     return {
       promptSummary: sectionInsight.promptSummary,
       gaps,
