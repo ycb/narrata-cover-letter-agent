@@ -137,6 +137,12 @@ export const CoverLetterModal = ({
   // Phase 3: Track draft generation separately from streaming
   const [isGeneratingDraft, setIsGeneratingDraft] = useState(false);
   
+  // UNIFIED SKELETON: Track if user has ever clicked Generate
+  const [generationHasStarted, setGenerationHasStarted] = useState(false);
+  
+  // UNIFIED SKELETON: Combined flag for "show skeleton" - true if any generation activity
+  const generationActive = generationHasStarted && (isJobStreaming || isGeneratingDraft || !draft);
+  
   // Set initial tab when modal opens based on mode
   useEffect(() => {
     if (isOpen) {
@@ -665,10 +671,11 @@ export const CoverLetterModal = ({
       setJobDescriptionRecord(record);
       setJobDescriptionId(record.id);
       
-      // PHASE 3: Switch to draft tab BEFORE starting operations (so skeleton shows immediately)
+      // UNIFIED SKELETON: Switch to draft tab and mark generation as started
       setMainTab('cover-letter');
+      setGenerationHasStarted(true); // Mark that user clicked Generate (persists across entire flow)
       setIsGeneratingDraft(true); // Track draft generation state
-      console.log('[CoverLetterModal] Switched to cover-letter tab, skeleton should now be visible');
+      console.log('[CoverLetterModal] Generation started - switched to cover-letter tab, skeleton should be visible');
       
       // PHASE 3: Start BOTH streaming (analysis) and draft generation IN PARALLEL
       console.log('[CoverLetterModal] Starting parallel operations:', {
@@ -1299,13 +1306,11 @@ export const CoverLetterModal = ({
       );
     }
 
-    // PROBLEM 2: ONE LAYOUT PRINCIPLE - only show empty state if fresh modal, never initiated
-    // Once user clicks Generate, this branch should NEVER execute again
-    // showSkeleton flag controls skeleton vs content in DraftEditor below
-    const hasEverInitiatedGeneration = !!draft || isJobStreaming || isGeneratingDraft || jobState;
-    
-    if (!hasEverInitiatedGeneration) {
-      console.log('[CoverLetterModal] Showing empty state (fresh modal, no generation yet)');
+    // UNIFIED SKELETON: Only show empty state if generation never started
+    // generationHasStarted is set true when user clicks Generate and persists
+    // Once true, we ALWAYS render DraftEditor (it handles skeleton vs content internally)
+    if (!generationHasStarted && !draft) {
+      console.log('[CoverLetterModal] Showing empty state (fresh modal, generation never started)');
       return (
         <Card className="border-dashed border-muted-foreground/30 bg-muted/20">
           <CardContent className="flex h-48 items-center justify-center text-sm text-muted-foreground">
@@ -1315,7 +1320,7 @@ export const CoverLetterModal = ({
       );
     }
     
-    console.log('[CoverLetterModal] Rendering DraftEditor (generation initiated or complete)');
+    console.log('[CoverLetterModal] Rendering DraftEditor (generation started or draft exists)');
 
     // Transform draft.metrics to MatchMetricsData format
     let matchMetrics = transformMetricsToMatchData(draft?.metrics || []);
@@ -1393,13 +1398,10 @@ export const CoverLetterModal = ({
       computedProgress = 33;
     }
     
-    // PROBLEM 2 FIX: Single skeleton flag - show until streaming done AND draft ready
-    // This prevents the "empty tab" gap between skeleton disappearing and draft appearing
-    const showSkeleton = (isJobStreaming && jobState?.status !== 'complete') || isGeneratingDraft || !draft;
-    
-    // Diagnostic logging at top of render
+    // UNIFIED SKELETON: Diagnostic logging at top of render
     console.log('[CoverLetterModal] Render state:', {
-      showSkeleton,
+      generationHasStarted,
+      generationActive,
       hasDraft: !!draft,
       jobStatus: jobState?.status,
       isJobStreaming,
@@ -1410,24 +1412,36 @@ export const CoverLetterModal = ({
     
     return (
       <>
-        {/* Streaming progress banner - only show during streaming analysis */}
-        {isJobStreaming && jobState && (
+        {/* UNIFIED SKELETON: Progress banner - show during ENTIRE generation (streaming + draft) */}
+        {generationActive && (
           <Alert className="mb-4 border-primary/20 bg-primary/5">
             <AlertTitle className="flex items-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Analyzing job fit… {computedProgress}%
+              {isJobStreaming ? (
+                `Analyzing job fit… ${computedProgress}%`
+              ) : isGeneratingDraft ? (
+                'Drafting your cover letter…'
+              ) : (
+                'Finalizing…'
+              )}
             </AlertTitle>
             <AlertDescription>
-              <StageStepper 
-                stages={[
-                  { key: 'basicMetrics', label: 'Analyzing metrics' },
-                  { key: 'requirementAnalysis', label: 'Extracting requirements' },
-                  { key: 'sectionGaps', label: 'Identifying gaps' },
-                  // 'draftGeneration' removed in Phase 1 - pipeline is analysis-only
-                ]}
-                statusByKey={jobState.stages || {}}
-                percent={computedProgress}
-              />
+              {isJobStreaming && jobState ? (
+                <StageStepper 
+                  stages={[
+                    { key: 'basicMetrics', label: 'Analyzing metrics' },
+                    { key: 'requirementAnalysis', label: 'Extracting requirements' },
+                    { key: 'sectionGaps', label: 'Identifying gaps' },
+                    // 'draftGeneration' removed in Phase 1 - pipeline is analysis-only
+                  ]}
+                  statusByKey={jobState.stages || {}}
+                  percent={computedProgress}
+                />
+              ) : (
+                <div className="text-sm text-muted-foreground">
+                  This may take 60-90 seconds…
+                </div>
+              )}
             </AlertDescription>
           </Alert>
         )}
@@ -1447,9 +1461,14 @@ export const CoverLetterModal = ({
         draft={draft}
         jobDescription={normalizedJobDescription}
         matchMetrics={matchMetrics}
-        isStreaming={showSkeleton} // PROBLEM 2: Single flag - skeleton until streaming done AND draft ready
+        isStreaming={generationActive} // UNIFIED SKELETON: Show skeleton if any generation activity
         jobState={jobState} // Phase 2: wired to streaming hook
         templateSections={templateSections} // Phase 2: for skeleton structure
+        progressState={{
+          jobState,
+          isJobStreaming,
+          isGeneratingDraft,
+        }} // UNIFIED SKELETON: Pass all progress state for banner
         isPostHIL={false}
         metricsLoading={metricsLoading}
         generationError={generationError}

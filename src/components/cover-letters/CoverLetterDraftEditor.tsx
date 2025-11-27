@@ -44,6 +44,11 @@ interface CoverLetterDraftEditorProps {
   isStreaming?: boolean;
   jobState?: any; // Will be typed properly in Phase 2
   templateSections?: CoverLetterSection[]; // Phase 2: Template structure for skeleton
+  progressState?: {
+    jobState: any;
+    isJobStreaming: boolean;
+    isGeneratingDraft: boolean;
+  }; // UNIFIED SKELETON: All progress state for banner
   
   // UI state
   isPostHIL?: boolean;
@@ -144,8 +149,9 @@ export function CoverLetterDraftEditor({
         { id: 'closing-placeholder', title: 'Closing', type: 'closing', slug: 'closing', content: '' },
       ];
   
-  // Phase 3: Loading state = trust isStreaming prop from parent
-  // Parent combines isJobStreaming || isGeneratingDraft, so skeleton shows until BOTH complete
+  // UNIFIED SKELETON: Trust isStreaming prop from parent (generationActive)
+  // Parent sets this true while streaming OR draft generation OR !draft
+  // We simply show skeleton when true, content when false
   const isLoadingSection = isStreaming;
 
   // Calculate job-level totals for requirement denominators
