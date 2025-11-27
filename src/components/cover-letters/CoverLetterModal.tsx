@@ -1376,6 +1376,26 @@ export const CoverLetterModal = ({
     }
 
     // Phase 1: Use new CoverLetterDraftEditor component
+    // PROBLEM 1 FIX: Compute progress from stages (jobState.progress is undefined)
+    // Rule: 0% pending, 33% basicMetrics, 66% requirementAnalysis, 100% sectionGaps or complete
+    let computedProgress = 0;
+    if (jobState?.status === 'complete') {
+      computedProgress = 100;
+    } else if (jobState?.stages?.sectionGaps) {
+      computedProgress = 100;
+    } else if (jobState?.stages?.requirementAnalysis) {
+      computedProgress = 66;
+    } else if (jobState?.stages?.basicMetrics) {
+      computedProgress = 33;
+    }
+    
+    // Diagnostic logging before render
+    console.log('[CoverLetterModal] Progress computation:', {
+      status: jobState?.status,
+      stageKeys: Object.keys(jobState?.stages || {}),
+      computedProgress,
+    });
+    
     return (
       <>
         {/* Streaming progress banner - only show during streaming analysis */}
@@ -1383,7 +1403,7 @@ export const CoverLetterModal = ({
           <Alert className="mb-4 border-primary/20 bg-primary/5">
             <AlertTitle className="flex items-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Analyzing job fit… {Math.round((jobState.progress || 0) * 100)}%
+              Analyzing job fit… {computedProgress}%
             </AlertTitle>
             <AlertDescription>
               <StageStepper 
@@ -1394,7 +1414,7 @@ export const CoverLetterModal = ({
                   // 'draftGeneration' removed in Phase 1 - pipeline is analysis-only
                 ]}
                 statusByKey={jobState.stages || {}}
-                percent={Math.round((jobState.progress || 0) * 100)}
+                percent={computedProgress}
               />
             </AlertDescription>
           </Alert>
