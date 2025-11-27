@@ -1299,11 +1299,13 @@ export const CoverLetterModal = ({
       );
     }
 
-    // Phase 3: ONE LAYOUT PRINCIPLE - only show empty state if NEVER initiated generation
-    // Once user clicks Generate, ALWAYS render DraftEditor (it handles skeleton vs content)
-    const hasEverInitiatedGeneration = !!draft || isJobStreaming || isGeneratingDraft;
+    // PROBLEM 2: ONE LAYOUT PRINCIPLE - only show empty state if fresh modal, never initiated
+    // Once user clicks Generate, this branch should NEVER execute again
+    // showSkeleton flag controls skeleton vs content in DraftEditor below
+    const hasEverInitiatedGeneration = !!draft || isJobStreaming || isGeneratingDraft || jobState;
     
     if (!hasEverInitiatedGeneration) {
+      console.log('[CoverLetterModal] Showing empty state (fresh modal, no generation yet)');
       return (
         <Card className="border-dashed border-muted-foreground/30 bg-muted/20">
           <CardContent className="flex h-48 items-center justify-center text-sm text-muted-foreground">
@@ -1312,6 +1314,8 @@ export const CoverLetterModal = ({
         </Card>
       );
     }
+    
+    console.log('[CoverLetterModal] Rendering DraftEditor (generation initiated or complete)');
 
     // Transform draft.metrics to MatchMetricsData format
     let matchMetrics = transformMetricsToMatchData(draft?.metrics || []);
@@ -1389,11 +1393,19 @@ export const CoverLetterModal = ({
       computedProgress = 33;
     }
     
-    // Diagnostic logging before render
-    console.log('[CoverLetterModal] Progress computation:', {
-      status: jobState?.status,
-      stageKeys: Object.keys(jobState?.stages || {}),
+    // PROBLEM 2 FIX: Single skeleton flag - show until streaming done AND draft ready
+    // This prevents the "empty tab" gap between skeleton disappearing and draft appearing
+    const showSkeleton = (isJobStreaming && jobState?.status !== 'complete') || isGeneratingDraft || !draft;
+    
+    // Diagnostic logging at top of render
+    console.log('[CoverLetterModal] Render state:', {
+      showSkeleton,
+      hasDraft: !!draft,
+      jobStatus: jobState?.status,
+      isJobStreaming,
+      isGeneratingDraft,
       computedProgress,
+      stageKeys: Object.keys(jobState?.stages || {}),
     });
     
     return (
@@ -1435,7 +1447,7 @@ export const CoverLetterModal = ({
         draft={draft}
         jobDescription={normalizedJobDescription}
         matchMetrics={matchMetrics}
-        isStreaming={isJobStreaming || isGeneratingDraft} // Phase 3: Show loading until BOTH complete
+        isStreaming={showSkeleton} // PROBLEM 2: Single flag - skeleton until streaming done AND draft ready
         jobState={jobState} // Phase 2: wired to streaming hook
         templateSections={templateSections} // Phase 2: for skeleton structure
         isPostHIL={false}
