@@ -296,6 +296,20 @@ export const CoverLetterModal = ({
   const isJobStreaming = mode === 'create' ? streamingHook.isStreaming : false;
   const createJob = mode === 'create' ? streamingHook.createJob : async () => { throw new Error('createJob not available in edit mode'); };
 
+  // In create mode, use the hook. In edit mode, use local state.
+  const draft = mode === 'create' ? createModeHook.draft : localDraft;
+  const setDraft = mode === 'create' ? createModeHook.setDraft : setLocalDraft;
+  const workpad = mode === 'create' ? createModeHook.workpad : null;
+  const streamingSections = mode === 'create' ? createModeHook.streamingSections : {};
+  const progress = mode === 'create' ? createModeHook.progress : 0;
+  const isGenerating = mode === 'create' ? createModeHook.isGenerating : false;
+  const metricsLoading = mode === 'create' ? createModeHook.metricsLoading : false;
+  const pendingSectionInsights = mode === 'create' ? createModeHook.pendingSectionInsights : {};
+  const isMutating = mode === 'create' ? createModeHook.isMutating : isSaving;
+  const isFinalizing = mode === 'create' ? createModeHook.isFinalizing : false;
+  const generationError = mode === 'create' ? createModeHook.error : null;
+  const generateDraft = mode === 'create' ? createModeHook.generateDraft : async () => {};
+  
   // Step 2: Auto-load draft when streaming job completes
   useEffect(() => {
     if (mode !== 'create') return;
@@ -326,20 +340,7 @@ export const CoverLetterModal = ({
 
     loadDraft();
   }, [jobState?.status, jobState?.result?.draftId, draft?.id, mode, setDraft]);
-
-  // In create mode, use the hook. In edit mode, use local state.
-  const draft = mode === 'create' ? createModeHook.draft : localDraft;
-  const setDraft = mode === 'create' ? createModeHook.setDraft : setLocalDraft;
-  const workpad = mode === 'create' ? createModeHook.workpad : null;
-  const streamingSections = mode === 'create' ? createModeHook.streamingSections : {};
-  const progress = mode === 'create' ? createModeHook.progress : 0;
-  const isGenerating = mode === 'create' ? createModeHook.isGenerating : false;
-  const metricsLoading = mode === 'create' ? createModeHook.metricsLoading : false;
-  const pendingSectionInsights = mode === 'create' ? createModeHook.pendingSectionInsights : {};
-  const isMutating = mode === 'create' ? createModeHook.isMutating : isSaving;
-  const isFinalizing = mode === 'create' ? createModeHook.isFinalizing : false;
-  const generationError = mode === 'create' ? createModeHook.error : null;
-  const generateDraft = mode === 'create' ? createModeHook.generateDraft : async () => {};
+  
   const updateSection = mode === 'create' ? createModeHook.updateSection : async (sectionId: string, content: string) => {
     // Edit mode: update section locally
     if (!draft) return;
