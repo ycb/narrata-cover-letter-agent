@@ -359,7 +359,7 @@ export const CoverLetterModal = ({
     }
     
     console.log('[METRICS] No metrics available yet');
-    return null;
+    return []; // Return empty array (not null) so transformMetricsToMatchData doesn't spam warnings
   }, [draft?.enhancedMatchData?.metrics, jobState?.result?.metrics]);
   
   const effectiveRequirements = useMemo(() => {
@@ -379,7 +379,7 @@ export const CoverLetterModal = ({
     }
     
     console.log('[REQUIREMENTS] No requirements available yet');
-    return null;
+    return []; // Return empty array (not null) to avoid null checks downstream
   }, [draft?.enhancedMatchData?.coreRequirementDetails, jobState?.result?.requirementAnalysis]);
   const setDraft = mode === 'create' ? createModeHook.setDraft : setLocalDraft;
   const workpad = mode === 'create' ? createModeHook.workpad : null;

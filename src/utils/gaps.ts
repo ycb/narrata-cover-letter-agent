@@ -96,18 +96,28 @@ function deduplicateGaps(gaps: Gap[]): Gap[] {
  * @returns Map of sectionId → deduplicated gaps
  */
 export function buildEffectiveSectionGapMap(
-  streamingGaps: StreamingGapResult | null | undefined,
+  streamingGaps: StreamingGapResult | SectionGapData[] | null | undefined,
   draftGaps: SectionGapData[] | null | undefined
 ): Map<string, Gap[]> {
   const effectiveGaps = new Map<string, Gap[]>();
   
-  // Normalize streaming gaps
-  const streamingSections = streamingGaps?.sections || [];
+  // Normalize streaming gaps - handle both formats:
+  // Format 1: { sections: [...] } (StreamingGapResult)
+  // Format 2: [...] (direct array of SectionGapData)
+  let streamingSections: SectionGapData[] = [];
+  if (streamingGaps) {
+    if (Array.isArray(streamingGaps)) {
+      streamingSections = streamingGaps;
+    } else if ('sections' in streamingGaps && Array.isArray(streamingGaps.sections)) {
+      streamingSections = streamingGaps.sections;
+    }
+  }
   
   // Normalize draft gaps (already array format)
   const draftSections = Array.isArray(draftGaps) ? draftGaps : [];
   
   console.log('[GAPS] buildEffectiveSectionGapMap:', {
+    streamingInput: streamingGaps,
     streamingSectionCount: streamingSections.length,
     draftSectionCount: draftSections.length,
   });
