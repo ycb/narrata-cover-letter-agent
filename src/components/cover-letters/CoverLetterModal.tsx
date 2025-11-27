@@ -140,9 +140,6 @@ export const CoverLetterModal = ({
   // UNIFIED SKELETON: Track if user has ever clicked Generate
   const [generationHasStarted, setGenerationHasStarted] = useState(false);
   
-  // UNIFIED SKELETON: Combined flag for "show skeleton" - true if any generation activity
-  const generationActive = generationHasStarted && (isJobStreaming || isGeneratingDraft || !draft);
-  
   // Set initial tab when modal opens based on mode
   useEffect(() => {
     if (isOpen) {
@@ -308,6 +305,10 @@ export const CoverLetterModal = ({
 
   // In create mode, use the hook. In edit mode, use local state.
   const draft = mode === 'create' ? createModeHook.draft : localDraft;
+  
+  // UNIFIED SKELETON: Combined flag for "show skeleton" - true if any generation activity
+  // MUST be declared AFTER isJobStreaming, isGeneratingDraft, and draft
+  const generationActive = generationHasStarted && (isJobStreaming || isGeneratingDraft || !draft);
   const setDraft = mode === 'create' ? createModeHook.setDraft : setLocalDraft;
   const workpad = mode === 'create' ? createModeHook.workpad : null;
   const streamingSections = mode === 'create' ? createModeHook.streamingSections : {};
