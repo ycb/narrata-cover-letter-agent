@@ -356,16 +356,6 @@ export const CoverLetterModal = ({
   const clearError = mode === 'create' ? createModeHook.clearError : () => {};
   const resetProgress = mode === 'create' ? createModeHook.resetProgress : () => {};
 
-  // Phase 2: Add streaming hook for real-time skeleton updates (create mode only)
-  const streamingHook = useCoverLetterJobStream({
-    pollIntervalMs: 2000,
-    timeout: 300000,
-  });
-  
-  const jobState = mode === 'create' ? streamingHook.state : null;
-  const isJobStreaming = mode === 'create' ? streamingHook.isStreaming : false;
-  const createJob = mode === 'create' ? streamingHook.createJob : async () => {};
-
   // Phase 3: Initialize draft and load job description in edit mode
   useEffect(() => {
     const initializeEditMode = async () => {
