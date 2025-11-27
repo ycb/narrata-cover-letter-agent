@@ -147,8 +147,9 @@ export function CoverLetterDraftEditor({
   const effectiveEnhancedMatchData = useMemo(() => {
     const base = effectiveDraft?.enhancedMatchData || {};
     
-    // If we have effectiveGlobalGaps but no sectionGapInsights, populate it
-    if (effectiveGlobalGaps && effectiveGlobalGaps.length > 0 && (!base.sectionGapInsights || base.sectionGapInsights.length === 0)) {
+    // TOOLBAR GAPS FIX: Always populate sectionGapInsights from effectiveGlobalGaps
+    // Don't wait for draft - streaming gaps should appear immediately
+    if (effectiveGlobalGaps && effectiveGlobalGaps.length > 0) {
       // Convert global gaps back to section insights format for toolbar
       // Group gaps by sectionId
       const gapsBySectionId = new Map<string, any[]>();
@@ -167,11 +168,23 @@ export function CoverLetterDraftEditor({
         gaps,
       }));
       
+      console.log('[TOOLBAR GAPS] Built sectionGapInsights from streaming:', {
+        gapCount: effectiveGlobalGaps.length,
+        sectionCount: sectionGapInsights.length,
+        sectionIds: sectionGapInsights.map(s => s.sectionId),
+      });
+      
       return {
         ...base,
         sectionGapInsights,
       };
     }
+    
+    console.log('[TOOLBAR GAPS] No gaps to show:', {
+      hasEffectiveGlobalGaps: !!effectiveGlobalGaps,
+      gapCount: effectiveGlobalGaps?.length || 0,
+      hasBaseSectionGapInsights: !!base.sectionGapInsights,
+    });
     
     return base;
   }, [effectiveDraft?.enhancedMatchData, effectiveGlobalGaps]);
@@ -279,7 +292,17 @@ export function CoverLetterDraftEditor({
           enhancedMatchData={effectiveEnhancedMatchData} // TOOLBAR FIX: Includes effective gaps
           goNoGoAnalysis={undefined}
           jobDescription={jobDescription ?? undefined}
-          sections={sectionsToRender.map(s => ({ id: s.id, type: s.type }))}
+          sections={(() => {
+            const sectionList = sectionsToRender.map(s => ({ id: s.id, type: s.type }));
+            console.log('[TOOLBAR] Passing sections to toolbar:', {
+              count: sectionList.length,
+              ids: sectionList.map(s => s.id),
+              hasEnhancedMatchData: !!effectiveEnhancedMatchData,
+              hasSectionGapInsights: !!effectiveEnhancedMatchData?.sectionGapInsights,
+              gapSectionIds: effectiveEnhancedMatchData?.sectionGapInsights?.map(g => g.sectionId) || [],
+            });
+            return sectionList;
+          })()}
           onEditGoals={onEditGoals}
           onEnhanceSection={(sectionId, requirement, ratingCriteria) => {
             // Open section enhancement flow with rating criteria if provided
