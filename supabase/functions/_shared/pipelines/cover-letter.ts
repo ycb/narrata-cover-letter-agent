@@ -1,11 +1,16 @@
 /**
- * Cover Letter Streaming Pipeline
+ * Cover Letter Streaming Pipeline - ANALYSIS ONLY (Phase 1)
+ * 
+ * This pipeline provides progressive analysis for the UI skeleton.
+ * It does NOT generate or save draft content - that's done by generateDraft().
  * 
  * Stages:
  * 1. basicMetrics (5-10s) - Quick metrics for immediate feedback
  * 2. requirementAnalysis (10-25s) - Detailed requirement matching
  * 3. sectionGaps (25-45s) - Section-level gap analysis
- * 4. draftGeneration (optional) - Generate cover letter draft
+ * 
+ * REMOVED (Phase 1):
+ * 4. draftGeneration - Now handled by generateDraft() service method
  */
 
 import type { PipelineContext, PipelineStage } from '../pipeline-utils.ts';
@@ -218,75 +223,24 @@ Focus on 2-4 sections with 1-3 gaps each.`;
 };
 
 // ============================================================================
-// Stage 4: Draft Generation (Optional, Slow - 30-60s)
+// PHASE 1: Draft Generation Stage REMOVED
 // ============================================================================
-
-const draftGenerationStage: PipelineStage = {
-  name: 'draftGeneration',
-  timeout: 70000, // 70s timeout
-  execute: async (ctx: PipelineContext) => {
-    const { job, supabase, openaiApiKey } = ctx;
-    const { jobDescriptionId } = job.input;
-
-    // Fetch data
-    const jd = await fetchJobDescription(supabase, jobDescriptionId);
-    const workHistory = await fetchWorkHistory(supabase, job.user_id);
-    const stories = await fetchStories(supabase, job.user_id);
-
-    // Build context (simplified for MVP)
-    const prompt = `Generate a professional cover letter for this job.
-
-JOB DESCRIPTION:
-${jd.raw_text || jd.content}
-
-CANDIDATE BACKGROUND:
-${workHistory.map((wh: any) => `- ${wh.title} at ${wh.company}`).join('\n')}
-
-Generate a complete cover letter with intro, 2-3 body paragraphs, and closing.
-Keep it concise (300-400 words). Focus on relevant achievements.
-
-Return as plain text (not JSON).`;
-
-    const response = await callOpenAI({
-      apiKey: openaiApiKey,
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.7,
-      maxTokens: 2000,
-    });
-
-    const draftContent = response.choices[0].message.content;
-
-    // Save draft to database
-    const { data: draft, error } = await supabase
-      .from('cover_letters')
-      .insert({
-        user_id: job.user_id,
-        job_description_id: jobDescriptionId,
-        template_id: job.input.templateId || null,
-        sections: [
-          {
-            id: 'draft-content',
-            type: 'generated',
-            content: draftContent,
-            order: 1,
-          }
-        ],
-        status: 'draft',
-      })
-      .select()
-      .single();
-
-    if (error) {
-      throw new Error(`Failed to save draft: ${error.message}`);
-    }
-
-    return {
-      draftId: draft.id,
-      content: draftContent,
-      wordCount: draftContent.split(/\s+/).length,
-    };
-  },
-};
+//
+// This stage has been removed per STREAMING_FINALIZATION Phase 1.
+// Draft generation now happens ONLY via generateDraft() in coverLetterDraftService.
+// This pipeline provides ONLY analysis: metrics, requirements, and gaps.
+//
+// Reason: The draftGenerationStage was creating malformed drafts with:
+// - Single section containing entire letter (wrong structure)
+// - No proper section types (intro/body/closing)
+// - No enhancedMatchData or gap analysis
+// - No template structure preservation
+//
+// The frontend will call both:
+// 1. createJob() -> streams analysis (this pipeline)
+// 2. generateDraft() -> produces proper draft with sections
+//
+// ============================================================================
 
 // ============================================================================
 // Main Pipeline Executor
@@ -307,12 +261,12 @@ export async function executeCoverLetterPipeline(
       throw new Error('OPENAI_API_KEY not configured');
     }
 
-    // Define pipeline stages
+    // Define pipeline stages (PHASE 1: Analysis only, no draft generation)
     const stages: PipelineStage[] = [
       basicMetricsStage,
       requirementAnalysisStage,
       sectionGapsStage,
-      draftGenerationStage,
+      // draftGenerationStage REMOVED - see Phase 1 comment above
     ];
 
     // Create pipeline context
@@ -329,9 +283,9 @@ export async function executeCoverLetterPipeline(
     const results = await executePipeline(stages, context);
     try { const { elog } = await import('../log.ts'); elog.info('[executeCoverLetterPipeline] Pipeline complete, results: ' + Object.keys(results).join(',')); } catch (_) {}
 
-  // Compile final result
+  // Compile final result (PHASE 1: Analysis only, no draftId)
   const finalResult = {
-    draftId: results.draftGeneration?.draftId || null,
+    // draftId removed - drafts are created by generateDraft(), not this pipeline
     metrics: [
       {
         key: 'ats',
@@ -375,6 +329,10 @@ export async function executeCoverLetterPipeline(
       },
     ],
     gapCount: results.sectionGaps?.totalGaps || 0,
+    // Include raw stage results for frontend to use (Phase 3 data priority rules)
+    basicMetrics: results.basicMetrics || null,
+    requirements: results.requirementAnalysis || null,
+    sectionGaps: results.sectionGaps || null,
   };
 
     // Save final result to job
@@ -387,15 +345,8 @@ export async function executeCoverLetterPipeline(
       })
       .eq('id', job.id);
 
-    // Update draft with final metrics (canonical source of truth)
-    if (finalResult.draftId) {
-      await supabase
-        .from('cover_letters')
-        .update({
-          metrics: finalResult.metrics,
-        })
-        .eq('id', finalResult.draftId);
-    }
+    // PHASE 1: No draft update - this pipeline doesn't create drafts
+    // Drafts are created by generateDraft() which has its own metrics
 
     // Mark telemetry as complete
     telemetry.complete(true);
