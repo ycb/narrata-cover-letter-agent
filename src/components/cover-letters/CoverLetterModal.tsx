@@ -1,4 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { 
+  buildEffectiveSectionGapMap, 
+  buildEffectiveGlobalGaps,
+  logEmptyGapDiagnostic,
+  type Gap,
+} from '@/utils/gaps';
 import {
   Dialog,
   DialogContent,
@@ -314,6 +320,22 @@ export const CoverLetterModal = ({
   // UNIFIED LOADING: Single showSkeleton flag
   // Shows skeleton from Generate click until draft ready
   const showSkeleton = hasDraftStarted && (isJobStreaming || isGeneratingDraft || !hasDraft);
+  
+  // CANONICAL GAP SYSTEM: Build merged gap store from streaming + draft
+  // This is the SINGLE SOURCE OF TRUTH for gaps (no more inconsistent fallbacks)
+  const effectiveSectionGaps = useMemo(() => {
+    const streamingGaps = jobState?.result?.sectionGaps;
+    const draftGaps = draft?.enhancedMatchData?.sectionGapInsights;
+    
+    // Diagnostic logging
+    logEmptyGapDiagnostic(streamingGaps, draftGaps);
+    
+    return buildEffectiveSectionGapMap(streamingGaps, draftGaps);
+  }, [jobState?.result?.sectionGaps, draft?.enhancedMatchData?.sectionGapInsights]);
+  
+  const effectiveGlobalGaps = useMemo(() => {
+    return buildEffectiveGlobalGaps(effectiveSectionGaps);
+  }, [effectiveSectionGaps]);
   const setDraft = mode === 'create' ? createModeHook.setDraft : setLocalDraft;
   const workpad = mode === 'create' ? createModeHook.workpad : null;
   const streamingSections = mode === 'create' ? createModeHook.streamingSections : {};
@@ -1457,6 +1479,8 @@ export const CoverLetterModal = ({
           isJobStreaming,
           isGeneratingDraft,
         }} // UNIFIED LOADING: State for banner label/chips
+        effectiveSectionGaps={effectiveSectionGaps} // CANONICAL GAPS: Merged streaming + draft
+        effectiveGlobalGaps={effectiveGlobalGaps} // CANONICAL GAPS: Flattened all gaps
         isPostHIL={false}
         metricsLoading={metricsLoading}
         generationError={generationError}

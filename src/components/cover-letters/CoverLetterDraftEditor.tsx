@@ -55,6 +55,10 @@ interface CoverLetterDraftEditorProps {
     isGeneratingDraft: boolean;
   };
   
+  // CANONICAL GAP SYSTEM: Single source of truth for gaps
+  effectiveSectionGaps?: Map<string, any[]>; // Map<sectionId, Gap[]>
+  effectiveGlobalGaps?: any[]; // Gap[] - flattened all gaps
+  
   // UI state
   isPostHIL?: boolean;
   metricsLoading?: boolean;
@@ -98,6 +102,8 @@ export function CoverLetterDraftEditor({
   showProgressBanner = false,
   progressPercent = 0,
   progressState,
+  effectiveSectionGaps,
+  effectiveGlobalGaps,
   isPostHIL = false,
   metricsLoading = false,
   generationError = null,
@@ -175,135 +181,43 @@ export function CoverLetterDraftEditor({
    * Phase 3 DATA PRIORITY: draft.enhancedMatchData → streaming → heuristic
    */
   const getSectionGapInsights = (sectionId: string, sectionSlug: string) => {
-    // AGENT D: Check for pending heuristic insight first (instant feedback)
-    const pendingInsight = pendingSectionInsights[sectionId];
+    // CANONICAL GAP SYSTEM: Single source of truth
+    // NO FALLBACKS - gaps either exist in effectiveSectionGaps or they don't
+    
+    // AGENT D: Check for pending heuristic insight first (instant feedback during loading)
+    const pendingInsight = pendingSectionInsights?.[sectionId];
+    
+    // If we're still loading and have pending insight, show it
+    if (isStreaming && pendingInsight) {
+      console.log(`[GAPS] Section ${sectionSlug}: agent-d (pending)`);
+      const gaps = pendingInsight.requirementGaps.map(gap => ({
+        id: gap.id,
+        title: gap.label,
+        description: `${gap.rationale} ${gap.recommendation}`,
+      }));
 
-    // Normalize section slug to match sectionGapInsights
-    const normalizeSlug = (slug: string) => {
-      const aliases: Record<string, string[]> = {
-        'introduction': ['introduction', 'intro', 'opening'],
-        'experience': ['experience', 'exp', 'background', 'body'],
-        'closing': ['closing', 'conclusion', 'signature'],
-        'signature': ['signature', 'closing', 'signoff'],
-      };
-
-      const lowerSlug = slug.toLowerCase();
-      for (const [canonical, variations] of Object.entries(aliases)) {
-        if (variations.includes(lowerSlug)) {
-          return variations;
-        }
-      }
-      return [lowerSlug];
-    };
-
-    // Phase 2: Use effectiveDraft instead of draft
-    // If no enhancedMatchData at all, we're likely still loading metrics
-    // Check if we have pending insight to show meanwhile
-    if (!effectiveDraft?.enhancedMatchData) {
-      if (pendingInsight) {
-        console.log(`[DraftEditor] gaps source for section ${sectionSlug}: agent-d (pending)`);
-        const gaps = pendingInsight.requirementGaps.map(gap => ({
-          id: gap.id,
-          title: gap.label,
-          description: `${gap.rationale} ${gap.recommendation}`,
-        }));
-
-        return {
-          promptSummary: pendingInsight.promptSummary || 'Quick analysis (calculating full metrics...)',
-          gaps,
-          isLoading: true, // Still loading LLM insights
-        };
-      }
-
-      console.log(`[DraftEditor] gaps source for section ${sectionSlug}: loading (no data yet)`);
       return {
-        promptSummary: null,
-        gaps: [],
+        promptSummary: pendingInsight.promptSummary || 'Quick analysis (calculating full metrics...)',
+        gaps,
         isLoading: true,
       };
     }
     
-    // PHASE 3: If no sectionGapInsights in draft (or empty array), try streaming results
-    // User requirement: Empty array should NOT block streaming fallback
-    // Only treat draft as authoritative if array has length > 0
-    const draftSectionGaps = effectiveDraft.enhancedMatchData.sectionGapInsights;
-    const hasDraftGaps = draftSectionGaps && Array.isArray(draftSectionGaps) && draftSectionGaps.length > 0;
+    // CANONICAL GAP SYSTEM: Get gaps from merged store
+    // This is the ONLY source of truth for finalized gaps
+    const sectionGaps = effectiveSectionGaps?.get(sectionId) || [];
     
-    if (!hasDraftGaps) {
-      // Try streaming results directly from jobState.result.sectionGaps
-      const streamingSectionGaps = streamingResult?.sectionGaps;
-      
-      if (streamingSectionGaps && Array.isArray(streamingSectionGaps)) {
-        // Map streaming gaps to this section
-        const streamingGaps = streamingSectionGaps.filter(
-          (g: any) => g.sectionId === sectionId || g.sectionSlug === sectionSlug
-        );
-        
-        if (streamingGaps.length > 0) {
-          console.log(`[DraftEditor] gaps source for section ${sectionSlug}: streaming (${streamingGaps.length} insights)`);
-          return {
-            promptSummary: streamingGaps[0]?.promptSummary || null,
-            gaps: streamingGaps.flatMap((insight: any) => 
-              (insight.requirementGaps || []).map((gap: any) => ({
-                id: gap.id,
-                title: gap.label || gap.title,
-                description: `${gap.rationale || ''} ${gap.recommendation || ''}`.trim(),
-              }))
-            ),
-            isLoading: false,
-          };
-        }
-      }
-      
-      // Final fallback: old heuristic from coreRequirementDetails
-      console.log(`[DraftEditor] gaps source for section ${sectionSlug}: heuristic (fallback)`);
-      const unmetCoreReqs = effectiveDraft.enhancedMatchData.coreRequirementDetails?.filter(
-        (req: any) => !req.demonstrated
-      ) || [];
-      const unmetPreferredReqs = effectiveDraft.enhancedMatchData.preferredRequirementDetails?.filter(
-        (req: any) => !req.demonstrated
-      ) || [];
-      const allGaps = [...unmetCoreReqs, ...unmetPreferredReqs];
-      
-      return {
-        promptSummary: null,
-        gaps: allGaps.map((req: any, index: number) => ({
-          id: req.id || `gap-${index}`,
-          title: req.requirement || 'Missing requirement',
-          description: req.evidence || 'Not addressed in draft',
-        })),
-        isLoading: false,
-      };
-    }
+    console.log(`[GAPS] Section ${sectionSlug} (${sectionId}): ${sectionGaps.length} gaps from canonical store`);
     
-    // PHASE 3: Draft has sectionGapInsights with length > 0 - use them (authoritative)
-    // Match by sectionId first (exact match), fallback to sectionSlug
-    let sectionInsight = draftSectionGaps.find(
-      insight => insight.sectionId === sectionId
-    );
-
-    // Fallback: if no exact ID match, try slug matching (for backward compatibility)
-    if (!sectionInsight) {
-      const normalizedSlugs = normalizeSlug(sectionSlug);
-      sectionInsight = draftSectionGaps.find(
-        insight => normalizedSlugs.includes(insight.sectionSlug?.toLowerCase())
-      );
-    }
-
-    if (!sectionInsight) {
-      console.log(`[DraftEditor] gaps source for section ${sectionSlug}: draft (no insight for this section)`);
-      return { promptSummary: null, gaps: [], isLoading: false };
-    }
-    
-    const gaps = sectionInsight.requirementGaps.map(gap => ({
+    // Transform to UI format
+    const gaps = sectionGaps.map((gap: any) => ({
       id: gap.id,
-      title: gap.label,
-      description: `${gap.rationale} ${gap.recommendation}`,
+      title: gap.label || gap.title || gap.requirement,
+      description: `${gap.rationale || gap.currentEvidence || ''} ${gap.recommendation || gap.suggestion || ''}`.trim(),
     }));
-    
-    console.log(`[DraftEditor] gaps source for section ${sectionSlug}: draft (${gaps.length} gaps)`);
+
     return {
-      promptSummary: sectionInsight.promptSummary,
+      promptSummary: null, // Could add if needed
       gaps,
       isLoading: false,
     };
