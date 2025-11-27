@@ -335,6 +335,49 @@ export const CoverLetterModal = ({
   const effectiveGlobalGaps = useMemo(() => {
     return buildEffectiveGlobalGaps(effectiveSectionGaps);
   }, [effectiveSectionGaps]);
+  
+  // EARLY METRICS DISPLAY: Use streaming data while draft generates
+  // Rule: draft overrides streaming ONLY when draft has real data (no empty override)
+  const effectiveMetrics = useMemo(() => {
+    // Draft metrics (preferred when available)
+    const draftMetrics = draft?.enhancedMatchData?.metrics;
+    if (draftMetrics && Array.isArray(draftMetrics) && draftMetrics.length > 0) {
+      console.log('[METRICS] Using draft metrics:', draftMetrics.length);
+      return draftMetrics;
+    }
+    
+    // Streaming metrics (early feedback)
+    const streamingMetrics = jobState?.result?.basicMetrics;
+    if (streamingMetrics && typeof streamingMetrics === 'object') {
+      console.log('[METRICS] Using streaming metrics:', Object.keys(streamingMetrics));
+      // Transform streaming format to match expected metrics array format
+      // Streaming returns: { atsScore, goalsAlignment, coreRequirementsMet, ... }
+      return [streamingMetrics]; // Wrap in array if toolbar expects array
+    }
+    
+    console.log('[METRICS] No metrics available yet');
+    return null;
+  }, [draft?.enhancedMatchData?.metrics, jobState?.result?.basicMetrics]);
+  
+  const effectiveRequirements = useMemo(() => {
+    // Draft requirements (preferred when available)
+    const draftReqs = draft?.enhancedMatchData?.coreRequirementDetails;
+    if (draftReqs && Array.isArray(draftReqs) && draftReqs.length > 0) {
+      console.log('[REQUIREMENTS] Using draft requirements:', draftReqs.length);
+      return draftReqs;
+    }
+    
+    // Streaming requirements (early feedback)
+    const streamingReqs = jobState?.result?.requirementAnalysis?.coreRequirements;
+    if (streamingReqs && Array.isArray(streamingReqs) && streamingReqs.length > 0) {
+      console.log('[REQUIREMENTS] Using streaming requirements:', streamingReqs.length);
+      // May need light mapping if shapes differ - check in practice
+      return streamingReqs;
+    }
+    
+    console.log('[REQUIREMENTS] No requirements available yet');
+    return null;
+  }, [draft?.enhancedMatchData?.coreRequirementDetails, jobState?.result?.requirementAnalysis]);
   const setDraft = mode === 'create' ? createModeHook.setDraft : setLocalDraft;
   const workpad = mode === 'create' ? createModeHook.workpad : null;
   const streamingSections = mode === 'create' ? createModeHook.streamingSections : {};
@@ -1348,11 +1391,18 @@ export const CoverLetterModal = ({
     
     console.log('[CoverLetterModal] Rendering DraftEditor with showSkeleton=', showSkeleton);
 
-    // Transform draft.metrics to MatchMetricsData format
-    let matchMetrics = transformMetricsToMatchData(draft?.metrics || []);
+    // EARLY METRICS DISPLAY: Transform effectiveMetrics to MatchMetricsData format
+    // Uses streaming data if draft not ready, draft data when available
+    let matchMetrics = transformMetricsToMatchData(
+      effectiveMetrics && Array.isArray(effectiveMetrics) 
+        ? effectiveMetrics 
+        : (effectiveMetrics ? [effectiveMetrics] : [])
+    );
 
-    // Calculate job-level totals for requirement denominators (fixes "2/0" display bug)
-    const totalCoreReqs = draft?.enhancedMatchData?.coreRequirementDetails?.length ?? 0;
+    // EARLY REQUIREMENTS DISPLAY: Calculate totals from effective requirements
+    // Uses streaming data if draft not ready, draft data when available
+    const totalCoreReqs = effectiveRequirements?.length ?? 
+                         draft?.enhancedMatchData?.coreRequirementDetails?.length ?? 0;
     const totalPrefReqs = draft?.enhancedMatchData?.preferredRequirementDetails?.length ?? 0;
     // Note: totalStandards is calculated per-section based on section type (intro/body/closing)
     
@@ -1410,29 +1460,28 @@ export const CoverLetterModal = ({
       matchMetrics.atsScore = draft.atsScore;
     }
 
-    // Phase 1: Use new CoverLetterDraftEditor component
-    // UNIFIED LOADING: Compute progress percentage (0-100)
-    // Analysis phase (0-50%): Based on streaming job stages
-    // Drafting phase (50-90%): After analysis complete, before draft ready
-    // Complete (100%): Both analysis and draft done
+    // WEIGHTED PROGRESS: Reflects real time (analysis ~30%, draft ~70%)
+    // Phase A (streaming analysis): 0% → 10% → 20% → 30% (fast, ~30s)
+    // Phase B (draft generation): 30% → 100% (slow, ~60-90s)
     let progressPercent = 0;
     
     if (hasAnalysis && hasDraft) {
       // Both complete
       progressPercent = 100;
     } else if (hasAnalysis && !hasDraft) {
-      // Analysis done, drafting in progress (show 50-90%)
-      progressPercent = 70; // Fixed at 70% for MVP (could add timer-based increment)
+      // Analysis done, drafting in progress
+      // Hold at 30% - in future could animate 30→95% with timer
+      progressPercent = 30;
     } else if (isJobStreaming) {
-      // Analysis in progress (map to 0-50%)
+      // Analysis in progress (weighted for real time)
       if (jobState?.stages?.sectionGaps) {
-        progressPercent = 50; // Analysis complete
+        progressPercent = 30; // Analysis complete (3rd stage done)
       } else if (jobState?.stages?.requirementAnalysis) {
-        progressPercent = 33;
+        progressPercent = 20; // 2nd stage done
       } else if (jobState?.stages?.basicMetrics) {
-        progressPercent = 16;
+        progressPercent = 10; // 1st stage done
       } else {
-        progressPercent = 5; // Just started
+        progressPercent = 0; // Just started
       }
     }
     
