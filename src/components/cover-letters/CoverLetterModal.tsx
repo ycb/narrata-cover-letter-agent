@@ -148,6 +148,9 @@ export const CoverLetterModal = ({
   // PROGRESS FIX: Track peak progress to prevent backwards movement during regeneration
   const [peakProgress, setPeakProgress] = useState(0);
   
+  // PROGRESS ANIMATION: Simulated progress during draft generation (30% → 95%)
+  const [animatedDraftProgress, setAnimatedDraftProgress] = useState(30);
+  
   // Set initial tab when modal opens based on mode
   useEffect(() => {
     if (isOpen) {
@@ -705,6 +708,33 @@ export const CoverLetterModal = ({
       setPeakProgress(0);
     }
   }, [draft, jobState, isJobStreaming, isGeneratingDraft, hasDraftStarted, peakProgress]);
+
+  // PROGRESS ANIMATION: Simulate progress during draft generation (30% → 95%)
+  // This provides visual feedback during the slow 60-90s draft generation phase
+  useEffect(() => {
+    if (!isGeneratingDraft) {
+      // Reset animation when not generating
+      setAnimatedDraftProgress(30);
+      return;
+    }
+    
+    // Start at 30% (analysis complete), animate to 95% (almost done)
+    let currentProgress = 30;
+    setAnimatedDraftProgress(30);
+    
+    // Increment progress every 2 seconds
+    // Total animation: 30% → 95% over ~65 seconds (typical draft time)
+    const interval = setInterval(() => {
+      currentProgress += 1; // +1% every 2s
+      if (currentProgress <= 95) {
+        setAnimatedDraftProgress(currentProgress);
+      } else {
+        clearInterval(interval); // Hold at 95% until draft completes
+      }
+    }, 2000);
+    
+    return () => clearInterval(interval);
+  }, [isGeneratingDraft]);
 
   const resetViewState = () => {
     setJobContent('');
@@ -1519,8 +1549,8 @@ export const CoverLetterModal = ({
       progressPercent = 100;
     } else if (hasAnalysis && !hasDraft) {
       // Analysis done, drafting in progress
-      // Hold at 30% - in future could animate 30→95% with timer
-      progressPercent = 30;
+      // Use animated progress (30% → 95%) to show activity during slow draft generation
+      progressPercent = animatedDraftProgress;
     } else if (isJobStreaming) {
       // Analysis in progress (weighted for real time)
       if (jobState?.stages?.sectionGaps) {
