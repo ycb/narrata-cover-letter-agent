@@ -282,6 +282,9 @@ export function useJobStream(
             progress: job.progress,
             currentStage: job.current_stage,
             resultKeys: Object.keys(job.result || {}),
+            resultFull: job.result, // Show FULL result object for debugging
+            hasMetrics: !!job.result?.metrics,
+            hasSectionGaps: !!job.result?.sectionGaps,
           });
           
           log.info('[useJobStream] Poll result summary:', {
