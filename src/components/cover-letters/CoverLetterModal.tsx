@@ -671,6 +671,41 @@ export const CoverLetterModal = ({
     };
   }, [jobContent, user?.id, preParsedContent, jobDescriptionService]);
 
+  // PROGRESS FIX: Update peak progress tracker (must be at top level, not in render)
+  useEffect(() => {
+    // Derive current progress from state flags
+    const hasDraft = !!draft;
+    const hasAnalysis = jobState?.status === 'complete';
+    const showSkeleton = hasDraftStarted && (isJobStreaming || isGeneratingDraft || !hasDraft);
+    
+    let currentProgress = 0;
+    if (hasAnalysis && hasDraft) {
+      currentProgress = 100;
+    } else if (hasAnalysis && !hasDraft) {
+      currentProgress = 30;
+    } else if (isJobStreaming) {
+      if (jobState?.stages?.sectionGaps) {
+        currentProgress = 30;
+      } else if (jobState?.stages?.requirementAnalysis) {
+        currentProgress = 20;
+      } else if (jobState?.stages?.basicMetrics) {
+        currentProgress = 10;
+      } else if (hasDraftStarted) {
+        currentProgress = 0;
+      }
+    }
+    
+    // Update peak if we've advanced
+    if (currentProgress > peakProgress) {
+      setPeakProgress(currentProgress);
+    }
+    
+    // Reset peak when generation completes
+    if (!showSkeleton && currentProgress === 100) {
+      setPeakProgress(0);
+    }
+  }, [draft, jobState, isJobStreaming, isGeneratingDraft, hasDraftStarted, peakProgress]);
+
   const resetViewState = () => {
     setJobContent('');
     setJobInputError(null);
@@ -1506,17 +1541,6 @@ export const CoverLetterModal = ({
     if (showSkeleton && progressPercent < peakProgress) {
       progressPercent = peakProgress; // Hold at peak during regeneration
     }
-    
-    // Update peak if we've advanced
-    useEffect(() => {
-      if (progressPercent > peakProgress) {
-        setPeakProgress(progressPercent);
-      }
-      // Reset peak when generation completes
-      if (!showSkeleton && progressPercent === 100) {
-        setPeakProgress(0);
-      }
-    }, [progressPercent, peakProgress, showSkeleton]);
     
     // UNIFIED LOADING: Diagnostic logging at top of render
     console.log('[CoverLetterModal] Render state:', {
