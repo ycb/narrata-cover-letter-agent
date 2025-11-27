@@ -91,6 +91,10 @@ function deduplicateGaps(gaps: Gap[]): Gap[] {
  * 3. Deduplicate by gap key
  * 4. Empty arrays don't override non-empty arrays
  * 
+ * CRITICAL: All gaps are keyed by template section.id ONLY.
+ * No slug/title matching. If gaps are missing, fix the backend to emit correct IDs.
+ * Backend must use template.sections[i].id when generating gaps.
+ * 
  * @param streamingGaps - Gap data from streaming pipeline
  * @param draftGaps - Gap data from draft enhancedMatchData
  * @returns Map of sectionId → deduplicated gaps

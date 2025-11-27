@@ -249,17 +249,9 @@ export function CoverLetterDraftEditor({
     }
     
     // CANONICAL GAP SYSTEM: Get gaps from merged store
-    // CRITICAL FIX: Handle ID mismatch between template (section-1-1) and gaps (section-1)
-    let sectionGaps = effectiveSectionGaps?.get(sectionId) || [];
-    
-    // If no exact match, try normalized ID (strip suffix like -1, -2, etc.)
-    if (sectionGaps.length === 0 && sectionId.match(/^section-\d+-\d+$/)) {
-      const normalizedId = sectionId.replace(/^(section-\d+)-\d+$/, '$1'); // section-1-1 → section-1
-      sectionGaps = effectiveSectionGaps?.get(normalizedId) || [];
-      if (sectionGaps.length > 0) {
-        console.log(`[GAPS] Section ${sectionSlug} (${sectionId}): Found ${sectionGaps.length} gaps using normalized ID ${normalizedId}`);
-      }
-    }
+    // sectionId must match template section.id exactly (backend uses canonical IDs).
+    // If gaps are missing, backend must be fixed to emit correct section IDs.
+    const sectionGaps = effectiveSectionGaps?.get(sectionId) || [];
     
     if (sectionGaps.length === 0) {
       console.log(`[GAPS] Section ${sectionSlug} (${sectionId}): 0 gaps from canonical store`);
