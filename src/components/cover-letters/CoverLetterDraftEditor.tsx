@@ -115,6 +115,17 @@ export function CoverLetterDraftEditor({
   // Phase 2: Effective draft = streaming draft OR prop draft OR null
   const effectiveDraft = draftFromStreaming ?? draft ?? null;
   
+  // Phase 3: DATA PRIORITY RULES for metrics and gaps
+  // 1. Metrics: draft.enhancedMatchData.metrics OR jobState.result.metrics (draft first)
+  // 2. Gaps: draft.enhancedMatchData.sectionGapInsights OR jobState.result.sectionGaps (draft first)
+  const effectiveMetrics = effectiveDraft?.enhancedMatchData?.metrics 
+    || streamingResult?.metrics 
+    || matchMetrics;
+  
+  const effectiveGaps = effectiveDraft?.enhancedMatchData?.sectionGapInsights 
+    || streamingResult?.sectionGaps 
+    || null;
+  
   // Phase 2: Sections to render - priority order
   // 1. If draft exists → use draft.sections (real content)
   // 2. Else if templateSections provided → use template structure (skeleton)
@@ -253,7 +264,7 @@ export function CoverLetterDraftEditor({
       {/* Left Sidebar - Toolbar */}
       <div className="bg-card flex-shrink-0">
         <MatchMetricsToolbar
-          metrics={matchMetrics}
+          metrics={effectiveMetrics} // Phase 3: Uses data priority rules
           isPostHIL={isPostHIL}
           isLoading={metricsLoading || isLoadingSection}
           enhancedMatchData={effectiveDraft?.enhancedMatchData}

@@ -409,35 +409,8 @@ export const CoverLetterModal = ({
     initializeEditMode();
   }, [mode, initialDraft, isOpen]);
 
-  // Auto-load draft when streaming job completes (create mode only)
-  useEffect(() => {
-    const loadGeneratedDraft = async () => {
-      if (mode === 'create' && jobState?.status === 'complete' && jobState?.result?.draftId) {
-        try {
-          const { data, error } = await supabase
-            .from('cover_letters')
-            .select('*')
-            .eq('id', jobState.result.draftId)
-            .single();
-          
-          if (error) {
-            console.error('[CoverLetterModal] Failed to load generated draft:', error);
-            return;
-          }
-          
-          if (data) {
-            // Set the draft in local state
-            // Note: DraftEditor has already shown streaming content, this just persists it
-            setLocalDraft(data);
-          }
-        } catch (err) {
-          console.error('[CoverLetterModal] Exception loading generated draft:', err);
-        }
-      }
-    };
-    
-    loadGeneratedDraft();
-  }, [mode, jobState?.status, jobState?.result?.draftId]);
+  // PHASE 3: Auto-load removed - draft is set directly in handleGenerateDraft
+  // No need to wait for streaming completion, generateDraft() already saves and returns the draft
 
   useEffect(() => {
     if (!isOpen) {
@@ -699,27 +672,45 @@ export const CoverLetterModal = ({
       setJobDescriptionRecord(record);
       setJobDescriptionId(record.id);
       
-      // Start streaming job instead of blocking generation
-      console.log('[CoverLetterModal] Starting streaming job with:', {
-        type: 'coverLetter',
-        input: {
+      // PHASE 3: Start BOTH streaming (analysis) and draft generation IN PARALLEL
+      console.log('[CoverLetterModal] Starting parallel operations:', {
+        streaming: { type: 'coverLetter', jobDescriptionId: record.id, templateId: selectedTemplateId },
+        draftGeneration: { userId: user.id, jobDescriptionId: record.id, templateId: selectedTemplateId },
+      });
+      
+      // No dependencies - both start immediately
+      const [streamingResult, draftResult] = await Promise.allSettled([
+        // 1. Streaming job (analysis: metrics, gaps, requirements)
+        createJob('coverLetter', {
           jobDescriptionId: record.id,
           templateId: selectedTemplateId,
-        },
-      });
-      console.log('[CoverLetterModal] Validation check:', {
-        hasRecordId: !!record.id,
-        recordId: record.id,
-        hasTemplateId: !!selectedTemplateId,
-        templateId: selectedTemplateId,
-      });
+        }),
+        // 2. Draft generation (proper sections, content, enhancedMatchData)
+        coverLetterDraftService.generateDraft({
+          userId: user.id,
+          templateId: selectedTemplateId,
+          jobDescriptionId: record.id,
+          onProgress: (stage, message) => {
+            console.log(`[generateDraft] ${stage}: ${message}`);
+          },
+        }),
+      ]);
       
-      await createJob('coverLetter', {
-        jobDescriptionId: record.id,
-        templateId: selectedTemplateId,
-      });
+      // Handle streaming result
+      if (streamingResult.status === 'fulfilled') {
+        console.log('[CoverLetterModal] Streaming job started successfully');
+      } else {
+        console.warn('[CoverLetterModal] Streaming job failed (non-blocking):', streamingResult.reason);
+      }
       
-      console.log('[CoverLetterModal] Streaming job started successfully');
+      // Handle draft generation result
+      if (draftResult.status === 'fulfilled') {
+        console.log('[CoverLetterModal] Draft generated successfully:', draftResult.value.draft.id);
+        setDraft(draftResult.value.draft);
+      } else {
+        console.error('[CoverLetterModal] Draft generation failed:', draftResult.reason);
+        throw new Error(`Failed to generate draft: ${draftResult.reason?.message || 'Unknown error'}`);
+      }
       
       // Switch to draft tab to show streaming progress
       // DraftEditor will handle the skeleton → streaming → final draft flow
