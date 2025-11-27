@@ -306,9 +306,14 @@ export const CoverLetterModal = ({
   // In create mode, use the hook. In edit mode, use local state.
   const draft = mode === 'create' ? createModeHook.draft : localDraft;
   
-  // UNIFIED SKELETON: Combined flag for "show skeleton" - true if any generation activity
-  // MUST be declared AFTER isJobStreaming, isGeneratingDraft, and draft
-  const generationActive = generationHasStarted && (isJobStreaming || isGeneratingDraft || !draft);
+  // UNIFIED LOADING: Derived flags per spec
+  const hasDraftStarted = generationHasStarted; // Alias for clarity
+  const hasDraft = !!draft;
+  const hasAnalysis = jobState?.status === 'complete' && !!jobState?.result;
+  
+  // UNIFIED LOADING: Single showSkeleton flag
+  // Shows skeleton from Generate click until draft ready
+  const showSkeleton = hasDraftStarted && (isJobStreaming || isGeneratingDraft || !hasDraft);
   const setDraft = mode === 'create' ? createModeHook.setDraft : setLocalDraft;
   const workpad = mode === 'create' ? createModeHook.workpad : null;
   const streamingSections = mode === 'create' ? createModeHook.streamingSections : {};
@@ -1307,11 +1312,10 @@ export const CoverLetterModal = ({
       );
     }
 
-    // UNIFIED SKELETON: Only show empty state if generation never started
-    // generationHasStarted is set true when user clicks Generate and persists
-    // Once true, we ALWAYS render DraftEditor (it handles skeleton vs content internally)
-    if (!generationHasStarted && !draft) {
-      console.log('[CoverLetterModal] Showing empty state (fresh modal, generation never started)');
+    // UNIFIED LOADING: Only show empty state if generation never started
+    // Once hasDraftStarted=true, we ALWAYS render DraftEditor (never blank state)
+    if (!hasDraftStarted && !hasDraft) {
+      console.log('[CoverLetterModal] Showing empty state (generation never started)');
       return (
         <Card className="border-dashed border-muted-foreground/30 bg-muted/20">
           <CardContent className="flex h-48 items-center justify-center text-sm text-muted-foreground">
@@ -1321,7 +1325,7 @@ export const CoverLetterModal = ({
       );
     }
     
-    console.log('[CoverLetterModal] Rendering DraftEditor (generation started or draft exists)');
+    console.log('[CoverLetterModal] Rendering DraftEditor with showSkeleton=', showSkeleton);
 
     // Transform draft.metrics to MatchMetricsData format
     let matchMetrics = transformMetricsToMatchData(draft?.metrics || []);
@@ -1386,67 +1390,48 @@ export const CoverLetterModal = ({
     }
 
     // Phase 1: Use new CoverLetterDraftEditor component
-    // PROBLEM 1 FIX: Compute progress from stages (jobState.progress is undefined)
-    // Rule: 0% pending, 33% basicMetrics, 66% requirementAnalysis, 100% sectionGaps or complete
-    let computedProgress = 0;
-    if (jobState?.status === 'complete') {
-      computedProgress = 100;
-    } else if (jobState?.stages?.sectionGaps) {
-      computedProgress = 100;
-    } else if (jobState?.stages?.requirementAnalysis) {
-      computedProgress = 66;
-    } else if (jobState?.stages?.basicMetrics) {
-      computedProgress = 33;
+    // UNIFIED LOADING: Compute progress percentage (0-100)
+    // Analysis phase (0-50%): Based on streaming job stages
+    // Drafting phase (50-90%): After analysis complete, before draft ready
+    // Complete (100%): Both analysis and draft done
+    let progressPercent = 0;
+    
+    if (hasAnalysis && hasDraft) {
+      // Both complete
+      progressPercent = 100;
+    } else if (hasAnalysis && !hasDraft) {
+      // Analysis done, drafting in progress (show 50-90%)
+      progressPercent = 70; // Fixed at 70% for MVP (could add timer-based increment)
+    } else if (isJobStreaming) {
+      // Analysis in progress (map to 0-50%)
+      if (jobState?.stages?.sectionGaps) {
+        progressPercent = 50; // Analysis complete
+      } else if (jobState?.stages?.requirementAnalysis) {
+        progressPercent = 33;
+      } else if (jobState?.stages?.basicMetrics) {
+        progressPercent = 16;
+      } else {
+        progressPercent = 5; // Just started
+      }
     }
     
-    // UNIFIED SKELETON: Diagnostic logging at top of render
+    // UNIFIED LOADING: Diagnostic logging at top of render
     console.log('[CoverLetterModal] Render state:', {
-      generationHasStarted,
-      generationActive,
-      hasDraft: !!draft,
-      jobStatus: jobState?.status,
+      hasDraftStarted,
+      showSkeleton,
+      hasDraft,
+      hasAnalysis,
       isJobStreaming,
       isGeneratingDraft,
-      computedProgress,
+      progressPercent,
+      jobStatus: jobState?.status,
       stageKeys: Object.keys(jobState?.stages || {}),
     });
     
     return (
       <>
-        {/* UNIFIED SKELETON: Progress banner - show during ENTIRE generation (streaming + draft) */}
-        {generationActive && (
-          <Alert className="mb-4 border-primary/20 bg-primary/5">
-            <AlertTitle className="flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              {isJobStreaming ? (
-                `Analyzing job fit… ${computedProgress}%`
-              ) : isGeneratingDraft ? (
-                'Drafting your cover letter…'
-              ) : (
-                'Finalizing…'
-              )}
-            </AlertTitle>
-            <AlertDescription>
-              {isJobStreaming && jobState ? (
-                <StageStepper 
-                  stages={[
-                    { key: 'basicMetrics', label: 'Analyzing metrics' },
-                    { key: 'requirementAnalysis', label: 'Extracting requirements' },
-                    { key: 'sectionGaps', label: 'Identifying gaps' },
-                    // 'draftGeneration' removed in Phase 1 - pipeline is analysis-only
-                  ]}
-                  statusByKey={jobState.stages || {}}
-                  percent={computedProgress}
-                />
-              ) : (
-                <div className="text-sm text-muted-foreground">
-                  This may take 60-90 seconds…
-                </div>
-              )}
-            </AlertDescription>
-          </Alert>
-        )}
-
+        {/* UNIFIED LOADING: Progress banner removed from here - now in DraftEditor */}
+        
         {/* Error handling */}
         {jobState?.status === 'error' && (
           <Alert variant="destructive" className="mb-4">
@@ -1462,14 +1447,16 @@ export const CoverLetterModal = ({
         draft={draft}
         jobDescription={normalizedJobDescription}
         matchMetrics={matchMetrics}
-        isStreaming={generationActive} // UNIFIED SKELETON: Show skeleton if any generation activity
-        jobState={jobState} // Phase 2: wired to streaming hook
-        templateSections={templateSections} // Phase 2: for skeleton structure
+        isStreaming={showSkeleton} // UNIFIED LOADING: Single flag for skeleton vs content
+        jobState={jobState}
+        templateSections={templateSections}
+        showProgressBanner={showSkeleton} // UNIFIED LOADING: Banner visibility
+        progressPercent={progressPercent} // UNIFIED LOADING: Progress 0-100
         progressState={{
-          jobState,
+          hasAnalysis,
           isJobStreaming,
           isGeneratingDraft,
-        }} // UNIFIED SKELETON: Pass all progress state for banner
+        }} // UNIFIED LOADING: State for banner label/chips
         isPostHIL={false}
         metricsLoading={metricsLoading}
         generationError={generationError}

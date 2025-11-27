@@ -1,6 +1,7 @@
 import React from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
+import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MatchMetricsToolbar } from './MatchMetricsToolbar';
 import { ContentCard } from '@/components/shared/ContentCard';
@@ -40,15 +41,19 @@ interface CoverLetterDraftEditorProps {
   jobDescription?: JobDescriptionRecord | null;
   matchMetrics: MatchMetricsData | null;
   
-  // Streaming props (Phase 2: now used for skeleton)
-  isStreaming?: boolean;
-  jobState?: any; // Will be typed properly in Phase 2
-  templateSections?: CoverLetterSection[]; // Phase 2: Template structure for skeleton
+  // UNIFIED LOADING: Streaming/skeleton props
+  isStreaming?: boolean; // Shows skeleton when true, content when false
+  jobState?: any;
+  templateSections?: CoverLetterSection[];
+  
+  // UNIFIED LOADING: Progress banner props
+  showProgressBanner?: boolean; // Banner visibility
+  progressPercent?: number; // 0-100 progress
   progressState?: {
-    jobState: any;
+    hasAnalysis: boolean;
     isJobStreaming: boolean;
     isGeneratingDraft: boolean;
-  }; // UNIFIED SKELETON: All progress state for banner
+  };
   
   // UI state
   isPostHIL?: boolean;
@@ -90,6 +95,9 @@ export function CoverLetterDraftEditor({
   isStreaming = false,
   jobState = null,
   templateSections = [],
+  showProgressBanner = false,
+  progressPercent = 0,
+  progressState,
   isPostHIL = false,
   metricsLoading = false,
   generationError = null,
@@ -385,6 +393,44 @@ export function CoverLetterDraftEditor({
               <AlertTitle>Cover letter generation issue</AlertTitle>
               <AlertDescription>
                 {generationError ?? jobInputError ?? 'Unable to generate cover letter.'}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* UNIFIED LOADING: Single progress banner for entire generation flow */}
+          {showProgressBanner && (
+            <Alert className="border-primary/20 bg-primary/5">
+              <AlertTitle className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Drafting your cover letter…
+              </AlertTitle>
+              <AlertDescription>
+                <div className="space-y-2">
+                  <div className="text-sm text-muted-foreground">
+                    This may take 60–90 seconds…
+                  </div>
+                  {/* Progress bar */}
+                  <div className="w-full bg-muted rounded-full h-2">
+                    <div 
+                      className="bg-primary h-2 rounded-full transition-all duration-500"
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+                  {/* Stage chips */}
+                  {progressState?.isJobStreaming && jobState?.stages && (
+                    <div className="flex gap-2 flex-wrap text-xs">
+                      <span className={jobState.stages.basicMetrics ? 'text-primary' : 'text-muted-foreground'}>
+                        ✓ Analyzing metrics
+                      </span>
+                      <span className={jobState.stages.requirementAnalysis ? 'text-primary' : 'text-muted-foreground'}>
+                        ✓ Extracting requirements
+                      </span>
+                      <span className={jobState.stages.sectionGaps ? 'text-primary' : 'text-muted-foreground'}>
+                        ✓ Identifying gaps
+                      </span>
+                    </div>
+                  )}
+                </div>
               </AlertDescription>
             </Alert>
           )}
