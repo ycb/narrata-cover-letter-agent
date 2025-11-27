@@ -652,11 +652,19 @@ export const CoverLetterModal = ({
       });
       
       // No dependencies - both start immediately
+      console.log('[CoverLetterModal] About to start Promise.allSettled with 2 operations');
+      
       const [streamingResult, draftResult] = await Promise.allSettled([
         // 1. Streaming job (analysis: metrics, gaps, requirements)
         createJob('coverLetter', {
           jobDescriptionId: record.id,
           templateId: selectedTemplateId,
+        }).then(result => {
+          console.log('[CoverLetterModal] createJob resolved:', result);
+          return result;
+        }).catch(err => {
+          console.error('[CoverLetterModal] createJob rejected:', err);
+          throw err;
         }),
         // 2. Draft generation (proper sections, content, enhancedMatchData)
         coverLetterDraftService.generateDraft({
@@ -666,8 +674,19 @@ export const CoverLetterModal = ({
           onProgress: (stage, message) => {
             console.log(`[generateDraft] ${stage}: ${message}`);
           },
+        }).then(result => {
+          console.log('[CoverLetterModal] generateDraft resolved with', result.draft.sections.length, 'sections');
+          return result;
+        }).catch(err => {
+          console.error('[CoverLetterModal] generateDraft rejected:', err);
+          throw err;
         }),
       ]);
+      
+      console.log('[CoverLetterModal] Promise.allSettled complete:', {
+        streamingStatus: streamingResult.status,
+        draftStatus: draftResult.status,
+      });
       
       // Handle streaming result
       if (streamingResult.status === 'fulfilled') {
@@ -678,7 +697,11 @@ export const CoverLetterModal = ({
       
       // Handle draft generation result
       if (draftResult.status === 'fulfilled') {
-        console.log('[CoverLetterModal] Draft generated successfully:', draftResult.value.draft.id);
+        console.log('[CoverLetterModal] Draft generated successfully:', {
+          draftId: draftResult.value.draft.id,
+          sectionCount: draftResult.value.draft.sections.length,
+          sectionTitles: draftResult.value.draft.sections.map((s: any) => s.title),
+        });
         setDraft(draftResult.value.draft);
       } else {
         console.error('[CoverLetterModal] Draft generation failed:', draftResult.reason);
