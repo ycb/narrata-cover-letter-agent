@@ -326,6 +326,10 @@ export const CoverLetterModal = ({
     const streamingGaps = jobState?.result?.sectionGaps;
     const draftGaps = draft?.enhancedMatchData?.sectionGapInsights;
     
+    // DIAGNOSTIC: Log actual structure
+    console.log('[GAPS DEBUG] Raw streaming gaps:', streamingGaps);
+    console.log('[GAPS DEBUG] Raw draft gaps:', draftGaps);
+    
     // Diagnostic logging
     logEmptyGapDiagnostic(streamingGaps, draftGaps);
     
@@ -347,17 +351,16 @@ export const CoverLetterModal = ({
     }
     
     // Streaming metrics (early feedback)
-    const streamingMetrics = jobState?.result?.basicMetrics;
-    if (streamingMetrics && typeof streamingMetrics === 'object') {
-      console.log('[METRICS] Using streaming metrics:', Object.keys(streamingMetrics));
-      // Transform streaming format to match expected metrics array format
-      // Streaming returns: { atsScore, goalsAlignment, coreRequirementsMet, ... }
-      return [streamingMetrics]; // Wrap in array if toolbar expects array
+    // Backend returns result.metrics (array) directly
+    const streamingMetrics = jobState?.result?.metrics;
+    if (streamingMetrics && Array.isArray(streamingMetrics) && streamingMetrics.length > 0) {
+      console.log('[METRICS] Using streaming metrics:', streamingMetrics.length);
+      return streamingMetrics;
     }
     
     console.log('[METRICS] No metrics available yet');
     return null;
-  }, [draft?.enhancedMatchData?.metrics, jobState?.result?.basicMetrics]);
+  }, [draft?.enhancedMatchData?.metrics, jobState?.result?.metrics]);
   
   const effectiveRequirements = useMemo(() => {
     // Draft requirements (preferred when available)
@@ -1553,7 +1556,7 @@ export const CoverLetterModal = ({
           console.log('Add metrics to section:', sectionId);
         }}
         onEditGoals={() => setShowGoalsModal(true)}
-        renderProgress={renderProgress}
+        renderProgress={undefined} // REMOVED: Using unified banner in DraftEditor instead
       />
       </>
     );
