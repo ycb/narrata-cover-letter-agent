@@ -145,6 +145,9 @@ export const CoverLetterModal = ({
   // UNIFIED SKELETON: Track if user has ever clicked Generate
   const [generationHasStarted, setGenerationHasStarted] = useState(false);
   
+  // PROGRESS FIX: Track peak progress to prevent backwards movement during regeneration
+  const [peakProgress, setPeakProgress] = useState(0);
+  
   // Set initial tab when modal opens based on mode
   useEffect(() => {
     if (isOpen) {
@@ -1473,7 +1476,7 @@ export const CoverLetterModal = ({
     // WEIGHTED PROGRESS: Reflects real time (analysis ~30%, draft ~70%)
     // Phase A (streaming analysis): 0% → 10% → 20% → 30% (fast, ~30s)
     // Phase B (draft generation): 30% → 100% (slow, ~60-90s)
-    // FIX: Ensure progress never decreases (prevent backwards movement)
+    // FIX: Ensure progress never decreases (prevent backwards movement during regeneration)
     let progressPercent = 0;
     
     if (hasAnalysis && hasDraft) {
@@ -1496,6 +1499,24 @@ export const CoverLetterModal = ({
       }
     }
     // If hasDraftStarted is false, keep progressPercent at 0 (don't show banner yet)
+    
+    // PROGRESS FIX: Never go backwards during same generation session
+    // On regenerate: old draft exists + new job starts → would reset to 0%
+    // Solution: Track peak and never go below it while skeleton is showing
+    if (showSkeleton && progressPercent < peakProgress) {
+      progressPercent = peakProgress; // Hold at peak during regeneration
+    }
+    
+    // Update peak if we've advanced
+    useEffect(() => {
+      if (progressPercent > peakProgress) {
+        setPeakProgress(progressPercent);
+      }
+      // Reset peak when generation completes
+      if (!showSkeleton && progressPercent === 100) {
+        setPeakProgress(0);
+      }
+    }, [progressPercent, peakProgress, showSkeleton]);
     
     // UNIFIED LOADING: Diagnostic logging at top of render
     console.log('[CoverLetterModal] Render state:', {
