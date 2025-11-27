@@ -291,6 +291,7 @@ export const CoverLetterModal = ({
 
   // Step 1: Initialize streaming hook (create mode only)
   const streamingHook = useCoverLetterJobStream({
+    autoStart: true, // CRITICAL: Enable auto-polling after createJob
     pollIntervalMs: 2000,
     timeout: 300000,
   });
