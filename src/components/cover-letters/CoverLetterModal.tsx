@@ -342,7 +342,9 @@ export const CoverLetterModal = ({
     // DIAGNOSTIC: Log actual structure
     console.log('[GAPS DEBUG] Raw streaming gaps:', streamingGaps,
       jobState?.stages?.sectionGaps?.data ? '(from stages)' : '(from result)');
+    console.log('[GAPS DEBUG] First streaming gap (if exists):', streamingGaps?.[0]);
     console.log('[GAPS DEBUG] Raw draft gaps:', draftGaps);
+    console.log('[GAPS DEBUG] First draft gap (if exists):', draftGaps?.[0]);
     
     // Diagnostic logging
     logEmptyGapDiagnostic(streamingGaps, draftGaps);
