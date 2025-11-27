@@ -144,8 +144,9 @@ export function CoverLetterDraftEditor({
         { id: 'closing-placeholder', title: 'Closing', type: 'closing', slug: 'closing', content: '' },
       ];
   
-  // Phase 2: Loading state = streaming AND no draft yet
-  const isLoadingSection = isStreaming && !effectiveDraft;
+  // Phase 3: Loading state = trust isStreaming prop from parent
+  // Parent combines isJobStreaming || isGeneratingDraft, so skeleton shows until BOTH complete
+  const isLoadingSection = isStreaming;
 
   // Calculate job-level totals for requirement denominators
   const totalCoreReqs = effectiveDraft?.enhancedMatchData?.coreRequirementDetails?.length ?? 0;
@@ -515,8 +516,8 @@ export function CoverLetterDraftEditor({
                     renderChildrenBeforeTags={true}
                     className={cn(hasGaps && 'border-warning')}
                   >
-                    {/* Phase 2: Only render textarea when not loading */}
-                    {!isLoadingSection && effectiveDraft && (
+                    {/* Phase 3: Render textarea when loading ends (skeleton handled by ContentCard isLoading prop) */}
+                    {!isLoadingSection && (
                       <div className="mb-6">
                         <Textarea
                           data-section-id={section.id}
