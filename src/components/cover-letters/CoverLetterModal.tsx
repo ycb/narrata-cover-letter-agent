@@ -312,35 +312,8 @@ export const CoverLetterModal = ({
   const generateDraft = mode === 'create' ? createModeHook.generateDraft : async () => {};
   
   // Step 2: Auto-load draft when streaming job completes
-  useEffect(() => {
-    if (mode !== 'create') return;
-    if (jobState?.status !== 'complete') return;
-    if (!jobState.result?.draftId) return;
-    if (draft?.id === jobState.result.draftId) return; // Already loaded
-
-    console.log('[CoverLetterModal] Job complete, loading draft:', jobState.result.draftId);
-    
-    const loadDraft = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('cover_letters')
-          .select('*')
-          .eq('id', jobState.result.draftId)
-          .single();
-
-        if (error) throw error;
-        if (data) {
-          console.log('[CoverLetterModal] Draft loaded successfully:', data.id);
-          setDraft(data as CoverLetterDraft);
-        }
-      } catch (error) {
-        console.error('[CoverLetterModal] Failed to load generated draft:', error);
-        setJobInputError('Draft generated but failed to load. Please refresh.');
-      }
-    };
-
-    loadDraft();
-  }, [jobState?.status, jobState?.result?.draftId, draft?.id, mode, setDraft]);
+  // PHASE 3: Removed - draft is set directly in handleGenerateDraft, not loaded from jobState
+  // jobState.result.draftId no longer exists after Phase 1 (pipeline is analysis-only)
   
   const updateSection = mode === 'create' ? createModeHook.updateSection : async (sectionId: string, content: string) => {
     // Edit mode: update section locally
