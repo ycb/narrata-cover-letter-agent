@@ -365,17 +365,25 @@ export const CoverLetterModal = ({
       return draftMetrics;
     }
     
-    // STREAMING FIX: Read from stages.basicMetrics.data (progressive) OR result.metrics (final)
-    // During streaming: jobState.stages.basicMetrics.data has live data
-    // After complete: jobState.result.metrics has final data
-    const streamingMetrics = 
-      jobState?.stages?.basicMetrics?.data?.metrics || // Progressive (during streaming)
-      jobState?.result?.metrics; // Final (when complete)
-      
-    if (streamingMetrics && Array.isArray(streamingMetrics) && streamingMetrics.length > 0) {
-      console.log('[METRICS] Using streaming metrics:', streamingMetrics.length, 
-        jobState?.stages?.basicMetrics?.data ? '(from stages)' : '(from result)');
-      return streamingMetrics;
+    // CRITICAL FIX: basicMetrics stage returns {atsScore, goalsMatch, experienceMatch}
+    // NOT a metrics[] array. The metrics array is only in jobState.result.metrics (after pipeline completes).
+    // So we need to BUILD the metrics array from individual scores during streaming.
+    
+    const basicMetricsData = jobState?.stages?.basicMetrics?.data;
+    if (basicMetricsData && (basicMetricsData.atsScore !== undefined || basicMetricsData.goalsMatch !== undefined)) {
+      console.log('[METRICS] Building metrics from basicMetrics stage data:', basicMetricsData);
+      return [
+        { key: 'ats', label: 'ATS Score', value: basicMetricsData.atsScore || 0, maxValue: 100 },
+        { key: 'goals', label: 'Goals Match', value: basicMetricsData.goalsMatch || 0, maxValue: 100 },
+        { key: 'experience', label: 'Experience Match', value: basicMetricsData.experienceMatch || 0, maxValue: 100 },
+      ];
+    }
+    
+    // Fallback to final metrics (after pipeline completes)
+    const finalMetrics = jobState?.result?.metrics;
+    if (finalMetrics && Array.isArray(finalMetrics) && finalMetrics.length > 0) {
+      console.log('[METRICS] Using final metrics (from result):', finalMetrics.length);
+      return finalMetrics;
     }
     
     // Only log "no metrics" on first render to reduce console spam
@@ -393,10 +401,11 @@ export const CoverLetterModal = ({
       return draftReqs;
     }
     
-    // STREAMING FIX: Read from stages.requirementAnalysis.data (progressive) OR result (final)
+    // STREAMING FIX: Read from stages.requirementAnalysis.data (progressive) OR result.requirements (final)
+    // requirementAnalysis stage returns {coreRequirements, preferredRequirements, ...}
     const streamingReqs = 
-      jobState?.stages?.requirementAnalysis?.data?.coreRequirements || // Progressive
-      jobState?.result?.requirementAnalysis?.coreRequirements; // Final
+      jobState?.stages?.requirementAnalysis?.data?.coreRequirements || // Progressive (during streaming)
+      jobState?.result?.requirements?.coreRequirements; // Final (jobState.result.requirements = requirementAnalysis object)
       
     if (streamingReqs && Array.isArray(streamingReqs) && streamingReqs.length > 0) {
       console.log('[REQUIREMENTS] Using streaming requirements:', streamingReqs.length,
