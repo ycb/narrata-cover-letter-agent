@@ -134,6 +134,8 @@ export const CoverLetterModal = ({
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   // Phase 3: Initial tab based on mode (create starts with JD, edit starts with draft)
   const [mainTab, setMainTab] = useState<'job-description' | 'cover-letter'>('cover-letter');
+  // Phase 3: Track draft generation separately from streaming
+  const [isGeneratingDraft, setIsGeneratingDraft] = useState(false);
   
   // Set initial tab when modal opens based on mode
   useEffect(() => {
@@ -647,6 +649,7 @@ export const CoverLetterModal = ({
       
       // PHASE 3: Switch to draft tab BEFORE starting operations (so skeleton shows immediately)
       setMainTab('cover-letter');
+      setIsGeneratingDraft(true); // Track draft generation state
       console.log('[CoverLetterModal] Switched to cover-letter tab, skeleton should now be visible');
       
       // PHASE 3: Start BOTH streaming (analysis) and draft generation IN PARALLEL
@@ -707,8 +710,10 @@ export const CoverLetterModal = ({
           sectionTitles: draftResult.value.draft.sections.map((s: any) => s.title),
         });
         setDraft(draftResult.value.draft);
+        setIsGeneratingDraft(false); // Draft generation complete
       } else {
         console.error('[CoverLetterModal] Draft generation failed:', draftResult.reason);
+        setIsGeneratingDraft(false); // Clear flag even on error
         throw new Error(`Failed to generate draft: ${draftResult.reason?.message || 'Unknown error'}`);
       }
       
@@ -721,6 +726,7 @@ export const CoverLetterModal = ({
       setJdStreamingMessages(prev => [...prev, `Error: ${message}`]);
     } finally {
       setIsParsingJobDescription(false);
+      setIsGeneratingDraft(false); // Ensure flag is cleared
     }
   };
 
@@ -1375,7 +1381,7 @@ export const CoverLetterModal = ({
         draft={draft}
         jobDescription={normalizedJobDescription}
         matchMetrics={matchMetrics}
-        isStreaming={isJobStreaming} // Phase 2: wired to streaming hook
+        isStreaming={isJobStreaming || isGeneratingDraft} // Phase 3: Show loading until BOTH complete
         jobState={jobState} // Phase 2: wired to streaming hook
         templateSections={templateSections} // Phase 2: for skeleton structure
         isPostHIL={false}
