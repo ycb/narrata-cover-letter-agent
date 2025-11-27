@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2 } from 'lucide-react';
@@ -141,8 +141,40 @@ export function CoverLetterDraftEditor({
     || streamingResult?.metrics 
     || matchMetrics;
   
-  // Phase 3: Gaps use priority chain inside getSectionGapInsights helper
-  // (We don't compute effectiveGaps globally - each section chooses its source)
+  // TOOLBAR FIX: Create synthetic enhancedMatchData with effective gaps
+  // The toolbar looks for enhancedMatchData.sectionGapInsights, but during streaming
+  // we only have effectiveGlobalGaps (not in enhancedMatchData yet)
+  const effectiveEnhancedMatchData = useMemo(() => {
+    const base = effectiveDraft?.enhancedMatchData || {};
+    
+    // If we have effectiveGlobalGaps but no sectionGapInsights, populate it
+    if (effectiveGlobalGaps && effectiveGlobalGaps.length > 0 && (!base.sectionGapInsights || base.sectionGapInsights.length === 0)) {
+      // Convert global gaps back to section insights format for toolbar
+      // Group gaps by sectionId
+      const gapsBySectionId = new Map<string, any[]>();
+      effectiveGlobalGaps.forEach(gap => {
+        const sectionId = gap.sectionId || 'unknown';
+        if (!gapsBySectionId.has(sectionId)) {
+          gapsBySectionId.set(sectionId, []);
+        }
+        gapsBySectionId.get(sectionId)!.push(gap);
+      });
+      
+      // Build sectionGapInsights array
+      const sectionGapInsights = Array.from(gapsBySectionId.entries()).map(([sectionId, gaps]) => ({
+        sectionId,
+        sectionSlug: gaps[0]?.sectionSlug || sectionId,
+        gaps,
+      }));
+      
+      return {
+        ...base,
+        sectionGapInsights,
+      };
+    }
+    
+    return base;
+  }, [effectiveDraft?.enhancedMatchData, effectiveGlobalGaps]);
   
   // Phase 2: Sections to render - priority order
   // 1. If draft exists → use draft.sections (real content)
@@ -244,7 +276,7 @@ export function CoverLetterDraftEditor({
           metrics={effectiveMetrics} // Phase 3: Uses data priority rules
           isPostHIL={isPostHIL}
           isLoading={metricsLoading || isLoadingSection}
-          enhancedMatchData={effectiveDraft?.enhancedMatchData}
+          enhancedMatchData={effectiveEnhancedMatchData} // TOOLBAR FIX: Includes effective gaps
           goNoGoAnalysis={undefined}
           jobDescription={jobDescription ?? undefined}
           sections={sectionsToRender.map(s => ({ id: s.id, type: s.type }))}
