@@ -1357,12 +1357,12 @@ export const CoverLetterModal = ({
     // Phase 1: Use new CoverLetterDraftEditor component
     return (
       <>
-        {/* Streaming progress banner */}
+        {/* Streaming progress banner - only show during streaming analysis */}
         {isJobStreaming && jobState && (
           <Alert className="mb-4 border-primary/20 bg-primary/5">
             <AlertTitle className="flex items-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Generating cover letter… {Math.round((jobState.progress || 0) * 100)}%
+              Analyzing job fit… {Math.round((jobState.progress || 0) * 100)}%
             </AlertTitle>
             <AlertDescription>
               <StageStepper 
@@ -1370,7 +1370,7 @@ export const CoverLetterModal = ({
                   { key: 'basicMetrics', label: 'Analyzing metrics' },
                   { key: 'requirementAnalysis', label: 'Extracting requirements' },
                   { key: 'sectionGaps', label: 'Identifying gaps' },
-                  { key: 'draftGeneration', label: 'Drafting letter' },
+                  // 'draftGeneration' removed in Phase 1 - pipeline is analysis-only
                 ]}
                 statusByKey={jobState.stages || {}}
                 percent={Math.round((jobState.progress || 0) * 100)}
