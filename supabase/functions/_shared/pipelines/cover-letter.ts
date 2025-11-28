@@ -177,34 +177,27 @@ const sectionGapsStage: PipelineStage = {
       template = data;
     }
 
-    // CANONICAL SECTION IDS: Create stable templateSections snapshot
-    // Frontend will match gaps by section.id ONLY (no slug/title matching).
-    // If sectionId doesn't match a template section ID, frontend will ignore the gap.
-    const templateSections = template?.sections?.map((s: any, index: number) => ({
-      id: s.id,
-      slug: s.slug || `section-${index}`,
-      title: s.title || `Section ${index + 1}`,
-      index,
-    })) || [];
+    // CANONICAL SECTION IDS: Only send section IDs to LLM (no slug to avoid confusion)
+    // Frontend will match gaps by section.id ONLY.
+    const templateSectionIds = template?.sections?.map((s: any) => s.id) || [];
 
     const prompt = `Analyze gaps for cover letter sections for this job.
 
 JOB DESCRIPTION:
 ${jd.raw_text || jd.content}
 
-TEMPLATE SECTIONS (YOU MUST USE THESE EXACT IDs):
-${JSON.stringify(templateSections, null, 2)}
+TEMPLATE SECTION IDs (YOU MUST USE THESE EXACT VALUES):
+${JSON.stringify(templateSectionIds, null, 2)}
 
-For each section in the template, identify gaps between what the job requires and what's typically included.
+For each section ID in the template, identify gaps between what the job requires and what's typically included.
 
-**CRITICAL**: You MUST use the EXACT "id" field from the template sections above. Do not invent new IDs.
+**CRITICAL**: You MUST use the EXACT section IDs from the list above. Do not invent new IDs.
 
 You MUST respond with ONLY a valid JSON object (no markdown, no explanation) with this exact structure:
 {
   "sections": [
     {
-      "sectionId": "<exact id from template sections>",
-      "sectionSlug": "<slug from template>",
+      "sectionId": "<exact id from the list above>",
       "requirementGaps": [
         {
           "id": "unique-gap-id",
@@ -219,7 +212,7 @@ You MUST respond with ONLY a valid JSON object (no markdown, no explanation) wit
   "totalGaps": number
 }
 
-Analyze ALL sections in the template. Focus on 1-3 gaps per section where applicable.`;
+Analyze ALL section IDs in the template. Focus on 1-3 gaps per section where applicable.`;
 
     const response = await callOpenAI({
       apiKey: openaiApiKey,
@@ -231,7 +224,7 @@ Analyze ALL sections in the template. Focus on 1-3 gaps per section where applic
     const result = parseJSONResponse(response.choices[0].message.content);
     
     // CANONICAL ID VALIDATION: Ensure all returned sectionIds match template
-    const validTemplateSectionIds = new Set(templateSections.map((s: any) => s.id));
+    const validTemplateSectionIds = new Set(templateSectionIds);
     const validatedSections = (result.sections || []).filter((section: any) => {
       if (!section.sectionId) {
         console.warn('[sectionGapsStage] Section missing sectionId, skipping');
