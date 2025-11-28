@@ -317,101 +317,31 @@ export const CoverLetterModal = ({
   // In create mode, use the hook. In edit mode, use local state.
   const draft = mode === 'create' ? createModeHook.draft : localDraft;
   
-  // UNIFIED LOADING: Derived flags per spec
-  const hasDraftStarted = generationHasStarted; // Alias for clarity
-  const hasDraft = !!draft;
-  // STREAMING FIX: hasAnalysis = true when ALL 3 analysis stages complete
-  // Check for sectionGaps stage (the last analysis stage) OR job status='complete'
-  const hasAnalysis = jobState?.status === 'complete' || 
-    !!jobState?.stages?.sectionGaps?.status; // Last stage (gaps) completed
+  // ============================================================================
+  // SKELETON VISIBILITY (DRAFT-ONLY, NO STREAMING INFLUENCE)
+  // ============================================================================
+  // showSkeleton = !draft || isGeneratingDraft
+  // jobState MUST NOT influence skeleton visibility
   
-  // UNIFIED LOADING: Single showSkeleton flag
-  // Shows skeleton from Generate click until draft ready
-  const showSkeleton = hasDraftStarted && (isJobStreaming || isGeneratingDraft || !hasDraft);
+  const showSkeleton = !draft || isGeneratingDraft;
   
-  // CANONICAL GAP SYSTEM: Build merged gap store from streaming + draft
-  // This is the SINGLE SOURCE OF TRUTH for gaps (no more inconsistent fallbacks)
-  const effectiveSectionGaps = useMemo(() => {
-    // STREAMING FIX: Read from stages.sectionGaps.data (progressive) OR result (final)
-    const streamingGaps = 
-      jobState?.stages?.sectionGaps?.data?.sections || // Progressive (during streaming)
-      jobState?.result?.sectionGaps; // Final (when complete)
-      
-    const draftGaps = draft?.enhancedMatchData?.sectionGapInsights;
-    
-    // DIAGNOSTIC: Log actual structure
-    console.log('[GAPS DEBUG] Raw streaming gaps:', streamingGaps,
-      jobState?.stages?.sectionGaps?.data ? '(from stages)' : '(from result)');
-    console.log('[GAPS DEBUG] First streaming gap (if exists):', streamingGaps?.[0]);
-    console.log('[GAPS DEBUG] Raw draft gaps:', draftGaps);
-    console.log('[GAPS DEBUG] First draft gap (if exists):', draftGaps?.[0]);
-    
-    // Diagnostic logging
-    logEmptyGapDiagnostic(streamingGaps, draftGaps);
-    
-    return buildEffectiveSectionGapMap(streamingGaps, draftGaps);
-  }, [jobState, draft?.enhancedMatchData?.sectionGapInsights]); // Watch whole jobState for stages updates
+  // ============================================================================
+  // DRAFT-ONLY DATA (NO STREAMING)
+  // ============================================================================
+  // Streaming is ONLY used for progress banner/bar, NOT for data display
   
-  const effectiveGlobalGaps = useMemo(() => {
-    return buildEffectiveGlobalGaps(effectiveSectionGaps);
-  }, [effectiveSectionGaps]);
+  // Metrics come ONLY from draft
+  const effectiveMetrics = draft?.enhancedMatchData?.metrics || [];
   
-  // EARLY METRICS DISPLAY: Use streaming data while draft generates
-  // Rule: draft overrides streaming ONLY when draft has real data (no empty override)
-  // FIX: Use stable dependencies (draft, jobState) to prevent flicker
-  const effectiveMetrics = useMemo(() => {
-    // Draft metrics (preferred when available)
-    const draftMetrics = draft?.enhancedMatchData?.metrics;
-    if (draftMetrics && Array.isArray(draftMetrics) && draftMetrics.length > 0) {
-      return draftMetrics;
-    }
-    
-    // REFINEMENT: Prefer final metrics when pipeline is complete (avoids value changes at end)
-    const finalMetrics = jobState?.result?.metrics;
-    if (finalMetrics && Array.isArray(finalMetrics) && finalMetrics.length > 0) {
-      return finalMetrics;
-    }
-    
-    // During streaming: Build metrics from basicMetrics stage data
-    // basicMetrics returns {atsScore, goalsMatch, experienceMatch}, not a metrics[] array
-    const basicMetricsData = jobState?.stages?.basicMetrics?.data;
-    if (basicMetricsData && (basicMetricsData.atsScore !== undefined || basicMetricsData.goalsMatch !== undefined)) {
-      return [
-        { key: 'ats', label: 'ATS Score', value: basicMetricsData.atsScore || 0, maxValue: 100 },
-        { key: 'goals', label: 'Goals Match', value: basicMetricsData.goalsMatch || 0, maxValue: 100 },
-        { key: 'experience', label: 'Experience Match', value: basicMetricsData.experienceMatch || 0, maxValue: 100 },
-      ];
-    }
-    
-    return []; // Empty array (not null) prevents transformMetricsToMatchData warnings
-  }, [draft, jobState]);
-  
-  const effectiveRequirements = useMemo(() => {
-    // Draft requirements (preferred when available)
-    const draftReqs = draft?.enhancedMatchData?.coreRequirementDetails;
-    if (draftReqs && Array.isArray(draftReqs) && draftReqs.length > 0) {
-      return draftReqs;
-    }
-    
-    // Streaming requirements: progressive from stages, final from result
-    // requirementAnalysis stage returns {coreRequirements, preferredRequirements, ...}
-    const streamingReqs = 
-      jobState?.stages?.requirementAnalysis?.data?.coreRequirements || // Progressive (during streaming)
-      jobState?.result?.requirements?.coreRequirements; // Final (jobState.result.requirements = requirementAnalysis object)
-      
-    if (streamingReqs && Array.isArray(streamingReqs) && streamingReqs.length > 0) {
-      return streamingReqs;
-    }
-    
-    return []; // Empty array prevents null checks downstream
-  }, [draft, jobState]);
+  // Requirements come ONLY from draft
+  const effectiveCoreRequirements = draft?.enhancedMatchData?.coreRequirementDetails || [];
+  const effectivePreferredRequirements = draft?.enhancedMatchData?.preferredRequirementDetails || [];
   const setDraft = mode === 'create' ? createModeHook.setDraft : setLocalDraft;
   const workpad = mode === 'create' ? createModeHook.workpad : null;
   const streamingSections = mode === 'create' ? createModeHook.streamingSections : {};
   const progress = mode === 'create' ? createModeHook.progress : 0;
   const isGenerating = mode === 'create' ? createModeHook.isGenerating : false;
   const metricsLoading = mode === 'create' ? createModeHook.metricsLoading : false;
-  const pendingSectionInsights = mode === 'create' ? createModeHook.pendingSectionInsights : {};
   const isMutating = mode === 'create' ? createModeHook.isMutating : isSaving;
   const isFinalizing = mode === 'create' ? createModeHook.isFinalizing : false;
   const generationError = mode === 'create' ? createModeHook.error : null;
@@ -578,13 +508,17 @@ export const CoverLetterModal = ({
       }
 
       // Normalize sections to expected format
+      // Use template section IDs directly (already canonical from DB)
       const sections = (data.sections || []).map((section: any, idx: number) => ({
-        id: section.id || `template-${idx}`,
+        id: section.id || `template-${idx}`, // Use DB ID directly
         title: section.title || section.slug || 'Section',
         slug: section.slug || `section-${idx}`,
         type: section.type || 'body',
         content: '', // Empty for skeleton
       }));
+
+      console.log('[CoverLetterModal] Template sections loaded:', 
+        sections.map(s => ({ id: s.id, title: s.title })));
 
       setTemplateSections(sections);
     };
@@ -686,27 +620,29 @@ export const CoverLetterModal = ({
   }, [jobContent, user?.id, preParsedContent, jobDescriptionService]);
 
   // PROGRESS FIX: Update peak progress tracker (must be at top level, not in render)
+  // Progress calculation for banner/bar (jobState for streaming stages only)
   useEffect(() => {
-    // Derive current progress from state flags
-    const hasDraft = !!draft;
-    const hasAnalysis = jobState?.status === 'complete';
-    const showSkeleton = hasDraftStarted && (isJobStreaming || isGeneratingDraft || !hasDraft);
-    
     let currentProgress = 0;
-    if (hasAnalysis && hasDraft) {
+    
+    // If draft exists, we're done
+    if (draft) {
       currentProgress = 100;
-    } else if (hasAnalysis && !hasDraft) {
-      currentProgress = 30;
-    } else if (isJobStreaming) {
+    }
+    // Else if streaming job active, track stages
+    else if (isJobStreaming) {
       if (jobState?.stages?.sectionGaps) {
-        currentProgress = 30;
+        currentProgress = 30; // All 3 stages complete
       } else if (jobState?.stages?.requirementAnalysis) {
         currentProgress = 20;
       } else if (jobState?.stages?.basicMetrics) {
         currentProgress = 10;
-      } else if (hasDraftStarted) {
+      } else {
         currentProgress = 0;
       }
+    }
+    // Else if generating draft (no streaming), hold at 30
+    else if (isGeneratingDraft) {
+      currentProgress = 30;
     }
     
     // Update peak if we've advanced
@@ -718,7 +654,7 @@ export const CoverLetterModal = ({
     if (!showSkeleton && currentProgress === 100) {
       setPeakProgress(0);
     }
-  }, [draft, jobState, isJobStreaming, isGeneratingDraft, hasDraftStarted, peakProgress]);
+  }, [draft, jobState, isJobStreaming, isGeneratingDraft, peakProgress, showSkeleton]);
 
   // PROGRESS ANIMATION: Simulate progress during draft generation (30% → 95%)
   // This provides visual feedback during the slow 60-90s draft generation phase
@@ -1465,10 +1401,9 @@ export const CoverLetterModal = ({
       );
     }
 
-    // UNIFIED LOADING: Only show empty state if generation never started
-    // Once hasDraftStarted=true, we ALWAYS render DraftEditor (never blank state)
-    if (!hasDraftStarted && !hasDraft) {
-      console.log('[CoverLetterModal] Showing empty state (generation never started)');
+    // Show empty state only if no draft and not generating
+    if (!draft && !showSkeleton) {
+      console.log('[CoverLetterModal] Showing empty state (no draft)');
       return (
         <Card className="border-dashed border-muted-foreground/30 bg-muted/20">
           <CardContent className="flex h-48 items-center justify-center text-sm text-muted-foreground">
@@ -1488,11 +1423,10 @@ export const CoverLetterModal = ({
         : (effectiveMetrics ? [effectiveMetrics] : [])
     );
 
-    // EARLY REQUIREMENTS DISPLAY: Calculate totals from effective requirements
-    // Uses streaming data if draft not ready, draft data when available
-    const totalCoreReqs = effectiveRequirements?.length ?? 
-                         draft?.enhancedMatchData?.coreRequirementDetails?.length ?? 0;
-    const totalPrefReqs = draft?.enhancedMatchData?.preferredRequirementDetails?.length ?? 0;
+    // PHASE 3: EARLY REQUIREMENTS DISPLAY - Always show counts from streaming or draft
+    // Toolbar must NEVER be blank - use streaming data immediately, override with draft when ready
+    const totalCoreReqs = effectiveCoreRequirements?.length ?? 0;
+    const totalPrefReqs = effectivePreferredRequirements?.length ?? 0;
     // Note: totalStandards is calculated per-section based on section type (intro/body/closing)
     
     // Extract rating criteria from llmFeedback
@@ -1549,32 +1483,25 @@ export const CoverLetterModal = ({
       matchMetrics.atsScore = draft.atsScore;
     }
 
-    // WEIGHTED PROGRESS: Reflects real time (analysis ~30%, draft ~70%)
-    // Phase A (streaming analysis): 0% → 10% → 20% → 30% (fast, ~30s)
-    // Phase B (draft generation): 30% → 100% (slow, ~60-90s)
-    // FIX: Ensure progress never decreases (prevent backwards movement during regeneration)
+    // Progress for banner/bar (ONLY jobState stages + draft, no analysis flag)
     let progressPercent = 0;
     
-    if (hasAnalysis && hasDraft) {
-      // Both complete
-      progressPercent = 100;
-    } else if (hasAnalysis && !hasDraft) {
-      // Analysis done, drafting in progress
-      // Use animated progress (30% → 95%) to show activity during slow draft generation
-      progressPercent = animatedDraftProgress;
+    if (draft) {
+      progressPercent = 100; // Draft complete
+    } else if (isGeneratingDraft) {
+      progressPercent = animatedDraftProgress; // Animated 30% → 95%
     } else if (isJobStreaming) {
-      // Analysis in progress (weighted for real time)
+      // Streaming stages (0% → 30%)
       if (jobState?.stages?.sectionGaps) {
-        progressPercent = 30; // Analysis complete (3rd stage done)
+        progressPercent = 30; // All stages complete
       } else if (jobState?.stages?.requirementAnalysis) {
-        progressPercent = 20; // 2nd stage done
+        progressPercent = 20;
       } else if (jobState?.stages?.basicMetrics) {
-        progressPercent = 10; // 1st stage done
-      } else if (hasDraftStarted) {
-        progressPercent = 0; // Just started (but only if generation has started)
+        progressPercent = 10;
+      } else {
+        progressPercent = 0;
       }
     }
-    // If hasDraftStarted is false, keep progressPercent at 0 (don't show banner yet)
     
     // PROGRESS FIX: Never go backwards during same generation session
     // On regenerate: old draft exists + new job starts → would reset to 0%
@@ -1583,12 +1510,10 @@ export const CoverLetterModal = ({
       progressPercent = peakProgress; // Hold at peak during regeneration
     }
     
-    // UNIFIED LOADING: Diagnostic logging at top of render
+    // Diagnostic logging at top of render
     console.log('[CoverLetterModal] Render state:', {
-      hasDraftStarted,
       showSkeleton,
-      hasDraft,
-      hasAnalysis,
+      hasDraft: !!draft,
       isJobStreaming,
       isGeneratingDraft,
       progressPercent,
@@ -1629,14 +1554,12 @@ export const CoverLetterModal = ({
         jobState={jobState}
         templateSections={templateSections}
         showProgressBanner={showSkeleton} // UNIFIED LOADING: Banner visibility
-        progressPercent={progressPercent} // UNIFIED LOADING: Progress 0-100
+        progressPercent={progressPercent} // Progress 0-100
         progressState={{
-          hasAnalysis,
+          hasAnalysis: !!draft, // Use draft existence (not jobState)
           isJobStreaming,
           isGeneratingDraft,
-        }} // UNIFIED LOADING: State for banner label/chips
-        effectiveSectionGaps={effectiveSectionGaps} // CANONICAL GAPS: Merged streaming + draft
-        effectiveGlobalGaps={effectiveGlobalGaps} // CANONICAL GAPS: Flattened all gaps
+        }} // State for banner label/chips
         isPostHIL={false}
         metricsLoading={metricsLoading}
         generationError={generationError}
@@ -1644,7 +1567,6 @@ export const CoverLetterModal = ({
         sectionDrafts={sectionDrafts}
         savingSections={savingSections}
         sectionFocusContent={sectionFocusContent}
-        pendingSectionInsights={pendingSectionInsights}
         onSectionChange={handleSectionChange}
         onSectionSave={handleSectionSave}
         onSectionFocus={handleSectionFocus}
@@ -1661,7 +1583,6 @@ export const CoverLetterModal = ({
           console.log('Add metrics to section:', sectionId);
         }}
         onEditGoals={() => setShowGoalsModal(true)}
-        renderProgress={undefined} // REMOVED: Using unified banner in DraftEditor instead
       />
       </>
     );

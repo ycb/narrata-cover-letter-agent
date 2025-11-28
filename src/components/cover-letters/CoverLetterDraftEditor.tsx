@@ -55,10 +55,6 @@ interface CoverLetterDraftEditorProps {
     isGeneratingDraft: boolean;
   };
   
-  // CANONICAL GAP SYSTEM: Single source of truth for gaps
-  effectiveSectionGaps?: Map<string, any[]>; // Map<sectionId, Gap[]>
-  effectiveGlobalGaps?: any[]; // Gap[] - flattened all gaps
-  
   // UI state
   isPostHIL?: boolean;
   metricsLoading?: boolean;
@@ -69,7 +65,6 @@ interface CoverLetterDraftEditorProps {
   sectionDrafts: Record<string, string>; // sectionId -> edited content
   savingSections: Record<string, boolean>; // sectionId -> isSaving
   sectionFocusContent: Record<string, string>; // sectionId -> content at focus time
-  pendingSectionInsights: Record<string, SectionGapInsight>; // Agent D: heuristic insights
   
   // Callbacks for section changes
   onSectionChange: (sectionId: string, newContent: string) => void;
@@ -87,9 +82,6 @@ interface CoverLetterDraftEditorProps {
   onEnhanceSection: (gapData: any) => void;
   onAddMetrics: (sectionId?: string) => void;
   onEditGoals: () => void;
-  
-  // Progress render (if parent wants to show progress card)
-  renderProgress?: () => React.ReactNode;
 }
 
 export function CoverLetterDraftEditor({
@@ -102,8 +94,6 @@ export function CoverLetterDraftEditor({
   showProgressBanner = false,
   progressPercent = 0,
   progressState,
-  effectiveSectionGaps,
-  effectiveGlobalGaps,
   isPostHIL = false,
   metricsLoading = false,
   generationError = null,
@@ -111,7 +101,6 @@ export function CoverLetterDraftEditor({
   sectionDrafts,
   savingSections,
   sectionFocusContent,
-  pendingSectionInsights,
   onSectionChange,
   onSectionSave,
   onSectionFocus,
@@ -123,86 +112,27 @@ export function CoverLetterDraftEditor({
   onEnhanceSection,
   onAddMetrics,
   onEditGoals,
-  renderProgress,
 }: CoverLetterDraftEditorProps) {
   
-  // Phase 2: Read streaming data from jobState.result
-  const streamingResult = jobState?.result as any;
-  const draftFromStreaming = streamingResult?.draft;
-  const hasDraftFromStreaming = !!draftFromStreaming && !!draftFromStreaming.sections?.length;
+  // ============================================================================
+  // DRAFT-ONLY DATA (NO STREAMING)
+  // ============================================================================
+  // Use draft directly (no streaming fallback, no mixing)
+  const effectiveEnhancedMatchData = draft?.enhancedMatchData || {};
   
-  // Phase 2: Effective draft = streaming draft OR prop draft OR null
-  const effectiveDraft = draftFromStreaming ?? draft ?? null;
-  
-  // Phase 3: DATA PRIORITY RULES for metrics and gaps
-  // 1. Metrics: draft.enhancedMatchData.metrics OR jobState.result.metrics (draft first)
-  // 2. Gaps: draft.enhancedMatchData.sectionGapInsights OR jobState.result.sectionGaps (draft first)
-  const effectiveMetrics = effectiveDraft?.enhancedMatchData?.metrics 
-    || streamingResult?.metrics 
-    || matchMetrics;
-  
-  // TOOLBAR FIX: Create synthetic enhancedMatchData with effective gaps
-  // The toolbar looks for enhancedMatchData.sectionGapInsights, but during streaming
-  // we only have effectiveGlobalGaps (not in enhancedMatchData yet)
-  const effectiveEnhancedMatchData = useMemo(() => {
-    const base = effectiveDraft?.enhancedMatchData || {};
-    
-    // TOOLBAR GAPS FIX: Always populate sectionGapInsights from effectiveGlobalGaps
-    // Don't wait for draft - streaming gaps should appear immediately
-    if (effectiveGlobalGaps && effectiveGlobalGaps.length > 0) {
-      // Convert global gaps back to section insights format for toolbar
-      // Group gaps by sectionId
-      const gapsBySectionId = new Map<string, any[]>();
-      effectiveGlobalGaps.forEach(gap => {
-        const sectionId = gap.sectionId || 'unknown';
-        if (!gapsBySectionId.has(sectionId)) {
-          gapsBySectionId.set(sectionId, []);
-        }
-        gapsBySectionId.get(sectionId)!.push(gap);
-      });
-      
-      // Build sectionGapInsights array
-      const sectionGapInsights = Array.from(gapsBySectionId.entries()).map(([sectionId, gaps]) => ({
-        sectionId,
-        sectionSlug: gaps[0]?.sectionSlug || sectionId,
-        gaps,
-      }));
-      
-      console.log('[TOOLBAR GAPS] Built sectionGapInsights from streaming:', {
-        gapCount: effectiveGlobalGaps.length,
-        sectionCount: sectionGapInsights.length,
-        sectionIds: sectionGapInsights.map(s => s.sectionId),
-      });
-      
-      return {
-        ...base,
-        sectionGapInsights,
-      };
-    }
-    
-    console.log('[TOOLBAR GAPS] No gaps to show:', {
-      hasEffectiveGlobalGaps: !!effectiveGlobalGaps,
-      gapCount: effectiveGlobalGaps?.length || 0,
-      hasBaseSectionGapInsights: !!base.sectionGapInsights,
-    });
-    
-    return base;
-  }, [effectiveDraft?.enhancedMatchData, effectiveGlobalGaps]);
-  
-  // Phase 2: Sections to render - priority order
+  // Sections to render - priority order
   // 1. If draft exists → use draft.sections (real content)
   // 2. Else if templateSections provided → use template structure (skeleton)
-  // 3. Else → fallback to hardcoded placeholders (should rarely happen)
-  const sectionsToRender = effectiveDraft?.sections && effectiveDraft.sections.length > 0
-    ? effectiveDraft.sections
+  // 3. Else → fallback to hardcoded placeholders
+  const sectionsToRender = draft?.sections && draft.sections.length > 0
+    ? draft.sections
     : templateSections.length > 0
     ? templateSections.map((section, idx) => ({
         ...section,
         id: section.id || `skeleton-${idx}`,
-        content: '', // Empty content for skeleton
+        content: '',
       }))
     : [
-        // Fallback (should not be reached if Modal passes templateSections)
         { id: 'intro-placeholder', title: 'Introduction', type: 'intro', slug: 'intro', content: '' },
         { id: 'body-placeholder', title: 'Experience', type: 'body', slug: 'experience', content: '' },
         { id: 'closing-placeholder', title: 'Closing', type: 'closing', slug: 'closing', content: '' },
@@ -214,60 +144,43 @@ export function CoverLetterDraftEditor({
   const isLoadingSection = isStreaming;
 
   // Calculate job-level totals for requirement denominators
-  const totalCoreReqs = effectiveDraft?.enhancedMatchData?.coreRequirementDetails?.length ?? 0;
-  const totalPrefReqs = effectiveDraft?.preferredRequirementDetails?.length ?? 0;
+  const totalCoreReqs = draft?.enhancedMatchData?.coreRequirementDetails?.length ?? 0;
+  const totalPrefReqs = draft?.enhancedMatchData?.preferredRequirementDetails?.length ?? 0;
 
-  // Extract content standards from effective draft
-  const contentStandards = effectiveDraft?.llmFeedback?.contentStandards as any;
+  // Extract content standards from draft
+  const contentStandards = draft?.llmFeedback?.contentStandards as any;
 
   /**
-   * Helper: Get section-specific gap insights
-   * Agent D: Checks pendingSectionInsights for instant feedback
-   * Phase 3 DATA PRIORITY: draft.enhancedMatchData → streaming → heuristic
+   * DRAFT-ONLY GAP MATCHING
+   * Get gaps for a section from draft.enhancedMatchData.sectionGapInsights
+   * Match by section.id (preferred), fallback to slug/title for legacy drafts
    */
   const getSectionGapInsights = (sectionId: string, sectionSlug: string) => {
-    // CANONICAL GAP SYSTEM: Single source of truth
-    // NO FALLBACKS - gaps either exist in effectiveSectionGaps or they don't
+    // Get all gap insights from draft (ONLY source)
+    const allInsights = draft?.enhancedMatchData?.sectionGapInsights || [];
     
-    // AGENT D: Check for pending heuristic insight first (instant feedback during loading)
-    const pendingInsight = pendingSectionInsights?.[sectionId];
+    // Match by section.id first (preferred)
+    let sectionInsight = allInsights.find((insight: any) => insight.sectionId === sectionId);
     
-    // If we're still loading and have pending insight, show it
-    if (isStreaming && pendingInsight) {
-      console.log(`[GAPS] Section ${sectionSlug}: agent-d (pending)`);
-      const gaps = pendingInsight.requirementGaps.map(gap => ({
-        id: gap.id,
-        title: gap.label,
-        description: `${gap.rationale} ${gap.recommendation}`,
-      }));
-
-      return {
-        promptSummary: pendingInsight.promptSummary || 'Quick analysis (calculating full metrics...)',
-        gaps,
-        isLoading: true,
-      };
+    // Fallback: match by slug or title for legacy drafts (temporary compatibility)
+    if (!sectionInsight) {
+      sectionInsight = allInsights.find((insight: any) => 
+        insight.sectionSlug === sectionSlug || 
+        insight.sectionSlug === sectionId.split('-')[0] // e.g., "intro-1" → "intro"
+      );
     }
     
-    // CANONICAL GAP SYSTEM: Get gaps from merged store
-    // sectionId must match template section.id exactly (backend uses canonical IDs).
-    // If gaps are missing, backend must be fixed to emit correct section IDs.
-    const sectionGaps = effectiveSectionGaps?.get(sectionId) || [];
-    
-    if (sectionGaps.length === 0) {
-      console.log(`[GAPS] Section ${sectionSlug} (${sectionId}): 0 gaps from canonical store`);
-    } else {
-      console.log(`[GAPS] Section ${sectionSlug} (${sectionId}): ${sectionGaps.length} gaps from canonical store`);
-    }
+    const requirementGaps = sectionInsight?.requirementGaps || [];
     
     // Transform to UI format
-    const gaps = sectionGaps.map((gap: any) => ({
+    const gaps = requirementGaps.map((gap: any) => ({
       id: gap.id,
       title: gap.label || gap.title || gap.requirement,
       description: `${gap.rationale || gap.currentEvidence || ''} ${gap.recommendation || gap.suggestion || ''}`.trim(),
     }));
 
     return {
-      promptSummary: null, // Could add if needed
+      promptSummary: sectionInsight?.promptSummary || null,
       gaps,
       isLoading: false,
     };
@@ -278,10 +191,10 @@ export function CoverLetterDraftEditor({
       {/* Left Sidebar - Toolbar */}
       <div className="bg-card flex-shrink-0">
         <MatchMetricsToolbar
-          metrics={effectiveMetrics} // Phase 3: Uses data priority rules
+          metrics={matchMetrics} // Draft-only metrics
           isPostHIL={isPostHIL}
           isLoading={metricsLoading || isLoadingSection}
-          enhancedMatchData={effectiveEnhancedMatchData} // TOOLBAR FIX: Includes effective gaps
+          enhancedMatchData={effectiveEnhancedMatchData} // Draft-only enhanced data
           goNoGoAnalysis={undefined}
           jobDescription={jobDescription ?? undefined}
           sections={(() => {
@@ -298,7 +211,7 @@ export function CoverLetterDraftEditor({
           onEditGoals={onEditGoals}
           onEnhanceSection={(sectionId, requirement, ratingCriteria) => {
             // Open section enhancement flow with rating criteria if provided
-            const section = effectiveDraft?.sections.find(s => s.id === sectionId);
+            const section = draft?.sections.find(s => s.id === sectionId);
             if (section) {
               const existingContent = sectionDrafts[sectionId] ?? section.content ?? '';
               const paragraphIdMap: Record<string, string> = {
@@ -312,8 +225,8 @@ export function CoverLetterDraftEditor({
               };
               const paragraphId = paragraphIdMap[section.type] || paragraphIdMap[section.slug] || 'experience';
               
-              // Phase 2: Get requirement gaps from effectiveDraft
-              const sectionInsight = effectiveDraft?.enhancedMatchData?.sectionGapInsights?.find(
+              // Get requirement gaps from draft
+              const sectionInsight = draft?.enhancedMatchData?.sectionGapInsights?.find(
                 (insight: any) => insight.sectionId === sectionId || insight.sectionSlug === section.slug || insight.sectionSlug === section.type
               );
               const requirementGaps = sectionInsight?.requirementGaps?.map((gap: any) => ({
@@ -409,9 +322,6 @@ export function CoverLetterDraftEditor({
             </Alert>
           )}
 
-          {/* Show progress card at top when metrics are loading */}
-          {renderProgress && renderProgress()}
-
           <div className="space-y-4">
             {/* Add Section button at the top */}
             {!isLoadingSection && <SectionInsertButton onClick={() => onInsertBetweenSections(0)} />}
@@ -427,12 +337,12 @@ export function CoverLetterDraftEditor({
               // Strip trailing periods from gap summary for cover letters
               const cleanGapSummary = promptSummary ? promptSummary.replace(/\.+$/, '') : null;
 
-              // Phase 2: Compute section-level attribution (safe during skeleton state)
-              const hasAttributionData = effectiveDraft?.enhancedMatchData != null || contentStandards != null || (matchMetrics?.ratingCriteria && matchMetrics.ratingCriteria.length > 0);
+              // Compute section-level attribution from draft
+              const hasAttributionData = draft?.enhancedMatchData != null || contentStandards != null || (matchMetrics?.ratingCriteria && matchMetrics.ratingCriteria.length > 0);
               const { attribution: sectionAttribution } = computeSectionAttribution({
                 sectionId: section.id,
                 sectionType: section.slug || section.type,
-                enhancedMatchData: effectiveDraft?.enhancedMatchData,
+                enhancedMatchData: draft?.enhancedMatchData,
                 ratingCriteria: matchMetrics?.ratingCriteria,
                 contentStandards: contentStandards || null,
               });
@@ -558,7 +468,7 @@ export function CoverLetterDraftEditor({
                           onChange={event => onSectionChange(section.id, event.target.value)}
                           onBlur={async (event) => {
                             const newContent = event.target.value;
-                            await onSectionBlur(section.id, newContent, jobDescription, null, effectiveDraft);
+                            await onSectionBlur(section.id, newContent, jobDescription, null, draft);
                           }}
                           ref={(textarea) => {
                             if (textarea) {
