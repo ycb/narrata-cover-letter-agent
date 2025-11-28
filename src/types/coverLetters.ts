@@ -436,3 +436,38 @@ export interface ContentStandardsAnalysis {
   };
 }
 
+// ============================================================================
+// W10: Draft Readiness Metric Types
+// ============================================================================
+
+export type DraftReadinessRating = 'weak' | 'adequate' | 'strong' | 'exceptional';
+
+export type ReadinessDimensionStrength = 'strong' | 'sufficient' | 'insufficient';
+
+export interface DraftReadinessScoreBreakdown {
+  clarityStructure: ReadinessDimensionStrength;
+  opening: ReadinessDimensionStrength;
+  companyAlignment: ReadinessDimensionStrength;
+  roleAlignment: ReadinessDimensionStrength;
+  specificExamples: ReadinessDimensionStrength;
+  quantifiedImpact: ReadinessDimensionStrength;
+  personalization: ReadinessDimensionStrength;
+  writingQuality: ReadinessDimensionStrength;
+  lengthEfficiency: ReadinessDimensionStrength;
+  executiveMaturity: ReadinessDimensionStrength;
+}
+
+export interface DraftReadinessFeedback {
+  summary: string; // ≤140 chars per spec
+  improvements: string[]; // max 3
+}
+
+export interface DraftReadinessEvaluation {
+  rating: DraftReadinessRating;
+  scoreBreakdown: DraftReadinessScoreBreakdown;
+  feedback: DraftReadinessFeedback;
+  evaluatedAt?: string; // ISO timestamp
+  ttlExpiresAt?: string; // ISO timestamp
+  metadata?: Record<string, unknown>;
+}
+

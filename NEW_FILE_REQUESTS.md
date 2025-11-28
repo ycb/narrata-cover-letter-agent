@@ -52,3 +52,7 @@
 
 - `src/lib/__tests__/jobDescriptionCleaning.test.ts`: Checked `src/lib/__tests__` for coverage of text cleaning and found none. Created comprehensive test suite with 34 test cases covering: basic functionality, exact/startsWith/regex pattern matching, platform-specific cleaning (all 8 platforms), confidence calculation, edge cases (unicode, whitespace, long lines), and real-world job posting scenarios.
 
+## 2025-11-28
+
+- `supabase/functions/_shared/readiness.ts`: Searched `_shared` utilities (`rg readiness`, inspected `pipeline-utils.ts`, `pm-levels.ts`) and confirmed there was no helper responsible for loading draft text + JD context or for schema-validating readiness verdicts. Added a dedicated module that composes existing pipeline helpers (`streamJsonFromLLM`) to (1) load/guard draft context, (2) expose the readiness Zod schema, and (3) wrap the JSON-LLM call so multiple Edge Functions can share the same implementation.
+

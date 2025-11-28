@@ -16,9 +16,12 @@ import {
   type MatchJobDescription,
   type RequirementDisplayItem,
 } from './useMatchMetricsDetails';
-import type { EnhancedMatchData } from '@/types/coverLetters';
+import type { EnhancedMatchData, DraftReadinessEvaluation } from '@/types/coverLetters';
+import type { APhaseInsights } from '@/types/jobs';
+import { CoverLetterDraftService } from '@/services/coverLetterDraftService';
+import { isDraftReadinessEnabled } from '@/lib/flags';
 
-type MetricKey = 'gaps' | 'goals' | 'core' | 'preferred' | 'rating' | 'ats';
+type MetricKey = 'gaps' | 'goals' | 'core' | 'preferred' | 'rating' | 'ats' | 'a-phase' | 'readiness';
 
 interface MatchMetricsToolbarProps {
   metrics: MatchMetricsData;
@@ -29,6 +32,9 @@ interface MatchMetricsToolbarProps {
   jobDescription?: MatchJobDescription;
   enhancedMatchData?: EnhancedMatchData;
   sections?: Array<{ id: string; type: string; title?: string }>;
+  aPhaseInsights?: APhaseInsights; // Task 7: A-phase streaming insights
+  draftId?: string;
+  draftUpdatedAt?: string;
   onEditGoals?: () => void;
   onEnhanceSection?: (sectionId: string, requirement?: string, ratingCriteria?: Array<{
     id: string;
@@ -57,10 +63,69 @@ export function MatchMetricsToolbar({
   jobDescription,
   enhancedMatchData,
   sections = [],
+  aPhaseInsights,
   onEditGoals,
   onEnhanceSection,
   onAddMetrics,
+  draftId,
+  draftUpdatedAt,
 }: MatchMetricsToolbarProps) {
+  const ENABLE_DRAFT_READINESS = isDraftReadinessEnabled();
+  const [readiness, setReadiness] = useState<DraftReadinessEvaluation | null>(null);
+  const [isReadinessLoading, setIsReadinessLoading] = useState(false);
+  const [ttlTimerId, setTtlTimerId] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadReadiness() {
+      if (!ENABLE_DRAFT_READINESS) return;
+      if (!draftId) return;
+      if (!isPostHIL) return;
+      setIsReadinessLoading(true);
+      try {
+        const service = new CoverLetterDraftService();
+        const result = await service.getReadinessEvaluation(draftId);
+        if (!cancelled) {
+          setReadiness(result);
+        }
+      } catch {
+        if (!cancelled) setReadiness(null);
+      } finally {
+        if (!cancelled) setIsReadinessLoading(false);
+      }
+    }
+    loadReadiness();
+    return () => {
+      cancelled = true;
+    };
+  }, [draftId, isPostHIL, ENABLE_DRAFT_READINESS, draftUpdatedAt]);
+
+  // Schedule auto-refresh on TTL expiry
+  useEffect(() => {
+    // Clear previous timer
+    if (ttlTimerId) {
+      clearTimeout(ttlTimerId);
+      setTtlTimerId(null);
+    }
+    if (!ENABLE_DRAFT_READINESS || !readiness?.ttlExpiresAt || !draftId || !isPostHIL) {
+      return;
+    }
+    const now = Date.now();
+    const ttlMs = new Date(readiness.ttlExpiresAt).getTime() - now;
+    const delay = Math.max(1000, ttlMs); // at least 1s
+    const id = window.setTimeout(() => {
+      // trigger by updating a local state to re-run the fetch effect via draftUpdatedAt fallback
+      setIsReadinessLoading(true);
+      const service = new CoverLetterDraftService();
+      service.getReadinessEvaluation(draftId).then(setReadiness).finally(() => {
+        setIsReadinessLoading(false);
+      });
+    }, delay);
+    setTtlTimerId(id);
+    return () => {
+      clearTimeout(id);
+    };
+  }, [readiness?.ttlExpiresAt, draftId, isPostHIL, ENABLE_DRAFT_READINESS]);
   const { goalMatches, goalsSummary, coreRequirements, preferredRequirements } = useMatchMetricsDetails({
     jobDescription,
     enhancedMatchData,
@@ -271,8 +336,49 @@ export function MatchMetricsToolbar({
       // }
     );
     
+    // Add A-phase insights accordion if data is present
+    if (aPhaseInsights && !isLoading) {
+      const { stageFlags } = aPhaseInsights;
+      const hasAnyInsights = stageFlags.hasRoleInsights || 
+                              stageFlags.hasMws || 
+                              stageFlags.hasCompanyContext || 
+                              stageFlags.hasJdRequirementSummary;
+      
+      if (hasAnyInsights) {
+        items.push({
+          key: 'a-phase',
+          label: 'Analysis Insights',
+          value: '⋮', // Three dots to indicate expandable content
+          badgeClass: 'border-muted bg-muted/10 text-muted-foreground',
+          disabled: false,
+        });
+      }
+    }
+    
+    // W10: Readiness accordion
+    if (ENABLE_DRAFT_READINESS && isPostHIL && (readiness || isReadinessLoading)) {
+      const label = readiness?.rating
+        ? readiness.rating.charAt(0).toUpperCase() + readiness.rating.slice(1)
+        : '—';
+      const badgeClass =
+        readiness?.rating === 'exceptional'
+          ? 'border-success bg-success/10 text-success'
+          : readiness?.rating === 'strong'
+          ? 'border-primary bg-primary/10 text-primary'
+          : readiness?.rating === 'adequate'
+          ? 'border-warning bg-warning/10 text-warning'
+          : 'border-muted bg-muted/10 text-muted-foreground';
+      items.push({
+        key: 'readiness',
+        label: 'Readiness',
+        value: isReadinessLoading ? '' : label,
+        badgeClass,
+        disabled: isReadinessLoading,
+      });
+    }
+
     return items;
-  }, [coreRequirements.summary, goalsSummary, gapsCount, isLoading, metrics.atsScore, metrics.overallScore, metrics.goalsMatchScore, preferredRequirements.summary, isPostHIL]);
+  }, [coreRequirements.summary, goalsSummary, gapsCount, isLoading, metrics.atsScore, metrics.overallScore, metrics.goalsMatchScore, preferredRequirements.summary, isPostHIL, readiness, isReadinessLoading, ENABLE_DRAFT_READINESS]);
 
   const [activeMetric, setActiveMetric] = useState<MetricKey | null>(null);
 
@@ -339,6 +445,8 @@ export function MatchMetricsToolbar({
                           isPostHIL={isPostHIL}
                           metrics={metrics}
                           allGaps={allGaps}
+                          aPhaseInsights={aPhaseInsights}
+                          readiness={readiness ?? undefined}
                           onEditGoals={onEditGoals}
                           onEnhanceSection={onEnhanceSection}
                           onAddMetrics={onAddMetrics}
@@ -365,6 +473,8 @@ interface MetricDrawerContentProps {
   isPostHIL: boolean;
   metrics: MatchMetricsData;
   allGaps: Array<{ sectionId: string; sectionTitle: string; gap: any }>;
+  aPhaseInsights?: APhaseInsights;
+  readiness?: DraftReadinessEvaluation;
   onEditGoals?: () => void;
   onEnhanceSection?: (sectionId: string, requirement?: string, ratingCriteria?: Array<{
     id: string;
@@ -385,6 +495,8 @@ function MetricDrawerContent({
   isPostHIL,
   metrics,
   allGaps,
+  aPhaseInsights,
+  readiness,
   onEditGoals,
   onEnhanceSection,
   onAddMetrics,
@@ -425,6 +537,12 @@ function MetricDrawerContent({
           overallScore={displayScore} 
           criteria={metrics.ratingCriteria}
         />
+      );
+    case 'a-phase':
+      return aPhaseInsights ? <APhaseDrawerContent insights={aPhaseInsights} /> : null;
+    case 'readiness':
+      return readiness ? <ReadinessDrawerContent readiness={readiness} /> : (
+        <div className="p-2 text-xs text-muted-foreground">Readiness verdict unavailable.</div>
       );
     case 'ats':
     default:
@@ -637,6 +755,271 @@ function GapsDrawerContent({ allGaps, onEnhanceSection }: GapsDrawerContentProps
         </div>
         );
       })}
+    </div>
+  );
+}
+
+interface APhaseDrawerContentProps {
+  insights: APhaseInsights;
+}
+
+/**
+ * Task 7: A-phase streaming insights accordion
+ * 
+ * Displays preliminary analysis data as it arrives during drafting:
+ * - PM Level role alignment
+ * - Goals alignment
+ * - JD requirement counts (preliminary)
+ * - Match with Strengths
+ * - Company context
+ * 
+ * Design principles:
+ * - Shows streaming data ONLY (never draft-based metrics)
+ * - Labeled as "preliminary" / "from JD" where appropriate
+ * - Does NOT auto-open/close on updates
+ * - Does NOT replace draft-based badges once draft exists
+ */
+function APhaseDrawerContent({ insights }: APhaseDrawerContentProps) {
+  const { stageFlags } = insights;
+
+  return (
+    <div className="space-y-3">
+      {/* Role Insights */}
+      {stageFlags.hasRoleInsights && insights.roleInsights && (
+        <div className="p-2">
+          <h4 className="text-sm font-medium text-foreground mb-2">Role Alignment</h4>
+          <div className="space-y-2 text-xs">
+            {insights.roleInsights.inferredRoleLevel && (
+              <div>
+                <span className="font-medium text-foreground/90">Level:</span>{' '}
+                <span className="text-foreground/80">{insights.roleInsights.inferredRoleLevel}</span>
+              </div>
+            )}
+            {insights.roleInsights.inferredRoleScope && (
+              <div>
+                <span className="font-medium text-foreground/90">Scope:</span>{' '}
+                <span className="text-foreground/80">
+                  {insights.roleInsights.inferredRoleScope.replace(/_/g, ' ')}
+                </span>
+              </div>
+            )}
+            {insights.roleInsights.titleMatch && (
+              <div>
+                <span className="font-medium text-foreground/90">Title Match:</span>{' '}
+                <span className="text-foreground/80">
+                  {insights.roleInsights.titleMatch.exactTitleMatch
+                    ? 'Exact'
+                    : insights.roleInsights.titleMatch.adjacentTitleMatch
+                    ? 'Adjacent'
+                    : 'No match'}
+                </span>
+              </div>
+            )}
+            {insights.roleInsights.scopeMatch && (
+              <div>
+                <span className="font-medium text-foreground/90">Fit:</span>{' '}
+                <span className="text-foreground/80">
+                  {insights.roleInsights.scopeMatch.scopeRelation === 'goodFit'
+                    ? 'Good fit'
+                    : insights.roleInsights.scopeMatch.scopeRelation === 'stretch'
+                    ? 'Stretch'
+                    : insights.roleInsights.scopeMatch.scopeRelation === 'bigStretch'
+                    ? 'Big stretch'
+                    : 'Below experience'}
+                </span>
+              </div>
+            )}
+            {insights.roleInsights.goalAlignment && (
+              <div>
+                <span className="font-medium text-foreground/90">Goal Alignment:</span>{' '}
+                <span className="text-foreground/80">
+                  {insights.roleInsights.goalAlignment.alignsWithTargetTitles && 
+                   insights.roleInsights.goalAlignment.alignsWithTargetLevelBand
+                    ? 'Aligns with goals'
+                    : insights.roleInsights.goalAlignment.alignsWithTargetTitles
+                    ? 'Title aligns'
+                    : insights.roleInsights.goalAlignment.alignsWithTargetLevelBand
+                    ? 'Level aligns'
+                    : 'Outside target'}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* JD Requirement Summary (preliminary) */}
+      {stageFlags.hasJdRequirementSummary && insights.jdRequirementSummary && (
+        <div className="p-2 border-t border-border/30">
+          <h4 className="text-sm font-medium text-foreground mb-2">
+            Requirements from JD <span className="text-muted-foreground">(preliminary)</span>
+          </h4>
+          <div className="space-y-2 text-xs">
+            <div>
+              <span className="font-medium text-foreground/90">Core:</span>{' '}
+              <span className="text-foreground/80">{insights.jdRequirementSummary.coreTotal}</span>
+            </div>
+            <div>
+              <span className="font-medium text-foreground/90">Preferred:</span>{' '}
+              <span className="text-foreground/80">{insights.jdRequirementSummary.preferredTotal}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Match with Strengths */}
+      {stageFlags.hasMws && insights.mws && (
+        <div className="p-2 border-t border-border/30">
+          <h4 className="text-sm font-medium text-foreground mb-2">Match with Strengths</h4>
+          <div className="space-y-2 text-xs">
+            <div className="mb-2">
+              <span className="font-medium text-foreground/90">Score:</span>{' '}
+              <Badge variant="outline" className={
+                insights.mws.summaryScore === 3 ? 'border-success bg-success/10 text-success' :
+                insights.mws.summaryScore === 2 ? 'border-warning bg-warning/10 text-warning' :
+                'border-muted bg-muted/10 text-muted-foreground'
+              }>
+                {insights.mws.summaryScore}/3
+              </Badge>
+            </div>
+            {insights.mws.details.map((item, idx) => (
+              <div key={idx}>
+                <span className="font-medium text-foreground/90">{item.label}:</span>{' '}
+                <Badge 
+                  variant="outline" 
+                  className={
+                    item.strengthLevel === 'strong' 
+                      ? 'border-success bg-success/10 text-success mr-1' 
+                      : item.strengthLevel === 'moderate'
+                      ? 'border-warning bg-warning/10 text-warning mr-1'
+                      : 'border-muted bg-muted/10 text-muted-foreground mr-1'
+                  }
+                >
+                  {item.strengthLevel}
+                </Badge>
+                <span className="text-foreground/80">{item.explanation}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Company Context */}
+      {stageFlags.hasCompanyContext && insights.companyContext && (
+        <div className="p-2 border-t border-border/30">
+          <h4 className="text-sm font-medium text-foreground mb-2">Company Context</h4>
+          <div className="space-y-2 text-xs">
+            {insights.companyContext.industry && (
+              <div>
+                <span className="font-medium text-foreground/90">Industry:</span>{' '}
+                <span className="text-foreground/80">{insights.companyContext.industry}</span>
+              </div>
+            )}
+            {insights.companyContext.maturity && (
+              <div>
+                <span className="font-medium text-foreground/90">Stage:</span>{' '}
+                <span className="text-foreground/80">
+                  {insights.companyContext.maturity.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                </span>
+              </div>
+            )}
+            {insights.companyContext.businessModels && insights.companyContext.businessModels.length > 0 && (
+              <div>
+                <span className="font-medium text-foreground/90">Business Models:</span>{' '}
+                <span className="text-foreground/80">
+                  {insights.companyContext.businessModels.join(', ')}
+                </span>
+              </div>
+            )}
+            {insights.companyContext.source && (
+              <div className="text-muted-foreground mt-1">
+                Source: {insights.companyContext.source === 'jd' ? 'Job description' : 
+                         insights.companyContext.source === 'web' ? 'Web research' : 
+                         'Mixed sources'}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface ReadinessDrawerContentProps {
+  readiness: DraftReadinessEvaluation;
+}
+
+function ReadinessDrawerContent({ readiness }: ReadinessDrawerContentProps) {
+  const ratingLabel = readiness.rating.charAt(0).toUpperCase() + readiness.rating.slice(1);
+  const ratingBadgeClass =
+    readiness.rating === 'exceptional'
+      ? 'border-success bg-success/10 text-success'
+      : readiness.rating === 'strong'
+      ? 'border-primary bg-primary/10 text-primary'
+      : readiness.rating === 'adequate'
+      ? 'border-warning bg-warning/10 text-warning'
+      : 'border-muted bg-muted/10 text-muted-foreground';
+
+  const toBadgeClass = (v: 'strong' | 'sufficient' | 'insufficient') =>
+    v === 'strong'
+      ? 'border-success bg-success/10 text-success'
+      : v === 'sufficient'
+      ? 'border-warning bg-warning/10 text-warning'
+      : 'border-muted bg-muted/10 text-muted-foreground';
+
+  const rows: Array<{ key: keyof DraftReadinessEvaluation['scoreBreakdown']; label: string }> = [
+    { key: 'clarityStructure', label: 'Clarity & Structure' },
+    { key: 'opening', label: 'Compelling Opening' },
+    { key: 'companyAlignment', label: 'Company Alignment' },
+    { key: 'roleAlignment', label: 'Role Alignment / Level Fit' },
+    { key: 'specificExamples', label: 'Specific Examples' },
+    { key: 'quantifiedImpact', label: 'Quantified Impact' },
+    { key: 'personalization', label: 'Personalization / Voice' },
+    { key: 'writingQuality', label: 'Writing Quality' },
+    { key: 'lengthEfficiency', label: 'Length & Efficiency' },
+    { key: 'executiveMaturity', label: 'Executive Maturity' },
+  ];
+
+  return (
+    <div className="p-2 space-y-3">
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-medium text-foreground">Verdict:</span>
+        <Badge variant="outline" className={ratingBadgeClass}>
+          {ratingLabel}
+        </Badge>
+      </div>
+      {readiness.feedback?.summary && (
+        <div className="text-xs text-foreground/80">{readiness.feedback.summary}</div>
+      )}
+      <div className="border-t border-border/30 pt-2">
+        <h4 className="text-sm font-medium text-foreground mb-2">Score Breakdown</h4>
+        <div className="space-y-1">
+          {rows.map((row, idx) => {
+            const value = readiness.scoreBreakdown[row.key];
+            return (
+              <div key={row.key} className={idx > 0 ? 'pt-1 border-t border-border/20' : ''}>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-foreground/90">{row.label}</span>
+                  <Badge variant="outline" className={toBadgeClass(value)}>{value}</Badge>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      {Array.isArray(readiness.feedback?.improvements) && readiness.feedback.improvements.length > 0 && (
+        <div className="border-t border-border/30 pt-2">
+          <h4 className="text-sm font-medium text-foreground mb-2">Improvements</h4>
+          <ul className="list-disc pl-5 space-y-1 text-xs">
+            {readiness.feedback.improvements.slice(0, 3).map((item, i) => (
+              <li key={i} className="text-foreground/80">{item}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <div className="text-[11px] text-muted-foreground">
+        Advisory only; does not block finalization.
+      </div>
     </div>
   );
 }

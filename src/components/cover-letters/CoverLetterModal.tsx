@@ -59,6 +59,7 @@ import { JobDescriptionService } from '@/services/jobDescriptionService';
 import { CoverLetterDraftService } from '@/services/coverLetterDraftService';
 import { useCoverLetterDraft } from '@/hooks/useCoverLetterDraft';
 import { useCoverLetterJobStream } from '@/hooks/useJobStream'; // Phase 2: Streaming hook
+import { useAPhaseInsights } from '@/hooks/useAPhaseInsights'; // Task 5: A-phase streaming insights
 import { StageStepper } from '@/components/streaming/StageStepper';
 import { MatchMetricsToolbar } from './MatchMetricsToolbar';
 import { CoverLetterFinalization } from './CoverLetterFinalization';
@@ -76,8 +77,13 @@ import { transformMetricsToMatchData, getUnresolvedRatingCriteria } from './useM
 import { computeSectionAttribution } from './useSectionAttribution';
 import type { CoverLetterDraft, JobDescriptionRecord, ParsedJobDescription } from '@/types/coverLetters';
 import { getApplicableStandards } from '@/config/contentStandards';
+import { logAStreamEvent } from '@/lib/telemetry';
 
 const MIN_JOB_DESCRIPTION_LENGTH = 50;
+
+// Feature flag for A-phase streaming insights (Task 5)
+const ENABLE_A_PHASE_INSIGHTS = true;
+const IS_DEV = process.env.NODE_ENV !== 'production';
 
 type TemplateSummary = {
   id: string;
@@ -309,10 +315,80 @@ export const CoverLetterModal = ({
     pollIntervalMs: 2000,
     timeout: 300000,
   });
+
+  // Dev-only telemetry guards for stage/insight one-time events
+  const emittedStagesRef = useRef({
+    jdAnalysis: false,
+    requirementAnalysis: false,
+    goalsAndStrengths: false,
+  });
+  const insightsRenderedRef = useRef(false);
   
   const jobState = mode === 'create' ? streamingHook.state : null;
   const isJobStreaming = mode === 'create' ? streamingHook.isStreaming : false;
   const createJob = mode === 'create' ? streamingHook.createJob : async () => { throw new Error('createJob not available in edit mode'); };
+
+  // Task 5: A-phase streaming insights (read-only adapter)
+  // Normalize jobState.stages into aPhaseInsights for banner and toolbar accordions
+  // NEVER modifies draft-based metrics/requirements/gaps
+  const aPhaseInsights = ENABLE_A_PHASE_INSIGHTS ? useAPhaseInsights(jobState) : null;
+
+  // Task 5: Diagnostic logging for A-phase insights
+  useEffect(() => {
+    if (!ENABLE_A_PHASE_INSIGHTS || !aPhaseInsights) return;
+
+    if (IS_DEV) {
+      console.log('[CoverLetterModal] [STREAM] A-phase insights updated:', {
+        stageFlags: aPhaseInsights.stageFlags,
+        roleInsights: aPhaseInsights.roleInsights,
+        jdRequirementSummary: aPhaseInsights.jdRequirementSummary,
+        mws: aPhaseInsights.mws,
+        companyContext: aPhaseInsights.companyContext,
+      });
+    }
+
+    // Log individual stage completion
+    if (aPhaseInsights.stageFlags.hasJdAnalysis) {
+      if (IS_DEV) console.log('[CoverLetterModal] [STREAM] jdAnalysis stage complete');
+      if (!emittedStagesRef.current.jdAnalysis) {
+        emittedStagesRef.current.jdAnalysis = true;
+        logAStreamEvent('stream_cover_letter_stage_completed', { stage: 'jdAnalysis' });
+      }
+    }
+    if (aPhaseInsights.stageFlags.hasRequirementAnalysis) {
+      if (IS_DEV) console.log('[CoverLetterModal] [STREAM] requirementAnalysis stage complete');
+      if (!emittedStagesRef.current.requirementAnalysis) {
+        emittedStagesRef.current.requirementAnalysis = true;
+        logAStreamEvent('stream_cover_letter_stage_completed', { stage: 'requirementAnalysis' });
+      }
+    }
+    if (aPhaseInsights.stageFlags.hasGoalsAndStrengths) {
+      if (IS_DEV) console.log('[CoverLetterModal] [STREAM] goalsAndStrengths stage complete');
+      if (!emittedStagesRef.current.goalsAndStrengths) {
+        emittedStagesRef.current.goalsAndStrengths = true;
+        logAStreamEvent('stream_cover_letter_stage_completed', { stage: 'goalsAndStrengths' });
+      }
+    }
+    if (aPhaseInsights.stageFlags.phaseComplete) {
+      if (IS_DEV) console.log('[CoverLetterModal] [STREAM] All A-phase stages complete');
+    }
+
+    // Insights rendered signal (first time we have any insight block populated)
+    const hasAnyInsight =
+      !!aPhaseInsights.roleInsights ||
+      !!aPhaseInsights.jdRequirementSummary ||
+      !!aPhaseInsights.mws ||
+      !!aPhaseInsights.companyContext;
+    if (hasAnyInsight && !insightsRenderedRef.current) {
+      insightsRenderedRef.current = true;
+      logAStreamEvent('stream_cover_letter_insights_rendered', {
+        hasRoleInsights: !!aPhaseInsights.roleInsights,
+        hasRequirementSummary: !!aPhaseInsights.jdRequirementSummary,
+        hasMws: !!aPhaseInsights.mws,
+        hasCompanyContext: !!aPhaseInsights.companyContext,
+      });
+    }
+  }, [aPhaseInsights]);
 
   // In create mode, use the hook. In edit mode, use local state.
   const draft = mode === 'create' ? createModeHook.draft : localDraft;
@@ -620,7 +696,7 @@ export const CoverLetterModal = ({
   }, [jobContent, user?.id, preParsedContent, jobDescriptionService]);
 
   // PROGRESS FIX: Update peak progress tracker (must be at top level, not in render)
-  // Progress calculation for banner/bar (jobState for streaming stages only)
+  // Progress calculation for banner/bar (A-phase stages only)
   useEffect(() => {
     let currentProgress = 0;
     
@@ -628,13 +704,16 @@ export const CoverLetterModal = ({
     if (draft) {
       currentProgress = 100;
     }
-    // Else if streaming job active, track stages
+    // Else if streaming job active, track A-phase stages
     else if (isJobStreaming) {
-      if (jobState?.stages?.sectionGaps) {
-        currentProgress = 30; // All 3 stages complete
-      } else if (jobState?.stages?.requirementAnalysis) {
+      // Task 6: Map A-phase stages to progress
+      // 0% → 10% → 20% → 30% (A-phase complete) → 100% (draft complete)
+      const flags = aPhaseInsights?.stageFlags;
+      if (flags?.hasGoalsAndStrengths) {
+        currentProgress = 30;
+      } else if (flags?.hasRequirementAnalysis) {
         currentProgress = 20;
-      } else if (jobState?.stages?.basicMetrics) {
+      } else if (flags?.hasJdAnalysis) {
         currentProgress = 10;
       } else {
         currentProgress = 0;
@@ -654,7 +733,7 @@ export const CoverLetterModal = ({
     if (!showSkeleton && currentProgress === 100) {
       setPeakProgress(0);
     }
-  }, [draft, jobState, isJobStreaming, isGeneratingDraft, peakProgress, showSkeleton]);
+  }, [draft, aPhaseInsights, isJobStreaming, isGeneratingDraft, peakProgress, showSkeleton]);
 
   // PROGRESS ANIMATION: Simulate progress during draft generation (30% → 95%)
   // This provides visual feedback during the slow 60-90s draft generation phase
@@ -1403,7 +1482,7 @@ export const CoverLetterModal = ({
 
     // Show empty state only if no draft and not generating
     if (!draft && !showSkeleton) {
-      console.log('[CoverLetterModal] Showing empty state (no draft)');
+      if (IS_DEV) console.log('[CoverLetterModal] Showing empty state (no draft)');
       return (
         <Card className="border-dashed border-muted-foreground/30 bg-muted/20">
           <CardContent className="flex h-48 items-center justify-center text-sm text-muted-foreground">
@@ -1413,7 +1492,7 @@ export const CoverLetterModal = ({
       );
     }
     
-    console.log('[CoverLetterModal] Rendering DraftEditor with showSkeleton=', showSkeleton);
+    if (IS_DEV) console.log('[CoverLetterModal] Rendering DraftEditor with showSkeleton=', showSkeleton);
 
     // EARLY METRICS DISPLAY: Transform effectiveMetrics to MatchMetricsData format
     // Uses streaming data if draft not ready, draft data when available
@@ -1483,7 +1562,8 @@ export const CoverLetterModal = ({
       matchMetrics.atsScore = draft.atsScore;
     }
 
-    // Progress for banner/bar (ONLY jobState stages + draft, no analysis flag)
+    // Progress for banner/bar (A-phase stages + draft only)
+    // Task 6: Progress driven by aPhaseInsights.stageFlags only
     let progressPercent = 0;
     
     if (draft) {
@@ -1491,12 +1571,14 @@ export const CoverLetterModal = ({
     } else if (isGeneratingDraft) {
       progressPercent = animatedDraftProgress; // Animated 30% → 95%
     } else if (isJobStreaming) {
-      // Streaming stages (0% → 30%)
-      if (jobState?.stages?.sectionGaps) {
-        progressPercent = 30; // All stages complete
-      } else if (jobState?.stages?.requirementAnalysis) {
+      // A-phase stages (0% → 30%)
+      // Task 6: Map A-phase stages to progress
+      const flags = aPhaseInsights?.stageFlags;
+      if (flags?.hasGoalsAndStrengths) {
+        progressPercent = 30;
+      } else if (flags?.hasRequirementAnalysis) {
         progressPercent = 20;
-      } else if (jobState?.stages?.basicMetrics) {
+      } else if (flags?.hasJdAnalysis) {
         progressPercent = 10;
       } else {
         progressPercent = 0;
@@ -1511,25 +1593,23 @@ export const CoverLetterModal = ({
     }
     
     // Diagnostic logging at top of render
-    console.log('[CoverLetterModal] Render state:', {
-      showSkeleton,
-      hasDraft: !!draft,
-      isJobStreaming,
-      isGeneratingDraft,
-      progressPercent,
-      jobStatus: jobState?.status,
-      stageKeys: Object.keys(jobState?.stages || {}),
-      stageStatuses: {
-        basicMetrics: jobState?.stages?.basicMetrics?.status,
-        requirementAnalysis: jobState?.stages?.requirementAnalysis?.status,
-        sectionGaps: jobState?.stages?.sectionGaps?.status,
-      },
-      hasStageData: {
-        basicMetrics: !!jobState?.stages?.basicMetrics?.data,
-        requirementAnalysis: !!jobState?.stages?.requirementAnalysis?.data,
-        sectionGaps: !!jobState?.stages?.sectionGaps?.data,
-      },
-    });
+    if (IS_DEV) {
+      console.log('[CoverLetterModal] Render state:', {
+        showSkeleton,
+        hasDraft: !!draft,
+        isJobStreaming,
+        isGeneratingDraft,
+        progressPercent,
+        jobStatus: jobState?.status,
+        stageKeys: Object.keys(jobState?.stages || {}),
+        // Task 6: A-phase stage flags (source of truth for progress)
+        aPhaseStageFlags: {
+          hasJdAnalysis: aPhaseInsights?.stageFlags.hasJdAnalysis,
+          hasRequirementAnalysis: aPhaseInsights?.stageFlags.hasRequirementAnalysis,
+          hasGoalsAndStrengths: aPhaseInsights?.stageFlags.hasGoalsAndStrengths,
+        },
+      });
+    }
     
     return (
       <>
@@ -1559,7 +1639,9 @@ export const CoverLetterModal = ({
           hasAnalysis: !!draft, // Use draft existence (not jobState)
           isJobStreaming,
           isGeneratingDraft,
+          aPhaseInsights, // Task 5: A-phase streaming insights for banner
         }} // State for banner label/chips
+        aPhaseInsights={aPhaseInsights} // Task 7: A-phase streaming insights for toolbar accordions
         isPostHIL={false}
         metricsLoading={metricsLoading}
         generationError={generationError}

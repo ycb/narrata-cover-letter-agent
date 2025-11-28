@@ -53,7 +53,11 @@ interface CoverLetterDraftEditorProps {
     hasAnalysis: boolean;
     isJobStreaming: boolean;
     isGeneratingDraft: boolean;
+    aPhaseInsights?: any; // Task 6: A-phase insights for stage labels
   };
+  
+  // Task 7: A-phase streaming insights for toolbar accordions
+  aPhaseInsights?: any; // From useAPhaseInsights(jobState)
   
   // UI state
   isPostHIL?: boolean;
@@ -94,6 +98,7 @@ export function CoverLetterDraftEditor({
   showProgressBanner = false,
   progressPercent = 0,
   progressState,
+  aPhaseInsights,
   isPostHIL = false,
   metricsLoading = false,
   generationError = null,
@@ -197,6 +202,8 @@ export function CoverLetterDraftEditor({
           enhancedMatchData={effectiveEnhancedMatchData} // Draft-only enhanced data
           goNoGoAnalysis={undefined}
           jobDescription={jobDescription ?? undefined}
+          draftId={draft?.id}
+          draftUpdatedAt={draft?.updatedAt}
           sections={(() => {
             const sectionList = sectionsToRender.map(s => ({ id: s.id, type: s.type }));
             console.log('[TOOLBAR] Passing sections to toolbar:', {
@@ -208,6 +215,7 @@ export function CoverLetterDraftEditor({
             });
             return sectionList;
           })()}
+          aPhaseInsights={aPhaseInsights} // Task 7: A-phase streaming insights
           onEditGoals={onEditGoals}
           onEnhanceSection={(sectionId, requirement, ratingCriteria) => {
             // Open section enhancement flow with rating criteria if provided
@@ -303,17 +311,17 @@ export function CoverLetterDraftEditor({
                       style={{ width: `${progressPercent}%` }}
                     />
                   </div>
-                  {/* Stage chips */}
-                  {progressState?.isJobStreaming && jobState?.stages && (
+                  {/* Stage chips - Task 6: Map A-phase stages to labels */}
+                  {progressState?.isJobStreaming && progressState?.aPhaseInsights && (
                     <div className="flex gap-2 flex-wrap text-xs">
-                      <span className={jobState.stages.basicMetrics ? 'text-primary' : 'text-muted-foreground'}>
-                        ✓ Analyzing metrics
+                      <span className={progressState.aPhaseInsights.stageFlags.hasJdAnalysis ? 'text-primary' : 'text-muted-foreground'}>
+                        ✓ Analyzing job description
                       </span>
-                      <span className={jobState.stages.requirementAnalysis ? 'text-primary' : 'text-muted-foreground'}>
+                      <span className={progressState.aPhaseInsights.stageFlags.hasRequirementAnalysis ? 'text-primary' : 'text-muted-foreground'}>
                         ✓ Extracting requirements
                       </span>
-                      <span className={jobState.stages.sectionGaps ? 'text-primary' : 'text-muted-foreground'}>
-                        ✓ Identifying gaps
+                      <span className={progressState.aPhaseInsights.stageFlags.hasGoalsAndStrengths ? 'text-primary' : 'text-muted-foreground'}>
+                        ✓ Matching with goals and strengths
                       </span>
                     </div>
                   )}

@@ -5,15 +5,30 @@
  * It does NOT generate or save draft content - that's done by generateDraft().
  * 
  * Stages:
- * 1. basicMetrics (5-10s) - Quick metrics for immediate feedback
+ * 1. jdAnalysis (10-20s) - Role alignment + JD requirements summary (streaming)
  * 2. requirementAnalysis (10-25s) - Detailed requirement matching
- * 3. sectionGaps (25-45s) - Section-level gap analysis
+ * 3. goalsAndStrengths (additive streaming insights) - MWS + company context
+ * 4. sectionGaps (25-45s) - Section-level gap analysis
  * 
  * REMOVED (Phase 1):
  * 4. draftGeneration - Now handled by generateDraft() service method
  */
 
-import type { PipelineContext, PipelineStage } from '../pipeline-utils.ts';
+import { z } from 'https://esm.sh/zod@3.23.8';
+import type {
+  PipelineContext,
+  PipelineStage,
+  RoleInsightsPayload,
+  RoleLevel,
+  RoleScope,
+  JdRequirementSummary,
+  StreamingPmProfile,
+  CompanyContext,
+  JobDescriptionSignals,
+  MwsSummary,
+  MwsDetail,
+  StrengthLevel,
+} from '../pipeline-utils.ts';
 import {
   executePipeline,
   callOpenAI,
@@ -21,8 +36,21 @@ import {
   fetchJobDescription,
   fetchWorkHistory,
   fetchStories,
+  streamJsonFromLLM,
+  extractJdRequirementSummary,
+  getPmProfileForStreaming,
+  compareTitles,
+  compareScope,
+  computeGoalAlignment,
+  extractJobDescriptionSignals,
+  CompanyTagsClient,
+  needsCompanyContextFallback,
+  mergeCompanyContexts,
+  computeCompanyContextConfidence,
 } from '../pipeline-utils.ts';
 import { PipelineTelemetry } from '../telemetry.ts';
+
+const companyTagsClient = new CompanyTagsClient();
 
 // ============================================================================
 // Stage 1: Basic Metrics (Fast - 5-10s)
@@ -75,7 +103,234 @@ Be concise. Focus on quick analysis. Return ONLY the JSON object.`;
 };
 
 // ============================================================================
-// Stage 2: Requirement Analysis (Medium - 10-25s)
+// Stage 2: JD Analysis (Streaming insights - 10-20s)
+// ============================================================================
+
+const ROLE_LEVEL_VALUES: RoleLevel[] = ['APM', 'PM', 'Senior PM', 'Staff', 'Group'];
+const ROLE_SCOPE_VALUES: RoleScope[] = ['feature', 'product', 'product_line', 'multiple_teams', 'org'];
+
+const roleInsightsSchema = z
+  .object({
+    inferredRoleLevel: z.enum(ROLE_LEVEL_VALUES).optional(),
+    inferredRoleScope: z.enum(ROLE_SCOPE_VALUES).optional(),
+    summary: z.string().optional(),
+    highlights: z.array(z.string()).optional(),
+    confidence: z.number().min(0).max(1).optional(),
+  })
+  .partial();
+
+type RawRoleInsights = z.infer<typeof roleInsightsSchema>;
+
+interface JdAnalysisStageData {
+  roleInsights?: RoleInsightsPayload;
+  jdRequirementSummary?: JdRequirementSummary;
+}
+
+const jdAnalysisStage: PipelineStage = {
+  name: 'jdAnalysis',
+  timeout: 20000,
+  execute: async (ctx: PipelineContext) => {
+    const { job, supabase, openaiApiKey, send } = ctx;
+    const { jobDescriptionId } = job.input;
+
+    const stageData: JdAnalysisStageData = {};
+    let stageStatus: 'processing' | 'complete' | 'failed' = 'processing';
+
+    const emitPartial = async (partial: Partial<JdAnalysisStageData>) => {
+      try {
+        await send('progress', {
+          jobId: job.id,
+          stage: 'jdAnalysis',
+          isPartial: true,
+          data: partial,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.warn('[jdAnalysisStage] Failed to emit partial progress event', error);
+      }
+    };
+
+    try {
+      const jd = await fetchJobDescription(supabase, jobDescriptionId);
+      const jdText = (jd.raw_text || jd.content || '').trim();
+      const jdTitle = jd.role || jd.title || jd.position || '';
+      const pmProfile = await getPmProfileForStreaming(supabase, job.user_id);
+      const workHistory = await fetchWorkHistory(supabase, job.user_id);
+      const historyTitles = workHistory
+        .map((wh: any) => wh.title)
+        .filter((title: any): title is string => typeof title === 'string' && title.trim().length > 0);
+
+      const jdRequirementSummary = extractJdRequirementSummary(jd);
+      stageData.jdRequirementSummary = jdRequirementSummary;
+      await emitPartial({ jdRequirementSummary });
+
+      let accumulatedRoleInsights: RoleInsightsPayload | null = null;
+
+      try {
+        const rolePrompt = buildJdRolePrompt(jdTitle, jd.company, jdText);
+        const roleResult = await streamJsonFromLLM<RawRoleInsights>({
+          apiKey: openaiApiKey,
+          prompt: rolePrompt,
+          schema: roleInsightsSchema,
+          onPartial: async (partial) => {
+            const sanitized = sanitizeRoleInsights(partial);
+            if (sanitized) {
+              accumulatedRoleInsights = mergeRoleInsights(accumulatedRoleInsights, sanitized);
+              // Spec: roleInsights are emitted only in the final jdAnalysis event
+            }
+          },
+        });
+
+        const sanitizedFinal = sanitizeRoleInsights(roleResult);
+        accumulatedRoleInsights = mergeRoleInsights(accumulatedRoleInsights, sanitizedFinal);
+      } catch (error) {
+        try {
+          const { elog } = await import('../log.ts');
+          elog.warn('[STREAM] jdAnalysis role inference failed', { error: error instanceof Error ? error.message : String(error) });
+        } catch (_) {
+          console.warn('[STREAM] jdAnalysis role inference failed', error);
+        }
+      }
+
+      const enrichedRoleInsights = enrichRoleInsights({
+        base: accumulatedRoleInsights,
+        jdTitle,
+        pmProfile,
+        workHistoryTitles: historyTitles,
+      });
+
+      if (enrichedRoleInsights) {
+        stageData.roleInsights = enrichedRoleInsights;
+      }
+
+      stageStatus = 'complete';
+      try {
+        const { elog } = await import('../log.ts');
+        elog.info('[STREAM] jdAnalysis complete', {
+          hasRoleInsights: Boolean(stageData.roleInsights),
+          hasRequirementSummary: Boolean(stageData.jdRequirementSummary),
+        });
+      } catch (_) {}
+    } catch (error) {
+      stageStatus = 'failed';
+      try {
+        const { elog } = await import('../log.ts');
+        elog.error('[STREAM] jdAnalysis failed', { error: error instanceof Error ? error.message : String(error) });
+      } catch (_) {
+        console.error('[STREAM] jdAnalysis failed', error);
+      }
+    }
+
+    const finalData = stageStatus === 'failed' ? {} : stageData;
+
+    try {
+      await send('progress', {
+        jobId: job.id,
+        stage: 'jdAnalysis',
+        isPartial: false,
+        data: finalData,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.warn('[jdAnalysisStage] Failed to emit final progress event', err);
+    }
+
+    return {
+      status: stageStatus,
+      isPartial: false,
+      data: finalData,
+    };
+  },
+};
+
+function buildJdRolePrompt(role: string | null, company: string | null, jdText: string): string {
+  const trimmedJD = jdText.length > 8000 ? `${jdText.slice(0, 8000)}\n...` : jdText;
+  return `You are a PM leveling expert. Analyze the following job description and infer the hiring level and scope.
+
+Return ONLY a JSON object with this exact shape:
+{
+  "inferredRoleLevel": "APM" | "PM" | "Senior PM" | "Staff" | "Group",
+  "inferredRoleScope": "feature" | "product" | "product_line" | "multiple_teams" | "org",
+  "summary": string,
+  "highlights": string[],
+  "confidence": number (0-1)
+}
+
+Company: ${company || 'Unknown'}
+Role Title: ${role || 'Unknown'}
+
+Job Description:
+${trimmedJD}`;
+}
+
+function sanitizeRoleInsights(raw?: RawRoleInsights | null): RoleInsightsPayload | null {
+  if (!raw) return null;
+  const payload: RoleInsightsPayload = {};
+
+  if (raw.inferredRoleLevel && ROLE_LEVEL_VALUES.includes(raw.inferredRoleLevel as RoleLevel)) {
+    payload.inferredRoleLevel = raw.inferredRoleLevel as RoleLevel;
+  }
+  if (raw.inferredRoleScope && ROLE_SCOPE_VALUES.includes(raw.inferredRoleScope as RoleScope)) {
+    payload.inferredRoleScope = raw.inferredRoleScope as RoleScope;
+  }
+  if (typeof raw.summary === 'string') {
+    payload.summary = raw.summary;
+  }
+  if (Array.isArray(raw.highlights)) {
+    payload.highlights = raw.highlights.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
+  }
+  if (typeof raw.confidence === 'number' && Number.isFinite(raw.confidence)) {
+    const bounded = Math.min(Math.max(raw.confidence, 0), 1);
+    payload.confidence = bounded;
+  }
+
+  return Object.keys(payload).length > 0 ? payload : null;
+}
+
+function mergeRoleInsights(
+  base: RoleInsightsPayload | null,
+  incoming: RoleInsightsPayload | null
+): RoleInsightsPayload | null {
+  if (!incoming) return base;
+  if (!base) return { ...incoming };
+  return { ...base, ...incoming };
+}
+
+function enrichRoleInsights(params: {
+  base: RoleInsightsPayload | null;
+  jdTitle?: string | null;
+  pmProfile: StreamingPmProfile;
+  workHistoryTitles: string[];
+}): RoleInsightsPayload | null {
+  const { base, jdTitle, pmProfile, workHistoryTitles } = params;
+  const roleInsights: RoleInsightsPayload = { ...(base || {}) };
+
+  const titleMatch = compareTitles({
+    jdTitle,
+    userTitles: workHistoryTitles,
+    targetTitles: pmProfile.targetTitles,
+  });
+  roleInsights.titleMatch = titleMatch;
+
+  if (roleInsights.inferredRoleScope) {
+    const scopeMatch = compareScope(roleInsights.inferredRoleScope, pmProfile.inferredLevel);
+    if (scopeMatch) {
+      roleInsights.scopeMatch = scopeMatch;
+    }
+  }
+
+  roleInsights.goalAlignment = computeGoalAlignment({
+    inferredRoleLevel: roleInsights.inferredRoleLevel,
+    jdTitle,
+    targetLevelBand: pmProfile.targetLevelBand,
+    targetTitles: pmProfile.targetTitles,
+  });
+
+  return Object.keys(roleInsights).length > 0 ? roleInsights : null;
+}
+
+// ============================================================================
+// Stage 3: Requirement Analysis (Medium - 10-25s)
 // ============================================================================
 
 const requirementAnalysisStage: PipelineStage = {
@@ -151,6 +406,436 @@ Extract 5-10 core and 3-5 preferred requirements. Be specific with evidence.`;
     };
   },
 };
+
+// ============================================================================
+// Stage 4: Goals & Strengths (Streaming A-phase insights)
+// ============================================================================
+
+const MWS_DETAIL_SCHEMA = z.object({
+  label: z.string().min(3).max(120),
+  strengthLevel: z.enum(['strong', 'moderate', 'light']),
+  explanation: z.string().min(5).max(280),
+});
+
+const MWS_SCHEMA = z.object({
+  summaryScore: z.number().min(0).max(3),
+  details: z.array(MWS_DETAIL_SCHEMA).max(3).optional(),
+});
+
+const COMPANY_CONTEXT_SCHEMA = z.object({
+  industry: z.string().optional(),
+  maturity: z.string().optional(),
+  businessModels: z.array(z.string()).max(5).optional(),
+  confidence: z.number().min(0).max(1).optional(),
+});
+
+type RawMwsSummary = z.infer<typeof MWS_SCHEMA>;
+type RawCompanyContext = z.infer<typeof COMPANY_CONTEXT_SCHEMA>;
+
+interface GoalsAndStrengthsStageData {
+  mws?: MwsSummary | null;
+  companyContext?: CompanyContext | null;
+}
+
+const goalsAndStrengthsStage: PipelineStage = {
+  name: 'goalsAndStrengths',
+  timeout: 35000,
+  execute: async (ctx: PipelineContext) => {
+    const { job, supabase, openaiApiKey, send } = ctx;
+    const { jobDescriptionId } = job.input;
+
+    const stageData: GoalsAndStrengthsStageData = {};
+    let stageStatus: 'processing' | 'complete' | 'failed' = 'processing';
+
+    const emitPartial = async () => {
+      try {
+        await send('progress', {
+          jobId: job.id,
+          stage: 'goalsAndStrengths',
+          isPartial: true,
+          data: {
+            ...(stageData.mws ? { mws: stageData.mws } : {}),
+            ...(stageData.companyContext ? { companyContext: stageData.companyContext } : {}),
+          },
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.warn('[goalsAndStrengthsStage] Failed to emit partial progress', error);
+      }
+    };
+
+    await logStreamInfo('[STREAM] goalsAndStrengths started', { jobId: job.id });
+
+    try {
+      const jd = await fetchJobDescription(supabase, jobDescriptionId);
+      const pmProfile = await getPmProfileForStreaming(supabase, job.user_id);
+      const jdText = (jd.raw_text || jd.content || '').trim();
+      const truncatedJd = truncateForGoalsStage(jdText);
+      const jdSignals = extractJobDescriptionSignals(jd);
+      const companyName =
+        job.input?.companyName ||
+        job.input?.company ||
+        jdSignals.companyName ||
+        jd.company ||
+        null;
+
+      // --- MWS STREAMING ---------------------------------------------------
+      try {
+        const mwsPrompt = buildMwsPrompt(pmProfile, jdSignals, truncatedJd);
+        const mwsResult = await streamJsonFromLLM<RawMwsSummary>({
+          apiKey: openaiApiKey,
+          prompt: mwsPrompt,
+          schema: MWS_SCHEMA,
+          temperature: 0.25,
+          maxTokens: 650,
+          onPartial: async (partial) => {
+            const sanitized = sanitizeMwsSummary(partial);
+            if (sanitized) {
+              const hasChanged =
+                !stageData.mws ||
+                stageData.mws.summaryScore !== sanitized.summaryScore ||
+                (sanitized.details?.length || 0) !== (stageData.mws.details?.length || 0);
+              stageData.mws = sanitized;
+              if (hasChanged) {
+                await emitPartial();
+                await logStreamInfo('[STREAM] goalsAndStrengths MWS partial ready', {
+                  jobId: job.id,
+                  summaryScore: sanitized.summaryScore,
+                  detailCount: sanitized.details.length,
+                });
+              }
+            }
+          },
+        });
+
+        const finalMws = sanitizeMwsSummary(mwsResult);
+        if (finalMws) {
+          stageData.mws = finalMws;
+          await emitPartial();
+          await logStreamInfo('[STREAM] goalsAndStrengths MWS ready', {
+            jobId: job.id,
+            summaryScore: finalMws.summaryScore,
+            detailCount: finalMws.details.length,
+          });
+        }
+      } catch (error) {
+        await logStreamInfo('[STREAM] goalsAndStrengths.mws failed', {
+          jobId: job.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+
+      // --- COMPANY CONTEXT (JD FIRST) --------------------------------------
+      let jdContext: CompanyContext | null = null;
+      try {
+        const contextPrompt = buildCompanyContextPrompt(companyName, jdSignals, truncatedJd);
+        const jdContextRaw = await streamJsonFromLLM<RawCompanyContext>({
+          apiKey: openaiApiKey,
+          prompt: contextPrompt,
+          schema: COMPANY_CONTEXT_SCHEMA,
+          temperature: 0.2,
+          maxTokens: 500,
+        });
+        const sanitizedContext = sanitizeCompanyContext(jdContextRaw, 'jd');
+        if (sanitizedContext) {
+          sanitizedContext.confidence =
+            sanitizedContext.confidence ??
+            computeCompanyContextConfidence(sanitizedContext, sanitizedContext.source ?? 'jd');
+          jdContext = sanitizedContext;
+          stageData.companyContext = sanitizedContext;
+          await emitPartial();
+          await logStreamInfo('[STREAM] goalsAndStrengths companyContext ready', {
+            jobId: job.id,
+            source: sanitizedContext.source,
+            confidence: sanitizedContext.confidence,
+          });
+        }
+      } catch (error) {
+        await logStreamInfo('[STREAM] goalsAndStrengths.companyContext jd failed', {
+          jobId: job.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+
+      // --- COMPANY CONTEXT (WEB FALLBACK) ----------------------------------
+      if (
+        companyTagsClient.isEnabled() &&
+        companyName &&
+        needsCompanyContextFallback(stageData.companyContext)
+      ) {
+        try {
+          const webContext = await companyTagsClient.fetchCompanyContext({ companyName });
+          if (webContext) {
+            const merged = mergeCompanyContexts(stageData.companyContext, webContext);
+            if (merged) {
+              stageData.companyContext = merged;
+              await emitPartial();
+              await logStreamInfo('[STREAM] goalsAndStrengths companyContext merged', {
+                jobId: job.id,
+                source: merged.source,
+                confidence: merged.confidence,
+              });
+            }
+          }
+        } catch (error) {
+          await logStreamInfo('[STREAM] goalsAndStrengths.companyContext fallback failed', {
+            jobId: job.id,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
+      stageStatus = 'complete';
+      await logStreamInfo('[STREAM] goalsAndStrengths complete', {
+        jobId: job.id,
+        hasMws: Boolean(stageData.mws),
+        hasCompanyContext: Boolean(stageData.companyContext),
+      });
+    } catch (error) {
+      stageStatus = 'failed';
+      await logStreamError('[STREAM] goalsAndStrengths failed', {
+        jobId: job.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    try {
+      await send('progress', {
+        jobId: job.id,
+        stage: 'goalsAndStrengths',
+        isPartial: false,
+        data:
+          stageStatus === 'failed'
+            ? {}
+            : {
+                ...(stageData.mws ? { mws: stageData.mws } : {}),
+                ...(stageData.companyContext ? { companyContext: stageData.companyContext } : {}),
+              },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.warn('[goalsAndStrengthsStage] Failed to emit final progress', error);
+    }
+
+    return {
+      status: stageStatus,
+      isPartial: false,
+      data: stageStatus === 'failed' ? {} : stageData,
+    };
+  },
+};
+
+function buildMwsPrompt(
+  profile: StreamingPmProfile,
+  signals: JobDescriptionSignals,
+  jdText: string
+): string {
+  const specializations =
+    profile.specializations.length > 0 ? profile.specializations.join(', ') : 'Not specified';
+  const targetTitles =
+    profile.targetTitles.length > 0 ? profile.targetTitles.join(', ') : 'Not specified';
+  const keywordsSnippet =
+    signals.keywords.length > 0 ? signals.keywords.slice(0, 12).join(', ') : 'None provided';
+  const competencyHints =
+    signals.competencyHints.length > 0 ? signals.competencyHints.join(', ') : 'Not detected';
+
+  return `You are aligning a PM's strengths with a job description.
+
+Candidate PM profile:
+- Current level: ${profile.inferredLevel || 'unknown'}
+- Target level band: ${profile.targetLevelBand || 'not specified'}
+- Target titles: ${targetTitles}
+- Specializations: ${specializations}
+
+Job signals:
+- Company: ${signals.companyName || 'Unknown'}
+- Competency hints: ${competencyHints}
+- Domain keywords: ${keywordsSnippet}
+
+Job description summary:
+${signals.summary || 'No summary provided.'}
+
+Job description excerpt:
+${jdText}
+
+Return ONLY a JSON object:
+{
+  "summaryScore": integer 0-3,
+  "details": [
+    {
+      "label": string,
+      "strengthLevel": "strong" | "moderate" | "light",
+      "explanation": string
+    }
+  ]
+}
+
+Rules:
+- summaryScore must be 0,1,2,or 3 (0 = weak alignment, 3 = exceptional alignment)
+- Provide 1-3 detail entries, each tying a PM strength to a JD need.
+- Keep explanations specific and under 280 characters.`;
+}
+
+function buildCompanyContextPrompt(
+  companyName: string | null,
+  signals: JobDescriptionSignals,
+  jdText: string
+): string {
+  const businessHints =
+    signals.domainKeywords.length > 0 ? signals.domainKeywords.slice(0, 12).join(', ') : 'None';
+
+  return `Infer the company's industry, maturity, and business models from this job description.
+
+Company: ${companyName || 'Unknown'}
+Job keywords: ${businessHints}
+Job summary: ${signals.summary || 'No summary provided.'}
+
+Return ONLY JSON:
+{
+  "industry": string,
+  "maturity": "pre-seed" | "seed" | "series-a" | "series-b" | "series-c" | "growth" | "public",
+  "businessModels": string[],
+  "confidence": number (0-1)
+}
+
+If unsure, leave fields blank rather than guessing.
+
+Job description excerpt:
+${jdText}`;
+}
+
+function sanitizeMwsSummary(raw?: Partial<RawMwsSummary> | null): MwsSummary | null {
+  if (!raw) return null;
+  const score =
+    typeof raw.summaryScore === 'number' && Number.isFinite(raw.summaryScore)
+      ? clampSummaryScore(raw.summaryScore)
+      : null;
+  if (score === null) {
+    return null;
+  }
+
+  const details = Array.isArray(raw.details)
+    ? raw.details
+        .map((detail) => ({
+          label: typeof detail.label === 'string' ? detail.label.trim() : null,
+          strengthLevel: detail.strengthLevel as StrengthLevel,
+          explanation: typeof detail.explanation === 'string' ? detail.explanation.trim() : null,
+        }))
+        .filter(
+          (detail): detail is MwsDetail =>
+            !!detail.label &&
+            !!detail.explanation &&
+            ['strong', 'moderate', 'light'].includes(detail.strengthLevel)
+        )
+        .slice(0, 3)
+    : [];
+
+  return {
+    summaryScore: score,
+    details,
+  };
+}
+
+function sanitizeCompanyContext(
+  raw?: Partial<RawCompanyContext> | null,
+  source: CompanyContext['source'] = 'jd'
+): CompanyContext | null {
+  if (!raw) return null;
+  const industry = normalizeSimpleString(raw.industry);
+  const maturity = normalizeMaturity(raw.maturity);
+  const businessModels = normalizeStringList(raw.businessModels);
+
+  if (!industry && !maturity && businessModels.length === 0) {
+    return null;
+  }
+
+  const context: CompanyContext = {
+    industry: industry || undefined,
+    maturity: maturity || undefined,
+    businessModels: businessModels.length ? businessModels : undefined,
+    source,
+    confidence:
+      typeof raw.confidence === 'number' && Number.isFinite(raw.confidence)
+        ? Number(raw.confidence.toFixed(2))
+        : undefined,
+  };
+
+  return context;
+}
+
+function normalizeSimpleString(value?: string | null): string | null {
+  if (!value || typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeMaturity(value?: string | null): string | undefined {
+  const normalized = normalizeSimpleString(value);
+  if (!normalized) return undefined;
+  const lower = normalized.toLowerCase();
+  const map: Record<string, string> = {
+    'pre seed': 'pre-seed',
+    'pre-seed': 'pre-seed',
+    seed: 'seed',
+    'series a': 'series-a',
+    'series b': 'series-b',
+    'series c': 'series-c',
+    growth: 'growth',
+    public: 'public',
+    ipo: 'public',
+  };
+  return map[lower] || lower;
+}
+
+function normalizeStringList(values?: string[] | null): string[] {
+  if (!Array.isArray(values)) return [];
+  const deduped = new Set<string>();
+  for (const value of values) {
+    const normalized = normalizeSimpleString(typeof value === 'string' ? value : null);
+    if (normalized) {
+      deduped.add(normalized);
+    }
+  }
+  return Array.from(deduped).slice(0, 5);
+}
+
+function clampSummaryScore(value: number): 0 | 1 | 2 | 3 {
+  if (value <= 0) return 0;
+  if (value < 1.5) return 1;
+  if (value < 2.5) return 2;
+  return 3;
+}
+
+function truncateForGoalsStage(text: string, maxChars = 3200): string {
+  if (!text) return '';
+  return text.length <= maxChars ? text : `${text.slice(0, maxChars)}\n...`;
+}
+
+async function logStreamInfo(message: string, payload?: Record<string, unknown>) {
+  try {
+    const { elog } = await import('../log.ts');
+    elog.info(message, payload);
+  } catch (_) {
+    if (payload) {
+      console.log(message, payload);
+    } else {
+      console.log(message);
+    }
+  }
+}
+
+async function logStreamError(message: string, payload?: Record<string, unknown>) {
+  try {
+    const { elog } = await import('../log.ts');
+    elog.error(message, payload);
+  } catch (_) {
+    if (payload) {
+      console.error(message, payload);
+    } else {
+      console.error(message);
+    }
+  }
+}
 
 // ============================================================================
 // Stage 3: Section Gaps (Slow - 25-45s)
@@ -287,8 +972,9 @@ export async function executeCoverLetterPipeline(
 
     // Define pipeline stages (PHASE 1: Analysis only, no draft generation)
     const stages: PipelineStage[] = [
-      basicMetricsStage,
+      jdAnalysisStage,
       requirementAnalysisStage,
+      goalsAndStrengthsStage,
       sectionGapsStage,
       // draftGenerationStage REMOVED - see Phase 1 comment above
     ];
@@ -357,6 +1043,11 @@ export async function executeCoverLetterPipeline(
     basicMetrics: results.basicMetrics || null,
     requirements: results.requirementAnalysis || null,
     sectionGaps: results.sectionGaps || null,
+    roleInsights: results.jdAnalysis?.data?.roleInsights || null,
+    jdRequirementSummary: results.jdAnalysis?.data?.jdRequirementSummary || null,
+    goalsAndStrengths: results.goalsAndStrengths || null,
+    mws: results.goalsAndStrengths?.data?.mws || null,
+    companyContext: results.goalsAndStrengths?.data?.companyContext || null,
   };
 
     // Save final result to job

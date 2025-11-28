@@ -31,6 +31,8 @@ import { SECTION_GAPS_SYSTEM_PROMPT, buildSectionGapsUserPrompt } from '@/prompt
 import { ContentStandardsEvaluationService } from './contentStandardsEvaluationService';
 import { aggregateContentStandards, extractSectionsMeta, mapDraftSectionType } from './contentStandardsService';
 import type { ContentStandardsAnalysis, SectionStandardResult, LetterStandardResult } from '@/types/coverLetters';
+import type { DraftReadinessEvaluation } from '@/types/coverLetters';
+import { isDraftReadinessEnabled } from '@/lib/flags';
 
 type SupabaseClient = typeof supabase;
 
@@ -408,6 +410,143 @@ export class CoverLetterDraftService {
     this.heuristicGapService = new HeuristicGapService();
     this.metricsStreamer = options.metricsStreamer ?? createDefaultMetricsStreamer();
     this.now = options.now ?? (() => new Date());
+  }
+
+  /**
+   * W10: Draft Readiness Evaluation
+   * - Reads cached evaluation from draft_quality_evaluations
+   * - Triggers Edge Function if missing/stale (TTL default 10 minutes)
+   * - Returns normalized JSON per spec
+   */
+  async getReadinessEvaluation(draftId: string): Promise<DraftReadinessEvaluation | null> {
+    if (!isDraftReadinessEnabled()) {
+      return null;
+    }
+
+    // Read cached evaluation
+    const { data: row } = await this.supabaseClient
+      .from('draft_quality_evaluations')
+      .select('*')
+      .eq('draft_id', draftId)
+      .maybeSingle();
+
+    const nowIso = this.now().toISOString();
+    const isFresh =
+      row?.ttl_expires_at && typeof row.ttl_expires_at === 'string' && row.ttl_expires_at > nowIso;
+    if (row && isFresh) {
+      return this.mapReadinessRow(row);
+    }
+
+    // Stale or missing → trigger recompute
+    try {
+      const fnClient = this.supabaseClient?.functions ?? supabase.functions;
+      const { data, error: fnError } = await fnClient.invoke('evaluate-draft-readiness', {
+        body: { draftId },
+      });
+      if (fnError) {
+        console.warn('[CoverLetterDraftService] Readiness edge function error:', fnError);
+      }
+      // Prefer canonical DB row after invocation
+      const { data: refreshed } = await this.supabaseClient
+        .from('draft_quality_evaluations')
+        .select('*')
+        .eq('draft_id', draftId)
+        .maybeSingle();
+      if (refreshed) {
+        return this.mapReadinessRow(refreshed);
+      }
+      // Fallback to function response if it returned the payload inline
+      if (data && typeof data === 'object') {
+        return this.sanitizeReadinessPayload(data);
+      }
+    } catch (invokeErr) {
+      console.warn('[CoverLetterDraftService] Failed to invoke readiness function:', invokeErr);
+    }
+
+    return null;
+  }
+
+  private mapReadinessRow(row: any): DraftReadinessEvaluation {
+    const rating =
+      row?.rating === 'weak' ||
+      row?.rating === 'adequate' ||
+      row?.rating === 'strong' ||
+      row?.rating === 'exceptional'
+        ? row.rating
+        : 'weak';
+
+    const scoreBreakdown = (row?.score_breakdown ?? {}) as Record<string, string>;
+    const feedbackSummary =
+      typeof row?.feedback_summary === 'string' ? row.feedback_summary : 'Evaluation unavailable';
+    const improvements = Array.isArray(row?.improvements)
+      ? row.improvements.filter((i: any) => typeof i === 'string').slice(0, 3)
+      : [];
+
+    return {
+      rating,
+      scoreBreakdown: {
+        clarityStructure: this.asStrength(scoreBreakdown.clarityStructure),
+        opening: this.asStrength(scoreBreakdown.opening),
+        companyAlignment: this.asStrength(scoreBreakdown.companyAlignment),
+        roleAlignment: this.asStrength(scoreBreakdown.roleAlignment),
+        specificExamples: this.asStrength(scoreBreakdown.specificExamples),
+        quantifiedImpact: this.asStrength(scoreBreakdown.quantifiedImpact),
+        personalization: this.asStrength(scoreBreakdown.personalization),
+        writingQuality: this.asStrength(scoreBreakdown.writingQuality),
+        lengthEfficiency: this.asStrength(scoreBreakdown.lengthEfficiency),
+        executiveMaturity: this.asStrength(scoreBreakdown.executiveMaturity),
+      },
+      feedback: {
+        summary: feedbackSummary,
+        improvements,
+      },
+      evaluatedAt: row?.evaluated_at ?? undefined,
+      ttlExpiresAt: row?.ttl_expires_at ?? undefined,
+      metadata: typeof row?.metadata === 'object' ? row.metadata : undefined,
+    };
+  }
+
+  private sanitizeReadinessPayload(payload: any): DraftReadinessEvaluation {
+    const score = payload?.scoreBreakdown ?? {};
+    return {
+      rating:
+        payload?.rating === 'weak' ||
+        payload?.rating === 'adequate' ||
+        payload?.rating === 'strong' ||
+        payload?.rating === 'exceptional'
+          ? payload.rating
+          : 'weak',
+      scoreBreakdown: {
+        clarityStructure: this.asStrength(score.clarityStructure),
+        opening: this.asStrength(score.opening),
+        companyAlignment: this.asStrength(score.companyAlignment),
+        roleAlignment: this.asStrength(score.roleAlignment),
+        specificExamples: this.asStrength(score.specificExamples),
+        quantifiedImpact: this.asStrength(score.quantifiedImpact),
+        personalization: this.asStrength(score.personalization),
+        writingQuality: this.asStrength(score.writingQuality),
+        lengthEfficiency: this.asStrength(score.lengthEfficiency),
+        executiveMaturity: this.asStrength(score.executiveMaturity),
+      },
+      feedback: {
+        summary:
+          typeof payload?.feedback?.summary === 'string'
+            ? payload.feedback.summary
+            : 'Evaluation unavailable',
+        improvements: Array.isArray(payload?.feedback?.improvements)
+          ? payload.feedback.improvements.filter((i: any) => typeof i === 'string').slice(0, 3)
+          : [],
+      },
+      evaluatedAt: payload?.evaluatedAt ?? undefined,
+      ttlExpiresAt: payload?.ttlExpiresAt ?? undefined,
+      metadata: typeof payload?.metadata === 'object' ? payload.metadata : undefined,
+    };
+  }
+
+  private asStrength(value: any): 'strong' | 'sufficient' | 'insufficient' {
+    return value === 'strong' || value === 'sufficient' || value === 'insufficient'
+      ? value
+      : 'insufficient';
   }
 
   /**

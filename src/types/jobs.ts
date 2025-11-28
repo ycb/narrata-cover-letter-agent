@@ -174,6 +174,36 @@ export interface CoverLetterRequirementAnalysisData {
   totalRequirements: number;
 }
 
+// A-Phase Streaming Stages (Task 4) - Canonical contract
+export interface JdAnalysisStageData {
+  roleInsights?: {
+    inferredRoleLevel?: 'APM' | 'PM' | 'Senior PM' | 'Staff' | 'Group';
+    inferredRoleScope?: 'feature' | 'product' | 'product_line' | 'multiple_teams' | 'org';
+    titleMatch?: { exactTitleMatch: boolean; adjacentTitleMatch: boolean };
+    scopeMatch?: { scopeRelation: 'belowExperience' | 'goodFit' | 'stretch' | 'bigStretch' };
+    goalAlignment?: { alignsWithTargetTitles: boolean; alignsWithTargetLevelBand: boolean };
+  };
+  jdRequirementSummary?: { coreTotal: number; preferredTotal: number };
+}
+
+export interface GoalsAndStrengthsStageData {
+  mws?: {
+    summaryScore: 0 | 1 | 2 | 3; // 0-3 band
+    details: Array<{
+      label: string; // e.g., "Growth product work"
+      strengthLevel: 'strong' | 'moderate' | 'light';
+      explanation: string;
+    }>;
+  };
+  companyContext?: {
+    industry?: string;
+    maturity?: 'pre-seed' | 'seed' | 'series-a' | 'series-b' | 'series-c' | 'growth' | 'public' | string;
+    businessModels?: string[];
+    source?: 'jd' | 'web' | 'mixed';
+    confidence?: number;
+  };
+}
+
 export interface CoverLetterSectionGapsData {
   sections: Array<{
     id: string;
@@ -248,6 +278,9 @@ export interface CoverLetterStreamState extends JobStreamState<'coverLetter'> {
     requirementAnalysis?: CoverLetterRequirementAnalysisData;
     sectionGaps?: CoverLetterSectionGapsData;
     draftLetter?: CoverLetterDraftData;
+    // A-Phase Streaming (Task 4)
+    jdAnalysis?: { status: string; data?: JdAnalysisStageData };
+    goalsAndStrengths?: { status: string; data?: GoalsAndStrengthsStageData };
   };
   result?: CoverLetterJobResult;
 }
@@ -305,5 +338,50 @@ export class JobStreamError extends JobError {
     super(message, jobId, undefined, originalError);
     this.name = 'JobStreamError';
   }
+}
+
+// ============================================================================
+// A-Phase Insights (Task 5)
+// ============================================================================
+
+/**
+ * Normalized A-phase insights for banner and toolbar
+ * Read-only data structure derived from jobState.stages
+ * Does NOT modify draft-based metrics/requirements/gaps
+ */
+export interface APhaseInsights {
+  roleInsights?: {
+    inferredRoleLevel?: 'APM' | 'PM' | 'Senior PM' | 'Staff' | 'Group';
+    inferredRoleScope?: 'feature' | 'product' | 'product_line' | 'multiple_teams' | 'org';
+    titleMatch?: { exactTitleMatch: boolean; adjacentTitleMatch: boolean };
+    scopeMatch?: { scopeRelation: 'belowExperience' | 'goodFit' | 'stretch' | 'bigStretch' };
+    goalAlignment?: { alignsWithTargetTitles: boolean; alignsWithTargetLevelBand: boolean };
+  };
+  jdRequirementSummary?: { coreTotal: number; preferredTotal: number };
+  mws?: {
+    summaryScore: 0 | 1 | 2 | 3;
+    details: Array<{
+      label: string;
+      strengthLevel: 'strong' | 'moderate' | 'light';
+      explanation: string;
+    }>;
+  };
+  companyContext?: {
+    industry?: string;
+    maturity?: 'pre-seed' | 'seed' | 'series-a' | 'series-b' | 'series-c' | 'growth' | 'public' | string;
+    businessModels?: string[];
+    source?: 'jd' | 'web' | 'mixed';
+    confidence?: number;
+  };
+  stageFlags: {
+    hasJdAnalysis: boolean;
+    hasRequirementAnalysis: boolean;
+    hasGoalsAndStrengths: boolean;
+    hasRoleInsights: boolean;
+    hasJdRequirementSummary: boolean;
+    hasMws: boolean;
+    hasCompanyContext: boolean;
+    phaseComplete: boolean; // true when all A-phase stages completed
+  };
 }
 
