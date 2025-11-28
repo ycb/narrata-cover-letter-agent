@@ -133,8 +133,10 @@ Rubric section enumerates rating definitions, dimension criteria, feedback rules
 TTL: 10 minutes (evaluation reused until TTL expires). No manual refresh button in W10; all updates happen via auto triggers. Retries/backoff handled in Edge Function; UI shows spinner + “Readiness verdict unavailable” fallback on failure.
 
 ## 11. Telemetry
-- `stream_readiness_eval_started/completed` (Edge) with latency + rating.
-- `ui_readiness_card_viewed`, `ui_readiness_manual_refresh`, `ui_readiness_finalize_submit`.
+- Edge (EF):
+  - `readiness_eval_started`, `readiness_eval_cached`, `readiness_eval_completed`, `readiness_eval_short_draft`, `readiness_eval_disabled`, `readiness_eval_failed`
+- Frontend (UI):
+  - `ui_readiness_card_viewed`, `ui_readiness_card_expanded`, `ui_readiness_auto_refresh_tick`, `ui_readiness_finalize_submit`
 
 ## 12. UI Decisions (Resolved)
 - **TTL**: 10 minutes.  

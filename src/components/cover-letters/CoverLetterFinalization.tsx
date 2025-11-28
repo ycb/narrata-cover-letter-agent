@@ -28,8 +28,12 @@ import type {
   CoverLetterDraftSection,
   CoverLetterMatchMetric,
   DifferentiatorInsight,
+  DraftReadinessEvaluation,
 } from '@/types/coverLetters';
 import { cn } from '@/lib/utils';
+import { isDraftReadinessEnabled } from '@/lib/flags';
+import { useDraftReadiness } from '@/hooks/useDraftReadiness';
+import { logReadinessEvent } from '@/lib/telemetry';
 
 interface CoverLetterFinalizationProps {
   isOpen: boolean;
@@ -46,6 +50,9 @@ interface CoverLetterFinalizationProps {
   onFinalizeConfirm?: () => void;
   isFinalizing?: boolean;
   errorMessage?: string | null;
+  draftId?: string;
+  draftUpdatedAt?: string;
+  isPostHIL?: boolean;
 }
 
 const getScoreFromMetric = (metric: CoverLetterMatchMetric | undefined): number | null => {
@@ -94,9 +101,24 @@ export function CoverLetterFinalization({
   onFinalizeConfirm,
   isFinalizing = false,
   errorMessage,
+  draftId,
+  draftUpdatedAt,
+  isPostHIL = false,
 }: CoverLetterFinalizationProps) {
   const [copied, setCopied] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+
+  // W10: Draft Readiness (optional secondary surface)
+  const ENABLE_DRAFT_READINESS = isDraftReadinessEnabled();
+  const readinessFetchEnabled = ENABLE_DRAFT_READINESS && isPostHIL && Boolean(draftId);
+  const {
+    data: readiness,
+    isLoading: readinessLoading,
+  } = useDraftReadiness({
+    draftId: readinessFetchEnabled ? draftId ?? null : null,
+    draftUpdatedAt: draftUpdatedAt ?? null,
+    enabled: readinessFetchEnabled,
+  });
 
   // Guard: Ensure sections is always an array
   const safeSections = Array.isArray(sections) ? sections : [];
@@ -227,6 +249,10 @@ export function CoverLetterFinalization({
               </CardContent>
             </Card>
 
+            {ENABLE_DRAFT_READINESS && isPostHIL && (readiness || readinessLoading) && (
+              <ReadinessCard readiness={readiness} isLoading={readinessLoading} />
+            )}
+
             <Card className="border border-primary/20 shadow-sm">
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg">Differentiator Coverage</CardTitle>
@@ -305,7 +331,16 @@ export function CoverLetterFinalization({
               </Button>
               {onFinalizeConfirm && (
                 <Button
-                  onClick={onFinalizeConfirm}
+                  onClick={() => {
+                    // Telemetry: finalize submission with readiness context
+                    if (ENABLE_DRAFT_READINESS && draftId) {
+                      logReadinessEvent('ui_readiness_finalize_submit', {
+                        draftId,
+                        rating: readiness?.rating,
+                      });
+                    }
+                    onFinalizeConfirm();
+                  }}
                   className="h-12 flex items-center gap-2"
                   disabled={isFinalizing}
                 >
@@ -365,5 +400,61 @@ function BuildingIcon(props: React.SVGProps<SVGSVGElement>) {
       <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
       <path d="M9 22V12h6v10" />
     </svg>
+  );
+}
+
+interface ReadinessCardProps {
+  readiness: DraftReadinessEvaluation | null;
+  isLoading: boolean;
+}
+
+function ReadinessCard({ readiness, isLoading }: ReadinessCardProps) {
+  if (isLoading) {
+    return (
+      <Card className="border-muted bg-muted/5">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">Preliminary Editorial Verdict</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-16 bg-muted animate-pulse rounded-md" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!readiness) {
+    return null;
+  }
+
+  const ratingLabel = readiness.rating.charAt(0).toUpperCase() + readiness.rating.slice(1);
+  const ratingBadgeClass =
+    readiness.rating === 'exceptional'
+      ? 'border-success bg-success/10 text-success'
+      : readiness.rating === 'strong'
+      ? 'border-primary bg-primary/10 text-primary'
+      : readiness.rating === 'adequate'
+      ? 'border-warning bg-warning/10 text-warning'
+      : 'border-muted bg-muted/10 text-muted-foreground';
+
+  return (
+    <Card className="border-primary/20 bg-primary/5">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg">Preliminary Editorial Verdict</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-foreground">Readiness:</span>
+          <Badge variant="outline" className={ratingBadgeClass}>
+            {ratingLabel}
+          </Badge>
+        </div>
+        {readiness.feedback?.summary && (
+          <p className="text-sm text-foreground/80">{readiness.feedback.summary}</p>
+        )}
+        <p className="text-xs text-muted-foreground italic">
+          Advisory only; does not block finalization. See full breakdown in Match Metrics.
+        </p>
+      </CardContent>
+    </Card>
   );
 }

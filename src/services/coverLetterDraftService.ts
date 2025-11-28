@@ -34,6 +34,50 @@ import type { ContentStandardsAnalysis, SectionStandardResult, LetterStandardRes
 import type { DraftReadinessEvaluation } from '@/types/coverLetters';
 import { isDraftReadinessEnabled } from '@/lib/flags';
 
+export class DraftReadinessFeatureDisabledError extends Error {
+  readonly statusCode = 503;
+
+  constructor(message = 'Draft readiness disabled') {
+    super(message);
+    this.name = 'DraftReadinessFeatureDisabledError';
+  }
+}
+
+const isFeatureDisabledFunctionsError = (error: unknown): boolean => {
+  if (!error) return false;
+
+  if (typeof error === 'string') {
+    return error.includes('FEATURE_DISABLED');
+  }
+
+  if (typeof error === 'object') {
+    const err = error as Record<string, any>;
+    const message =
+      typeof err.message === 'string'
+        ? err.message
+        : typeof err.error === 'string'
+        ? err.error
+        : '';
+    const details = typeof err.details === 'string' ? err.details : '';
+    const contextError =
+      typeof err.context === 'object' && err.context !== null
+        ? err.context.response?.error ?? err.context.body?.error ?? ''
+        : '';
+    const status =
+      (typeof err.context === 'object' && err.context !== null ? err.context.status : undefined) ??
+      (typeof err.status === 'number' ? err.status : undefined);
+
+    return (
+      message.includes('FEATURE_DISABLED') ||
+      details.includes('FEATURE_DISABLED') ||
+      contextError === 'FEATURE_DISABLED' ||
+      (status === 403 && (message.includes('FEATURE_DISABLED') || contextError === 'FEATURE_DISABLED'))
+    );
+  }
+
+  return false;
+};
+
 type SupabaseClient = typeof supabase;
 
 type MetricsStreamer = (input: {
@@ -420,7 +464,7 @@ export class CoverLetterDraftService {
    */
   async getReadinessEvaluation(draftId: string): Promise<DraftReadinessEvaluation | null> {
     if (!isDraftReadinessEnabled()) {
-      return null;
+      throw new DraftReadinessFeatureDisabledError();
     }
 
     // Read cached evaluation
@@ -434,7 +478,7 @@ export class CoverLetterDraftService {
     const isFresh =
       row?.ttl_expires_at && typeof row.ttl_expires_at === 'string' && row.ttl_expires_at > nowIso;
     if (row && isFresh) {
-      return this.mapReadinessRow(row);
+      return this.mapReadinessRow(row, true);
     }
 
     // Stale or missing → trigger recompute
@@ -444,6 +488,9 @@ export class CoverLetterDraftService {
         body: { draftId },
       });
       if (fnError) {
+        if (isFeatureDisabledFunctionsError(fnError)) {
+          throw new DraftReadinessFeatureDisabledError();
+        }
         console.warn('[CoverLetterDraftService] Readiness edge function error:', fnError);
       }
       // Prefer canonical DB row after invocation
@@ -453,20 +500,23 @@ export class CoverLetterDraftService {
         .eq('draft_id', draftId)
         .maybeSingle();
       if (refreshed) {
-        return this.mapReadinessRow(refreshed);
+        return this.mapReadinessRow(refreshed, false);
       }
       // Fallback to function response if it returned the payload inline
       if (data && typeof data === 'object') {
         return this.sanitizeReadinessPayload(data);
       }
     } catch (invokeErr) {
+      if (isFeatureDisabledFunctionsError(invokeErr)) {
+        throw new DraftReadinessFeatureDisabledError();
+      }
       console.warn('[CoverLetterDraftService] Failed to invoke readiness function:', invokeErr);
     }
 
     return null;
   }
 
-  private mapReadinessRow(row: any): DraftReadinessEvaluation {
+  private mapReadinessRow(row: any, fromCache: boolean): DraftReadinessEvaluation {
     const rating =
       row?.rating === 'weak' ||
       row?.rating === 'adequate' ||
@@ -503,6 +553,7 @@ export class CoverLetterDraftService {
       evaluatedAt: row?.evaluated_at ?? undefined,
       ttlExpiresAt: row?.ttl_expires_at ?? undefined,
       metadata: typeof row?.metadata === 'object' ? row.metadata : undefined,
+      fromCache,
     };
   }
 
@@ -540,6 +591,7 @@ export class CoverLetterDraftService {
       evaluatedAt: payload?.evaluatedAt ?? undefined,
       ttlExpiresAt: payload?.ttlExpiresAt ?? undefined,
       metadata: typeof payload?.metadata === 'object' ? payload.metadata : undefined,
+      fromCache: false,
     };
   }
 

@@ -7,11 +7,13 @@ function createSupabaseStub({
   row,
   refreshedRow,
   invokeData,
+  invokeError,
   track = {},
 }: {
   row?: any;
   refreshedRow?: any;
   invokeData?: any;
+  invokeError?: any;
   track?: any;
 }) {
   const selects: any[] = [];
@@ -38,7 +40,11 @@ function createSupabaseStub({
   });
 
   const functions = {
-    invoke: vi.fn().mockResolvedValue({ data: invokeData || null, error: null }),
+    invoke: vi.fn().mockResolvedValue(
+      invokeError
+        ? { data: null, error: invokeError }
+        : { data: invokeData || null, error: null },
+    ),
   };
 
   const stub = {
@@ -64,12 +70,11 @@ describe('CoverLetterDraftService.getReadinessEvaluation', () => {
     vi.restoreAllMocks();
   });
 
-  it('returns null when flag disabled (no DB or function calls)', async () => {
+  it('throws feature disabled error when flag disabled (no DB or function calls)', async () => {
     await withFlag(false, async () => {
       const supabaseClient = createSupabaseStub({});
       const service = new CoverLetterDraftService({ supabaseClient });
-      const result = await service.getReadinessEvaluation('draft-1');
-      expect(result).toBeNull();
+      await expect(service.getReadinessEvaluation('draft-1')).rejects.toThrow('Draft readiness disabled');
       expect(supabaseClient.from).not.toHaveBeenCalled();
       expect(supabaseClient.functions.invoke).not.toHaveBeenCalled();
     });
@@ -91,6 +96,7 @@ describe('CoverLetterDraftService.getReadinessEvaluation', () => {
       const service = new CoverLetterDraftService({ supabaseClient });
       const result = await service.getReadinessEvaluation('draft-2');
       expect(result?.rating).toBe('strong');
+      expect(result?.fromCache).toBe(true);
       expect(supabaseClient.functions.invoke).not.toHaveBeenCalled();
     });
   });
@@ -129,6 +135,7 @@ describe('CoverLetterDraftService.getReadinessEvaluation', () => {
       const service = new CoverLetterDraftService({ supabaseClient });
       const result = await service.getReadinessEvaluation('draft-3');
       expect(result?.rating).toBe('adequate');
+      expect(result?.fromCache).toBe(false);
       expect(supabaseClient.functions.invoke).toHaveBeenCalled();
     });
   });
@@ -160,6 +167,30 @@ describe('CoverLetterDraftService.getReadinessEvaluation', () => {
       const result = await service.getReadinessEvaluation('draft-4');
       expect(result?.rating).toBe('weak');
       expect(result?.feedback.summary).toBe('x');
+      expect(result?.fromCache).toBe(false);
+    });
+  });
+
+  it('translates feature-disabled function errors into typed error', async () => {
+    await withFlag(true, async () => {
+      const expired = new Date(Date.now() - 1000).toISOString();
+      const supabaseClient = createSupabaseStub({
+        row: { ttl_expires_at: expired },
+        invokeError: { message: 'FEATURE_DISABLED', status: 403 },
+      });
+      (supabaseClient.from as any).mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({ data: { ttl_expires_at: expired } }),
+          }),
+        }),
+      });
+      const service = new CoverLetterDraftService({ supabaseClient });
+      await expect(service.getReadinessEvaluation('draft-5')).rejects.toThrow('Draft readiness disabled');
+    });
+  });
+});
+
     });
   });
 });

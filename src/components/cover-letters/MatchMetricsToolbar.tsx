@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { HelpCircle, AlertTriangle } from 'lucide-react';
@@ -18,8 +18,9 @@ import {
 } from './useMatchMetricsDetails';
 import type { EnhancedMatchData, DraftReadinessEvaluation } from '@/types/coverLetters';
 import type { APhaseInsights } from '@/types/jobs';
-import { CoverLetterDraftService } from '@/services/coverLetterDraftService';
 import { isDraftReadinessEnabled } from '@/lib/flags';
+import { logReadinessEvent } from '@/lib/telemetry';
+import { useDraftReadiness } from '@/hooks/useDraftReadiness';
 
 type MetricKey = 'gaps' | 'goals' | 'core' | 'preferred' | 'rating' | 'ats' | 'a-phase' | 'readiness';
 
@@ -71,36 +72,34 @@ export function MatchMetricsToolbar({
   draftUpdatedAt,
 }: MatchMetricsToolbarProps) {
   const ENABLE_DRAFT_READINESS = isDraftReadinessEnabled();
-  const [readiness, setReadiness] = useState<DraftReadinessEvaluation | null>(null);
-  const [isReadinessLoading, setIsReadinessLoading] = useState(false);
+  const readinessFetchEnabled = ENABLE_DRAFT_READINESS && isPostHIL && Boolean(draftId);
+  const {
+    data: readiness,
+    isLoading: readinessLoading,
+  } = useDraftReadiness({
+    draftId: readinessFetchEnabled ? draftId ?? null : null,
+    draftUpdatedAt: draftUpdatedAt ?? null,
+    enabled: readinessFetchEnabled,
+  });
+  const isReadinessLoading = readinessFetchEnabled ? readinessLoading : false;
   const [ttlTimerId, setTtlTimerId] = useState<number | null>(null);
+  const viewedEventForDraftRef = useRef<string | null>(null);
 
+  // Telemetry: readiness card viewed when it first appears
   useEffect(() => {
-    let cancelled = false;
-    async function loadReadiness() {
-      if (!ENABLE_DRAFT_READINESS) return;
-      if (!draftId) return;
-      if (!isPostHIL) return;
-      setIsReadinessLoading(true);
-      try {
-        const service = new CoverLetterDraftService();
-        const result = await service.getReadinessEvaluation(draftId);
-        if (!cancelled) {
-          setReadiness(result);
-        }
-      } catch {
-        if (!cancelled) setReadiness(null);
-      } finally {
-        if (!cancelled) setIsReadinessLoading(false);
-      }
+    if (!ENABLE_DRAFT_READINESS || !isPostHIL || !draftId) return;
+    const isVisible = Boolean(readiness || isReadinessLoading);
+    const alreadySentForDraft = viewedEventForDraftRef.current === draftId;
+    if (isVisible && !alreadySentForDraft) {
+      logReadinessEvent('ui_readiness_card_viewed', {
+        draftId,
+        rating: readiness?.rating,
+      });
+      viewedEventForDraftRef.current = draftId;
     }
-    loadReadiness();
-    return () => {
-      cancelled = true;
-    };
-  }, [draftId, isPostHIL, ENABLE_DRAFT_READINESS, draftUpdatedAt]);
+  }, [ENABLE_DRAFT_READINESS, isPostHIL, draftId, readiness, isReadinessLoading]);
 
-  // Schedule auto-refresh on TTL expiry
+  // Schedule telemetry logging on TTL expiry (data refetch handled by hook)
   useEffect(() => {
     // Clear previous timer
     if (ttlTimerId) {
@@ -114,12 +113,8 @@ export function MatchMetricsToolbar({
     const ttlMs = new Date(readiness.ttlExpiresAt).getTime() - now;
     const delay = Math.max(1000, ttlMs); // at least 1s
     const id = window.setTimeout(() => {
-      // trigger by updating a local state to re-run the fetch effect via draftUpdatedAt fallback
-      setIsReadinessLoading(true);
-      const service = new CoverLetterDraftService();
-      service.getReadinessEvaluation(draftId).then(setReadiness).finally(() => {
-        setIsReadinessLoading(false);
-      });
+      // Telemetry: TTL-based auto-refresh tick
+      logReadinessEvent('ui_readiness_auto_refresh_tick', { draftId });
     }, delay);
     setTtlTimerId(id);
     return () => {
@@ -402,7 +397,14 @@ export function MatchMetricsToolbar({
                 <>
                   <button
                     type="button"
-                    onClick={() => setActiveMetric(isActive ? null : item.key)}
+                    onClick={() => {
+                      const next = isActive ? null : item.key;
+                      setActiveMetric(next);
+                      // Telemetry: readiness accordion expanded
+                      if (next === 'readiness' && draftId) {
+                        logReadinessEvent('ui_readiness_card_expanded', { draftId });
+                      }
+                    }}
                     className={`w-full border px-3 py-2 text-left transition ${
                       isActive
                         ? 'bg-black dark:bg-white border-black dark:border-white text-white dark:text-black'

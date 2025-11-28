@@ -1722,6 +1722,9 @@ export const CoverLetterModal = ({
             company: jobDescriptionRecord?.company ?? draft.company,
             role: jobDescriptionRecord?.role ?? draft.role,
           }}
+          draftId={draft.id}
+          draftUpdatedAt={draft.updatedAt}
+          isPostHIL={isPostHIL}
         />
       )}
       <ContentGenerationModal

@@ -469,5 +469,6 @@ export interface DraftReadinessEvaluation {
   evaluatedAt?: string; // ISO timestamp
   ttlExpiresAt?: string; // ISO timestamp
   metadata?: Record<string, unknown>;
+  fromCache?: boolean;
 }
 

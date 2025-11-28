@@ -71,6 +71,7 @@ Create the backend foundation for Draft Readiness by adding the `draft_quality_e
 5. **Feature Flag + Ownership**
    - If `ENABLE_DRAFT_READINESS` is not 'true' → return 403 `{ error: 'FEATURE_DISABLED' }` without DB/LLM calls.
    - Validate auth and draft ownership before any evaluation.
+   - Downstream API route (Task 3) must translate this 403 into a 503 surface error so the client sees a consistent `disabled` status without leaking Edge implementation details.
 
 6. **TTL + Upsert Logic**
    - If existing row and `ttl_expires_at > now` → return cached with `fromCache: true` (no LLM).

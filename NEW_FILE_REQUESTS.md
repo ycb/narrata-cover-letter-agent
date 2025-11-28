@@ -55,4 +55,5 @@
 ## 2025-11-28
 
 - `supabase/functions/_shared/readiness.ts`: Searched `_shared` utilities (`rg readiness`, inspected `pipeline-utils.ts`, `pm-levels.ts`) and confirmed there was no helper responsible for loading draft text + JD context or for schema-validating readiness verdicts. Added a dedicated module that composes existing pipeline helpers (`streamJsonFromLLM`) to (1) load/guard draft context, (2) expose the readiness Zod schema, and (3) wrap the JSON-LLM call so multiple Edge Functions can share the same implementation.
+- `src/hooks/useDraftReadiness.ts`: Checked `src/hooks`, `src/components/cover-letters`, and `src/lib` for any reusable client helper that fetches the readiness API, attaches Supabase auth tokens, and handles TTL refetching—found only direct `CoverLetterDraftService` usage inside `MatchMetricsToolbar` (browser-side Supabase). Added a hook that encapsulates the new `/api/drafts/:id/readiness` flow, translates status codes (200/204/503), schedules TTL-based refetches, and surfaces a `featureDisabled` flag so UI consumers can gate rendering without duplicating the networking logic.
 

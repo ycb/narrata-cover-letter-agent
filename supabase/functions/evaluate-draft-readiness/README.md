@@ -61,3 +61,22 @@ deno test --allow-env --allow-read --allow-write \
   supabase/functions/evaluate-draft-readiness/__tests__/handler.test.ts
 ```
 
+## Telemetry
+
+The function emits structured log lines via `elog`:
+
+- `readiness_eval_started` — `{ draftId, userId, hasCache }`
+- `readiness_eval_cached` — `{ draftId, userId, evaluatedAt, ttlExpiresAt }`
+- `readiness_eval_short_draft` — `{ draftId, userId, wordCount }`
+- `readiness_eval_completed` — `{ draftId, userId, rating, latencyMs, evaluatedAt, ttlExpiresAt }`
+- `readiness_eval_disabled` — `{ draftId? }`
+- `readiness_eval_failed` — `{ draftId?, code: 'SCHEMA_VALIDATION_FAILED' | 'INTERNAL', message }`
+
+Local tail example:
+
+```bash
+# If serving the function locally, logs appear in the terminal.
+# In deployed environments, pipe logs and filter by the event name:
+grep -E 'readiness_eval_(started|cached|completed|short_draft|disabled|failed)' -n app.log
+```
+

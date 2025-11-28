@@ -85,6 +85,12 @@ export function createEvaluateDraftReadinessHandler(
 
     try {
       if (deps.getEnv('ENABLE_DRAFT_READINESS') !== 'true') {
+        // Feature disabled — emit telemetry and exit
+        try {
+          elog.info('readiness_eval_disabled', {});
+        } catch {
+          /* no-op */
+        }
         return json({ error: 'FEATURE_DISABLED' }, 403);
       }
 
@@ -138,8 +144,27 @@ export function createEvaluateDraftReadinessHandler(
         return json({ error: error.message }, error.status);
       }
       if (error instanceof ZodError) {
+        try {
+          elog.error('readiness_eval_failed', {
+            code: 'SCHEMA_VALIDATION_FAILED',
+            message: error.message,
+          });
+        } catch {
+          /* no-op */
+        }
         elog.error('[evaluate-draft-readiness] Schema validation failed:', error.flatten());
         return json({ error: 'SCHEMA_VALIDATION_FAILED' }, 500);
+      }
+      try {
+        const message =
+          (error && typeof error === 'object' && 'message' in error && (error as any).message) ||
+          String(error);
+        elog.error('readiness_eval_failed', {
+          code: 'INTERNAL',
+          message,
+        });
+      } catch {
+        /* no-op */
       }
       elog.error('[evaluate-draft-readiness] Unexpected error:', error);
       return json({ error: 'Internal server error' }, 500);
@@ -166,10 +191,26 @@ export async function evaluateDraftReadinessCore(
 
   const now = deps.now();
   const cached = await deps.fetchEvaluation({ supabase: params.supabase, draftId: params.draftId });
-  if (cached && cached.ttl_expires_at && new Date(cached.ttl_expires_at) > now) {
-    elog.info('[evaluate-draft-readiness] Returning cached evaluation', {
+  try {
+    elog.info('readiness_eval_started', {
       draftId: params.draftId,
+      userId: params.userId,
+      hasCache: Boolean(cached),
     });
+  } catch {
+    /* no-op */
+  }
+  if (cached && cached.ttl_expires_at && new Date(cached.ttl_expires_at) > now) {
+    try {
+      elog.info('readiness_eval_cached', {
+        draftId: params.draftId,
+        userId: params.userId,
+        evaluatedAt: cached.evaluated_at,
+        ttlExpiresAt: cached.ttl_expires_at,
+      });
+    } catch {
+      /* no-op */
+    }
     return buildResponseFromRow(cached, true);
   }
 
@@ -190,6 +231,15 @@ export async function evaluateDraftReadinessCore(
       },
     });
 
+    try {
+      elog.info('readiness_eval_short_draft', {
+        draftId: params.draftId,
+        userId: params.userId,
+        wordCount: context.wordCount,
+      });
+    } catch {
+      /* no-op */
+    }
     return buildResponseFromPayload(payload, evaluatedAt, ttlExpiresAt, false);
   }
 
@@ -220,6 +270,18 @@ export async function evaluateDraftReadinessCore(
     },
   });
 
+  try {
+    elog.info('readiness_eval_completed', {
+      draftId: params.draftId,
+      userId: params.userId,
+      rating: payload.rating,
+      latencyMs,
+      evaluatedAt,
+      ttlExpiresAt,
+    });
+  } catch {
+    /* no-op */
+  }
   return buildResponseFromPayload(payload, evaluatedAt, ttlExpiresAt, false);
 }
 
