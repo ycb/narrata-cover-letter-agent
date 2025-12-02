@@ -797,6 +797,17 @@ export const CoverLetterModal = ({
 
         setPreParsedJD(record);
         setPreParsedContent(trimmed);
+        
+        // PERF: Fire-and-forget pre-analysis while user reviews the parsed JD
+        // This saves 15-25s when they click "Generate" because jdAnalysis will be cached
+        supabase.functions.invoke('preanalyze-jd', {
+          body: { jobDescriptionId: record.id },
+        }).then(() => {
+          console.log('[CoverLetterModal] Pre-analysis triggered for JD:', record.id);
+        }).catch((err) => {
+          // Non-blocking - if it fails, the main pipeline will just do the analysis
+          console.warn('[CoverLetterModal] Pre-analysis failed (non-blocking):', err);
+        });
       } catch (error) {
         if (controller.signal.aborted) {
           return;

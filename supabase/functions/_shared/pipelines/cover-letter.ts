@@ -68,7 +68,8 @@ const companyTagsClient = new CompanyTagsClient();
 const ROLE_LEVEL_VALUES: RoleLevel[] = ['APM', 'PM', 'Senior PM', 'Staff', 'Group'];
 const ROLE_SCOPE_VALUES: RoleScope[] = ['feature', 'product', 'product_line', 'multiple_teams', 'org'];
 
-const roleInsightsSchema = z
+// Exported for preanalyze-jd edge function
+export const roleInsightsSchema = z
   .object({
     inferredRoleLevel: z.enum(ROLE_LEVEL_VALUES).optional(),
     inferredRoleScope: z.enum(ROLE_SCOPE_VALUES).optional(),
@@ -78,7 +79,7 @@ const roleInsightsSchema = z
   })
   .partial();
 
-type RawRoleInsights = z.infer<typeof roleInsightsSchema>;
+export type RawRoleInsights = z.infer<typeof roleInsightsSchema>;
 
 interface JdAnalysisStageData {
   roleInsights?: RoleInsightsPayload;
@@ -111,6 +112,31 @@ const jdAnalysisStage: PipelineStage = {
 
     try {
       const jd = await fetchJobDescription(supabase, jobDescriptionId);
+      
+      // PERF: Check for pre-computed analysis from preanalyze-jd edge function
+      const cachedAnalysis = jd.analysis as Record<string, unknown> | null;
+      const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+      
+      if (cachedAnalysis?.roleInsights && cachedAnalysis?.analyzedAt) {
+        const analyzedAt = new Date(cachedAnalysis.analyzedAt as string);
+        const ageMs = Date.now() - analyzedAt.getTime();
+        
+        if (ageMs < CACHE_TTL_MS) {
+          try { const { elog } = await import('../log.ts'); elog.info('[jdAnalysisStage] Using cached pre-analysis', { jobDescriptionId, cacheAgeMs: ageMs }); } catch (_) {}
+          
+          // Use cached results directly
+          stageData.roleInsights = cachedAnalysis.roleInsights as RoleInsightsPayload;
+          stageData.jdRequirementSummary = cachedAnalysis.jdRequirementSummary as JdRequirementSummary;
+          
+          // Emit the cached data
+          await emitPartial({ jdRequirementSummary: stageData.jdRequirementSummary });
+          await emitPartial({ roleInsights: stageData.roleInsights });
+          
+          // Return early with cached data
+          return { status: 'complete', data: stageData };
+        }
+      }
+      
       const jdText = (jd.raw_text || jd.content || '').trim();
       const jdTitle = jd.role || jd.title || jd.position || '';
       const pmProfile = await getPmProfileForStreaming(supabase, job.user_id);
@@ -202,7 +228,8 @@ const jdAnalysisStage: PipelineStage = {
   },
 };
 
-function buildJdRolePrompt(role: string | null, company: string | null, jdText: string): string {
+// Exported for preanalyze-jd edge function
+export function buildJdRolePrompt(role: string | null, company: string | null, jdText: string): string {
   const trimmedJD = jdText.length > 8000 ? `${jdText.slice(0, 8000)}\n...` : jdText;
   return `You are a PM leveling expert. Analyze the following job description and infer the hiring level and scope.
 
@@ -222,7 +249,8 @@ Job Description:
 ${trimmedJD}`;
 }
 
-function sanitizeRoleInsights(raw?: RawRoleInsights | null): RoleInsightsPayload | null {
+// Exported for preanalyze-jd edge function
+export function sanitizeRoleInsights(raw?: RawRoleInsights | null): RoleInsightsPayload | null {
   if (!raw) return null;
   const payload: RoleInsightsPayload = {};
 

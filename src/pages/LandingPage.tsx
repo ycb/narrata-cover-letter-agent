@@ -52,9 +52,7 @@ const LandingPage = () => {
       <section className="container mx-auto px-4 pt-16 pb-12 md:pt-24 md:pb-16">
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-6 leading-tight">
-            Exceptional cover letters
-            <br />
-            Built from your real experience
+            Exceptional cover letters start here
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-3xl mx-auto">
             Narrata builds cover letters from your verified experience and AI helps you refine. Never made up, always in your voice.
