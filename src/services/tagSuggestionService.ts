@@ -313,65 +313,48 @@ export class TagSuggestionService {
       });
       console.log('companyTags: Stream initiated');
 
-      let previousTagCount = 0;
       const allGeneratedTags: TagSuggestion[] = [];
       const existingTagsLower = (request.existingTags || []).map(t => t.toLowerCase().trim());
 
-      // 5. Process streaming tags
-      console.log('companyTags: Processing stream');
-      for await (const partialObject of result.partialObjectStream) {
-        const currentTags = partialObject.tags || [];
-        console.log('companyTags: Received partial object, tags count:', currentTags.length);
+      // 5. Wait for final complete object
+      console.log('companyTags: Waiting for complete response');
+      const finalObject = await result.object;
+      console.log('companyTags: Received complete object', finalObject);
+      
+      const completeTags = finalObject.tags || [];
+      console.log('companyTags: Processing', completeTags.length, 'tags');
+
+      // 6. Process all tags
+      for (const tag of completeTags) {
+        console.log('companyTags: Processing tag', tag);
         
-        // Only process new tags
-        if (currentTags.length > previousTagCount) {
-          console.log('companyTags: Processing new tags', currentTags.length - previousTagCount);
-          for (let i = previousTagCount; i < currentTags.length; i++) {
-            const tag = currentTags[i];
-            console.log('companyTags: Inspecting tag', { 
-              tag, 
-              tagKeys: Object.keys(tag || {}),
-              hasTag: !!tag, 
-              hasValue: !!tag?.value, 
-              valueType: typeof tag?.value,
-              rawValue: tag?.value,
-              fullTagObject: JSON.stringify(tag)
-            });
-            
-            // Skip if tag is invalid or undefined
-            if (!tag || !tag.value || typeof tag.value !== 'string') {
-              console.warn('companyTags: Skipping invalid tag - validation failed', { 
-                tag,
-                tagKeys: Object.keys(tag || {}),
-                reason: !tag ? 'no tag object' : !tag.value ? 'no value property' : 'value is not a string'
-              });
-              continue;
-            }
-            
-            // Skip if tag already exists
-            if (existingTagsLower.includes(tag.value.toLowerCase().trim())) {
-              console.log('companyTags: Skipping existing tag', tag.value);
-              continue;
-            }
-
-            // Create TagSuggestion
-            const tagSuggestion: TagSuggestion = {
-              id: `tag-${allGeneratedTags.length}`,
-              value: tag.value,
-              confidence: tag.confidence || 'medium',
-              category: tag.category || 'other'
-            };
-
-            console.log('companyTags: New tag', tag.value, tag.confidence);
-            allGeneratedTags.push(tagSuggestion);
-            onTagUpdate(tagSuggestion);
-          }
-          previousTagCount = currentTags.length;
+        // Skip if tag is invalid or undefined
+        if (!tag || !tag.value || typeof tag.value !== 'string') {
+          console.warn('companyTags: Skipping invalid tag', tag);
+          continue;
         }
+        
+        // Skip if tag already exists
+        if (existingTagsLower.includes(tag.value.toLowerCase().trim())) {
+          console.log('companyTags: Skipping existing tag', tag.value);
+          continue;
+        }
+
+        // Create TagSuggestion
+        const tagSuggestion: TagSuggestion = {
+          id: `tag-${allGeneratedTags.length}`,
+          value: tag.value,
+          confidence: tag.confidence || 'medium',
+          category: tag.category || 'other'
+        };
+
+        console.log('companyTags: New tag', tag.value, tag.confidence);
+        allGeneratedTags.push(tagSuggestion);
+        onTagUpdate(tagSuggestion);
       }
 
-      // 6. Complete
-      console.log('companyTags: Streaming complete! Generated tags:', allGeneratedTags.length);
+      // 7. Complete
+      console.log('companyTags: Complete! Generated tags:', allGeneratedTags.length);
       onComplete(allGeneratedTags);
 
     } catch (error) {

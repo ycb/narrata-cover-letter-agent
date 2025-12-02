@@ -1026,6 +1026,49 @@ source_type: dbSourceType,
         storiesType: typeof structuredData.workHistory[0]?.stories,
         keys: Object.keys(structuredData.workHistory[0] || {})
       });
+
+      // PERFORMANCE: Batch all content for generic check in ONE LLM call
+      // This reduces 43+ individual API calls to 1 batch call
+      try {
+        const { GapDetectionService } = await import('./gapDetectionService');
+        
+        // Collect all content items for batch evaluation
+        const contentItems: Array<{ id: string; content: string; type: 'work_item' | 'story' | 'section' }> = [];
+        
+        for (let i = 0; i < structuredData.workHistory.length; i++) {
+          const workItem = structuredData.workHistory[i];
+          // Add work item description
+          const description = workItem.roleSummary || workItem.description || '';
+          if (description) {
+            contentItems.push({
+              id: `work_item_${i}`,
+              content: description,
+              type: 'work_item'
+            });
+          }
+          // Add stories
+          const stories = workItem.stories || workItem.keyAccomplishments || [];
+          for (let j = 0; j < stories.length; j++) {
+            const story = stories[j];
+            const storyContent = story.content || story.description || (typeof story === 'string' ? story : '');
+            if (storyContent) {
+              contentItems.push({
+                id: `story_${i}_${j}`,
+                content: storyContent,
+                type: 'story'
+              });
+            }
+          }
+        }
+        
+        if (contentItems.length > 0) {
+          console.log(`🔍 [GapDetection] Pre-evaluating ${contentItems.length} content items for generic content (batch)...`);
+          await GapDetectionService.checkGenericContentBatch(contentItems);
+          console.log(`✅ [GapDetection] Batch evaluation complete - results cached for individual gap checks`);
+        }
+      } catch (batchError) {
+        console.warn('[GapDetection] Batch generic check failed, will fall back to heuristics:', batchError);
+      }
       
       // Process each work history entry
       for (const workItem of structuredData.workHistory) {
@@ -1428,6 +1471,14 @@ source_type: dbSourceType,
         storiesFailed,
         totalWorkHistory: structuredData.workHistory.length
       });
+
+      // Clear gap detection cache after processing
+      try {
+        const { GapDetectionService } = await import('./gapDetectionService');
+        GapDetectionService.clearGenericContentCache();
+      } catch (e) {
+        // Non-critical
+      }
 
       console.log('✅ Structured data processed successfully');
 

@@ -1266,36 +1266,81 @@ export class GapDetectionService {
   }
 
   /**
-   * Check if content is too generic using LLM-as-judge
+   * Check if content is too generic
+   * 
+   * PERFORMANCE: Now checks cache first (populated by batch call).
+   * If not in cache, uses heuristics to avoid individual LLM calls.
+   * For best results, call checkGenericContentBatch() first with all items.
    */
   private static async checkGenericContent(content: string): Promise<GenericContentGap> {
+    // Check cache first (populated by batch call)
+    const cached = this.genericContentCache.get(content);
+    if (cached) {
+      return cached;
+    }
+
+    // If not in cache, use heuristics (avoid individual LLM calls)
+    // The batch method should have been called first for LLM-quality results
+    return this.fallbackGenericCheck(content);
+  }
+
+  // Cache for batch generic content results (cleared after each batch call)
+  private static genericContentCache: Map<string, GenericContentGap> = new Map();
+
+  /**
+   * Check multiple content items for generic content in ONE LLM call
+   * 
+   * PERFORMANCE: Reduces 43+ individual API calls to 1 batch call
+   * - Before: 43 calls × 1-3s = 43-129s latency, ~$0.02-0.05
+   * - After: 1 call × 3-5s = 3-5s latency, ~$0.001-0.002
+   */
+  static async checkGenericContentBatch(
+    items: Array<{ id: string; content: string; type: 'work_item' | 'story' | 'section' }>
+  ): Promise<Map<string, GenericContentGap>> {
+    const results = new Map<string, GenericContentGap>();
+    
+    if (items.length === 0) {
+      return results;
+    }
+
     try {
       const apiKey = (import.meta.env?.VITE_OPENAI_KEY) || (typeof process !== 'undefined' ? process.env.VITE_OPENAI_KEY : undefined) || '';
       
       if (!apiKey) {
-        console.warn('[GapDetection] OpenAI API key not found, using fallback heuristic check');
-        return this.fallbackGenericCheck(content);
+        console.warn('[GapDetection] OpenAI API key not found, using fallback heuristics for batch');
+        for (const item of items) {
+          results.set(item.id, this.fallbackGenericCheck(item.content));
+        }
+        return results;
       }
 
-      const prompt = `Analyze this professional story/description and determine if it's too generic or lacks specific details.
+      // Build numbered list of content for batch evaluation
+      const contentList = items.map((item, idx) => 
+        `[${idx + 1}] (${item.type}) "${item.content.substring(0, 500)}${item.content.length > 500 ? '...' : ''}"`
+      ).join('\n\n');
 
-Story:
-"${content}"
+      const prompt = `Analyze these ${items.length} professional stories/descriptions and determine which are too generic or lack specific details.
 
-Evaluate if this content:
+${contentList}
+
+For EACH item, evaluate if it:
 1. Contains specific details (technologies, processes, methodologies, numbers)
 2. Uses measurable outcomes (metrics, percentages, dollar amounts, timeframes)
 3. Avoids vague language like "worked on", "contributed to", "helped with" without specifics
 4. Demonstrates clear impact and outcomes
 
-Respond in JSON format:
+Respond in JSON format with an array matching the order above:
 {
-  "isGeneric": boolean,
-  "reasoning": "brief explanation",
-  "confidence": number (0-1)
+  "results": [
+    { "index": 1, "isGeneric": boolean, "reasoning": "brief explanation", "confidence": number (0-1) },
+    ...
+  ]
 }
 
-If the content is specific, has metrics, and demonstrates clear impact, set isGeneric to false.`;
+If content is specific with metrics and clear impact, set isGeneric to false.`;
+
+      console.log(`[GapDetection] Batch checking ${items.length} items for generic content...`);
+      const startTime = performance.now();
 
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -1305,17 +1350,15 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
         },
         body: JSON.stringify({
           model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          max_tokens: 200,
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: Math.min(items.length * 100 + 200, 4000), // Scale with item count
           temperature: 0.3,
           response_format: { type: 'json_object' }
         })
       });
+
+      const latencyMs = performance.now() - startTime;
+      console.log(`[GapDetection] Batch LLM call completed in ${latencyMs.toFixed(0)}ms for ${items.length} items`);
 
       if (!response.ok) {
         throw new Error(`OpenAI API error: ${response.statusText}`);
@@ -1328,26 +1371,52 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
         throw new Error('No content in OpenAI response');
       }
 
-      try {
-        const result = typeof contentText === 'string' ? JSON.parse(contentText) : contentText;
-        return {
-          entityId: '',
-          entityType: 'approved_content',
-          content,
-          isGeneric: result.isGeneric || false,
-          reasoning: result.reasoning || '',
-          confidence: result.confidence || 0.5
-        };
-      } catch (parseError) {
-        console.error('Error parsing LLM response:', parseError);
-        // Fallback: basic heuristic check
-        return this.fallbackGenericCheck(content);
+      const parsed = typeof contentText === 'string' ? JSON.parse(contentText) : contentText;
+      const llmResults = parsed.results || [];
+
+      // Map results back to items
+      for (const llmResult of llmResults) {
+        const idx = (llmResult.index || llmResult.idx) - 1; // Convert 1-based to 0-based
+        if (idx >= 0 && idx < items.length) {
+          const item = items[idx];
+          const gap: GenericContentGap = {
+            entityId: item.id,
+            entityType: item.type === 'story' ? 'approved_content' : item.type === 'section' ? 'saved_section' : 'work_item',
+            content: item.content,
+            isGeneric: llmResult.isGeneric || false,
+            reasoning: llmResult.reasoning || '',
+            confidence: llmResult.confidence || 0.5
+          };
+          results.set(item.id, gap);
+          // Also cache for single-item lookups
+          this.genericContentCache.set(item.content, gap);
+        }
       }
+
+      // Fill in any missing results with fallback
+      for (const item of items) {
+        if (!results.has(item.id)) {
+          console.warn(`[GapDetection] Missing result for item ${item.id}, using fallback`);
+          results.set(item.id, this.fallbackGenericCheck(item.content));
+        }
+      }
+
+      return results;
     } catch (error) {
-      console.error('Error in LLM generic content check:', error);
-      // Fallback: basic heuristic check
-      return this.fallbackGenericCheck(content);
+      console.error('[GapDetection] Batch generic content check failed:', error);
+      // Fallback: use heuristics for all items
+      for (const item of items) {
+        results.set(item.id, this.fallbackGenericCheck(item.content));
+      }
+      return results;
     }
+  }
+
+  /**
+   * Clear the generic content cache (call after processing a batch)
+   */
+  static clearGenericContentCache(): void {
+    this.genericContentCache.clear();
   }
 
   /**
