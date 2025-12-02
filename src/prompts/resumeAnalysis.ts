@@ -52,7 +52,7 @@ Return ONLY valid JSON with this exact structure. ALL FIELDS ARE REQUIRED:
       "roleMetrics": [  // Extract metrics WITHOUT story context (standalone metrics, no narrative). DO NOT duplicate metrics that appear in stories.
         {
           "value": "+22%",  // REQUIRED: Extract numeric value (e.g., "+22%", "-3.5%", "30+", "+10")
-          "context": "Week-2 activation",  // REQUIRED: What this metric measures
+          "context": "Week-2 activation improvement",  // REQUIRED: Complete, self-explanatory phrase. BAD: "revenue" or "team". GOOD: "year-over-year revenue growth" or "team size increase". Must make sense without seeing original resume.
           "type": "increase",  // REQUIRED: "increase" | "decrease" | "absolute"
           "parentType": "role"  // REQUIRED: Always "role" for roleMetrics
         }
@@ -135,8 +135,15 @@ CRITICAL EXTRACTION RULES:
    Story Metrics:
    - Extract ALL numbers: percentages ("+22%", "-3.5%"), counts ("30+"), money ("$2M")
    - Each metric needs: value, context, type (increase/decrease/absolute), parentType ("story")
-   - Example: {"value": "+22%", "context": "Week-2 activation", "type": "increase", "parentType": "story"}
+   - Example: {"value": "+22%", "context": "Week-2 activation improvement", "type": "increase", "parentType": "story"}
    - These metrics belong to specific stories within a role
+   
+   CONTEXT FIELD (CRITICAL):
+   - Must be a COMPLETE, SELF-EXPLANATORY phrase
+   - Include: what was measured + direction/outcome
+   - BAD: "revenue", "team", "activation" (too vague, missing direction)
+   - GOOD: "year-over-year revenue growth", "team size increase during tenure", "Week-2 activation improvement"
+   - The context should make sense WITHOUT seeing the original resume
    
    Role Metrics vs Story Metrics (CRITICAL - DO NOT DUPLICATE):
    
@@ -168,11 +175,15 @@ CRITICAL EXTRACTION RULES:
    CRITICAL: ALWAYS provide a company description. NEVER leave this field empty.
    
    Extraction Priority:
-   1. Explicit mentions in resume header or role context
-   2. Infer from company name if well-known (e.g., "Meta" → "Social media and technology company")
-   3. Infer from industry/product mentions in role description
-   4. Infer from tags (SaaS, B2B, PLG → "B2B SaaS platform")
-   5. For obscure companies: describe the product/service based on role context
+   1. Role header taglines (e.g., "industry-leading SaaS platform", "healthcare startup")
+   2. Explicit mentions in resume header or role context
+   3. Infer from company name if well-known (e.g., "Meta" → "Social media and technology company")
+   4. Infer from industry/product mentions in role description
+   5. Infer from tags (SaaS, B2B, PLG → "B2B SaaS platform")
+   6. For obscure companies: describe the product/service based on role context
+   
+   INCLUDE FUNDING/STAGE when mentioned:
+   - If header says "Series A to C" → include in description (e.g., "Solar SaaS platform, Series A to C during tenure")
    
    Quality Standards:
    - Length: 1-2 sentences describing what the company does
@@ -226,6 +237,27 @@ CRITICAL EXTRACTION RULES:
    - 1-2 sentences summarizing: area of ownership, why it matters, top result
    - Example: "Owned onboarding, experimentation cadence, and analytics taxonomy to drive activation and conversion. Led 30+ A/B tests yearly."
    - This should be distinct from stories. Purpose is to explain areas of responsibility, scope, team size, etc -- not the specific actions taken or results.
+   
+   INCLUDE IN ROLE SUMMARY:
+   - Role positioning from headers (e.g., "First product hire", "Founding team member")
+   - Scope indicators (team size, budget, ownership areas)
+   - High-level context not captured in individual stories
+   - Company stage context if relevant to role (e.g., "joined pre-Series A, scaled through Series C")
+
+8. ROLE HEADER CONTEXT:
+   Resume entries often contain rich context in headers/subheaders beyond company + title:
+   - Funding/stage: "Series A", "Pre-IPO", "Fortune 500", "Seed to Series B"
+   - Growth multipliers: "2X revenue", "10X team", "3X ARR"
+   - Role positioning: "First hire", "Founding team", "Employee #5"
+   - Company descriptors: "leading SaaS platform", "healthcare startup"
+   
+   EXTRACTION RULES:
+   - Company descriptors → companyDescription field
+   - Funding/stage → include in companyTags AND companyDescription
+   - Growth multipliers → roleMetrics[] with FULL context (e.g., "2X" + "year-over-year revenue growth")
+   - Role positioning → include in roleSummary (e.g., "First product hire...")
+   
+   DO NOT lose header context just because it's not in bullet format.
 
 EXAMPLE OUTPUT (FlowHub role from resume):
 Resume text shows:
