@@ -11,8 +11,6 @@ import {
   type DraftReadinessContext,
   type ReadinessCompanyContext,
   type ReadinessRoleContext,
-  LABEL_SCORES,
-  DIMENSION_WEIGHTS,
   type UnifiedLabel,
 } from '../_shared/readiness.ts';
 import { ZodError } from 'https://esm.sh/zod@3.23.8';
@@ -255,8 +253,8 @@ export async function evaluateDraftReadinessCore(
   elog.info('[evaluate-draft-readiness] Evaluating draft via LLM', { draftId: params.draftId });
   const llmStart = typeof performance !== 'undefined' ? performance.now() : Date.now();
   
-  // Call judge with new unified label format
-  const newFormatResult = await deps.callJudge({
+  // Call judge - LLM determines verdict holistically (no weighted median)
+  const result = await deps.callJudge({
     apiKey: params.openAiApiKey,
     draftText: context.promptDraft,
     wordCount: context.wordCount,
@@ -266,15 +264,8 @@ export async function evaluateDraftReadinessCore(
   const llmEnd = typeof performance !== 'undefined' ? performance.now() : Date.now();
   const latencyMs = Math.max(0, Math.round(llmEnd - llmStart));
 
-  // Verify/compute weighted median verdict
-  const computedVerdict = computeWeightedMedianVerdict(newFormatResult.dimensions);
-  const finalNewFormat: DraftReadinessResult = 
-    computedVerdict !== newFormatResult.verdict
-      ? { ...newFormatResult, verdict: computedVerdict }
-      : newFormatResult;
-
   // Convert to legacy format for DB storage and API response
-  const legacyPayload = convertToLegacyFormat(finalNewFormat);
+  const legacyPayload = convertToLegacyFormat(result);
 
   const evaluatedAt = deps.now().toISOString();
   const ttlExpiresAt = addMinutes(new Date(evaluatedAt), ttlMinutes).toISOString();
@@ -289,8 +280,8 @@ export async function evaluateDraftReadinessCore(
       model: 'gpt-4o-mini',
       latencyMs,
       wordCount: context.wordCount,
-      verdict: finalNewFormat.verdict,
-      dimensions: finalNewFormat.dimensions,
+      verdict: result.verdict,
+      dimensions: result.dimensions,
     },
   });
 
@@ -298,16 +289,16 @@ export async function evaluateDraftReadinessCore(
     elog.info('readiness_eval_completed', {
       draftId: params.draftId,
       userId: params.userId,
-      verdict: finalNewFormat.verdict,
+      verdict: result.verdict,
       rating: legacyPayload.rating,
       latencyMs,
       evaluatedAt,
       ttlExpiresAt,
     });
     // Distribution/diagnostics
-    const counts = dimensionHistogram(finalNewFormat.dimensions);
+    const counts = dimensionHistogram(result.dimensions);
     elog.info('readiness_eval_scored', {
-      verdict: finalNewFormat.verdict,
+      verdict: result.verdict,
       rating: legacyPayload.rating,
       dimensions: counts,
     });
@@ -431,53 +422,7 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-// --- Weighted Median Algorithm for Unified Labels ---
-// Per spec: Map labels to numeric values (Exceptional=4, Strong=3, Adequate=2, Needs Work=1)
-// Weights: executive_maturity, company_alignment, role_alignment = 1.5x; all others = 1x
-// Compute weighted median and convert back to label
-
-function computeWeightedMedianVerdict(dimensions: DraftReadinessResult['dimensions']): UnifiedLabel {
-  // Build weighted array of (score, weight) pairs
-  const entries: Array<{ score: number; weight: number }> = [
-    { score: LABEL_SCORES[dimensions.clarity_structure], weight: DIMENSION_WEIGHTS.clarityStructure },
-    { score: LABEL_SCORES[dimensions.compelling_opening], weight: DIMENSION_WEIGHTS.opening },
-    { score: LABEL_SCORES[dimensions.company_alignment], weight: DIMENSION_WEIGHTS.companyAlignment },
-    { score: LABEL_SCORES[dimensions.role_alignment], weight: DIMENSION_WEIGHTS.roleAlignment },
-    { score: LABEL_SCORES[dimensions.specific_examples], weight: DIMENSION_WEIGHTS.specificExamples },
-    { score: LABEL_SCORES[dimensions.quantified_impact], weight: DIMENSION_WEIGHTS.quantifiedImpact },
-    { score: LABEL_SCORES[dimensions.personalization_voice], weight: DIMENSION_WEIGHTS.personalization },
-    { score: LABEL_SCORES[dimensions.writing_quality], weight: DIMENSION_WEIGHTS.writingQuality },
-    { score: LABEL_SCORES[dimensions.length_efficiency], weight: DIMENSION_WEIGHTS.lengthEfficiency },
-    { score: LABEL_SCORES[dimensions.executive_maturity], weight: DIMENSION_WEIGHTS.executiveMaturity },
-  ];
-
-  // Sort by score ascending
-  entries.sort((a, b) => a.score - b.score);
-
-  // Calculate total weight
-  const totalWeight = entries.reduce((sum, e) => sum + e.weight, 0);
-  const halfWeight = totalWeight / 2;
-
-  // Find weighted median
-  let cumulativeWeight = 0;
-  for (const entry of entries) {
-    cumulativeWeight += entry.weight;
-    if (cumulativeWeight >= halfWeight) {
-      return scoreToLabel(entry.score);
-    }
-  }
-
-  // Fallback (shouldn't reach here)
-  return 'Adequate';
-}
-
-function scoreToLabel(score: number): UnifiedLabel {
-  if (score >= 4) return 'Exceptional';
-  if (score >= 3) return 'Strong';
-  if (score >= 2) return 'Adequate';
-  return 'Needs Work';
-}
-
+// Dimension histogram for telemetry (8 dimensions)
 function dimensionHistogram(
   dimensions: DraftReadinessResult['dimensions'],
 ): Record<UnifiedLabel, number> {

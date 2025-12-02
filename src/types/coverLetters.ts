@@ -452,15 +452,13 @@ export interface ContentStandardsAnalysis {
 // Unified labels: same 4 labels used everywhere
 export type UnifiedReadinessLabel = 'Exceptional' | 'Strong' | 'Adequate' | 'Needs Work';
 
-// New format from updated spec
+// New format from updated spec (8 dimensions - editorial only, no duplicates)
 export interface UnifiedReadinessResult {
   verdict: UnifiedReadinessLabel;
   verdict_summary: string;
   dimensions: {
-    clarity_structure: UnifiedReadinessLabel;
     compelling_opening: UnifiedReadinessLabel;
-    company_alignment: UnifiedReadinessLabel;
-    role_alignment: UnifiedReadinessLabel;
+    clarity_structure: UnifiedReadinessLabel;
     specific_examples: UnifiedReadinessLabel;
     quantified_impact: UnifiedReadinessLabel;
     personalization_voice: UnifiedReadinessLabel;
@@ -468,18 +466,17 @@ export interface UnifiedReadinessResult {
     length_efficiency: UnifiedReadinessLabel;
     executive_maturity: UnifiedReadinessLabel;
   };
-  improvements: string[];
+  improvements: string[]; // Max 2 per tiered logic
 }
 
 // Legacy types for backward compatibility (edge function converts to this format)
 export type DraftReadinessRating = 'weak' | 'adequate' | 'strong' | 'exceptional';
 export type ReadinessDimensionStrength = 'strong' | 'sufficient' | 'insufficient';
 
+// 8 dimensions (removed company_alignment, role_alignment - they duplicate Gaps/Requirements)
 export interface DraftReadinessScoreBreakdown {
-  clarityStructure: ReadinessDimensionStrength;
   opening: ReadinessDimensionStrength;
-  companyAlignment: ReadinessDimensionStrength;
-  roleAlignment: ReadinessDimensionStrength;
+  clarityStructure: ReadinessDimensionStrength;
   specificExamples: ReadinessDimensionStrength;
   quantifiedImpact: ReadinessDimensionStrength;
   personalization: ReadinessDimensionStrength;

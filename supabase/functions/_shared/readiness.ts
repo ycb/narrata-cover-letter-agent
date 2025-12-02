@@ -9,50 +9,25 @@ export const DRAFT_READINESS_MODEL = 'gpt-4o-mini';
 // ============================================================================
 // UNIFIED LABELS: Exceptional | Strong | Adequate | Needs Work
 // ============================================================================
+// Readiness provides a HOLISTIC EDITORIAL verdict - it does NOT duplicate
+// Score, Gap Analysis, Requirements, or Fit metrics. It evaluates the draft
+// AS A WHOLE from a recruiter/hiring manager perspective.
+// ============================================================================
+
 export const UNIFIED_LABELS = ['Exceptional', 'Strong', 'Adequate', 'Needs Work'] as const;
 export type UnifiedLabel = typeof UNIFIED_LABELS[number];
 
-// Numeric mapping for weighted median calculation
-export const LABEL_SCORES: Record<UnifiedLabel, number> = {
-  'Exceptional': 4,
-  'Strong': 3,
-  'Adequate': 2,
-  'Needs Work': 1,
-} as const;
+export const TOO_SHORT_SUMMARY = 'The draft is too short to evaluate. Add more detail.';
 
-// Weighted dimensions (1.5x weight for Executive Maturity, Company Alignment, Role Alignment)
-export const DIMENSION_WEIGHTS: Record<string, number> = {
-  clarityStructure: 1.0,
-  opening: 1.0,
-  companyAlignment: 1.5,
-  roleAlignment: 1.5,
-  specificExamples: 1.0,
-  quantifiedImpact: 1.0,
-  personalization: 1.0,
-  writingQuality: 1.0,
-  lengthEfficiency: 1.0,
-  executiveMaturity: 1.5,
-} as const;
-
-// Verdict summaries for each label
-export const VERDICT_SUMMARIES: Record<UnifiedLabel, string> = {
-  'Exceptional': 'Your draft demonstrates strong clarity, compelling storytelling, and excellent alignment.',
-  'Strong': 'Your draft is strong overall and clearly communicates your fit, with room for refinement.',
-  'Adequate': 'Your draft meets key expectations but would benefit from additional specificity and polish.',
-  'Needs Work': 'Your draft needs more structure, specificity, or alignment before it\'s ready to send.',
-} as const;
-
-export const TOO_SHORT_SUMMARY = 'Draft too short for full evaluation (150 words required).';
-
+// 8 DIMENSIONS (NOT 10) - removed company_alignment and role_alignment
+// Those metrics already exist in Gaps/Requirements/Fit sections
 export const readinessDimension = z.enum(['Exceptional', 'Strong', 'Adequate', 'Needs Work']);
 export const draftReadinessSchema = z.object({
   verdict: z.enum(['Exceptional', 'Strong', 'Adequate', 'Needs Work']),
   verdict_summary: z.string().min(1).max(200),
   dimensions: z.object({
-    clarity_structure: readinessDimension,
     compelling_opening: readinessDimension,
-    company_alignment: readinessDimension,
-    role_alignment: readinessDimension,
+    clarity_structure: readinessDimension,
     specific_examples: readinessDimension,
     quantified_impact: readinessDimension,
     personalization_voice: readinessDimension,
@@ -60,19 +35,17 @@ export const draftReadinessSchema = z.object({
     length_efficiency: readinessDimension,
     executive_maturity: readinessDimension,
   }),
-  improvements: z.array(z.string().min(1).max(280)).max(5),
+  improvements: z.array(z.string().min(1).max(150)).max(2), // Max 2 improvements per spec
 });
 
 export type DraftReadinessResult = z.infer<typeof draftReadinessSchema>;
 
-// Legacy type mapping for frontend compatibility
+// Legacy type mapping for frontend compatibility (8 dimensions)
 export interface LegacyReadinessResult {
   rating: 'exceptional' | 'strong' | 'adequate' | 'weak';
   scoreBreakdown: {
-    clarityStructure: 'strong' | 'sufficient' | 'insufficient';
     opening: 'strong' | 'sufficient' | 'insufficient';
-    companyAlignment: 'strong' | 'sufficient' | 'insufficient';
-    roleAlignment: 'strong' | 'sufficient' | 'insufficient';
+    clarityStructure: 'strong' | 'sufficient' | 'insufficient';
     specificExamples: 'strong' | 'sufficient' | 'insufficient';
     quantifiedImpact: 'strong' | 'sufficient' | 'insufficient';
     personalization: 'strong' | 'sufficient' | 'insufficient';
@@ -116,10 +89,8 @@ export function convertToLegacyFormat(result: DraftReadinessResult): LegacyReadi
   return {
     rating: toLegacyRating(result.verdict),
     scoreBreakdown: {
-      clarityStructure: toLegacyLabel(result.dimensions.clarity_structure),
       opening: toLegacyLabel(result.dimensions.compelling_opening),
-      companyAlignment: toLegacyLabel(result.dimensions.company_alignment),
-      roleAlignment: toLegacyLabel(result.dimensions.role_alignment),
+      clarityStructure: toLegacyLabel(result.dimensions.clarity_structure),
       specificExamples: toLegacyLabel(result.dimensions.specific_examples),
       quantifiedImpact: toLegacyLabel(result.dimensions.quantified_impact),
       personalization: toLegacyLabel(result.dimensions.personalization_voice),
@@ -257,10 +228,8 @@ function createTooShortResult(wordCount: number): DraftReadinessResult {
     verdict: 'Needs Work',
     verdict_summary: TOO_SHORT_SUMMARY,
     dimensions: {
-      clarity_structure: 'Needs Work',
       compelling_opening: 'Needs Work',
-      company_alignment: 'Needs Work',
-      role_alignment: 'Needs Work',
+      clarity_structure: 'Needs Work',
       specific_examples: 'Needs Work',
       quantified_impact: 'Needs Work',
       personalization_voice: 'Needs Work',
@@ -269,7 +238,7 @@ function createTooShortResult(wordCount: number): DraftReadinessResult {
       executive_maturity: 'Needs Work',
     },
     improvements: [
-      `Add more content so we can provide a fair evaluation (minimum 150 words, current: ${wordCount}).`,
+      'Expand the content to cover your background and the role.',
     ],
   };
 }
@@ -348,80 +317,69 @@ function buildReadinessPrompt(params: {
   roleContext: ReadinessRoleContext;
 }): string {
   const { draftText, companyContext, roleContext } = params;
-  const formatValues = (values: string[]) => (values.length > 0 ? values.join(', ') : 'N/A');
-  const formatRequirements = (requirements: string[]) =>
-    requirements.length > 0 ? requirements.join(' • ') : 'N/A';
 
   return [
-    'You are an experienced product editor assessing whether a cover letter is ready to send.',
+    '# READINESS EVALUATION',
     '',
-    'Return ONLY JSON that matches the provided schema. Never invent new fields.',
+    'You are a hiring manager reviewing a cover letter. Provide a HOLISTIC EDITORIAL verdict.',
+    'Focus on: clarity, coherence, evidence, credibility, professionalism.',
     '',
-    '## UNIFIED LABELS (use these exact strings everywhere)',
-    '- Exceptional: Clear mastery. Strong evidence, metrics, specificity, storytelling. Exceeds typical.',
-    '- Strong: Fully meets expectations. Solid, specific, relevant. No major gaps.',
-    '- Adequate: Meets minimum. May be generic, light on specifics, lacking metrics.',
-    '- Needs Work: Missing or weak. Generic, unclear, contradicts requirements, or too vague.',
+    'Return ONLY valid JSON matching the schema below.',
     '',
-    '## DIMENSIONS TO EVALUATE (10 total)',
-    '1. clarity_structure - Clear flow, logical organization, easy to follow',
-    '2. compelling_opening - Hooks the reader, makes them want to continue',
-    '3. company_alignment - Shows understanding of company mission, values, culture',
-    '4. role_alignment - Demonstrates fit for role level and responsibilities',
-    '5. specific_examples - Concrete stories that prove claims',
-    '6. quantified_impact - Numbers, metrics, measurable outcomes',
-    '7. personalization_voice - Authentic voice, not generic template',
-    '8. writing_quality - Grammar, clarity, professional tone',
-    '9. length_efficiency - Appropriate length, no fluff, every word earns its place',
-    '10. executive_maturity - Strategic thinking, appropriate for career level',
+    '## UNIFIED LABELS (use exact strings)',
+    '- Exceptional: Polished, strategic, evidence-rich. Ready to send with no edits.',
+    '- Strong: Persuasive, well-structured. Minor optional polish only.',
+    '- Adequate: Professional and coherent. Fine to send; can be improved.',
+    '- Needs Work: Important elements missing or weak. Not ready; requires revision.',
     '',
-    '## VERDICT CALCULATION (Weighted Median)',
-    'Map: Exceptional=4, Strong=3, Adequate=2, Needs Work=1',
-    'Weights: executive_maturity, company_alignment, role_alignment = 1.5x weight; all others = 1x',
-    'Compute weighted median and convert back to label.',
+    '## 8 DIMENSIONS (evaluate writing quality, NOT requirements/gaps/fit)',
+    '1. compelling_opening - Hooks reader, makes them want to continue',
+    '2. clarity_structure - Clear flow, logical organization',
+    '3. specific_examples - Concrete stories proving claims',
+    '4. quantified_impact - Numbers, metrics, measurable outcomes',
+    '5. personalization_voice - Authentic voice, not template',
+    '6. writing_quality - Grammar, clarity, professional tone',
+    '7. length_efficiency - No fluff, every word earns its place',
+    '8. executive_maturity - Strategic thinking for career level',
     '',
-    '## Company Context',
-    `- Name: ${companyContext.name || 'Unknown'}`,
-    `- Industry: ${companyContext.industry || 'Unknown'}`,
-    `- Mission: ${companyContext.mission || 'N/A'}`,
-    `- Values: ${formatValues(companyContext.values)}`,
+    '## TIERED IMPROVEMENTS (CRITICAL)',
+    '- Exceptional: improvements = [] (none)',
+    '- Strong: improvements = [] or [1 max]',
+    '- Adequate: improvements = [1 only]',
+    '- Needs Work: improvements = [1-2] + note "More issues exist—focus on these first."',
     '',
-    '## Role Context',
-    `- Title: ${roleContext.title || 'Unknown'}`,
-    `- Level: ${roleContext.level || 'Unknown'}`,
-    `- Key Requirements: ${formatRequirements(roleContext.keyRequirements)}`,
+    'Each improvement must be ≤18 words, actionable, and specific.',
+    '',
+    '## Context',
+    `Company: ${companyContext.name || 'Unknown'} (${companyContext.industry || 'Unknown'})`,
+    `Role: ${roleContext.title || 'Unknown'} (${roleContext.level || 'Unknown'})`,
     '',
     '## Draft to Evaluate',
     draftText,
     '',
-    '## Constraints',
-    '- Evaluate ONLY the provided content. Do NOT invent accomplishments.',
-    '- verdict_summary: Use the appropriate summary based on verdict:',
-    '  • Exceptional: "Your draft demonstrates strong clarity, compelling storytelling, and excellent alignment."',
-    '  • Strong: "Your draft is strong overall and clearly communicates your fit, with room for refinement."',
-    '  • Adequate: "Your draft meets key expectations but would benefit from additional specificity and polish."',
-    '  • Needs Work: "Your draft needs more structure, specificity, or alignment before it\'s ready to send."',
-    '- improvements: 2-5 high-leverage, actionable items. Short and direct.',
-    '- Tone: Neutral, supportive, PM-appropriate. Avoid "weak," "poor," "bad," "insufficient."',
+    '## CONSTRAINTS',
+    '- NO hallucinated facts. NO new content. NO fabricating experience.',
+    '- Evaluate draft AS GIVEN.',
+    '- verdict_summary: 1-2 sentences explaining the verdict.',
+    '- Do NOT suggest rewriting entire sections.',
+    '- Tone: Honest but supportive. Avoid "weak," "poor," "bad."',
     '',
-    '## JSON Output Schema',
+    '## JSON Schema',
     JSON.stringify(
       {
         verdict: 'Exceptional | Strong | Adequate | Needs Work',
-        verdict_summary: 'One of the standard summaries above',
+        verdict_summary: '1-2 sentence explanation',
         dimensions: {
-          clarity_structure: 'Exceptional | Strong | Adequate | Needs Work',
-          compelling_opening: '...',
-          company_alignment: '...',
-          role_alignment: '...',
-          specific_examples: '...',
-          quantified_impact: '...',
-          personalization_voice: '...',
-          writing_quality: '...',
-          length_efficiency: '...',
-          executive_maturity: '...',
+          compelling_opening: 'label',
+          clarity_structure: 'label',
+          specific_examples: 'label',
+          quantified_impact: 'label',
+          personalization_voice: 'label',
+          writing_quality: 'label',
+          length_efficiency: 'label',
+          executive_maturity: 'label',
         },
-        improvements: ['Actionable improvement 1', 'Actionable improvement 2'],
+        improvements: ['Short actionable fix (if needed)'],
       },
       null,
       2,

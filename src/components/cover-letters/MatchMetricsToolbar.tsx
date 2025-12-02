@@ -1069,11 +1069,10 @@ function ReadinessDrawerContent({ readiness }: ReadinessDrawerContentProps) {
     }
   };
 
+  // 8 dimensions - editorial quality only (not requirements/gaps/fit)
   const rows: Array<{ key: keyof DraftReadinessEvaluation['scoreBreakdown']; label: string }> = [
-    { key: 'clarityStructure', label: 'Clarity & Structure' },
     { key: 'opening', label: 'Compelling Opening' },
-    { key: 'companyAlignment', label: 'Company Alignment' },
-    { key: 'roleAlignment', label: 'Role Alignment / Level Fit' },
+    { key: 'clarityStructure', label: 'Clarity & Structure' },
     { key: 'specificExamples', label: 'Specific Examples' },
     { key: 'quantifiedImpact', label: 'Quantified Impact' },
     { key: 'personalization', label: 'Personalization / Voice' },
@@ -1120,10 +1119,16 @@ function ReadinessDrawerContent({ readiness }: ReadinessDrawerContentProps) {
         <div className="border-t border-border/30 pt-2">
           <h4 className="text-sm font-medium text-foreground mb-2">Improvements</h4>
           <ul className="list-disc pl-5 space-y-1 text-xs">
-            {readiness.feedback.improvements.slice(0, 5).map((item, i) => (
+            {readiness.feedback.improvements.slice(0, 2).map((item, i) => (
               <li key={i} className="text-foreground/80">{item}</li>
             ))}
           </ul>
+          {/* For Needs Work: show "more issues exist" note */}
+          {readiness.rating === 'weak' && (
+            <p className="text-[11px] text-muted-foreground mt-2 italic">
+              Additional issues exist — start with these.
+            </p>
+          )}
         </div>
       )}
       <div className="text-[11px] text-muted-foreground">
