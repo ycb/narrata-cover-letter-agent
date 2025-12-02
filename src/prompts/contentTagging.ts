@@ -128,18 +128,40 @@ For SAVED SECTIONS, focus on:
 - Tone/style
 - Key messaging
 
-Return ONLY valid JSON with this structure:
+Return ONLY valid JSON with this structure for STREAMING support:
 
 {
+  "tags": [
+    {
+      "value": "tag name",
+      "confidence": "high|medium|low",
+      "category": "industry|business_model|skill|competency|other"
+    }
+  ]
+}
+
+CONFIDENCE LEVELS:
+- "high": Well-established facts based on clear evidence (e.g., "SaaS" for a cloud software company, user goal industries)
+- "medium": Likely but not certain (e.g., "Enterprise" inferred from company description without explicit confirmation)
+- "low": Educated guess or inferred from limited context
+
+CATEGORY TYPES:
+- "industry": Vertical/industry tags (e.g., "Software / SaaS", "Fintech / Payments / Crypto")
+- "business_model": Business model tags (e.g., "B2B", "B2C", "Enterprise", "Marketplace")
+- "skill": Technical or soft skills (for role/story/saved_section only)
+- "competency": Role levels, scope, leadership (for role/story/saved_section only)
+- "other": General tags that don't fit above categories
+
+For LEGACY support (non-streaming), also return:
+{
   "primaryTags": ["tag1", "tag2", "tag3"],
-  "businessModelTags": ["B2B", "SaaS"], // For company tags only - use examples: B2B, B2C, D2C, B2B2C, Enterprise, SMB, Marketplace, Platform, Developer Tools, SaaS
-  "industryTags": ["industry1", "industry2"], // Use vertical examples provided (e.g., "Software / SaaS", "Fintech / Payments / Crypto")
-  "skillTags": ["skill1", "skill2"], // For role/story/saved_section only - DO NOT include for company tags
-  "roleLevelTags": ["senior", "leadership"], // For role/story/saved_section only - DO NOT include for company tags
-  "scopeTags": ["team-management", "cross-functional"], // For role/story/saved_section only - DO NOT include for company tags
-  "contextTags": ["startup", "enterprise", "remote"], // For role/story/saved_section only - DO NOT include for company tags
-  "matchingKeywords": ["keyword1", "keyword2", "keyword3"],
-  "confidence": "high|medium|low"
+  "businessModelTags": ["B2B", "SaaS"],
+  "industryTags": ["industry1", "industry2"],
+  "skillTags": ["skill1", "skill2"],
+  "roleLevelTags": ["senior", "leadership"],
+  "scopeTags": ["team-management", "cross-functional"],
+  "contextTags": ["startup", "enterprise", "remote"],
+  "matchingKeywords": ["keyword1", "keyword2", "keyword3"]
 }
 
 TAGGING RULES:
@@ -158,6 +180,12 @@ TAGGING EXAMPLES:
 
 Example 1 - Company Tags (Stripe):
 {
+  "tags": [
+    {"value": "Fintech / Payments / Crypto", "confidence": "high", "category": "industry"},
+    {"value": "B2B", "confidence": "high", "category": "business_model"},
+    {"value": "Platform", "confidence": "high", "category": "business_model"},
+    {"value": "Developer Tools", "confidence": "medium", "category": "business_model"}
+  ],
   "primaryTags": ["B2B", "Platform"],
   "industryTags": ["Fintech / Payments / Crypto"],
   "businessModelTags": ["B2B", "Platform"],
@@ -165,20 +193,26 @@ Example 1 - Company Tags (Stripe):
   "roleLevelTags": [],
   "scopeTags": [],
   "contextTags": [],
-  "matchingKeywords": ["payment processing", "economic infrastructure", "API"],
-  "confidence": "high"
+  "matchingKeywords": ["payment processing", "economic infrastructure", "API"]
 }
 
 Example 2 - Role Tags (Product Manager at SaaS company):
 {
+  "tags": [
+    {"value": "Software / SaaS", "confidence": "high", "category": "industry"},
+    {"value": "B2B", "confidence": "high", "category": "business_model"},
+    {"value": "product strategy", "confidence": "high", "category": "skill"},
+    {"value": "roadmap planning", "confidence": "high", "category": "skill"},
+    {"value": "senior", "confidence": "medium", "category": "competency"},
+    {"value": "leadership", "confidence": "medium", "category": "competency"}
+  ],
   "primaryTags": ["Product Management", "B2B SaaS", "Enterprise"],
   "industryTags": ["Software / SaaS"],
   "skillTags": ["product strategy", "roadmap planning", "stakeholder management"],
   "roleLevelTags": ["senior", "leadership"],
   "scopeTags": ["cross-functional", "team-management"],
   "contextTags": ["enterprise", "growth-stage"],
-  "matchingKeywords": ["product", "SaaS", "B2B", "enterprise software"],
-  "confidence": "high"
+  "matchingKeywords": ["product", "SaaS", "B2B", "enterprise software"]
 }
 
 Example 3 - Saved Section Tags (Cover letter intro):

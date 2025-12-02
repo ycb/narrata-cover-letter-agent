@@ -391,47 +391,73 @@ export function ContentGenerationModal({
                 </div>
               )}
               
-              {suggestedTags.length > 0 ? (
+              {/* SECTION 1: Suggested Tags (pre-checked) */}
+              {suggestedTags.length > 0 && (
                 <div className="space-y-3">
-                  <p className="text-sm font-medium">Suggested tags:</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold">Suggested Tags</p>
+                    <Badge variant="outline" className="text-xs">
+                      {suggestedTags.filter(t => selectedTags.includes(t.value)).length} selected
+                    </Badge>
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {suggestedTags.map((tag) => (
                       <Badge
                         key={tag.id}
                         variant={selectedTags.includes(tag.value) ? "default" : "outline"}
-                        className="cursor-pointer"
-                        onClick={() => {
-                          if (selectedTags.includes(tag.value)) {
-                            setSelectedTags(selectedTags.filter(t => t !== tag.value));
-                          } else {
-                            setSelectedTags([...selectedTags, tag.value]);
-                          }
-                        }}
+                        className="cursor-pointer transition-all"
+                        onClick={() => toggleTag(tag.value)}
+                      >
+                        {selectedTags.includes(tag.value) && (
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                        )}
+                        {tag.value}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION 2: Other Suggestions (unchecked) */}
+              {otherTags.length > 0 && (
+                <div className="space-y-3">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Other Suggestions
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {otherTags.map((tag) => (
+                      <Badge
+                        key={tag.id}
+                        variant={selectedTags.includes(tag.value) ? "default" : "outline"}
+                        className="cursor-pointer opacity-70 hover:opacity-100 transition-all"
+                        onClick={() => toggleTag(tag.value)}
                       >
                         {tag.value}
                       </Badge>
                     ))}
                   </div>
-                  
-                  <Button 
-                    onClick={() => onApplyTags?.(selectedTags)}
-                    disabled={selectedTags.length === 0}
-                    className="w-full"
-                  >
-                    Apply {selectedTags.length} selected tags
-                  </Button>
                 </div>
-              ) : !isSearching && !searchError ? (
+              )}
+
+              {/* Apply button */}
+              {(suggestedTags.length > 0 || otherTags.length > 0) && (
+                <Button 
+                  onClick={() => onApplyTags?.(selectedTags)}
+                  disabled={selectedTags.length === 0}
+                  className="w-full"
+                >
+                  Apply {selectedTags.length} selected tag{selectedTags.length !== 1 ? 's' : ''}
+                </Button>
+              )}
+
+              {/* Empty/loading state */}
+              {!isSearching && !searchError && suggestedTags.length === 0 && otherTags.length === 0 && (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground mb-4">
-                    Analyzing content to suggest relevant tags...
+                    Click "Auto-suggest tags" to start
                   </p>
-                  <div className="flex items-center justify-center">
-                    <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                    <span>Generating tag suggestions...</span>
-                  </div>
                 </div>
-              ) : null}
+              )}
             </div>
           ) : (
                 <>

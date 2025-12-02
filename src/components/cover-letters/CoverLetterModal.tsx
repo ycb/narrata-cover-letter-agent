@@ -490,14 +490,25 @@ export const CoverLetterModal = ({
   // In create mode, use the hook. In edit mode, use local state.
   const draft = mode === 'create' ? createModeHook.draft : localDraft;
 
-  // Persist MwS data to draft when available
-  // This ensures MwS data is saved even after user closes/reopens the modal
+  // FALLBACK: Persist MwS data to draft if not already present
+  // Primary path: Edge function persists MwS to job_descriptions.analysis,
+  // then generateDraftFast reads it and includes in draft.llm_feedback.mws
+  // Fallback: If race condition occurs (draft created before MwS calculated),
+  // this useEffect will persist MwS when streaming completes.
   useEffect(() => {
     // Only in create mode, when we have both draft and MwS data
     if (mode !== 'create') return;
     if (!draft?.id) return;
     if (!aPhaseInsights?.mws) return;
-    if (mwsSavedRef.current) return; // Already saved
+    if (mwsSavedRef.current) return; // Already saved this session
+    
+    // Skip if draft already has MwS (primary path succeeded)
+    if (draft.mws || (draft.llmFeedback as Record<string, unknown>)?.mws) {
+      if (IS_DEV) {
+        console.log('[CoverLetterModal] MwS already in draft, skipping fallback persistence');
+      }
+      return;
+    }
     
     const saveMws = async () => {
       try {
@@ -505,7 +516,7 @@ export const CoverLetterModal = ({
         await draftService.saveMwsData(draft.id, aPhaseInsights.mws!);
         mwsSavedRef.current = true;
         if (IS_DEV) {
-          console.log('[CoverLetterModal] MwS data persisted to draft:', draft.id);
+          console.log('[CoverLetterModal] MwS data persisted via FALLBACK path:', draft.id);
         }
       } catch (error) {
         console.error('[CoverLetterModal] Failed to save MwS data:', error);
@@ -514,7 +525,7 @@ export const CoverLetterModal = ({
     };
     
     saveMws();
-  }, [mode, draft?.id, aPhaseInsights?.mws]);
+  }, [mode, draft?.id, draft?.mws, draft?.llmFeedback, aPhaseInsights?.mws]);
   
   // ============================================================================
   // SKELETON VISIBILITY (GENERATION-TRIGGERED ONLY)

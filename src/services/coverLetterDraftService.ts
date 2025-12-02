@@ -704,6 +704,20 @@ export class CoverLetterDraftService {
     // Create placeholder metrics for fast path
     const placeholderMetrics = this.createFallbackMetrics();
 
+    // Read MwS from job description analysis (persisted by streaming edge function)
+    // This ensures MwS is available immediately in the draft, avoiding race conditions
+    const mwsFromJd = (jobDescription.analysis as Record<string, unknown>)?.mws as {
+      summaryScore: 0 | 1 | 2 | 3;
+      details: Array<{ label: string; strengthLevel: string; explanation: string }>;
+    } | undefined;
+    
+    if (mwsFromJd) {
+      console.log('[generateDraftFast] MwS loaded from JD analysis:', {
+        summaryScore: mwsFromJd.summaryScore,
+        detailCount: mwsFromJd.details?.length,
+      });
+    }
+
     const insertPayload: Database['public']['Tables']['cover_letters']['Insert'] = {
       user_id: userId,
       template_id: templateId,
@@ -714,6 +728,7 @@ export class CoverLetterDraftService {
         generatedAt: this.now().toISOString(),
         metrics: placeholderMetrics.raw,
         enhancedMatchData: undefined, // Will be calculated in background
+        ...(mwsFromJd ? { mws: mwsFromJd } : {}), // Include MwS if available from JD
       },
       metrics: [] as unknown as Record<string, unknown>, // Empty until metrics calculated
       heuristic_insights: heuristicInsights as unknown as Record<string, unknown>, // AGENT D: instant gaps
@@ -803,6 +818,15 @@ export class CoverLetterDraftService {
     ]);
 
     const sections = this.normaliseDraftSections(draftRow.sections);
+
+    // Extract MwS from draft (primary) or job description (fallback) for eval logging
+    const llmFeedback = draftRow.llm_feedback as Record<string, unknown> | null;
+    const mwsFromDraft = llmFeedback?.mws as {
+      summaryScore: 0 | 1 | 2 | 3;
+      details: Array<{ label: string; strengthLevel: string; explanation: string }>;
+    } | undefined;
+    const mwsFromJd = (jobDescription.analysis as Record<string, unknown>)?.mws as typeof mwsFromDraft | undefined;
+    const mwsData = mwsFromDraft || mwsFromJd || null;
 
     // PHASE 2: Run 4 parallel LLM calls for optimized performance
     this.emitProgress(onProgress, 'metrics', 'Analyzing match quality with AI (this takes ~45 seconds)...');
@@ -997,7 +1021,7 @@ export class CoverLetterDraftService {
       metrics: metricResult.metrics,
       contentStandards: contentStandardsResult,
       overallScore: contentStandardsResult?.aggregated?.overallScore,
-      mwsData, // Include MwS in eval logging
+      mws: mwsData, // Include MwS in eval logging
       phaseBLatencyMs: metricsEndTime - metricsStartTime,
       status: 'success',
     });
@@ -2957,6 +2981,7 @@ export class CoverLetterDraftService {
     metrics?: CoverLetterMatchMetric[];
     contentStandards?: ContentStandardsAnalysis | null;
     overallScore?: number;
+    mws?: { summaryScore: 0 | 1 | 2 | 3; details: Array<{ label: string; strengthLevel: string; explanation: string }> } | null;
     phaseALatencyMs?: number;
     phaseBLatencyMs: number;
     status: 'success' | 'failed';
@@ -2968,6 +2993,9 @@ export class CoverLetterDraftService {
       const goalsMetric = data.metrics?.find(m => m.key === 'goals');
       const coreReqMetric = data.metrics?.find(m => m.key === 'coreRequirements');
       const prefReqMetric = data.metrics?.find(m => m.key === 'preferredRequirements');
+
+      // Check MwS completeness (now available from draft.llm_feedback.mws)
+      const hasMws = data.mws && typeof data.mws.summaryScore === 'number' && Array.isArray(data.mws.details);
 
       const phaseA: PhaseACompleteness = {
         jdAnalysis: {
@@ -2987,9 +3015,9 @@ export class CoverLetterDraftService {
           total: goalsMetric?.type === 'requirement' ? goalsMetric.total : 0,
         },
         strengthsMatched: {
-          complete: false, // MwS comes from A-phase streaming, not metrics calculation
-          summaryScore: null,
-          detailCount: 0,
+          complete: hasMws ?? false,
+          summaryScore: data.mws?.summaryScore ?? null,
+          detailCount: data.mws?.details?.length ?? 0,
         },
       };
 
@@ -3024,7 +3052,7 @@ export class CoverLetterDraftService {
       const toolbarPopulated: ToolbarValidation = {
         gaps: phaseB.gapsAnalyzed.complete && (badgeCount === 0 || hasGapsChildren),
         mwg: phaseA.goalsMatched.complete,
-        mws: phaseA.strengthsMatched.complete, // Will be false - MwS is from streaming
+        mws: phaseA.strengthsMatched.complete, // Now tracked from draft.llm_feedback.mws or job_descriptions.analysis.mws
         coreReqs: phaseA.coreRequirements.complete,
         preferredReqs: phaseA.preferredRequirements.complete,
         overallScore: phaseB.overallScore.complete,
@@ -3035,9 +3063,10 @@ export class CoverLetterDraftService {
       const missingFields: string[] = [];
       if (!toolbarPopulated.gaps) missingFields.push('gaps.children');
       if (!toolbarPopulated.mwg) missingFields.push('mwg');
+      if (!toolbarPopulated.mws) missingFields.push('mws'); // Now tracked!
       if (!toolbarPopulated.coreReqs) missingFields.push('core_requirements');
       if (!toolbarPopulated.overallScore) missingFields.push('overall_score');
-      // Note: MwS and Readiness are handled separately (streaming and async respectively)
+      // Note: Readiness is handled separately (async)
 
       let evalStatus: EvalStatus = 'pass';
       if (data.status === 'failed') {

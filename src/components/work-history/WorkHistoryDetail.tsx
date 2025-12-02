@@ -39,7 +39,7 @@ import { ResumeDataSource } from "./ResumeDataSource";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserGoals } from "@/contexts/UserGoalsContext";
 import { GapDetectionService, type Gap } from "@/services/gapDetectionService";
-import { TagSuggestionService } from "@/services/tagSuggestionService";
+import { TagSuggestionService, type TagSuggestion } from "@/services/tagSuggestionService";
 import { TagService } from "@/services/tagService";
 import {
   DropdownMenu,
@@ -110,7 +110,7 @@ export const WorkHistoryDetail = ({
   const [gapsRefreshKey, setGapsRefreshKey] = useState(0);
   const [activeGapContext, setActiveGapContext] = useState<{
     gap: Gap;
-    entityType: 'work_item' | 'approved_content' | 'saved_section';
+    entityType: 'work_item' | 'approved_content' | 'saved_section' | 'company';
     entityId: string;
   } | null>(null);
 
@@ -430,8 +430,8 @@ export const WorkHistoryDetail = ({
     
     try {
       const entityId = activeGapContext.gap.entity_id;
-      if (activeGapContext.entityType === 'role') {
-        // Merge with existing tags
+      if (activeGapContext.entityType === 'work_item') {
+        // Merge with existing tags for work item (role)
         const allTags = [...new Set([...(selectedRole?.tags || []), ...selectedTags])];
         await TagService.updateWorkItemTags(entityId, allTags, user.id);
       } else if (activeGapContext.entityType === 'company') {
@@ -502,9 +502,6 @@ export const WorkHistoryDetail = ({
         gap_context_entity_description: targetCompany.description,
         gap_context_entity_tags: targetCompany.tags || [],
         gap_context_entity_roles: targetCompany.roles || [],
-        gap_context_entity_external_links: targetCompany.externalLinks || [],
-        gap_context_entity_outcome_metrics: targetCompany.outcomeMetrics || [],
-        gap_context_entity_gaps: targetCompany.gaps || [],
       } as any,
       entityType: 'work_item',
       entityId: targetCompany.id

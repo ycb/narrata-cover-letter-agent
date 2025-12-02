@@ -504,6 +504,42 @@ const goalsAndStrengthsStage: PipelineStage = {
             summaryScore: finalMws.summaryScore,
             detailCount: finalMws.details.length,
           });
+          
+          // PERSIST MWS TO JOB DESCRIPTION (source-of-truth for eval logging)
+          // This ensures MwS is available when draft is created, avoiding race conditions
+          if (jobDescriptionId) {
+            try {
+              // Read current analysis, merge with MwS
+              const { data: jdRow } = await supabase
+                .from('job_descriptions')
+                .select('analysis')
+                .eq('id', jobDescriptionId)
+                .single();
+              
+              const currentAnalysis = (jdRow?.analysis as Record<string, unknown>) || {};
+              await supabase
+                .from('job_descriptions')
+                .update({
+                  analysis: {
+                    ...currentAnalysis,
+                    mws: finalMws,
+                    mwsCalculatedAt: new Date().toISOString(),
+                  },
+                })
+                .eq('id', jobDescriptionId);
+              
+              await logStreamInfo('[STREAM] MWS persisted to job_description', {
+                jobId: job.id,
+                jobDescriptionId,
+              });
+            } catch (persistError) {
+              // Non-blocking - frontend fallback will handle
+              await logStreamInfo('[STREAM] MWS persistence failed (non-blocking)', {
+                jobId: job.id,
+                error: persistError instanceof Error ? persistError.message : String(persistError),
+              });
+            }
+          }
         }
       } catch (error) {
         await logStreamInfo('[STREAM] goalsAndStrengths.mws failed', {
