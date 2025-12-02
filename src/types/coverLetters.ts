@@ -452,19 +452,15 @@ export interface ContentStandardsAnalysis {
 // Unified labels: same 4 labels used everywhere
 export type UnifiedReadinessLabel = 'Exceptional' | 'Strong' | 'Adequate' | 'Needs Work';
 
-// New format from updated spec (8 dimensions - editorial only, no duplicates)
+// New format from updated spec (4 editorial dimensions - non-duplicative with Score)
 export interface UnifiedReadinessResult {
   verdict: UnifiedReadinessLabel;
   verdict_summary: string;
   dimensions: {
-    compelling_opening: UnifiedReadinessLabel;
-    clarity_structure: UnifiedReadinessLabel;
-    specific_examples: UnifiedReadinessLabel;
-    quantified_impact: UnifiedReadinessLabel;
-    personalization_voice: UnifiedReadinessLabel;
-    writing_quality: UnifiedReadinessLabel;
-    length_efficiency: UnifiedReadinessLabel;
-    executive_maturity: UnifiedReadinessLabel;
+    narrative_coherence: UnifiedReadinessLabel;
+    persuasiveness_evidence: UnifiedReadinessLabel;
+    role_relevance: UnifiedReadinessLabel;
+    professional_polish: UnifiedReadinessLabel;
   };
   improvements: string[]; // Max 2 per tiered logic
 }
@@ -473,16 +469,13 @@ export interface UnifiedReadinessResult {
 export type DraftReadinessRating = 'weak' | 'adequate' | 'strong' | 'exceptional';
 export type ReadinessDimensionStrength = 'strong' | 'sufficient' | 'insufficient';
 
-// 8 dimensions (removed company_alignment, role_alignment - they duplicate Gaps/Requirements)
+// 4 editorial dimensions (non-duplicative with Score)
+// Score = writing craft, Readiness = high-level editorial verdict
 export interface DraftReadinessScoreBreakdown {
-  opening: ReadinessDimensionStrength;
-  clarityStructure: ReadinessDimensionStrength;
-  specificExamples: ReadinessDimensionStrength;
-  quantifiedImpact: ReadinessDimensionStrength;
-  personalization: ReadinessDimensionStrength;
-  writingQuality: ReadinessDimensionStrength;
-  lengthEfficiency: ReadinessDimensionStrength;
-  executiveMaturity: ReadinessDimensionStrength;
+  narrativeCoherence: ReadinessDimensionStrength;
+  persuasivenessEvidence: ReadinessDimensionStrength;
+  roleRelevance: ReadinessDimensionStrength;
+  professionalPolish: ReadinessDimensionStrength;
 }
 
 export interface DraftReadinessFeedback {

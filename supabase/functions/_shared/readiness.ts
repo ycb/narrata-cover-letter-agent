@@ -19,39 +19,34 @@ export type UnifiedLabel = typeof UNIFIED_LABELS[number];
 
 export const TOO_SHORT_SUMMARY = 'The draft is too short to evaluate. Add more detail.';
 
-// 8 DIMENSIONS (NOT 10) - removed company_alignment and role_alignment
-// Those metrics already exist in Gaps/Requirements/Fit sections
+// ============================================================================
+// 4 EDITORIAL DIMENSIONS (non-duplicative with Score)
+// Score = writing craft dimensions
+// Readiness = high-level editorial verdict dimensions
+// ============================================================================
 export const readinessDimension = z.enum(['Exceptional', 'Strong', 'Adequate', 'Needs Work']);
 export const draftReadinessSchema = z.object({
   verdict: z.enum(['Exceptional', 'Strong', 'Adequate', 'Needs Work']),
   verdict_summary: z.string().min(1).max(200),
   dimensions: z.object({
-    compelling_opening: readinessDimension,
-    clarity_structure: readinessDimension,
-    specific_examples: readinessDimension,
-    quantified_impact: readinessDimension,
-    personalization_voice: readinessDimension,
-    writing_quality: readinessDimension,
-    length_efficiency: readinessDimension,
-    executive_maturity: readinessDimension,
+    narrative_coherence: readinessDimension,      // Does the letter tell a cohesive story?
+    persuasiveness_evidence: readinessDimension,  // Is it convincing with real proof?
+    role_relevance: readinessDimension,           // Does it speak to THIS specific role?
+    professional_polish: readinessDimension,      // Is it polished and ready to send?
   }),
   improvements: z.array(z.string().min(1).max(150)).max(2), // Max 2 improvements per spec
 });
 
 export type DraftReadinessResult = z.infer<typeof draftReadinessSchema>;
 
-// Legacy type mapping for frontend compatibility (8 dimensions)
+// Legacy type mapping for frontend compatibility (4 dimensions)
 export interface LegacyReadinessResult {
   rating: 'exceptional' | 'strong' | 'adequate' | 'weak';
   scoreBreakdown: {
-    opening: 'strong' | 'sufficient' | 'insufficient';
-    clarityStructure: 'strong' | 'sufficient' | 'insufficient';
-    specificExamples: 'strong' | 'sufficient' | 'insufficient';
-    quantifiedImpact: 'strong' | 'sufficient' | 'insufficient';
-    personalization: 'strong' | 'sufficient' | 'insufficient';
-    writingQuality: 'strong' | 'sufficient' | 'insufficient';
-    lengthEfficiency: 'strong' | 'sufficient' | 'insufficient';
-    executiveMaturity: 'strong' | 'sufficient' | 'insufficient';
+    narrativeCoherence: 'strong' | 'sufficient' | 'insufficient';
+    persuasivenessEvidence: 'strong' | 'sufficient' | 'insufficient';
+    roleRelevance: 'strong' | 'sufficient' | 'insufficient';
+    professionalPolish: 'strong' | 'sufficient' | 'insufficient';
   };
   feedback: {
     summary: string;
@@ -89,14 +84,10 @@ export function convertToLegacyFormat(result: DraftReadinessResult): LegacyReadi
   return {
     rating: toLegacyRating(result.verdict),
     scoreBreakdown: {
-      opening: toLegacyLabel(result.dimensions.compelling_opening),
-      clarityStructure: toLegacyLabel(result.dimensions.clarity_structure),
-      specificExamples: toLegacyLabel(result.dimensions.specific_examples),
-      quantifiedImpact: toLegacyLabel(result.dimensions.quantified_impact),
-      personalization: toLegacyLabel(result.dimensions.personalization_voice),
-      writingQuality: toLegacyLabel(result.dimensions.writing_quality),
-      lengthEfficiency: toLegacyLabel(result.dimensions.length_efficiency),
-      executiveMaturity: toLegacyLabel(result.dimensions.executive_maturity),
+      narrativeCoherence: toLegacyLabel(result.dimensions.narrative_coherence),
+      persuasivenessEvidence: toLegacyLabel(result.dimensions.persuasiveness_evidence),
+      roleRelevance: toLegacyLabel(result.dimensions.role_relevance),
+      professionalPolish: toLegacyLabel(result.dimensions.professional_polish),
     },
     feedback: {
       summary: result.verdict_summary,
@@ -228,14 +219,10 @@ function createTooShortResult(wordCount: number): DraftReadinessResult {
     verdict: 'Needs Work',
     verdict_summary: TOO_SHORT_SUMMARY,
     dimensions: {
-      compelling_opening: 'Needs Work',
-      clarity_structure: 'Needs Work',
-      specific_examples: 'Needs Work',
-      quantified_impact: 'Needs Work',
-      personalization_voice: 'Needs Work',
-      writing_quality: 'Needs Work',
-      length_efficiency: 'Needs Work',
-      executive_maturity: 'Needs Work',
+      narrative_coherence: 'Needs Work',
+      persuasiveness_evidence: 'Needs Work',
+      role_relevance: 'Needs Work',
+      professional_polish: 'Needs Work',
     },
     improvements: [
       'Expand the content to cover your background and the role.',
@@ -319,36 +306,47 @@ function buildReadinessPrompt(params: {
   const { draftText, companyContext, roleContext } = params;
 
   return [
-    '# READINESS EVALUATION',
+    '# READINESS EVALUATION — FINAL EDITORIAL VERDICT',
     '',
-    'You are a hiring manager reviewing a cover letter. Provide a HOLISTIC EDITORIAL verdict.',
-    'Focus on: clarity, coherence, evidence, credibility, professionalism.',
+    'You are a hiring manager doing a FINAL review. Is this cover letter ready to send?',
+    '',
+    'This is NOT about writing quality (that is evaluated separately in Score).',
+    'This IS about: Does this letter work as a WHOLE? Is it ready to submit?',
     '',
     'Return ONLY valid JSON matching the schema below.',
     '',
-    '## UNIFIED LABELS (use exact strings)',
-    '- Exceptional: Polished, strategic, evidence-rich. Ready to send with no edits.',
-    '- Strong: Persuasive, well-structured. Minor optional polish only.',
-    '- Adequate: Professional and coherent. Fine to send; can be improved.',
-    '- Needs Work: Important elements missing or weak. Not ready; requires revision.',
+    '## VERDICT LABELS (use exact strings)',
+    '- Exceptional: Polished, strategic, evidence-rich. Ready to send immediately.',
+    '- Strong: Persuasive, well-structured. Ready with minor optional polish.',
+    '- Adequate: Professional. Fine to send to recruiter; could be stronger.',
+    '- Needs Work: Important elements missing. Not ready; requires revision.',
     '',
-    '## 8 DIMENSIONS (evaluate writing quality, NOT requirements/gaps/fit)',
-    '1. compelling_opening - Hooks reader, makes them want to continue',
-    '2. clarity_structure - Clear flow, logical organization',
-    '3. specific_examples - Concrete stories proving claims',
-    '4. quantified_impact - Numbers, metrics, measurable outcomes',
-    '5. personalization_voice - Authentic voice, not template',
-    '6. writing_quality - Grammar, clarity, professional tone',
-    '7. length_efficiency - No fluff, every word earns its place',
-    '8. executive_maturity - Strategic thinking for career level',
+    '## 4 EDITORIAL DIMENSIONS (high-level, NOT writing craft)',
+    '',
+    '1. narrative_coherence',
+    '   Does the letter tell a cohesive story? Is there a clear through-line?',
+    '   Does it flow logically from opening → body → close?',
+    '',
+    '2. persuasiveness_evidence', 
+    '   Is the letter convincing? Does it provide real proof of capability?',
+    '   Would a skeptical hiring manager believe this candidate?',
+    '',
+    '3. role_relevance',
+    '   Does the letter speak to THIS specific role and company?',
+    '   Or could it be sent to any job? Is there clear fit signal?',
+    '',
+    '4. professional_polish',
+    '   Does this feel ready to send? Is it appropriately formal?',
+    '   Would you be confident submitting this as-is?',
     '',
     '## TIERED IMPROVEMENTS (CRITICAL)',
-    '- Exceptional: improvements = [] (none)',
+    '- Exceptional: improvements = [] (none needed)',
     '- Strong: improvements = [] or [1 max]',
     '- Adequate: improvements = [1 only]',
-    '- Needs Work: improvements = [1-2] + note "More issues exist—focus on these first."',
+    '- Needs Work: improvements = [1-2]',
     '',
-    'Each improvement must be ≤18 words, actionable, and specific.',
+    'Each improvement: ≤18 words, actionable, high-level (not writing fixes).',
+    'Do NOT critique grammar, word choice, or sentence structure.',
     '',
     '## Context',
     `Company: ${companyContext.name || 'Unknown'} (${companyContext.industry || 'Unknown'})`,
@@ -358,11 +356,11 @@ function buildReadinessPrompt(params: {
     draftText,
     '',
     '## CONSTRAINTS',
-    '- NO hallucinated facts. NO new content. NO fabricating experience.',
-    '- Evaluate draft AS GIVEN.',
+    '- NO hallucinated facts or fabricated experience.',
+    '- Evaluate the draft AS GIVEN.',
     '- verdict_summary: 1-2 sentences explaining the verdict.',
-    '- Do NOT suggest rewriting entire sections.',
-    '- Tone: Honest but supportive. Avoid "weak," "poor," "bad."',
+    '- Do NOT suggest writing-level fixes (that belongs in Score).',
+    '- Tone: Supportive editor, not harsh critic.',
     '',
     '## JSON Schema',
     JSON.stringify(
@@ -370,16 +368,12 @@ function buildReadinessPrompt(params: {
         verdict: 'Exceptional | Strong | Adequate | Needs Work',
         verdict_summary: '1-2 sentence explanation',
         dimensions: {
-          compelling_opening: 'label',
-          clarity_structure: 'label',
-          specific_examples: 'label',
-          quantified_impact: 'label',
-          personalization_voice: 'label',
-          writing_quality: 'label',
-          length_efficiency: 'label',
-          executive_maturity: 'label',
+          narrative_coherence: 'label',
+          persuasiveness_evidence: 'label',
+          role_relevance: 'label',
+          professional_polish: 'label',
         },
-        improvements: ['Short actionable fix (if needed)'],
+        improvements: ['High-level actionable fix (if needed)'],
       },
       null,
       2,

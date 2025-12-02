@@ -74,7 +74,7 @@ const LandingPage = () => {
             <CardContent className="p-0">
               <div className="h-[600px] overflow-hidden relative rounded-lg">
                 <img 
-                  src="/docs/marketing/screenshots/cover-letter-editor.png" 
+                  src="/docs/marketing/screenshots/cover-letter-editor-2.png" 
                   alt="Narrata cover letter editor showing job insights and personalized draft content"
                   className="w-full h-auto absolute top-0 left-0 animate-hero-1"
                   loading="eager"

@@ -1069,16 +1069,13 @@ function ReadinessDrawerContent({ readiness }: ReadinessDrawerContentProps) {
     }
   };
 
-  // 8 dimensions - editorial quality only (not requirements/gaps/fit)
+  // 4 editorial dimensions (non-duplicative with Score)
+  // Score = writing craft, Readiness = high-level editorial verdict
   const rows: Array<{ key: keyof DraftReadinessEvaluation['scoreBreakdown']; label: string }> = [
-    { key: 'opening', label: 'Compelling Opening' },
-    { key: 'clarityStructure', label: 'Clarity & Structure' },
-    { key: 'specificExamples', label: 'Specific Examples' },
-    { key: 'quantifiedImpact', label: 'Quantified Impact' },
-    { key: 'personalization', label: 'Personalization / Voice' },
-    { key: 'writingQuality', label: 'Writing Quality' },
-    { key: 'lengthEfficiency', label: 'Length & Efficiency' },
-    { key: 'executiveMaturity', label: 'Executive Maturity' },
+    { key: 'narrativeCoherence', label: 'Narrative coherence' },
+    { key: 'persuasivenessEvidence', label: 'Persuasiveness & evidence' },
+    { key: 'roleRelevance', label: 'Role relevance' },
+    { key: 'professionalPolish', label: 'Professional polish' },
   ];
 
   return (
