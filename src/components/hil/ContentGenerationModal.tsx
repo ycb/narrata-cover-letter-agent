@@ -48,7 +48,8 @@ interface ContentGenerationModalProps {
   contentType?: 'company' | 'role' | 'saved_section';
   entityId?: string; // For persisting tags
   existingTags?: string[];
-  suggestedTags?: TagSuggestion[];
+  suggestedTags?: TagSuggestion[];      // High confidence, pre-checked
+  otherTags?: TagSuggestion[];          // Medium/low confidence, unchecked
   onApplyTags?: (tags: string[]) => void;
   onGenerateTags?: () => Promise<void>; // New: trigger tag generation
   isSearching?: boolean; // For company research status
@@ -66,13 +67,14 @@ export function ContentGenerationModal({
   contentType,
   existingTags = [],
   suggestedTags = [],
+  otherTags = [],
   onApplyTags,
   onGenerateTags,
   isSearching = false,
   searchError = null,
   onRetry
 }: ContentGenerationModalProps) {
-  console.log('ContentGenerationModal render:', { isOpen, mode, suggestedTags, isSearching, searchError });
+  console.log('ContentGenerationModal render:', { isOpen, mode, suggestedTags, otherTags, isSearching, searchError });
   console.log('ContentGenerationModal gap data:', {
     hasGap: !!gap,
     hasSectionAttribution: !!gap?.sectionAttribution,
@@ -89,12 +91,26 @@ export function ContentGenerationModal({
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isGeneratingTags, setIsGeneratingTags] = useState(false);
 
-  // Reset selected tags when modal opens/closes or suggested tags change
+  // Auto-select high-confidence tags when they arrive
   useEffect(() => {
     if (isOpen && mode === 'tag-suggestion') {
-      setSelectedTags([]);
+      // Pre-select all high-confidence (suggested) tags
+      const highConfidenceTags = (suggestedTags || []).map(t => t.value);
+      setSelectedTags(prev => {
+        const combined = [...new Set([...prev, ...highConfidenceTags])];
+        return combined;
+      });
     }
   }, [isOpen, mode, suggestedTags]);
+
+  // Toggle tag selection
+  const toggleTag = (tagValue: string) => {
+    setSelectedTags(prev => 
+      prev.includes(tagValue)
+        ? prev.filter(t => t !== tagValue)
+        : [...prev, tagValue]
+    );
+  };
 
   // Auto-start content generation when modal opens in gap-detection mode
   useEffect(() => {

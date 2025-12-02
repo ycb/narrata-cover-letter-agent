@@ -468,7 +468,16 @@ export const WorkHistoryDetail = ({
     
     const content = `${targetCompany.name}: ${targetCompany.description || 'Company information'}`;
     
-    openContentGenerationModal({
+    // Reset state and open modal immediately
+    setStreamingTagState({
+      isStreaming: true,
+      error: null,
+      suggestedTags: [],
+      otherTags: []
+    });
+    
+    // Set active context for the gap
+    setActiveGapContext({
       gap: {
         id: targetCompany.id,
         entity_type: 'company',
@@ -476,7 +485,7 @@ export const WorkHistoryDetail = ({
         gap_category: 'company_description',
         gap_type: 'missing_description',
         gap_description: 'Company description is missing or insufficient.',
-        gap_context: 'Company description is missing or insufficient. This gap needs to be addressed to provide a comprehensive overview of the company.',
+        gap_context: content,
         gap_solution: 'Generate a comprehensive company description that highlights the company\'s mission, values, and key achievements.',
         gap_priority: 'high',
         gap_status: 'open',
@@ -496,13 +505,74 @@ export const WorkHistoryDetail = ({
         gap_context_entity_external_links: targetCompany.externalLinks || [],
         gap_context_entity_outcome_metrics: targetCompany.outcomeMetrics || [],
         gap_context_entity_gaps: targetCompany.gaps || [],
-      },
+      } as any,
+      entityType: 'work_item',
+      entityId: targetCompany.id
+    });
+    
+    // Open modal
+    openContentGenerationModal({
+      mode: 'tag-suggestion',
+      content,
       entityType: 'company',
       entityId: targetCompany.id,
-      onContentApplied: () => {
-        // This callback is handled by the main useContentGeneration hook
-      }
+      onApplyTags: handleApplyTags
     });
+    
+    // Start streaming tags
+    try {
+      await TagSuggestionService.suggestTagsStreaming(
+        {
+          content,
+          contentType: 'company',
+          companyName: targetCompany.name,
+          userGoals: goals ? {
+            industries: goals.industries,
+            businessModels: goals.businessModels
+          } : undefined,
+          existingTags: targetCompany.tags || []
+        },
+        // onTagUpdate: stream tags one-by-one
+        (tag: TagSuggestion) => {
+          setStreamingTagState(prev => {
+            const isHighConfidence = tag.confidence === 'high';
+            return {
+              ...prev,
+              suggestedTags: isHighConfidence 
+                ? [...prev.suggestedTags, tag]
+                : prev.suggestedTags,
+              otherTags: !isHighConfidence
+                ? [...prev.otherTags, tag]
+                : prev.otherTags
+            };
+          });
+        },
+        // onComplete
+        (allTags: TagSuggestion[]) => {
+          setStreamingTagState(prev => ({
+            ...prev,
+            isStreaming: false
+          }));
+        },
+        // onError
+        (error: Error) => {
+          setStreamingTagState({
+            isStreaming: false,
+            error: error.message,
+            suggestedTags: [],
+            otherTags: []
+          });
+        }
+      );
+    } catch (error) {
+      console.error('Error starting tag stream:', error);
+      setStreamingTagState({
+        isStreaming: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        suggestedTags: [],
+        otherTags: []
+      });
+    }
   };
 
   // Retry handler for company tag suggestions
@@ -1612,12 +1682,16 @@ export const WorkHistoryDetail = ({
 
         {/* Tag Suggestion Modal */}
         <ContentGenerationModal
-          isOpen={isContentGenerationModalOpen} // Reusing the same modal for tags
+          isOpen={isContentGenerationModalOpen}
           onClose={closeContentGenerationModal}
+          {...contentGenerationModalProps}
           mode="tag-suggestion"
-          content={activeGapContext?.gap.gap_context || ''} // Use gap context for tag suggestions
-          suggestedTags={[]} // Tags are handled by handleApplyTags
+          suggestedTags={streamingTagState.suggestedTags}
+          otherTags={streamingTagState.otherTags}
+          isSearching={streamingTagState.isStreaming}
+          searchError={streamingTagState.error}
           onApplyTags={handleApplyTags}
+          onRetry={() => handleCompanyTagSuggestions()}
         />
       </div>
     );
@@ -1744,12 +1818,16 @@ export const WorkHistoryDetail = ({
 
         {/* Tag Suggestion Modal */}
         <ContentGenerationModal
-          isOpen={isContentGenerationModalOpen} // Reusing the same modal for tags
+          isOpen={isContentGenerationModalOpen}
           onClose={closeContentGenerationModal}
+          {...contentGenerationModalProps}
           mode="tag-suggestion"
-          content={activeGapContext?.gap.gap_context || ''} // Use gap context for tag suggestions
-          suggestedTags={[]} // Tags are handled by handleApplyTags
+          suggestedTags={streamingTagState.suggestedTags}
+          otherTags={streamingTagState.otherTags}
+          isSearching={streamingTagState.isStreaming}
+          searchError={streamingTagState.error}
           onApplyTags={handleApplyTags}
+          onRetry={() => handleCompanyTagSuggestions()}
         />
       </div>
     );
