@@ -963,7 +963,7 @@ export class CoverLetterDraftService {
       : undefined;
 
     // Fetch MwS from streaming job result (persisted at source, not via frontend useEffect)
-    let mwsData: { summaryScore: 0 | 1 | 2 | 3; details: Array<{ label: string; strengthLevel: string; explanation: string }> } | undefined;
+    let mwsFromJob: { summaryScore: 0 | 1 | 2 | 3; details: Array<{ label: string; strengthLevel: string; explanation: string }> } | undefined;
     try {
       const { data: jobRows } = await this.supabaseClient
         .from('jobs')
@@ -976,10 +976,10 @@ export class CoverLetterDraftService {
       // Find job with MwS data (result.mws exists)
       const jobWithMws = (jobRows ?? []).find((j: any) => j.result?.mws?.summaryScore !== undefined);
       if (jobWithMws?.result?.mws) {
-        mwsData = jobWithMws.result.mws;
+        mwsFromJob = jobWithMws.result.mws;
         console.log('[CoverLetterDraftService] Found MwS from job result:', {
-          summaryScore: mwsData?.summaryScore,
-          detailCount: mwsData?.details?.length,
+          summaryScore: mwsFromJob?.summaryScore,
+          detailCount: mwsFromJob?.details?.length,
         });
       }
     } catch (mwsError) {
@@ -996,7 +996,7 @@ export class CoverLetterDraftService {
           enhancedMatchData: metricResult.enhancedMatchData,
           ...(ratingData ? { rating: ratingData } : {}),
           ...(contentStandardsResult ? { contentStandards: contentStandardsResult } : {}),
-          ...(mwsData ? { mws: mwsData } : {}), // Persist MwS from streaming job
+          ...(mwsFromJob ? { mws: mwsFromJob } : {}), // Persist MwS from streaming job
         } as unknown as Record<string, unknown>,
         metrics: metricResult.metrics as unknown as Record<string, unknown>,
         analytics: {
@@ -1021,7 +1021,7 @@ export class CoverLetterDraftService {
       metrics: metricResult.metrics,
       contentStandards: contentStandardsResult,
       overallScore: contentStandardsResult?.aggregated?.overallScore,
-      mws: mwsData, // Include MwS in eval logging
+      mws: mwsFromJob || mwsData, // Include MwS in eval logging (prefer job result, fallback to draft/JD)
       phaseBLatencyMs: metricsEndTime - metricsStartTime,
       status: 'success',
     });
