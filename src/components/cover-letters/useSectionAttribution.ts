@@ -240,13 +240,14 @@ export function computeSectionAttribution({
   } else {
     // PATH 3: Config-based fallback - show applicable standards as unmet
     // This ensures the user always sees what standards apply to their section type
-    const sectionCategory = getSectionCategory(sectionType);
-    const applicableStandards = getApplicableStandards(sectionCategory);
+    // No suggestion = uses default "Status: Not mentioned in draft." (consistent with other tabs)
+    const resolvedCategory = sectionCategory || getSectionCategory(sectionType);
+    const applicableStandards = getApplicableStandards(resolvedCategory);
     
     attribution.standards.unmet = applicableStandards.map(config => ({
       id: config.id,
       label: config.label,
-      suggestion: 'Not yet evaluated.',
+      // No suggestion - let RequirementItem show default "Status: Not mentioned in draft."
     }));
   }
 
