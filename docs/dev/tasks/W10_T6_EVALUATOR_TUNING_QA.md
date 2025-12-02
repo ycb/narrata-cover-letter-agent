@@ -1,4 +1,4 @@
-# W10 Task 6 — Evaluator Tuning, Rubric Weights, and QA Sign‑off
+#` W10 Task 6 — Evaluator Tuning, Rubric Weights, and QA Sign‑off
 
 Owner: PM + BE/FE (tuning + QA)  
 Depends on: T2 (EF), T3 (API), T4 (UI), T5 (Telemetry)

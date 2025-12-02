@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { MatchMetricsToolbar } from './MatchMetricsToolbar';
 import { ContentCard } from '@/components/shared/ContentCard';
 import { SectionInsertButton } from '@/components/template-blurbs/SectionInsertButton';
+import { DraftProgressBanner } from './DraftProgressBanner';
 import { computeSectionAttribution } from './useSectionAttribution';
 import { getUnresolvedRatingCriteria } from './useMatchMetricsDetails';
 import { getApplicableStandards } from '@/config/contentStandards';
@@ -216,6 +217,7 @@ export function CoverLetterDraftEditor({
             return sectionList;
           })()}
           aPhaseInsights={aPhaseInsights} // Task 7: A-phase streaming insights
+          draftMws={draft?.mws} // Persisted MwS from draft (fallback when streaming not available)
           onEditGoals={onEditGoals}
           onEnhanceSection={(sectionId, requirement, ratingCriteria) => {
             // Open section enhancement flow with rating criteria if provided
@@ -292,42 +294,24 @@ export function CoverLetterDraftEditor({
             </Alert>
           )}
 
-          {/* UNIFIED LOADING: Single progress banner for entire generation flow */}
+          {/* UNIFIED LOADING: Step-based progress banner for entire generation flow */}
           {showProgressBanner && (
-            <Alert className="border-primary/20 bg-primary/5">
-              <AlertTitle className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Drafting your cover letter…
-              </AlertTitle>
-              <AlertDescription>
-                <div className="space-y-2">
-                  <div className="text-sm text-muted-foreground">
-                    This may take 60–90 seconds…
-                  </div>
-                  {/* Progress bar */}
-                  <div className="w-full bg-muted rounded-full h-2">
-                    <div 
-                      className="bg-primary h-2 rounded-full transition-all duration-500"
-                      style={{ width: `${progressPercent}%` }}
-                    />
-                  </div>
-                  {/* Stage chips - Task 6: Map A-phase stages to labels */}
-                  {progressState?.isJobStreaming && progressState?.aPhaseInsights && (
-                    <div className="flex gap-2 flex-wrap text-xs">
-                      <span className={progressState.aPhaseInsights.stageFlags.hasJdAnalysis ? 'text-primary' : 'text-muted-foreground'}>
-                        ✓ Analyzing job description
-                      </span>
-                      <span className={progressState.aPhaseInsights.stageFlags.hasRequirementAnalysis ? 'text-primary' : 'text-muted-foreground'}>
-                        ✓ Extracting requirements
-                      </span>
-                      <span className={progressState.aPhaseInsights.stageFlags.hasGoalsAndStrengths ? 'text-primary' : 'text-muted-foreground'}>
-                        ✓ Matching with goals and strengths
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </AlertDescription>
-            </Alert>
+            <DraftProgressBanner
+              // A-phase stage flags
+              aPhaseStageFlags={aPhaseInsights?.stageFlags}
+              // A-phase data for results
+              aPhaseData={{
+                jdRequirementSummary: aPhaseInsights?.jdRequirementSummary,
+                mws: aPhaseInsights?.mws,
+              }}
+              // B-phase state
+              hasDraftSections={Boolean(draft?.sections?.length)}
+              sectionCount={draft?.sections?.length}
+              hasMetrics={Boolean(effectiveEnhancedMatchData?.coreRequirementDetails)}
+              coreRequirementsMet={effectiveEnhancedMatchData?.coreRequirementDetails?.filter((r: any) => r.demonstrated).length}
+              coreRequirementsTotal={effectiveEnhancedMatchData?.coreRequirementDetails?.length}
+              overallScore={matchMetrics?.overallScore}
+            />
           )}
 
           <div className="space-y-4">

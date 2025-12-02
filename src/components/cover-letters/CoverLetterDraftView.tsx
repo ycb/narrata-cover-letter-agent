@@ -64,6 +64,15 @@ interface CoverLetterDraftViewProps {
   hilCompleted?: boolean;
   ratingCriteria?: CoverLetterCriterion[]; // LEGACY: Letter-level rating criteria (fallback)
   contentStandards?: ContentStandardsAnalysis | null; // NEW: Section-level content standards
+  // Persisted MwS from draft (fallback when streaming not available)
+  draftMws?: {
+    summaryScore: 0 | 1 | 2 | 3;
+    details: Array<{
+      label: string;
+      strengthLevel: 'strong' | 'moderate' | 'light';
+      explanation: string;
+    }>;
+  };
   onSectionChange?: (sectionId: string, newContent: string) => void;
   onSectionFocus?: (sectionId: string) => void; // Track when user clicks into field
   onSectionBlur?: (sectionId: string, newContent: string) => void; // Track when user clicks out of field
@@ -103,6 +112,7 @@ export function CoverLetterDraftView({
   hilCompleted = false,
   ratingCriteria,
   contentStandards,
+  draftMws,
   onSectionChange,
   onSectionFocus,
   onSectionBlur,
@@ -377,6 +387,7 @@ export function CoverLetterDraftView({
             jobDescription={jobDescription || undefined}
             enhancedMatchData={enhancedMatchData || undefined}
             sections={sections.map(s => ({ id: s.id, type: s.type, title: s.title }))}
+            draftMws={draftMws}
             onEditGoals={onEditGoals}
             onEnhanceSection={onEnhanceSection}
             onAddMetrics={onAddMetrics}

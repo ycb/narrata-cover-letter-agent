@@ -1612,6 +1612,54 @@ export class CoverLetterDraftService {
     });
   }
 
+  /**
+   * Save Match with Strengths (MwS) data to the draft
+   * Called after A-phase streaming completes to persist the data
+   */
+  async saveMwsData(
+    draftId: string,
+    mwsData: {
+      summaryScore: 0 | 1 | 2 | 3;
+      details: Array<{
+        label: string;
+        strengthLevel: 'strong' | 'moderate' | 'light';
+        explanation: string;
+      }>;
+    },
+  ): Promise<void> {
+    // Fetch current llm_feedback to merge
+    const { data: draftRow, error: fetchError } = await this.supabaseClient
+      .from('cover_letters')
+      .select('llm_feedback')
+      .eq('id', draftId)
+      .single();
+
+    if (fetchError) {
+      console.error('[CoverLetterDraftService] Failed to fetch draft for MwS update:', fetchError);
+      return; // Don't throw - this is non-critical
+    }
+
+    const currentFeedback = (draftRow?.llm_feedback as Record<string, unknown>) ?? {};
+
+    // Merge MwS data into llm_feedback
+    const { error: updateError } = await this.supabaseClient
+      .from('cover_letters')
+      .update({
+        llm_feedback: {
+          ...currentFeedback,
+          mws: mwsData,
+        } as unknown as Record<string, unknown>,
+        updated_at: this.now().toISOString(),
+      })
+      .eq('id', draftId);
+
+    if (updateError) {
+      console.error('[CoverLetterDraftService] Failed to save MwS data:', updateError);
+    } else {
+      console.log('[CoverLetterDraftService] MwS data saved successfully for draft:', draftId);
+    }
+  }
+
   async updateDraftSection(
     draftId: string,
     sectionId: string,
@@ -2645,6 +2693,9 @@ export class CoverLetterDraftService {
     }
     
     const enhancedMatchData = llmFeedback?.enhancedMatchData as EnhancedMatchData | undefined;
+    
+    // Extract MwS (Match with Strengths) from llm_feedback
+    const mws = llmFeedback?.mws as CoverLetterDraft['mws'] | undefined;
 
     return {
       id: row.id,
@@ -2658,6 +2709,7 @@ export class CoverLetterDraftService {
       differentiatorSummary,
       llmFeedback,
       enhancedMatchData, // Extract to top-level for easy access
+      mws, // Match with Strengths - persisted from A-phase streaming
       analytics: analytics as unknown as CoverLetterDraft['analytics'],
       createdAt: row.created_at,
       updatedAt: row.updated_at,

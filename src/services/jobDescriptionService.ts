@@ -669,9 +669,10 @@ export class JobDescriptionService {
     const preferredRequirementsStrings = ensureStringArray(payload.preferredRequirements);
 
     // Convert string arrays to RequirementInsight objects for backward compatibility
+    // NOTE: Do NOT truncate label - it causes display bugs. Use full requirement text.
     const standardRequirements: RequirementInsight[] = coreRequirementsStrings.map((req, index) => ({
       id: `core-${index + 1}`,
-      label: req.length > 50 ? req.substring(0, 50) + '...' : req,
+      label: req, // Full text, no truncation
       requirement: req,
       detail: req,
       category: 'standard' as RequirementCategory,
@@ -683,7 +684,7 @@ export class JobDescriptionService {
 
     const preferredRequirements: RequirementInsight[] = preferredRequirementsStrings.map((req, index) => ({
       id: `pref-${index + 1}`,
-      label: req.length > 50 ? req.substring(0, 50) + '...' : req,
+      label: req, // Full text, no truncation
       requirement: req,
       detail: req,
       category: 'preferred' as RequirementCategory,

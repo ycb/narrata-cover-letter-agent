@@ -1,6 +1,14 @@
 import { useMemo } from 'react';
 import type { JobStreamState, APhaseInsights } from '@/types/jobs';
 
+// Dev-only logging (Task 5: A-phase streaming diagnostics)
+const IS_DEV = process.env.NODE_ENV !== 'production';
+const devLog = (...args: unknown[]) => {
+  if (IS_DEV) {
+    console.log(...args);
+  }
+};
+
 /**
  * useAPhaseInsights - Pure adapter hook for A-phase streaming insights
  * 
@@ -23,13 +31,23 @@ export function useAPhaseInsights(
   jobState: JobStreamState | null
 ): APhaseInsights | null {
   return useMemo(() => {
+    // Task 5: Dev-only input logging
+    devLog('[A-PHASE] useAPhaseInsights input', {
+      hasJobState: !!jobState,
+      jobType: jobState?.type,
+      jobStatus: jobState?.status,
+      stageKeys: jobState?.stages ? Object.keys(jobState.stages) : [],
+    });
+
     // Guard: no job state
     if (!jobState) {
+      devLog('[A-PHASE] Guard: no jobState');
       return null;
     }
 
     // Guard: wrong job type (should only be used with coverLetter jobs)
     if (jobState.type !== 'coverLetter') {
+      devLog('[A-PHASE] Guard: wrong jobType', jobState.type);
       return null;
     }
 
@@ -60,6 +78,26 @@ export function useAPhaseInsights(
     // Phase is complete when all three A-phase stages are complete
     // Note: Does NOT check draft state
     const phaseComplete = hasJdAnalysis && hasRequirementAnalysis && hasGoalsAndStrengths;
+
+    // Task 5: Dev-only stage flags logging
+    devLog('[A-PHASE] Stage statuses', {
+      jdAnalysis: { exists: !!jdAnalysisStage, status: jdAnalysisStage?.status },
+      requirementAnalysis: { exists: !!stages.requirementAnalysis, status: stages.requirementAnalysis?.status },
+      goalsAndStrengths: { exists: !!goalsAndStrengthsStage, status: goalsAndStrengthsStage?.status },
+    });
+    
+    // Task 5: Dev-only data structure logging
+    devLog('[A-PHASE] Raw stage data', {
+      jdAnalysisDataKeys: jdAnalysisData ? Object.keys(jdAnalysisData) : [],
+      jdAnalysisHasRoleInsights: !!jdAnalysisData?.roleInsights,
+      jdAnalysisHasJdRequirementSummary: !!jdAnalysisData?.jdRequirementSummary,
+      goalsAndStrengthsDataKeys: goalsAndStrengthsData ? Object.keys(goalsAndStrengthsData) : [],
+      goalsAndStrengthsHasMws: !!goalsAndStrengthsData?.mws,
+      goalsAndStrengthsHasCompanyContext: !!goalsAndStrengthsData?.companyContext,
+      // Detailed MwS data for debugging
+      mwsData: goalsAndStrengthsData?.mws,
+      mwsSummaryScore: goalsAndStrengthsData?.mws?.summaryScore,
+    });
 
     // Build insights object
     const insights: APhaseInsights = {
@@ -100,6 +138,15 @@ export function useAPhaseInsights(
         phaseComplete,
       },
     };
+
+    // Task 5: Dev-only final insights logging
+    devLog('[A-PHASE] insights update', {
+      roleInsights: insights.roleInsights,
+      jdRequirementSummary: insights.jdRequirementSummary,
+      mws: insights.mws,
+      companyContext: insights.companyContext,
+      stageFlags: insights.stageFlags,
+    });
 
     return insights;
   }, [jobState]);

@@ -5,10 +5,15 @@ import {
   loadDraftReadinessContext,
   ReadinessContextError,
   DRAFT_READINESS_MIN_WORDS,
+  convertToLegacyFormat,
   type DraftReadinessResult,
+  type LegacyReadinessResult,
   type DraftReadinessContext,
   type ReadinessCompanyContext,
   type ReadinessRoleContext,
+  LABEL_SCORES,
+  DIMENSION_WEIGHTS,
+  type UnifiedLabel,
 } from '../_shared/readiness.ts';
 import { ZodError } from 'https://esm.sh/zod@3.23.8';
 import { elog } from '../_shared/log.ts';
@@ -20,13 +25,14 @@ const corsHeaders = {
 
 const DEFAULT_TTL_MINUTES = 10;
 
-type Rating = DraftReadinessResult['rating'];
-type Strength = DraftReadinessResult['scoreBreakdown'][keyof DraftReadinessResult['scoreBreakdown']];
+// Legacy types for DB storage and API response
+type LegacyRating = LegacyReadinessResult['rating'];
+type LegacyStrength = LegacyReadinessResult['scoreBreakdown'][keyof LegacyReadinessResult['scoreBreakdown']];
 
 interface DraftQualityEvaluationRow {
   draft_id: string;
-  rating: Rating;
-  score_breakdown: DraftReadinessResult['scoreBreakdown'];
+  rating: LegacyRating;
+  score_breakdown: LegacyReadinessResult['scoreBreakdown'];
   feedback_summary: string | null;
   improvements: string[] | null;
   evaluated_at: string;
@@ -35,9 +41,9 @@ interface DraftQualityEvaluationRow {
 }
 
 interface ReadinessResponse {
-  rating: Rating;
-  scoreBreakdown: DraftReadinessResult['scoreBreakdown'];
-  feedback: DraftReadinessResult['feedback'];
+  rating: LegacyRating;
+  scoreBreakdown: LegacyReadinessResult['scoreBreakdown'];
+  feedback: LegacyReadinessResult['feedback'];
   evaluatedAt: string;
   ttlExpiresAt: string;
   fromCache: boolean;
@@ -51,7 +57,7 @@ interface EvaluateDraftReadinessDeps {
   upsertEvaluation: (args: {
     supabase: SupabaseClient;
     draftId: string;
-    payload: DraftReadinessResult;
+    payload: LegacyReadinessResult;
     evaluatedAt: string;
     ttlExpiresAt: string;
     metadata: Record<string, unknown>;
@@ -59,6 +65,7 @@ interface EvaluateDraftReadinessDeps {
   callJudge: (args: {
     apiKey: string;
     draftText: string;
+    wordCount: number;
     companyContext: ReadinessCompanyContext;
     roleContext: ReadinessRoleContext;
   }) => Promise<DraftReadinessResult>;
@@ -217,17 +224,18 @@ export async function evaluateDraftReadinessCore(
   if (context.wordCount < DRAFT_READINESS_MIN_WORDS) {
     const evaluatedAt = deps.now().toISOString();
     const ttlExpiresAt = addMinutes(new Date(evaluatedAt), ttlMinutes).toISOString();
-    const payload = createShortDraftPayload(context.wordCount);
+    const legacyPayload = createShortDraftPayload(context.wordCount);
     await deps.upsertEvaluation({
       supabase: params.supabase,
       draftId: params.draftId,
-      payload,
+      payload: legacyPayload,
       evaluatedAt,
       ttlExpiresAt,
       metadata: {
         model: 'guardrail',
         reason: 'MIN_WORD_COUNT',
         wordCount: context.wordCount,
+        verdict: 'Needs Work',
       },
     });
 
@@ -236,23 +244,37 @@ export async function evaluateDraftReadinessCore(
         draftId: params.draftId,
         userId: params.userId,
         wordCount: context.wordCount,
+        verdict: 'Needs Work',
       });
     } catch {
       /* no-op */
     }
-    return buildResponseFromPayload(payload, evaluatedAt, ttlExpiresAt, false);
+    return buildResponseFromPayload(legacyPayload, evaluatedAt, ttlExpiresAt, false);
   }
 
   elog.info('[evaluate-draft-readiness] Evaluating draft via LLM', { draftId: params.draftId });
   const llmStart = typeof performance !== 'undefined' ? performance.now() : Date.now();
-  const payload = await deps.callJudge({
+  
+  // Call judge with new unified label format
+  const newFormatResult = await deps.callJudge({
     apiKey: params.openAiApiKey,
     draftText: context.promptDraft,
+    wordCount: context.wordCount,
     companyContext: context.companyContext,
     roleContext: context.roleContext,
   });
   const llmEnd = typeof performance !== 'undefined' ? performance.now() : Date.now();
   const latencyMs = Math.max(0, Math.round(llmEnd - llmStart));
+
+  // Verify/compute weighted median verdict
+  const computedVerdict = computeWeightedMedianVerdict(newFormatResult.dimensions);
+  const finalNewFormat: DraftReadinessResult = 
+    computedVerdict !== newFormatResult.verdict
+      ? { ...newFormatResult, verdict: computedVerdict }
+      : newFormatResult;
+
+  // Convert to legacy format for DB storage and API response
+  const legacyPayload = convertToLegacyFormat(finalNewFormat);
 
   const evaluatedAt = deps.now().toISOString();
   const ttlExpiresAt = addMinutes(new Date(evaluatedAt), ttlMinutes).toISOString();
@@ -260,13 +282,15 @@ export async function evaluateDraftReadinessCore(
   await deps.upsertEvaluation({
     supabase: params.supabase,
     draftId: params.draftId,
-    payload,
+    payload: legacyPayload,
     evaluatedAt,
     ttlExpiresAt,
     metadata: {
       model: 'gpt-4o-mini',
       latencyMs,
       wordCount: context.wordCount,
+      verdict: finalNewFormat.verdict,
+      dimensions: finalNewFormat.dimensions,
     },
   });
 
@@ -274,24 +298,32 @@ export async function evaluateDraftReadinessCore(
     elog.info('readiness_eval_completed', {
       draftId: params.draftId,
       userId: params.userId,
-      rating: payload.rating,
+      verdict: finalNewFormat.verdict,
+      rating: legacyPayload.rating,
       latencyMs,
       evaluatedAt,
       ttlExpiresAt,
     });
+    // Distribution/diagnostics
+    const counts = dimensionHistogram(finalNewFormat.dimensions);
+    elog.info('readiness_eval_scored', {
+      verdict: finalNewFormat.verdict,
+      rating: legacyPayload.rating,
+      dimensions: counts,
+    });
   } catch {
     /* no-op */
   }
-  return buildResponseFromPayload(payload, evaluatedAt, ttlExpiresAt, false);
+  return buildResponseFromPayload(legacyPayload, evaluatedAt, ttlExpiresAt, false);
 }
 
-function createShortDraftPayload(wordCount: number): DraftReadinessResult {
+function createShortDraftPayload(wordCount: number): LegacyReadinessResult {
   return {
     rating: 'weak',
     scoreBreakdown: constantBreakdown('insufficient'),
     feedback: {
-      summary: 'Draft too short for readiness evaluation (≥150 words required).',
-      improvements: ['Add more content so we can provide a fair editorial verdict.'],
+      summary: 'Draft too short for full evaluation (150 words required).',
+      improvements: [`Add more content so we can provide a fair evaluation (minimum 150 words, current: ${wordCount}).`],
     },
   };
 }
@@ -316,7 +348,7 @@ async function fetchEvaluationRow(
 async function upsertEvaluationRow(args: {
   supabase: SupabaseClient;
   draftId: string;
-  payload: DraftReadinessResult;
+  payload: LegacyReadinessResult;
   evaluatedAt: string;
   ttlExpiresAt: string;
   metadata: Record<string, unknown>;
@@ -358,7 +390,7 @@ function buildResponseFromRow(row: DraftQualityEvaluationRow, fromCache: boolean
 }
 
 function buildResponseFromPayload(
-  payload: DraftReadinessResult,
+  payload: LegacyReadinessResult,
   evaluatedAt: string,
   ttlExpiresAt: string,
   fromCache: boolean,
@@ -373,7 +405,7 @@ function buildResponseFromPayload(
   };
 }
 
-function constantBreakdown(value: Strength): DraftReadinessResult['scoreBreakdown'] {
+function constantBreakdown(value: LegacyStrength): LegacyReadinessResult['scoreBreakdown'] {
   return {
     clarityStructure: value,
     opening: value,
@@ -397,6 +429,68 @@ function json(body: unknown, status = 200): Response {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
+}
+
+// --- Weighted Median Algorithm for Unified Labels ---
+// Per spec: Map labels to numeric values (Exceptional=4, Strong=3, Adequate=2, Needs Work=1)
+// Weights: executive_maturity, company_alignment, role_alignment = 1.5x; all others = 1x
+// Compute weighted median and convert back to label
+
+function computeWeightedMedianVerdict(dimensions: DraftReadinessResult['dimensions']): UnifiedLabel {
+  // Build weighted array of (score, weight) pairs
+  const entries: Array<{ score: number; weight: number }> = [
+    { score: LABEL_SCORES[dimensions.clarity_structure], weight: DIMENSION_WEIGHTS.clarityStructure },
+    { score: LABEL_SCORES[dimensions.compelling_opening], weight: DIMENSION_WEIGHTS.opening },
+    { score: LABEL_SCORES[dimensions.company_alignment], weight: DIMENSION_WEIGHTS.companyAlignment },
+    { score: LABEL_SCORES[dimensions.role_alignment], weight: DIMENSION_WEIGHTS.roleAlignment },
+    { score: LABEL_SCORES[dimensions.specific_examples], weight: DIMENSION_WEIGHTS.specificExamples },
+    { score: LABEL_SCORES[dimensions.quantified_impact], weight: DIMENSION_WEIGHTS.quantifiedImpact },
+    { score: LABEL_SCORES[dimensions.personalization_voice], weight: DIMENSION_WEIGHTS.personalization },
+    { score: LABEL_SCORES[dimensions.writing_quality], weight: DIMENSION_WEIGHTS.writingQuality },
+    { score: LABEL_SCORES[dimensions.length_efficiency], weight: DIMENSION_WEIGHTS.lengthEfficiency },
+    { score: LABEL_SCORES[dimensions.executive_maturity], weight: DIMENSION_WEIGHTS.executiveMaturity },
+  ];
+
+  // Sort by score ascending
+  entries.sort((a, b) => a.score - b.score);
+
+  // Calculate total weight
+  const totalWeight = entries.reduce((sum, e) => sum + e.weight, 0);
+  const halfWeight = totalWeight / 2;
+
+  // Find weighted median
+  let cumulativeWeight = 0;
+  for (const entry of entries) {
+    cumulativeWeight += entry.weight;
+    if (cumulativeWeight >= halfWeight) {
+      return scoreToLabel(entry.score);
+    }
+  }
+
+  // Fallback (shouldn't reach here)
+  return 'Adequate';
+}
+
+function scoreToLabel(score: number): UnifiedLabel {
+  if (score >= 4) return 'Exceptional';
+  if (score >= 3) return 'Strong';
+  if (score >= 2) return 'Adequate';
+  return 'Needs Work';
+}
+
+function dimensionHistogram(
+  dimensions: DraftReadinessResult['dimensions'],
+): Record<UnifiedLabel, number> {
+  const counts: Record<UnifiedLabel, number> = {
+    'Exceptional': 0,
+    'Strong': 0,
+    'Adequate': 0,
+    'Needs Work': 0,
+  };
+  Object.values(dimensions).forEach((v) => {
+    counts[v as UnifiedLabel] = (counts[v as UnifiedLabel] ?? 0) + 1;
+  });
+  return counts;
 }
 
 const handler = createEvaluateDraftReadinessHandler();

@@ -30,6 +30,7 @@ const shouldShowFeedbackSystem = (): boolean => {
   // Default: only show in production
   return import.meta.env.PROD;
 };
+import LandingPage from "./pages/LandingPage";
 import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
 import WorkHistory from "./pages/WorkHistory";
@@ -64,12 +65,7 @@ function AppLayout() {
   return (
     <div className="pb-16">
       <Routes>
-        <Route path="/" element={
-          <ProtectedRoute>
-            <Header />
-            <Dashboard />
-          </ProtectedRoute>
-        } />
+        <Route path="/" element={<LandingPage />} />
         <Route path="/marketing" element={<Landing />} />
         <Route path="/dashboard" element={
           <ProtectedRoute>
@@ -235,7 +231,9 @@ function AppLayout() {
         <Route path="/forgot-password" element={<ProtectedRoute requireAuth={false}><ForgotPassword /></ProtectedRoute>} />
         <Route path="/auth/linkedin/callback" element={<LinkedInCallback />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/terms-of-service" element={<TermsOfService />} />
+        <Route path="/terms" element={<TermsOfService />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>

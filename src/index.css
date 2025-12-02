@@ -435,6 +435,14 @@ All colors MUST be HSL.
     @apply flex-1 overflow-y-auto;
   }
 
+  /* Dialog anchored to top of viewport (override Radix default centering) 
+     Radix uses: top-[50%] translate-y-[-50%] for vertical centering
+     We override both top position AND the transform to anchor at top */
+  .dialog-top-anchored {
+    top: 2rem !important;
+    transform: translateX(-50%) translateY(0) !important;
+  }
+
   /* Summary Tiles */
   .summary-tile {
     @apply text-center p-4 bg-muted/20 rounded-lg;

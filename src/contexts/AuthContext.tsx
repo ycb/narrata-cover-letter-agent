@@ -11,7 +11,7 @@ interface AuthContextType {
   profile: Profile | null
   loading: boolean
   error: string | null
-  signUp: (email: string, password: string, fullName?: string) => Promise<{ error: any; message?: string }>
+  signUp: (email: string, password: string, fullName?: string, acceptedTerms?: boolean) => Promise<{ error: any; message?: string }>
   signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ error: any }>
   signInWithMagicLink: (email: string) => Promise<{ error: any }>
   signInWithGoogle: () => Promise<{ error: any }>
@@ -291,7 +291,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user?.id, loadUserProfile])
 
-  const signUp = async (email: string, password: string, fullName?: string) => {
+  const signUp = async (email: string, password: string, fullName?: string, acceptedTerms?: boolean) => {
     try {
       setError(null)
       const { data, error } = await supabase.auth.signUp({
@@ -312,6 +312,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // If user is created and session exists, they're automatically signed in
       if (data.user && data.session) {
         console.log('User signed up and automatically signed in:', data.user.email)
+        
+        // Record terms acceptance if user agreed
+        if (acceptedTerms && data.user.id) {
+          const now = new Date().toISOString()
+          try {
+            const { error: profileError } = await supabase
+              .from('profiles')
+              .update({
+                terms_accepted_at: now,
+                privacy_accepted_at: now,
+              })
+              .eq('id', data.user.id)
+            
+            if (profileError) {
+              console.error('Error recording terms acceptance:', profileError)
+              // Don't fail signup if terms logging fails, but log it
+            } else {
+              console.log('✅ Terms and Privacy Policy acceptance recorded for user:', data.user.email)
+            }
+          } catch (termsError) {
+            console.error('Exception recording terms acceptance:', termsError)
+            // Don't fail signup if terms logging fails
+          }
+        }
+        
         // The auth state change will be handled by the onAuthStateChange listener
         return { error: null }
       }

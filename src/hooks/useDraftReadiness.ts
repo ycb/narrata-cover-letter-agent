@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { isDraftReadinessEnabled } from '@/lib/flags';
+import { supabase } from '@/lib/supabase';
 import type { DraftReadinessEvaluation } from '@/types/coverLetters';
 
 interface UseDraftReadinessOptions {
@@ -47,37 +48,87 @@ export const useDraftReadiness = ({
       if (!accessToken) {
         throw new Error('Missing access token for readiness queries.');
       }
-      const response = await fetch(`/api/drafts/${normalizedDraftId}/readiness`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+      
+      // Use Supabase Edge Function directly (not Next.js-style API route)
+      // The /api/drafts/... route doesn't exist in Vite - it was returning HTML
+      console.log('[useDraftReadiness] Invoking edge function for draftId:', normalizedDraftId);
+      
+      const { data, error } = await supabase.functions.invoke('evaluate-draft-readiness', {
+        body: { draftId: normalizedDraftId },
       });
 
-      if (response.status === 204) {
-        return { readiness: null, featureDisabled: false };
+      console.log('[useDraftReadiness] Edge function response:', { 
+        hasData: !!data, 
+        hasError: !!error,
+        errorMessage: error?.message,
+        errorName: error?.name,
+        errorContext: error?.context,
+        dataKeys: data ? Object.keys(data) : [],
+        dataError: data?.error,
+        fullData: data,
+      });
+
+      // Handle FunctionsHttpError - the actual response body is in error.context
+      // Supabase client puts non-2xx responses in error, not data
+      if (error) {
+        // Try to get the actual error response from context
+        let errorBody: any = null;
+        if (error.context && typeof error.context.json === 'function') {
+          try {
+            errorBody = await error.context.json();
+            console.log('[useDraftReadiness] Error response body:', errorBody);
+          } catch (e) {
+            console.log('[useDraftReadiness] Could not parse error body as JSON');
+          }
+        }
+        
+        // Check for feature disabled
+        if (errorBody?.error === 'FEATURE_DISABLED' || 
+            error.message?.includes('FEATURE_DISABLED') || 
+            error.message?.includes('403')) {
+          console.log('[useDraftReadiness] Feature disabled (server-side)');
+          return { readiness: null, featureDisabled: true };
+        }
+        
+        // Check for auth errors (401) - these are expected if token expired
+        if (errorBody?.error?.includes('auth') || 
+            errorBody?.error?.includes('token') ||
+            error.message?.includes('401')) {
+          console.error('[useDraftReadiness] Auth error:', errorBody?.error || error.message);
+          throw new Error('Authentication error - please refresh the page');
+        }
+        
+        console.error('[useDraftReadiness] Edge function error:', error, errorBody);
+        throw new Error(errorBody?.error || error.message || 'Failed to load draft readiness');
       }
 
-      if (response.status === 503) {
+      // Edge function returns { error: 'FEATURE_DISABLED' } with 403 when disabled
+      // This may come as `data.error` not `error` depending on Supabase client behavior
+      if (data?.error === 'FEATURE_DISABLED') {
+        console.log('[useDraftReadiness] Feature disabled (server-side)');
         return { readiness: null, featureDisabled: true };
       }
 
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        const message =
-          typeof payload?.error === 'string'
-            ? payload.error
-            : 'Failed to load draft readiness';
-        throw new Error(message);
+      // No data returned (evaluation not yet available)
+      if (!data) {
+        console.log('[useDraftReadiness] No data returned');
+        return { readiness: null, featureDisabled: false };
       }
 
-      const payload = await response.json();
+      // Check for any error field in data
+      if (data.error) {
+        console.error('[useDraftReadiness] Server returned error:', data.error);
+        throw new Error(data.error);
+      }
+
+      console.log('[useDraftReadiness] Success! Rating:', data.rating);
       const readiness: DraftReadinessEvaluation = {
-        rating: payload.rating,
-        scoreBreakdown: payload.scoreBreakdown,
-        feedback: payload.feedback,
-        evaluatedAt: payload.evaluatedAt ?? undefined,
-        ttlExpiresAt: payload.ttlExpiresAt ?? undefined,
-        fromCache: Boolean(payload.fromCache),
+        rating: data.rating,
+        scoreBreakdown: data.scoreBreakdown,
+        feedback: data.feedback,
+        evaluatedAt: data.evaluatedAt ?? undefined,
+        ttlExpiresAt: data.ttlExpiresAt ?? undefined,
+        fromCache: Boolean(data.fromCache),
       };
 
       return { readiness, featureDisabled: false };

@@ -22,7 +22,7 @@ import { isDraftReadinessEnabled } from '@/lib/flags';
 import { logReadinessEvent } from '@/lib/telemetry';
 import { useDraftReadiness } from '@/hooks/useDraftReadiness';
 
-type MetricKey = 'gaps' | 'goals' | 'core' | 'preferred' | 'rating' | 'ats' | 'a-phase' | 'readiness';
+type MetricKey = 'gaps' | 'goals' | 'strengths' | 'core' | 'preferred' | 'rating' | 'readiness';
 
 interface MatchMetricsToolbarProps {
   metrics: MatchMetricsData;
@@ -36,6 +36,15 @@ interface MatchMetricsToolbarProps {
   aPhaseInsights?: APhaseInsights; // Task 7: A-phase streaming insights
   draftId?: string;
   draftUpdatedAt?: string;
+  // Persisted MwS from draft (fallback when aPhaseInsights not available)
+  draftMws?: {
+    summaryScore: 0 | 1 | 2 | 3;
+    details: Array<{
+      label: string;
+      strengthLevel: 'strong' | 'moderate' | 'light';
+      explanation: string;
+    }>;
+  };
   onEditGoals?: () => void;
   onEnhanceSection?: (sectionId: string, requirement?: string, ratingCriteria?: Array<{
     id: string;
@@ -50,7 +59,7 @@ interface MatchMetricsToolbarProps {
 interface ToolbarItem {
   key: MetricKey;
   label: string;
-  value: string;
+  value: string | null; // null = show skeleton animation
   badgeClass: string;
   disabled?: boolean;
 }
@@ -70,24 +79,65 @@ export function MatchMetricsToolbar({
   onAddMetrics,
   draftId,
   draftUpdatedAt,
+  draftMws,
 }: MatchMetricsToolbarProps) {
+  // Task 5: Dev-only A-phase props logging
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[A-PHASE] MatchMetricsToolbar received', {
+      hasAPhaseInsights: !!aPhaseInsights,
+      aPhaseStageFlags: aPhaseInsights?.stageFlags,
+      isLoading,
+    });
+  }
+  
   const ENABLE_DRAFT_READINESS = isDraftReadinessEnabled();
-  const readinessFetchEnabled = ENABLE_DRAFT_READINESS && isPostHIL && Boolean(draftId);
+  // Readiness fetch: enabled when feature flag is on AND draft is fully saved (!isLoading) AND draftId exists
+  // The draft must be saved to the database before we can evaluate its readiness
+  // Without !isLoading, the edge function returns 404 because the draft row doesn't exist yet
+  const readinessFetchEnabled = ENABLE_DRAFT_READINESS && !isLoading && Boolean(draftId);
+  
   const {
     data: readiness,
     isLoading: readinessLoading,
+    isError: readinessError,
+    error: readinessErrorDetails,
+    featureDisabled: readinessFeatureDisabled,
   } = useDraftReadiness({
     draftId: readinessFetchEnabled ? draftId ?? null : null,
     draftUpdatedAt: draftUpdatedAt ?? null,
     enabled: readinessFetchEnabled,
   });
   const isReadinessLoading = readinessFetchEnabled ? readinessLoading : false;
+  
+  // Debug: Comprehensive readiness logging
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[Readiness] FULL DEBUG:', {
+      // 1. Feature flag
+      ENABLE_DRAFT_READINESS,
+      // 2. Draft info
+      hasDraftId: Boolean(draftId),
+      draftId,
+      // 3. Fetch decision
+      readinessFetchEnabled,
+      // 4. Hook response
+      readinessLoading,
+      readinessError,
+      errorDetails: readinessErrorDetails?.message,
+      readinessFeatureDisabled,
+      // 5. Data
+      hasData: !!readiness,
+      rating: readiness?.rating,
+      scoreBreakdown: readiness?.scoreBreakdown ? 'present' : 'missing',
+      // 6. For reference
+      isLoading_prop: isLoading,
+    });
+  }
   const [ttlTimerId, setTtlTimerId] = useState<number | null>(null);
   const viewedEventForDraftRef = useRef<string | null>(null);
 
   // Telemetry: readiness card viewed when it first appears
   useEffect(() => {
-    if (!ENABLE_DRAFT_READINESS || !isPostHIL || !draftId) return;
+    if (!ENABLE_DRAFT_READINESS || !draftId) return;
     const isVisible = Boolean(readiness || isReadinessLoading);
     const alreadySentForDraft = viewedEventForDraftRef.current === draftId;
     if (isVisible && !alreadySentForDraft) {
@@ -97,7 +147,7 @@ export function MatchMetricsToolbar({
       });
       viewedEventForDraftRef.current = draftId;
     }
-  }, [ENABLE_DRAFT_READINESS, isPostHIL, draftId, readiness, isReadinessLoading]);
+  }, [ENABLE_DRAFT_READINESS, draftId, readiness, isReadinessLoading]);
 
   // Schedule telemetry logging on TTL expiry (data refetch handled by hook)
   useEffect(() => {
@@ -106,7 +156,7 @@ export function MatchMetricsToolbar({
       clearTimeout(ttlTimerId);
       setTtlTimerId(null);
     }
-    if (!ENABLE_DRAFT_READINESS || !readiness?.ttlExpiresAt || !draftId || !isPostHIL) {
+    if (!ENABLE_DRAFT_READINESS || !readiness?.ttlExpiresAt || !draftId) {
       return;
     }
     const now = Date.now();
@@ -120,7 +170,7 @@ export function MatchMetricsToolbar({
     return () => {
       clearTimeout(id);
     };
-  }, [readiness?.ttlExpiresAt, draftId, isPostHIL, ENABLE_DRAFT_READINESS]);
+  }, [readiness?.ttlExpiresAt, draftId, ENABLE_DRAFT_READINESS]);
   const { goalMatches, goalsSummary, coreRequirements, preferredRequirements } = useMatchMetricsDetails({
     jobDescription,
     enhancedMatchData,
@@ -173,260 +223,359 @@ export function MatchMetricsToolbar({
     }).join(' ');
   };
 
-  // Collect gaps: count sections with gaps (not individual gap items)
-  // Each section that has at least one gap counts as 1 gap
+  // Collect gaps: Build directly from sectionGapInsights without requiring section matching
+  // This fixes the bug where section IDs didn't match and gaps showed empty
   const allGaps = useMemo(() => {
-    if (!enhancedMatchData?.sectionGapInsights || !sections.length) return [];
+    // Debug: Log gaps data source
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[Gaps] Building allGaps:', {
+        hasSectionGapInsights: !!enhancedMatchData?.sectionGapInsights,
+        sectionGapInsightsLength: enhancedMatchData?.sectionGapInsights?.length,
+        sectionsLength: sections?.length,
+        sectionGapInsights: enhancedMatchData?.sectionGapInsights?.map(i => ({
+          sectionId: i.sectionId,
+          sectionSlug: i.sectionSlug,
+          gapCount: i.requirementGaps?.length,
+        })),
+      });
+    }
+    
+    if (!enhancedMatchData?.sectionGapInsights) return [];
     
     const gaps: Array<{ sectionId: string; sectionTitle: string; gap: any }> = [];
     
-    // Track paragraph index for unique titles
-    let paragraphIndex = 0;
-    
-    // For each section in the draft, check if it has gaps
-    sections.forEach((section) => {
-      // Try exact sectionId match first (for cover letters with multiple sections of same type)
-      let sectionInsight = enhancedMatchData.sectionGapInsights?.find((insight) => {
-        return insight.sectionId === section.id;
-      });
-
-      // Fall back to semantic type matching (for other content types or legacy data)
-      if (!sectionInsight) {
-        const normalizedTypes = normalizeSectionType(section.type);
-        sectionInsight = enhancedMatchData.sectionGapInsights?.find((insight) => {
-          const normalizedSlug = insight.sectionSlug.toLowerCase();
-          return normalizedTypes.includes(normalizedSlug) || normalizedSlug.includes(normalizedTypes[0]);
-        });
-      }
+    // Iterate directly over sectionGapInsights - no matching required
+    enhancedMatchData.sectionGapInsights.forEach((insight, idx) => {
+      if (!insight.requirementGaps || insight.requirementGaps.length === 0) return;
       
-      // If this section has gaps, add all its gaps
-      if (sectionInsight && sectionInsight.requirementGaps.length > 0) {
-        // Use actual section title from draft (e.g., "Body Paragraph 1" from template)
-        // Fall back to generating title from type if not available
-        const sectionTitle = section.title || (() => {
-          const lowerType = section.type.toLowerCase();
-          if (lowerType === 'intro' || lowerType === 'introduction') return 'Introduction';
-          if (lowerType === 'paragraph' || lowerType === 'experience') {
-            paragraphIndex++;
-            return `Paragraph ${paragraphIndex}`;
-          }
-          if (lowerType === 'closer' || lowerType === 'closing') return 'Closing';
-          if (lowerType === 'signature') return 'Signature';
-          // Format slug into sentence case (e.g., "launched-fleet-health" → "Launched fleet health")
-          return formatSectionTitle(sectionInsight.sectionSlug || section.type);
+      // Try to find matching section for better title, but don't require it
+      const matchedSection = sections?.find(s => 
+        s.id === insight.sectionId || 
+        normalizeSectionType(s.type).includes(insight.sectionSlug?.toLowerCase() || '')
+      );
+      
+      // Generate section title
+      const sectionTitle = matchedSection?.title || (() => {
+        const slug = insight.sectionSlug?.toLowerCase() || '';
+        if (slug.includes('intro')) return 'Introduction';
+        if (slug.includes('clos') || slug.includes('conclusion')) return 'Closing';
+        if (slug.includes('signature')) return 'Signature';
+        // Use section slug formatted nicely, or fallback to "Section N"
+        return formatSectionTitle(insight.sectionSlug || `Section ${idx + 1}`);
         })();
         
         // Add all gaps for this section
-        sectionInsight.requirementGaps.forEach((gap: any) => {
+      insight.requirementGaps.forEach((gap: any) => {
           gaps.push({
-            sectionId: section.id,
+          sectionId: insight.sectionId || `insight-${idx}`,
             sectionTitle,
             gap,
           });
         });
-      } else {
-        // Still increment paragraph index even if no gaps (for correct numbering)
-        const lowerType = section.type.toLowerCase();
-        if (lowerType === 'paragraph' || lowerType === 'experience') {
-          paragraphIndex++;
-        }
-      }
     });
     
     return gaps;
   }, [enhancedMatchData?.sectionGapInsights, sections]);
 
-  // Count sections with gaps (not individual gap items)
+  // Count sections with gaps - directly from sectionGapInsights (don't depend on sections array)
   const gapsCount = useMemo(() => {
-    if (!enhancedMatchData?.sectionGapInsights || !sections.length) return 0;
+    if (!enhancedMatchData?.sectionGapInsights) return 0;
     
-    let count = 0;
-    
-    sections.forEach((section) => {
-      // Try exact sectionId match first
-      let sectionInsight = enhancedMatchData.sectionGapInsights?.find((insight) => {
-        return insight.sectionId === section.id;
-      });
+    // Count sections that have at least one gap
+    return enhancedMatchData.sectionGapInsights.filter(
+      (insight) => insight.requirementGaps && insight.requirementGaps.length > 0
+    ).length;
+  }, [enhancedMatchData?.sectionGapInsights]);
 
-      // Fall back to semantic type matching
-      if (!sectionInsight) {
-        const normalizedTypes = normalizeSectionType(section.type);
-        sectionInsight = enhancedMatchData.sectionGapInsights?.find((insight) => {
-          const normalizedSlug = insight.sectionSlug.toLowerCase();
-          return normalizedTypes.includes(normalizedSlug) || normalizedSlug.includes(normalizedTypes[0]);
-        });
-      }
-      
-      // Count this section as 1 gap if it has any gaps
-      if (sectionInsight && sectionInsight.requirementGaps.length > 0) {
-        count++;
-      }
+  // ═══════════════════════════════════════════════════════════════════════════
+  // A-PHASE AVAILABILITY - check data directly (not just stageFlags)
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MwS: Use streaming data first, then fall back to persisted draft data
+  // This ensures no flicker - streaming populates during generation, draft data persists after
+  const effectiveMws = aPhaseInsights?.mws || draftMws;
+  const hasMwsData = effectiveMws?.summaryScore !== undefined;
+  // Requirements: check if JD counts exist
+  const hasJdCounts = aPhaseInsights?.jdRequirementSummary?.coreTotal !== undefined || 
+                      aPhaseInsights?.jdRequirementSummary?.preferredTotal !== undefined;
+
+  // Dev-only: log A-phase data availability
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[Toolbar] A-phase data check', {
+      hasMwsData,
+      mwsSummaryScore: effectiveMws?.summaryScore,
+      mwsFromStreaming: !!aPhaseInsights?.mws,
+      mwsFromDraft: !!draftMws,
+      effectiveMws,
+      hasJdCounts,
+      jdReqSummary: aPhaseInsights?.jdRequirementSummary,
+      readinessRating: readiness?.rating,
+      isLoading,
+      isReadinessLoading,
     });
-    
-    return count;
-  }, [enhancedMatchData?.sectionGapInsights, sections]);
+  }
+  
+  // A-phase totals for requirements (authoritative for JD totals)
+  const aPhaseCoreTot = aPhaseInsights?.jdRequirementSummary?.coreTotal;
+  const aPhasePrefTot = aPhaseInsights?.jdRequirementSummary?.preferredTotal;
 
-  const toolbarItems = useMemo<ToolbarItem[]>(() => {
+  const toolbarItems: ToolbarItem[] = useMemo(() => {
     const items: ToolbarItem[] = [];
     
-    // Add Gaps item at the top if there are gaps
-    if (gapsCount > 0) {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FINAL 7-SECTION ORDER (all titles always visible, values show loading state):
+    // 1) Gaps (B-phase)
+    // 2) Match with Goals (B-phase)
+    // 3) Match with Strengths (A-phase)
+    // 4) Core Requirements (A-phase totals → B-phase mapping)
+    // 5) Preferred Requirements (A-phase totals → B-phase mapping)
+    // 6) Overall Score (B-phase)
+    // 7) Readiness (B-phase)
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    // 1) GAPS (Phase B) - shows count when gap data is available
+    // gapsCount comes from enhancedMatchData which is B-phase, so check if it exists
+    const hasGapData = enhancedMatchData?.sectionGapInsights !== undefined;
+    items.push({
+      key: 'gaps',
+      label: 'Gaps',
+      value: hasGapData ? String(gapsCount) : null,
+      badgeClass: gapsCount > 0 ? 'border-warning bg-warning/10 text-warning' : 'border-muted bg-muted/10 text-muted-foreground',
+      disabled: false,
+    });
+    
+    // 2) MATCH WITH GOALS (Phase A - shows as soon as goal data available)
+    // Shows skeleton until goalsSummary has real data, regardless of isLoading
+    const hasGoalData = goalsSummary.total > 0;
+    const goalsValue = hasGoalData
+      ? (metrics.goalsMatchScore !== undefined 
+        ? `${metrics.goalsMatchScore}%` 
+        : `${goalsSummary.met}/${goalsSummary.total}`)
+      : null;
+    items.push({
+      key: 'goals',
+      label: 'Match with Goals',
+      value: goalsValue,
+      badgeClass: metrics.goalsMatchScore !== undefined 
+        ? getScoreColor(metrics.goalsMatchScore) 
+        : getATSScoreColor(goalsSummary.percentage),
+      disabled: false,
+    });
+    
+    // 3) MATCH WITH STRENGTHS (Phase A streaming OR persisted from draft)
+    // Uses effectiveMws which prefers streaming data, falls back to persisted draft data
+    if (hasMwsData && effectiveMws) {
+      const mwsScore = effectiveMws.summaryScore;
       items.push({
-        key: 'gaps',
-        label: 'Gaps',
-        value: isLoading ? '' : String(gapsCount),
-        badgeClass: 'border-warning bg-warning/10 text-warning',
-        disabled: isLoading,
+        key: 'strengths',
+        label: 'Match with Strengths',
+        value: `${mwsScore}/3`,
+        badgeClass: mwsScore !== undefined && mwsScore >= 2 
+          ? 'border-success bg-success/10 text-success'
+          : mwsScore === 1
+          ? 'border-warning bg-warning/10 text-warning'
+          : 'border-muted bg-muted/10 text-muted-foreground',
+        disabled: false,
       });
     }
     
-    // Add other items
-    items.push(
-      {
-        key: 'goals',
-        label: 'Match with Goals',
-        value: isLoading ? '' : (metrics.goalsMatchScore !== undefined ? `${metrics.goalsMatchScore}%` : `${goalsSummary.met}/${goalsSummary.total}`),
-        badgeClass: metrics.goalsMatchScore !== undefined ? getScoreColor(metrics.goalsMatchScore) : getATSScoreColor(goalsSummary.percentage),
-        disabled: isLoading,
-      },
-      {
+    // 4) CORE REQUIREMENTS (A-phase totals → B-phase mapping)
+    const coreTotal = hasJdCounts && aPhaseCoreTot !== undefined ? aPhaseCoreTot : coreRequirements.summary.total;
+    const coreMet = coreRequirements.summary.met;
+    const coreValue = hasJdCounts 
+      ? (isLoading ? String(coreTotal) : `${coreMet}/${coreTotal}`)
+      : (isLoading ? null : `${coreMet}/${coreTotal || 0}`);
+    items.push({
         key: 'core',
         label: 'Core Requirements',
-        value: isLoading ? '' : `${coreRequirements.summary.met}/${coreRequirements.summary.total || 0}`,
+      value: coreValue,
         badgeClass: getATSScoreColor(coreRequirements.summary.percentage),
-        disabled: isLoading,
-      },
-      {
+      disabled: false,
+    });
+    
+    // 5) PREFERRED REQUIREMENTS (A-phase totals → B-phase mapping)
+    const prefTotal = hasJdCounts && aPhasePrefTot !== undefined ? aPhasePrefTot : preferredRequirements.summary.total;
+    const prefMet = preferredRequirements.summary.met;
+    const prefValue = hasJdCounts 
+      ? (isLoading ? String(prefTotal) : `${prefMet}/${prefTotal}`)
+      : (isLoading ? null : `${prefMet}/${prefTotal || 0}`);
+    items.push({
         key: 'preferred',
         label: 'Pref Requirements',
-        value: isLoading ? '' : `${preferredRequirements.summary.met}/${preferredRequirements.summary.total || 0}`,
+      value: prefValue,
         badgeClass: getATSScoreColor(preferredRequirements.summary.percentage),
-        disabled: isLoading,
-      },
-      {
-        key: 'rating',
-        label: 'Overall Score',
-        value: isLoading ? '' : (() => {
-          // Calculate score if undefined but we have isPostHIL context
-          // This matches the hardcoded criteria logic in CoverLetterRatingInsights
-          // When isPostHIL=false: 3/11 criteria met (hardcoded true) = 27%
-          // When isPostHIL=true: 10/11 criteria met (7 from isPostHIL + 3 hardcoded) = 91%
-          if (metrics.overallScore !== undefined) {
-            return `${metrics.overallScore}%`;
-          }
-          // Fallback calculation based on isPostHIL (matches CoverLetterRatingInsights logic)
-          const calculatedScore = isPostHIL ? 91 : 27; // 10/11 or 3/11
-          return `${calculatedScore}%`;
-        })(),
-        badgeClass: getScoreColor(metrics.overallScore ?? (isPostHIL ? 91 : 27)),
-        disabled: isLoading,
-      }
-      // MVP: ATS Score hidden until properly implemented
-      // {
-      //   key: 'ats',
-      //   label: 'ATS',
-      //   value: isLoading ? '' : `${metrics.atsScore ?? 0}%`,
-      //   badgeClass: getATSScoreColor(metrics.atsScore ?? 0),
-      //   disabled: isLoading,
-      // }
-    );
+      disabled: false,
+    });
     
-    // Add A-phase insights accordion if data is present
-    if (aPhaseInsights && !isLoading) {
-      const { stageFlags } = aPhaseInsights;
-      const hasAnyInsights = stageFlags.hasRoleInsights || 
-                              stageFlags.hasMws || 
-                              stageFlags.hasCompanyContext || 
-                              stageFlags.hasJdRequirementSummary;
-      
-      if (hasAnyInsights) {
+    // 6) OVERALL SCORE (Phase B ONLY) - shows ONLY after draft generation complete
+    // Must be !isLoading AND have real score - skeleton during all of Phase A
+    const hasRealScore = !isLoading && metrics.overallScore !== undefined;
         items.push({
-          key: 'a-phase',
-          label: 'Analysis Insights',
-          value: '⋮', // Three dots to indicate expandable content
-          badgeClass: 'border-muted bg-muted/10 text-muted-foreground',
+      key: 'rating',
+      label: 'Overall Score',
+      value: hasRealScore ? `${metrics.overallScore}%` : null, // Skeleton until Phase B complete
+      badgeClass: hasRealScore ? getScoreColor(metrics.overallScore!) : 'border-muted bg-muted/10 text-muted-foreground',
           disabled: false,
         });
-      }
-    }
     
-    // W10: Readiness accordion
-    if (ENABLE_DRAFT_READINESS && isPostHIL && (readiness || isReadinessLoading)) {
-      const label = readiness?.rating
-        ? readiness.rating.charAt(0).toUpperCase() + readiness.rating.slice(1)
-        : '—';
+    // 7) DRAFT READINESS (Phase B) - only if feature enabled
+    // Shows skeleton until readiness data arrives (independent of isLoading)
+    // Uses unified labels: Exceptional | Strong | Adequate | Needs Work
+    if (ENABLE_DRAFT_READINESS) {
+      const getUnifiedLabel = (rating: 'exceptional' | 'strong' | 'adequate' | 'weak' | undefined): string | null => {
+        if (!rating) return null;
+        switch (rating) {
+          case 'exceptional': return 'Exceptional';
+          case 'strong': return 'Strong';
+          case 'adequate': return 'Adequate';
+          case 'weak': return 'Needs Work';
+          default: return null;
+        }
+      };
+      const ratingLabel = getUnifiedLabel(readiness?.rating);
       const badgeClass =
-        readiness?.rating === 'exceptional'
+        ratingLabel === 'Exceptional'
           ? 'border-success bg-success/10 text-success'
-          : readiness?.rating === 'strong'
+          : ratingLabel === 'Strong'
           ? 'border-primary bg-primary/10 text-primary'
-          : readiness?.rating === 'adequate'
+          : ratingLabel === 'Adequate'
           ? 'border-warning bg-warning/10 text-warning'
           : 'border-muted bg-muted/10 text-muted-foreground';
       items.push({
         key: 'readiness',
         label: 'Readiness',
-        value: isReadinessLoading ? '' : label,
+        value: ratingLabel, // Shows skeleton until readiness data arrives
         badgeClass,
-        disabled: isReadinessLoading,
+        disabled: false,
       });
     }
 
     return items;
-  }, [coreRequirements.summary, goalsSummary, gapsCount, isLoading, metrics.atsScore, metrics.overallScore, metrics.goalsMatchScore, preferredRequirements.summary, isPostHIL, readiness, isReadinessLoading, ENABLE_DRAFT_READINESS]);
+  }, [
+    coreRequirements.summary, goalsSummary, gapsCount, isLoading, 
+    metrics.overallScore, metrics.goalsMatchScore, preferredRequirements.summary, 
+    isPostHIL, readiness, isReadinessLoading, ENABLE_DRAFT_READINESS, 
+    aPhaseInsights, hasMwsData, hasJdCounts, aPhaseCoreTot, aPhasePrefTot,
+    effectiveMws, draftMws, // MwS persistence: use streaming OR draft data
+  ]);
 
+  // During streaming: multiple accordions can be open (Set)
+  // After draft ready: single accordion mode (only one open at a time)
+  const [openAccordions, setOpenAccordions] = useState<Set<MetricKey>>(new Set());
   const [activeMetric, setActiveMetric] = useState<MetricKey | null>(null);
 
-  const hasExpandedItem = activeMetric !== null;
+  // Track which sections have been auto-opened during streaming
+  const autoOpenedSectionsRef = useRef<Set<MetricKey>>(new Set());
+  // Track previous loading state to detect transition
+  const prevLoadingRef = useRef(isLoading);
+
+  // During streaming: auto-open accordions as their data arrives (all stay open)
+  useEffect(() => {
+    if (!isLoading) return;
+    
+    // A-phase accordions to auto-open when data arrives
+    const streamingAccordions: MetricKey[] = ['core', 'preferred', 'strengths', 'goals'];
+    
+    for (const key of streamingAccordions) {
+      const item = toolbarItems.find(i => i.key === key);
+      // Auto-open when data arrives and not already open
+      if (item && item.value !== null && !autoOpenedSectionsRef.current.has(key)) {
+        setOpenAccordions(prev => new Set([...prev, key]));
+        autoOpenedSectionsRef.current.add(key);
+      }
+    }
+  }, [isLoading, toolbarItems]);
+
+  // When loading completes: collapse all accordions back to single mode
+  useEffect(() => {
+    if (prevLoadingRef.current && !isLoading) {
+      // Transition from loading → not loading: collapse all
+      setOpenAccordions(new Set());
+      setActiveMetric(null);
+      autoOpenedSectionsRef.current.clear();
+    }
+    prevLoadingRef.current = isLoading;
+  }, [isLoading]);
+
+  // Check if an accordion is open (handles both streaming and single modes)
+  const isAccordionOpen = (key: MetricKey) => {
+    if (isLoading) {
+      return openAccordions.has(key);
+    }
+    return activeMetric === key;
+  };
+
+  // Toggle accordion (respects streaming vs single mode)
+  const toggleAccordion = (key: MetricKey) => {
+    if (isLoading) {
+      // During streaming: toggle individual accordion
+      setOpenAccordions(prev => {
+        const next = new Set(prev);
+        if (next.has(key)) {
+          next.delete(key);
+        } else {
+          next.add(key);
+        }
+        return next;
+      });
+    } else {
+      // After draft ready: single accordion mode
+      setActiveMetric(prev => prev === key ? null : key);
+    }
+  };
+
+  const hasExpandedItem = isLoading ? openAccordions.size > 0 : activeMetric !== null;
 
   return (
     <div className={`w-full h-full bg-card border flex flex-col ${className || ''}`}>
       <div
         className={`flex flex-col border-b md:border-b-0 transition-all duration-300 ease-in-out overflow-y-auto flex-1 min-h-0 ${
-          hasExpandedItem ? 'md:w-96' : 'md:w-48'
+          hasExpandedItem ? 'md:w-96' : 'md:w-[12.5rem]'
         }`}
       >
         {toolbarItems.map((item, index) => {
-          const isActive = activeMetric === item.key;
+          const isOpen = isAccordionOpen(item.key);
           const isLast = index === toolbarItems.length - 1;
+          // Value is null = show skeleton animation in value position only
+          const valueIsLoading = item.value === null;
           return (
             <div key={item.key} className={`flex flex-col ${index > 0 ? 'border-t border-border/30' : ''} ${isLast ? 'border-b border-border/30' : ''}`}>
-              {isLoading ? (
-                <div className="h-14 w-full bg-muted animate-pulse" aria-hidden="true" />
-              ) : (
-                <>
                   <button
                     type="button"
                     onClick={() => {
-                      const next = isActive ? null : item.key;
-                      setActiveMetric(next);
+                  // Allow closing if already open, but don't allow opening new items while value loading
+                  if (valueIsLoading && !isOpen) return;
+                  toggleAccordion(item.key);
                       // Telemetry: readiness accordion expanded
-                      if (next === 'readiness' && draftId) {
+                  if (!isOpen && item.key === 'readiness' && draftId) {
                         logReadinessEvent('ui_readiness_card_expanded', { draftId });
                       }
                     }}
                     className={`w-full border px-3 py-2 text-left transition ${
-                      isActive
+                  isOpen
                         ? 'bg-black dark:bg-white border-black dark:border-white text-white dark:text-black'
+                    : valueIsLoading
+                    ? 'bg-transparent border-transparent text-muted-foreground cursor-default'
                         : 'bg-transparent border-transparent hover:bg-muted/40 text-muted-foreground'
                     }`}
-                    aria-pressed={isActive}
-                    aria-expanded={isActive}
+                aria-pressed={isOpen}
+                aria-expanded={isOpen}
+                disabled={valueIsLoading && !isOpen}
                   >
                     <div className="flex items-center justify-between w-full">
-                      <span className={`text-[11px] uppercase tracking-wide ${isActive ? 'text-white dark:text-black' : 'text-muted-foreground'}`}>
+                  <span className={`text-[11px] uppercase tracking-wide ${isOpen ? 'text-white dark:text-black' : 'text-muted-foreground'}`}>
                         {item.label}
                       </span>
-                      {item.key === 'gaps' ? (
-                        <Badge
-                          variant="outline"
-                          className={`${item.badgeClass} cursor-pointer hover:opacity-80 transition-opacity`}
-                        >
-                          <AlertTriangle className="h-3 w-3 mr-1" />
-                          {item.value}
-                        </Badge>
-                      ) : (
-                        <span className={`text-base font-semibold ${isActive ? 'text-white dark:text-black' : 'text-foreground'}`}>
+                  {valueIsLoading ? (
+                    // Skeleton animation for value only
+                    <div className="h-5 w-12 bg-muted/50 rounded animate-pulse" />
+                  ) : item.key === 'gaps' ? (
+                    // Gaps: same font-size as others (text-base) with warning icon inline
+                    <span className={`inline-flex items-center gap-1 text-base font-semibold ${isOpen ? 'text-white dark:text-black' : ''}`}>
+                      <AlertTriangle className={`h-4 w-4 ${item.badgeClass?.includes('warning') ? 'text-warning' : 'text-muted-foreground'}`} />
+                      <span className={item.badgeClass?.includes('warning') ? 'text-warning' : 'text-foreground'}>{item.value}</span>
+                    </span>
+                  ) : (
+                    <span className={`text-base font-semibold ${isOpen ? 'text-white dark:text-black' : 'text-foreground'}`}>
                           {item.value}
                         </span>
                       )}
@@ -434,21 +583,23 @@ export function MatchMetricsToolbar({
                   </button>
                   <div
                     className={`overflow-hidden transition-[max-height,opacity] duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${
-                      isActive && activeMetric ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
+                  isOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
                     }`}
                   >
-                    {isActive && activeMetric && (
-                      <div className="border-t border-b pl-6" id="match-metrics-drawer">
+                {isOpen && (
+                  <div className="border-t border-b" id="match-metrics-drawer">
                         <MetricDrawerContent
-                          activeMetric={activeMetric}
+                      activeMetric={item.key}
                           goalMatches={goalMatches}
                           coreRequirements={coreRequirements.list}
                           preferredRequirements={preferredRequirements.list}
                           isPostHIL={isPostHIL}
+                      isLoading={isLoading}
                           metrics={metrics}
                           allGaps={allGaps}
                           aPhaseInsights={aPhaseInsights}
                           readiness={readiness ?? undefined}
+                      draftMws={draftMws}
                           onEditGoals={onEditGoals}
                           onEnhanceSection={onEnhanceSection}
                           onAddMetrics={onAddMetrics}
@@ -457,8 +608,6 @@ export function MatchMetricsToolbar({
                       </div>
                     )}
                   </div>
-                </>
-              )}
             </div>
           );
         })}
@@ -473,10 +622,20 @@ interface MetricDrawerContentProps {
   coreRequirements: RequirementDisplayItem[];
   preferredRequirements: RequirementDisplayItem[];
   isPostHIL: boolean;
+  isLoading: boolean;
   metrics: MatchMetricsData;
   allGaps: Array<{ sectionId: string; sectionTitle: string; gap: any }>;
   aPhaseInsights?: APhaseInsights;
   readiness?: DraftReadinessEvaluation;
+  // Persisted MwS from draft (fallback when streaming not available)
+  draftMws?: {
+    summaryScore: 0 | 1 | 2 | 3;
+    details: Array<{
+      label: string;
+      strengthLevel: 'strong' | 'moderate' | 'light';
+      explanation: string;
+    }>;
+  };
   onEditGoals?: () => void;
   onEnhanceSection?: (sectionId: string, requirement?: string, ratingCriteria?: Array<{
     id: string;
@@ -495,53 +654,75 @@ function MetricDrawerContent({
   coreRequirements,
   preferredRequirements,
   isPostHIL,
+  isLoading,
   metrics,
   allGaps,
   aPhaseInsights,
   readiness,
+  draftMws,
   onEditGoals,
   onEnhanceSection,
   onAddMetrics,
   sections = [],
 }: MetricDrawerContentProps) {
+  // Compute effectiveMws: streaming data first, then draft fallback
+  const effectiveMws = aPhaseInsights?.mws || draftMws;
   switch (activeMetric) {
     case 'gaps':
       return <GapsDrawerContent allGaps={allGaps} onEnhanceSection={onEnhanceSection} />;
     case 'goals':
+      // User-defined goals ONLY (no Role/Company - those are in Role Fit)
       return (
         <GoalsDrawerContent
           goalMatches={goalMatches}
           onEditGoals={onEditGoals}
         />
       );
+    case 'strengths':
+      // Match with Strengths (streaming OR persisted from draft)
+      return effectiveMws ? (
+        <MatchWithStrengthsDrawerContent mws={effectiveMws} />
+      ) : (
+        <div className="p-2 text-xs text-muted-foreground">Strengths analysis not yet available.</div>
+      );
     case 'core':
+      // Phase A: simple list, Phase B: full status (when draft exists)
       return (
         <RequirementsDrawerContent
           requirements={coreRequirements}
+          showStatus={!isLoading} // Show status when draft generation complete
           onEnhanceSection={onEnhanceSection}
           onAddMetrics={onAddMetrics}
         />
       );
     case 'preferred':
+      // Phase A: simple list, Phase B: full status (when draft exists)
       return (
         <RequirementsDrawerContent
           requirements={preferredRequirements}
+          showStatus={!isLoading} // Show status when draft generation complete
           onEnhanceSection={onEnhanceSection}
           onAddMetrics={onAddMetrics}
         />
       );
     case 'rating':
-      // Calculate score if undefined (matches hardcoded criteria logic)
+      // Phase B only - Overall Score only meaningful with draft context
+      if (isLoading) {
+        return (
+          <div className="p-4 text-sm text-muted-foreground">
+            Score criteria will be evaluated once the draft is complete.
+          </div>
+        );
+      }
       const displayScore = metrics.overallScore ?? (isPostHIL ? 91 : 27);
       return (
         <CoverLetterRatingInsights 
           isPostHIL={isPostHIL} 
           overallScore={displayScore} 
           criteria={metrics.ratingCriteria}
+          showStatus={true} // Always show status in Phase B (draft exists)
         />
       );
-    case 'a-phase':
-      return aPhaseInsights ? <APhaseDrawerContent insights={aPhaseInsights} /> : null;
     case 'readiness':
       return readiness ? <ReadinessDrawerContent readiness={readiness} /> : (
         <div className="p-2 text-xs text-muted-foreground">Readiness verdict unavailable.</div>
@@ -554,35 +735,70 @@ function MetricDrawerContent({
 
 interface RequirementsDrawerContentProps {
   requirements: RequirementDisplayItem[];
+  showStatus?: boolean; // Phase A = false (simple list), Phase B = true (with status)
   onEnhanceSection?: (sectionId: string, requirement?: string) => void;
   onAddMetrics?: (sectionId?: string) => void;
 }
 
 function RequirementsDrawerContent({
   requirements,
+  showStatus = true,
   onEnhanceSection,
   onAddMetrics,
 }: RequirementsDrawerContentProps) {
   if (!requirements.length) {
     return (
-      <div className="p-2 flex items-center gap-2">
-        <div className="flex-shrink-0 p-2 flex items-center">
-          <HelpCircle className="h-4 w-4 text-muted-foreground" />
+      <div className="p-2 text-xs text-muted-foreground">
+        No requirements detected yet.
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="mb-1.5">
-            <h4 className="text-sm font-medium text-foreground">No requirements</h4>
-          </div>
-          <div className="text-xs">
+    );
+  }
+
+  // Phase A: Simple list (like MwS) - just requirement text, NO truncation
+  if (!showStatus) {
+    // Debug: Check if text is truncated from source
+    if (process.env.NODE_ENV !== 'production' && requirements.length > 0) {
+      console.log('[Requirements] Phase A text check:', requirements.slice(0, 3).map(r => ({
+        id: r.id,
+        text: r.requirement,
+        length: r.requirement?.length,
+        endsWithEllipsis: r.requirement?.endsWith('...'),
+      })));
+    }
+    return (
             <div>
-              <span className="text-muted-foreground">No requirements to display</span>
+        {requirements.map((req, index) => (
+          <div 
+            key={req.id} 
+            className={`p-2 ${index > 0 ? 'border-t border-border/30' : ''}`}
+          >
+            <p 
+              className="text-sm font-medium text-foreground"
+              style={{ 
+                wordBreak: 'break-word', 
+                overflowWrap: 'anywhere',
+                textOverflow: 'clip',
+                overflow: 'visible',
+                whiteSpace: 'pre-wrap', // Use pre-wrap to preserve whitespace while wrapping
+                display: 'block',
+                width: '100%',
+              }}
+            >
+              {/* DEBUG: Check if text contains ellipsis */}
+              {(() => {
+                if (process.env.NODE_ENV !== 'production' && req.requirement?.includes('...')) {
+                  console.warn('[TRUNCATION] Text contains "..." from source:', req.requirement);
+                }
+                return req.requirement;
+              })()}
+            </p>
             </div>
-          </div>
-        </div>
+        ))}
       </div>
     );
   }
 
+  // Phase B: Full list with status and actions
   return (
     <div>
       {requirements.map((req, index) => (
@@ -636,6 +852,9 @@ function RequirementsDrawerContent({
   );
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// GOALS DRAWER (User-defined goals ONLY - no Role/Company)
+// ═══════════════════════════════════════════════════════════════════════════
 interface GoalsDrawerContentProps {
   goalMatches: GoalMatchDisplay[];
   onEditGoals?: () => void;
@@ -684,6 +903,54 @@ function GoalsDrawerContent({ goalMatches, onEditGoals }: GoalsDrawerContentProp
           />
         </div>
       ))}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Match with Strengths Drawer (Phase A)
+// ═══════════════════════════════════════════════════════════════════════════
+interface MatchWithStrengthsDrawerContentProps {
+  mws: {
+    summaryScore: 0 | 1 | 2 | 3;
+    details: Array<{
+      label: string;
+      strengthLevel: 'strong' | 'moderate' | 'light';
+      explanation: string;
+    }>;
+  };
+}
+
+function MatchWithStrengthsDrawerContent({ mws }: MatchWithStrengthsDrawerContentProps) {
+  // EXACT COPY of RequirementsDrawerContent layout (lines 766-787)
+  return (
+    <div>
+      {mws.details && mws.details.length > 0 ? (
+        mws.details.map((detail, index) => (
+          <div
+            key={index}
+            className={`p-2 flex items-center gap-2 ${index > 0 ? 'border-t border-border/30' : ''}`}
+          >
+            <div className="flex-1 min-w-0">
+              <div className="mb-1.5">
+                <h4 className="text-sm font-medium text-foreground">{detail.label}</h4>
+              </div>
+              <div className="text-xs">
+                <span className="text-foreground/80">
+                  {detail.explanation}
+                </span>
+              </div>
+            </div>
+            <div className="flex-shrink-0 p-2 flex items-center gap-2">
+              <StatusIcon met={detail.strengthLevel === 'strong' || detail.strengthLevel === 'moderate'} />
+            </div>
+          </div>
+        ))
+      ) : (
+        <div className="p-2 text-xs text-muted-foreground">
+          No matching strengths identified yet.
+        </div>
+      )}
     </div>
   );
 }
@@ -761,213 +1028,46 @@ function GapsDrawerContent({ allGaps, onEnhanceSection }: GapsDrawerContentProps
   );
 }
 
-interface APhaseDrawerContentProps {
-  insights: APhaseInsights;
-}
-
-/**
- * Task 7: A-phase streaming insights accordion
- * 
- * Displays preliminary analysis data as it arrives during drafting:
- * - PM Level role alignment
- * - Goals alignment
- * - JD requirement counts (preliminary)
- * - Match with Strengths
- * - Company context
- * 
- * Design principles:
- * - Shows streaming data ONLY (never draft-based metrics)
- * - Labeled as "preliminary" / "from JD" where appropriate
- * - Does NOT auto-open/close on updates
- * - Does NOT replace draft-based badges once draft exists
- */
-function APhaseDrawerContent({ insights }: APhaseDrawerContentProps) {
-  const { stageFlags } = insights;
-
-  return (
-    <div className="space-y-3">
-      {/* Role Insights */}
-      {stageFlags.hasRoleInsights && insights.roleInsights && (
-        <div className="p-2">
-          <h4 className="text-sm font-medium text-foreground mb-2">Role Alignment</h4>
-          <div className="space-y-2 text-xs">
-            {insights.roleInsights.inferredRoleLevel && (
-              <div>
-                <span className="font-medium text-foreground/90">Level:</span>{' '}
-                <span className="text-foreground/80">{insights.roleInsights.inferredRoleLevel}</span>
-              </div>
-            )}
-            {insights.roleInsights.inferredRoleScope && (
-              <div>
-                <span className="font-medium text-foreground/90">Scope:</span>{' '}
-                <span className="text-foreground/80">
-                  {insights.roleInsights.inferredRoleScope.replace(/_/g, ' ')}
-                </span>
-              </div>
-            )}
-            {insights.roleInsights.titleMatch && (
-              <div>
-                <span className="font-medium text-foreground/90">Title Match:</span>{' '}
-                <span className="text-foreground/80">
-                  {insights.roleInsights.titleMatch.exactTitleMatch
-                    ? 'Exact'
-                    : insights.roleInsights.titleMatch.adjacentTitleMatch
-                    ? 'Adjacent'
-                    : 'No match'}
-                </span>
-              </div>
-            )}
-            {insights.roleInsights.scopeMatch && (
-              <div>
-                <span className="font-medium text-foreground/90">Fit:</span>{' '}
-                <span className="text-foreground/80">
-                  {insights.roleInsights.scopeMatch.scopeRelation === 'goodFit'
-                    ? 'Good fit'
-                    : insights.roleInsights.scopeMatch.scopeRelation === 'stretch'
-                    ? 'Stretch'
-                    : insights.roleInsights.scopeMatch.scopeRelation === 'bigStretch'
-                    ? 'Big stretch'
-                    : 'Below experience'}
-                </span>
-              </div>
-            )}
-            {insights.roleInsights.goalAlignment && (
-              <div>
-                <span className="font-medium text-foreground/90">Goal Alignment:</span>{' '}
-                <span className="text-foreground/80">
-                  {insights.roleInsights.goalAlignment.alignsWithTargetTitles && 
-                   insights.roleInsights.goalAlignment.alignsWithTargetLevelBand
-                    ? 'Aligns with goals'
-                    : insights.roleInsights.goalAlignment.alignsWithTargetTitles
-                    ? 'Title aligns'
-                    : insights.roleInsights.goalAlignment.alignsWithTargetLevelBand
-                    ? 'Level aligns'
-                    : 'Outside target'}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* JD Requirement Summary (preliminary) */}
-      {stageFlags.hasJdRequirementSummary && insights.jdRequirementSummary && (
-        <div className="p-2 border-t border-border/30">
-          <h4 className="text-sm font-medium text-foreground mb-2">
-            Requirements from JD <span className="text-muted-foreground">(preliminary)</span>
-          </h4>
-          <div className="space-y-2 text-xs">
-            <div>
-              <span className="font-medium text-foreground/90">Core:</span>{' '}
-              <span className="text-foreground/80">{insights.jdRequirementSummary.coreTotal}</span>
-            </div>
-            <div>
-              <span className="font-medium text-foreground/90">Preferred:</span>{' '}
-              <span className="text-foreground/80">{insights.jdRequirementSummary.preferredTotal}</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Match with Strengths */}
-      {stageFlags.hasMws && insights.mws && (
-        <div className="p-2 border-t border-border/30">
-          <h4 className="text-sm font-medium text-foreground mb-2">Match with Strengths</h4>
-          <div className="space-y-2 text-xs">
-            <div className="mb-2">
-              <span className="font-medium text-foreground/90">Score:</span>{' '}
-              <Badge variant="outline" className={
-                insights.mws.summaryScore === 3 ? 'border-success bg-success/10 text-success' :
-                insights.mws.summaryScore === 2 ? 'border-warning bg-warning/10 text-warning' :
-                'border-muted bg-muted/10 text-muted-foreground'
-              }>
-                {insights.mws.summaryScore}/3
-              </Badge>
-            </div>
-            {insights.mws.details.map((item, idx) => (
-              <div key={idx}>
-                <span className="font-medium text-foreground/90">{item.label}:</span>{' '}
-                <Badge 
-                  variant="outline" 
-                  className={
-                    item.strengthLevel === 'strong' 
-                      ? 'border-success bg-success/10 text-success mr-1' 
-                      : item.strengthLevel === 'moderate'
-                      ? 'border-warning bg-warning/10 text-warning mr-1'
-                      : 'border-muted bg-muted/10 text-muted-foreground mr-1'
-                  }
-                >
-                  {item.strengthLevel}
-                </Badge>
-                <span className="text-foreground/80">{item.explanation}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Company Context */}
-      {stageFlags.hasCompanyContext && insights.companyContext && (
-        <div className="p-2 border-t border-border/30">
-          <h4 className="text-sm font-medium text-foreground mb-2">Company Context</h4>
-          <div className="space-y-2 text-xs">
-            {insights.companyContext.industry && (
-              <div>
-                <span className="font-medium text-foreground/90">Industry:</span>{' '}
-                <span className="text-foreground/80">{insights.companyContext.industry}</span>
-              </div>
-            )}
-            {insights.companyContext.maturity && (
-              <div>
-                <span className="font-medium text-foreground/90">Stage:</span>{' '}
-                <span className="text-foreground/80">
-                  {insights.companyContext.maturity.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
-                </span>
-              </div>
-            )}
-            {insights.companyContext.businessModels && insights.companyContext.businessModels.length > 0 && (
-              <div>
-                <span className="font-medium text-foreground/90">Business Models:</span>{' '}
-                <span className="text-foreground/80">
-                  {insights.companyContext.businessModels.join(', ')}
-                </span>
-              </div>
-            )}
-            {insights.companyContext.source && (
-              <div className="text-muted-foreground mt-1">
-                Source: {insights.companyContext.source === 'jd' ? 'Job description' : 
-                         insights.companyContext.source === 'web' ? 'Web research' : 
-                         'Mixed sources'}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 interface ReadinessDrawerContentProps {
   readiness: DraftReadinessEvaluation;
 }
 
 function ReadinessDrawerContent({ readiness }: ReadinessDrawerContentProps) {
-  const ratingLabel = readiness.rating.charAt(0).toUpperCase() + readiness.rating.slice(1);
-  const ratingBadgeClass =
-    readiness.rating === 'exceptional'
-      ? 'border-success bg-success/10 text-success'
-      : readiness.rating === 'strong'
-      ? 'border-primary bg-primary/10 text-primary'
-      : readiness.rating === 'adequate'
-      ? 'border-warning bg-warning/10 text-warning'
-      : 'border-muted bg-muted/10 text-muted-foreground';
+  // Convert legacy rating to unified display label
+  const getDisplayLabel = (rating: DraftReadinessEvaluation['rating']): string => {
+    switch (rating) {
+      case 'exceptional': return 'Exceptional';
+      case 'strong': return 'Strong';
+      case 'adequate': return 'Adequate';
+      case 'weak': return 'Needs Work';
+    }
+  };
+  
+  // Convert legacy dimension strength to unified display label
+  const getDimensionLabel = (strength: 'strong' | 'sufficient' | 'insufficient'): string => {
+    switch (strength) {
+      case 'strong': return 'Strong';
+      case 'sufficient': return 'Adequate';
+      case 'insufficient': return 'Needs Work';
+    }
+  };
 
-  const toBadgeClass = (v: 'strong' | 'sufficient' | 'insufficient') =>
-    v === 'strong'
-      ? 'border-success bg-success/10 text-success'
-      : v === 'sufficient'
-      ? 'border-warning bg-warning/10 text-warning'
-      : 'border-muted bg-muted/10 text-muted-foreground';
+  const ratingLabel = getDisplayLabel(readiness.rating);
+  
+  // Badge colors based on unified labels
+  const getBadgeClass = (label: string) => {
+    switch (label) {
+      case 'Exceptional':
+        return 'border-success bg-success/10 text-success';
+      case 'Strong':
+        return 'border-primary bg-primary/10 text-primary';
+      case 'Adequate':
+        return 'border-warning bg-warning/10 text-warning';
+      case 'Needs Work':
+      default:
+        return 'border-muted bg-muted/10 text-muted-foreground';
+    }
+  };
 
   const rows: Array<{ key: keyof DraftReadinessEvaluation['scoreBreakdown']; label: string }> = [
     { key: 'clarityStructure', label: 'Clarity & Structure' },
@@ -986,7 +1086,7 @@ function ReadinessDrawerContent({ readiness }: ReadinessDrawerContentProps) {
     <div className="p-2 space-y-3">
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium text-foreground">Verdict:</span>
-        <Badge variant="outline" className={ratingBadgeClass}>
+        <Badge variant="outline" className={getBadgeClass(ratingLabel)}>
           {ratingLabel}
         </Badge>
       </div>
@@ -998,11 +1098,18 @@ function ReadinessDrawerContent({ readiness }: ReadinessDrawerContentProps) {
         <div className="space-y-1">
           {rows.map((row, idx) => {
             const value = readiness.scoreBreakdown[row.key];
+            const displayLabel = getDimensionLabel(value);
             return (
               <div key={row.key} className={idx > 0 ? 'pt-1 border-t border-border/20' : ''}>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-foreground/90">{row.label}</span>
-                  <Badge variant="outline" className={toBadgeClass(value)}>{value}</Badge>
+                  <span className={`text-xs font-medium ${
+                    displayLabel === 'Strong' ? 'text-success' :
+                    displayLabel === 'Adequate' ? 'text-warning' :
+                    'text-muted-foreground'
+                  }`}>
+                    {displayLabel}
+                  </span>
                 </div>
               </div>
             );
@@ -1013,7 +1120,7 @@ function ReadinessDrawerContent({ readiness }: ReadinessDrawerContentProps) {
         <div className="border-t border-border/30 pt-2">
           <h4 className="text-sm font-medium text-foreground mb-2">Improvements</h4>
           <ul className="list-disc pl-5 space-y-1 text-xs">
-            {readiness.feedback.improvements.slice(0, 3).map((item, i) => (
+            {readiness.feedback.improvements.slice(0, 5).map((item, i) => (
               <li key={i} className="text-foreground/80">{item}</li>
             ))}
           </ul>

@@ -77,10 +77,18 @@ const SignIn = () => {
   return (
     <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo/Brand */}
+        {/* Logo/Brand with Get Started link */}
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-foreground mb-2">Narrata</h1>
-          <p className="text-muted-foreground"> to your narrative engine</p>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex-1"></div>
+            <h1 className="text-2xl font-bold text-foreground">Narrata</h1>
+            <div className="flex-1 flex justify-end">
+              <Link to="/signup" className="text-sm text-accent hover:underline">
+                Get Started
+              </Link>
+            </div>
+          </div>
+          <p className="text-muted-foreground">Welcome back to your narrative engine</p>
         </div>
         {/* Error Alert */}
         {(error || formError || redirectError) && (

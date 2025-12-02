@@ -22,12 +22,14 @@ export interface CoverLetterRatingInsightsProps {
   isPostHIL?: boolean;
   overallScore?: number;
   criteria?: CoverLetterCriterion[];
+  showStatus?: boolean; // Phase A = false (simple list), Phase B = true (with status)
 }
 
 export function CoverLetterRatingInsights({ 
   isPostHIL = false, 
   overallScore, 
   criteria,
+  showStatus = true,
 }: CoverLetterRatingInsightsProps) {
   // Fallback to hardcoded criteria if real criteria not available (backward compatibility)
   const fallbackCriteria = [
@@ -61,6 +63,23 @@ export function CoverLetterRatingInsights({
         suggestion: '',
       }));
 
+  // Phase A: Simple list (just criterion names, no status)
+  if (!showStatus) {
+    return (
+      <div>
+        {displayCriteria.map((criterion, index) => (
+          <div
+            key={criterion.id}
+            className={`p-2 ${index > 0 ? 'border-t border-border/30' : ''}`}
+          >
+            <h4 className="text-sm font-medium text-foreground">{criterion.name}</h4>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  // Phase B: Full list with status and icons
   return (
     <div>
       {displayCriteria.map((criterion, index) => (

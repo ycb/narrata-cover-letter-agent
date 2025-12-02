@@ -8,7 +8,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -45,6 +44,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   AlertTriangle,
+  Eye,
   FileText,
   Loader2,
   Pencil,
@@ -66,6 +66,7 @@ import { CoverLetterFinalization } from './CoverLetterFinalization';
 // Phase 2: CoverLetterSkeleton removed - skeleton is now a state in DraftEditor, not a separate component
 import { CoverLetterDraftView } from './CoverLetterDraftView';
 import { CoverLetterDraftEditor } from './CoverLetterDraftEditor'; // Phase 1: New shared editor
+import { DraftProgressBanner } from './DraftProgressBanner'; // Progress banner moved to modal level
 import { ContentCard } from '@/components/shared/ContentCard';
 import { ContentGenerationModal } from '@/components/hil/ContentGenerationModal';
 import { UserGoalsModal } from '@/components/user-goals/UserGoalsModal';
@@ -84,6 +85,13 @@ const MIN_JOB_DESCRIPTION_LENGTH = 50;
 // Feature flag for A-phase streaming insights (Task 5)
 const ENABLE_A_PHASE_INSIGHTS = true;
 const IS_DEV = process.env.NODE_ENV !== 'production';
+
+// Dev-only logging helper (Task 5: streaming wiring diagnostics)
+const devLog = (...args: unknown[]) => {
+  if (IS_DEV) {
+    console.log(...args);
+  }
+};
 
 type TemplateSummary = {
   id: string;
@@ -316,6 +324,17 @@ export const CoverLetterModal = ({
     timeout: 300000,
   });
 
+  // Dev-only: Log modal mount (Task 5: streaming wiring diagnostics)
+  useEffect(() => {
+    devLog('[CoverLetterModal] mounted', {
+      mode,
+      isOpen,
+      hasUser: !!user?.id,
+      hasStreamingHook: !!streamingHook,
+      autoStart: true,
+    });
+  }, []);
+
   // Dev-only telemetry guards for stage/insight one-time events
   const emittedStagesRef = useRef({
     jdAnalysis: false,
@@ -323,6 +342,8 @@ export const CoverLetterModal = ({
     goalsAndStrengths: false,
   });
   const insightsRenderedRef = useRef(false);
+  // Track whether we've saved MwS data to the draft (to prevent duplicate saves)
+  const mwsSavedRef = useRef(false);
   
   const jobState = mode === 'create' ? streamingHook.state : null;
   const isJobStreaming = mode === 'create' ? streamingHook.isStreaming : false;
@@ -392,14 +413,40 @@ export const CoverLetterModal = ({
 
   // In create mode, use the hook. In edit mode, use local state.
   const draft = mode === 'create' ? createModeHook.draft : localDraft;
+
+  // Persist MwS data to draft when available
+  // This ensures MwS data is saved even after user closes/reopens the modal
+  useEffect(() => {
+    // Only in create mode, when we have both draft and MwS data
+    if (mode !== 'create') return;
+    if (!draft?.id) return;
+    if (!aPhaseInsights?.mws) return;
+    if (mwsSavedRef.current) return; // Already saved
+    
+    const saveMws = async () => {
+      try {
+        const draftService = new CoverLetterDraftService(supabase);
+        await draftService.saveMwsData(draft.id, aPhaseInsights.mws!);
+        mwsSavedRef.current = true;
+        if (IS_DEV) {
+          console.log('[CoverLetterModal] MwS data persisted to draft:', draft.id);
+        }
+      } catch (error) {
+        console.error('[CoverLetterModal] Failed to save MwS data:', error);
+        // Non-critical - don't show user error
+      }
+    };
+    
+    saveMws();
+  }, [mode, draft?.id, aPhaseInsights?.mws]);
   
   // ============================================================================
-  // SKELETON VISIBILITY (DRAFT-ONLY, NO STREAMING INFLUENCE)
+  // SKELETON VISIBILITY (GENERATION-TRIGGERED ONLY)
   // ============================================================================
-  // showSkeleton = !draft || isGeneratingDraft
-  // jobState MUST NOT influence skeleton visibility
+  // showSkeleton = isGeneratingDraft (only after user clicks Generate)
+  // Do NOT show skeleton just because draft is null (initial modal state)
   
-  const showSkeleton = !draft || isGeneratingDraft;
+  const showSkeleton = isGeneratingDraft;
   
   // ============================================================================
   // DRAFT-ONLY DATA (NO STREAMING)
@@ -1609,6 +1656,14 @@ export const CoverLetterModal = ({
           hasGoalsAndStrengths: aPhaseInsights?.stageFlags.hasGoalsAndStrengths,
         },
       });
+      
+      // Task 5: A-phase props to DraftEditor logging
+      console.log('[A-PHASE] props to DraftEditor', {
+        hasAPhaseInsights: !!aPhaseInsights,
+        isJobStreaming,  // Critical for progress banner chips
+        showSkeleton,    // Controls showProgressBanner
+        stageFlags: aPhaseInsights?.stageFlags,
+      });
     }
     
     return (
@@ -1633,7 +1688,7 @@ export const CoverLetterModal = ({
         isStreaming={showSkeleton} // UNIFIED LOADING: Single flag for skeleton vs content
         jobState={jobState}
         templateSections={templateSections}
-        showProgressBanner={showSkeleton} // UNIFIED LOADING: Banner visibility
+        showProgressBanner={false} // Banner now rendered at modal level, above tabs
         progressPercent={progressPercent} // Progress 0-100
         progressState={{
           hasAnalysis: !!draft, // Use draft existence (not jobState)
@@ -1673,28 +1728,81 @@ export const CoverLetterModal = ({
   return (
     <>
     <Dialog open={isOpen} onOpenChange={open => (!open ? handleClose() : undefined)}>
-      <DialogContent className="max-w-6xl h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader className="pb-6">
-            <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-              <div>
-                <DialogTitle className="text-3xl font-bold">
-                  {mode === 'create' ? 'Draft cover letter' : 'Edit cover letter'}
-                </DialogTitle>
-                <DialogDescription className="text-base mt-2">
-                  {mode === 'create'
-                    ? 'Paste the job description so we can analyze requirements, match your best stories, and draft a tailored cover letter.'
-                    : 'Edit your cover letter and refine it to perfection.'
+      <DialogContent className="dialog-top-anchored max-w-6xl h-[85vh] overflow-hidden flex flex-col">
+        {/* Compact header - shows company/role after draft exists, with Save/Preview CTAs */}
+        <DialogHeader className="pb-2 w-full flex flex-row items-center justify-between">
+          <DialogTitle className="text-xl font-semibold">
+            {draft && jobDescriptionRecord?.company && jobDescriptionRecord?.role
+              ? `${jobDescriptionRecord.company}: ${jobDescriptionRecord.role}`
+              : 'Draft cover letter'}
+          </DialogTitle>
+          {/* Save and Preview buttons - only show when draft exists */}
+          {draft && (
+            <div className="flex items-center gap-2 mr-8">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setFinalizationOpen(true)}
+                disabled={showSkeleton}
+              >
+                <Eye className="h-4 w-4 mr-1" />
+                Preview
+              </Button>
+              <Button
+                size="sm"
+                onClick={async () => {
+                  if (draft?.id) {
+                    try {
+                      await coverLetterDraftService.updateDraft(draft.id, {
+                        sections: draft.sections,
+                      });
+                      toast({
+                        title: 'Draft saved',
+                        description: 'Your changes have been saved.',
+                      });
+                      onSave?.();
+                    } catch (error) {
+                      toast({
+                        title: 'Save failed',
+                        description: 'Unable to save draft. Please try again.',
+                        variant: 'destructive',
+                      });
+                    }
                   }
-                </DialogDescription>
-              </div>
+                }}
+                disabled={showSkeleton}
+              >
+                <Save className="h-4 w-4 mr-1" />
+                Save
+              </Button>
             </div>
+          )}
         </DialogHeader>
 
-        <Tabs value={mainTab} onValueChange={(value) => setMainTab(value as 'job-description' | 'cover-letter')} className="flex flex-col flex-1 min-h-0">
+        {/* Progress banner - above tabs during generation */}
+        {showSkeleton && (
+          <div className="w-full mb-2">
+            <DraftProgressBanner
+              aPhaseStageFlags={aPhaseInsights?.stageFlags}
+              aPhaseData={{
+                jdRequirementSummary: aPhaseInsights?.jdRequirementSummary,
+                mws: aPhaseInsights?.mws,
+              }}
+              hasDraftSections={Boolean(draft?.sections?.length)}
+              sectionCount={draft?.sections?.length}
+              hasMetrics={Boolean(draft?.enhancedMatchData?.coreRequirementDetails)}
+              coreRequirementsMet={draft?.enhancedMatchData?.coreRequirementDetails?.filter((r: any) => r.demonstrated).length}
+              coreRequirementsTotal={draft?.enhancedMatchData?.coreRequirementDetails?.length}
+              overallScore={draft?.enhancedMatchData?.overallScore}
+            />
+          </div>
+        )}
+
+        <Tabs value={mainTab} onValueChange={(value) => setMainTab(value as 'job-description' | 'cover-letter')} className="flex flex-col flex-1 min-h-0 w-full">
           {/* Phase 3: Both modes show both tabs. Create starts on JD tab, Edit starts on Draft tab. */}
           <TabsList className="grid grid-cols-2 w-full flex-shrink-0 mb-4">
             <TabsTrigger value="job-description">Job description</TabsTrigger>
-            <TabsTrigger value="cover-letter" disabled={mode === 'create' && !draft}>
+            <TabsTrigger value="cover-letter" disabled={mode === 'create' && !draft && !showSkeleton}>
               {mode === 'create' ? 'Cover letter' : 'Draft'}
             </TabsTrigger>
           </TabsList>
@@ -1724,7 +1832,8 @@ export const CoverLetterModal = ({
           }}
           draftId={draft.id}
           draftUpdatedAt={draft.updatedAt}
-          isPostHIL={isPostHIL}
+          // Post-HIL means B-phase has completed. While generating, keep false.
+          isPostHIL={Boolean(draft && !showSkeleton)}
         />
       )}
       <ContentGenerationModal

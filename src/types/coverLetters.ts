@@ -255,6 +255,15 @@ export interface CoverLetterDraft {
   llmFeedback: Record<string, Json>;
   analytics?: CoverLetterAnalytics;
   enhancedMatchData?: EnhancedMatchData; // Agent C: detailed match breakdown
+  // Match with Strengths - persisted from A-phase streaming
+  mws?: {
+    summaryScore: 0 | 1 | 2 | 3;
+    details: Array<{
+      label: string;
+      strengthLevel: 'strong' | 'moderate' | 'light';
+      explanation: string;
+    }>;
+  };
   createdAt: string;
   updatedAt: string;
   finalizedAt?: string | null;
@@ -437,11 +446,33 @@ export interface ContentStandardsAnalysis {
 }
 
 // ============================================================================
-// W10: Draft Readiness Metric Types
+// W10: Draft Readiness Metric Types (Unified Label System)
 // ============================================================================
 
-export type DraftReadinessRating = 'weak' | 'adequate' | 'strong' | 'exceptional';
+// Unified labels: same 4 labels used everywhere
+export type UnifiedReadinessLabel = 'Exceptional' | 'Strong' | 'Adequate' | 'Needs Work';
 
+// New format from updated spec
+export interface UnifiedReadinessResult {
+  verdict: UnifiedReadinessLabel;
+  verdict_summary: string;
+  dimensions: {
+    clarity_structure: UnifiedReadinessLabel;
+    compelling_opening: UnifiedReadinessLabel;
+    company_alignment: UnifiedReadinessLabel;
+    role_alignment: UnifiedReadinessLabel;
+    specific_examples: UnifiedReadinessLabel;
+    quantified_impact: UnifiedReadinessLabel;
+    personalization_voice: UnifiedReadinessLabel;
+    writing_quality: UnifiedReadinessLabel;
+    length_efficiency: UnifiedReadinessLabel;
+    executive_maturity: UnifiedReadinessLabel;
+  };
+  improvements: string[];
+}
+
+// Legacy types for backward compatibility (edge function converts to this format)
+export type DraftReadinessRating = 'weak' | 'adequate' | 'strong' | 'exceptional';
 export type ReadinessDimensionStrength = 'strong' | 'sufficient' | 'insufficient';
 
 export interface DraftReadinessScoreBreakdown {
@@ -458,8 +489,8 @@ export interface DraftReadinessScoreBreakdown {
 }
 
 export interface DraftReadinessFeedback {
-  summary: string; // ≤140 chars per spec
-  improvements: string[]; // max 3
+  summary: string;
+  improvements: string[]; // max 5 per updated spec
 }
 
 export interface DraftReadinessEvaluation {
@@ -470,5 +501,24 @@ export interface DraftReadinessEvaluation {
   ttlExpiresAt?: string; // ISO timestamp
   metadata?: Record<string, unknown>;
   fromCache?: boolean;
+}
+
+// Helper to convert unified label to display string
+export function getReadinessDisplayLabel(rating: DraftReadinessRating): UnifiedReadinessLabel {
+  switch (rating) {
+    case 'exceptional': return 'Exceptional';
+    case 'strong': return 'Strong';
+    case 'adequate': return 'Adequate';
+    case 'weak': return 'Needs Work';
+  }
+}
+
+// Helper to convert dimension strength to unified label
+export function getDimensionDisplayLabel(strength: ReadinessDimensionStrength): UnifiedReadinessLabel {
+  switch (strength) {
+    case 'strong': return 'Strong';
+    case 'sufficient': return 'Adequate';
+    case 'insufficient': return 'Needs Work';
+  }
 }
 

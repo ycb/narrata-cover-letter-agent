@@ -48,7 +48,7 @@ const SignUp = () => {
 
     try {
       const fullName = `${formData.firstName} ${formData.lastName}`.trim();
-      const result = await signUp(formData.email, formData.password, fullName);
+      const result = await signUp(formData.email, formData.password, fullName, formData.agreeTerms);
       
       if (result.error) {
         setFormError(result.error.message || 'Sign up failed');
@@ -98,9 +98,17 @@ const SignUp = () => {
   return (
     <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo/Brand */}
+        {/* Logo/Brand with Sign In link */}
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-foreground mb-2">Narrata</h1>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex-1"></div>
+            <h1 className="text-2xl font-bold text-foreground">Narrata</h1>
+            <div className="flex-1 flex justify-end">
+              <Link to="/signin" className="text-sm text-accent hover:underline">
+                Sign In
+              </Link>
+            </div>
+          </div>
           <p className="text-muted-foreground">Create your truth-based narrative engine</p>
         </div>
 
