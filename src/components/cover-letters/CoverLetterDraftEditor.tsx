@@ -329,11 +329,23 @@ export function CoverLetterDraftEditor({
               // Strip trailing periods from gap summary for cover letters
               const cleanGapSummary = promptSummary ? promptSummary.replace(/\.+$/, '') : null;
 
+              // Calculate section category (intro/body/closing) based on slug, type, or position
+              const sectionCategory: 'intro' | 'body' | 'closing' = (() => {
+                if (section.slug === 'intro' || section.slug === 'introduction') return 'intro';
+                if (section.slug === 'closing' || section.slug === 'conclusion' || section.slug === 'closer') return 'closing';
+                if (section.type === 'intro' || section.type === 'introduction') return 'intro';
+                if (section.type === 'closing' || section.type === 'conclusion' || section.type === 'closer') return 'closing';
+                if (sectionIndex === 0) return 'intro';
+                if (sectionIndex === sectionsToRender.length - 1) return 'closing';
+                return 'body';
+              })();
+
               // Compute section-level attribution from draft
               const hasAttributionData = draft?.enhancedMatchData != null || contentStandards != null || (matchMetrics?.ratingCriteria && matchMetrics.ratingCriteria.length > 0);
               const { attribution: sectionAttribution } = computeSectionAttribution({
                 sectionId: section.id,
                 sectionType: section.slug || section.type,
+                sectionCategory, // Pass pre-computed category for accurate Content Standards
                 enhancedMatchData: draft?.enhancedMatchData,
                 ratingCriteria: matchMetrics?.ratingCriteria,
                 contentStandards: contentStandards || null,
@@ -344,17 +356,7 @@ export function CoverLetterDraftEditor({
                 ? section.title.replace(/-/g, ' ').charAt(0).toUpperCase() + section.title.replace(/-/g, ' ').slice(1)
                 : '';
 
-              // Calculate section-type-specific totalStandards
-              const sectionTypeForStandards: 'intro' | 'body' | 'closing' = (() => {
-                if (section.slug === 'intro' || section.slug === 'introduction') return 'intro';
-                if (section.slug === 'closing' || section.slug === 'conclusion' || section.slug === 'closer') return 'closing';
-                if (section.type === 'intro' || section.type === 'introduction') return 'intro';
-                if (section.type === 'closing' || section.type === 'conclusion' || section.type === 'closer') return 'closing';
-                if (sectionIndex === 0) return 'intro';
-                if (sectionIndex === sectionsToRender.length - 1) return 'closing';
-                return 'body';
-              })();
-              const totalStandardsForSection = getApplicableStandards(sectionTypeForStandards).length;
+              const totalStandardsForSection = getApplicableStandards(sectionCategory).length;
 
               return (
                 <div key={section.id}>

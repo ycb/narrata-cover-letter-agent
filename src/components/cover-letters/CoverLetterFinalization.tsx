@@ -94,7 +94,7 @@ export function CoverLetterFinalization({
     <Dialog open={isOpen} onOpenChange={open => (!open ? onClose() : undefined)}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto dialog-top-anchored">
         {/* 1. Header with CTAs */}
-        <DialogHeader className="pb-4 border-b border-border/50">
+        <DialogHeader className="pb-4 border-b border-border/50 pr-8">
           <div className="flex items-start justify-between gap-4">
             <div>
               <DialogTitle className="text-xl font-semibold">
@@ -104,15 +104,15 @@ export function CoverLetterFinalization({
                 <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
               )}
             </div>
-            {/* Primary + Secondary CTAs (top-right) */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <Button
-                variant="ghost"
-                size="sm"
+            {/* Primary + Secondary CTAs - account for X button with pr-8 above */}
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <button
+                type="button"
                 onClick={onBackToDraft}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
                 Back to Edit
-              </Button>
+              </button>
               {onFinalizeConfirm && (
                 <Button
                   onClick={onFinalizeConfirm}

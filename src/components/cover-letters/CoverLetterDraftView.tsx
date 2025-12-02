@@ -408,9 +408,8 @@ export function CoverLetterDraftView({
         // Use template title, fallback to generated title
         const sectionTitle = section.title || getSectionTitle(section.type);
 
-        // Calculate section-type-specific totalStandards
-        // Use position as fallback if slug/type don't match known values
-        const sectionTypeForStandards: 'intro' | 'body' | 'closing' = (() => {
+        // Calculate section category (intro/body/closing) based on slug, type, or position
+        const sectionCategory: 'intro' | 'body' | 'closing' = (() => {
           // First try slug (semantic type from LLM)
           if (section.slug === 'intro' || section.slug === 'introduction') return 'intro';
           if (section.slug === 'closing' || section.slug === 'conclusion' || section.slug === 'closer') return 'closing';
@@ -424,14 +423,15 @@ export function CoverLetterDraftView({
           if (sectionIndex === sections.length - 1) return 'closing'; // Last section is closing
           return 'body'; // Everything else is body
         })();
-        const totalStandardsForSection = getApplicableStandards(sectionTypeForStandards).length;
+        const totalStandardsForSection = getApplicableStandards(sectionCategory).length;
 
-        // NEW: Compute section-level attribution for requirements and standards
+        // Compute section-level attribution for requirements and standards
         // During streaming (no data), show skeleton. Once data loads, show actual attribution.
         const hasAttributionData = enhancedMatchData != null || contentStandards != null || (ratingCriteria && ratingCriteria.length > 0);
         const { attribution, summary } = computeSectionAttribution({
           sectionId: section.id,
-          sectionType: section.slug || section.type, // Use slug (semantic type) if available, fallback to type
+          sectionType: section.slug || section.type,
+          sectionCategory, // Pass pre-computed category for accurate Content Standards
           enhancedMatchData,
           ratingCriteria,
           contentStandards,

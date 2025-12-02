@@ -277,12 +277,14 @@ export function computeSectionAttribution({
 export function useSectionAttribution({
   sectionId,
   sectionType,
+  sectionCategory,
   enhancedMatchData,
   ratingCriteria,
   contentStandards,
 }: {
   sectionId: string;
   sectionType: string;
+  sectionCategory?: 'intro' | 'body' | 'closing';
   enhancedMatchData?: EnhancedMatchData | null;
   ratingCriteria?: CoverLetterCriterion[];
   contentStandards?: ContentStandardsAnalysis | null;
@@ -298,6 +300,7 @@ export function useSectionAttribution({
     const result = computeSectionAttribution({
       sectionId,
       sectionType,
+      sectionCategory,
       enhancedMatchData,
       ratingCriteria,
       contentStandards,
@@ -353,5 +356,5 @@ export function useSectionAttribution({
     console.groupEnd();
 
     return result;
-  }, [sectionId, sectionType, enhancedMatchData, ratingCriteria, contentStandards]);
+  }, [sectionId, sectionType, sectionCategory, enhancedMatchData, ratingCriteria, contentStandards]);
 }
