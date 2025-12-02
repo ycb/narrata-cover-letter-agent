@@ -286,7 +286,7 @@ export function ContentGenerationModal({
                       description: gap.suggestion
                     }
                   ]}
-                  gapSummary={gap.gapSummary || `${gap.severity === 'high' ? 'High' : gap.severity === 'medium' ? 'Medium' : 'Low'} Priority • ${gap.type.replace('-', ' ')}`}
+                  gapSummary={gap.gapSummary || `${gap.severity === 'high' ? 'High' : gap.severity === 'medium' ? 'Medium' : 'Low'} Priority • ${gap.type?.replace('-', ' ') || 'Unknown'}`}
                 />
 
                 {/* Section Attribution - Show what requirements/standards this section currently meets */}
@@ -450,12 +450,31 @@ export function ContentGenerationModal({
                 </Button>
               )}
 
-              {/* Empty/loading state */}
+              {/* Empty/initial state with action button */}
               {!isSearching && !searchError && suggestedTags.length === 0 && otherTags.length === 0 && (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground mb-4">
-                    Click "Auto-suggest tags" to start
+                <div className="text-center py-8 space-y-4">
+                  <p className="text-muted-foreground">
+                    Generate AI-powered tag suggestions for this {contentType || 'content'}
                   </p>
+                  {onGenerateTags && (
+                    <Button 
+                      onClick={onGenerateTags}
+                      disabled={isGeneratingTags}
+                      className="w-full"
+                    >
+                      {isGeneratingTags ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Generating tags...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-4 w-4 mr-2" />
+                          Auto-suggest tags
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

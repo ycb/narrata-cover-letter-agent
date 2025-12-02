@@ -13,8 +13,10 @@ type OpenModalConfig = {
   existingContent?: string;
   mode?: "gap-detection" | "tag-suggestion";
   content?: string;
+  contentType?: 'company' | 'role' | 'saved_section';
   onApplyTags?: (tags: string[]) => void;
   onApplyContent?: (value: string) => void;
+  onGenerateTags?: () => Promise<void>;
 };
 
 type OpenModalArgs =

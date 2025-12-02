@@ -708,28 +708,48 @@ source_type: dbSourceType,
         await this.normalizeSkills(structuredData, sourceId, sourceData.user_id, skillsSourceType, accessToken);
       }
 
-      // Run LLM judge evaluation
-      const evaluation = await this.evaluationService.evaluateStructuredData(
+      // PERFORMANCE: Run LLM judge evaluation in background (non-blocking)
+      // This saves 5-10s on upload flow
+      const sessionId = `sess_${Date.now()}`;
+      this.evaluationService.evaluateStructuredData(
         structuredData, 
         extractedText, 
         type as 'resume' | 'coverLetter' | 'linkedin'
-      );
-
-      // Log for evaluation tracking (async, don't await to avoid blocking)
-      this.logLLMGeneration({
-        sessionId: `sess_${Date.now()}`,
-        sourceId,
-        type,
-        inputTokens: extractedText.length / 4, // Rough estimate
-        outputTokens: JSON.stringify(structuredData).length / 4,
-        latency: llmEndTime - llmStartTime,
-        model: import.meta.env?.VITE_OPENAI_MODEL || (typeof process !== 'undefined' ? process.env.VITE_OPENAI_MODEL : undefined) || 'gpt-4o-mini',
-        inputText: extractedText, // Full text
-        outputText: JSON.stringify(structuredData, null, 2), // Full structured data, formatted
-        heuristics,
-        evaluation
-      }, accessToken).catch(error => {
-        console.warn('Failed to log evaluation data:', error);
+      ).then(evaluation => {
+        // Log for evaluation tracking with evaluation result
+        this.logLLMGeneration({
+          sessionId,
+          sourceId,
+          type,
+          inputTokens: extractedText.length / 4,
+          outputTokens: JSON.stringify(structuredData).length / 4,
+          latency: llmEndTime - llmStartTime,
+          model: import.meta.env?.VITE_OPENAI_MODEL || (typeof process !== 'undefined' ? process.env.VITE_OPENAI_MODEL : undefined) || 'gpt-4o-mini',
+          inputText: extractedText,
+          outputText: JSON.stringify(structuredData, null, 2),
+          heuristics,
+          evaluation
+        }, accessToken).catch(error => {
+          console.warn('Failed to log evaluation data:', error);
+        });
+      }).catch(error => {
+        console.warn('Background evaluation failed:', error);
+        // Still log without evaluation
+        this.logLLMGeneration({
+          sessionId,
+          sourceId,
+          type,
+          inputTokens: extractedText.length / 4,
+          outputTokens: JSON.stringify(structuredData).length / 4,
+          latency: llmEndTime - llmStartTime,
+          model: import.meta.env?.VITE_OPENAI_MODEL || (typeof process !== 'undefined' ? process.env.VITE_OPENAI_MODEL : undefined) || 'gpt-4o-mini',
+          inputText: extractedText,
+          outputText: JSON.stringify(structuredData, null, 2),
+          heuristics,
+          evaluation: null
+        }, accessToken).catch(err => {
+          console.warn('Failed to log without evaluation:', err);
+        });
       });
 
     } catch (error) {

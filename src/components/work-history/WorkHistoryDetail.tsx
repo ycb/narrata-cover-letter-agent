@@ -468,9 +468,9 @@ export const WorkHistoryDetail = ({
     
     const content = `${targetCompany.name}: ${targetCompany.description || 'Company information'}`;
     
-    // Reset state and open modal immediately
+    // Reset state (DON'T start streaming yet - wait for user to click button)
     setStreamingTagState({
-      isStreaming: true,
+      isStreaming: false,
       error: null,
       suggestedTags: [],
       otherTags: []
@@ -507,69 +507,77 @@ export const WorkHistoryDetail = ({
       entityId: targetCompany.id
     });
     
-    // Open modal
+    // Define the tag generation function (to be called when user clicks button)
+    const startTagGeneration = async () => {
+      // Set streaming state
+      setStreamingTagState(prev => ({
+        ...prev,
+        isStreaming: true,
+        error: null
+      }));
+      
+      try {
+        await TagSuggestionService.suggestTagsStreaming(
+          {
+            content,
+            contentType: 'company',
+            companyName: targetCompany.name,
+            userGoals: goals ? {
+              industries: goals.industries,
+              businessModels: goals.businessModels
+            } : undefined,
+            existingTags: targetCompany.tags || []
+          },
+          // onTagUpdate: stream tags one-by-one
+          (tag: TagSuggestion) => {
+            setStreamingTagState(prev => {
+              const isHighConfidence = tag.confidence === 'high';
+              return {
+                ...prev,
+                suggestedTags: isHighConfidence 
+                  ? [...prev.suggestedTags, tag]
+                  : prev.suggestedTags,
+                otherTags: !isHighConfidence
+                  ? [...prev.otherTags, tag]
+                  : prev.otherTags
+              };
+            });
+          },
+          // onComplete
+          (allTags: TagSuggestion[]) => {
+            setStreamingTagState(prev => ({
+              ...prev,
+              isStreaming: false
+            }));
+          },
+          // onError
+          (error: Error) => {
+            setStreamingTagState(prev => ({
+              ...prev,
+              isStreaming: false,
+              error: error.message
+            }));
+          }
+        );
+      } catch (error) {
+        console.error('Error starting tag stream:', error);
+        setStreamingTagState(prev => ({
+          ...prev,
+          isStreaming: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }));
+      }
+    };
+    
+    // Open modal with generation function as callback (DON'T auto-start)
     openContentGenerationModal({
       mode: 'tag-suggestion',
       content,
       entityType: 'company',
       entityId: targetCompany.id,
-      onApplyTags: handleApplyTags
+      onApplyTags: handleApplyTags,
+      onGenerateTags: startTagGeneration
     });
-    
-    // Start streaming tags
-    try {
-      await TagSuggestionService.suggestTagsStreaming(
-        {
-          content,
-          contentType: 'company',
-          companyName: targetCompany.name,
-          userGoals: goals ? {
-            industries: goals.industries,
-            businessModels: goals.businessModels
-          } : undefined,
-          existingTags: targetCompany.tags || []
-        },
-        // onTagUpdate: stream tags one-by-one
-        (tag: TagSuggestion) => {
-          setStreamingTagState(prev => {
-            const isHighConfidence = tag.confidence === 'high';
-            return {
-              ...prev,
-              suggestedTags: isHighConfidence 
-                ? [...prev.suggestedTags, tag]
-                : prev.suggestedTags,
-              otherTags: !isHighConfidence
-                ? [...prev.otherTags, tag]
-                : prev.otherTags
-            };
-          });
-        },
-        // onComplete
-        (allTags: TagSuggestion[]) => {
-          setStreamingTagState(prev => ({
-            ...prev,
-            isStreaming: false
-          }));
-        },
-        // onError
-        (error: Error) => {
-          setStreamingTagState({
-            isStreaming: false,
-            error: error.message,
-            suggestedTags: [],
-            otherTags: []
-          });
-        }
-      );
-    } catch (error) {
-      console.error('Error starting tag stream:', error);
-      setStreamingTagState({
-        isStreaming: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        suggestedTags: [],
-        otherTags: []
-      });
-    }
   };
 
   // Retry handler for company tag suggestions
@@ -1688,7 +1696,7 @@ export const WorkHistoryDetail = ({
           isSearching={streamingTagState.isStreaming}
           searchError={streamingTagState.error}
           onApplyTags={handleApplyTags}
-          onRetry={() => handleCompanyTagSuggestions()}
+          onRetry={contentGenerationModalProps.onGenerateTags}
         />
       </div>
     );
@@ -1824,7 +1832,7 @@ export const WorkHistoryDetail = ({
           isSearching={streamingTagState.isStreaming}
           searchError={streamingTagState.error}
           onApplyTags={handleApplyTags}
-          onRetry={() => handleCompanyTagSuggestions()}
+          onRetry={contentGenerationModalProps.onGenerateTags}
         />
       </div>
     );

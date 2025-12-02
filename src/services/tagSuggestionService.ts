@@ -165,6 +165,9 @@ export class TagSuggestionService {
     const uniqueTags: string[] = [];
     
     for (const tag of allTags) {
+      // Skip if tag is not a valid string
+      if (!tag || typeof tag !== 'string') continue;
+      
       const normalizedTag = tag.trim();
       if (!normalizedTag) continue; // Skip empty tags
       
@@ -303,6 +306,11 @@ export class TagSuggestionService {
           for (let i = previousTagCount; i < currentTags.length; i++) {
             const tag = currentTags[i];
             
+            // Skip if tag is invalid or undefined
+            if (!tag || !tag.value || typeof tag.value !== 'string') {
+              continue;
+            }
+            
             // Skip if tag already exists
             if (existingTagsLower.includes(tag.value.toLowerCase().trim())) {
               continue;
@@ -312,7 +320,7 @@ export class TagSuggestionService {
             const tagSuggestion: TagSuggestion = {
               id: `tag-${allGeneratedTags.length}`,
               value: tag.value,
-              confidence: tag.confidence,
+              confidence: tag.confidence || 'medium',
               category: tag.category || 'other'
             };
 
