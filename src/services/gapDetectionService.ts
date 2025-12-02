@@ -1465,10 +1465,21 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
     }
   }
 
+  // Client cache to avoid creating multiple GoTrueClient instances
+  private static clientCache: Map<string, { client: any; createdAt: number }> = new Map();
+  private static readonly CLIENT_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
   /**
    * Get authenticated Supabase client for Node.js environments
+   * OPTIMIZED: Uses caching to avoid creating multiple GoTrueClient instances
    */
   private static async getAuthenticatedClient(accessToken: string) {
+    // Check cache first
+    const cached = this.clientCache.get(accessToken);
+    if (cached && (Date.now() - cached.createdAt) < this.CLIENT_CACHE_TTL) {
+      return cached.client;
+    }
+    
     const { createClient } = await import('@supabase/supabase-js');
     
     // Get config from environment (same as supabase.ts)
@@ -1477,13 +1488,28 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
     const supabaseAnonKey = (import.meta.env?.VITE_SUPABASE_ANON_KEY) || 
                            (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_ANON_KEY : undefined) || '';
     
-    return createClient(supabaseUrl, supabaseAnonKey, {
+    const client = createClient(supabaseUrl, supabaseAnonKey, {
       global: {
         headers: {
           Authorization: `Bearer ${accessToken}`
         }
       }
     });
+    
+    // Cache the client
+    this.clientCache.set(accessToken, { client, createdAt: Date.now() });
+    
+    // Clean up old entries (keep max 5)
+    if (this.clientCache.size > 5) {
+      const now = Date.now();
+      for (const [key, value] of this.clientCache.entries()) {
+        if (now - value.createdAt > this.CLIENT_CACHE_TTL) {
+          this.clientCache.delete(key);
+        }
+      }
+    }
+    
+    return client;
   }
 
   /**

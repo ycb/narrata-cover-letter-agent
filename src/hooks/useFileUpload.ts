@@ -85,29 +85,23 @@ async function processLinkedInWorkHistory(
       const startDate = role.startDate || null;
       const endDate = role.current ? null : (role.endDate || null);
       
-      // Check for existing work_item (same company + title + overlapping dates)
-      const { data: existingWorkItems } = await supabase
+      // Note: We intentionally do NOT deduplicate LinkedIn items here.
+      // LinkedIn provides authoritative role boundaries that may differ from
+      // resume's compressed multi-role entries. The merge service handles
+      // display-level grouping, and users can delete unwanted duplicates.
+      
+      // Only skip true duplicates: exact same source + title + company + start date
+      const { data: existingLinkedInItem } = await supabase
         .from('work_items')
-        .select('id, start_date, end_date')
+        .select('id')
         .eq('user_id', userId)
+        .eq('source_id', sourceId)
         .eq('company_id', companyId)
-        .eq('title', title);
+        .eq('title', title)
+        .maybeSingle();
       
-      // Check for date overlap
-      const isDuplicate = (existingWorkItems || []).some((existing: any) => {
-        if (!startDate || !existing.start_date) return false;
-        
-        const existingStart = new Date(existing.start_date);
-        const newStart = new Date(startDate);
-        const startDiff = Math.abs(existingStart.getTime() - newStart.getTime());
-        const startDiffDays = startDiff / (1000 * 60 * 60 * 24);
-        
-        // Consider duplicates if start dates within 90 days
-        return startDiffDays < 90;
-      });
-      
-      if (isDuplicate) {
-        console.log(`⏭️ Skipping duplicate LinkedIn role: ${title} at ${companyName}`);
+      if (existingLinkedInItem) {
+        console.log(`⏭️ Skipping already-imported LinkedIn role: ${title} at ${companyName}`);
         continue;
       }
       

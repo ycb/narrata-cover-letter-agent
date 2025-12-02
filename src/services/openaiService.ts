@@ -368,13 +368,18 @@ export class LLMAnalysisService {
 
   /**
    * Call OpenAI API with intelligent token limit adjustment
+   * @param prompt - The prompt to send
+   * @param dynamicTokenLimit - Optional token limit override
+   * @param retryCount - Current retry count (for truncation/token limit retries)
    */
-  private async callOpenAI(prompt: string, dynamicTokenLimit?: number): Promise<{
+  private async callOpenAI(prompt: string, dynamicTokenLimit?: number, retryCount: number = 0): Promise<{
     success: boolean;
     data?: Record<string, unknown> | unknown[];
     error?: string;
     retryable?: boolean;
   }> {
+    const maxRetries = OPENAI_CONFIG.MAX_TRUNCATION_RETRIES || 2;
+    
     try {
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
@@ -403,18 +408,18 @@ export class LLMAnalysisService {
         const errorData = await response.json().catch(() => ({}));
         const errorMessage = errorData.error?.message || `HTTP ${response.status}`;
         
-        // Intelligent error handling with auto-healing
-        if (errorMessage.includes('maximum context length') || errorMessage.includes('token limit')) {
-          console.log('🔄 Auto-healing: Token limit exceeded, retrying with higher limit...');
+        // Intelligent error handling with auto-healing (with retry cap)
+        if ((errorMessage.includes('maximum context length') || errorMessage.includes('token limit')) && retryCount < maxRetries) {
+          console.log(`🔄 Auto-healing: Token limit exceeded, retrying (${retryCount + 1}/${maxRetries})...`);
           
           // Calculate new token limit based on prompt length
           const promptTokens = Math.ceil(prompt.length / 4); // Rough estimate: 1 token ≈ 4 characters
-          const newTokenLimit = Math.min(promptTokens * 2, 4000); // 2x input tokens, max 4000
+          const newTokenLimit = Math.min(promptTokens * 2, 8000); // 2x input tokens, max 8000
           
           console.log(`📊 Token analysis: Prompt ~${promptTokens} tokens, using ${newTokenLimit} max tokens`);
           
           // Retry with higher token limit
-          return this.callOpenAI(prompt, newTokenLimit);
+          return this.callOpenAI(prompt, newTokenLimit, retryCount + 1);
         } else if (errorMessage.includes('rate limit')) {
           console.error('🚨 RATE LIMIT EXCEEDED:', {
             error: errorMessage,
@@ -424,6 +429,7 @@ export class LLMAnalysisService {
           console.error('🚨 OPENAI API ERROR:', {
             error: errorMessage,
             status: response.status,
+            retryCount,
             timestamp: new Date().toISOString()
           });
         }
@@ -442,22 +448,24 @@ export class LLMAnalysisService {
       const content = message?.content as string | undefined;
       const finishReason = firstChoice?.finish_reason as string | undefined;
 
-      // Intelligent handling for truncated responses
-      if (finishReason === 'length') {
-        console.log('🔄 Auto-healing: Response truncated, retrying with higher token limit...');
+      // Intelligent handling for truncated responses (with retry cap)
+      if (finishReason === 'length' && retryCount < maxRetries) {
+        console.log(`🔄 Auto-healing: Response truncated, retrying (${retryCount + 1}/${maxRetries})...`);
         
         // Calculate new token limit - we need MORE than what was already generated
         const contentTokens = Math.ceil((content?.length || 0) / 4); // Rough estimate
         const currentLimit = dynamicTokenLimit || OPENAI_CONFIG.MAX_TOKENS;
         // Add 50% more tokens than current response size, minimum 2x current limit
         const newTokenLimit = Math.floor(Math.max(contentTokens * 1.5, currentLimit * 2, 8000));
-        // Cap at model maximum
+        // Cap at model maximum (gpt-4o-mini supports up to 16k output)
         const cappedLimit = Math.min(newTokenLimit, 16000);
         
         console.log(`📊 Truncation analysis: Generated ${contentTokens} tokens at ${currentLimit} limit, retrying with ${cappedLimit} max tokens`);
         
         // Retry with higher token limit
-        return this.callOpenAI(prompt, newTokenLimit);
+        return this.callOpenAI(prompt, cappedLimit, retryCount + 1);
+      } else if (finishReason === 'length') {
+        console.warn(`⚠️ Response truncated after ${maxRetries} retries - proceeding with partial content`);
       }
 
       if (!content) {

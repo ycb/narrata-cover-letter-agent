@@ -1905,6 +1905,7 @@ source_type: dbSourceType,
 
   /**
    * Normalize skills from structured data to user_skills table
+   * OPTIMIZED: Uses batch upsert instead of individual inserts to avoid 409 conflicts
    */
   private async normalizeSkills(
     structuredData: any,
@@ -1927,8 +1928,14 @@ source_type: dbSourceType,
         });
       }
 
-      let skillsInserted = 0;
-      let skillsFailed = 0;
+      // Collect all skills to upsert in batch
+      const skillsToUpsert: Array<{
+        user_id: string;
+        skill: string;
+        category: string | null;
+        source_type: string;
+        source_id: string;
+      }> = [];
 
       if (sourceType === 'resume') {
         // Extract skills from resume structured_data.skills
@@ -1947,25 +1954,13 @@ source_type: dbSourceType,
                 const skill = typeof skillItem === 'string' ? skillItem : (skillItem.skill || String(skillItem));
                 
                 if (skill && skill.trim()) {
-                  const { error } = await dbClient
-                    .from('user_skills')
-                    .insert({
-                      user_id: userId,
-                      skill: skill.trim(),
-                      category: category,
-                      source_type: 'resume',
-                      source_id: sourceId
-                    });
-
-                  if (error) {
-                    // Ignore unique constraint violations (skill already exists from this source)
-                    if (error.code !== '23505') {
-                      console.warn('⚠️ Error inserting skill:', error);
-                      skillsFailed++;
-                    }
-                  } else {
-                    skillsInserted++;
-                  }
+                  skillsToUpsert.push({
+                    user_id: userId,
+                    skill: skill.trim(),
+                    category: category,
+                    source_type: 'resume',
+                    source_id: sourceId
+                  });
                 }
               }
             }
@@ -1975,23 +1970,13 @@ source_type: dbSourceType,
               const skill = typeof skillItem === 'string' ? skillItem : String(skillItem);
               
               if (skill && skill.trim()) {
-                const { error } = await dbClient
-                  .from('user_skills')
-                  .insert({
-                    user_id: userId,
-                    skill: skill.trim(),
-                    source_type: 'resume',
-                    source_id: sourceId
-                  });
-
-                if (error) {
-                  if (error.code !== '23505') {
-                    console.warn('⚠️ Error inserting skill:', error);
-                    skillsFailed++;
-                  }
-                } else {
-                  skillsInserted++;
-                }
+                skillsToUpsert.push({
+                  user_id: userId,
+                  skill: skill.trim(),
+                  category: null,
+                  source_type: 'resume',
+                  source_id: sourceId
+                });
               }
             }
           }
@@ -2005,30 +1990,32 @@ source_type: dbSourceType,
             const skill = typeof skillItem === 'string' ? skillItem : String(skillItem);
             
             if (skill && skill.trim()) {
-              const { error } = await dbClient
-                .from('user_skills')
-                .insert({
-                  user_id: userId,
-                  skill: skill.trim(),
-                  source_type: 'cover_letter',
-                  source_id: sourceId
-                });
-
-              if (error) {
-                if (error.code !== '23505') {
-                  console.warn('⚠️ Error inserting skill:', error);
-                  skillsFailed++;
-                }
-              } else {
-                skillsInserted++;
-              }
+              skillsToUpsert.push({
+                user_id: userId,
+                skill: skill.trim(),
+                category: null,
+                source_type: 'cover_letter',
+                source_id: sourceId
+              });
             }
           }
         }
       }
 
-      if (skillsInserted > 0 || skillsFailed > 0) {
-        console.log(`📊 Skills normalization: ${skillsInserted} inserted, ${skillsFailed} failed`);
+      // Batch upsert all skills at once (ignores duplicates)
+      if (skillsToUpsert.length > 0) {
+        const { error, count } = await dbClient
+          .from('user_skills')
+          .upsert(skillsToUpsert, { 
+            onConflict: 'user_id,skill,source_type',
+            ignoreDuplicates: true 
+          });
+
+        if (error) {
+          console.warn('⚠️ Error upserting skills batch:', error);
+        } else {
+          console.log(`📊 Skills normalization: ${skillsToUpsert.length} skills processed in batch`);
+        }
       }
     } catch (error) {
       console.error('Error normalizing skills:', error);
@@ -2598,6 +2585,10 @@ source_type: dbSourceType,
     outputText: string;
     heuristics?: any;
     evaluation?: any;
+    // Granular latency metrics (optional, for detailed tracking)
+    extractionLatencyMs?: number;
+    dbLatencyMs?: number;
+    totalLatencyMs?: number;
   }, accessToken?: string): Promise<void> {
     try {
       // Use authenticated client if accessToken provided, otherwise use default

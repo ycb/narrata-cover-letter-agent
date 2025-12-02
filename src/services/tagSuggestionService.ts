@@ -328,10 +328,23 @@ export class TagSuggestionService {
           console.log('companyTags: Processing new tags', currentTags.length - previousTagCount);
           for (let i = previousTagCount; i < currentTags.length; i++) {
             const tag = currentTags[i];
+            console.log('companyTags: Inspecting tag', { 
+              tag, 
+              tagKeys: Object.keys(tag || {}),
+              hasTag: !!tag, 
+              hasValue: !!tag?.value, 
+              valueType: typeof tag?.value,
+              rawValue: tag?.value,
+              fullTagObject: JSON.stringify(tag)
+            });
             
             // Skip if tag is invalid or undefined
             if (!tag || !tag.value || typeof tag.value !== 'string') {
-              console.warn('companyTags: Skipping invalid tag', tag);
+              console.warn('companyTags: Skipping invalid tag - validation failed', { 
+                tag,
+                tagKeys: Object.keys(tag || {}),
+                reason: !tag ? 'no tag object' : !tag.value ? 'no value property' : 'value is not a string'
+              });
               continue;
             }
             

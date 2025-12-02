@@ -55,11 +55,13 @@ export const FILE_UPLOAD_CONFIG = {
 
 // OpenAI configuration
 export const OPENAI_CONFIG = {
-  MODEL: (import.meta.env?.VITE_OPENAI_MODEL) || (typeof process !== 'undefined' ? process.env.VITE_OPENAI_MODEL : undefined) || 'gpt-3.5-turbo',
-  MAX_TOKENS: 2000,
+  // gpt-4o-mini is 2-3x faster than gpt-3.5-turbo and handles long content better
+  MODEL: (import.meta.env?.VITE_OPENAI_MODEL) || (typeof process !== 'undefined' ? process.env.VITE_OPENAI_MODEL : undefined) || 'gpt-4o-mini',
+  MAX_TOKENS: 4000, // Increased for complex resumes
   TEMPERATURE: 0.1,
-  TIMEOUT: 30000, // 30 seconds
-  MAX_RETRIES: 3
+  TIMEOUT: 60000, // 60 seconds (gpt-4o-mini can take longer for complex content)
+  MAX_RETRIES: 2, // Cap retries to prevent cascading delays
+  MAX_TRUNCATION_RETRIES: 2 // Max retries specifically for truncation auto-healing
 } as const;
 
 // LinkedIn API configuration
