@@ -114,6 +114,19 @@ export const WorkHistoryDetail = ({
     entityId: string;
   } | null>(null);
 
+  // Streaming tag state
+  const [streamingTagState, setStreamingTagState] = useState<{
+    isStreaming: boolean;
+    error: string | null;
+    suggestedTags: TagSuggestion[];  // High confidence, pre-checked
+    otherTags: TagSuggestion[];      // Medium/low confidence, unchecked
+  }>({
+    isStreaming: false,
+    error: null,
+    suggestedTags: [],
+    otherTags: []
+  });
+
   const {
     isModalOpen: isContentGenerationModalOpen,
     modalProps: contentGenerationModalProps,

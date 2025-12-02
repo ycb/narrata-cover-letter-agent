@@ -7,6 +7,9 @@
 import { LLMAnalysisService } from './openaiService';
 import { BrowserSearchService, type CompanyResearchResult } from './browserSearchService';
 import { buildContentTaggingPrompt, type GapContext } from '@/prompts/contentTagging';
+import { streamObject } from 'ai';
+import { createOpenAI } from '@ai-sdk/openai';
+import { z } from 'zod';
 
 export interface TagSuggestion {
   id: string;
@@ -226,6 +229,108 @@ export class TagSuggestionService {
 
     // 9. Limit to top 10 suggestions
     return filtered.slice(0, 10);
+  }
+
+  /**
+   * Stream tag suggestions in real-time
+   * Tags appear one-by-one as they're generated
+   */
+  static async suggestTagsStreaming(
+    request: TagSuggestionRequest,
+    onTagUpdate: (tag: TagSuggestion) => void,
+    onComplete: (allTags: TagSuggestion[]) => void,
+    onError: (error: Error) => void
+  ): Promise<void> {
+    try {
+      // Validate request before processing
+      this.validateRequest(request);
+
+      // 1. For company tags, research company via browser search
+      let companyResearch: CompanyResearchResult | null = null;
+      if (request.contentType === 'company') {
+        const companyName = request.companyName;
+        try {
+          companyResearch = await BrowserSearchService.researchCompany(companyName, true);
+        } catch (error) {
+          throw new Error(`Failed to research company: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+
+      // 2. Build prompt with company research context
+      const prompt = buildContentTaggingPrompt(
+        request.content,
+        request.contentType,
+        request.userGoals,
+        companyResearch,
+        request.gapContext
+      );
+
+      // 3. Set up streaming with ai SDK
+      const apiKey = (import.meta.env?.VITE_OPENAI_KEY) || '';
+      if (!apiKey) {
+        throw new Error('OpenAI API key not found');
+      }
+
+      const openai = createOpenAI({ apiKey });
+
+      // Define schema for tag streaming
+      const tagSchema = z.object({
+        tags: z.array(z.object({
+          value: z.string(),
+          confidence: z.enum(['high', 'medium', 'low']),
+          category: z.enum(['industry', 'business_model', 'skill', 'competency', 'other']).optional()
+        }))
+      });
+
+      // 4. Stream tags
+      const result = await streamObject({
+        model: openai('gpt-4o-mini'),
+        schema: tagSchema,
+        prompt,
+        temperature: 0.5,
+      });
+
+      let previousTagCount = 0;
+      const allGeneratedTags: TagSuggestion[] = [];
+      const existingTagsLower = (request.existingTags || []).map(t => t.toLowerCase().trim());
+
+      // 5. Process streaming tags
+      for await (const partialObject of result.partialObjectStream) {
+        const currentTags = partialObject.tags || [];
+        
+        // Only process new tags
+        if (currentTags.length > previousTagCount) {
+          for (let i = previousTagCount; i < currentTags.length; i++) {
+            const tag = currentTags[i];
+            
+            // Skip if tag already exists
+            if (existingTagsLower.includes(tag.value.toLowerCase().trim())) {
+              continue;
+            }
+
+            // Create TagSuggestion
+            const tagSuggestion: TagSuggestion = {
+              id: `tag-${allGeneratedTags.length}`,
+              value: tag.value,
+              confidence: tag.confidence,
+              category: tag.category || 'other'
+            };
+
+            allGeneratedTags.push(tagSuggestion);
+            onTagUpdate(tagSuggestion);
+          }
+          previousTagCount = currentTags.length;
+        }
+      }
+
+      // 6. Complete
+      onComplete(allGeneratedTags);
+
+    } catch (error) {
+      console.error('Error streaming tag suggestions:', error);
+      const err = error instanceof Error ? error : new Error('Unknown error during tag streaming');
+      onError(err);
+    }
   }
 
   private static async callOpenAIForTags(prompt: string): Promise<string> {

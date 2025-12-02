@@ -20,6 +20,13 @@ Cover letter stories provide richer context about competencies, skills, and impa
 You are analyzing a resume${coverLetterText ? ' and cover letter' : ''} to extract structured data for a job application platform.
 Your goal is to create a rich, searchable profile with stories, metrics, and thematic tags.
 
+CRITICAL: EXTRACTION ONLY - NO CONTENT CREATION
+- Extract text VERBATIM from the resume. Do NOT paraphrase, summarize, or rewrite.
+- Preserve exact numbers: "20m users" stays "20m users", NOT "millions of users"
+- Preserve exact phrasing: copy sentences directly, don't rephrase
+- The only "creation" allowed is: tags, date formatting, and metric type classification
+- If something isn't in the resume, leave it empty. Do NOT invent or infer content.
+
 Resume Text:
 ${resumeText}${coverLetterSection}
 
@@ -48,7 +55,7 @@ Return ONLY valid JSON with this exact structure. ALL FIELDS ARE REQUIRED:
       "location": "City, State or null",
       "companyTags": ["SaaS", "B2B", "PLG"],  // REQUIRED: Always include tags
       "roleTags": ["growth", "activation", "experimentation", "startup"],  // REQUIRED: Always include tags. Include ONE maturity tag: "startup", "growth-stage", or "enterprise" based on company stage during tenure.
-      "roleSummary": "1-2 sentence overview of focus and impact in this role",  // REQUIRED: Never leave empty if role has bullets
+      "roleSummary": "EXTRACT verbatim from resume header/subheader. Do NOT paraphrase or rewrite. Example: if resume says 'Product leader for Samsung+ mobile app, improving the US customer experience for 20m users' → use that exact text.",  // REQUIRED: Extract, don't create
       "outcomeMetrics": [  // Extract metrics WITHOUT story context (standalone metrics, no narrative). DO NOT duplicate metrics that appear in stories.
         {
           "value": "+22%",  // REQUIRED: Extract numeric value (e.g., "+22%", "-3.5%", "30+", "+10")
@@ -233,16 +240,14 @@ CRITICAL EXTRACTION RULES:
    - Examples: "Senior Product Manager", "Product Manager", "Associate Product Manager"
    - DO NOT leave title empty or null under any circumstances
 
-7. ROLE SUMMARY:
-   - 1-2 sentences summarizing: area of ownership, why it matters, top result
-   - Example: "Owned onboarding, experimentation cadence, and analytics taxonomy to drive activation and conversion. Led 30+ A/B tests yearly."
-   - This should be distinct from stories. Purpose is to explain areas of responsibility, scope, team size, etc -- not the specific actions taken or results.
-   
-   INCLUDE IN ROLE SUMMARY:
-   - Role positioning from headers (e.g., "First product hire", "Founding team member")
-   - Scope indicators (team size, budget, ownership areas)
-   - High-level context not captured in individual stories
-   - Company stage context if relevant to role (e.g., "joined pre-Series A, scaled through Series C")
+7. ROLE SUMMARY (EXTRACTION ONLY):
+   - EXTRACT verbatim from resume header/subheader text
+   - Do NOT paraphrase, summarize, or rewrite
+   - Example: Resume says "Product leader for Samsung+ mobile app, improving the US customer experience for 20m users"
+     → Extract exactly: "Product leader for Samsung+ mobile app, improving the US customer experience for 20m users"
+     → BAD: "Product leader for Samsung+ mobile app, significantly improving customer experience for millions of users"
+   - Preserve exact numbers, exact phrasing, exact scope descriptions
+   - If no header/subheader text exists, leave empty or use first sentence of first bullet verbatim
 
 8. ROLE HEADER CONTEXT:
    Resume entries often contain rich context in headers/subheaders beyond company + title:
