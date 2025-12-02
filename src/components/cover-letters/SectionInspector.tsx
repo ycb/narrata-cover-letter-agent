@@ -107,26 +107,26 @@ export function SectionInspector({
 
       <CollapsibleContent className="mt-4">
         <Tabs defaultValue="core" className="w-full">
-          <div className="overflow-x-auto -mx-3 px-3">
-            <TabsList className="w-full min-w-max">
-              <TabsTrigger value="core" className="flex-1 min-w-fit whitespace-nowrap px-2 sm:px-4">
-                <span className="hidden md:inline">Core Requirements</span>
-                <span className="md:hidden">Core</span>
-                <Badge variant="outline" className="ml-1 sm:ml-2 text-xs">
+          <div className="overflow-x-auto pb-1">
+            <TabsList className="inline-flex w-auto min-w-full">
+              <TabsTrigger value="core" className="flex-shrink-0 whitespace-nowrap px-3">
+                <span className="hidden sm:inline">Core Requirements</span>
+                <span className="sm:hidden">Core</span>
+                <Badge variant="outline" className="ml-2 text-xs">
                   {coreMetCount}/{totalCoreReqs}
                 </Badge>
               </TabsTrigger>
-              <TabsTrigger value="pref" className="flex-1 min-w-fit whitespace-nowrap px-2 sm:px-4">
-                <span className="hidden md:inline">Preferred Requirements</span>
-                <span className="md:hidden">Preferred</span>
-                <Badge variant="outline" className="ml-1 sm:ml-2 text-xs">
+              <TabsTrigger value="pref" className="flex-shrink-0 whitespace-nowrap px-3">
+                <span className="hidden sm:inline">Preferred</span>
+                <span className="sm:hidden">Pref</span>
+                <Badge variant="outline" className="ml-2 text-xs">
                   {prefMetCount}/{totalPrefReqs}
                 </Badge>
               </TabsTrigger>
-              <TabsTrigger value="standards" className="flex-1 min-w-fit whitespace-nowrap px-2 sm:px-4">
-                <span className="hidden md:inline">Content Standards</span>
-                <span className="md:hidden">Standards</span>
-                <Badge variant="outline" className="ml-1 sm:ml-2 text-xs">
+              <TabsTrigger value="standards" className="flex-shrink-0 whitespace-nowrap px-3">
+                <span className="hidden sm:inline">Content Standards</span>
+                <span className="sm:hidden">Standards</span>
+                <Badge variant="outline" className="ml-2 text-xs">
                   {standardsMetCount}/{totalStandards}
                 </Badge>
               </TabsTrigger>

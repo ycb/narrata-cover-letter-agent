@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type { EnhancedMatchData, ContentStandardsAnalysis } from '@/types/coverLetters';
 import type { SectionAttributionData } from './SectionInspector';
-import { getStandardConfig } from '@/config/contentStandards';
+import { getStandardConfig, getApplicableStandards } from '@/config/contentStandards';
 
 export interface CoverLetterCriterion {
   id: string;
@@ -183,9 +183,18 @@ export function computeSectionAttribution({
   }
 
   // 3. Process Content Standards
-  // PRIORITY: Use new contentStandards data if available, fallback to legacy ratingCriteria
+  // PRIORITY: contentStandards > ratingCriteria > config-based fallback
+  
+  // Determine section category for config-based fallback
+  const getSectionCategory = (type: string): 'intro' | 'body' | 'closing' => {
+    const lower = type.toLowerCase();
+    if (['intro', 'introduction', 'opening', 'static'].includes(lower)) return 'intro';
+    if (['closer', 'closing', 'conclusion', 'signature'].includes(lower)) return 'closing';
+    return 'body'; // Default: paragraph, experience, dynamic-story, dynamic-saved
+  };
+
   if (contentStandards?.perSection) {
-    // NEW PATH: Section-level content standards from ContentStandardsAnalysis
+    // PATH 1: Section-level content standards from ContentStandardsAnalysis
     const sectionResult = contentStandards.perSection.find(s => s.sectionId === sectionId);
 
     if (sectionResult) {
@@ -211,7 +220,7 @@ export function computeSectionAttribution({
       });
     }
   } else if (ratingCriteria && ratingCriteria.length > 0) {
-    // LEGACY PATH: Letter-level rating criteria (fallback)
+    // PATH 2: Letter-level rating criteria (legacy)
     const metStandards = ratingCriteria.filter(c => c.met);
     const unmetStandards = ratingCriteria.filter(c => !c.met);
 
@@ -225,6 +234,17 @@ export function computeSectionAttribution({
       id: c.id,
       label: c.label,
       suggestion: c.suggestion,
+    }));
+  } else {
+    // PATH 3: Config-based fallback - show applicable standards as unmet
+    // This ensures the user always sees what standards apply to their section type
+    const sectionCategory = getSectionCategory(sectionType);
+    const applicableStandards = getApplicableStandards(sectionCategory);
+    
+    attribution.standards.unmet = applicableStandards.map(config => ({
+      id: config.id,
+      label: config.label,
+      suggestion: 'Not yet evaluated.',
     }));
   }
 
