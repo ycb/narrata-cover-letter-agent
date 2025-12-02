@@ -551,7 +551,7 @@ export class GapDetectionService {
         workItemIdsBySource = new Set((wi || []).map((r: any) => r.id));
 
         const { data: acBySource } = await db
-          .from('approved_content')
+          .from('stories')
           .select('id')
           .eq('user_id', userId)
           .in('source_id', sourceIdList);
@@ -561,7 +561,7 @@ export class GapDetectionService {
         if (workItemIdsBySource.size > 0) {
           const workItemIdList = Array.from(workItemIdsBySource);
           const { data: acByWi } = await db
-            .from('approved_content')
+            .from('stories')
             .select('id')
             .eq('user_id', userId)
             .in('work_item_id', workItemIdList);
@@ -1649,7 +1649,7 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
 
         // Also update the content to reference this gap (bidirectional link)
         await supabase
-          .from('approved_content')
+          .from('stories')
           .update({ addressed_gap_id: gapId })
           .eq('id', addressingContentId)
           .eq('user_id', userId);
@@ -1761,7 +1761,7 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
       const storyMap = new Map<string, any>();
       if (storyIds.size > 0) {
         const { data: storiesData, error: storiesError } = await db
-          .from('approved_content')
+          .from('stories')
           .select('id, title, source_id, work_item_id, work_item:work_items!work_item_id(id, title, source_id, company:companies!company_id(name))')
           .in('id', Array.from(storyIds));
 

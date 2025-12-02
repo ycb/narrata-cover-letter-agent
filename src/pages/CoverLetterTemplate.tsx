@@ -575,7 +575,7 @@ export default function CoverLetterTemplate() {
 
       const buildStoriesQuery = () => {
         let query = client
-          .from('approved_content')
+          .from('stories')
           .select('id, title, content, status, confidence, tags, times_used, last_used, work_item_id, source_id, created_at, updated_at')
           .eq('user_id', currentUserId);
 

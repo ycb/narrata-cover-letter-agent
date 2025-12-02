@@ -66,47 +66,12 @@ export function LinkedInDataSource({ onConnectLinkedIn, onRefresh }: LinkedInDat
       setIsLoading(true);
       setError(null);
 
-      // First, try to fetch from linkedin_profiles table
-      const { data: linkedinProfile, error: profileError } = await supabase
-        .from('linkedin_profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (linkedinProfile && !profileError) {
-        console.log('✅ Found LinkedIn profile in linkedin_profiles table:', linkedinProfile);
-        
-        // Convert linkedin_profiles format to sources format for display
-        const linkedinSource: LinkedInSource = {
-          id: linkedinProfile.id,
-          user_id: linkedinProfile.user_id,
-          file_name: 'LinkedIn Profile',
-          file_type: 'linkedin',
-          structured_data: {
-            workHistory: linkedinProfile.experience || [],
-            education: linkedinProfile.education || [],
-            skills: linkedinProfile.skills || [],
-            summary: linkedinProfile.summary || '',
-            fullName: linkedinProfile.first_name && linkedinProfile.last_name 
-              ? `${linkedinProfile.first_name} ${linkedinProfile.last_name}`
-              : 'LinkedIn User'
-          },
-          created_at: linkedinProfile.created_at,
-          updated_at: linkedinProfile.updated_at
-        };
-        
-        setSource(linkedinSource);
-        return;
-      }
-
-      // Fallback: Check sources table for legacy LinkedIn data
+      // Fetch LinkedIn data from unified sources table
       let linkedInQuery = supabase
         .from('sources')
         .select('*')
         .eq('user_id', user.id)
-        .ilike('file_name', '%linkedin%');
+        .eq('source_type', 'linkedin');
       
       // If synthetic mode enabled, filter by active profile
       if (activeProfileId) {
@@ -121,8 +86,7 @@ export function LinkedInDataSource({ onConnectLinkedIn, onRefresh }: LinkedInDat
       if (fetchError) {
         throw fetchError;
       } else if (!data) {
-        // No LinkedIn source found in either table
-        console.log('ℹ️ No LinkedIn data found in either linkedin_profiles or sources table');
+        console.log('ℹ️ No LinkedIn data found in sources table');
         setSource(null);
       } else {
         console.log('✅ Found LinkedIn data in sources table');

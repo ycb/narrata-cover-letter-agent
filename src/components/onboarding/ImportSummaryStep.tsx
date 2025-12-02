@@ -60,7 +60,7 @@ export function ImportSummaryStep({ onNext }: ImportSummaryStepProps) {
 
         // Get stories count
         const { count: storiesCount, error: storiesError } = await supabase
-          .from('approved_content')
+          .from('stories')
           .select('*', { count: 'exact', head: true })
           .eq('user_id', user.id);
 
@@ -70,16 +70,17 @@ export function ImportSummaryStep({ onNext }: ImportSummaryStepProps) {
           console.log('[ImportSummary] Stories count:', storiesCount);
         }
 
-        // Check LinkedIn connection
+        // Check LinkedIn connection (now in sources table)
         const { data: linkedinData, error: linkedinError } = await supabase
-          .from('linkedin_profiles')
+          .from('sources')
           .select('id')
           .eq('user_id', user.id)
+          .eq('source_type', 'linkedin')
           .limit(1)
-          .single();
+          .maybeSingle();
 
         if (linkedinError && linkedinError.code !== 'PGRST116') { // Ignore "no rows" error
-          console.error('[ImportSummary] Error fetching linkedin_profiles:', linkedinError);
+          console.error('[ImportSummary] Error fetching LinkedIn from sources:', linkedinError);
         } else {
           console.log('[ImportSummary] LinkedIn connected:', !!linkedinData);
         }

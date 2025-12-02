@@ -213,7 +213,7 @@ export const CoverLetterModal = ({
         ] = await Promise.all([
           supabase.from('companies').select('id, name, description, created_at, updated_at').eq('user_id', user.id),
           supabase.from('work_items').select('id, title, description, company_id, start_date, end_date, tags, created_at, updated_at').eq('user_id', user.id),
-          supabase.from('approved_content').select('id, title, content, status, confidence, tags, work_item_id, created_at, updated_at').eq('user_id', user.id)
+          supabase.from('stories').select('id, title, content, status, confidence, tags, work_item_id, created_at, updated_at').eq('user_id', user.id)
         ]);
 
         if (companiesError) throw companiesError;

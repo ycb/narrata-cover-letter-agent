@@ -63,7 +63,7 @@ export default function ShowAllStories() {
 
       // Fetch approved content (stories/blurbs) with work item and company info
       const { data: blurbs, error: blurbsError } = await supabase
-        .from('approved_content')
+        .from('stories')
         .select(`
           *,
           work_item:work_items!work_item_id (
@@ -222,7 +222,7 @@ export default function ShowAllStories() {
       if (user && story.id) {
         // Fetch full story from approved_content
         const { data: fullStory, error: storyError } = await supabase
-          .from('approved_content')
+          .from('stories')
           .select('id, title, content, tags, metrics, created_at')
           .eq('id', story.id)
           .single();
@@ -318,7 +318,7 @@ export default function ShowAllStories() {
     
     // Update the story content in the database
     const { error: updateError } = await supabase
-      .from('approved_content')
+      .from('stories')
       .update({ content })
       .eq('id', viewingStory.id)
       .eq('user_id', user.id);

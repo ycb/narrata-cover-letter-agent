@@ -6,13 +6,13 @@ import { schedulePMLevelBackgroundRun } from '@/services/pmLevelsService'
 
 type Company = Database['public']['Tables']['companies']['Row']
 type WorkItem = Database['public']['Tables']['work_items']['Row']
-type ApprovedContent = Database['public']['Tables']['approved_content']['Row']
+type Story = Database['public']['Tables']['stories']['Row']
 type ExternalLink = Database['public']['Tables']['external_links']['Row']
 
 interface WorkHistoryData {
   companies: Company[]
   workItems: WorkItem[]
-  approvedContent: ApprovedContent[]
+  approvedContent: Story[]
   externalLinks: ExternalLink[]
 }
 
@@ -81,7 +81,7 @@ export function useWorkHistory() {
 
       // Fetch approved content
       const { data: approvedContent, error: contentError } = await supabase
-        .from('approved_content')
+        .from('stories')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
@@ -169,12 +169,12 @@ export function useWorkHistory() {
   }
 
   // Add approved content
-  const addApprovedContent = async (contentData: Omit<ApprovedContent, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
+  const addStory = async (contentData: Omit<Story, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
     if (!user) throw new Error('User not authenticated')
 
     try {
       const { data: newContent, error } = await supabase
-        .from('approved_content')
+        .from('stories')
         .insert({
           ...contentData,
           user_id: user.id
@@ -198,10 +198,10 @@ export function useWorkHistory() {
   }
 
   // Update approved content
-  const updateApprovedContent = async (id: string, updates: Partial<ApprovedContent>) => {
+  const updateStory = async (id: string, updates: Partial<Story>) => {
     try {
       const { data: updatedContent, error } = await supabase
-        .from('approved_content')
+        .from('stories')
         .update(updates)
         .eq('id', id)
         .select()
@@ -225,10 +225,10 @@ export function useWorkHistory() {
   }
 
   // Delete approved content
-  const deleteApprovedContent = async (id: string) => {
+  const deleteStory = async (id: string) => {
     try {
       const { error } = await supabase
-        .from('approved_content')
+        .from('stories')
         .delete()
         .eq('id', id)
 
@@ -267,8 +267,8 @@ export function useWorkHistory() {
     fetchWorkHistory,
     addCompany,
     addWorkItem,
-    addApprovedContent,
-    updateApprovedContent,
-    deleteApprovedContent
+    addStory,
+    updateStory,
+    deleteStory
   }
 }

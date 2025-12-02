@@ -433,7 +433,7 @@ export class PMLevelsService {
       // NOTE: Include both 'approved' and 'draft' stories for PM Level assessment
       // The 'approved' status is for cover letter workflow, but we want to analyze all available content
       let storiesQuery = supabase
-        .from('approved_content')
+        .from('stories')
         .select('id, title, content, work_item_id, source_id, metrics, tags')
         .eq('user_id', userId)
         .in('status', ['approved', 'draft']);

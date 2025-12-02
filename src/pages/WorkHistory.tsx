@@ -401,7 +401,7 @@ export default function WorkHistory() {
       // Fetch approved content (blurbs) - only stories linked to work items
       // Stories MUST be associated with work_items - no orphan stories
       let blurbsQuery = supabase
-        .from('approved_content')
+        .from('stories')
         .select('*')
         .eq('user_id', user.id);
       

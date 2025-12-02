@@ -137,7 +137,7 @@ export type Database = {
           updated_at?: string
         }
       }
-      approved_content: {
+      stories: {
         Row: {
           id: string
           user_id: string

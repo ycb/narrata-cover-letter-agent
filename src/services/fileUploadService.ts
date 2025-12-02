@@ -927,7 +927,7 @@ source_type: dbSourceType,
           
           // Check if existing work_item has stories (CRITICAL: must check before deciding)
           const { count: storyCount } = await dbClient
-            .from('approved_content')
+            .from('stories')
             .select('id', { count: 'exact', head: true })
             .eq('work_item_id', workItemId);
           
@@ -1107,7 +1107,7 @@ source_type: dbSourceType,
         // Skip if this is an existing work_item that already has stories (to avoid duplicates)
         if (isExisting) {
           const { count: existingStoryCount } = await dbClient
-            .from('approved_content')
+            .from('stories')
             .select('id', { count: 'exact', head: true })
             .eq('work_item_id', workItemId);
           
@@ -1130,7 +1130,7 @@ source_type: dbSourceType,
             // Check if story already exists (by title and work_item_id) to avoid duplicates
             const storyTitle = story.title || story.content?.substring(0, 100);
             const { data: existingStory } = await dbClient
-              .from('approved_content')
+              .from('stories')
               .select('id')
               .eq('work_item_id', workItemId)
               .eq('title', storyTitle)
@@ -1150,7 +1150,7 @@ source_type: dbSourceType,
               : [];
             
             const { data: insertedStory, error: storyError } = await dbClient
-              .from('approved_content')
+              .from('stories')
               .insert({
                 user_id: userId,
                 work_item_id: workItemId,
@@ -1305,7 +1305,7 @@ source_type: dbSourceType,
             // Check if story already exists (to avoid duplicates on re-matching)
             const storyTitle = story.title || story.content?.substring(0, 100);
             const { data: existingStory } = await dbClient
-              .from('approved_content')
+              .from('stories')
               .select('id')
               .eq('work_item_id', workItemMatch.workItemId)
               .eq('title', storyTitle)
@@ -1337,7 +1337,7 @@ source_type: dbSourceType,
                   : [];
             
             const { data: insertedStory, error: storyError } = await dbClient
-              .from('approved_content')
+              .from('stories')
               .insert({
                 user_id: userId,
                 work_item_id: workItemMatch.workItemId,

@@ -116,7 +116,7 @@ interface TemplateRow
   extends Database['public']['Tables']['cover_letter_templates']['Row'] {}
 interface CoverLetterRow extends Database['public']['Tables']['cover_letters']['Row'] {}
 interface SavedSectionRow extends Database['public']['Tables']['saved_sections']['Row'] {}
-interface ApprovedContentRow extends Database['public']['Tables']['approved_content']['Row'] {}
+interface StoryRow extends Database['public']['Tables']['stories']['Row'] {}
 interface WorkpadRow
   extends Database['public']['Tables']['cover_letter_workpads']['Row'] {}
 
@@ -455,7 +455,7 @@ interface CachedUserContext<T> {
 }
 
 const userContextCache = {
-  stories: null as CachedUserContext<ApprovedContentRow[]> | null,
+  stories: null as CachedUserContext<StoryRow[]> | null,
   savedSections: null as CachedUserContext<SavedSectionRow[]> | null,
   workHistory: null as CachedUserContext<any[]> | null,
   approvedContent: null as CachedUserContext<any[]> | null,
@@ -791,7 +791,7 @@ export class CoverLetterDraftService {
       this.fetchJobDescription(userId, jobDescriptionId),
       UserPreferencesService.loadGoals(userId),
       this.fetchWorkHistory(userId),
-      this.fetchApprovedContent(userId),
+      this.fetchStoriesForMatching(userId),
     ]);
 
     const sections = this.normaliseDraftSections(draftRow.sections);
@@ -1400,7 +1400,7 @@ export class CoverLetterDraftService {
       this.fetchSavedSections(userId),
       UserPreferencesService.loadGoals(userId),
       this.fetchWorkHistory(userId),
-      this.fetchApprovedContent(userId),
+      this.fetchStoriesForMatching(userId),
     ]);
 
     const templateSections = this.normaliseTemplateSections(templateRow.sections);
@@ -2038,7 +2038,7 @@ export class CoverLetterDraftService {
     return data;
   }
 
-  private async fetchStories(userId: string): Promise<ApprovedContentRow[]> {
+  private async fetchStories(userId: string): Promise<StoryRow[]> {
     // PERF: Check cache first
     if (isCacheValid(userContextCache.stories, userId)) {
       console.log(`[CoverLetterDraftService] Stories cache HIT (${userContextCache.stories.data.length} items)`);
@@ -2086,7 +2086,7 @@ export class CoverLetterDraftService {
     }
 
     let query = this.supabaseClient
-      .from('approved_content')
+      .from('stories')
       .select('*')
       .eq('user_id', userId);
       // Note: No longer filtering by status - all stories are available for matching
@@ -2241,7 +2241,7 @@ export class CoverLetterDraftService {
   /**
    * Fetch user's approved content (stories) for enhanced match analysis
    */
-  private async fetchApprovedContent(userId: string): Promise<Array<{
+  private async fetchStoriesForMatching(userId: string): Promise<Array<{
     id: string;
     title: string;
     content: string;
@@ -2253,7 +2253,7 @@ export class CoverLetterDraftService {
     }
 
     const { data, error } = await this.supabaseClient
-      .from('approved_content')
+      .from('stories')
       .select('id, title, content')
       .eq('user_id', userId);
 
@@ -2311,7 +2311,7 @@ export class CoverLetterDraftService {
 
   private buildSections(input: {
     templateSections: CoverLetterSection[];
-    stories: ApprovedContentRow[];
+    stories: StoryRow[];
     savedSections: SavedSectionRow[];
     jobDescription: ParsedJobDescription;
     userGoals: Awaited<ReturnType<typeof UserPreferencesService.loadGoals>> | null;
@@ -2511,10 +2511,10 @@ export class CoverLetterDraftService {
 
   private pickBestStory(
     section: CoverLetterSection,
-    stories: ApprovedContentRow[],
+    stories: StoryRow[],
     jobDescription: ParsedJobDescription,
     userGoals: Awaited<ReturnType<typeof UserPreferencesService.loadGoals>> | null,
-  ): ApprovedContentRow | null {
+  ): StoryRow | null {
     if (!stories.length) {
       console.log(`[CoverLetterDraftService] No stories available for section "${section.title || 'unnamed'}"`);
       return null;
@@ -2523,7 +2523,7 @@ export class CoverLetterDraftService {
     const goals = section.blurbCriteria?.goals ?? [];
     const differentiatorIds = new Set(jobDescription.differentiatorRequirements.map(req => req.id));
 
-    let bestStory: ApprovedContentRow | null = null;
+    let bestStory: StoryRow | null = null;
     let bestScore = -Infinity;
 
     for (const story of stories) {

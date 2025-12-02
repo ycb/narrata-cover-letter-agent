@@ -422,16 +422,17 @@ export function useLinkedInUpload() {
         throw new Error('Could not extract LinkedIn username from URL');
       }
 
-      // Check if profile already exists
+      // Check if profile already exists in sources table
       const { data: existingProfile, error: existingError } = await supabase
-        .from('linkedin_profiles')
+        .from('sources')
         .select('*')
         .eq('user_id', user.id)
-        .eq('linkedin_id', linkedinUsername)
+        .eq('source_type', 'linkedin')
+        .ilike('file_name', `%${linkedinUsername}%`)
         .single();
 
       if (existingProfile && !existingError) {
-        console.log('LinkedIn profile already exists, returning existing data');
+        console.log('LinkedIn profile already exists in sources, returning existing data');
         return {
           success: true,
           fileId: (existingProfile as any).id
@@ -618,31 +619,41 @@ export function useLinkedInUpload() {
         }
       }
       
-      // Store in database (if available)
+      // Store in sources table (unified storage)
       console.log(`📊 LinkedIn data source: ${dataSource}`);
       try {
         const { data, error } = await supabase
-          .from('linkedin_profiles')
+          .from('sources')
           .insert({
             user_id: user.id,
-            linkedin_id: linkedinUsername,
-            profile_url: trimmedUrl,
-            about: profileData.summary,
-            experience: profileData.experience,
-            education: profileData.education,
-            skills: profileData.skills,
-            certifications: profileData.certifications,
-            projects: profileData.projects,
-            raw_data: profileData
+            source_type: 'linkedin',
+            source_method: 'appify_api',
+            file_name: `LinkedIn Profile (${linkedinUsername})`,
+            file_type: 'linkedin',
+            file_size: 0,
+            file_checksum: `linkedin_${linkedinUsername}_${Date.now()}`,
+            storage_path: trimmedUrl,
+            processing_status: 'completed',
+            structured_data: {
+              workHistory: profileData.experience,
+              education: profileData.education,
+              skills: profileData.skills,
+              certifications: profileData.certifications,
+              projects: profileData.projects,
+              summary: profileData.summary,
+              profileUrl: trimmedUrl,
+              linkedinId: linkedinUsername
+            },
+            schema_version: 1
           } as any)
           .select('id')
           .single();
 
         if (error) {
-          console.warn('Could not store LinkedIn profile in database:', error.message);
+          console.warn('Could not store LinkedIn profile in sources:', error.message);
           // Continue with profile data even if database fails
         } else if (data) {
-          console.log('LinkedIn profile stored successfully:', (data as any).id);
+          console.log('LinkedIn profile stored in sources successfully:', (data as any).id);
           profileId = (data as any).id;
         }
       } catch (dbError) {

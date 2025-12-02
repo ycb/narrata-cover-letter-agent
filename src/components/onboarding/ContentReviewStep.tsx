@@ -143,8 +143,8 @@ export function ContentReviewStep({ onReviewComplete, onBack }: ContentReviewSte
         })));
       }
 
-      // Fetch LinkedIn profile if exists using direct fetch
-      const linkedinQueryUrl = `${supabaseUrl}/rest/v1/linkedin_profiles?user_id=eq.${user.id}&limit=1`;
+      // Fetch LinkedIn profile if exists using direct fetch (now from sources table)
+      const linkedinQueryUrl = `${supabaseUrl}/rest/v1/sources?user_id=eq.${user.id}&source_type=eq.linkedin&limit=1`;
       
       const linkedinResponse = await fetch(linkedinQueryUrl, {
         method: 'GET',
@@ -158,9 +158,19 @@ export function ContentReviewStep({ onReviewComplete, onBack }: ContentReviewSte
       let linkedinProfile = null;
       if (linkedinResponse.ok) {
         const linkedinData = await linkedinResponse.json();
-        linkedinProfile = linkedinData.length > 0 ? linkedinData[0] : null;
+        // Convert sources format to expected format
+        const sourceData = linkedinData.length > 0 ? linkedinData[0] : null;
+        if (sourceData?.structured_data) {
+          linkedinProfile = {
+            ...sourceData,
+            experience: sourceData.structured_data.workHistory || [],
+            education: sourceData.structured_data.education || [],
+            skills: sourceData.structured_data.skills || [],
+            summary: sourceData.structured_data.summary || ''
+          };
+        }
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('📊 LINKEDIN PROFILE FROM DATABASE:');
+        console.log('📊 LINKEDIN PROFILE FROM SOURCES:');
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.log('Full LinkedIn profile:', linkedinProfile);
         if (linkedinProfile?.experience) {
@@ -611,7 +621,7 @@ export function ContentReviewStep({ onReviewComplete, onBack }: ContentReviewSte
           const metricsText = story.metrics?.map((m: any) => `${m.value} ${m.context}`).join('; ') || '';
           
           const { data: approvedContent, error: contentError} = await supabase
-            .from('approved_content')
+            .from('stories')
             .insert({
               user_id: user.id,
               work_item_id: workItem.id,

@@ -9,7 +9,7 @@ const getSupabaseConfig = () => ({
 
 type WorkItem = Database['public']['Tables']['work_items']['Row'];
 type Company = Database['public']['Tables']['companies']['Row'];
-type ApprovedContent = Database['public']['Tables']['approved_content']['Row'];
+type Story = Database['public']['Tables']['stories']['Row'];
 type CoverLetter = Database['public']['Tables']['cover_letters']['Row'];
 
 export interface DashboardStats {
@@ -160,7 +160,7 @@ export class DashboardService {
       const coverLettersCount = parseInt(coverLettersResponse.headers.get('content-range')?.split('/')[1] || '0');
 
       // Get approved content count
-      const approvedContentResponse = await fetch(`${supabaseUrl}/rest/v1/approved_content?user_id=eq.${userId}&status=eq.approved&select=count`, {
+      const approvedContentResponse = await fetch(`${supabaseUrl}/rest/v1/stories?user_id=eq.${userId}&status=eq.approved&select=count`, {
         method: 'HEAD',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -294,7 +294,7 @@ export class DashboardService {
       const storiesCount = parseInt(storiesResponse.headers.get('content-range')?.split('/')[1] || '0');
 
       // Get approved content count (saved sections)
-      const savedSectionsResponse = await fetch(`${supabaseUrl}/rest/v1/approved_content?user_id=eq.${userId}&status=eq.approved&select=count`, {
+      const savedSectionsResponse = await fetch(`${supabaseUrl}/rest/v1/stories?user_id=eq.${userId}&status=eq.approved&select=count`, {
         method: 'HEAD',
         headers: {
           'Authorization': `Bearer ${accessToken}`,

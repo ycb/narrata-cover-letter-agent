@@ -320,7 +320,7 @@ export class ContentGenerationService {
         }
       } else if (entityType === 'approved_content') {
         const { data: content } = await supabase
-          .from('approved_content')
+          .from('stories')
           .select('*, work_items(*, companies(name))')
           .eq('id', entityId)
           .eq('user_id', userId)
@@ -344,7 +344,7 @@ export class ContentGenerationService {
 
       if (workItemId) {
         const { data: stories } = await supabase
-          .from('approved_content')
+          .from('stories')
           .select('title, content')
           .eq('work_item_id', workItemId)
           .eq('user_id', userId)
@@ -359,7 +359,7 @@ export class ContentGenerationService {
       } else {
         // For saved sections or when no work item, fetch user's top stories
         const { data: stories } = await supabase
-          .from('approved_content')
+          .from('stories')
           .select('title, content, work_items(title, companies(name))')
           .eq('user_id', userId)
           .order('created_at', { ascending: false })
@@ -620,7 +620,7 @@ export class ContentGenerationService {
     try {
       // Fetch final content to calculate word count
       const { data: story } = await supabase
-        .from('approved_content')
+        .from('stories')
         .select('content, work_item_id')
         .eq('id', storyId)
         .eq('user_id', request.userId)

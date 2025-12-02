@@ -56,7 +56,7 @@ export class TagInheritanceService {
    */
   static async getFullStoryTags(storyId: string, userId: string): Promise<string[]> {
     const { data: story, error: storyError } = await supabase
-      .from('approved_content')
+      .from('stories')
       .select('tags, work_item_id, work_item:work_items!work_item_id(tags, company_id, company:companies!company_id(tags))')
       .eq('id', storyId)
       .eq('user_id', userId)
