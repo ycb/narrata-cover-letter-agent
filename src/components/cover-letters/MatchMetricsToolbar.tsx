@@ -1080,15 +1080,24 @@ function ReadinessDrawerContent({ readiness }: ReadinessDrawerContentProps) {
 
   // Determine if dimension is "passing" (Exceptional/Strong = check, others = X)
   const isDimensionPassing = (value: string) => value === 'strong';
+  
+  // Detect short draft
+  const isShortDraft = readiness.feedback?.summary?.toLowerCase().includes('too short');
 
   return (
     <div className="p-2 space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-foreground">Verdict:</span>
-        <Badge variant="outline" className={getBadgeClass(ratingLabel)}>
-          {ratingLabel}
-        </Badge>
-      </div>
+      {isShortDraft ? (
+        <div className="text-sm text-muted-foreground">
+          Draft too short for full evaluation (150 words required)
+        </div>
+      ) : (
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-foreground">Verdict:</span>
+          <Badge variant="outline" className={getBadgeClass(ratingLabel)}>
+            {ratingLabel}
+          </Badge>
+        </div>
+      )}
       {readiness.feedback?.summary && (
         <div className="text-xs text-foreground/80">{readiness.feedback.summary}</div>
       )}
