@@ -1103,20 +1103,20 @@ function ReadinessDrawerContent({ readiness }: ReadinessDrawerContentProps) {
       )}
       <div className="border-t border-border/30 pt-2">
         <h4 className="text-sm font-medium text-foreground mb-2">Editorial Dimensions</h4>
-        <div className="space-y-1">
-          {rows.map((row, idx) => {
+        <ul className="list-disc pl-5 space-y-1">
+          {rows.map((row) => {
             const value = readiness.scoreBreakdown[row.key];
             const passing = isDimensionPassing(value);
             return (
-              <div key={row.key} className={idx > 0 ? 'pt-1 border-t border-border/20' : ''}>
-                <div className="flex items-center justify-between text-xs">
+              <li key={row.key} className="text-xs">
+                <div className="flex items-center justify-between">
                   <span className="text-foreground/90">{row.label}</span>
                   <StatusIcon met={passing} />
                 </div>
-              </div>
+              </li>
             );
           })}
-        </div>
+        </ul>
       </div>
       {Array.isArray(readiness.feedback?.improvements) && readiness.feedback.improvements.length > 0 && (
         <div className="border-t border-border/30 pt-2">
@@ -1126,10 +1126,10 @@ function ReadinessDrawerContent({ readiness }: ReadinessDrawerContentProps) {
               <li key={i} className="text-foreground/80">{item}</li>
             ))}
           </ul>
-          {/* For Needs Work: show "more issues exist" note */}
-          {readiness.rating === 'weak' && (
+          {/* For short drafts: show note about remaining evaluation */}
+          {isShortDraft && (
             <p className="text-[11px] text-muted-foreground mt-2 italic">
-              Additional issues exist — start with these.
+              Once the draft meets the minimum length, we'll evaluate the remaining issues.
             </p>
           )}
         </div>
