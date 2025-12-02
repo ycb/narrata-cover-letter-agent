@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Copy, Download, Share2 } from 'lucide-react';
+import { Copy, Download, Share2, Mail } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -52,6 +53,7 @@ export function CoverLetterFinalization({
   errorMessage,
 }: CoverLetterFinalizationProps) {
   const [copied, setCopied] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   // Guard: Ensure sections is always an array
   const safeSections = Array.isArray(sections) ? sections : [];
@@ -91,6 +93,7 @@ export function CoverLetterFinalization({
   const subtitle = [job?.company, job?.role].filter(Boolean).join(' • ');
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={open => (!open ? onClose() : undefined)}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto dialog-top-anchored">
         {/* 1. Header with CTAs */}
@@ -181,10 +184,7 @@ export function CoverLetterFinalization({
             variant="outline" 
             size="sm"
             className="gap-2"
-            onClick={() => {
-              // Future: implement share functionality
-              handleCopy();
-            }}
+            onClick={() => setShowShareModal(true)}
           >
             <Share2 className="h-4 w-4" />
             Share
@@ -192,6 +192,59 @@ export function CoverLetterFinalization({
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Share Modal */}
+    <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Share Cover Letter</DialogTitle>
+          <DialogDescription>
+            Choose how you would like to share your cover letter.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <Button 
+            variant="outline" 
+            className="w-full justify-start"
+            onClick={() => {
+              handleCopy();
+              setShowShareModal(false);
+            }}
+          >
+            <Copy className="h-4 w-4 mr-2" />
+            Copy to clipboard
+          </Button>
+          <Button 
+            variant="outline" 
+            className="w-full justify-start"
+            onClick={() => {
+              handleDownload();
+              setShowShareModal(false);
+            }}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Download as text file
+          </Button>
+          <Button 
+            variant="outline" 
+            className="w-full justify-start"
+            onClick={() => {
+              // Open mailto with cover letter content
+              const subject = job?.company 
+                ? `Cover Letter - ${job.company}${job.role ? ` - ${job.role}` : ''}`
+                : 'Cover Letter';
+              const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(finalLetter)}`;
+              window.open(mailtoUrl, '_blank');
+              setShowShareModal(false);
+            }}
+          >
+            <Mail className="h-4 w-4 mr-2" />
+            Email to yourself
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 

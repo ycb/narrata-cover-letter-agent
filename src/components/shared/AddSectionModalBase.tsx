@@ -12,6 +12,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { X, ChevronRight } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import type { WorkHistoryCompany, WorkHistoryBlurb } from "@/types/workHistory";
 import type { SavedSection } from "@/services/coverLetterTemplateService";
 
@@ -159,8 +166,6 @@ export function AddSectionModalBase({
     return '← Back';
   };
 
-  if (!isOpen) return null;
-
   console.log('[AddSectionModalBase] Render state:', {
     mode,
     selectedContentType,
@@ -169,25 +174,15 @@ export function AddSectionModalBase({
   });
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]">
-      <div className="w-full max-w-6xl max-h-[90vh] bg-background rounded-lg shadow-2xl overflow-hidden">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden p-0">
         {/* Modal Header */}
-        <div className="flex items-center justify-between p-6 border-b">
-          <div>
-            <h2 className="text-2xl font-bold">Add New Section</h2>
-            <p className="text-muted-foreground">
-              Choose how you want to add content to your {mode === 'template' ? 'template' : 'cover letter'}
-            </p>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClose}
-            className="h-8 w-8 p-0"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
+        <DialogHeader className="p-6 border-b">
+          <DialogTitle className="text-2xl font-bold">Add New Section</DialogTitle>
+          <DialogDescription>
+            Choose how you want to add content to your {mode === 'template' ? 'template' : 'cover letter'}
+          </DialogDescription>
+        </DialogHeader>
 
         {/* Modal Content */}
         <div className="flex h-auto relative">
@@ -456,7 +451,7 @@ export function AddSectionModalBase({
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
