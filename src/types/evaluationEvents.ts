@@ -177,7 +177,7 @@ export type HILContentEvent = HILStoryEvent | HILSavedSectionEvent | HILDraftEve
 /**
  * Union of all evaluation events
  */
-export type EvaluationEvent = JDParseEvent | HILContentEvent;
+export type EvaluationEvent = JDParseEvent | HILContentEvent | DraftCoverLetterEvalEvent;
 
 /**
  * Event metadata for logging
@@ -187,7 +187,116 @@ export interface EventMetadata {
   emittedAt: Date;
   sessionId?: string;
   userId: string;
-  source: 'jd_parse' | 'hil_story' | 'hil_saved_section' | 'hil_draft';
+  source: 'jd_parse' | 'hil_story' | 'hil_saved_section' | 'hil_draft' | 'draft_cover_letter';
+}
+
+// ============================================================================
+// Draft Cover Letter Generation Evaluation
+// ============================================================================
+
+/**
+ * Eval status for internal QA (distinct from customer-facing Go/No-Go)
+ */
+export type EvalStatus = 'pass' | 'review' | 'fail';
+
+/**
+ * Phase A (Streaming) completeness tracking
+ */
+export interface PhaseACompleteness {
+  jdAnalysis: { 
+    complete: boolean; 
+    company?: string; 
+    role?: string; 
+  };
+  coreRequirements: { 
+    complete: boolean; 
+    count: number; 
+  };
+  preferredRequirements: { 
+    complete: boolean; 
+    count: number; 
+  };
+  goalsMatched: { 
+    complete: boolean; 
+    met: number; 
+    total: number; 
+  };
+  strengthsMatched: { 
+    complete: boolean; 
+    summaryScore: 0 | 1 | 2 | 3 | null; 
+    detailCount: number; 
+  };
+}
+
+/**
+ * Phase B (Post-Draft) completeness tracking
+ */
+export interface PhaseBCompleteness {
+  sectionsGenerated: { 
+    complete: boolean; 
+    count: number; 
+  };
+  gapsAnalyzed: { 
+    complete: boolean; 
+    badgeCount: number; 
+    actualGaps: number; 
+    match: boolean;  // KEY: badge === actual (catches the bug you had)
+  };
+  overallScore: { 
+    complete: boolean; 
+    value: number | null; 
+  };
+  contentStandards: { 
+    complete: boolean; 
+    perSectionCount: number; 
+  };
+}
+
+/**
+ * Toolbar validation - ensures all metrics are properly populated
+ */
+export interface ToolbarValidation {
+  gaps: boolean;           // Badge shows AND children populate
+  mwg: boolean;            // X/Y format shows
+  mws: boolean;            // Score + details show
+  coreReqs: boolean;       // Count + list show
+  preferredReqs: boolean;  // Count + list show
+  overallScore: boolean;   // Numeric value shows
+  readiness: boolean;      // Async, may be skeleton initially
+}
+
+/**
+ * Draft Cover Letter Generation Event
+ * Tracks completeness and quality of the full draft generation pipeline
+ */
+export interface DraftCoverLetterEvalEvent {
+  userId: string;
+  draftId: string;
+  jobDescriptionId: string;
+  syntheticProfileId?: string;
+  
+  // Timing breakdown
+  phaseALatencyMs: number;
+  phaseBLatencyMs: number;
+  totalLatencyMs: number;
+  
+  // Phase completeness
+  phaseA: PhaseACompleteness;
+  phaseB: PhaseBCompleteness;
+  
+  // Toolbar validation (key concern for catching regressions)
+  toolbarPopulated: ToolbarValidation;
+  
+  // Overall status
+  evalStatus: EvalStatus;
+  missingFields: string[];  // e.g., ['gaps.children', 'mws.details']
+  
+  // Error tracking
+  status: 'success' | 'failed';
+  errorMessage?: string;
+  
+  // Model info
+  model?: string;
 }
 
 

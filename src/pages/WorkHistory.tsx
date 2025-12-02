@@ -22,6 +22,144 @@ import { FileUploadService } from "@/services/fileUploadService";
 import type { FileType } from "@/types/fileUpload";
 import { toast } from "sonner";
 import type { WorkHistoryCompany, WorkHistoryRole, WorkHistoryBlurb, ExternalLink } from "@/types/workHistory";
+import { getMergedWorkHistory, type MergedRoleCluster } from "@/services/workHistoryMergeService";
+
+/**
+ * Transform merged role clusters into WorkHistoryCompany format
+ * Groups clusters by company for display in existing UI components
+ */
+function transformClustersToWorkHistory(
+  clusters: MergedRoleCluster[],
+  gapData: {
+    workItemGapMap: Map<string, number>;
+    workItemGapsMap: Map<string, Array<{ id: string; description: string; gap_category?: string }>>;
+    storyGapMap: Map<string, number>;
+    storyGapsMap: Map<string, Array<{ id: string; description: string }>>;
+  }
+): WorkHistoryCompany[] {
+  // Group clusters by company
+  const companyMap = new Map<string, MergedRoleCluster[]>();
+  
+  for (const cluster of clusters) {
+    const existing = companyMap.get(cluster.companyId) || [];
+    existing.push(cluster);
+    companyMap.set(cluster.companyId, existing);
+  }
+  
+  // Transform to WorkHistoryCompany format
+  const companies: WorkHistoryCompany[] = [];
+  
+  for (const [companyId, companyClusters] of companyMap) {
+    // Use first cluster for company info
+    const firstCluster = companyClusters[0];
+    
+    // Determine company source (prefer resume if any cluster has resume data)
+    const hasResume = companyClusters.some(c => c.resumeItems.length > 0);
+    const hasLinkedin = companyClusters.some(c => c.linkedinItems.length > 0);
+    const source: 'resume' | 'linkedin' | 'manual' = hasResume ? 'resume' : hasLinkedin ? 'linkedin' : 'manual';
+    
+    // Transform clusters to roles
+    const roles: WorkHistoryRole[] = companyClusters.map(cluster => {
+      // Get all work item IDs in this cluster for gap lookup
+      const allItemIds = [
+        ...cluster.resumeItems.map(i => i.id),
+        ...cluster.linkedinItems.map(i => i.id),
+        ...cluster.otherItems.map(i => i.id),
+      ];
+      
+      // Aggregate gaps from all work items in cluster
+      let totalGapCount = 0;
+      const allGaps: Array<{ id: string; description: string; gap_category?: string }> = [];
+      for (const itemId of allItemIds) {
+        totalGapCount += gapData.workItemGapMap.get(itemId) || 0;
+        const itemGaps = gapData.workItemGapsMap.get(itemId) || [];
+        allGaps.push(...itemGaps);
+      }
+      
+      // Transform stories to blurbs
+      const blurbs: WorkHistoryBlurb[] = cluster.stories.map(story => {
+        const storyGapCount = gapData.storyGapMap.get(story.id) || 0;
+        const storyGaps = gapData.storyGapsMap.get(story.id) || [];
+        
+        return {
+          id: story.id,
+          roleId: cluster.clusterId,
+          title: story.title,
+          content: story.content,
+          outcomeMetrics: story.metrics.map(m => m.value),
+          tags: story.tags,
+          source: 'resume' as const,
+          status: 'approved' as const,
+          confidence: 'high' as const,
+          timesUsed: 0,
+          hasGaps: storyGapCount > 0,
+          gapCount: storyGapCount,
+          gaps: storyGaps,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+      });
+      
+      // Determine role type from title
+      const titleLower = cluster.canonicalTitle.toLowerCase();
+      const roleType: 'full-time' | 'contract' | 'founder' = 
+        titleLower.includes('founder') || titleLower.includes('co-founder') ? 'founder' :
+        titleLower.includes('contract') || titleLower.includes('consulting') ? 'contract' :
+        'full-time';
+      
+      return {
+        id: cluster.clusterId,
+        companyId: cluster.companyId,
+        title: cluster.canonicalTitle,
+        type: roleType,
+        startDate: cluster.startDate || '',
+        endDate: cluster.endDate || undefined,
+        description: cluster.mergedDescription,
+        tags: cluster.mergedTags,
+        outcomeMetrics: cluster.mergedMetrics.map(m => m.value),
+        blurbs,
+        externalLinks: [], // TODO: Fetch external links if needed
+        hasGaps: totalGapCount > 0,
+        gapCount: totalGapCount,
+        gaps: allGaps,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    });
+    
+    // Sort roles: current first, then by start date descending
+    roles.sort((a, b) => {
+      if (!a.endDate && b.endDate) return -1;
+      if (a.endDate && !b.endDate) return 1;
+      return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
+    });
+    
+    companies.push({
+      id: companyId,
+      name: firstCluster.companyName,
+      description: '', // Could extract from company table if needed
+      tags: [], // Could aggregate from clusters
+      source,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      roles,
+    });
+  }
+  
+  // Sort companies: current positions first, then by most recent role
+  companies.sort((a, b) => {
+    const aHasCurrent = a.roles.some(r => !r.endDate);
+    const bHasCurrent = b.roles.some(r => !r.endDate);
+    if (aHasCurrent && !bHasCurrent) return -1;
+    if (!aHasCurrent && bHasCurrent) return 1;
+    
+    const aLatest = a.roles[0]?.startDate || '';
+    const bLatest = b.roles[0]?.startDate || '';
+    return new Date(bLatest).getTime() - new Date(aLatest).getTime();
+  });
+  
+  return companies;
+}
 
 // REMOVED: Sample data - now using empty states instead
 // Sample data has been moved to usability-test branch for future reference
@@ -269,6 +407,65 @@ export default function WorkHistory() {
       // Store current profile ID to detect changes
       const currentProfileId = syntheticContext.currentUser?.profileId;
       
+      // USE MERGED VIEW for non-synthetic users
+      // This combines resume + LinkedIn data into unified role clusters
+      if (!syntheticContext.isSyntheticTestingEnabled) {
+        console.log('[WorkHistory] Using merged work history view...');
+        
+        // Fetch merged clusters
+        const clusters = await getMergedWorkHistory(user.id);
+        console.log(`[WorkHistory] Got ${clusters.length} merged clusters`);
+        
+        if (clusters.length === 0) {
+          setWorkHistory([]);
+          setIsLoading(false);
+          return;
+        }
+        
+        // Fetch gaps for all work items in clusters
+        const { GapDetectionService } = await import('../services/gapDetectionService');
+        const userGaps = await GapDetectionService.getUserGaps(user.id);
+        
+        // Build gap maps
+        const workItemGapMap = new Map<string, number>();
+        const workItemGapsMap = new Map<string, Array<{ id: string; description: string; gap_category?: string }>>();
+        const storyGapMap = new Map<string, number>();
+        const storyGapsMap = new Map<string, Array<{ id: string; description: string }>>();
+        
+        userGaps.forEach(gap => {
+          if (gap.entity_type === 'work_item') {
+            workItemGapMap.set(gap.entity_id, (workItemGapMap.get(gap.entity_id) || 0) + 1);
+            const existing = workItemGapsMap.get(gap.entity_id) || [];
+            workItemGapsMap.set(gap.entity_id, [...existing, {
+              id: gap.id || '',
+              description: gap.description || gap.gap_category || 'Content needs improvement',
+              gap_category: (gap as any).gap_category || ''
+            }]);
+          } else if (gap.entity_type === 'approved_content') {
+            storyGapMap.set(gap.entity_id, (storyGapMap.get(gap.entity_id) || 0) + 1);
+            const existing = storyGapsMap.get(gap.entity_id) || [];
+            storyGapsMap.set(gap.entity_id, [...existing, {
+              id: gap.id || '',
+              description: gap.description || gap.gap_category || 'Content needs improvement'
+            }]);
+          }
+        });
+        
+        // Transform clusters to WorkHistoryCompany format
+        const mergedWorkHistory = transformClustersToWorkHistory(clusters, {
+          workItemGapMap,
+          workItemGapsMap,
+          storyGapMap,
+          storyGapsMap,
+        });
+        
+        console.log(`[WorkHistory] Transformed to ${mergedWorkHistory.length} companies`);
+        setWorkHistory(mergedWorkHistory);
+        setIsLoading(false);
+        return;
+      }
+      
+      // LEGACY PATH: Synthetic testing mode uses raw work_items
       let profileSourceIds: string[] = [];
       if (syntheticContext.isSyntheticTestingEnabled && syntheticContext.currentUser) {
         // Get all sources for this profile (file_name starts with profile_id like P01_)

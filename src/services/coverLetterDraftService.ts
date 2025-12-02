@@ -33,6 +33,13 @@ import { aggregateContentStandards, extractSectionsMeta, mapDraftSectionType } f
 import type { ContentStandardsAnalysis, SectionStandardResult, LetterStandardResult } from '@/types/coverLetters';
 import type { DraftReadinessEvaluation } from '@/types/coverLetters';
 import { isDraftReadinessEnabled } from '@/lib/flags';
+import type {
+  DraftCoverLetterEvalEvent,
+  PhaseACompleteness,
+  PhaseBCompleteness,
+  ToolbarValidation,
+  EvalStatus,
+} from '@/types/evaluationEvents';
 
 export class DraftReadinessFeatureDisabledError extends Error {
   readonly statusCode = 503;
