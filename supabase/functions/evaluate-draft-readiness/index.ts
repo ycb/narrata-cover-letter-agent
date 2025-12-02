@@ -237,6 +237,19 @@ export async function evaluateDraftReadinessCore(
       },
     });
 
+    // Log to evaluation_runs for QA dashboard
+    await logReadinessToEvalRuns({
+      supabase: params.supabase,
+      userId: params.userId,
+      draftId: params.draftId,
+      verdict: 'needs_work',
+      dimensionsPopulated: 0,
+      improvementCount: 1,
+      isShortDraft: true,
+      latencyMs: 0,
+      status: 'pass', // Short draft fallback is expected behavior
+    });
+
     try {
       elog.info('readiness_eval_short_draft', {
         draftId: params.draftId,
@@ -283,6 +296,26 @@ export async function evaluateDraftReadinessCore(
       verdict: result.verdict,
       dimensions: result.dimensions,
     },
+  });
+
+  // Count populated dimensions (should be 4)
+  const dimensionsPopulated = Object.values(result.dimensions).filter(v => v != null).length;
+  const improvementCount = result.improvements?.length ?? 0;
+  
+  // Determine eval status
+  const evalStatus: 'pass' | 'review' | 'fail' = dimensionsPopulated < 4 ? 'review' : 'pass';
+  
+  // Log to evaluation_runs for QA dashboard
+  await logReadinessToEvalRuns({
+    supabase: params.supabase,
+    userId: params.userId,
+    draftId: params.draftId,
+    verdict: result.verdict,
+    dimensionsPopulated,
+    improvementCount,
+    isShortDraft: false,
+    latencyMs,
+    status: evalStatus,
   });
 
   try {
@@ -361,6 +394,51 @@ async function upsertEvaluationRow(args: {
 
   if (error) {
     throw new Error(`Failed to upsert readiness evaluation: ${error.message}`);
+  }
+}
+
+/**
+ * Log readiness evaluation to evaluation_runs table for QA dashboard
+ */
+async function logReadinessToEvalRuns(args: {
+  supabase: SupabaseClient;
+  userId: string;
+  draftId: string;
+  verdict: string;
+  dimensionsPopulated: number;
+  improvementCount: number;
+  isShortDraft: boolean;
+  latencyMs: number;
+  status: 'pass' | 'review' | 'fail';
+  error?: string;
+}) {
+  const { supabase, userId, draftId, verdict, dimensionsPopulated, improvementCount, isShortDraft, latencyMs, status, error: errorMsg } = args;
+  
+  try {
+    const { error } = await supabase
+      .from('evaluation_runs')
+      .insert({
+        user_id: userId,
+        file_type: 'draft_readiness',
+        readiness_status: status,
+        readiness_verdict: verdict,
+        readiness_dimensions_populated: dimensionsPopulated,
+        readiness_improvement_count: improvementCount,
+        readiness_is_short_draft: isShortDraft,
+        readiness_latency_ms: latencyMs,
+        readiness_error: errorMsg ?? null,
+        readiness_draft_id: draftId,
+        llm_analysis_latency_ms: latencyMs,
+        total_latency_ms: latencyMs,
+        model: isShortDraft ? 'guardrail' : 'gpt-4o-mini',
+      });
+
+    if (error) {
+      elog.error('[evaluate-draft-readiness] Failed to log to evaluation_runs:', error);
+    }
+  } catch (e) {
+    // Non-blocking - don't fail the request if logging fails
+    elog.error('[evaluate-draft-readiness] Exception logging to evaluation_runs:', e);
   }
 }
 
