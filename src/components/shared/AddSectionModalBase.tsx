@@ -300,7 +300,8 @@ export function AddSectionModalBase({
                       {!selectedCompany && (
                         <div className="space-y-2">
                           {workHistoryLibrary.map((company) => {
-                            const roleCount = company.roles.filter((role) => role.blurbs.length > 0).length;
+                            const roles = company.roles ?? [];
+                            const roleCount = roles.filter((role) => (role.blurbs ?? []).length > 0).length;
                             return (
                               <div
                                 key={company.id}
@@ -332,9 +333,10 @@ export function AddSectionModalBase({
                       {/* Role List */}
                       {selectedCompany && !selectedRole && (
                         <div className="space-y-2">
-                          {workHistoryLibrary
+                          {(workHistoryLibrary
                             .find((company) => company.id === selectedCompany)
-                            ?.roles.filter((role) => role.blurbs.length > 0)
+                            ?.roles ?? [])
+                            .filter((role) => (role.blurbs ?? []).length > 0)
                             .map((role) => (
                               <div
                                 key={role.id}
@@ -349,7 +351,7 @@ export function AddSectionModalBase({
                                     )}
                                   </div>
                                   <div className="flex items-center gap-2">
-                                    <Badge variant="secondary">{role.blurbs.length} story{role.blurbs.length === 1 ? '' : 's'}</Badge>
+                                    <Badge variant="secondary">{(role.blurbs ?? []).length} story{(role.blurbs ?? []).length === 1 ? '' : 's'}</Badge>
                                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                                   </div>
                                 </div>
@@ -361,10 +363,11 @@ export function AddSectionModalBase({
                       {/* Story List */}
                       {selectedRole && (
                         <div className="space-y-3">
-                          {workHistoryLibrary
+                          {((workHistoryLibrary
                             .find((company) => company.id === selectedCompany)
-                            ?.roles.find((role) => role.id === selectedRole)
-                            ?.blurbs.map((blurb) => (
+                            ?.roles ?? [])
+                            .find((role) => role.id === selectedRole)
+                            ?.blurbs ?? []).map((blurb) => (
                               <div
                                 key={blurb.id}
                                 className="p-4 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
