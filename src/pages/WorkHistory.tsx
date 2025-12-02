@@ -67,6 +67,10 @@ function transformClustersToWorkHistory(
         ...cluster.otherItems.map(i => i.id),
       ];
       
+      // Use first real work_item ID as the role ID (for gap queries etc.)
+      // Fall back to cluster ID if no work items (shouldn't happen)
+      const primaryWorkItemId = allItemIds[0] || cluster.clusterId;
+      
       // Aggregate gaps from all work items in cluster
       let totalGapCount = 0;
       const allGaps: Array<{ id: string; description: string; gap_category?: string }> = [];
@@ -83,7 +87,7 @@ function transformClustersToWorkHistory(
         
         return {
           id: story.id,
-          roleId: cluster.clusterId,
+          roleId: primaryWorkItemId,
           title: story.title,
           content: story.content,
           outcomeMetrics: story.metrics.map(m => m.value),
@@ -108,7 +112,7 @@ function transformClustersToWorkHistory(
         'full-time';
       
       return {
-        id: cluster.clusterId,
+        id: primaryWorkItemId, // Use real work_item UUID for DB queries
         companyId: cluster.companyId,
         title: cluster.canonicalTitle,
         type: roleType,
@@ -124,6 +128,7 @@ function transformClustersToWorkHistory(
         gaps: allGaps,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        workItemIds: allItemIds, // Store all underlying work_item IDs
       };
     });
     

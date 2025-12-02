@@ -42,6 +42,8 @@ export interface WorkHistoryRole {
   externalLinks: ExternalLink[];
   createdAt: string;
   updatedAt: string;
+  // For merged clusters: the underlying work_item UUIDs
+  workItemIds?: string[];
 }
 
 export interface ExternalLink {

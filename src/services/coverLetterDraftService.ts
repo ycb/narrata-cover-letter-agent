@@ -938,7 +938,31 @@ export class CoverLetterDraftService {
         }
       : undefined;
 
-    // Update draft with calculated metrics
+    // Fetch MwS from streaming job result (persisted at source, not via frontend useEffect)
+    let mwsData: { summaryScore: 0 | 1 | 2 | 3; details: Array<{ label: string; strengthLevel: string; explanation: string }> } | undefined;
+    try {
+      const { data: jobRows } = await this.supabaseClient
+        .from('jobs')
+        .select('result')
+        .eq('user_id', userId)
+        .eq('type', 'coverLetter')
+        .order('created_at', { ascending: false })
+        .limit(5); // Get recent jobs to find one with matching JD
+
+      // Find job with MwS data (result.mws exists)
+      const jobWithMws = (jobRows ?? []).find((j: any) => j.result?.mws?.summaryScore !== undefined);
+      if (jobWithMws?.result?.mws) {
+        mwsData = jobWithMws.result.mws;
+        console.log('[CoverLetterDraftService] Found MwS from job result:', {
+          summaryScore: mwsData?.summaryScore,
+          detailCount: mwsData?.details?.length,
+        });
+      }
+    } catch (mwsError) {
+      console.warn('[CoverLetterDraftService] Failed to fetch MwS from jobs:', mwsError);
+    }
+
+    // Update draft with calculated metrics + MwS from streaming job
     await this.supabaseClient
       .from('cover_letters')
       .update({
@@ -948,6 +972,7 @@ export class CoverLetterDraftService {
           enhancedMatchData: metricResult.enhancedMatchData,
           ...(ratingData ? { rating: ratingData } : {}),
           ...(contentStandardsResult ? { contentStandards: contentStandardsResult } : {}),
+          ...(mwsData ? { mws: mwsData } : {}), // Persist MwS from streaming job
         } as unknown as Record<string, unknown>,
         metrics: metricResult.metrics as unknown as Record<string, unknown>,
         analytics: {
@@ -972,6 +997,7 @@ export class CoverLetterDraftService {
       metrics: metricResult.metrics,
       contentStandards: contentStandardsResult,
       overallScore: contentStandardsResult?.aggregated?.overallScore,
+      mwsData, // Include MwS in eval logging
       phaseBLatencyMs: metricsEndTime - metricsStartTime,
       status: 'success',
     });

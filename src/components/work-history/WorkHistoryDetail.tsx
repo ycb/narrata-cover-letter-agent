@@ -1483,8 +1483,8 @@ export const WorkHistoryDetail = ({
                   <div>
                     {selectedRole.blurbs.map((story, index) => {
                       // Find linked external links for this story
-                      const linkedLinks = story.linkedExternalLinks
-                        .map(linkId => selectedRole.externalLinks.find(link => link.id === linkId))
+                      const linkedLinks = (story.linkedExternalLinks || [])
+                        .map(linkId => selectedRole.externalLinks?.find(link => link.id === linkId))
                         .filter(Boolean) as any[];
                       
                       return (
