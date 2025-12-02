@@ -6,6 +6,12 @@ import { FeedbackPin } from './FeedbackPin';
 import { useInspectMode } from '@/hooks/useInspectMode';
 import { useScreenshot } from '@/hooks/useScreenshot';
 
+// Check if device is mobile/touch
+const isTouchDevice = () => {
+  if (typeof window === 'undefined') return false;
+  return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+};
+
 export const FeedbackSystem: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [screenshot, setScreenshot] = useState<string>('');
@@ -58,6 +64,17 @@ export const FeedbackSystem: React.FC = () => {
     setIsModalOpen(true);
   };
 
+  // Handle button click - on mobile, skip inspect mode and open modal directly
+  const handleFeedbackButtonClick = () => {
+    if (isTouchDevice()) {
+      // On mobile/touch devices, open modal directly
+      openFeedbackModal();
+    } else {
+      // On desktop, use inspect mode for element pinning
+      startInspectMode();
+    }
+  };
+
   const closeFeedbackModal = () => {
     setIsModalOpen(false);
     setScreenshot('');
@@ -102,7 +119,7 @@ export const FeedbackSystem: React.FC = () => {
   return (
     <>
       <FloatingFeedbackButton
-        onClick={startInspectMode}
+        onClick={handleFeedbackButtonClick}
         isOpen={isInspectModeActive || isModalOpen}
       />
       

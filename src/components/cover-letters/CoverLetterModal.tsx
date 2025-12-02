@@ -995,19 +995,24 @@ export const CoverLetterModal = ({
           console.error('[CoverLetterModal] createJob rejected:', err);
           throw err;
         }),
-        // 2. Draft generation (proper sections, content, enhancedMatchData)
-        coverLetterDraftService.generateDraft({
+        // 2. Draft generation - FAST PATH (sections only, metrics in background)
+        // PERF: generateDraftFast returns in ~2-5s with sections
+        // Background metrics calculation happens non-blocking
+        coverLetterDraftService.generateDraftFast({
           userId: user.id,
           templateId: selectedTemplateId,
           jobDescriptionId: record.id,
-          onProgress: (stage, message) => {
-            console.log(`[generateDraft] ${stage}: ${message}`);
+          onProgress: update => {
+            console.log(`[generateDraftFast] ${update.phase}: ${update.message}`);
+          },
+          onSectionBuilt: (section, index, total) => {
+            console.log(`[generateDraftFast] Section ${index + 1}/${total} built: ${section.title}`);
           },
         }).then(result => {
-          console.log('[CoverLetterModal] generateDraft resolved with', result.draft.sections.length, 'sections');
+          console.log('[CoverLetterModal] generateDraftFast resolved with', result.draft.sections.length, 'sections');
           return result;
         }).catch(err => {
-          console.error('[CoverLetterModal] generateDraft rejected:', err);
+          console.error('[CoverLetterModal] generateDraftFast rejected:', err);
           throw err;
         }),
       ]);
