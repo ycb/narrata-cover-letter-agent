@@ -66,12 +66,14 @@ const normalizeSectionType = (type: string): string[] => {
 export function computeSectionAttribution({
   sectionId,
   sectionType,
+  sectionCategory,
   enhancedMatchData,
   ratingCriteria,
   contentStandards,
 }: {
   sectionId: string;
   sectionType: string;
+  sectionCategory?: 'intro' | 'body' | 'closing'; // Optional: pre-computed category (e.g., from position)
   enhancedMatchData?: EnhancedMatchData | null;
   ratingCriteria?: CoverLetterCriterion[];
   contentStandards?: ContentStandardsAnalysis | null;
