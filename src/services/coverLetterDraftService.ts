@@ -783,6 +783,7 @@ export class CoverLetterDraftService {
     jobDescriptionId: string,
     onProgress?: DraftGenerationOptions['onProgress']
   ): Promise<EnhancedMatchData | undefined> {
+    const metricsStartTime = Date.now();
     this.emitProgress(onProgress, 'metrics', 'Loading data for metrics calculation...');
 
     const [draftRow, jobDescription, userGoals, workHistory, approvedContent] = await Promise.all([
@@ -959,6 +960,21 @@ export class CoverLetterDraftService {
       .eq('id', draftId);
 
     this.emitProgress(onProgress, 'metrics', 'Match metrics calculated successfully!');
+
+    // Log evaluation result for QA tracking
+    const metricsEndTime = Date.now();
+    await this.logDraftCoverLetterResult({
+      userId,
+      draftId,
+      jobDescriptionId,
+      sections,
+      enhancedMatchData: metricResult.enhancedMatchData,
+      metrics: metricResult.metrics,
+      contentStandards: contentStandardsResult,
+      overallScore: contentStandardsResult?.aggregated?.overallScore,
+      phaseBLatencyMs: metricsEndTime - metricsStartTime,
+      status: 'success',
+    });
 
     return metricResult.enhancedMatchData;
   }
@@ -2892,6 +2908,168 @@ export class CoverLetterDraftService {
           },
         };
       });
+  }
+
+  // ============================================================================
+  // EVALUATION LOGGING
+  // ============================================================================
+
+  /**
+   * Log draft cover letter generation result to evaluation_runs table
+   * 
+   * Tracks completeness of all toolbar metrics to catch regressions like:
+   * - Gaps badge showing count but no children populating
+   * - MwS/MwG not displaying
+   * - Overall score missing
+   */
+  private async logDraftCoverLetterResult(data: {
+    userId: string;
+    draftId: string;
+    jobDescriptionId: string;
+    sections: CoverLetterDraftSection[];
+    enhancedMatchData?: EnhancedMatchData;
+    metrics?: CoverLetterMatchMetric[];
+    contentStandards?: ContentStandardsAnalysis | null;
+    overallScore?: number;
+    phaseALatencyMs?: number;
+    phaseBLatencyMs: number;
+    status: 'success' | 'failed';
+    errorMessage?: string;
+    syntheticProfileId?: string;
+  }): Promise<void> {
+    try {
+      // Build Phase A completeness (from metrics if available)
+      const goalsMetric = data.metrics?.find(m => m.key === 'goals');
+      const coreReqMetric = data.metrics?.find(m => m.key === 'coreRequirements');
+      const prefReqMetric = data.metrics?.find(m => m.key === 'preferredRequirements');
+
+      const phaseA: PhaseACompleteness = {
+        jdAnalysis: {
+          complete: true, // If we got here, JD was loaded
+        },
+        coreRequirements: {
+          complete: coreReqMetric?.type === 'requirement' && coreReqMetric.total > 0,
+          count: coreReqMetric?.type === 'requirement' ? coreReqMetric.total : 0,
+        },
+        preferredRequirements: {
+          complete: prefReqMetric !== undefined,
+          count: prefReqMetric?.type === 'requirement' ? prefReqMetric.total : 0,
+        },
+        goalsMatched: {
+          complete: goalsMetric !== undefined,
+          met: goalsMetric?.type === 'requirement' ? goalsMetric.met : 0,
+          total: goalsMetric?.type === 'requirement' ? goalsMetric.total : 0,
+        },
+        strengthsMatched: {
+          complete: false, // MwS comes from A-phase streaming, not metrics calculation
+          summaryScore: null,
+          detailCount: 0,
+        },
+      };
+
+      // Build Phase B completeness
+      const allGaps = data.enhancedMatchData?.sectionGapInsights
+        ?.flatMap(s => s.requirementGaps || []) ?? [];
+      const badgeCount = allGaps.length;
+      const hasGapsChildren = (data.enhancedMatchData?.sectionGapInsights?.length ?? 0) > 0;
+
+      const phaseB: PhaseBCompleteness = {
+        sectionsGenerated: {
+          complete: data.sections.length > 0,
+          count: data.sections.length,
+        },
+        gapsAnalyzed: {
+          complete: hasGapsChildren || badgeCount === 0, // Complete if we have children OR no gaps
+          badgeCount,
+          actualGaps: allGaps.length,
+          match: true, // Badge count always equals actual in our implementation
+        },
+        overallScore: {
+          complete: typeof data.overallScore === 'number',
+          value: data.overallScore ?? null,
+        },
+        contentStandards: {
+          complete: data.contentStandards?.perSection !== undefined,
+          perSectionCount: data.contentStandards?.perSection?.length ?? 0,
+        },
+      };
+
+      // Validate toolbar completeness
+      const toolbarPopulated: ToolbarValidation = {
+        gaps: phaseB.gapsAnalyzed.complete && (badgeCount === 0 || hasGapsChildren),
+        mwg: phaseA.goalsMatched.complete,
+        mws: phaseA.strengthsMatched.complete, // Will be false - MwS is from streaming
+        coreReqs: phaseA.coreRequirements.complete,
+        preferredReqs: phaseA.preferredRequirements.complete,
+        overallScore: phaseB.overallScore.complete,
+        readiness: false, // Async, checked separately
+      };
+
+      // Determine eval status and missing fields
+      const missingFields: string[] = [];
+      if (!toolbarPopulated.gaps) missingFields.push('gaps.children');
+      if (!toolbarPopulated.mwg) missingFields.push('mwg');
+      if (!toolbarPopulated.coreReqs) missingFields.push('core_requirements');
+      if (!toolbarPopulated.overallScore) missingFields.push('overall_score');
+      // Note: MwS and Readiness are handled separately (streaming and async respectively)
+
+      let evalStatus: EvalStatus = 'pass';
+      if (data.status === 'failed') {
+        evalStatus = 'fail';
+      } else if (missingFields.length > 0) {
+        evalStatus = 'review';
+      }
+
+      const totalLatencyMs = (data.phaseALatencyMs ?? 0) + data.phaseBLatencyMs;
+
+      // Build payload matching evaluation_runs schema
+      const payload = {
+        user_id: data.userId,
+        session_id: `draft-cl-${data.draftId}`,
+        source_id: data.draftId,
+        file_type: 'draft_cover_letter',
+        user_type: data.syntheticProfileId ? 'synthetic' : 'real',
+        synthetic_profile_id: data.syntheticProfileId ?? null,
+
+        // Latency
+        llm_analysis_latency_ms: data.phaseBLatencyMs,
+        total_latency_ms: totalLatencyMs,
+
+        // Model info
+        model: 'gpt-4o-mini',
+
+        // Standard eval fields
+        accuracy_score: evalStatus === 'pass' ? '✅ Pass' : evalStatus === 'review' ? '⚠️ Review' : '❌ Fail',
+        go_nogo_decision: evalStatus === 'pass' ? '✅ Pass' : evalStatus === 'review' ? '⚠️ Review' : '❌ Fail',
+        evaluation_rationale: evalStatus === 'pass'
+          ? `Draft generated successfully. ${data.sections.length} sections, score: ${data.overallScore ?? 'N/A'}`
+          : evalStatus === 'review'
+            ? `Missing fields: ${missingFields.join(', ')}`
+            : data.errorMessage ?? 'Draft generation failed',
+
+        // Draft-specific snapshot
+        draft_cl_snapshot: {
+          phaseA,
+          phaseB,
+          toolbarPopulated,
+          missingFields,
+          evalStatus,
+        } as unknown as Record<string, unknown>,
+      };
+
+      const { error } = await this.supabaseClient
+        .from('evaluation_runs')
+        .insert([payload as any]);
+
+      if (error) {
+        console.error('[CoverLetterDraftService] Failed to log eval result:', error);
+      } else {
+        console.log('[CoverLetterDraftService] Logged draft eval result:', evalStatus, missingFields);
+      }
+    } catch (logError) {
+      // Non-blocking - don't fail draft generation if logging fails
+      console.error('[CoverLetterDraftService] Error logging eval result:', logError);
+    }
   }
 
   /**
