@@ -1,6 +1,7 @@
 // React hook for file upload functionality
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { FileUploadService } from '@/services/fileUploadService';
+import { AppifyService, type AppifyEnrichmentResult } from '@/services/appifyService';
 import { LinkedInOAuthService } from '@/services/linkedinOAuthService';
 import { PeopleDataLabsService } from '@/services/peopleDataLabsService';
 import { useAuth } from '@/contexts/AuthContext';
@@ -437,33 +438,51 @@ export function useLinkedInUpload() {
         };
       }
 
-      // Strategy 1: Try to fetch real LinkedIn data using OAuth
-      console.log('Attempting to fetch real LinkedIn data using OAuth...');
+      // Strategy 1: Try to fetch LinkedIn data using Appify API
+      console.log('Attempting to fetch LinkedIn data using Appify API...');
       
-      const linkedInService = new LinkedInOAuthService();
-      const profileResult = await linkedInService.fetchProfileData();
+      const appifyService = new AppifyService();
+      let appifyResult: AppifyEnrichmentResult | null = null;
+      
+      if (appifyService.isConfigured()) {
+        console.log('🔍 Appify API configured, fetching LinkedIn data...');
+        appifyResult = await appifyService.enrichPerson({
+          linkedinUrl: trimmedUrl,
+          name: user?.user_metadata?.full_name || profile?.full_name || undefined
+        });
+      } else {
+        console.warn('⚠️ Appify API not configured - skipping LinkedIn enrichment');
+      }
       
       let profileData;
       let profileId = `linkedin_${Date.now()}`;
       let dataSource = 'unknown';
       
-      if (profileResult.success && profileResult.data) {
-        // Use real LinkedIn data from OAuth
-        console.log('✅ Successfully fetched real LinkedIn data via OAuth');
-        dataSource = 'linkedin_oauth';
+      if (appifyResult?.success && appifyResult.data) {
+        // Use LinkedIn data from Appify
+        console.log('✅ Successfully fetched LinkedIn data via Appify');
+        dataSource = 'appify';
+        
+        // Appify enrichment already returns data in our StructuredResumeData format
+        const linkedinData = appifyResult.data;
+        
+        // Extract name from structured data if available
+        const fullName = user?.user_metadata?.full_name || profile?.full_name || '';
+        const [firstName, ...lastNameParts] = fullName.split(' ');
+        
         profileData = {
           id: profileId,
           linkedinId: linkedinUsername,
           profileUrl: trimmedUrl,
-          firstName: profileResult.data.rawData?.profile?.firstName || 'Unknown',
-          lastName: profileResult.data.rawData?.profile?.lastName || 'User',
-          headline: profileResult.data.rawData?.profile?.headline || 'Professional',
-          summary: profileResult.data.about || 'No summary available',
-          experience: profileResult.data.experience,
-          education: profileResult.data.education,
-          skills: profileResult.data.skills,
-          certifications: profileResult.data.certifications,
-          projects: profileResult.data.projects
+          firstName: firstName || 'Unknown',
+          lastName: lastNameParts.join(' ') || 'User',
+          headline: linkedinData.workHistory?.[0]?.title || linkedinData.summary || 'Professional',
+          summary: linkedinData.summary || 'No summary available',
+          experience: linkedinData.workHistory || [],
+          education: linkedinData.education || [],
+          skills: linkedinData.skills || [],
+          certifications: linkedinData.certifications || [],
+          projects: linkedinData.projects || []
         };
       } else {
         // Strategy 2: Check for synthetic test data (development only)

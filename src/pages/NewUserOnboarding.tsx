@@ -163,6 +163,10 @@ export default function NewUserOnboarding() {
     } else if (uploadType === 'coverLetter') {
       setCoverLetterCompleted(true);
     }
+    
+    // Clear processing state after upload completes
+    // This ensures button is enabled after all uploads are done
+    setIsProcessing(false);
   };
 
   const handleUploadError = (error: string) => {
@@ -194,6 +198,8 @@ export default function NewUserOnboarding() {
   };
 
   useEffect(() => {
+    let processingTimeout: NodeJS.Timeout | null = null;
+
     const handleFileUploadProgress = (event: Event) => {
       const detail = (event as CustomEvent).detail as { stage?: string } | undefined;
       const stage = detail?.stage;
@@ -201,9 +207,20 @@ export default function NewUserOnboarding() {
 
       if (['uploading', 'extracting', 'analyzing', 'structuring'].includes(stage)) {
         setIsProcessing(true);
+        
+        // Safety timeout: clear processing state after 30 seconds if no completion event
+        if (processingTimeout) clearTimeout(processingTimeout);
+        processingTimeout = setTimeout(() => {
+          console.warn('[Onboarding] Processing timeout - clearing isProcessing state');
+          setIsProcessing(false);
+        }, 30000);
       }
 
       if (stage === 'complete' || stage === 'duplicate') {
+        if (processingTimeout) {
+          clearTimeout(processingTimeout);
+          processingTimeout = null;
+        }
         setIsProcessing(false);
       }
     };
@@ -215,9 +232,20 @@ export default function NewUserOnboarding() {
 
       if (step === 'saving') {
         setIsProcessing(true);
+        
+        // Safety timeout: clear processing state after 30 seconds if no completion event
+        if (processingTimeout) clearTimeout(processingTimeout);
+        processingTimeout = setTimeout(() => {
+          console.warn('[Onboarding] Processing timeout - clearing isProcessing state');
+          setIsProcessing(false);
+        }, 30000);
       }
 
       if (step === 'complete') {
+        if (processingTimeout) {
+          clearTimeout(processingTimeout);
+          processingTimeout = null;
+        }
         setIsProcessing(false);
       }
     };
@@ -226,10 +254,20 @@ export default function NewUserOnboarding() {
     window.addEventListener('upload:progress', handleUploadProgress as EventListener);
 
     return () => {
+      if (processingTimeout) clearTimeout(processingTimeout);
       window.removeEventListener('file-upload-progress', handleFileUploadProgress as EventListener);
       window.removeEventListener('upload:progress', handleUploadProgress as EventListener);
     };
   }, []);
+
+  // Auto-clear processing state when all uploads are complete
+  useEffect(() => {
+    if (resumeCompleted && linkedinCompleted && coverLetterCompleted) {
+      // All uploads complete - ensure processing state is cleared
+      console.log('[Onboarding] All uploads complete - clearing processing state');
+      setIsProcessing(false);
+    }
+  }, [resumeCompleted, linkedinCompleted, coverLetterCompleted]);
 
   /**
    * Check if resume contains LinkedIn URL and auto-populate Step 2

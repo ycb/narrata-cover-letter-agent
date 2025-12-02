@@ -18,6 +18,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { FileUploadService } from "@/services/fileUploadService";
+import type { FileType } from "@/types/fileUpload";
+import { toast } from "sonner";
 import type { WorkHistoryCompany, WorkHistoryRole, WorkHistoryBlurb, ExternalLink } from "@/types/workHistory";
 
 // REMOVED: Sample data - now using empty states instead
@@ -216,6 +219,9 @@ const sampleWorkHistory: WorkHistoryCompany[] = [
 export default function WorkHistory() {
   // Auth context
   const { user } = useAuth();
+  
+  // File upload service
+  const [isUploading, setIsUploading] = useState(false);
   
   // Tour functionality
   const { isActive: isTourActive, currentStep: tourStep, tourSteps, currentTourStep, nextStep, previousStep, cancelTour } = useTour();
@@ -863,8 +869,80 @@ export default function WorkHistory() {
   };
 
   const handleUploadResume = () => {
-    // TODO: Implement resume upload
-    console.log("Upload resume");
+    if (!user) {
+      console.error('No user found');
+      toast.error('Authentication required', {
+        description: 'You must be logged in to upload a resume'
+      });
+      return;
+    }
+    
+    console.log('📤 Opening file picker for resume upload...');
+    
+    // Create a hidden file input element
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.docx,.txt,.md';
+    input.onchange = async (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      const file = target.files?.[0];
+      
+      if (!file) {
+        console.log('No file selected');
+        return;
+      }
+      
+      console.log(`📄 File selected: ${file.name} (${file.size} bytes, type: ${file.type})`);
+      
+      try {
+        // Validate file
+        if (file.size > 5 * 1024 * 1024) {
+          toast.error('File too large', {
+            description: 'File must be less than 5MB'
+          });
+          return;
+        }
+        
+        toast.loading('Uploading resume...', { id: 'resume-upload' });
+        
+        setIsUploading(true);
+        setIsLoading(true);
+        
+        // Use the file upload service directly
+        console.log(`🚀 Starting upload for user ${user.id}...`);
+        const uploadService = new FileUploadService();
+        
+        // Get session token
+        const { data: { session } } = await supabase.auth.getSession();
+        const accessToken = session?.access_token;
+        
+        const result = await uploadService.uploadFile(file, user.id, 'resume' as FileType, accessToken);
+        
+        console.log('✅ Upload result:', result);
+        
+        if (result.success) {
+          console.log('Refreshing work history...');
+          toast.dismiss('resume-upload');
+          await fetchWorkHistory();
+          toast.success('Resume uploaded successfully!', {
+            description: 'Your work history has been updated.'
+          });
+        } else {
+          throw new Error(result.error || 'Upload failed');
+        }
+      } catch (error) {
+        console.error('❌ Error in upload handler:', error);
+        toast.dismiss('resume-upload');
+        toast.error('Upload failed', {
+          description: error instanceof Error ? error.message : 'Unknown error'
+        });
+      } finally {
+        setIsUploading(false);
+        setIsLoading(false);
+      }
+    };
+    
+    input.click();
   };
 
   const handleViewLinkedInProfile = () => {
@@ -979,6 +1057,7 @@ export default function WorkHistory() {
                 onEditCompany={handleEditCompany}
                 selectedDataSource={selectedDataSource}
                 onRefresh={fetchWorkHistory}
+                onUploadResume={handleUploadResume}
               />
             </div>
           </div>

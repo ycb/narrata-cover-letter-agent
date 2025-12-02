@@ -67,7 +67,18 @@ const SignIn = () => {
     try {
       const { error } = await signInWithLinkedIn();
       if (error) {
-        setFormError(error.message || 'LinkedIn sign in failed');
+        setFormError(
+          error.message || 
+          'LinkedIn sign in failed. Try Google sign-in instead, or sign in with email.'
+        );
+      } else {
+        // Set a timeout warning in case LinkedIn shows a security checkpoint
+        setTimeout(() => {
+          // If we're still on this page after 10 seconds, something might be wrong
+          if (window.location.pathname === '/signin') {
+            console.warn('LinkedIn OAuth may have encountered a security checkpoint');
+          }
+        }, 10000);
       }
     } catch (err: any) {
       setFormError(err.message || 'An unexpected error occurred');
@@ -114,16 +125,6 @@ const SignIn = () => {
               <Button 
                 variant="secondary" 
                 className="w-full gap-2"
-                onClick={handleLinkedInSignIn}
-                disabled={loading}
-              >
-                <Linkedin className="h-4 w-4" />
-                Continue with LinkedIn
-              </Button>
-              
-              <Button 
-                variant="secondary" 
-                className="w-full gap-2"
                 onClick={handleGoogleSignIn}
                 disabled={loading}
               >
@@ -135,6 +136,20 @@ const SignIn = () => {
                 </svg>
                 Continue with Google
               </Button>
+              
+              <Button 
+                variant="secondary" 
+                className="w-full gap-2"
+                onClick={handleLinkedInSignIn}
+                disabled={loading}
+              >
+                <Linkedin className="h-4 w-4" />
+                Continue with LinkedIn
+              </Button>
+              
+              <p className="text-xs text-muted-foreground text-center">
+                Having trouble with LinkedIn? Try Google or email sign-in instead.
+              </p>
             </div>
 
             <div className="relative">

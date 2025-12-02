@@ -71,6 +71,7 @@ interface WorkHistoryDetailProps {
   selectedDataSource?: 'work-history' | 'linkedin' | 'resume';
   onDeleteStory?: (story: WorkHistoryBlurb) => void;
   onRefresh?: () => void; // Callback to refresh parent data after gap resolution
+  onUploadResume?: () => void; // Callback for resume upload
 }
 
 type DetailView = 'role' | 'stories' | 'links';
@@ -93,6 +94,7 @@ export const WorkHistoryDetail = ({
   onDeleteStory,
   selectedDataSource = 'work-history',
   onRefresh,
+  onUploadResume,
 }: WorkHistoryDetailProps) => {
   const { user } = useAuth();
   const { goals } = useUserGoals();
@@ -898,8 +900,8 @@ export const WorkHistoryDetail = ({
     return (
       <div className="h-full">
         <ResumeDataSource 
-          onUploadResume={() => console.log('Upload Resume')}
-          onRefresh={() => window.location.reload()}
+          onUploadResume={onUploadResume}
+          onRefresh={onRefresh}
         />
       </div>
     );

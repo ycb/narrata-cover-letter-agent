@@ -305,12 +305,13 @@ export class LLMAnalysisService {
     const baseOutputTokens = Math.ceil(contentTokens * complexityMultiplier * typeMultiplier);
     
     // Add structure overhead and safety buffer
-    const safetyBuffer = 1.8; // 80% safety buffer to avoid retries (increased from 1.35x based on production testing)
-    const fixedOverhead = 500; // Additional fixed overhead for story extraction
+    const safetyBuffer = 3.0; // 200% safety buffer for improved prompt (extracts ALL achievements)
+    const fixedOverhead = 1500; // Large fixed overhead for comprehensive story extraction
     const optimalTokens = Math.ceil((baseOutputTokens + structureOverhead) * safetyBuffer + fixedOverhead);
     
-    // Apply bounds: minimum 800, maximum 5000 (increased to handle complex story extraction)
-    const finalTokens = Math.max(800, Math.min(optimalTokens, 5000));
+    // Apply bounds: minimum 2000, maximum 16000 (gpt-4o limit)
+    // Improved prompt extracts EVERY achievement as separate story - needs lots of tokens
+    const finalTokens = Math.max(2000, Math.min(optimalTokens, 16000));
     
     console.warn(`📊 Token calculation: ${extractedText.length} chars → ${contentTokens} content tokens + ${structureOverhead} overhead → ${finalTokens} max tokens (${type}, complexity: ${complexityMultiplier.toFixed(2)}, buffer: ${safetyBuffer}x)`);
     
@@ -445,11 +446,15 @@ export class LLMAnalysisService {
       if (finishReason === 'length') {
         console.log('🔄 Auto-healing: Response truncated, retrying with higher token limit...');
         
-        // Calculate new token limit based on content length
+        // Calculate new token limit - we need MORE than what was already generated
         const contentTokens = Math.ceil((content?.length || 0) / 4); // Rough estimate
-        const newTokenLimit = Math.floor(Math.min(contentTokens * 1.5, 4000)); // 1.5x current, max 4000, ensure integer
+        const currentLimit = dynamicTokenLimit || OPENAI_CONFIG.MAX_TOKENS;
+        // Add 50% more tokens than current response size, minimum 2x current limit
+        const newTokenLimit = Math.floor(Math.max(contentTokens * 1.5, currentLimit * 2, 8000));
+        // Cap at model maximum
+        const cappedLimit = Math.min(newTokenLimit, 16000);
         
-        console.log(`📊 Truncation analysis: Content ~${contentTokens} tokens, retrying with ${newTokenLimit} max tokens`);
+        console.log(`📊 Truncation analysis: Generated ${contentTokens} tokens at ${currentLimit} limit, retrying with ${cappedLimit} max tokens`);
         
         // Retry with higher token limit
         return this.callOpenAI(prompt, newTokenLimit);

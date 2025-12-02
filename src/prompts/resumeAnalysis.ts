@@ -40,7 +40,7 @@ Return ONLY valid JSON with this exact structure. ALL FIELDS ARE REQUIRED:
     {
       "id": "1",
       "company": "Company Name",
-      "companyDescription": "Brief description of what the company does (1-2 sentences). Extract from company context, LinkedIn profile, or resume header. If not explicitly stated, infer from industry/company name. Examples: 'SaaS platform for customer engagement' or 'Enterprise software provider'",  // REQUIRED: Company-level description explaining what the company does
+      "companyDescription": "REQUIRED: 1-2 sentences describing what this company does. ALWAYS provide this field - NEVER leave empty. Extract from: resume header, role context, or general knowledge. If not explicit, infer from company name, industry, or role descriptions. Examples: 'Electric vehicle and clean energy company', 'SaaS platform for customer engagement', 'Healthcare insurance provider'. For startups, describe their product/service.",  // MANDATORY: Company description must always be provided
       "title": "Job Title",  // MANDATORY: Extract the actual job title - this field is REQUIRED and MUST NEVER be empty. Example: "Senior Product Manager"
       "startDate": "YYYY-MM-DD",
       "endDate": "YYYY-MM-DD or null if current",  // CRITICAL: Use null for "Present" or current positions
@@ -105,17 +105,31 @@ Return ONLY valid JSON with this exact structure. ALL FIELDS ARE REQUIRED:
 
 CRITICAL EXTRACTION RULES:
 
-1. STORIES (Most Important):
-   - Stories explain actions, challenges and constraints leading to a result
-   - A story has narrative structure: challenge/context → action → result
-   - Examples: STAR format, Google format ("Accomplished X as measured by Y, by doing Z")
-   - NOTE: Resumes are compact - stories are LESS COMMON here. Cover letters typically contain more narrative/story content where users expand on resume achievements.
-   - If a bullet has BOTH a story AND a metric → extract as story with story.metrics[]
-   - If a bullet has ONLY a metric (no story context) → it's a role-level metric, NOT a story
-   - Extract stories per role and PLACE THEM IN THE workHistory[].stories[] ARRAY
-   - Empty stories[] is OK if resume only has standalone metrics (users may expand role-level metrics into stories later, often in cover letters)
-   - If a story cannot be linked to any work history entry, it should still be included but mark it as orphan by including "orphan": true
-   - Each story should reference its parent role through context: include company name and title from the parent workHistory entry
+1. STORIES (Most Important - Extract Aggressively):
+   CRITICAL: Extract EVERY distinct achievement/accomplishment as a separate story, regardless of formatting.
+   
+   What is a Story?
+   - ANY action with a result or impact (even if brief)
+   - Examples: "Led team of 6", "Drove $100K revenue", "Launched new feature", "Improved conversion by 10%"
+   - Format variations: bullets (•), dashes (-), paragraphs, semicolons, line breaks
+   - STAR format is ideal but NOT required - extract even short achievement statements
+   
+   Extraction Rules:
+   - ONE achievement = ONE story (do NOT collapse multiple achievements into one description)
+   - Example: "• Led X • Managed Y • Increased Z" = 3 separate stories, not 1
+   - Example: "Led X and managed Y, resulting in Z" = 2-3 stories (leadership + management + result)
+   - Empty stories[] should be RARE - most roles have 2-5+ achievements
+   - Place stories in workHistory[].stories[] array
+   
+   Story vs Metric:
+   - If has action + result = STORY (e.g., "Led team of 6" or "Drove 25% growth")
+   - If only metric with no action = role-level metric (e.g., just "25% YoY growth" in summary)
+   - When in doubt: Extract as story. Granular data is better.
+   
+   Story Structure (flexible):
+   - Minimum: action + result (e.g., "Increased activation by 22%")
+   - Ideal: problem/context + action + outcome (STAR format)
+   - Each story references parent role via company name and title
 
 2. METRICS (Story & Role Level):
    Story Metrics:
@@ -150,19 +164,28 @@ CRITICAL EXTRACTION RULES:
    - If metric has story context → story.metrics only
    - If metric is standalone/narrative-free → roleMetrics only
 
-3. COMPANY DESCRIPTION (REQUIRED):
-   - Extract a brief 1-2 sentence description of what the company does
-   - Look for company information in: resume header, LinkedIn profile, company website context, or job descriptions
-   - If not explicitly stated, infer from:
-     * Company name (e.g., "Salesforce" → "CRM and cloud software provider")
-     * Industry context (e.g., mentions of "SaaS", "B2B", "PLG" in tags)
-     * Product/service mentions in role descriptions
+3. COMPANY DESCRIPTION (MANDATORY - NEVER SKIP):
+   CRITICAL: ALWAYS provide a company description. NEVER leave this field empty.
+   
+   Extraction Priority:
+   1. Explicit mentions in resume header or role context
+   2. Infer from company name if well-known (e.g., "Meta" → "Social media and technology company")
+   3. Infer from industry/product mentions in role description
+   4. Infer from tags (SaaS, B2B, PLG → "B2B SaaS platform")
+   5. For obscure companies: describe the product/service based on role context
+   
+   Quality Standards:
+   - Length: 1-2 sentences describing what the company does
+   - Focus: Company's business/product/industry, NOT the specific role
    - Examples:
-     * "SaaS platform for customer engagement and marketing automation"
-     * "Enterprise software provider specializing in workflow automation"
-     * "E-commerce platform serving small and medium businesses"
-   - This is COMPANY-LEVEL information, NOT role-specific. It describes the company's business/industry.
-   - The same companyDescription should be used for all roles at the same company
+     * "Electric vehicle manufacturer and clean energy company"
+     * "No-code platform for building 3D simulations and mixed reality applications"
+     * "Solar software provider for residential and commercial installations"
+     * "Enterprise CRM and cloud software provider"
+   
+   Same Description Rule:
+   - If multiple roles at same company → use IDENTICAL companyDescription for all
+   - This is company-level info, not role-specific
 
 4. TAGS (Three Levels):
    Company Tags (2-3 tags):
@@ -274,9 +297,10 @@ CRITICAL REMINDERS:
    - NEVER duplicate the same metric in both roleMetrics[] and story.metrics[]
 
 5. Resume vs Cover Letter Context:
-   - RESUMES: Typically contain role-level metrics (standalone numbers, no narrative). Stories are less common in resumes.
-   - COVER LETTERS: Typically contain stories (narrative format explaining achievements). Users expand on resume metrics here.
-   - ROLE-LEVEL METRICS PURPOSE: These represent key accomplishments that can later be expanded into stories (users will add narrative context explaining how metrics were achieved).
+   - RESUMES: Contain achievements in compact format (bullets, short sentences). Extract EACH as a story.
+   - COVER LETTERS: Contain expanded narratives with more context. Often elaborates on resume achievements.
+   - BOTH contain stories - resumes have more (but shorter), cover letters have fewer (but longer)
+   - Extract aggressively from resumes - users rely on this data for cover letter generation.
 
 Return ONLY the JSON object. No markdown, no explanations, no additional text.
 `;
