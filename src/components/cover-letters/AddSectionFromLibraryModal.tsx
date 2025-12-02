@@ -11,6 +11,14 @@
 
 import React from "react";
 import { AddSectionModalBase, type ContentType } from "@/components/shared/AddSectionModalBase";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import type { WorkHistoryBlurb, WorkHistoryCompany } from "@/types/workHistory";
 import type { SavedSection } from "@/services/coverLetterTemplateService";
 
@@ -146,25 +154,17 @@ export function AddSectionFromLibraryModal({
 
   // Render preview or selection modal based on state
   return showPreview && selectedContent ? (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]">
-      <div className="w-full max-w-3xl max-h-[90vh] bg-background rounded-lg shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b">
-          <div>
-            <h2 className="text-2xl font-bold">Preview & Confirm</h2>
-            <p className="text-muted-foreground">Review the content before adding to your cover letter</p>
-          </div>
-          <button
-            onClick={handleClose}
-            className="h-8 w-8 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100"
-          >
-            <span className="sr-only">Close</span>
-            ✕
-          </button>
-        </div>
+    <Dialog open={showPreview} onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-bold">Preview & Confirm</DialogTitle>
+          <DialogDescription>
+            Review the content before adding to your cover letter
+          </DialogDescription>
+        </DialogHeader>
 
         {/* Preview Content */}
-        <div className="p-6 overflow-y-auto max-h-[60vh]">
+        <div className="py-4 overflow-y-auto max-h-[50vh]">
           <div className="space-y-4">
             <div>
               <h3 className="font-semibold text-lg">{itemTitle}</h3>
@@ -177,40 +177,28 @@ export function AddSectionFromLibraryModal({
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t bg-muted/20">
-          <button
-            onClick={handleClose}
-            className="px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground"
-          >
+        <div className="flex items-center justify-end gap-3 pt-4 border-t">
+          <Button variant="ghost" onClick={handleClose}>
             Cancel
-          </button>
+          </Button>
 
           {invocation.type === "replace_or_insert_below" ? (
             <>
-              <button
-                onClick={handleInsertBelow}
-                className="px-4 py-2 text-sm font-medium border rounded-md hover:bg-muted"
-              >
+              <Button variant="secondary" onClick={handleInsertBelow}>
                 Insert below as new section
-              </button>
-              <button
-                onClick={handleReplace}
-                className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-              >
+              </Button>
+              <Button onClick={handleReplace}>
                 Replace current section
-              </button>
+              </Button>
             </>
           ) : (
-            <button
-              onClick={handleInsertHere}
-              className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-            >
+            <Button onClick={handleInsertHere}>
               Insert section
-            </button>
+            </Button>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   ) : (
     <AddSectionModalBase
       mode="letter"
