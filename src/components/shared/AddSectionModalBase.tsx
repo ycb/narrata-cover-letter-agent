@@ -184,10 +184,10 @@ export function AddSectionModalBase({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Modal Content */}
-        <div className="flex h-auto relative">
+        {/* Modal Content - use min-height to ensure selection panel has room */}
+        <div className="relative min-h-[400px] overflow-hidden">
           {/* Main Panel - Content Type & Method Selection */}
-          <div className={`w-full p-6 transition-transform duration-300 ease-in-out ${showSelectionPanel ? '-translate-x-full' : 'translate-x-0'}`}>
+          <div className={`w-full p-6 transition-transform duration-300 ease-in-out ${showSelectionPanel ? '-translate-x-full absolute inset-0' : 'translate-x-0'}`}>
             <div className="space-y-6">
               {/* Step 1: Content Type */}
               <div className="mb-4">
@@ -267,7 +267,7 @@ export function AddSectionModalBase({
           </div>
 
           {/* Selection Panel - Slides in from right */}
-          <div className={`absolute top-0 right-0 w-full h-full bg-background transition-transform duration-300 ease-in-out ${showSelectionPanel ? 'translate-x-0' : 'translate-x-full'}`}>
+          <div className={`absolute inset-0 w-full h-full bg-background transition-transform duration-300 ease-in-out z-10 ${showSelectionPanel ? 'translate-x-0' : 'translate-x-full pointer-events-none'}`}>
             <div className="p-6 h-full overflow-y-auto">
               {/* Back Button */}
               <div className="mb-4">
