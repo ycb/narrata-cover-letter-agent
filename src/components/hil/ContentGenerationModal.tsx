@@ -450,31 +450,12 @@ export function ContentGenerationModal({
                 </Button>
               )}
 
-              {/* Empty/initial state with action button */}
+              {/* Empty state - should only show briefly while loading */}
               {!isSearching && !searchError && suggestedTags.length === 0 && otherTags.length === 0 && (
-                <div className="text-center py-8 space-y-4">
+                <div className="text-center py-8">
                   <p className="text-muted-foreground">
-                    Generate AI-powered tag suggestions for this {contentType || 'content'}
+                    No tag suggestions available
                   </p>
-                  {onGenerateTags && (
-                    <Button 
-                      onClick={onGenerateTags}
-                      disabled={isGeneratingTags}
-                      className="w-full"
-                    >
-                      {isGeneratingTags ? (
-                        <>
-                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                          Generating tags...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="h-4 w-4 mr-2" />
-                          Auto-suggest tags
-                        </>
-                      )}
-                    </Button>
-                  )}
                 </div>
               )}
             </div>

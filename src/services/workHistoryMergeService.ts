@@ -93,6 +93,8 @@ interface CandidateBucket {
 /**
  * Normalize company name for matching
  * - Strip suffixes: Inc, Inc., LLC, Ltd, Corp, Co., Corporation
+ * - Strip legal designations: 401(c)3, 501(c)(3), etc.
+ * - Strip geographic/division qualifiers: America, Research, Electronics
  * - Normalize case + whitespace
  */
 export function normalizeCompanyName(name: string): string {
@@ -101,10 +103,52 @@ export function normalizeCompanyName(name: string): string {
   return name
     .toLowerCase()
     .trim()
-    // Remove common suffixes
+    // Remove legal entity suffixes
     .replace(/,?\s*(inc\.?|llc\.?|ltd\.?|corp\.?|co\.?|corporation|incorporated|limited)$/i, '')
+    // Remove nonprofit designations like "401(c)3", "501(c)(3)", etc.
+    .replace(/[:\s]*\d+\([a-z]\)\d*/gi, '')
+    // Remove geographic/division qualifiers (at end of name)
+    .replace(/\s+(america|usa|us|international|global|research|electronics|systems)$/i, '')
+    // Remove business type suffixes
+    .replace(/[:\s]*(web development|consulting|services|solutions|group|partners)$/i, '')
+    // Normalize whitespace
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/**
+ * Check if two company names might be the same (fuzzy match)
+ * Used as fallback when exact normalized match fails but dates overlap significantly
+ */
+export function companiesAreSimilar(name1: string, name2: string): boolean {
+  const norm1 = normalizeCompanyName(name1);
+  const norm2 = normalizeCompanyName(name2);
+  
+  // Exact match after normalization
+  if (norm1 === norm2) return true;
+  
+  // One contains the other (handles abbreviations like "YCB" in "Your Custom Blog")
+  if (norm1.includes(norm2) || norm2.includes(norm1)) return true;
+  
+  // Check if first letters match (acronym check)
+  // "Your Custom Blog" -> "ycb" matches "ycb"
+  const acronym1 = norm1.split(' ').map(w => w[0]).join('');
+  const acronym2 = norm2.split(' ').map(w => w[0]).join('');
+  if (acronym1.length >= 2 && acronym2.length >= 2) {
+    if (acronym1 === norm2 || acronym2 === norm1) return true;
+    if (acronym1 === acronym2) return true;
+  }
+  
+  // Check word overlap (at least 50% of words match)
+  const words1 = new Set(norm1.split(' ').filter(w => w.length > 2));
+  const words2 = new Set(norm2.split(' ').filter(w => w.length > 2));
+  if (words1.size > 0 && words2.size > 0) {
+    const intersection = [...words1].filter(w => words2.has(w));
+    const minSize = Math.min(words1.size, words2.size);
+    if (intersection.length >= minSize * 0.5) return true;
+  }
+  
+  return false;
 }
 
 /**
@@ -597,6 +641,7 @@ function mergeItemsToCluster(
  */
 export async function getMergedWorkHistory(userId: string): Promise<MergedRoleCluster[]> {
   // Fetch work items with company and source info
+  // Fetch work_items (primarily from resume)
   const { data: workItemsData, error: workItemsError } = await supabase
     .from('work_items')
     .select(`
@@ -628,12 +673,13 @@ export async function getMergedWorkHistory(userId: string): Promise<MergedRoleCl
     return [];
   }
   
+  // If no work_items, return empty
   if (!workItemsData || workItemsData.length === 0) {
     return [];
   }
   
-  // Fetch stories for all work items
-  const workItemIds = workItemsData.map(wi => wi.id);
+  // Fetch stories for all work items (only if we have work items)
+  const workItemIds = (workItemsData || []).map((wi: any) => wi.id);
   const { data: storiesData, error: storiesError } = await supabase
     .from('stories')
     .select('id, title, content, metrics, tags, work_item_id')
@@ -644,8 +690,8 @@ export async function getMergedWorkHistory(userId: string): Promise<MergedRoleCl
     console.error('[WorkHistoryMerge] Error fetching stories:', storiesError);
   }
   
-  // Transform to internal format
-  const workItems: WorkItemWithSource[] = workItemsData.map(wi => {
+  // Transform work_items to internal format
+  const workItems: WorkItemWithSource[] = (workItemsData || []).map((wi: any) => {
     const company = wi.companies as any;
     const source = wi.sources as any;
     
@@ -676,7 +722,19 @@ export async function getMergedWorkHistory(userId: string): Promise<MergedRoleCl
     };
   });
   
-  const stories: StorySummary[] = (storiesData || []).map(s => ({
+  // Note: LinkedIn work history is now processed into work_items table directly
+  // (via useFileUpload.ts processLinkedInWorkHistory), so we don't need to
+  // create synthetic items from structured_data anymore. LinkedIn items will
+  // appear in workItems with sourceType='linkedin'.
+  
+  // Count LinkedIn items for logging
+  const linkedinItemCount = workItems.filter(wi => wi.sourceType === 'linkedin').length;
+  const resumeItemCount = workItems.filter(wi => wi.sourceType === 'resume').length;
+  console.log(`[WorkHistoryMerge] Found ${resumeItemCount} resume items, ${linkedinItemCount} LinkedIn items`);
+  
+  const allItems = [...workItems];
+  
+  const stories: StorySummary[] = (storiesData || []).map((s: any) => ({
     id: s.id,
     title: s.title || '',
     content: s.content || '',
@@ -686,13 +744,37 @@ export async function getMergedWorkHistory(userId: string): Promise<MergedRoleCl
   }));
   
   // Step 1: Create candidate buckets by company
+  // Use allItems which includes both work_items (resume) and LinkedIn roles
+  // Use fuzzy matching to handle company name variations (abbreviations, suffixes, etc.)
   const companyBuckets = new Map<string, WorkItemWithSource[]>();
-  for (const item of workItems) {
-    const companyKey = normalizeCompanyName(item.companyName);
-    if (!companyBuckets.has(companyKey)) {
-      companyBuckets.set(companyKey, []);
+  const companyKeyMap = new Map<string, string>(); // Maps normalized names to canonical bucket keys
+  
+  for (const item of allItems) {
+    const normalizedName = normalizeCompanyName(item.companyName);
+    
+    // Check if this company matches an existing bucket (fuzzy match)
+    let bucketKey: string | null = null;
+    
+    // First try exact match
+    if (companyBuckets.has(normalizedName)) {
+      bucketKey = normalizedName;
+    } else {
+      // Try fuzzy match against existing bucket keys
+      for (const existingKey of companyBuckets.keys()) {
+        if (companiesAreSimilar(item.companyName, existingKey)) {
+          bucketKey = existingKey;
+          break;
+        }
+      }
     }
-    companyBuckets.get(companyKey)!.push(item);
+    
+    if (!bucketKey) {
+      // Create new bucket
+      bucketKey = normalizedName;
+      companyBuckets.set(bucketKey, []);
+    }
+    
+    companyBuckets.get(bucketKey)!.push(item);
   }
   
   // Step 2: Within each company, find merge pairs
@@ -746,7 +828,7 @@ export async function getMergedWorkHistory(userId: string): Promise<MergedRoleCl
     return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
   });
   
-  console.log(`[WorkHistoryMerge] Created ${clusters.length} clusters from ${workItems.length} work items`);
+  console.log(`[WorkHistoryMerge] Created ${clusters.length} clusters from ${allItems.length} work items (${resumeItemCount} resume, ${linkedinItemCount} LinkedIn)`);
   
   return clusters;
 }

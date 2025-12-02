@@ -57,6 +57,10 @@ export class FileUploadService {
   private pendingResume: { sourceId: string; text: string } | null = null;
   private pendingCoverLetter: { sourceId: string; text: string } | null = null;
 
+  // Pre-extraction cache for performance optimization
+  // Key: file checksum, Value: { text, extractedAt }
+  private preExtractionCache: Map<string, { text: string; extractedAt: number }> = new Map();
+
   constructor() {
     this.textExtractionService = new TextExtractionService();
     this.llmAnalysisService = new LLMAnalysisService();
@@ -65,6 +69,87 @@ export class FileUploadService {
     this.unifiedProfileService = new UnifiedProfileService();
     this.humanReviewService = new HumanReviewService();
     this.appifyService = new AppifyService();
+  }
+
+  /**
+   * Pre-extract text from a file for performance optimization.
+   * Call this when a file is selected to start extraction before upload begins.
+   * The extracted text will be cached and used by processContent if available.
+   */
+  async preExtractFile(file: File): Promise<void> {
+    try {
+      const checksum = await this.generateChecksum(file);
+      
+      // Check if already cached
+      if (this.preExtractionCache.has(checksum)) {
+        console.log('[PreExtract] Using cached extraction for:', file.name);
+        return;
+      }
+
+      console.log('[PreExtract] Starting background extraction for:', file.name);
+      const startTime = performance.now();
+      
+      const result = await this.textExtractionService.extractText(file);
+      
+      if (result.success && result.text) {
+        const duration = performance.now() - startTime;
+        this.preExtractionCache.set(checksum, {
+          text: result.text,
+          extractedAt: Date.now()
+        });
+        console.log(`[PreExtract] Cached extraction for ${file.name} in ${duration.toFixed(0)}ms`);
+        
+        // Clean up old cache entries (keep only last 5, max 5 minutes old)
+        this.cleanPreExtractionCache();
+      }
+    } catch (error) {
+      console.warn('[PreExtract] Background extraction failed:', error);
+      // Non-critical - extraction will happen during processContent
+    }
+  }
+
+  /**
+   * Get pre-extracted text from cache if available
+   */
+  private getPreExtractedText(checksum: string): string | null {
+    const cached = this.preExtractionCache.get(checksum);
+    if (cached) {
+      // Check if cache is still fresh (5 minutes)
+      if (Date.now() - cached.extractedAt < 5 * 60 * 1000) {
+        console.log('[PreExtract] Cache hit! Skipping extraction');
+        return cached.text;
+      }
+      // Stale - remove it
+      this.preExtractionCache.delete(checksum);
+    }
+    return null;
+  }
+
+  /**
+   * Clean up old pre-extraction cache entries
+   */
+  private cleanPreExtractionCache(): void {
+    const maxAge = 5 * 60 * 1000; // 5 minutes
+    const maxEntries = 5;
+    const now = Date.now();
+    
+    // Remove stale entries
+    for (const [key, value] of this.preExtractionCache.entries()) {
+      if (now - value.extractedAt > maxAge) {
+        this.preExtractionCache.delete(key);
+      }
+    }
+    
+    // Keep only most recent entries if too many
+    if (this.preExtractionCache.size > maxEntries) {
+      const entries = Array.from(this.preExtractionCache.entries())
+        .sort((a, b) => b[1].extractedAt - a[1].extractedAt);
+      
+      this.preExtractionCache.clear();
+      entries.slice(0, maxEntries).forEach(([key, value]) => {
+        this.preExtractionCache.set(key, value);
+      });
+    }
   }
 
   /**
@@ -412,6 +497,59 @@ source_type: dbSourceType,
   }
 
   /**
+   * Save latency metrics for performance tracking
+   */
+  async saveLatencyMetrics(
+    sourceId: string,
+    metrics: {
+      extractionLatencyMs?: number;
+      llmLatencyMs?: number;
+      dbLatencyMs?: number;
+      totalProcessingMs?: number;
+    },
+    accessToken?: string
+  ): Promise<void> {
+    try {
+      const { url: supabaseUrl, key: supabaseKey } = getSupabaseConfig();
+      
+      const updateData: Record<string, unknown> = {};
+      if (metrics.extractionLatencyMs !== undefined) {
+        updateData.extraction_latency_ms = Math.round(metrics.extractionLatencyMs);
+      }
+      if (metrics.llmLatencyMs !== undefined) {
+        updateData.llm_latency_ms = Math.round(metrics.llmLatencyMs);
+      }
+      if (metrics.dbLatencyMs !== undefined) {
+        updateData.db_latency_ms = Math.round(metrics.dbLatencyMs);
+      }
+      if (metrics.totalProcessingMs !== undefined) {
+        updateData.total_processing_ms = Math.round(metrics.totalProcessingMs);
+      }
+
+      const response = await fetch(`${supabaseUrl}/rest/v1/sources?id=eq.${sourceId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'apikey': supabaseKey,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify(updateData)
+      });
+      
+      if (!response.ok) {
+        console.warn('Failed to save latency metrics:', await response.text());
+        // Non-critical - don't throw
+      } else {
+        console.log(`📊 Latency metrics saved for ${sourceId}:`, metrics);
+      }
+    } catch (error) {
+      console.warn('Error saving latency metrics:', error);
+      // Non-critical - don't throw
+    }
+  }
+
+  /**
    * Upload file or text content with unified processing
    * Handles both file uploads and manual text input
    */
@@ -575,6 +713,12 @@ source_type: dbSourceType,
     type: FileType, 
     accessToken?: string
   ): Promise<void> {
+    // Track total processing time for performance monitoring
+    const processStartTime = performance.now();
+    let extractionLatencyMs = 0;
+    let llmLatencyMs = 0;
+    let dbLatencyMs = 0;
+
     try {
       // Update status to processing
       await this.updateProcessingStatus(sourceId, 'processing', undefined, undefined, accessToken);
@@ -582,22 +726,40 @@ source_type: dbSourceType,
       let extractedText: string;
       
       if (originalContent instanceof File) {
-        // Extract text from uploaded file
-        console.log('Extracting text from file:', file.name);
-        window.dispatchEvent(new CustomEvent('file-upload-progress', { detail: { sourceId, stage: 'extracting', progress: 40, message: 'Extracting text from file...' } }));
-        const extractionStartTime = performance.now();
-        const extractionResult = await this.textExtractionService.extractText(file);
-        const extractionEndTime = performance.now();
-        const extractionDuration = (extractionEndTime - extractionStartTime).toFixed(2);
-        console.warn(`⏱️ Text extraction took: ${extractionDuration}ms`);
-        
-        if (!extractionResult.success) {
-          throw new Error(`Text extraction failed: ${extractionResult.error}`);
+        // Check for pre-extracted text first (performance optimization)
+        let checksum: string | undefined;
+        try {
+          checksum = await this.generateChecksum(file);
+        } catch {
+          // Checksum generation failed - proceed with normal extraction
         }
         
-        extractedText = extractionResult.text!;
-        console.log('Text extraction successful, length:', extractedText.length);
-        window.dispatchEvent(new CustomEvent('file-upload-progress', { detail: { sourceId, stage: 'extracted', progress: 55, message: 'Text extracted successfully...' } }));
+        const preExtracted = checksum ? this.getPreExtractedText(checksum) : null;
+        
+        if (preExtracted) {
+          // Use pre-extracted text (saves 1-3s)
+          extractedText = preExtracted;
+          extractionLatencyMs = 0; // Cache hit
+          console.log(`✨ Using pre-extracted text for: ${file.name} (cache hit)`);
+          window.dispatchEvent(new CustomEvent('file-upload-progress', { detail: { sourceId, stage: 'extracted', progress: 55, message: 'Text ready (cached)...' } }));
+        } else {
+          // Extract text from uploaded file
+          console.log('Extracting text from file:', file.name);
+          window.dispatchEvent(new CustomEvent('file-upload-progress', { detail: { sourceId, stage: 'extracting', progress: 40, message: 'Extracting text from file...' } }));
+          const extractionStartTime = performance.now();
+          const extractionResult = await this.textExtractionService.extractText(file);
+          const extractionEndTime = performance.now();
+          extractionLatencyMs = extractionEndTime - extractionStartTime;
+          console.warn(`⏱️ Text extraction took: ${extractionLatencyMs.toFixed(2)}ms`);
+          
+          if (!extractionResult.success) {
+            throw new Error(`Text extraction failed: ${extractionResult.error}`);
+          }
+          
+          extractedText = extractionResult.text!;
+          console.log('Text extraction successful, length:', extractedText.length);
+          window.dispatchEvent(new CustomEvent('file-upload-progress', { detail: { sourceId, stage: 'extracted', progress: 55, message: 'Text extracted successfully...' } }));
+        }
       } else {
         // Use manual text directly
         extractedText = originalContent;
@@ -635,8 +797,8 @@ source_type: dbSourceType,
         analysisResult = await this.llmAnalysisService.analyzeResume(extractedText, coverLetterText);
       }
       const llmEndTime = performance.now();
-      const llmDuration = (llmEndTime - llmStartTime).toFixed(2);
-      console.warn(`⏱️ LLM analysis took: ${llmDuration}ms`);
+      llmLatencyMs = llmEndTime - llmStartTime;
+      console.warn(`⏱️ LLM analysis took: ${llmLatencyMs.toFixed(2)}ms`);
       
       if (!analysisResult.success) {
         throw new Error(`LLM analysis failed: ${analysisResult.error}`);
@@ -678,9 +840,6 @@ source_type: dbSourceType,
       // Types are now aligned with LLM prompt schema, so parsed data contains everything
       const dbStartTime = performance.now();
       await this.updateProcessingStatus(sourceId, 'completed', structuredData as any, undefined, accessToken);
-      const dbEndTime = performance.now();
-      const dbDuration = (dbEndTime - dbStartTime).toFixed(2);
-      console.warn(`⏱️ Database save took: ${dbDuration}ms`);
 
       // Run code-driven heuristics
       const heuristics = this.runHeuristics(structuredData, type);
@@ -708,6 +867,23 @@ source_type: dbSourceType,
         await this.normalizeSkills(structuredData, sourceId, sourceData.user_id, skillsSourceType, accessToken);
       }
 
+      // Track DB latency (includes all structured data processing)
+      const dbEndTime = performance.now();
+      dbLatencyMs = dbEndTime - dbStartTime;
+      console.warn(`⏱️ Database operations took: ${dbLatencyMs.toFixed(2)}ms`);
+
+      // Calculate and save total processing time
+      const totalProcessingMs = performance.now() - processStartTime;
+      console.warn(`⏱️ TOTAL processing time: ${totalProcessingMs.toFixed(2)}ms`);
+      
+      // Save latency metrics (non-blocking)
+      this.saveLatencyMetrics(sourceId, {
+        extractionLatencyMs,
+        llmLatencyMs,
+        dbLatencyMs,
+        totalProcessingMs
+      }, accessToken);
+
       // PERFORMANCE: Run LLM judge evaluation in background (non-blocking)
       // This saves 5-10s on upload flow
       const sessionId = `sess_${Date.now()}`;
@@ -723,7 +899,7 @@ source_type: dbSourceType,
           type,
           inputTokens: extractedText.length / 4,
           outputTokens: JSON.stringify(structuredData).length / 4,
-          latency: llmEndTime - llmStartTime,
+          latency: llmLatencyMs,
           model: import.meta.env?.VITE_OPENAI_MODEL || (typeof process !== 'undefined' ? process.env.VITE_OPENAI_MODEL : undefined) || 'gpt-4o-mini',
           inputText: extractedText,
           outputText: JSON.stringify(structuredData, null, 2),
@@ -741,7 +917,7 @@ source_type: dbSourceType,
           type,
           inputTokens: extractedText.length / 4,
           outputTokens: JSON.stringify(structuredData).length / 4,
-          latency: llmEndTime - llmStartTime,
+          latency: llmLatencyMs,
           model: import.meta.env?.VITE_OPENAI_MODEL || (typeof process !== 'undefined' ? process.env.VITE_OPENAI_MODEL : undefined) || 'gpt-4o-mini',
           inputText: extractedText,
           outputText: JSON.stringify(structuredData, null, 2),

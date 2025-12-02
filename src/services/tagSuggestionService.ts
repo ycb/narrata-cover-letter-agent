@@ -244,17 +244,32 @@ export class TagSuggestionService {
     onComplete: (allTags: TagSuggestion[]) => void,
     onError: (error: Error) => void
   ): Promise<void> {
+    console.log('companyTags: Starting tag suggestion streaming', { 
+      contentType: request.contentType, 
+      companyName: request.companyName,
+      content: request.content,
+      existingTags: request.existingTags 
+    });
+    
     try {
       // Validate request before processing
       this.validateRequest(request);
+      console.log('companyTags: Request validated');
 
       // 1. For company tags, research company via browser search
       let companyResearch: CompanyResearchResult | null = null;
       if (request.contentType === 'company') {
         const companyName = request.companyName;
+        console.log('companyTags: Researching company', companyName);
         try {
           companyResearch = await BrowserSearchService.researchCompany(companyName, true);
+          console.log('companyTags: Company research complete', {
+            hasData: !!companyResearch,
+            description: companyResearch?.description?.substring(0, 100),
+            industry: companyResearch?.industry
+          });
         } catch (error) {
+          console.error('companyTags: Company research failed', error);
           throw new Error(`Failed to research company: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       }
@@ -267,12 +282,15 @@ export class TagSuggestionService {
         companyResearch,
         request.gapContext
       );
+      console.log('companyTags: Prompt built, length:', prompt.length);
 
       // 3. Set up streaming with ai SDK
       const apiKey = (import.meta.env?.VITE_OPENAI_KEY) || '';
       if (!apiKey) {
+        console.error('companyTags: OpenAI API key not found');
         throw new Error('OpenAI API key not found');
       }
+      console.log('companyTags: API key found');
 
       const openai = createOpenAI({ apiKey });
 
@@ -286,33 +304,40 @@ export class TagSuggestionService {
       });
 
       // 4. Stream tags
+      console.log('companyTags: Starting OpenAI streaming');
       const result = await streamObject({
         model: openai('gpt-4o-mini'),
         schema: tagSchema,
         prompt,
         temperature: 0.5,
       });
+      console.log('companyTags: Stream initiated');
 
       let previousTagCount = 0;
       const allGeneratedTags: TagSuggestion[] = [];
       const existingTagsLower = (request.existingTags || []).map(t => t.toLowerCase().trim());
 
       // 5. Process streaming tags
+      console.log('companyTags: Processing stream');
       for await (const partialObject of result.partialObjectStream) {
         const currentTags = partialObject.tags || [];
+        console.log('companyTags: Received partial object, tags count:', currentTags.length);
         
         // Only process new tags
         if (currentTags.length > previousTagCount) {
+          console.log('companyTags: Processing new tags', currentTags.length - previousTagCount);
           for (let i = previousTagCount; i < currentTags.length; i++) {
             const tag = currentTags[i];
             
             // Skip if tag is invalid or undefined
             if (!tag || !tag.value || typeof tag.value !== 'string') {
+              console.warn('companyTags: Skipping invalid tag', tag);
               continue;
             }
             
             // Skip if tag already exists
             if (existingTagsLower.includes(tag.value.toLowerCase().trim())) {
+              console.log('companyTags: Skipping existing tag', tag.value);
               continue;
             }
 
@@ -324,6 +349,7 @@ export class TagSuggestionService {
               category: tag.category || 'other'
             };
 
+            console.log('companyTags: New tag', tag.value, tag.confidence);
             allGeneratedTags.push(tagSuggestion);
             onTagUpdate(tagSuggestion);
           }
@@ -332,10 +358,11 @@ export class TagSuggestionService {
       }
 
       // 6. Complete
+      console.log('companyTags: Streaming complete! Generated tags:', allGeneratedTags.length);
       onComplete(allGeneratedTags);
 
     } catch (error) {
-      console.error('Error streaming tag suggestions:', error);
+      console.error('companyTags: Error streaming tag suggestions', error);
       const err = error instanceof Error ? error : new Error('Unknown error during tag streaming');
       onError(err);
     }

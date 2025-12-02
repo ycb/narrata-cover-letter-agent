@@ -213,4 +213,6 @@ export interface UseFileUploadReturn {
   hasActiveUploads: () => boolean;
   getFailedUploads: () => FileUploadProgress[];
   getCompletedUploads: () => FileUploadProgress[];
+  // Performance optimization
+  preExtractFile?: (file: File) => void;
 }

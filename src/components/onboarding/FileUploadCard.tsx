@@ -311,16 +311,20 @@ export function FileUploadCard({
     setIsDragOver(false);
     const file = e.dataTransfer.files[0];
     if (file) {
+      // Start pre-extraction in background for performance
+      fileUpload.preExtractFile?.(file);
       handleFileUpload(file);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fileUpload]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Start pre-extraction in background for performance
+      fileUpload.preExtractFile?.(file);
       handleFileUpload(file);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fileUpload]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const triggerFileDialog = useCallback(() => {
     fileInputRef.current?.click();

@@ -164,8 +164,17 @@ export const WorkHistoryDetail = ({
         return;
       }
 
-      const entityIds = [selectedRole.id, ...(selectedRole.blurbs || []).map((story) => story.id)];
+      // Collect entity IDs for gap queries
+      // Use workItemIds (real UUIDs) instead of cluster IDs (which may be synthetic for LinkedIn)
+      const workItemIds = selectedRole.workItemIds || [];
+      const storyIds = (selectedRole.blurbs || []).map((story) => story.id);
+      
+      // Filter to only valid UUIDs (LinkedIn synthetic IDs start with "linkedin_")
+      const isValidUuid = (id: string) => !id.startsWith('linkedin_') && !id.startsWith('cluster_');
+      const entityIds = [...workItemIds, ...storyIds].filter(isValidUuid);
+      
       if (entityIds.length === 0) {
+        // No valid UUIDs to query - this is normal for LinkedIn-only items
         setGapsByEntity({});
         return;
       }
@@ -468,9 +477,9 @@ export const WorkHistoryDetail = ({
     
     const content = `${targetCompany.name}: ${targetCompany.description || 'Company information'}`;
     
-    // Reset state (DON'T start streaming yet - wait for user to click button)
+    // Reset state and start streaming immediately
     setStreamingTagState({
-      isStreaming: false,
+      isStreaming: true,
       error: null,
       suggestedTags: [],
       otherTags: []
@@ -507,77 +516,67 @@ export const WorkHistoryDetail = ({
       entityId: targetCompany.id
     });
     
-    // Define the tag generation function (to be called when user clicks button)
-    const startTagGeneration = async () => {
-      // Set streaming state
-      setStreamingTagState(prev => ({
-        ...prev,
-        isStreaming: true,
-        error: null
-      }));
-      
-      try {
-        await TagSuggestionService.suggestTagsStreaming(
-          {
-            content,
-            contentType: 'company',
-            companyName: targetCompany.name,
-            userGoals: goals ? {
-              industries: goals.industries,
-              businessModels: goals.businessModels
-            } : undefined,
-            existingTags: targetCompany.tags || []
-          },
-          // onTagUpdate: stream tags one-by-one
-          (tag: TagSuggestion) => {
-            setStreamingTagState(prev => {
-              const isHighConfidence = tag.confidence === 'high';
-              return {
-                ...prev,
-                suggestedTags: isHighConfidence 
-                  ? [...prev.suggestedTags, tag]
-                  : prev.suggestedTags,
-                otherTags: !isHighConfidence
-                  ? [...prev.otherTags, tag]
-                  : prev.otherTags
-              };
-            });
-          },
-          // onComplete
-          (allTags: TagSuggestion[]) => {
-            setStreamingTagState(prev => ({
-              ...prev,
-              isStreaming: false
-            }));
-          },
-          // onError
-          (error: Error) => {
-            setStreamingTagState(prev => ({
-              ...prev,
-              isStreaming: false,
-              error: error.message
-            }));
-          }
-        );
-      } catch (error) {
-        console.error('Error starting tag stream:', error);
-        setStreamingTagState(prev => ({
-          ...prev,
-          isStreaming: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        }));
-      }
-    };
-    
-    // Open modal with generation function as callback (DON'T auto-start)
+    // Open modal
     openContentGenerationModal({
       mode: 'tag-suggestion',
       content,
       entityType: 'company',
       entityId: targetCompany.id,
-      onApplyTags: handleApplyTags,
-      onGenerateTags: startTagGeneration
+      onApplyTags: handleApplyTags
     });
+    
+    // Start streaming tags immediately
+    try {
+      await TagSuggestionService.suggestTagsStreaming(
+        {
+          content,
+          contentType: 'company',
+          companyName: targetCompany.name,
+          userGoals: goals ? {
+            industries: goals.industries,
+            businessModels: goals.businessModels
+          } : undefined,
+          existingTags: targetCompany.tags || []
+        },
+        // onTagUpdate: stream tags one-by-one
+        (tag: TagSuggestion) => {
+          setStreamingTagState(prev => {
+            const isHighConfidence = tag.confidence === 'high';
+            return {
+              ...prev,
+              suggestedTags: isHighConfidence 
+                ? [...prev.suggestedTags, tag]
+                : prev.suggestedTags,
+              otherTags: !isHighConfidence
+                ? [...prev.otherTags, tag]
+                : prev.otherTags
+            };
+          });
+        },
+        // onComplete
+        (allTags: TagSuggestion[]) => {
+          setStreamingTagState(prev => ({
+            ...prev,
+            isStreaming: false
+          }));
+        },
+        // onError
+        (error: Error) => {
+          setStreamingTagState(prev => ({
+            ...prev,
+            isStreaming: false,
+            error: error.message
+          }));
+        }
+      );
+    } catch (error) {
+      console.error('Error starting tag stream:', error);
+      setStreamingTagState(prev => ({
+        ...prev,
+        isStreaming: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }));
+    }
   };
 
   // Retry handler for company tag suggestions

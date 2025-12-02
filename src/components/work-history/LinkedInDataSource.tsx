@@ -233,7 +233,7 @@ export function LinkedInDataSource({ onConnectLinkedIn, onRefresh }: LinkedInDat
                   const company = exp.company || 'Company';
                   const location = exp.location || '';
                   const startDate = exp.startDate || '';
-                  const endDate = exp.endDate || exp.current ? 'Present' : '';
+                  const endDate = exp.current ? 'Present' : (exp.endDate || '');
                   const description = exp.description || exp.roleSummary || '';
                   
                   return (
@@ -277,7 +277,7 @@ export function LinkedInDataSource({ onConnectLinkedIn, onRefresh }: LinkedInDat
                   const degree = edu.degree || edu.fieldOfStudy || 'Degree';
                   const school = edu.school || edu.institution || 'School';
                   const startDate = edu.startDate || '';
-                  const endDate = edu.endDate || edu.current ? 'Present' : '';
+                  const endDate = edu.current ? 'Present' : (edu.endDate || '');
                   
                   return (
                     <div key={index} className="border rounded-lg p-3">

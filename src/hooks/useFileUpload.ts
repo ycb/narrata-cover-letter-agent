@@ -15,6 +15,131 @@ import type {
   FileType 
 } from '@/types/fileUpload';
 
+/**
+ * Process LinkedIn work history into work_items table
+ * This enables uniform gap detection and data model across all sources
+ */
+async function processLinkedInWorkHistory(
+  userId: string,
+  sourceId: string,
+  workHistory: any[]
+): Promise<void> {
+  console.log(`🔄 Creating work_items from ${workHistory.length} LinkedIn roles...`);
+  
+  let companiesCreated = 0;
+  let workItemsCreated = 0;
+  
+  for (const role of workHistory) {
+    try {
+      // Normalize company name for display (capitalize first letter of each word)
+      const companyName = (role.company || 'Unknown Company')
+        .split(' ')
+        .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+      
+      // Normalize title for display
+      const title = (role.title || role.position || 'Position')
+        .split(' ')
+        .map((word: string) => {
+          // Keep common acronyms uppercase
+          const acronyms = ['ai', 'ml', 'vp', 'ceo', 'cto', 'cfo', 'coo', 'ux', 'ui', 'qa', 'hr', 'it'];
+          if (acronyms.includes(word.toLowerCase())) {
+            return word.toUpperCase();
+          }
+          return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+        })
+        .join(' ');
+      
+      // Find or create company
+      let companyId: string;
+      const { data: existingCompany } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('name', companyName)
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      if (existingCompany) {
+        companyId = (existingCompany as any).id;
+      } else {
+        const { data: newCompany, error: companyError } = await supabase
+          .from('companies')
+          .insert({
+            name: companyName,
+            description: role.description || '',
+            tags: [],
+            user_id: userId
+          } as any)
+          .select('id')
+          .single();
+        
+        if (companyError || !newCompany) {
+          console.warn(`Could not create company ${companyName}:`, companyError?.message);
+          continue;
+        }
+        companyId = (newCompany as any).id;
+        companiesCreated++;
+      }
+      
+      // Parse dates
+      const startDate = role.startDate || null;
+      const endDate = role.current ? null : (role.endDate || null);
+      
+      // Check for existing work_item (same company + title + overlapping dates)
+      const { data: existingWorkItems } = await supabase
+        .from('work_items')
+        .select('id, start_date, end_date')
+        .eq('user_id', userId)
+        .eq('company_id', companyId)
+        .eq('title', title);
+      
+      // Check for date overlap
+      const isDuplicate = (existingWorkItems || []).some((existing: any) => {
+        if (!startDate || !existing.start_date) return false;
+        
+        const existingStart = new Date(existing.start_date);
+        const newStart = new Date(startDate);
+        const startDiff = Math.abs(existingStart.getTime() - newStart.getTime());
+        const startDiffDays = startDiff / (1000 * 60 * 60 * 24);
+        
+        // Consider duplicates if start dates within 90 days
+        return startDiffDays < 90;
+      });
+      
+      if (isDuplicate) {
+        console.log(`⏭️ Skipping duplicate LinkedIn role: ${title} at ${companyName}`);
+        continue;
+      }
+      
+      // Create work_item
+      const { error: workItemError } = await supabase
+        .from('work_items')
+        .insert({
+          user_id: userId,
+          company_id: companyId,
+          source_id: sourceId,
+          title: title,
+          start_date: startDate,
+          end_date: endDate,
+          description: role.description || null,
+          metrics: [],
+          tags: []
+        } as any);
+      
+      if (workItemError) {
+        console.warn(`Could not create work_item for ${title}:`, workItemError.message);
+        continue;
+      }
+      
+      workItemsCreated++;
+    } catch (err) {
+      console.warn(`Error processing LinkedIn role:`, err);
+    }
+  }
+  
+  console.log(`✅ LinkedIn processing complete: ${companiesCreated} companies, ${workItemsCreated} work_items created`);
+}
+
 export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUploadReturn {
   const { user, session } = useAuth();
   const [isUploading, setIsUploading] = useState(false);
@@ -364,6 +489,14 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
     return progress.filter(p => p.status === 'completed');
   }, [progress]);
 
+  /**
+   * Pre-extract text from a file for performance optimization.
+   * Call this immediately when a file is selected to start extraction in background.
+   */
+  const preExtractFile = useCallback((file: File): void => {
+    fileUploadService.current.preExtractFile(file);
+  }, []);
+
   return {
     uploadFile,
     uploadFiles,
@@ -378,7 +511,9 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
     getFileProgress,
     hasActiveUploads,
     getFailedUploads,
-    getCompletedUploads
+    getCompletedUploads,
+    // Performance optimization
+    preExtractFile
   };
 }
 
@@ -655,6 +790,13 @@ export function useLinkedInUpload() {
         } else if (data) {
           console.log('LinkedIn profile stored in sources successfully:', (data as any).id);
           profileId = (data as any).id;
+          
+          // Process LinkedIn work history into work_items
+          // This enables gap detection and uniform data model
+          if (profileData.experience && Array.isArray(profileData.experience)) {
+            console.log(`📊 Processing ${profileData.experience.length} LinkedIn roles into work_items...`);
+            await processLinkedInWorkHistory(user.id, profileId, profileData.experience);
+          }
         }
       } catch (dbError) {
         console.warn('Database not available for LinkedIn profile storage:', dbError);
