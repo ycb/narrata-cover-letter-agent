@@ -887,11 +887,14 @@ source_type: dbSourceType,
       // PERFORMANCE: Run LLM judge evaluation in background (non-blocking)
       // This saves 5-10s on upload flow
       const sessionId = `sess_${Date.now()}`;
+      console.log(`📊 [EVAL] Starting background evaluation for ${type}, sessionId: ${sessionId}`);
+      
       this.evaluationService.evaluateStructuredData(
         structuredData, 
         extractedText, 
         type as 'resume' | 'coverLetter' | 'linkedin'
       ).then(evaluation => {
+        console.log(`📊 [EVAL] Evaluation complete for ${type}, logging to DB...`);
         // Log for evaluation tracking with evaluation result
         this.logLLMGeneration({
           sessionId,
@@ -904,12 +907,18 @@ source_type: dbSourceType,
           inputText: extractedText,
           outputText: JSON.stringify(structuredData, null, 2),
           heuristics,
-          evaluation
-        }, accessToken).catch(error => {
-          console.warn('Failed to log evaluation data:', error);
+          evaluation,
+          // Pass granular latency metrics
+          extractionLatencyMs,
+          dbLatencyMs,
+          totalLatencyMs: totalProcessingMs,
+        }, accessToken).then(() => {
+          console.log(`✅ [EVAL] Successfully logged ${type} eval to DB`);
+        }).catch(error => {
+          console.error(`❌ [EVAL] Failed to log ${type} evaluation data:`, error);
         });
       }).catch(error => {
-        console.warn('Background evaluation failed:', error);
+        console.error(`⚠️ [EVAL] Background evaluation failed for ${type}:`, error);
         // Still log without evaluation
         this.logLLMGeneration({
           sessionId,
@@ -922,9 +931,15 @@ source_type: dbSourceType,
           inputText: extractedText,
           outputText: JSON.stringify(structuredData, null, 2),
           heuristics,
-          evaluation: null
-        }, accessToken).catch(err => {
-          console.warn('Failed to log without evaluation:', err);
+          evaluation: null,
+          // Pass granular latency metrics
+          extractionLatencyMs,
+          dbLatencyMs,
+          totalLatencyMs: totalProcessingMs,
+        }, accessToken).then(() => {
+          console.log(`✅ [EVAL] Logged ${type} eval (without judge) to DB`);
+        }).catch(err => {
+          console.error(`❌ [EVAL] Failed to log ${type} without evaluation:`, err);
         });
       });
 
@@ -2591,38 +2606,24 @@ source_type: dbSourceType,
     totalLatencyMs?: number;
   }, accessToken?: string): Promise<void> {
     try {
-      // Use authenticated client if accessToken provided, otherwise use default
-      let dbClient = supabase;
-      let userId: string | undefined;
+      // Use the default supabase client - it maintains auth state from user session
+      // This matches how PM levels logs successfully
+      const dbClient = supabase;
       
-      if (accessToken) {
-        const { createClient } = await import('@supabase/supabase-js');
-        const { url, key } = getSupabaseConfig();
-        dbClient = createClient(url, key, {
-          global: {
-            headers: {
-              Authorization: `Bearer ${accessToken}`
-            }
-          }
-        });
-        
-        // Get user from authenticated client
-        const { data: { user }, error } = await dbClient.auth.getUser();
-        if (!error && user) {
-          userId = user.id;
-        }
-      } else {
-        // Fallback to default client
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (!error && user) {
-          userId = user.id;
-        }
-      }
+      // Get user from current session
+      const { data: { user }, error: userError } = await dbClient.auth.getUser();
       
-      if (!userId) {
-        console.warn('No user found for evaluation logging');
+      if (userError) {
+        console.error(`❌ [EVAL] Auth error getting user:`, userError.message);
         return;
       }
+      
+      const userId = user?.id;
+      if (!userId) {
+        console.error('❌ [EVAL] No user found for evaluation logging - user is null');
+        return;
+      }
+      console.log(`📊 [EVAL] User found: ${userId}, preparing insert for ${data.type}...`);
 
       // Parse evaluation results
       const evaluation = data.evaluation || {};
@@ -2664,11 +2665,11 @@ source_type: dbSourceType,
           user_type: userType,
           synthetic_profile_id: syntheticProfileId,
           
-          // Performance Metrics
-          text_extraction_latency_ms: 0, // TODO: Add granular timing
+          // Performance Metrics (granular)
+          text_extraction_latency_ms: data.extractionLatencyMs ? Math.round(data.extractionLatencyMs) : null,
           llm_analysis_latency_ms: Math.round(data.latency),
-          database_save_latency_ms: 0, // TODO: Add granular timing
-          total_latency_ms: Math.round(data.latency),
+          database_save_latency_ms: data.dbLatencyMs ? Math.round(data.dbLatencyMs) : null,
+          total_latency_ms: data.totalLatencyMs ? Math.round(data.totalLatencyMs) : Math.round(data.latency),
           
           // Token Usage
           input_tokens: data.inputTokens,
