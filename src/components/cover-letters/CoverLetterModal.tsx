@@ -88,6 +88,7 @@ import { useToast } from '@/hooks/use-toast';
 import { transformMetricsToMatchData, getUnresolvedRatingCriteria } from './useMatchMetricsDetails';
 import { computeSectionAttribution } from './useSectionAttribution';
 import type { CoverLetterDraft, JobDescriptionRecord, ParsedJobDescription } from '@/types/coverLetters';
+import type { WorkHistoryCompany, WorkHistoryRole, WorkHistoryBlurb } from '@/types/workHistory';
 import { getApplicableStandards } from '@/config/contentStandards';
 import { logAStreamEvent } from '@/lib/telemetry';
 
@@ -188,7 +189,7 @@ export const CoverLetterModal = ({
   const [finalizationError, setFinalizationError] = useState<string | null>(null);
   const [showLibraryModal, setShowLibraryModal] = useState(false);
   const [libraryInvocation, setLibraryInvocation] = useState<InvocationType | null>(null);
-  const [workHistoryLibrary, setWorkHistoryLibrary] = useState<any[]>([]);
+  const [workHistoryLibrary, setWorkHistoryLibrary] = useState<WorkHistoryCompany[]>([]);
   const [savedSections, setSavedSections] = useState<any[]>([]);
   const [isLibraryLoading, setIsLibraryLoading] = useState(false);
   const [libraryError, setLibraryError] = useState<string | null>(null);
@@ -204,40 +205,104 @@ export const CoverLetterModal = ({
       setLibraryError(null);
 
       try {
-        // Load work history companies with stories
-        const { data: workItems } = await supabase
-          .from('work_items')
-          .select('id, title, company_id')
-          .eq('user_id', user.id);
+        // Fetch companies, work_items (roles), and stories in parallel
+        const [
+          { data: companies, error: companiesError },
+          { data: workItems, error: workItemsError },
+          { data: stories, error: storiesError }
+        ] = await Promise.all([
+          supabase.from('companies').select('id, name, description, created_at, updated_at').eq('user_id', user.id),
+          supabase.from('work_items').select('id, title, description, company_id, start_date, end_date, tags, created_at, updated_at').eq('user_id', user.id),
+          supabase.from('approved_content').select('id, title, content, status, confidence, tags, work_item_id, created_at, updated_at').eq('user_id', user.id)
+        ]);
 
-        const { data: stories } = await supabase
-          .from('approved_content')
-          .select('id, title, content, work_item_id')
-          .eq('user_id', user.id);
+        if (companiesError) throw companiesError;
+        if (workItemsError) throw workItemsError;
+        if (storiesError) throw storiesError;
 
-        // Group stories by work item
-        const workItemMap = new Map<string, any[]>();
-        stories?.forEach(story => {
-          if (!workItemMap.has(story.work_item_id)) {
-            workItemMap.set(story.work_item_id, []);
+        // Build proper nested structure: Company → Roles → Blurbs
+        const companyMap = new Map<string, WorkHistoryCompany>();
+        const roleMap = new Map<string, WorkHistoryRole>();
+
+        const ensureCompany = (companyId?: string | null): WorkHistoryCompany => {
+          const fallbackId = companyId ?? 'unknown-company';
+          if (!companyMap.has(fallbackId)) {
+            const companyRecord = (companies || []).find((c) => c.id === fallbackId);
+            companyMap.set(fallbackId, {
+              id: fallbackId,
+              name: companyRecord?.name || 'Untitled Company',
+              description: companyRecord?.description || '',
+              tags: [],
+              source: 'resume',
+              createdAt: companyRecord?.created_at || new Date().toISOString(),
+              updatedAt: companyRecord?.updated_at || new Date().toISOString(),
+              roles: []
+            });
           }
-          workItemMap.get(story.work_item_id)?.push(story);
+          return companyMap.get(fallbackId)!;
+        };
+
+        // Build roles from work_items
+        (workItems || []).forEach((item) => {
+          const company = ensureCompany(item.company_id);
+          const tagsArray = Array.isArray(item.tags) ? item.tags.map((t: unknown) => String(t)) : [];
+
+          const role: WorkHistoryRole = {
+            id: item.id,
+            companyId: company.id,
+            title: item.title || 'Role',
+            type: 'full-time',
+            startDate: item.start_date || '',
+            endDate: item.end_date || undefined,
+            description: item.description || '',
+            tags: tagsArray,
+            outcomeMetrics: [],
+            blurbs: [],
+            externalLinks: [],
+            createdAt: item.created_at || new Date().toISOString(),
+            updatedAt: item.updated_at || new Date().toISOString()
+          };
+
+          roleMap.set(item.id, role);
+          company.roles.push(role);
         });
 
-        // Build company structure
-        const companies = (workItems || []).map(item => ({
-          id: item.company_id || item.id,
-          name: item.title,
-          blurbs: workItemMap.get(item.id) || [],
-        }));
+        // Attach stories (blurbs) to roles
+        (stories || []).forEach((story) => {
+          if (!story.work_item_id) return;
+          const role = roleMap.get(story.work_item_id);
+          if (!role) return;
 
-        setWorkHistoryLibrary(companies);
+          const blurb: WorkHistoryBlurb = {
+            id: story.id,
+            roleId: story.work_item_id,
+            title: story.title || 'Untitled Story',
+            content: story.content || '',
+            outcomeMetrics: [],
+            tags: Array.isArray(story.tags) ? story.tags.map((t: unknown) => String(t)) : [],
+            source: 'resume',
+            status: (story.status as WorkHistoryBlurb['status']) || 'draft',
+            confidence: (story.confidence as WorkHistoryBlurb['confidence']) || 'medium',
+            timesUsed: 0,
+            linkedExternalLinks: [],
+            hasGaps: false,
+            gapCount: 0,
+            createdAt: story.created_at || new Date().toISOString(),
+            updatedAt: story.updated_at || new Date().toISOString()
+          };
 
-        // Load saved sections (templates)
-        // For now, just set empty array - can be implemented later
+          role.blurbs.push(blurb);
+        });
+
+        // Convert map to array and filter to only companies with stories
+        const result = Array.from(companyMap.values()).filter(
+          (company) => company.roles.some((role) => role.blurbs.length > 0)
+        );
+
+        setWorkHistoryLibrary(result);
         setSavedSections([]);
       } catch (error) {
-        console.error('[CoverLetterCreateModal] Failed to load library data:', error);
+        console.error('[CoverLetterModal] Failed to load library data:', error);
         setLibraryError(error instanceof Error ? error.message : 'Failed to load library');
       } finally {
         setIsLibraryLoading(false);
