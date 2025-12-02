@@ -441,6 +441,32 @@ const coerceRequirementArrayFromRow = (
     .filter((req): req is RequirementInsight => Boolean(req));
 };
 
+// ============================================================================
+// PERFORMANCE: Session-level cache for user context data
+// Reduces redundant DB fetches during cover letter generation
+// TTL: 5 minutes (balances freshness vs performance)
+// ============================================================================
+const USER_CONTEXT_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+interface CachedUserContext<T> {
+  data: T;
+  fetchedAt: number;
+  userId: string;
+}
+
+const userContextCache = {
+  stories: null as CachedUserContext<ApprovedContentRow[]> | null,
+  savedSections: null as CachedUserContext<SavedSectionRow[]> | null,
+  workHistory: null as CachedUserContext<any[]> | null,
+  approvedContent: null as CachedUserContext<any[]> | null,
+};
+
+function isCacheValid<T>(cache: CachedUserContext<T> | null, userId: string): cache is CachedUserContext<T> {
+  if (!cache) return false;
+  if (cache.userId !== userId) return false;
+  return Date.now() - cache.fetchedAt < USER_CONTEXT_CACHE_TTL_MS;
+}
+
 export class CoverLetterDraftService {
   private readonly supabaseClient: SupabaseClient;
   private readonly jobDescriptionService: JobDescriptionService;
@@ -454,6 +480,25 @@ export class CoverLetterDraftService {
     this.heuristicGapService = new HeuristicGapService();
     this.metricsStreamer = options.metricsStreamer ?? createDefaultMetricsStreamer();
     this.now = options.now ?? (() => new Date());
+  }
+
+  /**
+   * PERF: Invalidate user context cache (call after user edits stories/sections)
+   */
+  static invalidateUserContextCache(userId?: string) {
+    if (userId) {
+      // Only clear if matching user
+      if (userContextCache.stories?.userId === userId) userContextCache.stories = null;
+      if (userContextCache.savedSections?.userId === userId) userContextCache.savedSections = null;
+      if (userContextCache.workHistory?.userId === userId) userContextCache.workHistory = null;
+      if (userContextCache.approvedContent?.userId === userId) userContextCache.approvedContent = null;
+    } else {
+      // Clear all
+      userContextCache.stories = null;
+      userContextCache.savedSections = null;
+      userContextCache.workHistory = null;
+      userContextCache.approvedContent = null;
+    }
   }
 
   /**
@@ -612,7 +657,7 @@ export class CoverLetterDraftService {
     jobDescription: ParsedJobDescription;
     heuristicInsights?: Record<string, any>; // AGENT D: instant gap feedback
   }> {
-    const { userId, templateId, jobDescriptionId, onProgress, signal } = options;
+    const { userId, templateId, jobDescriptionId, onProgress, onSectionBuilt, signal } = options;
 
     this.emitProgress(onProgress, 'jd_parse', 'Loading job description…');
     const jobDescription = await this.fetchJobDescription(userId, jobDescriptionId);
@@ -627,12 +672,14 @@ export class CoverLetterDraftService {
 
     const templateSections = this.normaliseTemplateSections(templateRow.sections);
 
+    // PERF: Stream sections to UI as they're built
     const { sections, matchState } = this.buildSections({
       templateSections,
       stories,
       savedSections,
       jobDescription,
       userGoals,
+      onSectionBuilt, // Now passed through for progressive rendering
     });
 
     const differentiatorSummary = this.buildDifferentiatorSummary(jobDescription, sections);
@@ -1992,6 +2039,12 @@ export class CoverLetterDraftService {
   }
 
   private async fetchStories(userId: string): Promise<ApprovedContentRow[]> {
+    // PERF: Check cache first
+    if (isCacheValid(userContextCache.stories, userId)) {
+      console.log(`[CoverLetterDraftService] Stories cache HIT (${userContextCache.stories.data.length} items)`);
+      return userContextCache.stories.data;
+    }
+
     // Check for synthetic user context and filter by source_id if needed
     let allowedSourceIds: string[] | undefined;
     try {
@@ -2050,11 +2103,26 @@ export class CoverLetterDraftService {
       return [];
     }
 
-    console.log(`[CoverLetterDraftService] Loaded ${data?.length || 0} stories${allowedSourceIds ? ` (filtered by profile)` : ''}`);
-    return data ?? [];
+    const stories = data ?? [];
+    
+    // PERF: Update cache
+    userContextCache.stories = {
+      data: stories,
+      fetchedAt: Date.now(),
+      userId,
+    };
+    console.log(`[CoverLetterDraftService] Stories cache MISS - fetched ${stories.length} items${allowedSourceIds ? ` (filtered by profile)` : ''}`);
+    
+    return stories;
   }
 
   private async fetchSavedSections(userId: string): Promise<SavedSectionRow[]> {
+    // PERF: Check cache first
+    if (isCacheValid(userContextCache.savedSections, userId)) {
+      console.log(`[CoverLetterDraftService] SavedSections cache HIT (${userContextCache.savedSections.data.length} items)`);
+      return userContextCache.savedSections.data;
+    }
+
     // Check for synthetic user context and filter by source_id if needed
     let allowedSourceIds: string[] | undefined;
     try {
@@ -2112,8 +2180,17 @@ export class CoverLetterDraftService {
       return [];
     }
 
-    console.log(`[CoverLetterDraftService] Loaded ${data?.length || 0} saved sections${allowedSourceIds ? ` (filtered by profile)` : ''}`);
-    return data ?? [];
+    const savedSections = data ?? [];
+    
+    // PERF: Update cache
+    userContextCache.savedSections = {
+      data: savedSections,
+      fetchedAt: Date.now(),
+      userId,
+    };
+    console.log(`[CoverLetterDraftService] SavedSections cache MISS - fetched ${savedSections.length} items${allowedSourceIds ? ` (filtered by profile)` : ''}`);
+    
+    return savedSections;
   }
 
   /**
@@ -2126,6 +2203,12 @@ export class CoverLetterDraftService {
     description: string;
     achievements: string[];
   }>> {
+    // PERF: Check cache first
+    if (isCacheValid(userContextCache.workHistory, userId)) {
+      console.log(`[CoverLetterDraftService] WorkHistory cache HIT (${userContextCache.workHistory.data.length} items)`);
+      return userContextCache.workHistory.data;
+    }
+
     const { data, error } = await this.supabaseClient
       .from('work_items')
       .select('id, company:companies(name), title, description, achievements')
@@ -2136,13 +2219,23 @@ export class CoverLetterDraftService {
       return [];
     }
 
-    return (data ?? []).map(item => ({
+    const workHistory = (data ?? []).map(item => ({
       id: item.id,
       company: (item.company as any)?.name || 'Unknown',
       title: item.title || '',
       description: item.description || '',
       achievements: Array.isArray(item.achievements) ? item.achievements as string[] : [],
     }));
+
+    // PERF: Update cache
+    userContextCache.workHistory = {
+      data: workHistory,
+      fetchedAt: Date.now(),
+      userId,
+    };
+    console.log(`[CoverLetterDraftService] WorkHistory cache MISS - fetched ${workHistory.length} items`);
+
+    return workHistory;
   }
 
   /**
@@ -2153,6 +2246,12 @@ export class CoverLetterDraftService {
     title: string;
     content: string;
   }>> {
+    // PERF: Check cache first
+    if (isCacheValid(userContextCache.approvedContent, userId)) {
+      console.log(`[CoverLetterDraftService] ApprovedContent cache HIT (${userContextCache.approvedContent.data.length} items)`);
+      return userContextCache.approvedContent.data;
+    }
+
     const { data, error } = await this.supabaseClient
       .from('approved_content')
       .select('id, title, content')
@@ -2163,11 +2262,21 @@ export class CoverLetterDraftService {
       return [];
     }
 
-    return (data ?? []).map(item => ({
+    const approvedContent = (data ?? []).map(item => ({
       id: item.id,
       title: item.title || '',
       content: item.content || '',
     }));
+
+    // PERF: Update cache
+    userContextCache.approvedContent = {
+      data: approvedContent,
+      fetchedAt: Date.now(),
+      userId,
+    };
+    console.log(`[CoverLetterDraftService] ApprovedContent cache MISS - fetched ${approvedContent.length} items`);
+
+    return approvedContent;
   }
 
   private normaliseTemplateSections(sections: TemplateRow['sections']): CoverLetterSection[] {

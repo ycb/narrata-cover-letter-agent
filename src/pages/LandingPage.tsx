@@ -72,30 +72,30 @@ const LandingPage = () => {
         <div className="mt-8 md:mt-16 max-w-6xl mx-auto">
           <Card className="shadow-strong overflow-hidden">
             <CardContent className="p-0">
-              {/* Mobile: Horizontal slide animation */}
-              <div className="block md:hidden h-[250px] sm:h-[300px] overflow-hidden relative rounded-lg">
+              {/* Mobile: Fade in/out carousel */}
+              <div className="block md:hidden relative rounded-lg">
                 <img 
                   src="/docs/marketing/screenshots/cover-letter-editor-2.png" 
                   alt="Narrata cover letter editor showing job insights and personalized draft content"
-                  className="h-full w-auto max-w-none absolute top-0 left-0 animate-hero-mobile-1"
+                  className="w-full h-auto animate-hero-mobile-1"
                   loading="eager"
                 />
                 <img 
                   src="/docs/marketing/screenshots/pm-levels-3.png" 
                   alt="PM Levels analysis showing role fit and career progression"
-                  className="h-full w-auto max-w-none absolute top-0 left-0 animate-hero-mobile-2"
+                  className="w-full h-auto absolute top-0 left-0 animate-hero-mobile-2"
                   loading="eager"
                 />
                 <img 
                   src="/docs/marketing/screenshots/work-history-2.png" 
                   alt="Work history with structured stories and achievements"
-                  className="h-full w-auto max-w-none absolute top-0 left-0 animate-hero-mobile-3"
+                  className="w-full h-auto absolute top-0 left-0 animate-hero-mobile-3"
                   loading="eager"
                 />
                 <img 
                   src="/docs/marketing/screenshots/template.png" 
                   alt="Cover letter template with dynamic story matching"
-                  className="h-full w-auto max-w-none absolute top-0 left-0 animate-hero-mobile-4"
+                  className="w-full h-auto absolute top-0 left-0 animate-hero-mobile-4"
                   loading="eager"
                 />
               </div>
@@ -261,101 +261,69 @@ const LandingPage = () => {
             animation: hero-4 40s ease-in-out infinite;
           }
           
-          /* Mobile horizontal slide animations */
+          /* Mobile fade in/out animations */
           @keyframes hero-mobile-1 {
-            0%, 2% {
-              transform: translateX(0);
+            0%, 22% {
               opacity: 1;
             }
-            22%, 23% {
-              transform: translateX(calc(-100% + 100vw));
-              opacity: 1;
-            }
-            24%, 99% {
-              transform: translateX(0);
+            25%, 97% {
               opacity: 0;
             }
             100% {
-              transform: translateX(0);
               opacity: 1;
             }
           }
           
           @keyframes hero-mobile-2 {
-            0%, 24% {
-              transform: translateX(0);
+            0%, 22% {
               opacity: 0;
             }
-            25%, 27% {
-              transform: translateX(0);
+            25%, 47% {
               opacity: 1;
             }
-            47%, 48% {
-              transform: translateX(calc(-100% + 100vw));
-              opacity: 1;
-            }
-            49%, 100% {
-              transform: translateX(0);
+            50%, 100% {
               opacity: 0;
             }
           }
           
           @keyframes hero-mobile-3 {
-            0%, 49% {
-              transform: translateX(0);
+            0%, 47% {
               opacity: 0;
             }
-            50%, 52% {
-              transform: translateX(0);
+            50%, 72% {
               opacity: 1;
             }
-            72%, 73% {
-              transform: translateX(calc(-100% + 100vw));
-              opacity: 1;
-            }
-            74%, 100% {
-              transform: translateX(0);
+            75%, 100% {
               opacity: 0;
             }
           }
           
           @keyframes hero-mobile-4 {
-            0%, 74% {
-              transform: translateX(0);
+            0%, 72% {
               opacity: 0;
             }
-            75%, 77% {
-              transform: translateX(0);
+            75%, 97% {
               opacity: 1;
-            }
-            97%, 98% {
-              transform: translateX(calc(-100% + 100vw));
-              opacity: 1;
-            }
-            99% {
-              transform: translateX(calc(-100% + 100vw));
-              opacity: 0;
             }
             100% {
-              transform: translateX(0);
               opacity: 0;
             }
           }
           
           .animate-hero-mobile-1 {
-            animation: hero-mobile-1 40s ease-in-out infinite;
+            animation: hero-mobile-1 20s ease-in-out infinite;
           }
           
           .animate-hero-mobile-2 {
-            animation: hero-mobile-2 40s ease-in-out infinite;
+            animation: hero-mobile-2 20s ease-in-out infinite;
           }
           
           .animate-hero-mobile-3 {
-            animation: hero-mobile-3 40s ease-in-out infinite;
+            animation: hero-mobile-3 20s ease-in-out infinite;
           }
           
           .animate-hero-mobile-4 {
-            animation: hero-mobile-4 40s ease-in-out infinite;
+            animation: hero-mobile-4 20s ease-in-out infinite;
           }
         `}</style>
       </section>
