@@ -90,7 +90,9 @@ function transformClustersToWorkHistory(
           roleId: primaryWorkItemId,
           title: story.title,
           content: story.content,
-          outcomeMetrics: story.metrics.map(m => m.value),
+          outcomeMetrics: story.metrics.map(m => 
+            m.context ? `${m.value} ${m.context}` : m.value
+          ),
           tags: story.tags,
           source: 'resume' as const,
           status: 'approved' as const,
@@ -120,7 +122,9 @@ function transformClustersToWorkHistory(
         endDate: cluster.endDate || undefined,
         description: cluster.mergedDescription,
         tags: cluster.mergedTags,
-        outcomeMetrics: cluster.mergedMetrics.map(m => m.value),
+        outcomeMetrics: cluster.mergedMetrics.map(m => 
+          m.context ? `${m.value} ${m.context}` : m.value
+        ),
         blurbs,
         externalLinks: [], // TODO: Fetch external links if needed
         hasGaps: totalGapCount > 0,

@@ -507,12 +507,21 @@ export const WorkHistoryDetail = ({
   }, [initialTab]);
   
   const formatDateRange = (startDate: string, endDate?: string) => {
-    const start = new Date(startDate).toLocaleDateString('en-US', { 
+    // Parse date strings without timezone conversion issues
+    // Input format: "2019-06-01" or "2019-06" 
+    const parseDate = (dateStr: string) => {
+      const parts = dateStr.split('-');
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1; // JS months are 0-indexed
+      return new Date(year, month, 1);
+    };
+    
+    const start = parseDate(startDate).toLocaleDateString('en-US', { 
       year: 'numeric', 
       month: 'long' 
     });
     const end = endDate 
-      ? new Date(endDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
+      ? parseDate(endDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
       : 'Present';
     return `${start} - ${end}`;
   };
