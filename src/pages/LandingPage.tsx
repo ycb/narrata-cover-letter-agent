@@ -34,8 +34,8 @@ const LandingPage = () => {
             
             {/* Center: Tagline */}
             <div className="hidden md:block font-medium absolute left-1/2 transform -translate-x-1/2" style={{ fontSize: '1.25rem', lineHeight: '1.75rem' }}>
-              <span style={{ color: '#D92C94' }}>AI-Assisted Cover Letters ⏩ </span>
-              <span className="text-white">your Dream Job</span>
+              <div className="text-center" style={{ color: '#D92C94' }}>AI-Assisted Cover Letters </div>
+              <div className="text-white text-center">⏩ Your Dream Job</div>
             </div>
             
             {/* Right: Sign In */}
@@ -52,7 +52,7 @@ const LandingPage = () => {
       <section className="container mx-auto px-4 pt-16 pb-12 md:pt-24 md:pb-16">
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-6 leading-tight">
-            Your strongest cover letters
+            Exceptional cover letters
             <br />
             Built from your real experience
           </h1>
@@ -85,6 +85,18 @@ const LandingPage = () => {
                   className="w-full h-auto absolute top-0 left-0 animate-hero-2"
                   loading="eager"
                 />
+                <img 
+                  src="/docs/marketing/screenshots/work-history-2.png" 
+                  alt="Work history with structured stories and achievements"
+                  className="w-full h-auto absolute top-0 left-0 animate-hero-3"
+                  loading="eager"
+                />
+                <img 
+                  src="/docs/marketing/screenshots/template.png" 
+                  alt="Cover letter template with dynamic story matching"
+                  className="w-full h-auto absolute top-0 left-0 animate-hero-4"
+                  loading="eager"
+                />
               </div>
             </CardContent>
           </Card>
@@ -92,36 +104,78 @@ const LandingPage = () => {
         
         <style>{`
           @keyframes hero-1 {
-            0%, 10% {
+            0%, 2% {
               transform: translateY(0);
               opacity: 1;
             }
-            45%, 50% {
+            22%, 23% {
               transform: translateY(calc(-100% + 600px));
               opacity: 1;
             }
-            60% {
-              transform: translateY(calc(-100% + 600px));
+            24%, 99% {
+              transform: translateY(0);
               opacity: 0;
             }
-            90%, 100% {
+            100% {
+              transform: translateY(0);
+              opacity: 1;
+            }
+          }
+          
+          @keyframes hero-2 {
+            0%, 24% {
+              transform: translateY(0);
+              opacity: 0;
+            }
+            25%, 27% {
+              transform: translateY(0);
+              opacity: 1;
+            }
+            47%, 48% {
+              transform: translateY(calc(-100% + 600px));
+              opacity: 1;
+            }
+            49%, 100% {
               transform: translateY(0);
               opacity: 0;
             }
           }
           
-          @keyframes hero-2 {
-            0%, 50% {
+          @keyframes hero-3 {
+            0%, 49% {
               transform: translateY(0);
               opacity: 0;
             }
-            60%, 65% {
+            50%, 52% {
               transform: translateY(0);
               opacity: 1;
             }
-            90%, 95% {
+            72%, 73% {
               transform: translateY(calc(-100% + 600px));
               opacity: 1;
+            }
+            74%, 100% {
+              transform: translateY(0);
+              opacity: 0;
+            }
+          }
+          
+          @keyframes hero-4 {
+            0%, 74% {
+              transform: translateY(0);
+              opacity: 0;
+            }
+            75%, 77% {
+              transform: translateY(0);
+              opacity: 1;
+            }
+            97%, 98% {
+              transform: translateY(calc(-100% + 600px));
+              opacity: 1;
+            }
+            99% {
+              transform: translateY(calc(-100% + 600px));
+              opacity: 0;
             }
             100% {
               transform: translateY(0);
@@ -130,11 +184,19 @@ const LandingPage = () => {
           }
           
           .animate-hero-1 {
-            animation: hero-1 20s ease-in-out infinite;
+            animation: hero-1 40s ease-in-out infinite;
           }
           
           .animate-hero-2 {
-            animation: hero-2 20s ease-in-out infinite;
+            animation: hero-2 40s ease-in-out infinite;
+          }
+          
+          .animate-hero-3 {
+            animation: hero-3 40s ease-in-out infinite;
+          }
+          
+          .animate-hero-4 {
+            animation: hero-4 40s ease-in-out infinite;
           }
         `}</style>
       </section>
@@ -235,7 +297,7 @@ const LandingPage = () => {
       <section className="container mx-auto px-4 py-12 md:py-16">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-3xl md:text-4xl font-bold text-center text-foreground mb-16">
-            Why people use Narrata
+            Benefits of using Narrata
           </h2>
 
           <div className="space-y-24">
@@ -368,7 +430,7 @@ const LandingPage = () => {
                     </span>
                     <h3 className="text-xl font-bold text-foreground mb-3">Upload your materials</h3>
                     <p className="text-muted-foreground text-sm">
-                      Narrata identifies your PM Level (Associate PM, PM, Senior PM, Staff PM, or Director) and extracts strengths, stories, and key accomplishments into verified content blocks.
+                      Narrata identifies your PM Level and extracts strengths, stories, and key accomplishments into verified content blocks.
                     </p>
                   </div>
                   <img 

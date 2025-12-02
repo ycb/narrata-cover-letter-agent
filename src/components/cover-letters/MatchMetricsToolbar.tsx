@@ -1078,9 +1078,12 @@ function ReadinessDrawerContent({ readiness }: ReadinessDrawerContentProps) {
     { key: 'professionalPolish', label: 'Professional polish' },
   ];
 
+  // Determine if dimension is "passing" (Exceptional/Strong = check, others = X)
+  const isDimensionPassing = (value: string) => value === 'strong';
+
   return (
     <div className="p-2 space-y-3">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-foreground">Verdict:</span>
         <Badge variant="outline" className={getBadgeClass(ratingLabel)}>
           {ratingLabel}
@@ -1090,22 +1093,16 @@ function ReadinessDrawerContent({ readiness }: ReadinessDrawerContentProps) {
         <div className="text-xs text-foreground/80">{readiness.feedback.summary}</div>
       )}
       <div className="border-t border-border/30 pt-2">
-        <h4 className="text-sm font-medium text-foreground mb-2">Score Breakdown</h4>
+        <h4 className="text-sm font-medium text-foreground mb-2">Editorial Dimensions</h4>
         <div className="space-y-1">
           {rows.map((row, idx) => {
             const value = readiness.scoreBreakdown[row.key];
-            const displayLabel = getDimensionLabel(value);
+            const passing = isDimensionPassing(value);
             return (
               <div key={row.key} className={idx > 0 ? 'pt-1 border-t border-border/20' : ''}>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-foreground/90">{row.label}</span>
-                  <span className={`text-xs font-medium ${
-                    displayLabel === 'Strong' ? 'text-success' :
-                    displayLabel === 'Adequate' ? 'text-warning' :
-                    'text-muted-foreground'
-                  }`}>
-                    {displayLabel}
-                  </span>
+                  <StatusIcon met={passing} />
                 </div>
               </div>
             );
@@ -1128,9 +1125,6 @@ function ReadinessDrawerContent({ readiness }: ReadinessDrawerContentProps) {
           )}
         </div>
       )}
-      <div className="text-[11px] text-muted-foreground">
-        Advisory only; does not block finalization.
-      </div>
     </div>
   );
 }
