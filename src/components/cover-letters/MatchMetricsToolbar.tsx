@@ -1098,7 +1098,7 @@ function ReadinessDrawerContent({ readiness }: ReadinessDrawerContentProps) {
           </Badge>
         </div>
       )}
-      {readiness.feedback?.summary && (
+      {!isShortDraft && readiness.feedback?.summary && (
         <div className="text-xs text-foreground/80">{readiness.feedback.summary}</div>
       )}
       <div className="border-t border-border/30 pt-2">
