@@ -27,7 +27,7 @@ const CONTENT_TYPE_LABELS: Record<string, string> = {
   stories: 'Stories',
   savedSections: 'Saved Sections',
   roleDescriptions: 'Role Descriptions',
-  roleMetrics: 'Role Metrics',
+  outcomeMetrics: 'Role Metrics',
   coverLetterSections: 'Cover Letter Sections',
 };
 
@@ -142,7 +142,7 @@ export function ContentQualityActionItems({
       // Default navigation
       if (contentType === 'stories') {
         navigate('/show-all-stories?filter=gap-detected&severity=' + severity);
-      } else if (contentType === 'roleDescriptions' || contentType === 'roleMetrics') {
+      } else if (contentType === 'roleDescriptions' || contentType === 'outcomeMetrics') {
         navigate('/work-history?filter=gaps&severity=' + severity);
       } else if (contentType === 'savedSections') {
         navigate('/cover-letter-template?filter=gaps&severity=' + severity);

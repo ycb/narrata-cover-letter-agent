@@ -229,7 +229,7 @@ export function ContentReviewStep({ onReviewComplete, onBack }: ContentReviewSte
               role: roleTitle,
               roleTags: workItem.roleTags || [],
               roleSummary: workItem.roleSummary || '',
-              roleMetrics: workItem.roleMetrics || [],
+              outcomeMetrics: workItem.outcomeMetrics || [],
               dates: `${workItem.startDate || ''} - ${workItem.endDate || 'Present'}`,
               location: workItem.location || '',
               startDate: workItem.startDate,
@@ -592,7 +592,7 @@ export function ContentReviewStep({ onReviewComplete, onBack }: ContentReviewSte
                 end_date: story.endDate || null,
                 description: story.roleSummary || story.content,
                 tags: story.roleTags || [],
-                achievements: story.roleMetrics?.map((m: any) => `${m.value} ${m.context}`) || []
+                achievements: story.outcomeMetrics?.map((m: any) => `${m.value} ${m.context}`) || []
               })
               .select()
               .single();

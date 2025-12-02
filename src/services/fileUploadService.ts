@@ -674,7 +674,7 @@ source_type: dbSourceType,
       console.log(structuredData.summary);
       console.log('═══════════════════════════════════════════════════════════');
 
-      // Update with structured data - now includes all fields (roleMetrics, stories, etc.)
+      // Update with structured data - now includes all fields (outcomeMetrics, stories, etc.)
       // Types are now aligned with LLM prompt schema, so parsed data contains everything
       const dbStartTime = performance.now();
       await this.updateProcessingStatus(sourceId, 'completed', structuredData as any, undefined, accessToken);
@@ -949,8 +949,8 @@ source_type: dbSourceType,
             console.log(`🔄 Updating existing work_item ${workItemId} - new has ${newStoryCount} stories, existing has 0`);
             
             // Store role-level metrics as structured JSONB
-            const roleMetrics = Array.isArray(workItem.roleMetrics) 
-              ? workItem.roleMetrics.map((m: any) => ({
+            const outcomeMetrics = Array.isArray(workItem.outcomeMetrics) 
+              ? workItem.outcomeMetrics.map((m: any) => ({
                   ...m,
                   parentType: m.parentType || 'role'
                 }))
@@ -959,16 +959,16 @@ source_type: dbSourceType,
             // Merge metrics (combine existing and new)
             const existingMetrics = existingWorkItem.metrics || [];
             const mergedMetrics = Array.isArray(existingMetrics) && existingMetrics.length > 0
-              ? [...existingMetrics, ...roleMetrics].filter((m, i, arr) => 
+              ? [...existingMetrics, ...outcomeMetrics].filter((m, i, arr) => 
                   arr.findIndex(m2 => m2.value === m.value && m2.context === m.context) === i
                 ) // Deduplicate
-              : roleMetrics;
+              : outcomeMetrics;
             
             await dbClient
               .from('work_items')
               .update({
                 description: workItem.roleSummary || workItem.description || existingWorkItem.description || '',
-                achievements: workItem.roleMetrics?.map((m: any) => `${m.value || ''} ${m.context || ''}`).filter(Boolean) || workItem.achievements || [],
+                achievements: workItem.outcomeMetrics?.map((m: any) => `${m.value || ''} ${m.context || ''}`).filter(Boolean) || workItem.achievements || [],
                 tags: workItem.roleTags || workItem.tags || [],
                 metrics: mergedMetrics,
                 source_id: sourceId // Update to new source since it has stories
@@ -1033,8 +1033,8 @@ source_type: dbSourceType,
         } else {
           // Create new work item with role-level data
           // Store role-level metrics as structured JSONB
-          const roleMetrics = Array.isArray(workItem.roleMetrics) 
-            ? workItem.roleMetrics.map((m: any) => ({
+          const outcomeMetrics = Array.isArray(workItem.outcomeMetrics) 
+            ? workItem.outcomeMetrics.map((m: any) => ({
                 ...m,
                 parentType: m.parentType || 'role' // Ensure parentType is set
               }))
@@ -1049,9 +1049,9 @@ source_type: dbSourceType,
               start_date: workItem.startDate,
               end_date: workItemEndDate,
               description: workItem.roleSummary || workItem.description || '',
-              achievements: workItem.roleMetrics?.map((m: any) => `${m.value || ''} ${m.context || ''}`).filter(Boolean) || workItem.achievements || [], // Keep TEXT[] for backward compatibility
+              achievements: workItem.outcomeMetrics?.map((m: any) => `${m.value || ''} ${m.context || ''}`).filter(Boolean) || workItem.achievements || [], // Keep TEXT[] for backward compatibility
               tags: workItem.roleTags || workItem.tags || [],
-              metrics: roleMetrics, // NEW: Structured JSONB metrics
+              metrics: outcomeMetrics, // NEW: Structured JSONB metrics
               source_id: sourceId // NEW: Track data lineage
             })
             .select('id')
@@ -1068,14 +1068,14 @@ source_type: dbSourceType,
           // Phase 3: Detect role-level gaps (metrics, description, etc.)
           try {
             const { GapDetectionService } = await import('./gapDetectionService');
-            const roleMetrics = Array.isArray(workItem.roleMetrics) ? workItem.roleMetrics : [];
+            const outcomeMetrics = Array.isArray(workItem.outcomeMetrics) ? workItem.outcomeMetrics : [];
             const roleGaps = await GapDetectionService.detectWorkItemGaps(
               userId,
               workItemId,
               {
                 title: workItemTitle,
                 description: workItem.roleSummary || workItem.description || '',
-                metrics: roleMetrics,
+                metrics: outcomeMetrics,
                 startDate: workItem.startDate,
                 endDate: workItemEndDate
               },

@@ -754,9 +754,9 @@ IMPORTANT: Return ONLY the JSON object, no other text, no markdown, no explanati
     return workHistory.map((item, index) => {
       const workItem = item as Record<string, unknown>;
       
-      // Parse roleMetrics array
-      const roleMetrics = Array.isArray(workItem.roleMetrics)
-        ? workItem.roleMetrics.map((m: any) => ({
+      // Parse outcomeMetrics array
+      const outcomeMetrics = Array.isArray(workItem.outcomeMetrics)
+        ? workItem.outcomeMetrics.map((m: any) => ({
             value: (m.value as string) || '',
             context: (m.context as string) || '',
             type: (m.type as 'increase' | 'decrease' | 'absolute') || 'absolute',
@@ -799,7 +799,7 @@ IMPORTANT: Return ONLY the JSON object, no other text, no markdown, no explanati
         location: (workItem.location as string) || undefined,
         current: Boolean(workItem.current),
         // NEW: Extract rich schema fields
-        roleMetrics,
+        outcomeMetrics,
         stories,
         roleTags: Array.isArray(workItem.roleTags) ? workItem.roleTags as string[] : undefined,
         roleSummary: (workItem.roleSummary as string) || undefined,

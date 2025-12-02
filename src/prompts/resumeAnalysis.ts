@@ -49,15 +49,15 @@ Return ONLY valid JSON with this exact structure. ALL FIELDS ARE REQUIRED:
       "companyTags": ["SaaS", "B2B", "PLG"],  // REQUIRED: Always include tags
       "roleTags": ["growth", "activation", "experimentation", "startup"],  // REQUIRED: Always include tags. Include ONE maturity tag: "startup", "growth-stage", or "enterprise" based on company stage during tenure.
       "roleSummary": "1-2 sentence overview of focus and impact in this role",  // REQUIRED: Never leave empty if role has bullets
-      "roleMetrics": [  // Extract metrics WITHOUT story context (standalone metrics, no narrative). DO NOT duplicate metrics that appear in stories.
+      "outcomeMetrics": [  // Extract metrics WITHOUT story context (standalone metrics, no narrative). DO NOT duplicate metrics that appear in stories.
         {
           "value": "+22%",  // REQUIRED: Extract numeric value (e.g., "+22%", "-3.5%", "30+", "+10")
           "context": "Week-2 activation improvement",  // REQUIRED: Complete, self-explanatory phrase. BAD: "revenue" or "team". GOOD: "year-over-year revenue growth" or "team size increase". Must make sense without seeing original resume.
           "type": "increase",  // REQUIRED: "increase" | "decrease" | "absolute"
-          "parentType": "role"  // REQUIRED: Always "role" for roleMetrics
+          "parentType": "role"  // REQUIRED: Always "role" for outcomeMetrics
         }
       ],
-      // CRITICAL: If a metric appears in a story.metrics[], do NOT also include it in roleMetrics[] (no duplication)
+      // CRITICAL: If a metric appears in a story.metrics[], do NOT also include it in outcomeMetrics[] (no duplication)
       "stories": [  // REQUIRED: Extract 1-3+ stories per role and place them HERE in this array
         {
           "id": "1",
@@ -155,7 +155,7 @@ CRITICAL EXTRACTION RULES:
      * "Increased revenue by 25%"
      * "Reduced churn by 3.5%"
      * "Launched 30+ features per year"
-   - Place these in roleMetrics[] array
+   - Place these in outcomeMetrics[] array
    - Each metric needs: value, context, type (increase/decrease/absolute), parentType ("role")
    
    Story-Level Metrics:
@@ -164,12 +164,12 @@ CRITICAL EXTRACTION RULES:
    - Examples of story-level metrics (embedded in stories):
      * "Faced declining activation rates, so I redesigned onboarding flows, resulting in +22% Week-2 activation"
      * "Accomplished 30+ tests per year as measured by experimentation cadence, by implementing weekly triage process"
-   - Place these in story.metrics[] array (NOT in roleMetrics)
+   - Place these in story.metrics[] array (NOT in outcomeMetrics)
    - Each metric needs: value, context, type, parentType ("story")
    
-   CRITICAL RULE: A metric should appear in EITHER roleMetrics OR story.metrics, NEVER BOTH.
+   CRITICAL RULE: A metric should appear in EITHER outcomeMetrics OR story.metrics, NEVER BOTH.
    - If metric has story context → story.metrics only
-   - If metric is standalone/narrative-free → roleMetrics only
+   - If metric is standalone/narrative-free → outcomeMetrics only
 
 3. COMPANY DESCRIPTION (MANDATORY - NEVER SKIP):
    CRITICAL: ALWAYS provide a company description. NEVER leave this field empty.
@@ -254,7 +254,7 @@ CRITICAL EXTRACTION RULES:
    EXTRACTION RULES:
    - Company descriptors → companyDescription field
    - Funding/stage → include in companyTags AND companyDescription
-   - Growth multipliers → roleMetrics[] with FULL context (e.g., "2X" + "year-over-year revenue growth")
+   - Growth multipliers → outcomeMetrics[] with FULL context (e.g., "2X" + "year-over-year revenue growth")
    - Role positioning → include in roleSummary (e.g., "First product hire...")
    
    DO NOT lose header context just because it's not in bullet format.
@@ -278,7 +278,7 @@ Expected JSON:
   "companyTags": ["SaaS", "B2B", "PLG"],
   "roleTags": ["growth", "activation", "experimentation", "analytics", "process", "growth-stage"],
   "roleSummary": "Owned onboarding optimization and experimentation cadence for PLG SaaS platform, driving activation and trial conversion across SMB segment.",
-  "roleMetrics": [  // CRITICAL: Extract ALL 3 metrics from the bullets above
+  "outcomeMetrics": [  // CRITICAL: Extract ALL 3 metrics from the bullets above
     {"value": "+22%", "context": "Week-2 activation", "type": "increase", "parentType": "role"},
     {"value": "+11%", "context": "trial-to-paid conversion", "type": "increase", "parentType": "role"},
     {"value": "30+", "context": "tests per year", "type": "absolute", "parentType": "role"}
@@ -322,11 +322,11 @@ CRITICAL REMINDERS:
 3. stories[] array: Extract achievements with narrative context (challenge/action/result, STAR format, etc.). If a bullet tells a story, extract it as a story.
 
 4. Metrics Duplication Rule (MOST IMPORTANT):
-   - If a metric appears WITHIN a story (story.metrics[]) → DO NOT also put it in roleMetrics[]
-   - If a metric appears WITHOUT a story context (standalone bullet) → Put it in roleMetrics[] only
+   - If a metric appears WITHIN a story (story.metrics[]) → DO NOT also put it in outcomeMetrics[]
+   - If a metric appears WITHOUT a story context (standalone bullet) → Put it in outcomeMetrics[] only
    - Resumes are compact: Most metrics will be role-level (no story context)
    - Stories with metrics (STAR format, Google format) → story.metrics[] only
-   - NEVER duplicate the same metric in both roleMetrics[] and story.metrics[]
+   - NEVER duplicate the same metric in both outcomeMetrics[] and story.metrics[]
 
 5. Resume vs Cover Letter Context:
    - RESUMES: Contain achievements in compact format (bullets, short sentences). Extract EACH as a story.

@@ -83,7 +83,7 @@ export interface GapSummary {
     stories: number;
     savedSections: number;
     roleDescriptions: number;
-    roleMetrics: number;
+    outcomeMetrics: number;
     coverLetterSections: number;
   };
   bySeverity: {
@@ -97,21 +97,21 @@ export interface GapSummary {
       stories: number;
       savedSections: number;
       roleDescriptions: number;
-      roleMetrics: number;
+      outcomeMetrics: number;
       coverLetterSections: number;
     };
     medium: {
       stories: number;
       savedSections: number;
       roleDescriptions: number;
-      roleMetrics: number;
+      outcomeMetrics: number;
       coverLetterSections: number;
     };
     low: {
       stories: number;
       savedSections: number;
       roleDescriptions: number;
-      roleMetrics: number;
+      outcomeMetrics: number;
       coverLetterSections: number;
     };
   };
@@ -282,7 +282,7 @@ export class GapDetectionService {
     gaps.push(...roleDescriptionGaps);
 
     // 2. Detect role-level metrics gaps
-    const roleMetricsGaps = this.detectRoleMetricsGaps(
+    const outcomeMetricsGaps = this.detectRoleMetricsGaps(
       userId,
       workItemId,
       workItemData.metrics || [],
@@ -290,7 +290,7 @@ export class GapDetectionService {
       workItemData.endDate,
       stories?.length || 0
     );
-    gaps.push(...roleMetricsGaps);
+    gaps.push(...outcomeMetricsGaps);
 
     // 3. Detect gaps in stories (if any)
     if (stories && stories.length > 0) {
@@ -604,7 +604,7 @@ export class GapDetectionService {
   private static detectRoleMetricsGaps(
     userId: string,
     workItemId: string,
-    roleMetrics: any[],
+    outcomeMetrics: any[],
     startDate?: string,
     endDate?: string | null,
     storyCount: number = 0
@@ -612,7 +612,7 @@ export class GapDetectionService {
     const gaps: Gap[] = [];
 
     // Count valid metrics (with value)
-    const validMetrics = roleMetrics?.filter(m => m?.value && m.value.trim()) || [];
+    const validMetrics = outcomeMetrics?.filter(m => m?.value && m.value.trim()) || [];
     const metricCount = validMetrics.length;
 
     // Check for missing metrics
@@ -1534,21 +1534,21 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
           stories: 0,
           savedSections: 0,
           roleDescriptions: 0,
-          roleMetrics: 0,
+          outcomeMetrics: 0,
           coverLetterSections: 0,
         },
         bySeverity: { high: 0, medium: 0, low: 0 },
         bySeverityAndType: {
-          high: { stories: 0, savedSections: 0, roleDescriptions: 0, roleMetrics: 0, coverLetterSections: 0 },
-          medium: { stories: 0, savedSections: 0, roleDescriptions: 0, roleMetrics: 0, coverLetterSections: 0 },
-          low: { stories: 0, savedSections: 0, roleDescriptions: 0, roleMetrics: 0, coverLetterSections: 0 },
+          high: { stories: 0, savedSections: 0, roleDescriptions: 0, outcomeMetrics: 0, coverLetterSections: 0 },
+          medium: { stories: 0, savedSections: 0, roleDescriptions: 0, outcomeMetrics: 0, coverLetterSections: 0 },
+          low: { stories: 0, savedSections: 0, roleDescriptions: 0, outcomeMetrics: 0, coverLetterSections: 0 },
         },
       };
 
-      const mapItemToType = (item: any): 'stories' | 'savedSections' | 'roleDescriptions' | 'roleMetrics' | 'coverLetterSections' => {
+      const mapItemToType = (item: any): 'stories' | 'savedSections' | 'roleDescriptions' | 'outcomeMetrics' | 'coverLetterSections' => {
         if (item.item_type === 'story') return 'stories';
         if (item.item_type === 'role_summary') return 'roleDescriptions';
-        if (item.item_type === 'role_metrics') return 'roleMetrics';
+        if (item.item_type === 'role_metrics') return 'outcomeMetrics';
         if (item.item_type === 'cover_letter_section') return 'coverLetterSections';
         // default bucket by source list
         return workHistoryItems.includes(item) ? 'roleDescriptions' : 'coverLetterSections';
@@ -1572,7 +1572,7 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
           stories: 0,
           savedSections: 0,
           roleDescriptions: 0,
-          roleMetrics: 0,
+          outcomeMetrics: 0,
           coverLetterSections: 0,
         },
         bySeverity: {
@@ -1585,21 +1585,21 @@ If the content is specific, has metrics, and demonstrates clear impact, set isGe
             stories: 0,
             savedSections: 0,
             roleDescriptions: 0,
-            roleMetrics: 0,
+            outcomeMetrics: 0,
             coverLetterSections: 0,
           },
           medium: {
             stories: 0,
             savedSections: 0,
             roleDescriptions: 0,
-            roleMetrics: 0,
+            outcomeMetrics: 0,
             coverLetterSections: 0,
           },
           low: {
             stories: 0,
             savedSections: 0,
             roleDescriptions: 0,
-            roleMetrics: 0,
+            outcomeMetrics: 0,
             coverLetterSections: 0,
           },
         },

@@ -93,7 +93,7 @@ export function GapSummaryWidget({
 
   // Calculate counts for Work History (role descriptions + role metrics + stories)
   const workHistoryCount = gapSummary.byContentType.roleDescriptions + 
-                          gapSummary.byContentType.roleMetrics + 
+                          gapSummary.byContentType.outcomeMetrics + 
                           gapSummary.byContentType.stories;
 
   return (

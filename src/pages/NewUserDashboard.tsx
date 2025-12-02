@@ -84,14 +84,14 @@ export default function NewUserDashboard() {
         stories: 0,
         savedSections: 0,
         roleDescriptions: 0,
-        roleMetrics: 0,
+        outcomeMetrics: 0,
         coverLetterSections: 0,
       },
       bySeverity: { high: counts.high, medium: counts.medium, low: counts.low },
       bySeverityAndType: {
-        high: { stories: 0, savedSections: 0, roleDescriptions: 0, roleMetrics: 0, coverLetterSections: 0 },
-        medium: { stories: 0, savedSections: 0, roleDescriptions: 0, roleMetrics: 0, coverLetterSections: 0 },
-        low: { stories: 0, savedSections: 0, roleDescriptions: 0, roleMetrics: 0, coverLetterSections: 0 },
+        high: { stories: 0, savedSections: 0, roleDescriptions: 0, outcomeMetrics: 0, coverLetterSections: 0 },
+        medium: { stories: 0, savedSections: 0, roleDescriptions: 0, outcomeMetrics: 0, coverLetterSections: 0 },
+        low: { stories: 0, savedSections: 0, roleDescriptions: 0, outcomeMetrics: 0, coverLetterSections: 0 },
       },
     } as const;
   }, [contentItemsWithGaps.data]);
@@ -102,7 +102,7 @@ export default function NewUserDashboard() {
   const whFallbackCount = React.useMemo(() => {
     if (!summaryForUI) return null;
     const bc = summaryForUI.byContentType || ({} as any);
-    return (bc.roleDescriptions || 0) + (bc.roleMetrics || 0) + (bc.stories || 0);
+    return (bc.roleDescriptions || 0) + (bc.outcomeMetrics || 0) + (bc.stories || 0);
   }, [summaryForUI]);
 
   const ssFallbackCount = React.useMemo(() => {

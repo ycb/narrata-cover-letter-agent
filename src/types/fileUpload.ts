@@ -43,7 +43,7 @@ export interface WorkExperience {
   location?: string; // Role-specific location
   current: boolean;
   // NEW: Rich schema fields from LLM prompt
-  roleMetrics?: RoleMetric[];
+  outcomeMetrics?: RoleMetric[];
   stories?: Story[];
   roleTags?: string[];
   roleSummary?: string; // Preferred over description
@@ -176,7 +176,7 @@ export interface TextExtractionResult {
 export interface LLMAnalysisResult {
   success: boolean;
   data?: StructuredResumeData;
-  rawData?: Record<string, unknown>; // Full raw LLM response with all fields (roleMetrics, stories, etc.)
+  rawData?: Record<string, unknown>; // Full raw LLM response with all fields (outcomeMetrics, stories, etc.)
   error?: string;
   retryable?: boolean;
 }

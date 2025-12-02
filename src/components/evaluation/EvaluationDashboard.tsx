@@ -403,7 +403,7 @@ export const EvaluationDashboard: React.FC = () => {
     const hasMetrics = (() => {
       let found = false;
       (workHistory || []).forEach((entry: any) => {
-        if (Array.isArray(entry?.roleMetrics) && entry.roleMetrics.length > 0) found = true;
+        if (Array.isArray(entry?.outcomeMetrics) && entry.outcomeMetrics.length > 0) found = true;
         (entry?.stories || []).forEach((st: any) => {
           if (Array.isArray(st?.metrics) && st.metrics.length > 0) found = true;
         });
@@ -447,7 +447,7 @@ export const EvaluationDashboard: React.FC = () => {
     const companyTags = entry.companyTags || [];
     const roleTags = entry.roleTags || entry.tags || [];
     const stories = entry.stories || [];
-    const roleMetrics = entry.roleMetrics || [];
+    const outcomeMetrics = entry.outcomeMetrics || [];
     const roleSummary = entry.roleSummary || entry.description || entry.descriptionCombined;
 
     // Format date range
@@ -520,7 +520,7 @@ export const EvaluationDashboard: React.FC = () => {
           <div>
             <div className="text-xs font-medium text-gray-500 mb-1">Metrics</div>
             <div className="text-sm text-gray-900">
-              {roleMetrics.length > 0 ? `${roleMetrics.length} metric${roleMetrics.length !== 1 ? 's' : ''}` : 'None'}
+              {outcomeMetrics.length > 0 ? `${outcomeMetrics.length} metric${outcomeMetrics.length !== 1 ? 's' : ''}` : 'None'}
             </div>
           </div>
         </div>
@@ -561,11 +561,11 @@ export const EvaluationDashboard: React.FC = () => {
         )}
 
         {/* Role Metrics (inline display) */}
-        {roleMetrics.length > 0 && (
+        {outcomeMetrics.length > 0 && (
           <div className="space-y-1 border-t pt-3">
             <div className="text-xs font-medium text-gray-600 mb-2">Role Metrics:</div>
             <div className="flex flex-wrap gap-2">
-              {roleMetrics.map((metric: any, metricIdx: number) => (
+              {outcomeMetrics.map((metric: any, metricIdx: number) => (
                 <div key={metricIdx} className="text-xs bg-green-50 text-green-800 px-2 py-1 rounded">
                   <span className="font-semibold">{metric.value}</span>
                   {metric.context && <span className="text-green-600"> {metric.context}</span>}
