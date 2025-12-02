@@ -93,14 +93,45 @@ export function CoverLetterFinalization({
   return (
     <Dialog open={isOpen} onOpenChange={open => (!open ? onClose() : undefined)}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto dialog-top-anchored">
-        {/* 1. Header */}
+        {/* 1. Header with CTAs */}
         <DialogHeader className="pb-4 border-b border-border/50">
-          <DialogTitle className="text-xl font-semibold">
-            Review & Finalize your cover letter
-          </DialogTitle>
-          {subtitle && (
-            <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
-          )}
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <DialogTitle className="text-xl font-semibold">
+                Review & Finalize your cover letter
+              </DialogTitle>
+              {subtitle && (
+                <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
+              )}
+            </div>
+            {/* Primary + Secondary CTAs (top-right) */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onBackToDraft}
+              >
+                Back to Edit
+              </Button>
+              {onFinalizeConfirm && (
+                <Button
+                  onClick={onFinalizeConfirm}
+                  size="sm"
+                  disabled={isFinalizing}
+                  className="min-w-[120px]"
+                >
+                  {isFinalizing ? (
+                    <>
+                      <LoaderIcon className="h-4 w-4 animate-spin mr-2" />
+                      Saving…
+                    </>
+                  ) : (
+                    'Finalize & Save'
+                  )}
+                </Button>
+              )}
+            </div>
+          </div>
         </DialogHeader>
 
         {/* Error message if any */}
@@ -126,69 +157,38 @@ export function CoverLetterFinalization({
           </div>
         </div>
 
-        {/* 3. Final action buttons */}
-        <div className="flex items-center justify-between pt-4 border-t border-border/50">
-          {/* Left: Copy, Download, Share */}
-          <div className="flex items-center gap-2">
-            <Button 
-              onClick={handleCopy} 
-              variant="outline" 
-              size="sm"
-              className="gap-2"
-            >
-              <Copy className="h-4 w-4" />
-              {copied ? 'Copied!' : 'Copy'}
-            </Button>
-            <Button 
-              onClick={handleDownload} 
-              variant="outline" 
-              size="sm"
-              className="gap-2"
-            >
-              <Download className="h-4 w-4" />
-              Download
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="gap-2"
-              onClick={() => {
-                // Future: implement share functionality
-                handleCopy();
-              }}
-            >
-              <Share2 className="h-4 w-4" />
-              Share
-            </Button>
-          </div>
-
-          {/* Right: Finalize & Save (CTA) */}
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onBackToDraft}
-            >
-              Back to Edit
-            </Button>
-            {onFinalizeConfirm && (
-              <Button
-                onClick={onFinalizeConfirm}
-                size="sm"
-                disabled={isFinalizing}
-                className="min-w-[120px]"
-              >
-                {isFinalizing ? (
-                  <>
-                    <LoaderIcon className="h-4 w-4 animate-spin mr-2" />
-                    Saving…
-                  </>
-                ) : (
-                  'Finalize & Save'
-                )}
-              </Button>
-            )}
-          </div>
+        {/* 3. Utility buttons (centered) */}
+        <div className="flex items-center justify-center gap-3 pt-4 border-t border-border/50">
+          <Button 
+            onClick={handleCopy} 
+            variant="outline" 
+            size="sm"
+            className="gap-2"
+          >
+            <Copy className="h-4 w-4" />
+            {copied ? 'Copied!' : 'Copy'}
+          </Button>
+          <Button 
+            onClick={handleDownload} 
+            variant="outline" 
+            size="sm"
+            className="gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Download
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            className="gap-2"
+            onClick={() => {
+              // Future: implement share functionality
+              handleCopy();
+            }}
+          >
+            <Share2 className="h-4 w-4" />
+            Share
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

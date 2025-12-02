@@ -43,6 +43,17 @@ import {
 } from '@/components/ui/tooltip';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
   AlertTriangle,
   Eye,
   FileText,
@@ -1416,16 +1427,14 @@ export const CoverLetterModal = ({
             {/* Pro tip for LinkedIn copying */}
             <Alert className="bg-primary/5 border-primary/20">
               <AlertTitle className="flex items-center gap-2 text-sm font-medium">
-                💡 Pro tip: Copying from LinkedIn?
+                💡 Pro tip for LinkedIn job posts
               </AlertTitle>
               <AlertDescription className="text-xs mt-2 space-y-2">
                 <p>
-                  If there's an "About the company" section, <strong>FIRST expand that by clicking "show more"</strong>. 
-                  THEN select — starting at the top to highlight text describing <strong>BOTH the role and company</strong>. 
-                  We'll use those details to make your letter stand out!
+                  When copying from LinkedIn, click "Show more" first, then select everything that describes the role and the company. Narrata uses that context to tailor your letter.
                 </p>
                 <p className="text-muted-foreground">
-                  Please try to minimize including text that doesn't relate, as this creates a garbage in / garbage out situation.
+                  To get the best results, try to avoid extra UI text (comments, buttons, "people also viewed," etc.).
                 </p>
               </AlertDescription>
             </Alert>
@@ -1458,7 +1467,35 @@ export const CoverLetterModal = ({
               </Alert>
             )}
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {/* Clear button (left) - with confirmation */}
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isBusy || !jobContent.trim()}
+                  >
+                    Clear
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Clear job description?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will remove the job description you've entered. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => setJobContent('')}>
+                      Clear
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
+              {/* Generate button (right) - primary CTA */}
               <Button
                 type="button"
                 className="gap-2"
@@ -1481,14 +1518,6 @@ export const CoverLetterModal = ({
                     Generate cover letter
                   </>
                 )}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setJobContent('')}
-                disabled={isBusy}
-              >
-                Clear
               </Button>
             </div>
           </CardContent>
