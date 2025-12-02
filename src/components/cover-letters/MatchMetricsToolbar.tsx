@@ -1087,9 +1087,9 @@ function ReadinessDrawerContent({ readiness }: ReadinessDrawerContentProps) {
   return (
     <div className="p-2 space-y-3">
       {isShortDraft ? (
-        <div className="text-sm text-muted-foreground">
+        <h4 className="text-sm font-medium text-foreground">
           Draft too short for full evaluation (150 words required)
-        </div>
+        </h4>
       ) : (
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-foreground">Verdict:</span>
