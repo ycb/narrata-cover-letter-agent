@@ -48,6 +48,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import type { WorkHistoryCompany, WorkHistoryRole, WorkHistoryBlurb } from "@/types/workHistory";
 import { useContentGeneration } from "@/hooks/useContentGeneration";
 import { supabase } from "@/lib/supabase";
@@ -62,6 +72,7 @@ interface WorkHistoryDetailProps {
   onResolvedGapsChange: (gaps: Set<string>) => void;
   onRoleSelect?: (role: WorkHistoryRole) => void;
   onAddRole?: () => void;
+  onEditRole?: (role: WorkHistoryRole) => void;
   onAddStory?: () => void;
   onAddLink?: () => void;
   onEditCompany?: (company: WorkHistoryCompany) => void;
@@ -85,6 +96,7 @@ export const WorkHistoryDetail = ({
   onResolvedGapsChange,
   onRoleSelect,
   onAddRole,
+  onEditRole,
   onAddStory,
   onAddLink,
   onEditCompany,
@@ -103,6 +115,16 @@ export const WorkHistoryDetail = ({
   const [editingRole, setEditingRole] = useState<WorkHistoryRole | null>(null);
   const [isEditingStory, setIsEditingStory] = useState(false);
   const [editingStory, setEditingStory] = useState<WorkHistoryBlurb | null>(null);
+  const [isDeleteRoleDialogOpen, setIsDeleteRoleDialogOpen] = useState(false);
+  const [deleteRoleStats, setDeleteRoleStats] = useState<{ stories: number } | null>(null);
+  const [isDeletingRole, setIsDeletingRole] = useState(false);
+  const [isDeleteCompanyDialogOpen, setIsDeleteCompanyDialogOpen] = useState(false);
+  const [deleteCompanyTarget, setDeleteCompanyTarget] = useState<WorkHistoryCompany | null>(null);
+  const [deleteCompanyStats, setDeleteCompanyStats] = useState<{ roles: number; stories: number } | null>(null);
+  const [isDeletingCompany, setIsDeletingCompany] = useState(false);
+  const [isDeleteStoryDialogOpen, setIsDeleteStoryDialogOpen] = useState(false);
+  const [deleteStoryTarget, setDeleteStoryTarget] = useState<WorkHistoryBlurb | null>(null);
+  const [isDeletingStory, setIsDeletingStory] = useState(false);
   
   const { toast } = useToast();
   const [dismissedSuccessCards, setDismissedSuccessCards] = useState<Set<string>>(new Set());
@@ -613,11 +635,253 @@ export const WorkHistoryDetail = ({
     return `${start} - ${end}`;
   };
 
-  const handleEditRole = () => {
-    if (selectedRole) {
+  const handleEditRoleClick = () => {
+    if (selectedRole && onEditRole) {
+      // Use parent callback to open modal
+      onEditRole(selectedRole);
+    } else if (selectedRole) {
+      // Fallback to inline editing if no parent callback
       setEditingRole({ ...selectedRole, tags: selectedRole.tags || [] });
       setRoleTagInput('');
       setIsEditingRole(true);
+    }
+  };
+
+  const handleDeleteRoleClick = async () => {
+    if (!selectedRole || !user) return;
+    
+    // Fetch stats for the confirmation dialog
+    try {
+      const workItemIds = selectedRole.workItemIds || [selectedRole.id];
+      const { count: storiesCount } = await supabase
+        .from('stories')
+        .select('id', { count: 'exact', head: true })
+        .in('work_item_id', workItemIds);
+      
+      setDeleteRoleStats({ stories: storiesCount || 0 });
+      setIsDeleteRoleDialogOpen(true);
+    } catch (error) {
+      console.error('Error fetching delete stats:', error);
+      setDeleteRoleStats(null);
+      setIsDeleteRoleDialogOpen(true);
+    }
+  };
+
+  const handleConfirmDeleteRole = async () => {
+    if (!selectedRole || !user) return;
+
+    setIsDeletingRole(true);
+
+    try {
+      const workItemIds = selectedRole.workItemIds || [selectedRole.id];
+
+      // Delete stories first (FK constraint)
+      await supabase
+        .from('stories')
+        .delete()
+        .in('work_item_id', workItemIds);
+
+      // Delete gaps for these work items
+      await supabase
+        .from('gaps')
+        .delete()
+        .in('entity_id', workItemIds);
+
+      // Delete work_items
+      const { error } = await supabase
+        .from('work_items')
+        .delete()
+        .in('id', workItemIds)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Role deleted",
+        description: `${selectedRole.title} and all associated data has been deleted.`,
+      });
+
+      setIsDeleteRoleDialogOpen(false);
+      onRefresh?.();
+    } catch (error) {
+      console.error('Error deleting role:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete role.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeletingRole(false);
+    }
+  };
+
+  const handleDeleteCompanyClick = async (company: WorkHistoryCompany) => {
+    if (!user) return;
+    
+    setDeleteCompanyTarget(company);
+    
+    // Fetch stats for the confirmation dialog
+    try {
+      // Get company ID
+      const { data: companyData } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('name', company.name)
+        .eq('user_id', user.id)
+        .single();
+
+      if (companyData) {
+        // Count roles (work_items) for this company
+        const { count: rolesCount } = await supabase
+          .from('work_items')
+          .select('id', { count: 'exact', head: true })
+          .eq('company_id', companyData.id)
+          .eq('user_id', user.id);
+
+        // Get work_item ids to count stories
+        const { data: workItems } = await supabase
+          .from('work_items')
+          .select('id')
+          .eq('company_id', companyData.id)
+          .eq('user_id', user.id);
+
+        const workItemIds = workItems?.map(w => w.id) || [];
+        
+        let storiesCount = 0;
+        if (workItemIds.length > 0) {
+          const { count } = await supabase
+            .from('stories')
+            .select('id', { count: 'exact', head: true })
+            .in('work_item_id', workItemIds);
+          storiesCount = count || 0;
+        }
+
+        setDeleteCompanyStats({ roles: rolesCount || 0, stories: storiesCount });
+      } else {
+        setDeleteCompanyStats(null);
+      }
+      
+      setIsDeleteCompanyDialogOpen(true);
+    } catch (error) {
+      console.error('Error fetching delete stats:', error);
+      setDeleteCompanyStats(null);
+      setIsDeleteCompanyDialogOpen(true);
+    }
+  };
+
+  const handleConfirmDeleteCompany = async () => {
+    if (!deleteCompanyTarget || !user) return;
+
+    setIsDeletingCompany(true);
+
+    try {
+      // Get company ID
+      const { data: companyData } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('name', deleteCompanyTarget.name)
+        .eq('user_id', user.id)
+        .single();
+
+      if (!companyData) {
+        throw new Error('Company not found');
+      }
+
+      // Get work_items for this company
+      const { data: workItems } = await supabase
+        .from('work_items')
+        .select('id')
+        .eq('company_id', companyData.id)
+        .eq('user_id', user.id);
+
+      const workItemIds = workItems?.map(w => w.id) || [];
+
+      if (workItemIds.length > 0) {
+        // Delete stories first
+        await supabase
+          .from('stories')
+          .delete()
+          .in('work_item_id', workItemIds);
+
+        // Delete gaps
+        await supabase
+          .from('gaps')
+          .delete()
+          .in('entity_id', workItemIds);
+
+        // Delete work_items
+        await supabase
+          .from('work_items')
+          .delete()
+          .eq('company_id', companyData.id)
+          .eq('user_id', user.id);
+      }
+
+      // Finally delete the company
+      const { error } = await supabase
+        .from('companies')
+        .delete()
+        .eq('id', companyData.id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Company deleted",
+        description: `${deleteCompanyTarget.name} and all associated data has been deleted.`,
+      });
+
+      setIsDeleteCompanyDialogOpen(false);
+      setDeleteCompanyTarget(null);
+      onRefresh?.();
+    } catch (error) {
+      console.error('Error deleting company:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete company.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeletingCompany(false);
+    }
+  };
+
+  const handleDeleteStoryClick = (story: WorkHistoryBlurb) => {
+    setDeleteStoryTarget(story);
+    setIsDeleteStoryDialogOpen(true);
+  };
+
+  const handleConfirmDeleteStory = async () => {
+    if (!deleteStoryTarget || !user) return;
+
+    setIsDeletingStory(true);
+
+    try {
+      const { error } = await supabase
+        .from('stories')
+        .delete()
+        .eq('id', deleteStoryTarget.id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Story deleted",
+        description: "The story has been deleted.",
+      });
+
+      setIsDeleteStoryDialogOpen(false);
+      setDeleteStoryTarget(null);
+      onRefresh?.();
+    } catch (error) {
+      console.error('Error deleting story:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete story.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeletingStory(false);
     }
   };
 
@@ -1118,8 +1382,8 @@ export const WorkHistoryDetail = ({
                           <Edit className="mr-2 h-4 w-4" />
                           Edit Company
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Trash2 className="mr-2 h-4 w-4 text-red-500" />
+                        <DropdownMenuItem onClick={() => handleDeleteCompanyClick(roleCompany)} className="text-destructive">
+                          <Trash2 className="mr-2 h-4 w-4" />
                           Delete Company
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -1239,8 +1503,8 @@ export const WorkHistoryDetail = ({
                         <Edit className="mr-2 h-4 w-4" />
                         Edit Company
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Trash2 className="mr-2 h-4 w-4 text-red-500" />
+                      <DropdownMenuItem onClick={() => handleDeleteCompanyClick(roleCompany)} className="text-destructive">
+                        <Trash2 className="mr-2 h-4 w-4" />
                         Delete Company
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -1382,7 +1646,7 @@ export const WorkHistoryDetail = ({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handleEditRole}>
+                  <DropdownMenuItem onClick={handleEditRoleClick}>
                     <Edit className="mr-2 h-4 w-4" />
                     Edit Role
                   </DropdownMenuItem>
@@ -1394,8 +1658,8 @@ export const WorkHistoryDetail = ({
                     Generate Content
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>
-                    <Trash2 className="mr-2 h-4 w-4 text-red-500" />
+                  <DropdownMenuItem onClick={handleDeleteRoleClick} className="text-destructive">
+                    <Trash2 className="mr-2 h-4 w-4" />
                     Delete Role
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -1736,8 +2000,8 @@ export const WorkHistoryDetail = ({
                   <Edit className="mr-2 h-4 w-4" />
                   Edit Company
                 </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Trash2 className="mr-2 h-4 w-4 text-red-500" />
+                <DropdownMenuItem onClick={() => handleDeleteCompanyClick(selectedCompany)} className="text-destructive">
+                  <Trash2 className="mr-2 h-4 w-4" />
                   Delete Company
                 </DropdownMenuItem>
               </DropdownMenuContent>

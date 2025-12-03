@@ -1,13 +1,26 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { X, Plus, FileText, Link as LinkIcon } from "lucide-react";
+import { X, Loader2, Trash2, Link as LinkIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
 import { STORY_TEMPLATES } from "@/lib/constants/storyTemplates";
 import { LinkPicker } from "./LinkPicker";
 import type { ExternalLink, WorkHistoryBlurb } from "@/types/workHistory";
@@ -16,7 +29,10 @@ interface AddStoryModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   roleId?: string; // Optional for View All context
-  onSave: (content: any) => void;
+  workItemId?: string; // The actual work_item UUID for database operations
+  onSave?: (content: any) => void; // Legacy callback, still supported
+  onStoryAdded?: () => void; // New callback for refresh
+  onStoryDeleted?: () => void;
   existingLinks?: ExternalLink[];
   editingStory?: WorkHistoryBlurb | null;
   // For View All context where Company/Role need to be selected
@@ -29,13 +45,17 @@ export function AddStoryModal({
   open, 
   onOpenChange, 
   roleId, 
+  workItemId,
   onSave, 
+  onStoryAdded,
+  onStoryDeleted,
   existingLinks = [], 
   editingStory,
   isViewAllContext = false,
   availableCompanies = [],
   availableRoles = []
 }: AddStoryModalProps) {
+  const { user } = useAuth();
   // Story state
   const [storyTitle, setStoryTitle] = useState(editingStory?.title || "");
   const [storyContent, setStoryContent] = useState(editingStory?.content || "");
@@ -52,7 +72,13 @@ export function AddStoryModal({
   // Link picker state
   const [isLinkPickerOpen, setIsLinkPickerOpen] = useState(false);
   
+  // Loading states
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  
   const { toast } = useToast();
+
+  const isEditing = !!editingStory;
 
   // Update form when editing story changes
   useEffect(() => {
@@ -98,7 +124,7 @@ export function AddStoryModal({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validate required fields
@@ -121,28 +147,151 @@ export function AddStoryModal({
       return;
     }
 
-    const storyData = {
-      type: "story" as const,
-      roleId: isViewAllContext ? undefined : roleId,
-      title: storyTitle.trim(),
-      content: storyContent.trim(),
-      outcomeMetrics: storyOutcomeMetrics,
-      tags: storyTags,
-      source: "manual" as const,
-      status: "draft" as const,
-      confidence: "medium" as const,
-      timesUsed: 0,
-      linkedExternalLinks: [],
-      // Include company and role for View All context
-      ...(isViewAllContext && {
-        company: selectedCompany.trim(),
-        role: selectedRole.trim()
-      })
-    };
+    // If using legacy onSave callback without database operations
+    if (onSave && !workItemId && !editingStory) {
+      const storyData = {
+        type: "story" as const,
+        roleId: isViewAllContext ? undefined : roleId,
+        title: storyTitle.trim(),
+        content: storyContent.trim(),
+        outcomeMetrics: storyOutcomeMetrics,
+        tags: storyTags,
+        source: "manual" as const,
+        status: "draft" as const,
+        confidence: "medium" as const,
+        timesUsed: 0,
+        linkedExternalLinks: [],
+        ...(isViewAllContext && {
+          company: selectedCompany.trim(),
+          role: selectedRole.trim()
+        })
+      };
 
-    onSave(storyData);
-    
-    // Reset story form
+      onSave(storyData);
+      resetForm();
+      onOpenChange(false);
+      return;
+    }
+
+    if (!user) {
+      toast({
+        title: "Not authenticated",
+        description: "Please sign in to continue.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Convert outcomeMetrics to the expected format
+      const metricsJson = storyOutcomeMetrics.map(m => ({ value: m, context: '', type: 'absolute' as const }));
+
+      if (isEditing && editingStory) {
+        // Update existing story
+        const { error } = await supabase
+          .from('stories')
+          .update({
+            title: storyTitle.trim(),
+            content: storyContent.trim(),
+            tags: storyTags,
+            metrics: metricsJson,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', editingStory.id)
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+
+        toast({
+          title: "Story updated",
+          description: "Your story has been updated successfully.",
+        });
+      } else {
+        // Create new story
+        const targetWorkItemId = workItemId || roleId;
+        if (!targetWorkItemId) {
+          throw new Error("No work item ID provided for new story");
+        }
+
+        const { error } = await supabase
+          .from('stories')
+          .insert({
+            user_id: user.id,
+            work_item_id: targetWorkItemId,
+            title: storyTitle.trim(),
+            content: storyContent.trim(),
+            tags: storyTags,
+            metrics: metricsJson,
+            source: 'manual',
+            status: 'approved',
+          });
+
+        if (error) throw error;
+
+        toast({
+          title: "Story added",
+          description: "Your new story has been added successfully.",
+        });
+      }
+
+      resetForm();
+      onStoryAdded?.();
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Error saving story:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to save story.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!editingStory || !user) return;
+
+    setIsDeleting(true);
+
+    try {
+      // Delete gaps for this story
+      await supabase
+        .from('gaps')
+        .delete()
+        .eq('entity_id', editingStory.id);
+
+      // Delete the story
+      const { error } = await supabase
+        .from('stories')
+        .delete()
+        .eq('id', editingStory.id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Story deleted",
+        description: "Your story has been deleted.",
+      });
+
+      onStoryDeleted?.();
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Error deleting story:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete story.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const resetForm = () => {
     setStoryTitle("");
     setStoryContent("");
     setStoryOutcomeMetrics([]);
@@ -150,8 +299,8 @@ export function AddStoryModal({
     setStoryTags([]);
     setStoryTagInput("");
     setSelectedTemplate("");
-
-    onOpenChange(false);
+    setSelectedCompany("");
+    setSelectedRole("");
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -274,6 +423,7 @@ export function AddStoryModal({
                       size="sm"
                       onClick={() => setIsLinkPickerOpen(true)}
                       className="h-8 px-3"
+                      type="button"
                     >
                       <LinkIcon className="h-4 w-4 mr-2" />
                       Pick Links
@@ -304,6 +454,7 @@ export function AddStoryModal({
                           setStoryOutcomeMetrics(updatedMetrics);
                         }}
                         className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                        type="button"
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -373,10 +524,46 @@ export function AddStoryModal({
                 )}
               </div>
               
-              <div className="flex justify-end pt-4">
-                <Button type="submit">
-                  Add Story
-                </Button>
+              <div className="flex justify-between gap-2 pt-4">
+                {/* Delete button (only when editing) */}
+                {isEditing && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button type="button" variant="destructive" disabled={isSubmitting || isDeleting}>
+                        {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete this story?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete the story "{editingStory?.title}".
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                          Delete Story
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+                
+                {/* Spacer when not editing */}
+                {!isEditing && <div />}
+                
+                <div className="flex gap-2">
+                  <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={isSubmitting || isDeleting}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isSubmitting || isDeleting}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isEditing ? "Update Story" : "Add Story"}
+                  </Button>
+                </div>
               </div>
                         </form>
         </DialogContent>

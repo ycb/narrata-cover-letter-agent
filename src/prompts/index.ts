@@ -1,5 +1,13 @@
 // Centralized prompt exports
 export { buildResumeAnalysisPrompt } from './resumeAnalysis';
+export { 
+  buildWorkHistorySkeletonPrompt,
+  buildRoleStoriesPrompt,
+  buildSkillsAndEducationPrompt,
+  type WorkHistorySkeleton,
+  type RoleStoriesResult,
+  type SkillsAndEducationResult
+} from './resumeAnalysisSplit';
 export { buildCoverLetterAnalysisPrompt } from './coverLetterAnalysis';
 export { buildJobDescriptionAnalysisPrompt } from './jobDescriptionAnalysis';
 export { buildTemplateCreationPrompt } from './coverLetterTemplate';

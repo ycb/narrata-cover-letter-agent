@@ -1,22 +1,38 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { X, Target, Plus } from "lucide-react";
+import { X, Loader2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { WorkHistoryCompany } from "@/types/workHistory";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
+import type { WorkHistoryCompany, WorkHistoryRole } from "@/types/workHistory";
 
 interface AddRoleModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   company: WorkHistoryCompany | null;
   onRoleAdded?: () => void;
+  onRoleDeleted?: () => void;
+  editingRole?: WorkHistoryRole | null;
 }
 
-export function AddRoleModal({ open, onOpenChange, company, onRoleAdded }: AddRoleModalProps) {
+export function AddRoleModal({ open, onOpenChange, company, onRoleAdded, onRoleDeleted, editingRole }: AddRoleModalProps) {
+  const { user } = useAuth();
   const [title, setTitle] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -25,7 +41,63 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded }: AddRo
   const [tagInput, setTagInput] = useState("");
   const [outcomeMetrics, setOutcomeMetrics] = useState<string[]>([]);
   const [outcomeMetricInput, setOutcomeMetricInput] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteStats, setDeleteStats] = useState<{ stories: number } | null>(null);
   const { toast } = useToast();
+
+  const isEditing = !!editingRole;
+
+  // Populate form with editing role data
+  useEffect(() => {
+    if (editingRole) {
+      setTitle(editingRole.title || "");
+      // Convert date strings to month format (YYYY-MM)
+      setStartDate(editingRole.startDate ? editingRole.startDate.substring(0, 7) : "");
+      setEndDate(editingRole.endDate ? editingRole.endDate.substring(0, 7) : "");
+      setDescription(editingRole.description || "");
+      setTags(editingRole.tags || []);
+      setOutcomeMetrics(editingRole.outcomeMetrics || []);
+    } else {
+      // Reset form when not editing
+      setTitle("");
+      setStartDate("");
+      setEndDate("");
+      setDescription("");
+      setTags([]);
+      setTagInput("");
+      setOutcomeMetrics([]);
+      setOutcomeMetricInput("");
+    }
+  }, [editingRole, open]);
+
+  // Fetch delete stats when editing
+  useEffect(() => {
+    const fetchDeleteStats = async () => {
+      if (!editingRole || !user) {
+        setDeleteStats(null);
+        return;
+      }
+
+      try {
+        // Get work_item IDs for this role (could be multiple if merged cluster)
+        const workItemIds = editingRole.workItemIds || [editingRole.id];
+        
+        // Count stories for this role
+        const { count: storiesCount } = await supabase
+          .from('stories')
+          .select('id', { count: 'exact', head: true })
+          .in('work_item_id', workItemIds);
+
+        setDeleteStats({ stories: storiesCount || 0 });
+      } catch (error) {
+        console.error('Error fetching delete stats:', error);
+        setDeleteStats(null);
+      }
+    };
+
+    fetchDeleteStats();
+  }, [editingRole, user]);
 
   const handleAddTag = () => {
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
@@ -49,7 +121,7 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded }: AddRo
     setOutcomeMetrics(outcomeMetrics.filter(metric => metric !== metricToRemove));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!title.trim() || !startDate) {
@@ -61,26 +133,152 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded }: AddRo
       return;
     }
 
-    // Here you would typically save to your backend/state management
-    console.log("Creating role:", { title, startDate, endDate, description, tags, outcomeMetrics, companyId: company?.id });
-    
-    toast({
-      title: "Role added",
-      description: "Your new role has been added successfully.",
-    });
+    if (!user) {
+      toast({
+        title: "Not authenticated",
+        description: "Please sign in to continue.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    // Reset form
-    setTitle("");
-    setStartDate("");
-    setEndDate("");
-    setDescription("");
-    setTags([]);
-    setTagInput("");
-    setOutcomeMetrics([]);
-    setOutcomeMetricInput("");
-    
-    onRoleAdded?.();
-    onOpenChange(false);
+    if (!company && !isEditing) {
+      toast({
+        title: "No company selected",
+        description: "Please select a company first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Convert month format to full date
+      const startDateFull = startDate ? `${startDate}-01` : null;
+      const endDateFull = endDate ? `${endDate}-01` : null;
+
+      // Convert outcomeMetrics strings to the expected format
+      const metricsJson = outcomeMetrics.map(m => ({ value: m, context: '', type: 'absolute' as const }));
+
+      if (isEditing && editingRole) {
+        // Update existing role - get the first work_item ID
+        const workItemId = editingRole.workItemIds?.[0] || editingRole.id;
+        
+        const { error } = await supabase
+          .from('work_items')
+          .update({
+            title: title.trim(),
+            start_date: startDateFull,
+            end_date: endDateFull,
+            description: description.trim(),
+            tags,
+            metrics: metricsJson,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', workItemId)
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+
+        toast({
+          title: "Role updated",
+          description: "Your role has been updated successfully.",
+        });
+      } else {
+        // Create new role
+        const { error } = await supabase
+          .from('work_items')
+          .insert({
+            user_id: user.id,
+            company_id: company!.id,
+            title: title.trim(),
+            start_date: startDateFull,
+            end_date: endDateFull,
+            description: description.trim(),
+            tags,
+            metrics: metricsJson,
+          });
+
+        if (error) throw error;
+
+        toast({
+          title: "Role added",
+          description: "Your new role has been added successfully.",
+        });
+      }
+
+      // Reset form
+      setTitle("");
+      setStartDate("");
+      setEndDate("");
+      setDescription("");
+      setTags([]);
+      setTagInput("");
+      setOutcomeMetrics([]);
+      setOutcomeMetricInput("");
+      
+      onRoleAdded?.();
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Error saving role:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to save role.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!editingRole || !user) return;
+
+    setIsDeleting(true);
+
+    try {
+      // Get work_item IDs for this role (could be multiple if merged cluster)
+      const workItemIds = editingRole.workItemIds || [editingRole.id];
+
+      // Delete stories first (FK constraint)
+      await supabase
+        .from('stories')
+        .delete()
+        .in('work_item_id', workItemIds);
+
+      // Delete gaps for these work items
+      await supabase
+        .from('gaps')
+        .delete()
+        .in('entity_id', workItemIds);
+
+      // Delete work_items
+      const { error } = await supabase
+        .from('work_items')
+        .delete()
+        .in('id', workItemIds)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Role deleted",
+        description: `${editingRole.title} and all associated data has been deleted.`,
+      });
+
+      onRoleDeleted?.();
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Error deleting role:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete role.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -94,9 +292,12 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded }: AddRo
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New Role</DialogTitle>
+          <DialogTitle>{isEditing ? "Edit Role" : "Add New Role"}</DialogTitle>
           <DialogDescription>
-            {company ? `Add a new role at ${company.name}` : "Add a new role to your work history"}
+            {isEditing 
+              ? `Update your role details${company ? ` at ${company.name}` : ''}`
+              : (company ? `Add a new role at ${company.name}` : "Add a new role to your work history")
+            }
           </DialogDescription>
         </DialogHeader>
         
@@ -216,10 +417,51 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded }: AddRo
             )}
           </div>
           
-          <div className="flex justify-end pt-4">
-            <Button type="submit">
-              Add Role
-            </Button>
+          <div className="flex justify-between gap-2 pt-4">
+            {/* Delete button (only when editing) */}
+            {isEditing && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button type="button" variant="destructive" disabled={isSubmitting || isDeleting}>
+                    {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete {editingRole?.title}?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete the role
+                      {deleteStats && deleteStats.stories > 0 && (
+                        <span className="block mt-2 font-medium text-destructive">
+                          This will also delete {deleteStats.stories} stor{deleteStats.stories !== 1 ? 'ies' : 'y'}.
+                        </span>
+                      )}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      Delete Role
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+            
+            {/* Spacer when not editing */}
+            {!isEditing && <div />}
+            
+            <div className="flex gap-2">
+              <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={isSubmitting || isDeleting}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSubmitting || isDeleting}>
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isEditing ? "Update Role" : "Add Role"}
+              </Button>
+            </div>
           </div>
         </form>
       </DialogContent>

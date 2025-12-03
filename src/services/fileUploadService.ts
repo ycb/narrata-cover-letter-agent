@@ -790,11 +790,35 @@ source_type: dbSourceType,
         console.log('→ Using CASE STUDY analysis');
         analysisResult = await this.llmAnalysisService.analyzeCaseStudy(extractedText);
       } else {
-        console.log('→ Using RESUME analysis');
-        // Check if we have a pending cover letter to include in resume analysis
-        // This allows tag extraction from both resume AND cover letter in one call
-        const coverLetterText = this.pendingCoverLetter?.text;
-        analysisResult = await this.llmAnalysisService.analyzeResume(extractedText, coverLetterText);
+        console.log('→ Using STAGED RESUME analysis (3-stage split for speed)');
+        // PERFORMANCE OPTIMIZATION: Use staged analysis for faster perceived performance
+        // Stage 1: Work history skeleton (~5-8s) - shows structure immediately
+        // Stage 2: Stories per role (parallel, ~3-5s each) - fills in details
+        // Stage 3: Skills + education (~3-5s) - completes the profile
+        
+        // Emit progress events for each stage
+        analysisResult = await this.llmAnalysisService.analyzeResumeStagedWithEvents(
+          extractedText,
+          (stage: string, data: unknown) => {
+            // Emit stage completion events for UI updates
+            const stageProgress: Record<string, { progress: number; message: string }> = {
+              workHistorySkeleton: { progress: 75, message: 'Work history extracted...' },
+              roleStories: { progress: 85, message: 'Stories and achievements extracted...' },
+              skillsAndEducation: { progress: 92, message: 'Skills and education extracted...' }
+            };
+            const stageInfo = stageProgress[stage] || { progress: 80, message: `${stage} complete...` };
+            window.dispatchEvent(new CustomEvent('file-upload-progress', { 
+              detail: { 
+                sourceId, 
+                stage, 
+                progress: stageInfo.progress, 
+                message: stageInfo.message,
+                stageData: data 
+              } 
+            }));
+            console.warn(`📊 Stage ${stage} complete`, data);
+          }
+        );
       }
       const llmEndTime = performance.now();
       llmLatencyMs = llmEndTime - llmStartTime;

@@ -79,6 +79,201 @@ export class LLMAnalysisService {
   }
 
   /**
+   * STAGED RESUME ANALYSIS - Split into 3 stages for faster perceived performance
+   * Stage 1: Work history skeleton (~5-8s)
+   * Stage 2: Stories per role (parallelizable, ~3-5s each)
+   * Stage 3: Skills + education + contact (~3-5s)
+   * 
+   * Total time with parallelization: ~15-20s (vs 80-120s for single prompt)
+   */
+  async analyzeResumeStagedWithEvents(
+    text: string,
+    onStageComplete?: (stage: string, data: unknown) => void
+  ): Promise<LLMAnalysisResult> {
+    const startTime = Date.now();
+    console.warn('🚀 Starting STAGED resume analysis (3-stage split)');
+
+    try {
+      // Import split prompts dynamically to avoid circular deps
+      const { 
+        buildWorkHistorySkeletonPrompt, 
+        buildRoleStoriesPrompt, 
+        buildSkillsAndEducationPrompt
+      } = await import('../prompts/resumeAnalysisSplit');
+
+      // Type definitions inline (avoid dynamic type import issues)
+      type WorkHistorySkeleton = {
+        workHistory: Array<{
+          id: string;
+          company: string;
+          companyDescription: string;
+          title: string;
+          startDate: string;
+          endDate: string | null;
+          current: boolean;
+          location: string | null;
+          companyTags: string[];
+          roleTags: string[];
+          roleSummary: string;
+        }>;
+      };
+
+      type RoleStoriesResult = {
+        roleId: string;
+        outcomeMetrics: Array<{
+          value: string;
+          context: string;
+          type: 'increase' | 'decrease' | 'absolute';
+          parentType: 'role';
+        }>;
+        stories: Array<{
+          id: string;
+          title: string;
+          content: string;
+          problem?: string;
+          action?: string;
+          outcome?: string;
+          tags: string[];
+          linkedToRole: boolean;
+          company: string;
+          titleRole: string;
+          metrics: Array<{
+            value: string;
+            context: string;
+            type: 'increase' | 'decrease' | 'absolute';
+            parentType: 'story';
+          }>;
+        }>;
+      };
+
+      type SkillsAndEducationResult = {
+        contactInfo: {
+          email: string | null;
+          phone: string | null;
+          linkedin: string | null;
+          website: string | null;
+          github: string | null;
+          substack: string | null;
+        };
+        location: string | null;
+        summary: string;
+        education: Array<{
+          id: string;
+          institution: string;
+          degree: string;
+          field: string;
+          startDate: string;
+          endDate: string;
+          gpa: string | null;
+        }>;
+        skills: Array<{
+          category: string;
+          items: string[];
+        }>;
+        certifications: Array<{
+          id: string;
+          name: string;
+          issuer: string;
+          date: string;
+        }>;
+        projects: Array<{
+          id: string;
+          name: string;
+          description: string;
+          technologies: string[];
+          url: string | null;
+        }>;
+      };
+
+      // STAGE 1: Work history skeleton (fast, ~5-8s)
+      console.warn('📋 Stage 1: Extracting work history skeleton...');
+      const stage1Start = Date.now();
+      const skeletonPrompt = buildWorkHistorySkeletonPrompt(text);
+      const skeletonResponse = await this.callOpenAI(skeletonPrompt, 2000); // Small output
+      
+      if (!skeletonResponse.success || !skeletonResponse.data) {
+        throw new Error(`Stage 1 failed: ${skeletonResponse.error}`);
+      }
+      
+      const skeleton = skeletonResponse.data as unknown as WorkHistorySkeleton;
+      console.warn(`✅ Stage 1 complete: ${skeleton.workHistory?.length || 0} roles found (${Date.now() - stage1Start}ms)`);
+      onStageComplete?.('workHistorySkeleton', skeleton);
+
+      // STAGE 2: Stories per role (PARALLEL)
+      console.warn(`📖 Stage 2: Extracting stories for ${skeleton.workHistory?.length || 0} roles (parallel)...`);
+      const stage2Start = Date.now();
+      
+      const storyPromises = (skeleton.workHistory || []).map(async (role) => {
+        const prompt = buildRoleStoriesPrompt(text, {
+          company: role.company,
+          title: role.title,
+          id: role.id
+        });
+        const response = await this.callOpenAI(prompt, 3000); // Medium output per role
+        if (!response.success || !response.data) {
+          console.warn(`⚠️ Stage 2 failed for role ${role.company}: ${response.error}`);
+          return { roleId: role.id, outcomeMetrics: [], stories: [] } as RoleStoriesResult;
+        }
+        return response.data as unknown as RoleStoriesResult;
+      });
+
+      const roleStories = await Promise.all(storyPromises);
+      console.warn(`✅ Stage 2 complete: ${roleStories.reduce((acc, r) => acc + (r.stories?.length || 0), 0)} total stories (${Date.now() - stage2Start}ms)`);
+      onStageComplete?.('roleStories', roleStories);
+
+      // STAGE 3: Skills + education + contact (fast, ~3-5s)
+      console.warn('🎓 Stage 3: Extracting skills, education, contact...');
+      const stage3Start = Date.now();
+      const skillsPrompt = buildSkillsAndEducationPrompt(text);
+      const skillsResponse = await this.callOpenAI(skillsPrompt, 2000); // Small output
+      
+      if (!skillsResponse.success || !skillsResponse.data) {
+        throw new Error(`Stage 3 failed: ${skillsResponse.error}`);
+      }
+      
+      const skillsData = skillsResponse.data as unknown as SkillsAndEducationResult;
+      console.warn(`✅ Stage 3 complete: ${skillsData.skills?.length || 0} skill categories, ${skillsData.education?.length || 0} education entries (${Date.now() - stage3Start}ms)`);
+      onStageComplete?.('skillsAndEducation', skillsData);
+
+      // MERGE all stages into final structured data
+      const mergedWorkHistory = (skeleton.workHistory || []).map(role => {
+        const storiesForRole = roleStories.find(r => r.roleId === role.id);
+        return {
+          ...role,
+          outcomeMetrics: storiesForRole?.outcomeMetrics || [],
+          stories: storiesForRole?.stories || []
+        };
+      });
+
+      const structuredData: StructuredResumeData = {
+        contactInfo: skillsData.contactInfo || {},
+        location: skillsData.location || null,
+        summary: skillsData.summary || '',
+        workHistory: mergedWorkHistory,
+        education: skillsData.education || [],
+        skills: skillsData.skills || [],
+        certifications: skillsData.certifications || [],
+        projects: skillsData.projects || []
+      };
+
+      const totalTime = Date.now() - startTime;
+      console.warn(`🎉 STAGED analysis complete in ${totalTime}ms (${(totalTime / 1000).toFixed(1)}s)`);
+
+      return {
+        success: true,
+        data: structuredData
+      };
+    } catch (error) {
+      console.error('Staged LLM analysis error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Staged LLM analysis failed',
+        retryable: true
+      };
+    }
+  }
+
+  /**
    * Analyze job description text and extract structured data
    */
   async analyzeJobDescription(text: string): Promise<{

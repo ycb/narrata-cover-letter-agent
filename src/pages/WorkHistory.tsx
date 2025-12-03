@@ -871,6 +871,7 @@ export default function WorkHistory() {
   const [isAddCompanyModalOpen, setIsAddCompanyModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<WorkHistoryCompany | null>(null);
   const [isAddRoleModalOpen, setIsAddRoleModalOpen] = useState(false);
+  const [editingRole, setEditingRole] = useState<WorkHistoryRole | null>(null);
   const [isAddStoryModalOpen, setIsAddStoryModalOpen] = useState(false);
   const [editingStory, setEditingStory] = useState<WorkHistoryBlurb | null>(null);
   const [isAddLinkModalOpen, setIsAddLinkModalOpen] = useState(false);
@@ -1021,9 +1022,18 @@ export default function WorkHistory() {
   };
 
   // Modal handlers
-  const handleAddCompany = () => {
-    // TODO: Implement actual company creation logic
-    console.log("Company added successfully");
+  const handleCompanyChanged = () => {
+    // Refresh data and close modal
+    fetchWorkHistory();
+    setIsAddCompanyModalOpen(false);
+    setEditingCompany(null);
+  };
+
+  const handleCompanyDeleted = () => {
+    // Clear selection and refresh
+    setSelectedCompany(null);
+    setSelectedRole(null);
+    fetchWorkHistory();
     setIsAddCompanyModalOpen(false);
     setEditingCompany(null);
   };
@@ -1033,10 +1043,24 @@ export default function WorkHistory() {
     setIsAddCompanyModalOpen(true);
   };
 
-  const handleAddRole = () => {
-    // TODO: Implement actual role creation logic
-    console.log("Role added successfully");
+  const handleRoleChanged = () => {
+    // Refresh data and close modal
+    fetchWorkHistory();
     setIsAddRoleModalOpen(false);
+    setEditingRole(null);
+  };
+
+  const handleRoleDeleted = () => {
+    // Clear role selection and refresh
+    setSelectedRole(null);
+    fetchWorkHistory();
+    setIsAddRoleModalOpen(false);
+    setEditingRole(null);
+  };
+
+  const handleEditRole = (role: WorkHistoryRole) => {
+    setEditingRole(role);
+    setIsAddRoleModalOpen(true);
   };
 
   const handleAddStory = () => {
@@ -1046,6 +1070,19 @@ export default function WorkHistory() {
   const handleEditStory = (story: WorkHistoryBlurb) => {
     setEditingStory(story);
     setIsAddStoryModalOpen(true);
+  };
+
+  const handleStoryChanged = () => {
+    // Refresh data and close modal
+    fetchWorkHistory();
+    setIsAddStoryModalOpen(false);
+    setEditingStory(null);
+  };
+
+  const handleStoryDeleted = () => {
+    fetchWorkHistory();
+    setIsAddStoryModalOpen(false);
+    setEditingStory(null);
   };
 
   const handleAddLink = () => {
@@ -1059,13 +1096,14 @@ export default function WorkHistory() {
 
   const handleSaveContent = (content: any) => {
     if (content.type === 'story') {
-      // TODO: Implement story saving logic
-      console.log("Story saved:", content);
+      // Legacy callback - refresh data
+      fetchWorkHistory();
     } else if (content.type === 'link') {
       // TODO: Implement link saving logic
       console.log("Link saved:", content);
     }
     setIsAddStoryModalOpen(false);
+    setEditingStory(null);
   };
 
   // Data source handlers (for existing user state)
@@ -1256,11 +1294,13 @@ export default function WorkHistory() {
                 onResolvedGapsChange={setResolvedGaps}
                 onRoleSelect={handleRoleSelect}
                 onAddRole={() => setIsAddRoleModalOpen(true)}
+                onEditRole={handleEditRole}
                 onAddStory={handleAddStory}
                 onEditStory={handleEditStory}
                 onAddLink={handleAddLink}
                 onEditLink={handleEditLink}
                 onEditCompany={handleEditCompany}
+                onDeleteStory={handleStoryDeleted}
                 selectedDataSource={selectedDataSource}
                 onRefresh={fetchWorkHistory}
                 onUploadResume={handleUploadResume}
@@ -1297,15 +1337,21 @@ export default function WorkHistory() {
             setIsAddCompanyModalOpen(open);
             if (!open) setEditingCompany(null);
           }}
-          onCompanyAdded={handleAddCompany}
+          onCompanyAdded={handleCompanyChanged}
+          onCompanyDeleted={handleCompanyDeleted}
           editingCompany={editingCompany}
         />
         
         <AddRoleModal
           open={isAddRoleModalOpen}
-          onOpenChange={setIsAddRoleModalOpen}
+          onOpenChange={(open) => {
+            setIsAddRoleModalOpen(open);
+            if (!open) setEditingRole(null);
+          }}
           company={selectedCompany}
-          onRoleAdded={handleAddRole}
+          onRoleAdded={handleRoleChanged}
+          onRoleDeleted={handleRoleDeleted}
+          editingRole={editingRole}
         />
 
         <AddStoryModal
@@ -1315,7 +1361,10 @@ export default function WorkHistory() {
             if (!open) setEditingStory(null);
           }}
           roleId={selectedRole?.id || ''}
+          workItemId={selectedRole?.workItemIds?.[0]}
           onSave={handleSaveContent}
+          onStoryAdded={handleStoryChanged}
+          onStoryDeleted={handleStoryDeleted}
           existingLinks={selectedRole?.externalLinks || []}
           editingStory={editingStory}
         />
