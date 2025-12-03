@@ -208,12 +208,13 @@ export default function NewUserOnboarding() {
       if (['uploading', 'extracting', 'analyzing', 'structuring'].includes(stage)) {
         setIsProcessing(true);
         
-        // Safety timeout: clear processing state after 30 seconds if no completion event
+        // Safety timeout: clear processing state after 120 seconds if no completion event
+        // Increased from 30s to accommodate LLM analysis + gap detection batch call
         if (processingTimeout) clearTimeout(processingTimeout);
         processingTimeout = setTimeout(() => {
           console.warn('[Onboarding] Processing timeout - clearing isProcessing state');
           setIsProcessing(false);
-        }, 30000);
+        }, 120000);
       }
 
       if (stage === 'complete' || stage === 'duplicate') {
@@ -233,12 +234,13 @@ export default function NewUserOnboarding() {
       if (step === 'saving') {
         setIsProcessing(true);
         
-        // Safety timeout: clear processing state after 30 seconds if no completion event
+        // Safety timeout: clear processing state after 120 seconds if no completion event
+        // Increased from 30s to accommodate LLM analysis + gap detection batch call
         if (processingTimeout) clearTimeout(processingTimeout);
         processingTimeout = setTimeout(() => {
           console.warn('[Onboarding] Processing timeout - clearing isProcessing state');
           setIsProcessing(false);
-        }, 30000);
+        }, 120000);
       }
 
       if (step === 'complete') {
