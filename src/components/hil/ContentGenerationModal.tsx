@@ -91,15 +91,15 @@ export function ContentGenerationModal({
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isGeneratingTags, setIsGeneratingTags] = useState(false);
 
-  // Auto-select high-confidence tags when they arrive
+  // Auto-select high-confidence tags when modal opens
   useEffect(() => {
     if (isOpen && mode === 'tag-suggestion') {
-      // Pre-select all high-confidence (suggested) tags
+      // Pre-select ONLY the high-confidence (suggested) tags - replace, don't merge
       const highConfidenceTags = (suggestedTags || []).map(t => t.value);
-      setSelectedTags(prev => {
-        const combined = [...new Set([...prev, ...highConfidenceTags])];
-        return combined;
-      });
+      setSelectedTags(highConfidenceTags);
+    } else if (!isOpen) {
+      // Reset when modal closes
+      setSelectedTags([]);
     }
   }, [isOpen, mode, suggestedTags]);
 

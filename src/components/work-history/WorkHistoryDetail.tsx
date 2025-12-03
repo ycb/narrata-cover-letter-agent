@@ -136,18 +136,15 @@ export const WorkHistoryDetail = ({
     entityId: string;
   } | null>(null);
 
-  // Streaming tag state
-  const [streamingTagState, setStreamingTagState] = useState<{
-    isStreaming: boolean;
-    error: string | null;
-    suggestedTags: TagSuggestion[];  // High confidence, pre-checked
-    otherTags: TagSuggestion[];      // Medium/low confidence, unchecked
-  }>({
-    isStreaming: false,
-    error: null,
-    suggestedTags: [],
-    otherTags: []
-  });
+  // Tag suggestion state
+  const [isTagModalOpen, setIsTagModalOpen] = useState(false);
+  const [tagContent, setTagContent] = useState('');
+  const [suggestedTags, setSuggestedTags] = useState<TagSuggestion[]>([]);
+  const [otherTags, setOtherTags] = useState<TagSuggestion[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [tagContentType, setTagContentType] = useState<'company' | 'role' | 'saved_section'>('company');
+  const [tagEntityId, setTagEntityId] = useState<string | undefined>();
 
   const {
     isModalOpen: isContentGenerationModalOpen,
@@ -457,22 +454,21 @@ export const WorkHistoryDetail = ({
   // Users can manually edit tags if needed, but auto-suggest is no longer needed for roles
 
   const handleApplyTags = async (selectedTags: string[]) => {
-    if (!user || !activeGapContext?.gap.entity_id) return;
+    if (!user || !tagEntityId) return;
     
     try {
-      const entityId = activeGapContext.gap.entity_id;
-      if (activeGapContext.entityType === 'work_item') {
-        // Merge with existing tags for work item (role)
-        const allTags = [...new Set([...(selectedRole?.tags || []), ...selectedTags])];
-        await TagService.updateWorkItemTags(entityId, allTags, user.id);
-      } else if (activeGapContext.entityType === 'company') {
-        // Find company by ID if not selectedCompany
-        const targetCompany = selectedCompany || companies.find(c => c.id === entityId);
+      if (tagContentType === 'company') {
+        // Find company by ID
+        const targetCompany = selectedCompany || companies.find(c => c.id === tagEntityId);
         if (targetCompany) {
           // Merge with existing tags
           const allTags = [...new Set([...(targetCompany.tags || []), ...selectedTags])];
-          await TagService.updateCompanyTags(entityId, allTags, user.id);
+          await TagService.updateCompanyTags(tagEntityId, allTags, user.id);
         }
+      } else if (tagContentType === 'role') {
+        // Merge with existing tags for role
+        const allTags = [...new Set([...(selectedRole?.tags || []), ...selectedTags])];
+        await TagService.updateWorkItemTags(tagEntityId, allTags, user.id);
       }
       
       // Refresh work history
@@ -480,15 +476,11 @@ export const WorkHistoryDetail = ({
         onRefresh();
       }
       
-      closeContentGenerationModal();
-      setActiveGapContext(null);
+      setIsTagModalOpen(false);
+      setSuggestedTags([]);
     } catch (error) {
       console.error('Error updating tags:', error);
-      toast({
-        title: 'Failed to update tags',
-        description: error instanceof Error ? error.message : 'Failed to update tags. Please try again.',
-        variant: 'destructive',
-      });
+      setSearchError(error instanceof Error ? error.message : 'Failed to update tags. Please try again.');
     }
   };
 
@@ -499,105 +491,46 @@ export const WorkHistoryDetail = ({
     
     const content = `${targetCompany.name}: ${targetCompany.description || 'Company information'}`;
     
-    // Reset state and start streaming immediately
-    setStreamingTagState({
-      isStreaming: true,
-      error: null,
-      suggestedTags: [],
-      otherTags: []
-    });
+    setTagContent(content);
+    setTagContentType('company');
+    setTagEntityId(targetCompany.id);
+    setSuggestedTags([]);
+    setSearchError(null);
+    setIsSearching(true); // Show "Researching company..." indicator
+    setIsTagModalOpen(true);
     
-    // Set active context for the gap
-    setActiveGapContext({
-      gap: {
-        id: targetCompany.id,
-        entity_type: 'company',
-        entity_id: targetCompany.id,
-        gap_category: 'company_description',
-        gap_type: 'missing_description',
-        gap_description: 'Company description is missing or insufficient.',
-        gap_context: content,
-        gap_solution: 'Generate a comprehensive company description that highlights the company\'s mission, values, and key achievements.',
-        gap_priority: 'high',
-        gap_status: 'open',
-        gap_created_at: new Date().toISOString(),
-        gap_updated_at: new Date().toISOString(),
-        gap_created_by: user?.id,
-        gap_updated_by: user?.id,
-        gap_source: 'user_input',
-        gap_context_type: 'company_description',
-        gap_context_id: targetCompany.id,
-        gap_context_entity_type: 'company',
-        gap_context_entity_id: targetCompany.id,
-        gap_context_entity_name: targetCompany.name,
-        gap_context_entity_description: targetCompany.description,
-        gap_context_entity_tags: targetCompany.tags || [],
-        gap_context_entity_roles: targetCompany.roles || [],
-      } as any,
-      entityType: 'work_item',
-      entityId: targetCompany.id
-    });
-    
-    // Open modal
-    openContentGenerationModal({
-      mode: 'tag-suggestion',
-      content,
-      entityType: 'company',
-      entityId: targetCompany.id,
-      onApplyTags: handleApplyTags
-    });
-    
-    // Start streaming tags immediately
     try {
-      await TagSuggestionService.suggestTagsStreaming(
-        {
-          content,
-          contentType: 'company',
-          companyName: targetCompany.name,
-          userGoals: goals ? {
-            industries: goals.industries,
-            businessModels: goals.businessModels
-          } : undefined,
-          existingTags: targetCompany.tags || []
-        },
-        // onTagUpdate: stream tags one-by-one
-        (tag: TagSuggestion) => {
-          setStreamingTagState(prev => {
-            const isHighConfidence = tag.confidence === 'high';
-            return {
-              ...prev,
-              suggestedTags: isHighConfidence 
-                ? [...prev.suggestedTags, tag]
-                : prev.suggestedTags,
-              otherTags: !isHighConfidence
-                ? [...prev.otherTags, tag]
-                : prev.otherTags
-            };
-          });
-        },
-        // onComplete
-        (allTags: TagSuggestion[]) => {
-          setStreamingTagState(prev => ({
-            ...prev,
-            isStreaming: false
-          }));
-        },
-        // onError
-        (error: Error) => {
-          setStreamingTagState(prev => ({
-            ...prev,
-            isStreaming: false,
-            error: error.message
-          }));
-        }
-      );
+      console.log('🏷️ Calling TagSuggestionService.suggestTags with:', {
+        content,
+        companyName: targetCompany.name,
+        existingTags: targetCompany.tags
+      });
+      
+      const suggestions = await TagSuggestionService.suggestTags({
+        content,
+        contentType: 'company',
+        companyName: targetCompany.name,
+        userGoals: goals ? {
+          industries: goals.industries,
+          businessModels: goals.businessModels
+        } : undefined,
+        existingTags: targetCompany.tags || []
+      });
+      
+      console.log('🏷️ TagSuggestionService returned:', suggestions);
+      
+      // Split by confidence: high = suggested (pre-checked), medium/low = other (unchecked)
+      const highConfidence = suggestions.filter(t => t.confidence === 'high');
+      const otherConfidence = suggestions.filter(t => t.confidence !== 'high');
+      
+      console.log('🏷️ Split tags - high:', highConfidence.length, 'other:', otherConfidence.length);
+      setSuggestedTags(highConfidence);
+      setOtherTags(otherConfidence);
+      setIsSearching(false);
     } catch (error) {
-      console.error('Error starting tag stream:', error);
-      setStreamingTagState(prev => ({
-        ...prev,
-        isStreaming: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      }));
+      console.error('🏷️ Error generating tag suggestions:', error);
+      setIsSearching(false);
+      setSearchError(error instanceof Error ? error.message : 'Failed to research company. Please try again.');
     }
   };
 
@@ -1940,19 +1873,43 @@ export const WorkHistoryDetail = ({
               </div>
             )}
         
-        {/* Unified Modal - shows either gap-detection OR tag-suggestion based on mode */}
+        {/* Gap Detection Modal */}
         <ContentGenerationModal
           isOpen={isContentGenerationModalOpen}
           onClose={closeContentGenerationModal}
-          gap={contentGenerationModalProps.mode === 'gap-detection' ? activeGapContext?.gap : undefined}
+          gap={activeGapContext?.gap}
           onApplyContent={handleApplyContent}
-          {...contentGenerationModalProps}
-          suggestedTags={streamingTagState.suggestedTags}
-          otherTags={streamingTagState.otherTags}
-          isSearching={streamingTagState.isStreaming}
-          searchError={streamingTagState.error}
+          mode="gap-detection"
+        />
+
+        {/* Tag Suggestion Modal - separate from gap detection */}
+        <ContentGenerationModal
+          isOpen={isTagModalOpen}
+          onClose={() => {
+            setIsTagModalOpen(false);
+            setSuggestedTags([]);
+            setOtherTags([]);
+            setTagContent('');
+            setSearchError(null);
+            setIsSearching(false);
+          }}
+          mode="tag-suggestion"
+          content={tagContent}
+          contentType={tagContentType}
+          entityId={tagEntityId}
+          existingTags={
+            tagContentType === 'company' 
+              ? (selectedCompany?.tags || companies.find(c => c.id === tagEntityId)?.tags || [])
+              : tagContentType === 'role'
+              ? (selectedRole?.tags || [])
+              : []
+          }
+          suggestedTags={suggestedTags}
+          otherTags={otherTags}
           onApplyTags={handleApplyTags}
-          onRetry={contentGenerationModalProps.onGenerateTags}
+          isSearching={isSearching}
+          searchError={searchError}
+          onRetry={tagContentType === 'company' ? handleRetryCompanyTags : undefined}
         />
 
         {/* Delete Role Confirmation Dialog */}

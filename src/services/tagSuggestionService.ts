@@ -7,9 +7,6 @@
 import { LLMAnalysisService } from './openaiService';
 import { BrowserSearchService, type CompanyResearchResult } from './browserSearchService';
 import { buildContentTaggingPrompt, type GapContext } from '@/prompts/contentTagging';
-import { streamObject } from 'ai';
-import { createOpenAI } from '@ai-sdk/openai';
-import { z } from 'zod';
 
 export interface TagSuggestion {
   id: string;
@@ -112,6 +109,7 @@ export class TagSuggestionService {
 
     // 3. Call OpenAI
     const response = await this.callOpenAIForTags(prompt);
+    console.log('🤖 OpenAI raw response:', response.substring(0, 500));
 
     // 4. Parse response JSON
     let parsed: any;
@@ -119,6 +117,7 @@ export class TagSuggestionService {
       // Remove markdown code blocks if present
       const cleanedResponse = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       parsed = JSON.parse(cleanedResponse);
+      console.log('🤖 Parsed AI response:', parsed);
     } catch (error) {
       console.error('Error parsing tag suggestions:', error);
       throw new Error('Failed to parse tag suggestions from AI response');
@@ -127,59 +126,76 @@ export class TagSuggestionService {
     // 5. Transform to TagSuggestion format
     const suggestions: TagSuggestion[] = [];
     
-    // For company tags, only include business model and vertical/industry tags
-    // For role/story/saved_section, include all relevant tags (skills, competencies, etc.)
-    let allTags: string[] = [];
-    
-    if (request.contentType === 'company') {
-      // Company tags: only business models and verticals
-      allTags = [
-        ...(parsed.primaryTags || []).filter((tag: string) => {
-          // Filter to only include business models and verticals
-          const tagLower = tag.toLowerCase();
-          return tagLower.includes('b2b') || tagLower.includes('b2c') || 
-                 tagLower.includes('d2c') || tagLower.includes('enterprise') ||
-                 tagLower.includes('smb') || tagLower.includes('marketplace') ||
-                 tagLower.includes('platform') || tagLower.includes('saas') ||
-                 tagLower.includes('/') || // Vertical tags have "/" (e.g., "Software / SaaS")
-                 parsed.industryTags?.includes(tag) ||
-                 parsed.businessModelTags?.includes(tag);
-        }),
-        ...(parsed.industryTags || []),
-        ...(parsed.businessModelTags || [])
-      ];
+    // Check if response uses new format {tags: [{value, confidence, category}]}
+    if (parsed.tags && Array.isArray(parsed.tags)) {
+      console.log('🤖 Using new tag format - processing', parsed.tags.length, 'tags');
+      // New format: tags are already structured with confidence and category
+      parsed.tags.forEach((tag: any, index: number) => {
+        if (tag && tag.value) {
+          suggestions.push({
+            id: `tag-${index}`,
+            value: tag.value,
+            confidence: tag.confidence || 'medium',
+            category: tag.category || 'other'
+          });
+        }
+      });
+      
+      console.log('🤖 Processed new format, created', suggestions.length, 'suggestions');
+      
+      // Skip to filtering step (no need for old format processing)
     } else {
-      // Role/story/saved_section: include all relevant tags
-      allTags = [
-        ...(parsed.primaryTags || []),
-        ...(parsed.industryTags || []),
-        ...(parsed.skillTags || []),
-        ...(parsed.roleLevelTags || []),
-        ...(parsed.scopeTags || []),
-        ...(parsed.contextTags || [])
-      ];
-    }
-
-    // 6. Deduplicate tags (case-insensitive) before processing
-    const seenTags = new Set<string>();
-    const uniqueTags: string[] = [];
-    
-    for (const tag of allTags) {
-      // Skip if tag is not a valid string
-      if (!tag || typeof tag !== 'string') continue;
+      console.log('🤖 Using old tag format');
+      // For company tags, only include business model and vertical/industry tags
+      // For role/story/saved_section, include all relevant tags (skills, competencies, etc.)
+      let allTags: string[] = [];
       
-      const normalizedTag = tag.trim();
-      if (!normalizedTag) continue; // Skip empty tags
-      
-      const tagLower = normalizedTag.toLowerCase();
-      if (!seenTags.has(tagLower)) {
-        seenTags.add(tagLower);
-        uniqueTags.push(normalizedTag);
+      if (request.contentType === 'company') {
+        // Company tags: only business models and verticals
+        allTags = [
+          ...(parsed.primaryTags || []).filter((tag: string) => {
+            // Filter to only include business models and verticals
+            const tagLower = tag.toLowerCase();
+            return tagLower.includes('b2b') || tagLower.includes('b2c') || 
+                   tagLower.includes('d2c') || tagLower.includes('enterprise') ||
+                   tagLower.includes('smb') || tagLower.includes('marketplace') ||
+                   tagLower.includes('platform') || tagLower.includes('saas') ||
+                   tagLower.includes('/') || // Vertical tags have "/" (e.g., "Software / SaaS")
+                   parsed.industryTags?.includes(tag) ||
+                   parsed.businessModelTags?.includes(tag);
+          }),
+          ...(parsed.industryTags || []),
+          ...(parsed.businessModelTags || [])
+        ];
+      } else {
+        // Role/story/saved_section: include all relevant tags
+        allTags = [
+          ...(parsed.primaryTags || []),
+          ...(parsed.industryTags || []),
+          ...(parsed.skillTags || []),
+          ...(parsed.roleLevelTags || []),
+          ...(parsed.scopeTags || []),
+          ...(parsed.contextTags || [])
+        ];
       }
-    }
 
-    // 7. Map to TagSuggestion with confidence
-    uniqueTags.forEach((tag: string, index: number) => {
+      // 6. Deduplicate tags (case-insensitive) before processing
+      const seenTags = new Set<string>();
+      const uniqueTags: string[] = [];
+      
+      for (const tag of allTags) {
+        const normalizedTag = tag.trim();
+        if (!normalizedTag) continue; // Skip empty tags
+        
+        const tagLower = normalizedTag.toLowerCase();
+        if (!seenTags.has(tagLower)) {
+          seenTags.add(tagLower);
+          uniqueTags.push(normalizedTag);
+        }
+      }
+
+      // 7. Map to TagSuggestion with confidence
+      uniqueTags.forEach((tag: string, index: number) => {
       // Determine confidence based on:
       // - If tag matches user goals industries/businessModels → high
       // - If tag is in primaryTags → high
@@ -215,167 +231,28 @@ export class TagSuggestionService {
       else if (parsed.skillTags?.includes(tag)) category = 'skill';
       else if (parsed.roleLevelTags?.includes(tag) || parsed.scopeTags?.includes(tag)) category = 'competency';
 
-      suggestions.push({
-        id: `tag-${index}`,
-        value: tag,
-        confidence,
-        category
+        suggestions.push({
+          id: `tag-${index}`,
+          value: tag,
+          confidence,
+          category
+        });
       });
-    });
+    } // End of old format processing
 
     // 8. Filter out existing tags (case-insensitive)
+    console.log('🤖 Before filtering:', suggestions.length, 'suggestions');
     const filtered = suggestions.filter(s => 
       !request.existingTags?.some(existing => 
         existing.toLowerCase().trim() === s.value.toLowerCase().trim()
       )
     );
+    console.log('🤖 After filtering:', filtered.length, 'suggestions');
 
     // 9. Limit to top 10 suggestions
-    return filtered.slice(0, 10);
-  }
-
-  /**
-   * Stream tag suggestions in real-time
-   * Tags appear one-by-one as they're generated
-   */
-  static async suggestTagsStreaming(
-    request: TagSuggestionRequest,
-    onTagUpdate: (tag: TagSuggestion) => void,
-    onComplete: (allTags: TagSuggestion[]) => void,
-    onError: (error: Error) => void
-  ): Promise<void> {
-    console.log('companyTags: Starting tag suggestion streaming', { 
-      contentType: request.contentType, 
-      companyName: request.companyName,
-      content: request.content,
-      existingTags: request.existingTags 
-    });
-    
-    try {
-      // Validate request before processing
-      this.validateRequest(request);
-      console.log('companyTags: Request validated');
-
-      // 1. For company tags, research company via browser search
-      let companyResearch: CompanyResearchResult | null = null;
-      if (request.contentType === 'company') {
-        const companyName = request.companyName;
-        console.log('companyTags: Researching company', companyName);
-        try {
-          companyResearch = await BrowserSearchService.researchCompany(companyName, true);
-          console.log('companyTags: Company research complete', {
-            hasData: !!companyResearch,
-            description: companyResearch?.description?.substring(0, 100),
-            industry: companyResearch?.industry
-          });
-        } catch (error) {
-          console.error('companyTags: Company research failed', error);
-          throw new Error(`Failed to research company: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-      }
-
-      // 2. Build prompt with company research context
-      const prompt = buildContentTaggingPrompt(
-        request.content,
-        request.contentType,
-        request.userGoals,
-        companyResearch,
-        request.gapContext
-      );
-      console.log('companyTags: Prompt built, length:', prompt.length);
-
-      // 3. Set up streaming with ai SDK
-      const apiKey = (import.meta.env?.VITE_OPENAI_KEY) || '';
-      if (!apiKey) {
-        console.error('companyTags: OpenAI API key not found');
-        throw new Error('OpenAI API key not found');
-      }
-      console.log('companyTags: API key found');
-
-      const openai = createOpenAI({ apiKey });
-
-      // Define schema for tag streaming
-      const tagSchema = z.object({
-        tags: z.array(z.object({
-          value: z.string(),
-          confidence: z.enum(['high', 'medium', 'low']),
-          category: z.enum(['industry', 'business_model', 'skill', 'competency', 'other']).optional()
-        }))
-      });
-
-      // 4. Stream tags
-      console.log('companyTags: Starting OpenAI streaming');
-      const result = await streamObject({
-        model: openai('gpt-4o-mini'),
-        schema: tagSchema,
-        prompt,
-        temperature: 0.5,
-      });
-      console.log('companyTags: Stream initiated');
-
-      let previousTagCount = 0;
-      const allGeneratedTags: TagSuggestion[] = [];
-      const existingTagsLower = (request.existingTags || []).map(t => t.toLowerCase().trim());
-      const processedTagValues = new Set<string>();
-
-      // 5. Process streaming tags - use elementStream instead of partialObjectStream
-      console.log('companyTags: Processing stream');
-      
-      for await (const delta of result.partialObjectStream) {
-        const currentTags = delta.tags || [];
-        console.log('companyTags: Delta received, total tags so far:', currentTags.length);
-        
-        // Process only newly added tags
-        for (let i = previousTagCount; i < currentTags.length; i++) {
-          const tag = currentTags[i];
-          
-          // During streaming, tags build up gradually - wait for value to be populated
-          if (!tag || !tag.value || typeof tag.value !== 'string' || !tag.value.trim()) {
-            console.log('companyTags: Tag not ready yet, skipping', { tag, index: i });
-            continue;
-          }
-          
-          const tagValue = tag.value.trim();
-          
-          // Skip if we've already processed this exact tag value
-          if (processedTagValues.has(tagValue.toLowerCase())) {
-            console.log('companyTags: Already processed', tagValue);
-            continue;
-          }
-          
-          // Skip if tag already exists in user's tags
-          if (existingTagsLower.includes(tagValue.toLowerCase())) {
-            console.log('companyTags: Skipping existing tag', tagValue);
-            processedTagValues.add(tagValue.toLowerCase());
-            continue;
-          }
-
-          // Create and emit TagSuggestion
-          const tagSuggestion: TagSuggestion = {
-            id: `tag-${allGeneratedTags.length}`,
-            value: tagValue,
-            confidence: tag.confidence || 'medium',
-            category: tag.category || 'other'
-          };
-
-          console.log('companyTags: New tag streaming', tagValue, tag.confidence);
-          allGeneratedTags.push(tagSuggestion);
-          processedTagValues.add(tagValue.toLowerCase());
-          onTagUpdate(tagSuggestion);
-        }
-        
-        previousTagCount = currentTags.length;
-      }
-
-      // 6. Complete
-      console.log('companyTags: Streaming complete! Generated tags:', allGeneratedTags.length);
-      onComplete(allGeneratedTags);
-
-    } catch (error) {
-      console.error('companyTags: Error streaming tag suggestions', error);
-      const err = error instanceof Error ? error : new Error('Unknown error during tag streaming');
-      onError(err);
-    }
+    const final = filtered.slice(0, 10);
+    console.log('🤖 Returning:', final);
+    return final;
   }
 
   private static async callOpenAIForTags(prompt: string): Promise<string> {

@@ -16,67 +16,6 @@ import type {
 } from '@/types/fileUpload';
 
 /**
- * Parse LinkedIn metadata string into structured fields
- * Example input: "Role: product | Specialty: product_management | Industry: computer software | Company Size: 201-500 --- Hypergrowth at unicorn startups"
- * Returns: { roleType, specialty, industry, companySize, companyDescription }
- */
-function parseLinkedInMetadata(metadataString: string | null | undefined): {
-  roleType?: string;
-  specialty?: string;
-  industry?: string;
-  companySize?: string;
-  companyDescription?: string;
-} {
-  if (!metadataString) return {};
-  
-  const result: {
-    roleType?: string;
-    specialty?: string;
-    industry?: string;
-    companySize?: string;
-    companyDescription?: string;
-  } = {};
-  
-  // Split by "---" to separate metadata from actual description
-  const [metadataPart, ...descriptionParts] = metadataString.split('---');
-  
-  // Parse the metadata fields (separated by |)
-  const fields = metadataPart.split('|').map(f => f.trim());
-  
-  for (const field of fields) {
-    const colonIndex = field.indexOf(':');
-    if (colonIndex === -1) continue;
-    
-    const key = field.substring(0, colonIndex).trim().toLowerCase();
-    const value = field.substring(colonIndex + 1).trim();
-    
-    if (!value) continue;
-    
-    switch (key) {
-      case 'role':
-        result.roleType = value;
-        break;
-      case 'specialty':
-        result.specialty = value.replace(/_/g, ' '); // Convert product_management → product management
-        break;
-      case 'industry':
-        result.industry = value;
-        break;
-      case 'company size':
-        result.companySize = value;
-        break;
-    }
-  }
-  
-  // If there's content after "---", that's the actual company description
-  if (descriptionParts.length > 0) {
-    result.companyDescription = descriptionParts.join('---').trim();
-  }
-  
-  return result;
-}
-
-/**
  * Process LinkedIn work history into work_items table
  * This enables uniform gap detection and data model across all sources
  */
@@ -92,9 +31,6 @@ async function processLinkedInWorkHistory(
   
   for (const role of workHistory) {
     try {
-      // Parse LinkedIn metadata from the description field
-      const linkedInMeta = parseLinkedInMetadata(role.description);
-      
       // Normalize company name for display (capitalize first letter of each word)
       const companyName = (role.company || 'Unknown Company')
         .split(' ')
@@ -114,52 +50,24 @@ async function processLinkedInWorkHistory(
         })
         .join(' ');
       
-      // Build company tags from LinkedIn metadata
-      const companyTags: string[] = [];
-      if (linkedInMeta.industry) companyTags.push(linkedInMeta.industry);
-      if (linkedInMeta.companySize) companyTags.push(`${linkedInMeta.companySize} employees`);
-      
-      // Build company description from LinkedIn metadata
-      // Only use the actual description part (after "---"), not the metadata
-      const companyDescription = linkedInMeta.companyDescription || '';
-      
       // Find or create company
       let companyId: string;
       const { data: existingCompany } = await supabase
         .from('companies')
-        .select('id, description, tags')
+        .select('id')
         .eq('name', companyName)
         .eq('user_id', userId)
         .maybeSingle();
       
       if (existingCompany) {
         companyId = (existingCompany as any).id;
-        
-        // Update company with LinkedIn metadata if current values are empty
-        const existingDesc = (existingCompany as any).description || '';
-        const existingTags = (existingCompany as any).tags || [];
-        
-        const shouldUpdate = 
-          (!existingDesc && companyDescription) || 
-          (existingTags.length === 0 && companyTags.length > 0);
-        
-        if (shouldUpdate) {
-          await supabase
-            .from('companies')
-            .update({
-              description: existingDesc || companyDescription,
-              tags: existingTags.length > 0 ? existingTags : companyTags
-            } as any)
-            .eq('id', companyId);
-          console.log(`📝 Updated company ${companyName} with LinkedIn metadata`);
-        }
       } else {
         const { data: newCompany, error: companyError } = await supabase
           .from('companies')
           .insert({
             name: companyName,
-            description: companyDescription,
-            tags: companyTags,
+            description: role.description || '',
+            tags: [],
             user_id: userId
           } as any)
           .select('id')
@@ -197,13 +105,7 @@ async function processLinkedInWorkHistory(
         continue;
       }
       
-      // Build role tags from LinkedIn metadata (role type, specialty)
-      const roleTags: string[] = [];
-      if (linkedInMeta.roleType) roleTags.push(linkedInMeta.roleType);
-      if (linkedInMeta.specialty) roleTags.push(linkedInMeta.specialty);
-      
-      // Create work_item - description is empty for LinkedIn items (resume provides descriptions)
-      // The metadata is now properly routed to company and role tags
+      // Create work_item
       const { error: workItemError } = await supabase
         .from('work_items')
         .insert({
@@ -213,9 +115,9 @@ async function processLinkedInWorkHistory(
           title: title,
           start_date: startDate,
           end_date: endDate,
-          description: null, // LinkedIn doesn't provide role descriptions, only metadata
+          description: role.description || null,
           metrics: [],
-          tags: roleTags
+          tags: []
         } as any);
       
       if (workItemError) {
