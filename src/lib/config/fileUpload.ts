@@ -60,8 +60,8 @@ export const OPENAI_CONFIG = {
   MAX_TOKENS: 4000, // Increased for complex resumes
   TEMPERATURE: 0.1,
   TIMEOUT: 60000, // 60 seconds (gpt-4o-mini can take longer for complex content)
-  MAX_RETRIES: 2, // Cap retries to prevent cascading delays
-  MAX_TRUNCATION_RETRIES: 2 // Max retries specifically for truncation auto-healing
+  MAX_RETRIES: 1, // Cap retries to prevent cascading delays
+  MAX_TRUNCATION_RETRIES: 1 // Max retries specifically for truncation auto-healing (1 = 2 total calls max)
 } as const;
 
 // LinkedIn API configuration
