@@ -884,63 +884,30 @@ source_type: dbSourceType,
         totalProcessingMs
       }, accessToken);
 
-      // PERFORMANCE: Run LLM judge evaluation in background (non-blocking)
-      // This saves 5-10s on upload flow
+      // Log evaluation run IMMEDIATELY (no LLM judge - that's too slow)
+      // Judge evaluation can run separately if needed
       const sessionId = `sess_${Date.now()}`;
-      console.log(`📊 [EVAL] Starting background evaluation for ${type}, sessionId: ${sessionId}`);
+      console.log(`📊 [EVAL] Logging ${type} eval immediately (skipping LLM judge for speed)`);
       
-      this.evaluationService.evaluateStructuredData(
-        structuredData, 
-        extractedText, 
-        type as 'resume' | 'coverLetter' | 'linkedin'
-      ).then(evaluation => {
-        console.log(`📊 [EVAL] Evaluation complete for ${type}, logging to DB...`);
-        // Log for evaluation tracking with evaluation result
-        this.logLLMGeneration({
-          sessionId,
-          sourceId,
-          type,
-          inputTokens: extractedText.length / 4,
-          outputTokens: JSON.stringify(structuredData).length / 4,
-          latency: llmLatencyMs,
-          model: import.meta.env?.VITE_OPENAI_MODEL || (typeof process !== 'undefined' ? process.env.VITE_OPENAI_MODEL : undefined) || 'gpt-4o-mini',
-          inputText: extractedText,
-          outputText: JSON.stringify(structuredData, null, 2),
-          heuristics,
-          evaluation,
-          // Pass granular latency metrics
-          extractionLatencyMs,
-          dbLatencyMs,
-          totalLatencyMs: totalProcessingMs,
-        }, accessToken).then(() => {
-          console.log(`✅ [EVAL] Successfully logged ${type} eval to DB`);
-        }).catch(error => {
-          console.error(`❌ [EVAL] Failed to log ${type} evaluation data:`, error);
-        });
+      this.logLLMGeneration({
+        sessionId,
+        sourceId,
+        type,
+        inputTokens: extractedText.length / 4,
+        outputTokens: JSON.stringify(structuredData).length / 4,
+        latency: llmLatencyMs,
+        model: import.meta.env?.VITE_OPENAI_MODEL || (typeof process !== 'undefined' ? process.env.VITE_OPENAI_MODEL : undefined) || 'gpt-4o-mini',
+        inputText: extractedText,
+        outputText: JSON.stringify(structuredData, null, 2),
+        heuristics,
+        evaluation: null, // Skip LLM judge for now - too slow
+        extractionLatencyMs,
+        dbLatencyMs,
+        totalLatencyMs: totalProcessingMs,
+      }, accessToken).then(() => {
+        console.log(`✅ [EVAL] Successfully logged ${type} eval to DB`);
       }).catch(error => {
-        console.error(`⚠️ [EVAL] Background evaluation failed for ${type}:`, error);
-        // Still log without evaluation
-        this.logLLMGeneration({
-          sessionId,
-          sourceId,
-          type,
-          inputTokens: extractedText.length / 4,
-          outputTokens: JSON.stringify(structuredData).length / 4,
-          latency: llmLatencyMs,
-          model: import.meta.env?.VITE_OPENAI_MODEL || (typeof process !== 'undefined' ? process.env.VITE_OPENAI_MODEL : undefined) || 'gpt-4o-mini',
-          inputText: extractedText,
-          outputText: JSON.stringify(structuredData, null, 2),
-          heuristics,
-          evaluation: null,
-          // Pass granular latency metrics
-          extractionLatencyMs,
-          dbLatencyMs,
-          totalLatencyMs: totalProcessingMs,
-        }, accessToken).then(() => {
-          console.log(`✅ [EVAL] Logged ${type} eval (without judge) to DB`);
-        }).catch(err => {
-          console.error(`❌ [EVAL] Failed to log ${type} without evaluation:`, err);
-        });
+        console.error(`❌ [EVAL] Failed to log ${type} evaluation:`, error);
       });
 
     } catch (error) {
