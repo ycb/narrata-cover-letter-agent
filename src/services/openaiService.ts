@@ -199,10 +199,11 @@ export class LLMAnalysisService {
       console.warn(`✅ Stage 1 complete: ${skeleton.workHistory?.length || 0} roles found (${Date.now() - stage1Start}ms)`);
       onStageComplete?.('workHistorySkeleton', skeleton);
 
-      // STAGE 2: Stories per role (PARALLEL)
-      console.warn(`📖 Stage 2: Extracting stories for ${skeleton.workHistory?.length || 0} roles (parallel)...`);
-      const stage2Start = Date.now();
+      // STAGE 2 + STAGE 3: Run in PARALLEL (both only depend on Stage 1)
+      console.warn(`📖 Stage 2+3: Extracting stories (${skeleton.workHistory?.length || 0} roles) AND skills in parallel...`);
+      const stage2and3Start = Date.now();
       
+      // Stage 2: Stories per role (parallel within itself)
       const storyPromises = (skeleton.workHistory || []).map(async (role) => {
         const prompt = buildRoleStoriesPrompt(text, {
           company: role.company,
@@ -217,22 +218,26 @@ export class LLMAnalysisService {
         return response.data as unknown as RoleStoriesResult;
       });
 
-      const roleStories = await Promise.all(storyPromises);
-      console.warn(`✅ Stage 2 complete: ${roleStories.reduce((acc, r) => acc + (r.stories?.length || 0), 0)} total stories (${Date.now() - stage2Start}ms)`);
+      // Stage 3: Skills + education + contact
+      const skillsPrompt = buildSkillsAndEducationPrompt(text);
+      const skillsPromise = this.callOpenAI(skillsPrompt, 2000);
+
+      // Wait for BOTH Stage 2 and Stage 3 to complete
+      const [roleStories, skillsResponse] = await Promise.all([
+        Promise.all(storyPromises),
+        skillsPromise
+      ]);
+
+      console.warn(`✅ Stage 2 complete: ${roleStories.reduce((acc, r) => acc + (r.stories?.length || 0), 0)} total stories`);
       onStageComplete?.('roleStories', roleStories);
 
-      // STAGE 3: Skills + education + contact (fast, ~3-5s)
-      console.warn('🎓 Stage 3: Extracting skills, education, contact...');
-      const stage3Start = Date.now();
-      const skillsPrompt = buildSkillsAndEducationPrompt(text);
-      const skillsResponse = await this.callOpenAI(skillsPrompt, 2000); // Small output
-      
       if (!skillsResponse.success || !skillsResponse.data) {
         throw new Error(`Stage 3 failed: ${skillsResponse.error}`);
       }
       
       const skillsData = skillsResponse.data as unknown as SkillsAndEducationResult;
-      console.warn(`✅ Stage 3 complete: ${skillsData.skills?.length || 0} skill categories, ${skillsData.education?.length || 0} education entries (${Date.now() - stage3Start}ms)`);
+      console.warn(`✅ Stage 3 complete: ${skillsData.skills?.length || 0} skill categories, ${skillsData.education?.length || 0} education entries`);
+      console.warn(`✅ Stage 2+3 parallel complete in ${Date.now() - stage2and3Start}ms`);
       onStageComplete?.('skillsAndEducation', skillsData);
 
       // MERGE all stages into final structured data

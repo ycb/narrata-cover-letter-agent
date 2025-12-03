@@ -313,48 +313,62 @@ export class TagSuggestionService {
       });
       console.log('companyTags: Stream initiated');
 
+      let previousTagCount = 0;
       const allGeneratedTags: TagSuggestion[] = [];
       const existingTagsLower = (request.existingTags || []).map(t => t.toLowerCase().trim());
+      const processedTagValues = new Set<string>();
 
-      // 5. Wait for final complete object
-      console.log('companyTags: Waiting for complete response');
-      const finalObject = await result.object;
-      console.log('companyTags: Received complete object', finalObject);
+      // 5. Process streaming tags - use elementStream instead of partialObjectStream
+      console.log('companyTags: Processing stream');
       
-      const completeTags = finalObject.tags || [];
-      console.log('companyTags: Processing', completeTags.length, 'tags');
-
-      // 6. Process all tags
-      for (const tag of completeTags) {
-        console.log('companyTags: Processing tag', tag);
+      for await (const delta of result.partialObjectStream) {
+        const currentTags = delta.tags || [];
+        console.log('companyTags: Delta received, total tags so far:', currentTags.length);
         
-        // Skip if tag is invalid or undefined
-        if (!tag || !tag.value || typeof tag.value !== 'string') {
-          console.warn('companyTags: Skipping invalid tag', tag);
-          continue;
+        // Process only newly added tags
+        for (let i = previousTagCount; i < currentTags.length; i++) {
+          const tag = currentTags[i];
+          
+          // During streaming, tags build up gradually - wait for value to be populated
+          if (!tag || !tag.value || typeof tag.value !== 'string' || !tag.value.trim()) {
+            console.log('companyTags: Tag not ready yet, skipping', { tag, index: i });
+            continue;
+          }
+          
+          const tagValue = tag.value.trim();
+          
+          // Skip if we've already processed this exact tag value
+          if (processedTagValues.has(tagValue.toLowerCase())) {
+            console.log('companyTags: Already processed', tagValue);
+            continue;
+          }
+          
+          // Skip if tag already exists in user's tags
+          if (existingTagsLower.includes(tagValue.toLowerCase())) {
+            console.log('companyTags: Skipping existing tag', tagValue);
+            processedTagValues.add(tagValue.toLowerCase());
+            continue;
+          }
+
+          // Create and emit TagSuggestion
+          const tagSuggestion: TagSuggestion = {
+            id: `tag-${allGeneratedTags.length}`,
+            value: tagValue,
+            confidence: tag.confidence || 'medium',
+            category: tag.category || 'other'
+          };
+
+          console.log('companyTags: New tag streaming', tagValue, tag.confidence);
+          allGeneratedTags.push(tagSuggestion);
+          processedTagValues.add(tagValue.toLowerCase());
+          onTagUpdate(tagSuggestion);
         }
         
-        // Skip if tag already exists
-        if (existingTagsLower.includes(tag.value.toLowerCase().trim())) {
-          console.log('companyTags: Skipping existing tag', tag.value);
-          continue;
-        }
-
-        // Create TagSuggestion
-        const tagSuggestion: TagSuggestion = {
-          id: `tag-${allGeneratedTags.length}`,
-          value: tag.value,
-          confidence: tag.confidence || 'medium',
-          category: tag.category || 'other'
-        };
-
-        console.log('companyTags: New tag', tag.value, tag.confidence);
-        allGeneratedTags.push(tagSuggestion);
-        onTagUpdate(tagSuggestion);
+        previousTagCount = currentTags.length;
       }
 
-      // 7. Complete
-      console.log('companyTags: Complete! Generated tags:', allGeneratedTags.length);
+      // 6. Complete
+      console.log('companyTags: Streaming complete! Generated tags:', allGeneratedTags.length);
       onComplete(allGeneratedTags);
 
     } catch (error) {

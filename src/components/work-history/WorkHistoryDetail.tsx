@@ -1815,7 +1815,7 @@ export const WorkHistoryDetail = ({
                   <Badge 
                     variant="outline" 
                     className="text-xs cursor-pointer hover:bg-muted border-dashed"
-                    onClick={handleEditRole}
+                    onClick={handleEditRoleClick}
                   >
                     <Plus className="h-3 w-3 mr-1" />
                     Add tag
@@ -1854,7 +1854,7 @@ export const WorkHistoryDetail = ({
                             linkedLinks={linkedLinks}
                             onEdit={() => handleEditStory(story)}
                             onDuplicate={() => onDuplicateStory?.(story)}
-                            onDelete={() => onDeleteStory?.(story)}
+                            onDelete={() => handleDeleteStoryClick(story)}
                             isGapResolved={resolvedGaps.has(`story-content-gap-${story.id}`)}
                             hasGaps={(story as any).hasGaps}
                             gaps={(story as any).gaps}
@@ -1940,20 +1940,13 @@ export const WorkHistoryDetail = ({
               </div>
             )}
         
-        {/* Content Generation Modal */}
+        {/* Unified Modal - shows either gap-detection OR tag-suggestion based on mode */}
         <ContentGenerationModal
           isOpen={isContentGenerationModalOpen}
           onClose={closeContentGenerationModal}
-          gap={activeGapContext?.gap}
+          gap={contentGenerationModalProps.mode === 'gap-detection' ? activeGapContext?.gap : undefined}
           onApplyContent={handleApplyContent}
-        />
-
-        {/* Tag Suggestion Modal */}
-        <ContentGenerationModal
-          isOpen={isContentGenerationModalOpen}
-          onClose={closeContentGenerationModal}
           {...contentGenerationModalProps}
-          mode="tag-suggestion"
           suggestedTags={streamingTagState.suggestedTags}
           otherTags={streamingTagState.otherTags}
           isSearching={streamingTagState.isStreaming}
@@ -1961,6 +1954,86 @@ export const WorkHistoryDetail = ({
           onApplyTags={handleApplyTags}
           onRetry={contentGenerationModalProps.onGenerateTags}
         />
+
+        {/* Delete Role Confirmation Dialog */}
+        <AlertDialog open={isDeleteRoleDialogOpen} onOpenChange={setIsDeleteRoleDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Role</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete "{selectedRole?.title}"?
+                {deleteRoleStats && deleteRoleStats.stories > 0 && (
+                  <span className="block mt-2 text-amber-600 font-medium">
+                    This will also delete {deleteRoleStats.stories} {deleteRoleStats.stories === 1 ? 'story' : 'stories'}.
+                  </span>
+                )}
+                <span className="block mt-2">This action cannot be undone.</span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeletingRole}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleConfirmDeleteRole}
+                disabled={isDeletingRole}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {isDeletingRole ? 'Deleting...' : 'Delete Role'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Delete Company Confirmation Dialog */}
+        <AlertDialog open={isDeleteCompanyDialogOpen} onOpenChange={setIsDeleteCompanyDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Company</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete "{deleteCompanyTarget?.name}"?
+                {deleteCompanyStats && (deleteCompanyStats.roles > 0 || deleteCompanyStats.stories > 0) && (
+                  <span className="block mt-2 text-amber-600 font-medium">
+                    This will also delete {deleteCompanyStats.roles} {deleteCompanyStats.roles === 1 ? 'role' : 'roles'}
+                    {deleteCompanyStats.stories > 0 && ` and ${deleteCompanyStats.stories} ${deleteCompanyStats.stories === 1 ? 'story' : 'stories'}`}.
+                  </span>
+                )}
+                <span className="block mt-2">This action cannot be undone.</span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeletingCompany}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleConfirmDeleteCompany}
+                disabled={isDeletingCompany}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {isDeletingCompany ? 'Deleting...' : 'Delete Company'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Delete Story Confirmation Dialog */}
+        <AlertDialog open={isDeleteStoryDialogOpen} onOpenChange={setIsDeleteStoryDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Story</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this story?
+                <span className="block mt-2">This action cannot be undone.</span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeletingStory}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleConfirmDeleteStory}
+                disabled={isDeletingStory}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {isDeletingStory ? 'Deleting...' : 'Delete Story'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     );
   }
@@ -2084,19 +2157,85 @@ export const WorkHistoryDetail = ({
           </div>
         </div>
 
-        {/* Tag Suggestion Modal */}
-        <ContentGenerationModal
-          isOpen={isContentGenerationModalOpen}
-          onClose={closeContentGenerationModal}
-          {...contentGenerationModalProps}
-          mode="tag-suggestion"
-          suggestedTags={streamingTagState.suggestedTags}
-          otherTags={streamingTagState.otherTags}
-          isSearching={streamingTagState.isStreaming}
-          searchError={streamingTagState.error}
-          onApplyTags={handleApplyTags}
-          onRetry={contentGenerationModalProps.onGenerateTags}
-        />
+        {/* Delete Role Confirmation Dialog */}
+        <AlertDialog open={isDeleteRoleDialogOpen} onOpenChange={setIsDeleteRoleDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Role</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete "{selectedRole?.title}"?
+                {deleteRoleStats && deleteRoleStats.stories > 0 && (
+                  <span className="block mt-2 text-amber-600 font-medium">
+                    This will also delete {deleteRoleStats.stories} {deleteRoleStats.stories === 1 ? 'story' : 'stories'}.
+                  </span>
+                )}
+                <span className="block mt-2">This action cannot be undone.</span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeletingRole}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleConfirmDeleteRole}
+                disabled={isDeletingRole}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {isDeletingRole ? 'Deleting...' : 'Delete Role'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Delete Company Confirmation Dialog */}
+        <AlertDialog open={isDeleteCompanyDialogOpen} onOpenChange={setIsDeleteCompanyDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Company</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete "{deleteCompanyTarget?.name}"?
+                {deleteCompanyStats && (deleteCompanyStats.roles > 0 || deleteCompanyStats.stories > 0) && (
+                  <span className="block mt-2 text-amber-600 font-medium">
+                    This will also delete {deleteCompanyStats.roles} {deleteCompanyStats.roles === 1 ? 'role' : 'roles'}
+                    {deleteCompanyStats.stories > 0 && ` and ${deleteCompanyStats.stories} ${deleteCompanyStats.stories === 1 ? 'story' : 'stories'}`}.
+                  </span>
+                )}
+                <span className="block mt-2">This action cannot be undone.</span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeletingCompany}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleConfirmDeleteCompany}
+                disabled={isDeletingCompany}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {isDeletingCompany ? 'Deleting...' : 'Delete Company'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Delete Story Confirmation Dialog */}
+        <AlertDialog open={isDeleteStoryDialogOpen} onOpenChange={setIsDeleteStoryDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Story</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this story?
+                <span className="block mt-2">This action cannot be undone.</span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeletingStory}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleConfirmDeleteStory}
+                disabled={isDeletingStory}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {isDeletingStory ? 'Deleting...' : 'Delete Story'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     );
   }
