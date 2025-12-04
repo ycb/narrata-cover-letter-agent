@@ -85,7 +85,7 @@ export function LevelCard({ levelData, isLoading, onRecalculate }: LevelCardProp
           {levelData.deltaSummary && (
             <div className="p-3 bg-muted/50 rounded-lg">
               <p className="text-sm text-muted-foreground">
-                {levelData.deltaSummary}
+                {levelData.deltaSummary.replace(/^Current level: [^.]+\.\s*/, '')}
               </p>
             </div>
           )}
