@@ -1523,18 +1523,18 @@ export const WorkHistoryDetail = ({
                 Stories ({selectedRole.blurbs.length})
               </button>
               {ENABLE_EXTERNAL_LINKS && (
-                <button
-                  className={cn(
-                    "flex items-center gap-2 py-4 px-1 border-b-4 font-medium text-sm transition-colors",
-                    detailView === 'links' 
-                      ? "border-primary text-primary" 
-                      : "border-transparent text-muted-foreground hover:text-[#E32D9A]"
-                  )}
-                  onClick={() => setDetailView('links')}
-                >
-                  <LinkIcon className="h-4 w-4" />
-                  Links ({selectedRole.externalLinks.length})
-                </button>
+              <button
+                className={cn(
+                  "flex items-center gap-2 py-4 px-1 border-b-4 font-medium text-sm transition-colors",
+                  detailView === 'links' 
+                    ? "border-primary text-primary" 
+                    : "border-transparent text-muted-foreground hover:text-[#E32D9A]"
+                )}
+                onClick={() => setDetailView('links')}
+              >
+                <LinkIcon className="h-4 w-4" />
+                Links ({selectedRole.externalLinks.length})
+              </button>
               )}
             </div>
             

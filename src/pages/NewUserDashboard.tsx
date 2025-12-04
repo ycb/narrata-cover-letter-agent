@@ -524,45 +524,13 @@ export default function NewUserDashboard() {
               return (
               <Card key={category} className="shadow-soft">
                 <CardHeader>
-                    <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    {category === 'Review Work History' && <Users className="w-5 h-5" />}
-                    {category === 'Review Cover Letter Template' && <LayoutTemplate className="w-5 h-5" />}
-                    {category === 'Create Your First Cover Letter!' && <Mail className="w-5 h-5" />}
-                    {category === 'Review your PM Level' && <Trophy className="w-5 h-5" />}
-                    {category}
-                  </CardTitle>
-                      {gapCount > 0 && (
-                        <div className="flex items-center gap-2">
-                          {category === 'Review Work History' && (
-                            <>
-                              <Badge variant="outline" className="bg-blue-500/20 text-blue-500 border-blue-500/30">
-                                <Users className="w-3 h-3 mr-1" />
-                                {gapCount}
-                              </Badge>
-                              {severityCounts.high > 0 && (
-                                <Badge variant="destructive" className="text-xs">
-                                  {severityCounts.high}H
-                                </Badge>
-                              )}
-                            </>
-                          )}
-                          {category === 'Review Cover Letter Template' && (
-                            <>
-                              <Badge variant="outline" className="bg-purple-500/20 text-purple-500 border-purple-500/30">
-                                <LayoutTemplate className="w-3 h-3 mr-1" />
-                                {gapCount}
-                              </Badge>
-                              {severityCounts.high > 0 && (
-                                <Badge variant="destructive" className="text-xs">
-                                  {severityCounts.high}H
-                                </Badge>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                    <CardTitle className="flex items-center gap-2">
+                      {category === 'Review Work History' && <Users className="w-5 h-5" />}
+                      {category === 'Review Cover Letter Template' && <LayoutTemplate className="w-5 h-5" />}
+                      {category === 'Create Your First Cover Letter!' && <Mail className="w-5 h-5" />}
+                      {category === 'Review your PM Level' && <Trophy className="w-5 h-5" />}
+                      {category}
+                    </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {categoryTasks.map((task) => (

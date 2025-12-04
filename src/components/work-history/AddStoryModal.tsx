@@ -423,16 +423,16 @@ export function AddStoryModal({
                       Add supporting links to strengthen your story
                     </div>
                     {ENABLE_EXTERNAL_LINKS && (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => setIsLinkPickerOpen(true)}
-                        className="h-8 px-3"
-                        type="button"
-                      >
-                        <LinkIcon className="h-4 w-4 mr-2" />
-                        Pick Links
-                      </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setIsLinkPickerOpen(true)}
+                      className="h-8 px-3"
+                      type="button"
+                    >
+                      <LinkIcon className="h-4 w-4 mr-2" />
+                      Pick Links
+                    </Button>
                     )}
                   </div>
                 </div>
@@ -576,12 +576,12 @@ export function AddStoryModal({
         
         {/* Link Picker Modal */}
         {ENABLE_EXTERNAL_LINKS && (
-          <LinkPicker
-            open={isLinkPickerOpen}
-            onOpenChange={setIsLinkPickerOpen}
-            existingLinks={existingLinks}
-            onLinkSelected={handleLinkSelected}
-          />
+        <LinkPicker
+          open={isLinkPickerOpen}
+          onOpenChange={setIsLinkPickerOpen}
+          existingLinks={existingLinks}
+          onLinkSelected={handleLinkSelected}
+        />
         )}
       </Dialog>
   );

@@ -257,21 +257,21 @@ export const Header = ({ currentPage }: HeaderProps) => {
                           <Badge variant="secondary" className="ml-auto">47</Badge>
                         </Link>
                         {ENABLE_EXTERNAL_LINKS && (
-                          <Link 
-                            to="/show-all-links" 
-                            className={cn(
-                              "flex items-center justify-between px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity hover:bg-[#E32D9A]",
-                              isWorkHistoryChild(location.pathname) && location.pathname.startsWith("/show-all-links")
-                                ? "text-white bg-white/10"
-                                : "text-white"
-                            )}
-                          >
-                            <span className="flex items-center gap-2">
-                              <LinkIcon className="h-4 w-4" />
-                              All Links
-                            </span>
-                            <Badge variant="secondary" className="ml-auto">12</Badge>
-                          </Link>
+                        <Link 
+                          to="/show-all-links" 
+                          className={cn(
+                            "flex items-center justify-between px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity hover:bg-[#E32D9A]",
+                            isWorkHistoryChild(location.pathname) && location.pathname.startsWith("/show-all-links")
+                              ? "text-white bg-white/10"
+                              : "text-white"
+                          )}
+                        >
+                          <span className="flex items-center gap-2">
+                            <LinkIcon className="h-4 w-4" />
+                            All Links
+                          </span>
+                          <Badge variant="secondary" className="ml-auto">12</Badge>
+                        </Link>
                         )}
                       </div>
                     </div>
@@ -604,22 +604,22 @@ export const Header = ({ currentPage }: HeaderProps) => {
                   <Badge variant="secondary">47</Badge>
                 </Link>
                 {ENABLE_EXTERNAL_LINKS && (
-                  <Link
-                    to="/show-all-links"
-                    className={cn(
-                      "flex items-center justify-between px-4 py-2 text-sm transition-all rounded-md",
-                      isWorkHistoryChild(location.pathname) && location.pathname.startsWith("/show-all-links")
-                        ? "text-white bg-white/10"
-                        : "text-white opacity-75 hover:opacity-100"
-                    )}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                  >
-                    <span className="flex items-center gap-3">
-                      <LinkIcon className="h-4 w-4" />
-                      All Links
-                    </span>
-                    <Badge variant="secondary">12</Badge>
-                  </Link>
+                <Link
+                  to="/show-all-links"
+                  className={cn(
+                    "flex items-center justify-between px-4 py-2 text-sm transition-all rounded-md",
+                    isWorkHistoryChild(location.pathname) && location.pathname.startsWith("/show-all-links")
+                      ? "text-white bg-white/10"
+                      : "text-white opacity-75 hover:opacity-100"
+                  )}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <span className="flex items-center gap-3">
+                    <LinkIcon className="h-4 w-4" />
+                    All Links
+                  </span>
+                  <Badge variant="secondary">12</Badge>
+                </Link>
                 )}
               </div>
             </div>

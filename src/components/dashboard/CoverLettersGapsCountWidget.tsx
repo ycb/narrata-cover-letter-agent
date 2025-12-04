@@ -22,8 +22,14 @@ export function CoverLettersGapsCountWidget({ count = 0, isLoading, onClick }: C
     );
   }
 
+  const hasGaps = count > 0;
+  const displayValue = hasGaps ? count : '—';
+
   return (
-    <Card className="shadow-soft border-muted cursor-pointer hover:shadow-medium transition-shadow" onClick={onClick}>
+    <Card 
+      className={`shadow-soft border-muted ${hasGaps ? 'cursor-pointer hover:shadow-medium' : 'opacity-50'} transition-shadow`}
+      onClick={hasGaps ? onClick : undefined}
+    >
       <CardHeader className="pb-3">
         <CardTitle className="text-sm flex items-center justify-center gap-2">
           <Mail className="w-4 h-4" />
@@ -31,7 +37,7 @@ export function CoverLettersGapsCountWidget({ count = 0, isLoading, onClick }: C
         </CardTitle>
       </CardHeader>
       <CardContent className="text-center">
-        <div className="text-3xl font-bold text-foreground">{count}</div>
+        <div className="text-3xl font-bold text-foreground">{displayValue}</div>
         <div className="text-xs text-muted-foreground mt-1">items with gaps</div>
       </CardContent>
     </Card>

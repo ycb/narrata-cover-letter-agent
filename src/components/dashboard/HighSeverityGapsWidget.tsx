@@ -24,9 +24,14 @@ export function HighSeverityGapsWidget({ gapSummary, isLoading, onClick }: HighS
   }
 
   const count = gapSummary?.bySeverity.high || 0;
+  const hasGaps = count > 0;
+  const displayValue = hasGaps ? count : '—';
 
   return (
-    <Card className="shadow-soft border-muted cursor-pointer hover:shadow-medium transition-shadow" onClick={onClick}>
+    <Card 
+      className={`shadow-soft border-muted ${hasGaps ? 'cursor-pointer hover:shadow-medium' : 'opacity-50'} transition-shadow`}
+      onClick={hasGaps ? onClick : undefined}
+    >
       <CardHeader className="pb-3">
         <CardTitle className="text-sm flex items-center justify-center gap-2">
           <AlertTriangle className="w-4 h-4 text-destructive" />
@@ -34,7 +39,7 @@ export function HighSeverityGapsWidget({ gapSummary, isLoading, onClick }: HighS
         </CardTitle>
       </CardHeader>
       <CardContent className="text-center">
-        <div className="text-3xl font-bold text-destructive">{count}</div>
+        <div className="text-3xl font-bold text-destructive">{displayValue}</div>
         <div className="text-xs text-muted-foreground mt-1">high priority</div>
       </CardContent>
     </Card>

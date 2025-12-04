@@ -105,41 +105,41 @@ export function WorkHistoryDetailTabs({ selectedRole }: WorkHistoryDetailTabsPro
       </TabsContent>
 
       {ENABLE_EXTERNAL_LINKS && (
-        <TabsContent value="links" className="flex-1 min-h-0">
-          <div className="space-y-4 h-full">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">External Links</h3>
-              <Button variant="primary" onClick={handleAddExternalLink} size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Add External Link
-              </Button>
-            </div>
-            
-            <div className="space-y-4 overflow-y-auto max-h-[calc(100vh-400px)]">
-              {externalLinks.length > 0 ? (
-                externalLinks.map((link) => (
-                  <LinkCard
-                    key={link.id}
-                    id={link.id}
-                    label={link.label}
-                    url={link.url}
-                    tags={link.tags}
-                    timesUsed={link.timesUsed}
-                    lastUsed={link.lastUsed}
-                    onEdit={handleEditLink}
-                    onCopy={handleCopyLink}
-                    onDuplicate={handleDuplicateLink}
-                    onDelete={handleDeleteLink}
-                  />
-                ))
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">No external links yet</p>
-                </div>
-              )}
-            </div>
+      <TabsContent value="links" className="flex-1 min-h-0">
+        <div className="space-y-4 h-full">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">External Links</h3>
+            <Button variant="primary" onClick={handleAddExternalLink} size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Add External Link
+            </Button>
           </div>
-        </TabsContent>
+          
+          <div className="space-y-4 overflow-y-auto max-h-[calc(100vh-400px)]">
+            {externalLinks.length > 0 ? (
+              externalLinks.map((link) => (
+                <LinkCard
+                  key={link.id}
+                  id={link.id}
+                  label={link.label}
+                  url={link.url}
+                  tags={link.tags}
+                  timesUsed={link.timesUsed}
+                  lastUsed={link.lastUsed}
+                  onEdit={handleEditLink}
+                  onCopy={handleCopyLink}
+                  onDuplicate={handleDuplicateLink}
+                  onDelete={handleDeleteLink}
+                />
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">No external links yet</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </TabsContent>
       )}
 
       {/* Modals */}
@@ -154,15 +154,15 @@ export function WorkHistoryDetailTabs({ selectedRole }: WorkHistoryDetailTabsPro
       />
       
       {ENABLE_EXTERNAL_LINKS && (
-        <AddExternalLinkModal
-          open={addLinkModalOpen}
-          onOpenChange={setAddLinkModalOpen}
-          roleId={selectedRole.id}
-          onLinkAdded={() => {
-            setAddLinkModalOpen(false);
-            // TODO: Refresh data
-          }}
-        />
+      <AddExternalLinkModal
+        open={addLinkModalOpen}
+        onOpenChange={setAddLinkModalOpen}
+        roleId={selectedRole.id}
+        onLinkAdded={() => {
+          setAddLinkModalOpen(false);
+          // TODO: Refresh data
+        }}
+      />
       )}
     </div>
   );
