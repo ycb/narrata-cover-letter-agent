@@ -24,7 +24,7 @@ export const buildContentTaggingPrompt = (
     : '';
 
   const companyContext = companyResearch
-    ? `\n\nCOMPANY RESEARCH (FROM WEB SEARCH):\n- Industry: ${companyResearch.industry || 'unknown'}\n- Business Model: ${companyResearch.businessModel || 'unknown'}\n- Company Stage: ${companyResearch.companyStage || 'unknown'}\n- Company Size: ${companyResearch.companySize || 'unknown'}\n- Description: ${companyResearch.description || 'N/A'}\n- Key Products: ${companyResearch.keyProducts?.join(', ') || 'N/A'}\n\nUse this research data to enhance tag suggestions. Prioritize tags that match the researched industry and business model.`
+    ? `\n\nCOMPANY RESEARCH:\n- Industry: ${companyResearch.industry || 'unknown'}\n- Business Model: ${companyResearch.businessModel || 'unknown'}\n\nUSE researched industry/model as primary tags. Add 2-3 specific tags from company description.`
     : '';
 
   const gapContextSection = gapContext

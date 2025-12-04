@@ -132,14 +132,21 @@ ${searchContext}
 
 Return ONLY valid JSON with this structure:
 {
-  "industry": "industry name or null",
-  "businessModel": "business model or null",
+  "industry": "Be specific, e.g. 'Fintech / Payments / Crypto' not just 'Finance'",
+  "businessModel": "B2B|B2C|D2C|B2B2C|Marketplace|Platform|SaaS|Enterprise|SMB|Developer Tools",
   "companyStage": "startup|growth-stage|established|enterprise or null",
   "companySize": "small|medium|large|enterprise or null",
-  "description": "brief description or null",
+  "description": "brief description (1-2 sentences)",
   "keyProducts": ["product1", "product2"] or [],
-  "tags": ["tag1", "tag2"] or []
+  "tags": ["specific keywords about what they do"]
 }
+
+Examples of SPECIFIC industries:
+• Payment company → "Fintech / Payments / Crypto"
+• Healthcare software → "HealthTech / Digital Health"
+• Learning platform → "EdTech / Learning Platforms"
+• Solar/energy company → "IoT / Edge Computing"
+• Generic software → "Software / SaaS"
 
 Return valid JSON only, no markdown formatting.`;
   }
@@ -204,10 +211,18 @@ Return valid JSON only, no markdown formatting.`;
       const cleanedResponse = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const parsed = JSON.parse(cleanedResponse);
 
+      // Normalize industry and business model using smart post-processing
+      const normalizedIndustry = this.normalizeIndustry(
+        parsed.industry, 
+        parsed.description, 
+        parsed.tags
+      );
+      const normalizedBusinessModel = this.normalizeBusinessModel(parsed.businessModel);
+
       return {
         companyName,
-        industry: parsed.industry || undefined,
-        businessModel: parsed.businessModel || undefined,
+        industry: normalizedIndustry,
+        businessModel: normalizedBusinessModel,
         companyStage: parsed.companyStage || undefined,
         companySize: parsed.companySize || undefined,
         description: parsed.description || undefined,
@@ -222,6 +237,175 @@ Return valid JSON only, no markdown formatting.`;
         description: `Information about ${companyName}`
       };
     }
+  }
+
+  /**
+   * Intelligent industry normalization using multiple signals
+   * 0 tokens cost - happens client-side after API call
+   * Leverages description + tags for richer signal matching
+   */
+  private static normalizeIndustry(
+    rawIndustry: string | null, 
+    description: string | null,
+    tags: string[] | null
+  ): string | undefined {
+    if (!rawIndustry) return undefined;
+    
+    // Combine all signals for better matching
+    const signals = [
+      rawIndustry,
+      description || '',
+      ...(tags || [])
+    ].join(' ').toLowerCase();
+    
+    // SMART KEYWORD MATCHING (ordered by specificity)
+    // More specific matches first to avoid false positives
+    
+    // Fintech & Payments (high signal keywords)
+    if (signals.match(/\b(payment|fintech|banking|lending|insurance|crypto|blockchain|wallet|card|transaction|stripe|square|paypal)\b/)) {
+      return 'Fintech / Payments / Crypto';
+    }
+    
+    // Healthcare & Biotech (distinct keywords)
+    if (signals.match(/\b(healthcare|medical|health tech|patient|clinical|hospital|biotech|pharma|drug|therapeutics)\b/)) {
+      if (signals.match(/\b(biotech|pharma|drug|therapeutics|clinical trial|molecule)\b/)) {
+        return 'Biotech / Pharma';
+      }
+      if (signals.match(/\b(medtech|medical device|diagnostic|imaging)\b/)) {
+        return 'Healthcare / MedTech';
+      }
+      if (signals.match(/\b(wellness|fitness|mental health|telemedicine|nutrition)\b/)) {
+        return 'Wellness / Fitness';
+      }
+      return 'HealthTech / Digital Health';
+    }
+    
+    // EdTech (clear signal)
+    if (signals.match(/\b(edtech|education|learning|student|course|university|school|training platform|classroom)\b/)) {
+      return 'EdTech / Learning Platforms';
+    }
+    
+    // HRTech (clear signal)
+    if (signals.match(/\b(hrtech|recruiting|talent|hiring|applicant|resume|job board|workforce|hr platform)\b/)) {
+      return 'HRTech / Future of Work';
+    }
+    
+    // E-commerce & Retail (specific indicators)
+    if (signals.match(/\b(e-commerce|ecommerce|retail|shopping|storefront|checkout|cart|shopify)\b/)) {
+      return 'E-commerce / Retail';
+    }
+    
+    // FoodTech & AgTech (specific domains)
+    if (signals.match(/\b(food tech|restaurant|delivery|agriculture|farming|agtech|grubhub|doordash)\b/)) {
+      return 'FoodTech / AgTech';
+    }
+    
+    // Travel & Hospitality
+    if (signals.match(/\b(travel|hotel|booking|hospitality|tourism|vacation|airbnb|expedia)\b/)) {
+      return 'Travel / Hospitality';
+    }
+    
+    // Media & Entertainment
+    if (signals.match(/\b(media|entertainment|gaming|video|streaming|content|music|creator|spotify|netflix)\b/)) {
+      return 'Media / Entertainment / Gaming';
+    }
+    
+    // AI & Machine Learning (specific tech)
+    if (signals.match(/\b(ai|artificial intelligence|machine learning|ml model|neural|llm|gpt|deep learning|openai)\b/)) {
+      return 'AI / Machine Learning';
+    }
+    
+    // Cloud & DevOps (infrastructure keywords)
+    if (signals.match(/\b(cloud|infrastructure|kubernetes|devops|container|deployment|hosting|aws|azure|gcp)\b/)) {
+      return 'Cloud / DevOps';
+    }
+    
+    // Cybersecurity (distinct keywords)
+    if (signals.match(/\b(security|cybersecurity|encryption|compliance|vulnerability|threat|breach|firewall)\b/)) {
+      return 'Cybersecurity';
+    }
+    
+    // Data & Analytics (specific tools/concepts)
+    if (signals.match(/\b(data|analytics|bi|business intelligence|dashboard|visualization|warehouse|tableau)\b/)) {
+      return 'Data / Analytics';
+    }
+    
+    // IoT & Edge (hardware/physical layer - includes solar/energy)
+    if (signals.match(/\b(iot|edge computing|sensor|device|hardware|embedded|solar|energy|grid|renewable|cleantech)\b/)) {
+      return 'IoT / Edge Computing';
+    }
+    
+    // Telecommunications
+    if (signals.match(/\b(telecom|connectivity|network|5g|wireless|carrier|verizon|att)\b/)) {
+      return 'Telecommunications / Connectivity';
+    }
+    
+    // Productivity & Collaboration
+    if (signals.match(/\b(productivity|collaboration|workflow|workspace|project management|communication platform|slack|asana|notion)\b/)) {
+      return 'Productivity / Collaboration';
+    }
+    
+    // LegalTech & Compliance
+    if (signals.match(/\b(legal|law|compliance|contract|regulatory|litigation|attorney)\b/)) {
+      return 'LegalTech / Compliance';
+    }
+    
+    // Accounting & ERP
+    if (signals.match(/\b(accounting|erp|invoice|expense|bookkeeping|tax|payroll|quickbooks)\b/)) {
+      return 'Accounting / ERP / Back Office';
+    }
+    
+    // Consumer Goods & D2C
+    if (signals.match(/\b(consumer goods|d2c|direct to consumer|subscription box|cpg|warby parker)\b/)) {
+      return 'Consumer Goods / D2C';
+    }
+    
+    // Banking & Insurance & Lending
+    if (signals.match(/\b(bank|insurance|lending|loan|mortgage|underwriting)\b/)) {
+      return 'Banking / Insurance / Lending';
+    }
+    
+    // Consulting & Services
+    if (signals.match(/\b(consulting|professional services|advisory|consulting firm)\b/)) {
+      return 'Consulting / Services';
+    }
+    
+    // Recruiting & Talent Platforms (distinct from HRTech)
+    if (signals.match(/\b(recruiting platform|talent marketplace|job matching|career platform)\b/)) {
+      return 'Recruiting / Talent Platforms';
+    }
+    
+    // Generic fallback: Software / SaaS (safest generic)
+    if (signals.match(/\b(software|saas|platform|app|api|service|tech company)\b/)) {
+      return 'Software / SaaS';
+    }
+    
+    // No match: keep original (user can manually fix)
+    return rawIndustry;
+  }
+
+  /**
+   * Normalize business model to standard terms
+   * 0 tokens cost - happens client-side
+   */
+  private static normalizeBusinessModel(rawModel: string | null): string | undefined {
+    if (!rawModel) return undefined;
+    
+    const modelLower = rawModel.toLowerCase();
+    
+    // Map common variations to standard terms
+    if (modelLower.match(/\b(b2b|business to business|enterprise sales)\b/)) return 'B2B';
+    if (modelLower.match(/\b(b2c|business to consumer|consumer facing)\b/)) return 'B2C';
+    if (modelLower.match(/\b(d2c|direct to consumer|dtc)\b/)) return 'D2C';
+    if (modelLower.match(/\b(b2b2c)\b/)) return 'B2B2C';
+    if (modelLower.match(/\b(marketplace|two-sided|multi-sided)\b/)) return 'Marketplace';
+    if (modelLower.match(/\b(platform|ecosystem)\b/)) return 'Platform';
+    if (modelLower.match(/\b(saas|software as a service)\b/)) return 'SaaS';
+    if (modelLower.match(/\b(developer tool|api-first|dev tool|developer platform)\b/)) return 'Developer Tools';
+    if (modelLower.match(/\b(enterprise)\b/)) return 'Enterprise';
+    if (modelLower.match(/\b(smb|small business|mid-market)\b/)) return 'SMB';
+    
+    return rawModel; // Keep original if no match
   }
 
   /**
