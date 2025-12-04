@@ -61,15 +61,15 @@ export function TourBannerFull({
           {/* Right: Navigation Controls */}
           <div className="flex items-center gap-2">
             {canGoPrevious && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onPrevious}
-                className="text-white hover:bg-white/20 px-3"
-              >
-                <ArrowLeft className="w-4 h-4 mr-1" />
-                Back
-              </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onPrevious}
+              className="text-white hover:bg-white/20 px-3"
+            >
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Back
+            </Button>
             )}
 
             {!isLastStep && (

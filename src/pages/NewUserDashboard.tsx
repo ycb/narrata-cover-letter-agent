@@ -271,7 +271,7 @@ export default function NewUserDashboard() {
   const handleTaskToggle = (taskId: string) => {
     setTasks(prev => {
       const updated = prev.map(task => 
-        task.id === taskId ? { ...task, completed: !task.completed } : task
+      task.id === taskId ? { ...task, completed: !task.completed } : task
       );
       
       // Check if all tasks are now completed
