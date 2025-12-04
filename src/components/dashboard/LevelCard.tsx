@@ -73,12 +73,9 @@ export function LevelCard({ levelData, isLoading, onRecalculate }: LevelCardProp
         <CardContent className="space-y-4">
           {/* Level Display */}
           <div className="text-center py-4">
-            <div className="text-3xl font-bold text-foreground mb-2">
+            <div className="text-3xl font-bold text-foreground">
               {levelData.displayLevel}
             </div>
-            <Badge variant="secondary" className="text-sm">
-              {levelData.inferredLevel}
-            </Badge>
           </div>
 
           {/* Confidence Bar */}
@@ -93,25 +90,15 @@ export function LevelCard({ levelData, isLoading, onRecalculate }: LevelCardProp
             </div>
           )}
 
-          {/* Action Buttons */}
-          <div className="flex gap-2">
-            <Button
-              variant="default"
-              className="flex-1"
-              onClick={() => setShowRecommendations(true)}
-            >
-              <TrendingUp className="h-4 w-4 mr-2" />
-              View Recommendations
-            </Button>
-            {onRecalculate && (
-              <Button
-                variant="outline"
-                onClick={onRecalculate}
-              >
-                <Target className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
+          {/* Action Button */}
+          <Button
+            variant="default"
+            className="w-full"
+            onClick={() => setShowRecommendations(true)}
+          >
+            <TrendingUp className="h-4 w-4 mr-2" />
+            View Recommendations
+          </Button>
         </CardContent>
       </Card>
 
