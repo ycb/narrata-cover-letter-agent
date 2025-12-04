@@ -24,6 +24,7 @@ import { ContentQualityWidget, ContentQualityWidgetRef, ContentTypeFilter, Sever
 import { UserGoalsModal } from "@/components/user-goals/UserGoalsModal";
 import { MyVoiceModal } from "@/components/user-voice/MyVoiceModal";
 import { MyDataModal } from "@/components/user-data/MyDataModal";
+import CoverLetterCreateModal from "@/components/cover-letters/CoverLetterCreateModal";
 import { TotalGapsWidget } from "@/components/dashboard/TotalGapsWidget";
 import { WorkHistoryGapsCountWidget } from "@/components/dashboard/WorkHistoryGapsCountWidget";
 import { SavedSectionsGapsCountWidget } from "@/components/dashboard/SavedSectionsGapsCountWidget";
@@ -56,6 +57,9 @@ export default function NewUserDashboard() {
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [showDataModal, setShowDataModal] = useState(false);
+  
+  // Modal state for Create Cover Letter
+  const [showCreateCoverLetterModal, setShowCreateCoverLetterModal] = useState(false);
   const [contentTypeFilter, setContentTypeFilter] = React.useState<ContentTypeFilter>('all');
   const [severityFilter, setSeverityFilter] = React.useState<SeverityFilter>('all');
   
@@ -262,7 +266,7 @@ export default function NewUserDashboard() {
       description: 'Generate your first targeted cover letter',
       category: 'Create Your First Cover Letter!',
       completed: false,
-      link: '/cover-letters'
+      link: 'modal:create-cover-letter' // Open create cover letter modal
     },
     {
       id: 'cover-letter-track',
@@ -330,7 +334,7 @@ export default function NewUserDashboard() {
   };
 
   const handleTaskClick = (task: OnboardingTask) => {
-    // Handle modal actions for Personalize Narrata tasks
+    // Handle modal actions for Personalize Narrata tasks and Create Cover Letter
     if (task.link.startsWith('modal:')) {
       const modalType = task.link.replace('modal:', '');
       if (modalType === 'goals') {
@@ -339,6 +343,8 @@ export default function NewUserDashboard() {
         setShowVoiceModal(true);
       } else if (modalType === 'data') {
         setShowDataModal(true);
+      } else if (modalType === 'create-cover-letter') {
+        setShowCreateCoverLetterModal(true);
       }
       return;
     }
@@ -716,6 +722,14 @@ export default function NewUserDashboard() {
       <MyDataModal 
         isOpen={showDataModal} 
         onClose={() => setShowDataModal(false)} 
+      />
+      
+      {/* Create Cover Letter Modal */}
+      <CoverLetterCreateModal
+        isOpen={showCreateCoverLetterModal}
+        onClose={async () => {
+          setShowCreateCoverLetterModal(false);
+        }}
       />
     </div>
   );
