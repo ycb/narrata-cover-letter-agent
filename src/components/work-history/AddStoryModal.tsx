@@ -24,6 +24,7 @@ import { supabase } from "@/lib/supabase";
 import { STORY_TEMPLATES } from "@/lib/constants/storyTemplates";
 import { LinkPicker } from "./LinkPicker";
 import type { ExternalLink, WorkHistoryBlurb } from "@/types/workHistory";
+import { isExternalLinksEnabled } from "@/lib/flags";
 
 interface AddStoryModalProps {
   open: boolean;
@@ -68,6 +69,9 @@ export function AddStoryModal({
   // Company/Role selection state for View All context
   const [selectedCompany, setSelectedCompany] = useState(editingStory?.company || "");
   const [selectedRole, setSelectedRole] = useState(editingStory?.role || "");
+  
+  // Feature flag
+  const ENABLE_EXTERNAL_LINKS = isExternalLinksEnabled();
   
   // Link picker state
   const [isLinkPickerOpen, setIsLinkPickerOpen] = useState(false);
@@ -418,16 +422,18 @@ export function AddStoryModal({
                     <div className="text-sm text-muted-foreground">
                       Add supporting links to strengthen your story
                     </div>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => setIsLinkPickerOpen(true)}
-                      className="h-8 px-3"
-                      type="button"
-                    >
-                      <LinkIcon className="h-4 w-4 mr-2" />
-                      Pick Links
-                    </Button>
+                    {ENABLE_EXTERNAL_LINKS && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setIsLinkPickerOpen(true)}
+                        className="h-8 px-3"
+                        type="button"
+                      >
+                        <LinkIcon className="h-4 w-4 mr-2" />
+                        Pick Links
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -569,12 +575,14 @@ export function AddStoryModal({
         </DialogContent>
         
         {/* Link Picker Modal */}
-        <LinkPicker
-          open={isLinkPickerOpen}
-          onOpenChange={setIsLinkPickerOpen}
-          existingLinks={existingLinks}
-          onLinkSelected={handleLinkSelected}
-        />
+        {ENABLE_EXTERNAL_LINKS && (
+          <LinkPicker
+            open={isLinkPickerOpen}
+            onOpenChange={setIsLinkPickerOpen}
+            existingLinks={existingLinks}
+            onLinkSelected={handleLinkSelected}
+          />
+        )}
       </Dialog>
   );
 }

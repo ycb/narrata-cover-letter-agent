@@ -41,6 +41,7 @@ import { useUserGoals } from "@/contexts/UserGoalsContext";
 import { GapDetectionService, type Gap } from "@/services/gapDetectionService";
 import { TagSuggestionService, type TagSuggestion } from "@/services/tagSuggestionService";
 import { TagService } from "@/services/tagService";
+import { isExternalLinksEnabled } from "@/lib/flags";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -110,6 +111,7 @@ export const WorkHistoryDetail = ({
 }: WorkHistoryDetailProps) => {
   const { user } = useAuth();
   const { goals } = useUserGoals();
+  const ENABLE_EXTERNAL_LINKS = isExternalLinksEnabled();
   const [detailView, setDetailView] = useState<DetailView>(initialTab);
   const [isEditingRole, setIsEditingRole] = useState(false);
   const [editingRole, setEditingRole] = useState<WorkHistoryRole | null>(null);
@@ -1520,18 +1522,20 @@ export const WorkHistoryDetail = ({
                 <FileText className="h-4 w-4" />
                 Stories ({selectedRole.blurbs.length})
               </button>
-              <button
-                className={cn(
-                  "flex items-center gap-2 py-4 px-1 border-b-4 font-medium text-sm transition-colors",
-                  detailView === 'links' 
-                    ? "border-primary text-primary" 
-                    : "border-transparent text-muted-foreground hover:text-[#E32D9A]"
-                )}
-                onClick={() => setDetailView('links')}
-              >
-                <LinkIcon className="h-4 w-4" />
-                Links ({selectedRole.externalLinks.length})
-              </button>
+              {ENABLE_EXTERNAL_LINKS && (
+                <button
+                  className={cn(
+                    "flex items-center gap-2 py-4 px-1 border-b-4 font-medium text-sm transition-colors",
+                    detailView === 'links' 
+                      ? "border-primary text-primary" 
+                      : "border-transparent text-muted-foreground hover:text-[#E32D9A]"
+                  )}
+                  onClick={() => setDetailView('links')}
+                >
+                  <LinkIcon className="h-4 w-4" />
+                  Links ({selectedRole.externalLinks.length})
+                </button>
+              )}
             </div>
             
             {/* Dynamic CTA */}
@@ -1548,7 +1552,7 @@ export const WorkHistoryDetail = ({
                   Add Story
                 </Button>
               )}
-              {detailView === 'links' && onAddLink && (
+              {ENABLE_EXTERNAL_LINKS && detailView === 'links' && onAddLink && (
                 <Button onClick={onAddLink} size="sm">
                   <Plus className="h-4 w-4 mr-2" />
                   Add Link
@@ -1839,7 +1843,7 @@ export const WorkHistoryDetail = ({
         )}
 
         {/* Links View */}
-        {detailView === 'links' && selectedRole && (
+        {ENABLE_EXTERNAL_LINKS && detailView === 'links' && selectedRole && (
               <div>
                 {selectedRole.externalLinks.length === 0 ? (
                   <div className="text-center py-8">

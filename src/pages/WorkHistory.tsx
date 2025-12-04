@@ -15,6 +15,7 @@ import { useTour } from "@/contexts/TourContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { TourBannerFull } from "@/components/onboarding/TourBannerFull";
 import { Button } from "@/components/ui/button";
+import { isExternalLinksEnabled } from "@/lib/flags";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -895,7 +896,10 @@ export default function WorkHistory() {
   useEffect(() => {
     if (isTourActive && workHistory.length > 0) {
       // Start on role tab, then auto-advance
-      const tabs: ('role' | 'stories' | 'links')[] = ['role', 'stories', 'links'];
+      const ENABLE_EXTERNAL_LINKS = isExternalLinksEnabled();
+      const tabs: ('role' | 'stories' | 'links')[] = ENABLE_EXTERNAL_LINKS 
+        ? ['role', 'stories', 'links']
+        : ['role', 'stories'];
       let currentTabIndex = 0;
       
       const advanceTab = () => {

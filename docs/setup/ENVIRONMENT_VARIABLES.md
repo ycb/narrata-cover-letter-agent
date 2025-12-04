@@ -85,6 +85,38 @@ Setup guide: [LinkedIn OAuth Setup](./LINKEDIN_OAUTH_SETUP.md)
 
 **Local QA Tip:** Enable `VITE_SYNTHETIC_LOCAL_ONLY=true` in your `.env` when running multiple dev servers (e.g., ports 8080/8082). Each window can then pin a different synthetic persona without affecting the others. Clear the flag or set it to `false` before deploying to shared environments.
 
+### Feature Flags (Optional)
+
+These flags control which features are visible in the application. See [`docs/backlog/HIDDEN_FEATURES.md`](../backlog/HIDDEN_FEATURES.md) for the complete list of hidden features.
+
+#### External Links
+
+- **ENABLE_EXTERNAL_LINKS**: Enable external links feature
+- **VITE_ENABLE_EXTERNAL_LINKS**: Vite-prefixed version (fallback)
+
+**When to enable:**
+- Links feature is ready for production use
+- Backend support for external links is complete
+
+**What happens without it:**
+- Links tab hidden from Work History
+- "Pick Links" button hidden from Add Story modal
+- /show-all-links route disabled
+- Links navigation items hidden from header
+
+**Default:** Disabled (feature flag off)
+
+#### Draft Readiness Evaluation
+
+- **ENABLE_DRAFT_READINESS**: Enable draft readiness metrics
+- **VITE_ENABLE_DRAFT_READINESS**: Vite-prefixed version (fallback)
+
+**When to enable:**
+- Soft-launching readiness feature to QA cohort
+- Production rollout of editorial verdict system
+
+**Default:** Disabled (feature flag off)
+
 ## Security Best Practices
 
 1. **Never commit `.env` to version control**

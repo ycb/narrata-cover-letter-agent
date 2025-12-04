@@ -14,6 +14,7 @@ import { Header } from "@/components/layout/Header";
 import { FeedbackSystem } from "@/components/feedback/FeedbackSystem";
 import { FeedbackAdmin } from "@/components/feedback/FeedbackAdmin";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { isExternalLinksEnabled } from "@/lib/flags";
 
 // Environment-based feedback system initialization
 const shouldShowFeedbackSystem = (): boolean => {
@@ -172,12 +173,14 @@ function AppLayout() {
             <ShowAllStories />
           </ProtectedRoute>
         } />
-        <Route path="/show-all-links" element={
-          <ProtectedRoute>
-            <Header />
-            <ShowAllLinks />
-          </ProtectedRoute>
-        } />
+        {isExternalLinksEnabled() && (
+          <Route path="/show-all-links" element={
+            <ProtectedRoute>
+              <Header />
+              <ShowAllLinks />
+            </ProtectedRoute>
+          } />
+        )}
         <Route path="/saved-sections" element={
           <ProtectedRoute>
             <Header />

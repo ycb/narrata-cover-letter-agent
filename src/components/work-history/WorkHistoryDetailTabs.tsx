@@ -7,12 +7,14 @@ import { Plus } from "lucide-react";
 import { AddStoryModal } from "./AddStoryModal";
 import { AddExternalLinkModal } from "./AddExternalLinkModal";
 import type { WorkHistoryRole, WorkHistoryBlurb } from "@/types/workHistory";
+import { isExternalLinksEnabled } from "@/lib/flags";
 
 interface WorkHistoryDetailTabsProps {
   selectedRole: WorkHistoryRole;
 }
 
 export function WorkHistoryDetailTabs({ selectedRole }: WorkHistoryDetailTabsProps) {
+  const ENABLE_EXTERNAL_LINKS = isExternalLinksEnabled();
   const [addStoryModalOpen, setAddStoryModalOpen] = useState(false);
   const [addLinkModalOpen, setAddLinkModalOpen] = useState(false);
 
@@ -102,41 +104,43 @@ export function WorkHistoryDetailTabs({ selectedRole }: WorkHistoryDetailTabsPro
         </div>
       </TabsContent>
 
-      <TabsContent value="links" className="flex-1 min-h-0">
-        <div className="space-y-4 h-full">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">External Links</h3>
-            <Button variant="primary" onClick={handleAddExternalLink} size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Add External Link
-            </Button>
+      {ENABLE_EXTERNAL_LINKS && (
+        <TabsContent value="links" className="flex-1 min-h-0">
+          <div className="space-y-4 h-full">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">External Links</h3>
+              <Button variant="primary" onClick={handleAddExternalLink} size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Add External Link
+              </Button>
+            </div>
+            
+            <div className="space-y-4 overflow-y-auto max-h-[calc(100vh-400px)]">
+              {externalLinks.length > 0 ? (
+                externalLinks.map((link) => (
+                  <LinkCard
+                    key={link.id}
+                    id={link.id}
+                    label={link.label}
+                    url={link.url}
+                    tags={link.tags}
+                    timesUsed={link.timesUsed}
+                    lastUsed={link.lastUsed}
+                    onEdit={handleEditLink}
+                    onCopy={handleCopyLink}
+                    onDuplicate={handleDuplicateLink}
+                    onDelete={handleDeleteLink}
+                  />
+                ))
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No external links yet</p>
+                </div>
+              )}
+            </div>
           </div>
-          
-          <div className="space-y-4 overflow-y-auto max-h-[calc(100vh-400px)]">
-            {externalLinks.length > 0 ? (
-              externalLinks.map((link) => (
-                <LinkCard
-                  key={link.id}
-                  id={link.id}
-                  label={link.label}
-                  url={link.url}
-                  tags={link.tags}
-                  timesUsed={link.timesUsed}
-                  lastUsed={link.lastUsed}
-                  onEdit={handleEditLink}
-                  onCopy={handleCopyLink}
-                  onDuplicate={handleDuplicateLink}
-                  onDelete={handleDeleteLink}
-                />
-              ))
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">No external links yet</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </TabsContent>
+        </TabsContent>
+      )}
 
       {/* Modals */}
       <AddStoryModal
@@ -149,15 +153,17 @@ export function WorkHistoryDetailTabs({ selectedRole }: WorkHistoryDetailTabsPro
         }}
       />
       
-      <AddExternalLinkModal
-        open={addLinkModalOpen}
-        onOpenChange={setAddLinkModalOpen}
-        roleId={selectedRole.id}
-        onLinkAdded={() => {
-          setAddLinkModalOpen(false);
-          // TODO: Refresh data
-        }}
-      />
+      {ENABLE_EXTERNAL_LINKS && (
+        <AddExternalLinkModal
+          open={addLinkModalOpen}
+          onOpenChange={setAddLinkModalOpen}
+          roleId={selectedRole.id}
+          onLinkAdded={() => {
+            setAddLinkModalOpen(false);
+            // TODO: Refresh data
+          }}
+        />
+      )}
     </div>
   );
 }
