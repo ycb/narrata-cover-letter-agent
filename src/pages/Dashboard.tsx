@@ -11,6 +11,7 @@ import {
   TrendingUp,
   Plus,
   ArrowRight,
+  ArrowLeft,
   Mail,
   Loader2,
   AlertTriangle
@@ -147,14 +148,6 @@ const Dashboard = () => {
         <Card className="border-purple-200 bg-purple-50 mb-8">
           <CardContent className="py-4">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-purple-900">
-                  Still refining your stories and sections?
-                </p>
-                <p className="text-xs text-purple-700 mt-1">
-                  Switch to the onboarding dashboard to review gaps and complete tasks
-                </p>
-              </div>
               <Button
                 variant="secondary"
                 onClick={async () => {
@@ -163,9 +156,17 @@ const Dashboard = () => {
                 }}
                 className="bg-white hover:bg-purple-100 border border-purple-300"
               >
+                <ArrowLeft className="mr-2 w-4 h-4" />
                 View Onboarding Dashboard
-                <ArrowRight className="ml-2 w-4 h-4" />
               </Button>
+              <div className="text-right">
+                <p className="text-sm font-medium text-purple-900">
+                  Still refining your stories and sections?
+                </p>
+                <p className="text-xs text-purple-700 mt-1">
+                  Switch to the onboarding dashboard to review gaps and complete tasks
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
