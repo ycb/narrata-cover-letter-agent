@@ -201,7 +201,7 @@ export default function NewUserDashboard() {
     {
       id: 'my-goals',
       title: 'My Goals',
-      description: 'Add target titles, min salary, and other deal-breakers',
+      description: 'Target titles, min salary, deal-breakers',
       category: 'Personalize Narrata',
       completed: false,
       link: 'modal:goals' // Special prefix to indicate modal action
