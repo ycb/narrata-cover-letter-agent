@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import ProfileCompletionModal from "@/components/auth/ProfileCompletionModal";
 import { StatsCard } from "@/components/dashboard/StatsCard";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   FileText,
@@ -20,7 +20,6 @@ import { LoadingState } from '@/components/shared/LoadingState';
 import CoverLetterCreateModal from "@/components/cover-letters/CoverLetterCreateModal";
 
 // Import new simplified v2 components
-import { CoverageMapSimplified } from "@/components/dashboard/CoverageMapSimplified";
 import { StoryGapsAndStrength } from "@/components/dashboard/StoryGapsAndStrength";
 import { TopActionNeeded } from "@/components/dashboard/TopActionNeeded";
 import { LevelCard } from "@/components/dashboard/LevelCard";
@@ -172,7 +171,7 @@ const Dashboard = () => {
         </Card>
 
         {/* Metrics Overview - Stories + Cover Letters + PM Skills (2 cols) + Total Gaps */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
           <StatsCard
             title="Stories"
             value={dashboardData.stats.stories}
@@ -195,61 +194,6 @@ const Dashboard = () => {
             }}
             onClick={() => navigate('/cover-letters')}
           />
-          {/* PM Skills Widget with Competencies */}
-          <Card className="shadow-soft col-span-2 overflow-hidden">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg font-semibold">PM Skills Coverage</CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-3 p-4 pt-0">
-              {levelData?.competencyScores && Object.keys(levelData.competencyScores).length > 0 ? (
-                [
-                  {
-                    name: "Product Execution",
-                    score: levelData.competencyScores.execution || 0,
-                    key: 'execution'
-                  },
-                  {
-                    name: "Customer Insight",
-                    score: levelData.competencyScores.customer_insight || 0,
-                    key: 'customer_insight'
-                  },
-                  {
-                    name: "Product Strategy",
-                    score: levelData.competencyScores.strategy || 0,
-                    key: 'strategy'
-                  },
-                  {
-                    name: "Influencing People",
-                    score: levelData.competencyScores.influence || 0,
-                    key: 'influence'
-                  }
-                ].map((competency) => {
-                  const percentage = Math.round((competency.score / 3) * 100);
-                  const level = percentage >= 90 ? "Advanced" : percentage >= 70 ? "Proficient" : percentage >= 50 ? "Developing" : "Needs Work";
-                  const badgeColor = percentage >= 80 ? "bg-green-100 text-green-800" : percentage >= 60 ? "bg-blue-100 text-blue-800" : percentage >= 40 ? "bg-yellow-100 text-yellow-800" : "bg-gray-100 text-gray-800";
-                  
-                  return (
-                    <button
-                      key={competency.key}
-                      onClick={() => navigate(`/assessment?competency=${competency.key}`)}
-                      className="flex flex-col gap-2 p-3 rounded-lg border hover:border-primary/50 hover:bg-accent/50 transition-all text-left"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-muted-foreground">{competency.name}</span>
-                        <Badge className={`text-xs ${badgeColor}`}>{level}</Badge>
-                      </div>
-                      <div className="text-lg font-bold">{percentage}%</div>
-                    </button>
-                  );
-                })
-              ) : (
-                <div className="col-span-2 text-center py-6 text-muted-foreground">
-                  <p className="text-sm">No assessment data</p>
-                  <p className="text-xs mt-1">Run PM levels assessment</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
           <TotalGapsWidget
             gapSummary={gapSummary.data}
             isLoading={gapSummary.isLoading}
@@ -354,12 +298,69 @@ const Dashboard = () => {
             coverage={dashboardData.coverageMap.competencies}
           />
 
-          {/* Coverage Map - Right Side */}
-          <CoverageMapSimplified
-            coverage={dashboardData.coverageMap.competencies}
-            overallCoverage={dashboardData.coverageMap.overallCoverage}
-            priorityGaps={dashboardData.coverageMap.priorityGaps}
-          />
+          {/* PM Core Competencies - Right Side */}
+          <Card className="shadow-soft col-span-1 lg:col-span-1">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">
+                PM Core Competencies
+              </CardTitle>
+              <CardDescription>Your strengths across key PM domains</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {levelData?.competencyScores && Object.keys(levelData.competencyScores).length > 0 ? (
+                  [
+                    {
+                      name: "Product Execution",
+                      score: levelData.competencyScores.execution || 0,
+                      key: 'execution'
+                    },
+                    {
+                      name: "Customer Insight",
+                      score: levelData.competencyScores.customer_insight || 0,
+                      key: 'customer_insight'
+                    },
+                    {
+                      name: "Product Strategy",
+                      score: levelData.competencyScores.strategy || 0,
+                      key: 'strategy'
+                    },
+                    {
+                      name: "Influencing People",
+                      score: levelData.competencyScores.influence || 0,
+                      key: 'influence'
+                    }
+                  ].map((competency) => {
+                    const percentage = Math.round((competency.score / 3) * 100);
+                    const level = percentage >= 90 ? "Advanced" : percentage >= 70 ? "Proficient" : percentage >= 50 ? "Developing" : "Needs Work";
+                    const badgeColor = percentage >= 80 ? "bg-green-100 text-green-800" : percentage >= 60 ? "bg-blue-100 text-blue-800" : percentage >= 40 ? "bg-yellow-100 text-yellow-800" : "bg-gray-100 text-gray-800";
+                    
+                    return (
+                      <button
+                        key={competency.key}
+                        onClick={() => navigate(`/assessment?competency=${competency.key}`)}
+                        className="flex flex-col gap-2 p-3 rounded-lg border hover:border-primary/50 hover:bg-accent/50 transition-all text-left"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-muted-foreground">{competency.name}</span>
+                          <Badge className={`text-xs ${badgeColor}`}>{level}</Badge>
+                        </div>
+                        <div className="text-lg font-bold">{percentage}%</div>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="col-span-2 text-center py-8 text-muted-foreground">
+                    <p className="text-sm">No assessment data available.</p>
+                    <p className="text-xs">Complete your PM Level Assessment to see your competencies.</p>
+                    <Button variant="secondary" size="sm" className="mt-4" onClick={() => navigate('/assessment')}>
+                      Go to Assessment
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </main>
 
