@@ -15,7 +15,9 @@ import {
   Target,
   Sparkles,
   ArrowRight,
-  ExternalLink
+  ExternalLink,
+  Calendar,
+  TrendingUp
 } from "lucide-react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { ContentQualityWidget, ContentQualityWidgetRef, ContentTypeFilter, SeverityFilter } from "@/components/dashboard/ContentQualityWidget";
@@ -573,7 +575,7 @@ export default function NewUserDashboard() {
               <div className="flex flex-wrap justify-center gap-3">
                 <Button variant="outline" asChild>
                   <Link to="/work-history">
-                    <Users className="w-4 h-4 mr-2" />
+                    <Calendar className="w-4 h-4 mr-2" />
                     Work History
                   </Link>
                 </Button>
@@ -591,7 +593,7 @@ export default function NewUserDashboard() {
                 </Button>
                 <Button variant="outline" asChild>
                   <Link to="/assessment">
-                    <Trophy className="w-4 h-4 mr-2" />
+                    <TrendingUp className="w-4 h-4 mr-2" />
                     Assessment
                   </Link>
                 </Button>
