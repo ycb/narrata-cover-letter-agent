@@ -70,7 +70,7 @@ export function TopActionNeeded({ actions }: TopActionNeededProps) {
           
           {/* Integrated CTA - Job-specific action */}
           <div className="space-y-3">
-            <Button size="default" className="px-8" asChild>
+            <Button variant="secondary" size="default" className="px-8" asChild>
               <Link to={topAction.action}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Story

@@ -92,7 +92,7 @@ export function LevelCard({ levelData, isLoading, onRecalculate }: LevelCardProp
 
           {/* Action Button */}
             <Button
-              variant="default"
+              variant="secondary"
             className="w-full"
               onClick={() => setShowRecommendations(true)}
             >
