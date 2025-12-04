@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+import { ConfidenceBar } from "@/components/ui/confidence-bar";
 import { 
   TrendingUp,
   Target,
@@ -62,11 +62,7 @@ export function LevelCard({ levelData, isLoading, onRecalculate }: LevelCardProp
     );
   }
 
-  const confidenceLabel = levelData.confidence >= 0.8 ? 'High' : 
-                         levelData.confidence >= 0.6 ? 'Medium' : 'Low';
-  
-  const confidenceColor = levelData.confidence >= 0.8 ? 'text-green-600' :
-                          levelData.confidence >= 0.6 ? 'text-yellow-600' : 'text-orange-600';
+  const confidencePercentage = Math.round(levelData.confidence * 100);
 
   return (
     <>
@@ -86,15 +82,7 @@ export function LevelCard({ levelData, isLoading, onRecalculate }: LevelCardProp
           </div>
 
           {/* Confidence Bar */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Confidence</span>
-              <span className={`font-medium ${confidenceColor}`}>
-                {confidenceLabel} ({(levelData.confidence * 100).toFixed(0)}%)
-              </span>
-            </div>
-            <Progress value={levelData.confidence * 100} className="h-2" />
-          </div>
+          <ConfidenceBar percentage={confidencePercentage} showLabel={false} />
 
           {/* Delta Summary */}
           {levelData.deltaSummary && (
