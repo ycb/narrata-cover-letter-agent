@@ -132,7 +132,7 @@ const Dashboard = () => {
               </div>
             </div>
             <Button
-              variant="brand"
+              variant="cta-primary"
               size="lg"
               className="gap-2"
               onClick={() => setIsCreateModalOpen(true)}
