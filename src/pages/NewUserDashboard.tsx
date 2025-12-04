@@ -699,11 +699,19 @@ export default function NewUserDashboard() {
       {/* Modals for Personalize Narrata */}
       <UserGoalsModal 
         isOpen={showGoalsModal} 
-        onClose={() => setShowGoalsModal(false)} 
+        onClose={() => setShowGoalsModal(false)}
+        onSave={async (goals) => {
+          // Goals are auto-saved via UserGoalsContext, just close modal
+          setShowGoalsModal(false);
+        }}
       />
       <MyVoiceModal 
         isOpen={showVoiceModal} 
-        onClose={() => setShowVoiceModal(false)} 
+        onClose={() => setShowVoiceModal(false)}
+        onSave={(voice) => {
+          // Voice is auto-saved via UserVoiceContext, just close modal
+          setShowVoiceModal(false);
+        }}
       />
       <MyDataModal 
         isOpen={showDataModal} 
