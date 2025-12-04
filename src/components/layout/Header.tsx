@@ -466,18 +466,13 @@ export const Header = ({ currentPage }: HeaderProps) => {
                     )}
                   </div>
                   
-                  {/* User Name */}
-                  <div className="flex flex-col items-start">
-                    <span className="text-sm font-medium">
-                      {(() => {
-                        const oauthData = getOAuthData();
-                        return oauthData.firstName || oauthData.fullName || user?.email?.split('@')[0] || 'User';
-                      })()}
-                    </span>
-                    <span className="text-xs opacity-70">
-                      {user?.email}
-                    </span>
-                  </div>
+                  {/* User Name - First Name Only */}
+                  <span className="text-sm font-medium">
+                    {(() => {
+                      const oauthData = getOAuthData();
+                      return oauthData.firstName || oauthData.fullName || user?.email?.split('@')[0] || 'User';
+                    })()}
+                  </span>
                   
                   <ChevronDown className="h-4 w-4" />
                 </div>
