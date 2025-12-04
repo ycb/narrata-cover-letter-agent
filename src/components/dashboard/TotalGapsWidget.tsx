@@ -32,14 +32,11 @@ export function TotalGapsWidget({ gapSummary, previousGapSummary, isLoading, onC
     >
       <CardContent className="p-6">
         <div className="text-center">
-          <p className="text-sm font-medium text-muted-foreground">Total Gaps</p>
+          <p className="text-sm font-medium text-muted-foreground">Gaps</p>
           <p className="text-3xl font-bold text-foreground mt-2">{total}</p>
-          <p className="text-sm text-muted-foreground mt-1">Content items with gaps</p>
-          {change !== 0 && (
-            <div className={`text-sm mt-2 ${isPositive ? 'text-success' : 'text-destructive'}`}>
-              {isPositive ? '↗' : '↘'} {Math.abs(change)} this month
-            </div>
-          )}
+          <div className={`text-sm mt-2 ${isPositive ? 'text-success' : 'text-destructive'}`}>
+            {isPositive ? '↗' : '↘'} {change >= 0 ? '+' : ''}{change} this month
+          </div>
         </div>
       </CardContent>
     </Card>

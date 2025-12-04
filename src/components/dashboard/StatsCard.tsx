@@ -23,7 +23,6 @@ export const StatsCard = ({ title, value, description, icon: Icon, trend, onClic
         <div className="text-center">
           <p className="text-sm font-medium text-muted-foreground">{title}</p>
           <p className="text-3xl font-bold text-foreground mt-2">{value}</p>
-          <p className="text-sm text-muted-foreground mt-1">{description}</p>
           {trend && (
             <div className={`text-sm mt-2 ${trend.isPositive ? 'text-success' : 'text-destructive'}`}>
               {trend.isPositive ? '↗' : '↘'} {trend.value}
