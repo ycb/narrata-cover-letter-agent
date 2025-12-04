@@ -542,25 +542,27 @@ export default function NewUserDashboard() {
                   <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {groupedTasks['Personalize Narrata'].map((task) => (
-                        <div key={task.id} className="flex items-start gap-3 p-4 rounded-lg border hover:border-primary/50 hover:bg-accent/50 transition-all">
+                        <div 
+                          key={task.id}
+                          className="flex items-start gap-3 p-3 rounded-lg border hover:border-primary/50 transition-colors cursor-pointer"
+                          onClick={() => handleTaskClick(task)}
+                        >
                           <Checkbox
-                            id={task.id}
                             checked={task.completed}
                             onCheckedChange={() => handleTaskToggle(task.id)}
+                            onClick={(e) => e.stopPropagation()}
                             className="mt-1"
                           />
-                          <div className="flex-1">
-                            <button
-                              onClick={() => navigate(task.link)}
-                              className="text-left w-full group"
-                            >
-                              <h3 className="font-medium text-base group-hover:text-primary transition-colors">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-medium text-sm truncate">
                                 {task.title}
                               </h3>
-                              <p className="text-sm text-muted-foreground mt-1">
-                                {task.description}
-                              </p>
-                            </button>
+                              <ExternalLink className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {task.description}
+                            </p>
                           </div>
                         </div>
                       ))}
@@ -595,13 +597,13 @@ export default function NewUserDashboard() {
               return (
               <Card key={category} className="shadow-soft">
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      {category === 'Review Work History' && <Users className="w-5 h-5" />}
-                      {category === 'Review Cover Letter Template' && <LayoutTemplate className="w-5 h-5" />}
-                      {category === 'Create Your First Cover Letter!' && <Mail className="w-5 h-5" />}
-                      {category === 'Review your PM Level' && <Trophy className="w-5 h-5" />}
-                      {category}
-                    </CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    {category === 'Review Work History' && <Users className="w-5 h-5" />}
+                    {category === 'Review Cover Letter Template' && <LayoutTemplate className="w-5 h-5" />}
+                    {category === 'Create Your First Cover Letter!' && <Mail className="w-5 h-5" />}
+                    {category === 'Review your PM Level' && <Trophy className="w-5 h-5" />}
+                    {category}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {categoryTasks.map((task) => (

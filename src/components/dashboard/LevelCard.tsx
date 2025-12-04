@@ -91,14 +91,14 @@ export function LevelCard({ levelData, isLoading, onRecalculate }: LevelCardProp
           )}
 
           {/* Action Button */}
-          <Button
-            variant="default"
+            <Button
+              variant="default"
             className="w-full"
-            onClick={() => setShowRecommendations(true)}
-          >
-            <TrendingUp className="h-4 w-4 mr-2" />
-            View Recommendations
-          </Button>
+              onClick={() => setShowRecommendations(true)}
+            >
+              <TrendingUp className="h-4 w-4 mr-2" />
+              View Recommendations
+            </Button>
         </CardContent>
       </Card>
 
