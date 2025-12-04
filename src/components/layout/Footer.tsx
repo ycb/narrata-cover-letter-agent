@@ -53,12 +53,16 @@ export function Footer() {
             <div className="flex gap-6">
               <Link 
                 to="/terms" 
+                target="_blank"
+                rel="noopener noreferrer"
                 className="hover:text-foreground transition-colors"
               >
                 Terms of Service
               </Link>
               <Link 
                 to="/privacy" 
+                target="_blank"
+                rel="noopener noreferrer"
                 className="hover:text-foreground transition-colors"
               >
                 Privacy Policy
