@@ -52,9 +52,30 @@ interface HeaderProps {
   currentPage?: string;
 }
 
-// Wrapper component that renders the SyntheticUserSelector section
-// The SyntheticUserSelector component handles its own visibility check
+// Wrapper component that renders the SyntheticUserSelector section with conditional separators
+// Only shows separators when synthetic testing is actually enabled
 const SyntheticUserSelectorWrapper = () => {
+  const [isSyntheticEnabled, setIsSyntheticEnabled] = React.useState(false);
+  
+  React.useEffect(() => {
+    const checkSyntheticMode = async () => {
+      try {
+        const { SyntheticUserService } = await import('@/services/syntheticUserService');
+        const syntheticService = new SyntheticUserService();
+        const context = await syntheticService.getSyntheticUserContext();
+        setIsSyntheticEnabled(context.isSyntheticTestingEnabled);
+      } catch (e) {
+        setIsSyntheticEnabled(false);
+      }
+    };
+    checkSyntheticMode();
+  }, []);
+  
+  // Only render separators if synthetic testing is enabled
+  if (!isSyntheticEnabled) {
+    return null;
+  }
+  
   return (
     <>
       <DropdownMenuSeparator />
@@ -508,6 +529,8 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 </DropdownMenuItem>
               )}
               <SyntheticUserSelectorWrapper />
+              {/* Separator before Log out */}
+              <DropdownMenuSeparator />
               <DropdownMenuItem 
                 onClick={handleSignOut}
                 disabled={isSigningOut}
