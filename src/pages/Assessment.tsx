@@ -519,27 +519,7 @@ function Assessment({ initialSection = "overview" }: AssessmentProps) {
         }, 300);
       }
     }
-
-    // Handle competency query param to auto-open evidence modal
-    const competencyParam = searchParams.get("competency");
-    if (competencyParam && assessmentData?.competencies && !evidenceModalOpen) {
-      const competencyMap: Record<string, string> = {
-        'execution': 'Product Execution',
-        'customer_insight': 'Customer Insight',
-        'strategy': 'Product Strategy',
-        'influence': 'Influencing People'
-      };
-      
-      const competencyName = competencyMap[competencyParam];
-      const competency = assessmentData.competencies.find((c: any) => c.domain === competencyName);
-      
-      if (competency) {
-        setTimeout(() => {
-          handleShowEvidence(competency);
-        }, 100);
-      }
-    }
-  }, [searchParams, initialSection, assessmentData, evidenceModalOpen]);
+  }, [searchParams, initialSection, assessmentData]);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -586,6 +566,28 @@ function Assessment({ initialSection = "overview" }: AssessmentProps) {
     });
     setEvidenceModalOpen(true);
   };
+
+  // Handle competency query param to auto-open evidence modal
+  useEffect(() => {
+    const competencyParam = searchParams.get("competency");
+    if (competencyParam && assessmentData?.competencies && !evidenceModalOpen) {
+      const competencyMap: Record<string, string> = {
+        'execution': 'Product Execution',
+        'customer_insight': 'Customer Insight',
+        'strategy': 'Product Strategy',
+        'influence': 'Influencing People'
+      };
+      
+      const competencyName = competencyMap[competencyParam];
+      const competency = assessmentData.competencies.find((c: any) => c.domain === competencyName);
+      
+      if (competency) {
+        setTimeout(() => {
+          handleShowEvidence(competency);
+        }, 100);
+      }
+    }
+  }, [searchParams, assessmentData, evidenceModalOpen]);
 
   if (error) {
     return (
