@@ -16,6 +16,13 @@ Testing procedures, guides, and best practices.
 ### [QA Documentation](./qa/)
 Quality assurance guides, testing procedures, and validation steps.
 
+### [Evals Documentation](./evals/)
+Evaluation system documentation, including:
+- Pipeline performance monitoring and quality tracking
+- **[Complete LLM Call Audit](./evals/COMPLETE_LLM_CALL_AUDIT.md)** — Comprehensive mapping of all 86+ LLM calls
+- **[LLM Call Audit Summary](./evals/LLM_CALL_AUDIT_SUMMARY.md)** — Executive summary and roadmap
+- Dashboard references and implementation guides
+
 ## 🚀 Quick Start
 
 1. **New to the project?** Start with the [Setup Guides](./setup/)

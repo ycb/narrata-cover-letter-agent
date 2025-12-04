@@ -145,6 +145,7 @@ if (typeof globalThis.File === 'undefined') {
 const { FileUploadService } = await import('../src/services/fileUploadService.ts');
 const { PMLevelsService } = await import('../src/services/pmLevelsService.ts');
 const { syntheticStorage, getSyntheticLocalOnlyFlag } = await import('../src/utils/storage.ts');
+const { validateCoverLetterResult, validatePMLevelsResult, calculateQualityScore } = await import('../supabase/functions/_shared/evals/validators.ts');
 const { supabase } = await import('../src/lib/supabase.ts');
 
 async function logEvaluationRun(options: {
@@ -400,8 +401,11 @@ async function logEvalsLog(options: {
   userId: string;
   supabaseAuth: any;
   resultSubset?: Record<string, any>;
+  qualityScore?: number | null;
+  qualityChecks?: any;
+  success?: boolean;
 }) {
-  const { jobType, durationMs, stageName, userId, supabaseAuth, resultSubset } = options;
+  const { jobType, durationMs, stageName, userId, supabaseAuth, resultSubset, qualityScore, qualityChecks, success } = options;
   try {
     // Create a lightweight job row for dashboard linkage
     const { data: job, error: jobError } = await supabaseAuth
@@ -418,7 +422,7 @@ async function logEvalsLog(options: {
       .select('id')
         .single();
 
-      const jobId = job?.id;
+    const jobId = job?.id;
     if (jobError || !jobId) {
       console.warn(`⚠️ Failed to insert job for ${jobType}:`, jobError?.message);
       return;
@@ -435,7 +439,9 @@ async function logEvalsLog(options: {
         started_at: new Date(Date.now() - durationMs).toISOString(),
         completed_at: new Date().toISOString(),
         duration_ms: Math.round(durationMs),
-        success: true,
+        success: success ?? true,
+        quality_score: qualityScore ?? null,
+        quality_checks: qualityChecks ?? null,
         result_subset: resultSubset ?? {},
       });
 
@@ -533,9 +539,87 @@ async function logEvalsLog(options: {
       synthetic_profile_id: profileId
     }
   });
+
+  // Structural validation for cover letter (best-effort)
+  try {
+    const { data: coverSource } = await supabaseAuth
+      .from('sources')
+      .select('structured_data')
+      .eq('id', coverLetterResult.fileId)
+      .single();
+
+    if (coverSource?.structured_data) {
+      const validation = validateCoverLetterResult(coverSource.structured_data);
+      const qualityScore = calculateQualityScore(validation);
+      await logEvalsLog({
+        jobType: 'coverLetter',
+        durationMs: 0,
+        stageName: 'structural_checks',
+        userId,
+        supabaseAuth,
+        qualityScore,
+        qualityChecks: validation.checks,
+        success: validation.passedOverall ?? true,
+        resultSubset: {
+          sourceId: coverLetterResult.fileId,
+          synthetic_profile_id: profileId
+        }
+      });
+    }
+  } catch (vErr: any) {
+    console.warn('⚠️ Structural validation (cover letter) failed:', vErr?.message || vErr);
+  }
   
-  // Note: LinkedIn data is automatically loaded in synthetic mode after combined analysis                          
-  // No need to manually upload it - fetchAndProcessLinkedInData() handles it                                        
+  // LinkedIn processing: always ensure a source is inserted, even if the primary path is skipped
+  try {
+    // Try the standard path first (may no-op if pendingResume is missing)
+    if ((uploadService as any).fetchAndProcessLinkedInData) {
+      await (uploadService as any).fetchAndProcessLinkedInData(accessToken);
+    }
+
+    // If no LinkedIn source was created, force a fixture-backed insert + processing
+    if (!results.linkedinSourceId) {
+      const linkedinPath = path.join(FIXTURES_PATH, `${profileId}_linkedin.json`);
+      if (fs.existsSync(linkedinPath)) {
+        const raw = fs.readFileSync(linkedinPath, 'utf-8');
+        const appifyJson = JSON.parse(raw);
+        const { AppifyService } = await import('../src/services/appifyService.ts');
+        const appify = new AppifyService();
+        const structured = (appify as any).convertToStructuredData
+          ? (appify as any).convertToStructuredData(appifyJson)
+          : appifyJson;
+        const checksum = `linkedin_${profileId}_${Date.now()}`;
+        const { data: linkedinSource, error } = await supabaseAuth
+          .from('sources')
+          .insert({
+            user_id: userId,
+            file_name: `${profileId}_linkedin.json`,
+            file_type: 'application/json',
+            file_size: Buffer.byteLength(raw, 'utf8'),
+            file_checksum: checksum,
+            storage_path: `fixtures/${profileId}_linkedin.json`,
+            raw_text: raw,
+            structured_data: structured,
+            processing_status: 'completed',
+            source_type: 'linkedin'
+          })
+          .select('id')
+          .single();
+        if (!error && linkedinSource?.id) {
+          results.linkedinSourceId = linkedinSource.id;
+          if ((uploadService as any).processStructuredData) {
+            await (uploadService as any).processStructuredData(structured, linkedinSource.id, accessToken);
+          }
+        } else if (error) {
+          console.warn('⚠️ Manual LinkedIn source insert failed:', error.message);
+        }
+      } else {
+        console.warn(`⚠️ LinkedIn fixture not found for ${profileId}: ${linkedinPath}`);
+      }
+    }
+  } catch (liErr: any) {
+    console.warn('⚠️ LinkedIn fixture processing failed:', liErr?.message || liErr);
+  }
   
   // Wait a moment for all processing to complete (LinkedIn loading, unified profile creation, etc.)                
   console.log(`  ⏳ Waiting for processing to complete (LinkedIn + unified profile)...`);                           
@@ -577,6 +661,29 @@ async function logEvalsLog(options: {
       synthetic_profile_id: profileId
     }
   });
+
+  // Structural validation for PM Levels (best-effort)
+  try {
+    if (pmInference) {
+      const validation = validatePMLevelsResult(pmInference as any);
+      const qualityScore = calculateQualityScore(validation);
+      await logEvalsLog({
+        jobType: 'pmLevels',
+        durationMs: pmLatencyMs,
+        stageName: 'structural_checks',
+        userId,
+        supabaseAuth,
+        qualityScore,
+        qualityChecks: validation.checks,
+        success: validation.passedOverall ?? true,
+        resultSubset: {
+          synthetic_profile_id: profileId
+        }
+      });
+    }
+  } catch (vErr: any) {
+    console.warn('⚠️ Structural validation (pmLevels) failed:', vErr?.message || vErr);
+  }
   
   // Fetch evaluation runs
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {                                                  

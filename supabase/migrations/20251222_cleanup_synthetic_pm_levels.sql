@@ -3,8 +3,9 @@
 -- Keeps the database clean while allowing proper caching during active testing
 
 -- Delete synthetic PM level records older than 7 days
+-- Cast user_id to text (UUID columns cannot be compared with LIKE)
 DELETE FROM user_levels 
-WHERE user_id LIKE 'synthetic_%' 
+WHERE user_id::text LIKE 'synthetic_%' 
   AND last_run_timestamp < NOW() - INTERVAL '7 days';
 
 -- Create a function to automate cleanup (optional - can be called via cron or manually)
@@ -16,7 +17,7 @@ DECLARE
   deleted_count INTEGER;
 BEGIN
   DELETE FROM user_levels 
-  WHERE user_id LIKE 'synthetic_%' 
+  WHERE user_id::text LIKE 'synthetic_%' 
     AND last_run_timestamp < NOW() - INTERVAL '7 days';
   
   GET DIAGNOSTICS deleted_count = ROW_COUNT;
@@ -28,4 +29,3 @@ $$;
 
 -- Example usage (run manually or via scheduled job):
 -- SELECT cleanup_old_synthetic_pm_levels();
-

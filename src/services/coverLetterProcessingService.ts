@@ -60,12 +60,22 @@ export async function processCoverLetter(
     const sectionIds: string[] = [];
     for (const para of paragraphs) {
       try {
+        const title =
+          para.type === 'intro'
+            ? 'Intro paragraph'
+            : para.type === 'closing'
+            ? 'Closing paragraph'
+            : para.type === 'body'
+            ? `Body paragraph ${para.position + 1}`
+            : 'Cover letter paragraph';
+
         const { data: section, error: sectionError } = await supabase
           .from('saved_sections')
           .insert({
             user_id: userId,
             type: para.type,
             position: para.position,
+            title,
             content: para.content,
             is_dynamic: false, // All imported sections start as static
             source_type: 'cover_letter',

@@ -1850,14 +1850,17 @@ export class PMLevelsService {
     snapshot: Record<string, unknown> | null;
   } | null> {
     try {
-      // For synthetic users, use synthetic_ prefix for user_id
-      const userIdToQuery = syntheticProfileId ? `synthetic_${syntheticProfileId}` : userId;
-      
       const supabaseAny = supabase as any;
       const userLevelsTable: any = supabaseAny.from('user_levels');
-      const { data: rows, error } = await (userLevelsTable as any)
-        .select('inferred_level, confidence, scope_score, level_evidence, evidence_by_competency, recommendations, role_type, maturity_info, competency_scores, signals, last_run_timestamp, updated_at')
-        .eq('user_id', userIdToQuery)
+      const query = (userLevelsTable as any)
+        .select('inferred_level, confidence, scope_score, level_evidence, evidence_by_competency, recommendations, role_type, maturity_info, competency_scores, signals, last_run_timestamp, updated_at, synthetic_profile_id')
+        .eq('user_id', userId);
+
+      if (syntheticProfileId) {
+        query.eq('synthetic_profile_id', syntheticProfileId);
+      }
+
+      const { data: rows, error } = await query
         .order('last_run_timestamp', { ascending: false })
         .limit(1);
 
@@ -1888,7 +1891,7 @@ export class PMLevelsService {
 
   /**
    * Save level assessment to database
-   * For synthetic users, saves with synthetic_ prefix to enable caching while keeping data separate
+   * For synthetic users, saves with synthetic_profile_id to keep rows distinct
    */
   private async saveLevelAssessment(
     userId: string,
@@ -1896,17 +1899,14 @@ export class PMLevelsService {
     syntheticProfileId?: string
   ): Promise<void> {
     try {
-      // For synthetic users, use synthetic_ prefix for user_id to enable caching
-      // This allows proper cache behavior while keeping synthetic data separate from real users
-      const userIdToSave = syntheticProfileId ? `synthetic_${syntheticProfileId}` : userId;
-      
       // Build upsert payload - exclude deprecated maturity_modifier
       const runTimestamp = inference.lastAnalyzedAt ?? new Date().toISOString();
 
       const sanitizedScopeScore = Number.isFinite(inference.scopeScore) ? inference.scopeScore : 0;
 
       const upsertPayload: any = {
-        user_id: userIdToSave,
+        user_id: userId,
+        synthetic_profile_id: syntheticProfileId ?? null,
         inferred_level: inference.inferredLevel,
         confidence: inference.confidence,
         scope_score: sanitizedScopeScore,
@@ -1922,11 +1922,21 @@ export class PMLevelsService {
         last_run_timestamp: runTimestamp
       };
       
+      // Delete existing row for this (user, synthetic_profile_id) to avoid unique conflicts on retry
+      const deleteFilter = (supabase as any)
+        .from('user_levels')
+        .delete()
+        .eq('user_id', userId);
+      if (syntheticProfileId) {
+        deleteFilter.eq('synthetic_profile_id', syntheticProfileId);
+      } else {
+        deleteFilter.is('synthetic_profile_id', null);
+      }
+      await deleteFilter;
+
       const { error } = await (supabase as any)
         .from('user_levels')
-        .upsert(upsertPayload, {
-          onConflict: 'user_id'
-        });
+        .insert(upsertPayload);
 
       if (error) {
         throw error;
@@ -2107,18 +2117,20 @@ export class PMLevelsService {
 
   /**
    * Get user's level assessment from database
-   * For synthetic users, reads from synthetic_ prefixed records
+   * For synthetic users, reads rows keyed by synthetic_profile_id
    */
   async getUserLevel(userId: string, syntheticProfileId?: string): Promise<PMLevelInference | null> {
     try {
-      // For synthetic users, use synthetic_ prefix for user_id
-      const userIdToQuery = syntheticProfileId ? `synthetic_${syntheticProfileId}` : userId;
-      
-      const { data, error } = await (supabase as any)
+      const query = (supabase as any)
         .from('user_levels')
         .select('*')
-        .eq('user_id', userIdToQuery)
-        .single();
+        .eq('user_id', userId);
+
+      if (syntheticProfileId) {
+        query.eq('synthetic_profile_id', syntheticProfileId);
+      }
+
+      const { data, error } = await query.single();
 
       if (error) {
         if (error.code === 'PGRST116') {
@@ -2204,4 +2216,3 @@ export class PMLevelsService {
     }
   }
 }
-

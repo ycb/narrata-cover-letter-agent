@@ -200,7 +200,7 @@ export function AddSectionModalBase({
                   >
                     <div className="text-center">
                       <div className="font-medium">Story</div>
-                      <div className="text-sm text-muted-foreground">From your work history</div>
+                      <div className={`text-sm ${selectedContentType === 'story' ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>From your work history</div>
                     </div>
                   </Button>
                   <Button
@@ -210,7 +210,7 @@ export function AddSectionModalBase({
                   >
                     <div className="text-center">
                       <div className="font-medium">Saved Sections</div>
-                      <div className="text-sm text-muted-foreground">Custom templates</div>
+                      <div className={`text-sm ${selectedContentType === 'saved' ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>Custom templates</div>
                     </div>
                   </Button>
                 </div>
@@ -229,7 +229,7 @@ export function AddSectionModalBase({
                     >
                       <div className="text-center">
                         <span className="font-medium">Dynamic (Default)</span>
-                        <span className="text-sm text-muted-foreground block">
+                        <span className={`text-sm block ${contentMethod === 'dynamic' ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
                           Intelligently match {selectedContentType === 'story' ? 'stories' : 'content'} based on job description
                         </span>
                       </div>
@@ -243,7 +243,7 @@ export function AddSectionModalBase({
                     >
                       <div className="text-center">
                         <span className="font-medium">Static (Custom)</span>
-                        <span className="text-sm text-muted-foreground block">
+                        <span className={`text-sm block ${contentMethod === 'static' ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
                           Choose specific content from your library
                         </span>
                       </div>

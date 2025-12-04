@@ -3035,6 +3035,11 @@ source_type: dbSourceType,
           if (linkedinStructuredData.workHistory && Array.isArray(linkedinStructuredData.workHistory)) {
             await this.processStructuredData(linkedinStructuredData, linkedinSource.id, accessToken);
           }
+          // Ensure evaluation logging sees the LinkedIn source id
+          this.pendingLinkedIn = {
+            sourceId: linkedinSource.id,
+            structuredData: linkedinStructuredData
+          };
         }
       } else {
         console.warn('⚠️ LinkedIn enrichment failed:', appifyResult.error);

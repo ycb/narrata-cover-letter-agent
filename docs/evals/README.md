@@ -1,8 +1,8 @@
-# EVALS V1.1 — DOCUMENTATION INDEX
+# EVALS V1.2 — DOCUMENTATION INDEX
 
-**Version:** 1.1  
+**Version:** 1.2 (Cost Tracking + LLM Coverage)  
 **Date:** December 4, 2025  
-**Status:** ✅ Ready for Implementation
+**Status:** ✅ Phase 0 Ready for Implementation
 
 ---
 
@@ -91,6 +91,104 @@ This directory contains the complete documentation for Narrata's Evals V1.1 syst
 - Monitoring & troubleshooting
 
 **When to read:** Before deploying to staging or production.
+
+---
+
+### 5. **FINAL_LLM_CALLS_LIST.md** — Cleaned & Ready for Instrumentation
+
+**Purpose:** Final list of active LLM calls after cleanup, organized by priority with effort estimates.
+
+**Audience:** Engineering leads, developers working on instrumentation.
+
+**Length:** ~250 lines
+
+**Key Sections:**
+- Deletions complete (5 deprecated services removed)
+- Final active LLM calls (30-35 calls, down from 86)
+- Coverage summary (43% current, roadmap to 100%)
+- Implementation roadmap (Phases 6A-6C)
+
+**When to read:** Before starting instrumentation work.
+
+---
+
+### 6. **COMPLETE_LLM_CALL_AUDIT.md** — Comprehensive LLM Call Inventory
+
+**Purpose:** Complete mapping of all LLM calls in the codebase, cross-referenced with prompts folder, instrumentation status, and prioritization.
+
+**Note:** This was the initial audit. See `FINAL_LLM_CALLS_LIST.md` for the cleaned, actionable list.
+
+**Audience:** Engineering leads, developers working on instrumentation.
+
+**Length:** ~600 lines
+
+**Key Sections:**
+- Prompt inventory (all 27 prompt files)
+- LLM call sites (86+ calls across 20 files)
+- User checklist mapping
+- Instrumentation priority matrix
+- Recommended phases (6A-6D)
+- Schema extension for prompt tracking
+
+**When to read:** Before instrumenting new LLM calls, to understand coverage gaps.
+
+---
+
+### 7. **DASHBOARD_EVOLUTION_PLAN.md** — Dashboard Extension Plan
+
+**Purpose:** Comprehensive plan for extending `/evaluation-dashboard` to support all new LLM calls while preserving existing patterns.
+
+**Audience:** Frontend engineers, UX designers, product managers.
+
+**Length:** ~650 lines
+
+**Key Sections:**
+- Vision & principles (build on what works, universal + type-specific)
+- Existing patterns to extend (7 patterns documented)
+- New schema extensions (SQL + TypeScript)
+- Dashboard layout mockups (4 LLM call types)
+- Implementation phases (4 phases, ~8-11 days total)
+
+**When to read:** Before extending dashboard UI.
+
+---
+
+### 8. **CLEANUP_AND_VISION_SUMMARY.md** — Final Alignment Summary
+
+**Purpose:** Summary of cleanup work and vision alignment between both dashboards.
+
+**Audience:** All stakeholders.
+
+**Length:** ~200 lines
+
+**Key Sections:**
+- Cleanup complete (5 deprecated services deleted)
+- Vision alignment (observability + quality measurement)
+- Two dashboards, complementary purposes
+- Dashboard evolution strategy (4 phases)
+- Immediate next steps
+
+**When to read:** To understand overall project status and next steps.
+
+---
+
+### 9. **DASHBOARD_REFERENCE.md** — Dashboard Guide
+
+**Purpose:** Complete documentation for both evaluation dashboards.
+
+**Audience:** All team members, product managers, QA, engineers.
+
+**Length:** ~600 lines
+
+**Key Sections:**
+- Overview of both dashboards
+- `/evaluation-dashboard` — File upload & content quality
+- `/evals` — Pipeline performance & reliability
+- Feature comparison matrix
+- When to use which dashboard
+- Future consolidation options
+
+**When to read:** To understand dashboard capabilities and choose the right tool.
 
 ---
 
