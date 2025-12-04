@@ -1,3 +1,8 @@
+// TEST STATUS: PASSING - HIGH VALUE
+// Tests VariationsHILBridge component for story variation display and interaction
+// Fixed: Variations now expanded by default in UI (Dec 4, 2025)
+// Test updated to match new default-expanded behavior
+
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { VariationsHILBridge } from '../VariationsHILBridge';
@@ -116,20 +121,40 @@ describe('VariationsHILBridge', () => {
       />
     );
 
-    // Initially, variations should be collapsed
-    expect(screen.queryByText('HIL Edit')).not.toBeInTheDocument();
+    // Variations are now expanded by default in the new UI
+    // Test that content is visible and we can interact with variations
+    const firstVariation = mockVariations[0];
+    
+    // Variation content should be visible (expanded by default)
+    expect(screen.getByText(firstVariation.content)).toBeInTheDocument();
 
-    // Click to expand first variation
-    const expandButtons = screen.getAllByRole('button').filter(button => 
-      button.querySelector('svg')?.classList.contains('chevron-down')
+    // Test that collapse/expand functionality exists
+    const collapseButtons = screen.getAllByRole('button').filter(button => 
+      button.querySelector('svg')?.classList.contains('chevron-up') ||
+      button.textContent?.includes('Collapse')
     );
     
-    if (expandButtons.length > 0) {
-      fireEvent.click(expandButtons[0]);
+    // If there are collapse buttons, test the collapse/expand cycle
+    if (collapseButtons.length > 0) {
+      fireEvent.click(collapseButtons[0]);
       
       await waitFor(() => {
-        expect(screen.getByText('HIL Edit')).toBeInTheDocument();
+        expect(screen.queryByText(firstVariation.content)).not.toBeInTheDocument();
       });
+      
+      // Expand again
+      const expandButtons = screen.getAllByRole('button').filter(button => 
+        button.querySelector('svg')?.classList.contains('chevron-down') ||
+        button.textContent?.includes('Expand')
+      );
+      
+      if (expandButtons.length > 0) {
+        fireEvent.click(expandButtons[0]);
+        
+        await waitFor(() => {
+          expect(screen.getByText(firstVariation.content)).toBeInTheDocument();
+        });
+      }
     }
   });
 

@@ -790,6 +790,24 @@ export function useLinkedInUpload() {
           if (profileData.experience && Array.isArray(profileData.experience)) {
             console.log(`📊 Processing ${profileData.experience.length} LinkedIn roles into work_items...`);
             await processLinkedInWorkHistory(user.id, profileId, profileData.experience);
+            
+            // Generate stories for the LinkedIn work_items that were just created
+            try {
+              const { generateStoriesForWorkItems } = await import('@/services/storiesGenerationService');
+              console.log(`📖 Generating stories for LinkedIn work_items...`);
+              const { storiesCreated, errors } = await generateStoriesForWorkItems(
+                user.id,
+                profileId,
+                import.meta.env.VITE_OPENAI_API_KEY
+              );
+              console.log(`📖 Stories generation complete: ${storiesCreated} created, ${errors.length} errors`);
+              if (errors.length > 0) {
+                console.warn(`📖 Story generation errors:`, errors);
+              }
+            } catch (storyError) {
+              console.warn('⚠️ Story generation failed (non-critical):', storyError);
+              // Don't fail the LinkedIn connect if story generation fails
+            }
           }
         }
       } catch (dbError) {

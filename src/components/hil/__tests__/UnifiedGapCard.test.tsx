@@ -1,3 +1,8 @@
+// TEST STATUS: PASSING - HIGH VALUE
+// Tests UnifiedGapCard component for gap and met statuses
+// Fixed: UI text changes ("Generate" instead of "Generate Content", "Requirement Met" instead of "Matches Job Req")
+// Fixed: Addresses now joined with comma-space (Dec 4, 2025)
+
 import { render, screen, fireEvent } from '@testing-library/react';
 import { vi } from 'vitest';
 import { UnifiedGapCard } from '../UnifiedGapCard';
@@ -39,13 +44,13 @@ describe('UnifiedGapCard', () => {
     it('shows generate action when handler provided', () => {
       render(<UnifiedGapCard {...mockGapProps} />);
       
-      expect(screen.getByText('Generate Content')).toBeInTheDocument();
+      expect(screen.getByText('Generate')).toBeInTheDocument();
     });
 
     it('calls onGenerate when the button is clicked', () => {
       render(<UnifiedGapCard {...mockGapProps} />);
       
-      fireEvent.click(screen.getByText('Generate Content'));
+      fireEvent.click(screen.getByText('Generate'));
       expect(mockGapProps.onGenerate).toHaveBeenCalledTimes(1);
     });
   });
@@ -54,15 +59,15 @@ describe('UnifiedGapCard', () => {
     it('renders met card with addressed requirements', () => {
       render(<UnifiedGapCard {...mockMetProps} />);
       
-      expect(screen.getByText('Matches Job Req')).toBeInTheDocument();
-      expect(screen.getByText('requirement 1')).toBeInTheDocument();
-      expect(screen.getByText('requirement 2')).toBeInTheDocument();
+      expect(screen.getByText('Requirement Met')).toBeInTheDocument();
+      // Addresses are joined with comma-space
+      expect(screen.getByText('requirement 1, requirement 2')).toBeInTheDocument();
     });
 
     it('does not show generate action for met status', () => {
       render(<UnifiedGapCard {...mockMetProps} />);
       
-      expect(screen.queryByText('Generate Content')).not.toBeInTheDocument();
+      expect(screen.queryByText('Generate')).not.toBeInTheDocument();
     });
   });
 
@@ -89,7 +94,7 @@ describe('UnifiedGapCard', () => {
       render(<UnifiedGapCard {...propsWithoutHandlers} />);
       
       expect(screen.getByText('Issue')).toBeInTheDocument();
-      expect(screen.queryByText('Generate Content')).not.toBeInTheDocument();
+      expect(screen.queryByText('Generate')).not.toBeInTheDocument();
     });
   });
 });

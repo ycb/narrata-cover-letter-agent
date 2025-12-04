@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users } from 'lucide-react';
+import { Briefcase } from 'lucide-react';
 import { ContentItemWithGaps } from '@/services/gapDetectionService';
 
 interface WorkHistoryGapsCountWidgetProps {
@@ -29,7 +29,7 @@ export function WorkHistoryGapsCountWidget({ items, isLoading, onClick }: WorkHi
     <Card className="shadow-soft border-muted cursor-pointer hover:shadow-medium transition-shadow" onClick={onClick}>
       <CardHeader className="pb-3">
         <CardTitle className="text-sm flex items-center justify-center gap-2">
-          <Users className="w-4 h-4" />
+          <Briefcase className="w-4 h-4" />
           Work History
         </CardTitle>
       </CardHeader>

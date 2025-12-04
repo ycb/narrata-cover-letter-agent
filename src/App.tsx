@@ -49,6 +49,7 @@ import ShowAllLinks from "./pages/ShowAllLinks";
 import SavedSections from "./pages/SavedSections";
 import NewUserOnboarding from "./pages/NewUserOnboarding";
 import { EvaluationDashboard } from "./components/evaluation/EvaluationDashboard";
+import { PipelineEvaluationDashboard } from "./components/evaluation/PipelineEvaluationDashboard";
 
 import SignUp from "./pages/SignUp";
 import SignIn from "./pages/SignIn";
@@ -221,6 +222,12 @@ function AppLayout() {
           <ProtectedRoute>
             <Header />
             <EvaluationDashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/evals" element={
+          <ProtectedRoute>
+            <Header />
+            <PipelineEvaluationDashboard />
           </ProtectedRoute>
         } />
         <Route path="/dev/job-cleaning" element={

@@ -228,6 +228,27 @@ export default function NewUserOnboarding() {
                 });
               }
             } catch {}
+            
+            // Generate stories from work_items (async, non-blocking)
+            try {
+              const { generateStoriesForWorkItems } = await import('@/services/storiesGenerationService');
+              console.log(`[Onboarding] Generating stories for resume work_items...`);
+              generateStoriesForWorkItems(
+                session.user.id,
+                source.id,
+                import.meta.env.VITE_OPENAI_API_KEY
+              ).then(({ storiesCreated, errors }) => {
+                console.log(`[Onboarding] Stories generation complete: ${storiesCreated} created`);
+                if (errors.length > 0) {
+                  console.warn(`[Onboarding] Story generation errors:`, errors);
+                }
+              }).catch(err => {
+                console.warn('[Onboarding] Story generation failed (non-critical):', err);
+              });
+            } catch (importError) {
+              console.warn('[Onboarding] Could not import story generation service:', importError);
+            }
+            
             return { success: true, fileId: source.id };
           }
           if (s?.processing_stage === 'skeleton') setBlockingStage('skeleton');

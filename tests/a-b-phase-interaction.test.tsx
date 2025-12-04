@@ -1,3 +1,7 @@
+// TEST STATUS: UI OUTDATED
+// Fixed: Added QueryClientProvider wrapper (Dec 4, 2025)
+// Tests A+B phase interaction with streaming insights
+
 /**
  * A+B Phase Interaction Tests
  * 
@@ -17,6 +21,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CoverLetterDraftEditor } from '@/components/cover-letters/CoverLetterDraftEditor';
 import { MatchMetricsToolbar } from '@/components/cover-letters/MatchMetricsToolbar';
 import { UserGoalsProvider } from '@/contexts/UserGoalsContext';
@@ -31,7 +36,7 @@ import React from 'react';
 // ============================================================================
 
 /**
- * Test wrapper with required providers
+ * Test wrapper with required providers (including QueryClient)
  */
 function TestWrapper({ children }: { children: React.ReactNode }) {
   const mockUser = {
@@ -46,12 +51,29 @@ function TestWrapper({ children }: { children: React.ReactNode }) {
     signOut: vi.fn(),
   };
 
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        gcTime: 0,
+        staleTime: 0,
+      },
+    },
+    logger: {
+      log: () => {},
+      warn: () => {},
+      error: () => {},
+    },
+  });
+
   return (
-    <AuthProvider value={mockAuthContext as any}>
-      <UserGoalsProvider>
-        {children}
-      </UserGoalsProvider>
-    </AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider value={mockAuthContext as any}>
+        <UserGoalsProvider>
+          {children}
+        </UserGoalsProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }
 

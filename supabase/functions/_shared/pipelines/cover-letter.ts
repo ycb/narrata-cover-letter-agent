@@ -30,7 +30,6 @@ import type {
   StrengthLevel,
 } from '../pipeline-utils.ts';
 import {
-  executePipeline,
   callOpenAI,
   parseJSONResponse,
   fetchJobDescription,
@@ -49,6 +48,11 @@ import {
   computeCompanyContextConfidence,
 } from '../pipeline-utils.ts';
 import { PipelineTelemetry } from '../telemetry.ts';
+import { voidLogEval } from '../evals/log.ts';
+import {
+  validateCoverLetterResult,
+  calculateQualityScore,
+} from '../evals/validators.ts';
 
 const companyTagsClient = new CompanyTagsClient();
 
@@ -1026,13 +1030,46 @@ export async function executeCoverLetterPipeline(
     // =========================================================================
     // LAYER 1: JD Analysis (streaming - must complete first for SSE updates)
     // =========================================================================
+    const jdAnalysisStart = Date.now();
     try {
       telemetry?.startStage('jdAnalysis');
       results.jdAnalysis = await jdAnalysisStage.execute(context);
       telemetry?.endStage(true);
+      
+      // Log eval metrics
+      voidLogEval(supabase, {
+        job_id: job.id,
+        job_type: 'coverLetter',
+        stage: 'jdAnalysis',
+        user_id: job.user_id,
+        started_at: new Date(jdAnalysisStart),
+        completed_at: new Date(),
+        duration_ms: Date.now() - jdAnalysisStart,
+        success: true,
+        result_subset: {
+          hasRoleInsights: Boolean(results.jdAnalysis?.data?.roleInsights),
+          hasRequirementSummary: Boolean(results.jdAnalysis?.data?.jdRequirementSummary),
+        },
+      });
+      
       try { const { elog } = await import('../log.ts'); elog.info('[Pipeline] Layer 1 complete: jdAnalysis'); } catch (_) {}
     } catch (error) {
       telemetry?.endStage(false);
+      
+      // Log eval failure
+      voidLogEval(supabase, {
+        job_id: job.id,
+        job_type: 'coverLetter',
+        stage: 'jdAnalysis',
+        user_id: job.user_id,
+        started_at: new Date(jdAnalysisStart),
+        completed_at: new Date(),
+        duration_ms: Date.now() - jdAnalysisStart,
+        success: false,
+        error_type: error instanceof Error ? error.constructor.name : 'UnknownError',
+        error_message: error instanceof Error ? error.message : String(error),
+      });
+      
       console.error('[Pipeline] jdAnalysis failed:', error);
       results.jdAnalysis = { status: 'failed', error: error instanceof Error ? error.message : String(error) };
     }
@@ -1043,18 +1080,97 @@ export async function executeCoverLetterPipeline(
     // - goalsAndStrengths: MWS + company context
     // =========================================================================
     const layer2Start = Date.now();
+    
     const [requirementResult, goalsResult] = await Promise.allSettled([
       (async () => {
-        telemetry?.startStage('requirementAnalysis');
-        const result = await requirementAnalysisStage.execute(context);
-        telemetry?.endStage(true);
-        return result;
+        const stageStart = Date.now();
+        try {
+          telemetry?.startStage('requirementAnalysis');
+          const result = await requirementAnalysisStage.execute(context);
+          telemetry?.endStage(true);
+          
+          // Log eval metrics
+          voidLogEval(supabase, {
+            job_id: job.id,
+            job_type: 'coverLetter',
+            stage: 'requirementAnalysis',
+            user_id: job.user_id,
+            started_at: new Date(stageStart),
+            completed_at: new Date(),
+            duration_ms: Date.now() - stageStart,
+            success: true,
+            result_subset: {
+              coreRequirementsCount: result?.coreRequirements?.length || 0,
+              requirementsMet: result?.requirementsMet || 0,
+              totalRequirements: result?.totalRequirements || 0,
+            },
+          });
+          
+          return result;
+        } catch (error) {
+          telemetry?.endStage(false);
+          
+          // Log eval failure
+          voidLogEval(supabase, {
+            job_id: job.id,
+            job_type: 'coverLetter',
+            stage: 'requirementAnalysis',
+            user_id: job.user_id,
+            started_at: new Date(stageStart),
+            completed_at: new Date(),
+            duration_ms: Date.now() - stageStart,
+            success: false,
+            error_type: error instanceof Error ? error.constructor.name : 'UnknownError',
+            error_message: error instanceof Error ? error.message : String(error),
+          });
+          
+          throw error;
+        }
       })(),
       (async () => {
-        telemetry?.startStage('goalsAndStrengths');
-        const result = await goalsAndStrengthsStage.execute(context);
-        telemetry?.endStage(true);
-        return result;
+        const stageStart = Date.now();
+        try {
+          telemetry?.startStage('goalsAndStrengths');
+          const result = await goalsAndStrengthsStage.execute(context);
+          telemetry?.endStage(true);
+          
+          // Log eval metrics
+          voidLogEval(supabase, {
+            job_id: job.id,
+            job_type: 'coverLetter',
+            stage: 'goalsAndStrengths',
+            user_id: job.user_id,
+            started_at: new Date(stageStart),
+            completed_at: new Date(),
+            duration_ms: Date.now() - stageStart,
+            success: true,
+            result_subset: {
+              hasMws: Boolean(result?.data?.mws),
+              mwsScore: result?.data?.mws?.summaryScore,
+              hasCompanyContext: Boolean(result?.data?.companyContext),
+            },
+          });
+          
+          return result;
+        } catch (error) {
+          telemetry?.endStage(false);
+          
+          // Log eval failure
+          voidLogEval(supabase, {
+            job_id: job.id,
+            job_type: 'coverLetter',
+            stage: 'goalsAndStrengths',
+            user_id: job.user_id,
+            started_at: new Date(stageStart),
+            completed_at: new Date(),
+            duration_ms: Date.now() - stageStart,
+            success: false,
+            error_type: error instanceof Error ? error.constructor.name : 'UnknownError',
+            error_message: error instanceof Error ? error.message : String(error),
+          });
+          
+          throw error;
+        }
       })(),
     ]);
 
@@ -1078,13 +1194,46 @@ export async function executeCoverLetterPipeline(
     // =========================================================================
     // LAYER 3: Section Gaps (needs requirements data)
     // =========================================================================
+    const sectionGapsStart = Date.now();
     try {
       telemetry?.startStage('sectionGaps');
       results.sectionGaps = await sectionGapsStage.execute(context);
       telemetry?.endStage(true);
+      
+      // Log eval metrics
+      voidLogEval(supabase, {
+        job_id: job.id,
+        job_type: 'coverLetter',
+        stage: 'sectionGaps',
+        user_id: job.user_id,
+        started_at: new Date(sectionGapsStart),
+        completed_at: new Date(),
+        duration_ms: Date.now() - sectionGapsStart,
+        success: true,
+        result_subset: {
+          totalGaps: results.sectionGaps?.totalGaps || 0,
+          sectionCount: results.sectionGaps?.sections?.length || 0,
+        },
+      });
+      
       try { const { elog } = await import('../log.ts'); elog.info('[Pipeline] Layer 3 complete: sectionGaps'); } catch (_) {}
     } catch (error) {
       telemetry?.endStage(false);
+      
+      // Log eval failure
+      voidLogEval(supabase, {
+        job_id: job.id,
+        job_type: 'coverLetter',
+        stage: 'sectionGaps',
+        user_id: job.user_id,
+        started_at: new Date(sectionGapsStart),
+        completed_at: new Date(),
+        duration_ms: Date.now() - sectionGapsStart,
+        success: false,
+        error_type: error instanceof Error ? error.constructor.name : 'UnknownError',
+        error_message: error instanceof Error ? error.message : String(error),
+      });
+      
       console.error('[Pipeline] sectionGaps failed:', error);
       results.sectionGaps = { status: 'failed', error: error instanceof Error ? error.message : String(error) };
     }
@@ -1117,6 +1266,35 @@ export async function executeCoverLetterPipeline(
       companyContext: results.goalsAndStrengths?.data?.companyContext || null,
     };
 
+    // =========================================================================
+    // STRUCTURAL VALIDATION: Run deterministic quality checks
+    // =========================================================================
+    const structuralValidation = validateCoverLetterResult(finalResult);
+    const qualityScore = calculateQualityScore(structuralValidation);
+    
+    // Log structural validation results
+    voidLogEval(supabase, {
+      job_id: job.id,
+      job_type: 'coverLetter',
+      stage: 'structural_checks',
+      user_id: job.user_id,
+      started_at: new Date(),
+      completed_at: new Date(),
+      duration_ms: 0, // Structural checks are near-instant
+      success: structuralValidation.passed,
+      quality_checks: structuralValidation,
+      quality_score: qualityScore,
+    });
+    
+    try { 
+      const { elog } = await import('../log.ts'); 
+      elog.info('[Pipeline] Structural validation complete', { 
+        passed: structuralValidation.passed,
+        score: qualityScore,
+        failedChecks: structuralValidation.checks.filter(c => !c.passed).map(c => c.name),
+      }); 
+    } catch (_) {}
+
     // Save final result to job
     await supabase
       .from('jobs')
@@ -1133,7 +1311,8 @@ export async function executeCoverLetterPipeline(
     return finalResult;
   } catch (error) {
     // Mark telemetry as failed
-    telemetry.complete(false, error.message);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    telemetry.complete(false, errorMessage);
     throw error;
   }
 }

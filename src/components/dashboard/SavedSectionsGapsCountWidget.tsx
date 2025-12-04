@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { LayoutTemplate } from 'lucide-react';
+import { BookOpen } from 'lucide-react';
 import { ContentItemWithGaps } from '@/services/gapDetectionService';
 
 interface SavedSectionsGapsCountWidgetProps {
@@ -29,7 +29,7 @@ export function SavedSectionsGapsCountWidget({ items, isLoading, onClick }: Save
     <Card className="shadow-soft border-muted cursor-pointer hover:shadow-medium transition-shadow" onClick={onClick}>
       <CardHeader className="pb-3">
         <CardTitle className="text-sm flex items-center justify-center gap-2">
-          <LayoutTemplate className="w-4 h-4" />
+          <BookOpen className="w-4 h-4" />
           Saved Sections
         </CardTitle>
       </CardHeader>

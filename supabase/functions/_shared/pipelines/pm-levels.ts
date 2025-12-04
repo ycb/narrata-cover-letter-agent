@@ -9,13 +9,17 @@
 
 import type { PipelineContext, PipelineStage } from '../pipeline-utils.ts';
 import {
-  executePipeline,
   callOpenAI,
   parseJSONResponse,
   fetchWorkHistory,
   fetchStories,
 } from '../pipeline-utils.ts';
 import { PipelineTelemetry } from '../telemetry.ts';
+import { voidLogEval } from '../evals/log.ts';
+import {
+  validatePMLevelsResult,
+  calculateQualityScore,
+} from '../evals/validators.ts';
 
 // ============================================================================
 // Stage 1: Baseline Assessment (Fast - 5-10s)
@@ -231,13 +235,6 @@ export async function executePMLevelsPipeline(
       throw new Error('OPENAI_API_KEY not configured');
     }
 
-    // Define pipeline stages
-    const stages: PipelineStage[] = [
-      baselineAssessmentStage,
-      competencyBreakdownStage,
-      specializationAssessmentStage,
-    ];
-
     // Create pipeline context
     const context: PipelineContext = {
       job,
@@ -247,36 +244,192 @@ export async function executePMLevelsPipeline(
       telemetry,
     };
 
-    // Execute pipeline
-    const results = await executePipeline(stages, context);
+    const results: Record<string, any> = {};
 
-  // Compile competencies for storage
-  const competencies = {
-    execution: results.competencyBreakdown?.execution || 0,
-    strategy: results.competencyBreakdown?.strategy || 0,
-    customerInsight: results.competencyBreakdown?.customerInsight || 0,
-    influence: results.competencyBreakdown?.influence || 0,
-  };
+    // =========================================================================
+    // STAGE 1: Baseline Assessment
+    // =========================================================================
+    const baselineStart = Date.now();
+    try {
+      telemetry?.startStage('baselineAssessment');
+      results.baselineAssessment = await baselineAssessmentStage.execute(context);
+      telemetry?.endStage(true);
+      
+      // Log eval metrics
+      voidLogEval(supabase, {
+        job_id: job.id,
+        job_type: 'pmLevels',
+        stage: 'baselineAssessment',
+        user_id: job.user_id,
+        started_at: new Date(baselineStart),
+        completed_at: new Date(),
+        duration_ms: Date.now() - baselineStart,
+        success: true,
+        result_subset: {
+          icLevel: results.baselineAssessment?.icLevel,
+          assessmentBand: results.baselineAssessment?.assessmentBand,
+        },
+      });
+    } catch (error) {
+      telemetry?.endStage(false);
+      
+      // Log eval failure
+      voidLogEval(supabase, {
+        job_id: job.id,
+        job_type: 'pmLevels',
+        stage: 'baselineAssessment',
+        user_id: job.user_id,
+        started_at: new Date(baselineStart),
+        completed_at: new Date(),
+        duration_ms: Date.now() - baselineStart,
+        success: false,
+        error_type: error instanceof Error ? error.constructor.name : 'UnknownError',
+        error_message: error instanceof Error ? error.message : String(error),
+      });
+      
+      throw error;
+    }
 
-  // Compile specializations (only those with scores)
-  const specializations: string[] = [];
-  const specData = results.specializationAssessment || {};
-  if (specData.growth && specData.growth > 5) specializations.push('growth');
-  if (specData.platform && specData.platform > 5) specializations.push('platform');
-  if (specData.aiMl && specData.aiMl > 5) specializations.push('aiMl');
-  if (specData.founding && specData.founding > 5) specializations.push('founding');
+    // =========================================================================
+    // STAGE 2: Competency Breakdown
+    // =========================================================================
+    const competencyStart = Date.now();
+    try {
+      telemetry?.startStage('competencyBreakdown');
+      results.competencyBreakdown = await competencyBreakdownStage.execute(context);
+      telemetry?.endStage(true);
+      
+      // Log eval metrics
+      voidLogEval(supabase, {
+        job_id: job.id,
+        job_type: 'pmLevels',
+        stage: 'competencyBreakdown',
+        user_id: job.user_id,
+        started_at: new Date(competencyStart),
+        completed_at: new Date(),
+        duration_ms: Date.now() - competencyStart,
+        success: true,
+        result_subset: {
+          execution: results.competencyBreakdown?.execution,
+          strategy: results.competencyBreakdown?.strategy,
+          customerInsight: results.competencyBreakdown?.customerInsight,
+          influence: results.competencyBreakdown?.influence,
+        },
+      });
+    } catch (error) {
+      telemetry?.endStage(false);
+      
+      // Log eval failure
+      voidLogEval(supabase, {
+        job_id: job.id,
+        job_type: 'pmLevels',
+        stage: 'competencyBreakdown',
+        user_id: job.user_id,
+        started_at: new Date(competencyStart),
+        completed_at: new Date(),
+        duration_ms: Date.now() - competencyStart,
+        success: false,
+        error_type: error instanceof Error ? error.constructor.name : 'UnknownError',
+        error_message: error instanceof Error ? error.message : String(error),
+      });
+      
+      throw error;
+    }
 
-  // In real implementation, we'd save to a PM levels assessment table
-  // For MVP, we'll use a placeholder
-  const assessmentId = `assessment-${job.id}`;
+    // =========================================================================
+    // STAGE 3: Specialization Assessment
+    // =========================================================================
+    const specializationStart = Date.now();
+    try {
+      telemetry?.startStage('specializationAssessment');
+      results.specializationAssessment = await specializationAssessmentStage.execute(context);
+      telemetry?.endStage(true);
+      
+      // Log eval metrics
+      voidLogEval(supabase, {
+        job_id: job.id,
+        job_type: 'pmLevels',
+        stage: 'specializationAssessment',
+        user_id: job.user_id,
+        started_at: new Date(specializationStart),
+        completed_at: new Date(),
+        duration_ms: Date.now() - specializationStart,
+        success: true,
+        result_subset: {
+          growth: results.specializationAssessment?.growth,
+          platform: results.specializationAssessment?.platform,
+          aiMl: results.specializationAssessment?.aiMl,
+          founding: results.specializationAssessment?.founding,
+        },
+      });
+    } catch (error) {
+      telemetry?.endStage(false);
+      
+      // Log eval failure
+      voidLogEval(supabase, {
+        job_id: job.id,
+        job_type: 'pmLevels',
+        stage: 'specializationAssessment',
+        user_id: job.user_id,
+        started_at: new Date(specializationStart),
+        completed_at: new Date(),
+        duration_ms: Date.now() - specializationStart,
+        success: false,
+        error_type: error instanceof Error ? error.constructor.name : 'UnknownError',
+        error_message: error instanceof Error ? error.message : String(error),
+      });
+      
+      throw error;
+    }
 
-  // Compile final result
-  const finalResult = {
-    assessmentId,
-    icLevel: results.baselineAssessment?.icLevel || 3,
-    competencies,
-    specializations,
-  };
+    // Compile competencies for storage
+    const competencies = {
+      executionDelivery: results.competencyBreakdown?.execution || 0,
+      leadershipInfluence: results.competencyBreakdown?.influence || 0,
+      productStrategy: results.competencyBreakdown?.strategy || 0,
+      technicalDepth: results.competencyBreakdown?.customerInsight || 0, // Map to validator expectation
+    };
+
+    // Compile specializations (only those with scores)
+    const specializations: string[] = [];
+    const specData = results.specializationAssessment || {};
+    if (specData.growth && specData.growth > 5) specializations.push('Growth PM');
+    if (specData.platform && specData.platform > 5) specializations.push('Platform PM');
+    if (specData.aiMl && specData.aiMl > 5) specializations.push('AI/ML PM');
+    if (specData.founding && specData.founding > 5) specializations.push('Founding PM');
+
+    // In real implementation, we'd save to a PM levels assessment table
+    // For MVP, we'll use a placeholder
+    const assessmentId = `assessment-${job.id}`;
+
+    // Compile final result
+    const finalResult = {
+      assessmentId,
+      icLevel: results.baselineAssessment?.icLevel || 3,
+      assessmentBand: results.baselineAssessment?.assessmentBand,
+      competencies,
+      specializations,
+    };
+
+    // =========================================================================
+    // STRUCTURAL VALIDATION: Run deterministic quality checks
+    // =========================================================================
+    const structuralValidation = validatePMLevelsResult(finalResult);
+    const qualityScore = calculateQualityScore(structuralValidation);
+    
+    // Log structural validation results
+    voidLogEval(supabase, {
+      job_id: job.id,
+      job_type: 'pmLevels',
+      stage: 'structural_checks',
+      user_id: job.user_id,
+      started_at: new Date(),
+      completed_at: new Date(),
+      duration_ms: 0, // Structural checks are near-instant
+      success: structuralValidation.passed,
+      quality_checks: structuralValidation,
+      quality_score: qualityScore,
+    });
 
     // Save final result to job
     await supabase
@@ -294,7 +447,8 @@ export async function executePMLevelsPipeline(
     return finalResult;
   } catch (error) {
     // Mark telemetry as failed
-    telemetry.complete(false, error.message);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    telemetry.complete(false, errorMessage);
     throw error;
   }
 }

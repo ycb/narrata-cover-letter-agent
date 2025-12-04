@@ -13,7 +13,8 @@ import {
   Mail,
   CheckCircle,
   FileText,
-  BarChart3
+  BarChart3,
+  BookOpen
 } from 'lucide-react';
 import { ContentItemWithGaps, GapSummary } from '@/services/gapDetectionService';
 import { useNavigate } from 'react-router-dom';
@@ -84,7 +85,7 @@ const CONTENT_TYPE_CONFIG = {
   },
   cover_letter_section: {
     label: 'Section',
-    icon: LayoutTemplate,
+    icon: BookOpen,
     color: 'bg-orange-500/20 text-orange-500 border-orange-500/30',
   },
 };

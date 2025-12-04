@@ -143,6 +143,7 @@ if (typeof globalThis.File === 'undefined') {
 const { FileUploadService } = await import('../src/services/fileUploadService.ts');
 const { PMLevelsService } = await import('../src/services/pmLevelsService.ts');
 const { syntheticStorage, getSyntheticLocalOnlyFlag } = await import('../src/utils/storage.ts');
+const { supabase } = await import('../src/lib/supabase.ts');
 
 async function logEvaluationRun(options: {
   supabase: any;
@@ -164,11 +165,6 @@ async function logEvaluationRun(options: {
       user_type: 'synthetic',
       synthetic_profile_id: profileId,
       model: 'gpt-4o-mini',
-      accuracy_score: '✅ Accurate',
-      relevance_score: '✅ Relevant',
-      personalization_score: '✅ Personalized',
-      clarity_tone_score: '✅ Clear',
-      go_nogo_decision: '✅ Completed',
       evaluation_rationale: `Processed ${fileType} via direct upload script.`,
     })
     .select('id')
@@ -202,7 +198,6 @@ async function logPmLevelEvaluation(options: {
       user_type: 'synthetic',
       synthetic_profile_id: profileId,
       model: 'pm-levels-script',
-      go_nogo_decision: inference ? '✅ Go' : '⚠️ Needs Review',
       evaluation_rationale: inference
         ? `Inferred ${inference.displayLevel} with ${(inference.confidence * 100).toFixed(0)}% confidence.`
         : 'PM Level analysis failed during direct upload script.',
@@ -246,12 +241,34 @@ async function authenticate(): Promise<{ userId: string, accessToken: string }> 
   if (!data.session?.access_token) {
     throw new Error('No access token received');
   }
-  
+
+  // Ensure the shared supabase client (used by services) has the session
+  try {
+    await supabaseAuthHelperSetSession(data.session.access_token, data.session.refresh_token ?? '');
+  } catch (setErr: any) {
+    console.warn('⚠️ Failed to set shared Supabase session:', setErr?.message || setErr);
+  }
+
   console.log(`✅ Authenticated as ${data.user.email} (${data.user.id})`);
   return {
     userId: data.user.id,
     accessToken: data.session.access_token
   };
+}
+
+async function supabaseAuthHelperSetSession(accessToken: string, refreshToken: string) {
+  // Reuse the shared supabase client used by services (imported from src/lib/supabase)
+  try {
+    const { error } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken
+    });
+    if (error) {
+      throw error;
+    }
+  } catch (err: any) {
+    console.warn('⚠️ Error setting Supabase auth session:', err?.message || err);
+  }
 }
 
 /**
@@ -373,6 +390,60 @@ async function uploadProfile(
       }
     }
   });
+
+async function logEvalsLog(options: {
+  jobType: 'coverLetter' | 'pmLevels';
+  durationMs: number;
+  stageName: string;
+  userId: string;
+  supabaseAuth: any;
+  resultSubset?: Record<string, any>;
+}) {
+  const { jobType, durationMs, stageName, userId, supabaseAuth, resultSubset } = options;
+  try {
+    // Create a lightweight job row for dashboard linkage
+    const { data: job, error: jobError } = await supabaseAuth
+      .from('jobs')
+      .insert({
+        type: jobType,
+        status: 'complete',
+        user_id: userId,
+        input: resultSubset ?? {},
+        result: null,
+        started_at: new Date(Date.now() - durationMs).toISOString(),
+        completed_at: new Date().toISOString(),
+      })
+      .select('id')
+        .single();
+
+      const jobId = job?.id;
+    if (jobError || !jobId) {
+      console.warn(`⚠️ Failed to insert job for ${jobType}:`, jobError?.message);
+      return;
+    }
+
+    const { error: evalError } = await supabaseAuth
+      .from('evals_log')
+      .insert({
+        job_id: jobId,
+        job_type: jobType,
+        stage: stageName,
+        user_id: userId,
+        environment: 'dev',
+        started_at: new Date(Date.now() - durationMs).toISOString(),
+        completed_at: new Date().toISOString(),
+        duration_ms: Math.round(durationMs),
+        success: true,
+        result_subset: resultSubset ?? {},
+      });
+
+      if (evalError) {
+        console.warn(`⚠️ Failed to insert evals_log for ${jobType}:`, evalError.message);
+      }
+    } catch (err: any) {
+      console.warn(`⚠️ Error logging evals_log for ${jobType}:`, err?.message || err);
+    }
+  }
   
   if (localOnly) {
     syntheticStorage.setActiveProfileId(profileId);
@@ -447,6 +518,19 @@ async function uploadProfile(
   if (coverEvalId) {
     results.evaluationRunIds.push(coverEvalId);
   }
+
+  // Log evals_log entry for cover letter pipeline
+  await logEvalsLog({
+    jobType: 'coverLetter',
+    durationMs: coverLetterResult.processingMs ?? 0,
+    stageName: 'direct_upload',
+    userId,
+    supabaseAuth,
+    resultSubset: {
+      sourceId: coverLetterResult.fileId,
+      synthetic_profile_id: profileId
+    }
+  });
   
   // Note: LinkedIn data is automatically loaded in synthetic mode after combined analysis                          
   // No need to manually upload it - fetchAndProcessLinkedInData() handles it                                        
@@ -479,6 +563,18 @@ async function uploadProfile(
     results.evaluationRunIds.push(pmEvalId);
   }
   results.totalLatencyMs = pmLatencyMs;
+
+  // Log evals_log entry for PM Levels pipeline
+  await logEvalsLog({
+    jobType: 'pmLevels',
+    durationMs: pmLatencyMs,
+    stageName: 'direct_upload',
+    userId,
+    supabaseAuth,
+    resultSubset: {
+      synthetic_profile_id: profileId
+    }
+  });
   
   // Fetch evaluation runs
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {                                                  
@@ -670,4 +766,3 @@ if (import.meta.url === `file://${process.argv[1]}` || import.meta.url.endsWith(
 }
 
 export { authenticate, clearUserData, uploadProfile };
-

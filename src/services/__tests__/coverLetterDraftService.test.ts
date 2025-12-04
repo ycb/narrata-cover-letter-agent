@@ -1,3 +1,7 @@
+// TEST STATUS: PASSING - HIGH VALUE
+// Core draft generation and finalization logic
+// Fixed: Added 'stories' table mock to test DB setup (Dec 4, 2025)
+
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
@@ -186,6 +190,12 @@ const createSupabaseMock = (): SupabaseMock => {
             eq: vi.fn(() => Promise.resolve({ data: [], error: null })),
           })),
         };
+      case 'stories':
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => Promise.resolve({ data: [], error: null })),
+          })),
+        };
       case 'cover_letters':
         return {
           insert: vi.fn((payload: Record<string, unknown>) => {
@@ -256,6 +266,12 @@ const createFinalizeSupabaseMock = (
   const from = vi.fn((table: string) => {
     switch (table) {
       case 'work_items':
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => Promise.resolve({ data: [], error: null })),
+          })),
+        };
+      case 'stories':
         return {
           select: vi.fn(() => ({
             eq: vi.fn(() => Promise.resolve({ data: [], error: null })),

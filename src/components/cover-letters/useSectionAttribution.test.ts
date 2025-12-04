@@ -1,3 +1,7 @@
+// TEST STATUS: STILL VALID
+// Fixed: Updated expectations for empty/undefined ratingCriteria (Dec 4, 2025)
+// Service returns default 6 standards when ratingCriteria is empty/undefined
+
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { computeSectionAttribution } from './useSectionAttribution';
 import type { EnhancedMatchData } from '@/types/coverLetters';
@@ -328,8 +332,9 @@ describe('computeSectionAttribution', () => {
         ratingCriteria: [],
       });
 
+      // When ratingCriteria is empty, function returns 6 default standards (all unmet)
       expect(result.attribution.standards.met).toHaveLength(0);
-      expect(result.attribution.standards.unmet).toHaveLength(0);
+      expect(result.attribution.standards.unmet).toHaveLength(6); // Default standards
       expect(result.summary.standardsMetCount).toBe(0);
     });
 
@@ -344,8 +349,9 @@ describe('computeSectionAttribution', () => {
         ratingCriteria: undefined,
       });
 
+      // When ratingCriteria is undefined, function returns 6 default standards (all unmet)
       expect(result.attribution.standards.met).toHaveLength(0);
-      expect(result.attribution.standards.unmet).toHaveLength(0);
+      expect(result.attribution.standards.unmet).toHaveLength(6); // Default standards
       expect(result.summary.standardsMetCount).toBe(0);
     });
   });

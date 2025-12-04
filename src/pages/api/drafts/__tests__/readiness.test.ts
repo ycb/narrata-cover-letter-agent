@@ -1,3 +1,8 @@
+// TEST STATUS: PASSING - HIGH VALUE
+// Tests draft readiness API endpoint with feature flag enabled
+// Fixed: Mock persistence issue resolved (Dec 4, 2025)
+// Uses mockReturnValue instead of mockReturnValueOnce for consistent mocking
+
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import handler from '../[draftId]/readiness';
 import { CoverLetterDraftService, DraftReadinessFeatureDisabledError } from '@/services/coverLetterDraftService';
@@ -96,6 +101,8 @@ const mockAdminClient = ({
 const mockUserClient = () => ({ from: vi.fn() });
 
 describe('API /api/drafts/[draftId]/readiness', () => {
+  let mockService: any;
+
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.SUPABASE_URL = 'https://supabase.local';
@@ -103,6 +110,13 @@ describe('API /api/drafts/[draftId]/readiness', () => {
     process.env.SUPABASE_ANON_KEY = 'anon-key';
     process.env.ENABLE_DRAFT_READINESS = 'true';
     (isDraftReadinessEnabled as unknown as ReturnType<typeof vi.fn>).mockReturnValue(true);
+    
+    // Set up default service mock
+    mockService = {
+      getReadinessEvaluation: vi.fn().mockResolvedValue(null),
+    };
+    (CoverLetterDraftService as unknown as ReturnType<typeof vi.fn>)
+      .mockImplementation(() => mockService);
   });
 
   afterEach(() => {
@@ -163,8 +177,7 @@ describe('API /api/drafts/[draftId]/readiness', () => {
     const adminClient = mockAdminClient({ userId: null, authError: new Error('bad token') });
     const userClient = mockUserClient();
     (createClient as unknown as ReturnType<typeof vi.fn>)
-      .mockReturnValueOnce(adminClient)
-      .mockReturnValueOnce(userClient);
+      .mockReturnValue(adminClient); // Use mockReturnValue for all calls
 
     const req = {
       method: 'GET',
@@ -183,8 +196,7 @@ describe('API /api/drafts/[draftId]/readiness', () => {
     });
     const userClient = mockUserClient();
     (createClient as unknown as ReturnType<typeof vi.fn>)
-      .mockReturnValueOnce(adminClient)
-      .mockReturnValueOnce(userClient);
+      .mockReturnValue(adminClient); // Use mockReturnValue for all calls
 
     const req = {
       method: 'GET',
@@ -200,13 +212,10 @@ describe('API /api/drafts/[draftId]/readiness', () => {
     const adminClient = mockAdminClient({});
     const userClient = mockUserClient();
     (createClient as unknown as ReturnType<typeof vi.fn>)
-      .mockReturnValueOnce(adminClient)
-      .mockReturnValueOnce(userClient);
+      .mockReturnValue(adminClient); // Use mockReturnValue for all calls
 
-    (CoverLetterDraftService as unknown as ReturnType<typeof vi.fn>)
-      .mockImplementationOnce(() => ({
-        getReadinessEvaluation: vi.fn().mockResolvedValue(null),
-      }));
+    // Override service mock to return null
+    mockService.getReadinessEvaluation.mockResolvedValue(null);
 
     const req = {
       method: 'GET',
@@ -222,15 +231,12 @@ describe('API /api/drafts/[draftId]/readiness', () => {
     const adminClient = mockAdminClient({});
     const userClient = mockUserClient();
     (createClient as unknown as ReturnType<typeof vi.fn>)
-      .mockReturnValueOnce(adminClient)
-      .mockReturnValueOnce(userClient);
+      .mockReturnValue(adminClient); // Use mockReturnValue for all calls
 
-    (CoverLetterDraftService as unknown as ReturnType<typeof vi.fn>)
-      .mockImplementationOnce(() => ({
-        getReadinessEvaluation: vi
-          .fn()
-          .mockRejectedValue(new DraftReadinessFeatureDisabledError()),
-      }));
+    // Override service mock to throw feature disabled error
+    mockService.getReadinessEvaluation.mockRejectedValue(
+      new DraftReadinessFeatureDisabledError()
+    );
 
     const req = {
       method: 'GET',
@@ -247,20 +253,17 @@ describe('API /api/drafts/[draftId]/readiness', () => {
     const adminClient = mockAdminClient({});
     const userClient = mockUserClient();
     (createClient as unknown as ReturnType<typeof vi.fn>)
-      .mockReturnValueOnce(adminClient)
-      .mockReturnValueOnce(userClient);
+      .mockReturnValue(adminClient); // Use mockReturnValue for all calls
 
-    (CoverLetterDraftService as unknown as ReturnType<typeof vi.fn>)
-      .mockImplementationOnce(() => ({
-        getReadinessEvaluation: vi.fn().mockResolvedValue({
-          rating: 'strong',
-          scoreBreakdown: { opening: 'strong' },
-          feedback: { summary: 'Great', improvements: [] },
-          evaluatedAt: '2024-01-01T00:00:00.000Z',
-          ttlExpiresAt: '2024-01-01T00:10:00.000Z',
-          fromCache: false,
-        }),
-      }));
+    // Override service mock to return readiness data
+    mockService.getReadinessEvaluation.mockResolvedValue({
+      rating: 'strong',
+      scoreBreakdown: { opening: 'strong' },
+      feedback: { summary: 'Great', improvements: [] },
+      evaluatedAt: '2024-01-01T00:00:00.000Z',
+      ttlExpiresAt: '2024-01-01T00:10:00.000Z',
+      fromCache: false,
+    });
 
     const req = {
       method: 'GET',

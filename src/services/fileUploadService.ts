@@ -157,11 +157,10 @@ export class FileUploadService {
    */
   private async getActiveSyntheticProfileId(dbClient: any, userId: string): Promise<string | null> {
     const localOnly = getSyntheticLocalOnlyFlag();
-    if (localOnly) {
-      const overrideProfileId = syntheticStorage.getActiveProfileId();
-      if (overrideProfileId) {
-        return overrideProfileId;
-      }
+    // Always honor an explicit override in syntheticStorage (set by scripts)
+    const overrideProfileId = syntheticStorage.getActiveProfileId();
+    if (overrideProfileId) {
+      return overrideProfileId;
     }
 
     try {
@@ -180,7 +179,7 @@ export class FileUploadService {
         (data || [])[0]?.profile_id ||
         null;
 
-      if (localOnly && activeProfileId) {
+      if (activeProfileId) {
         syntheticStorage.setActiveProfileId(activeProfileId);
       }
 
@@ -456,6 +455,7 @@ source_type: dbSourceType,
     try {
       const updateData: Record<string, unknown> = {
         processing_status: status,
+        processing_stage: status, // keep stage in sync for client polling
         updated_at: new Date().toISOString()
       };
 
@@ -878,7 +878,38 @@ source_type: dbSourceType,
       
       // Match cover letter stories to existing work_items and extract profile data
       if (type === 'coverLetter') {
+        // Fetch user_id once for downstream operations
+        const { data: sourceData } = await supabase
+          .from('sources')
+          .select('user_id')
+          .eq('id', sourceId)
+          .single();
+
         await this.processCoverLetterData(structuredData, sourceId, accessToken);
+        
+        // NEW: Run comprehensive cover letter processing pipeline
+        // (Saved Sections, Template, My Voice, Story Detection)
+        try {
+          const { processCoverLetter } = await import('./coverLetterProcessingService');
+          const rawText = extractedText; // Use the extracted text
+          const userId = sourceData?.user_id;
+          
+          if (userId && rawText) {
+            console.log('[FileUpload] Running cover letter processing pipeline...');
+            const result = await processCoverLetter(
+              userId,
+              sourceId,
+              rawText,
+              import.meta.env.VITE_OPENAI_API_KEY
+            );
+            console.log(`[FileUpload] CL pipeline complete: ${result.savedSectionsCreated} sections, ${result.storiesCreated} stories, voice=${result.myVoiceCreated}`);
+            if (result.errors.length > 0) {
+              console.warn('[FileUpload] CL pipeline errors:', result.errors);
+            }
+          }
+        } catch (clError) {
+          console.warn('[FileUpload] Cover letter processing pipeline failed (non-critical):', clError);
+        }
       }
       
       // Normalize skills for both resume and cover letter
@@ -2845,37 +2876,14 @@ source_type: dbSourceType,
         return;
       }
 
-      // Check if we're in synthetic mode by checking user email
-      const SYNTHETIC_TESTING_ALLOWLIST = ['narrata.ai@gmail.com'];
-      let isSyntheticEnabled = false;
-      
-      // Get user profile to check email
-      const { data: profile } = await authSupabase
-        .from('profiles')
-        .select('email')
-        .eq('id', user.id)
-        .single();
-      
-      if (profile?.email && SYNTHETIC_TESTING_ALLOWLIST.includes(profile.email)) {
-        isSyntheticEnabled = true;
-      }
-      
+      // Synthetic mode: always prefer local LinkedIn fixtures when an active synthetic profile exists
       let appifyResult;
       let appifyRawData: any = null;
-      let activeProfileId: string | null = null;
+      let activeProfileId: string | null = await this.getActiveSyntheticProfileId(authSupabase, user.id);
 
-      if (isSyntheticEnabled) {
+      if (activeProfileId) {
         // Synthetic mode: Load JSON fixture file
         console.log('🧪 Synthetic mode detected - loading LinkedIn fixture data...');
-        
-        // Get active synthetic user profile
-        activeProfileId = await this.getActiveSyntheticProfileId(authSupabase, user.id);
-
-        if (!activeProfileId) {
-          console.warn('⚠️ No active synthetic user for LinkedIn enrichment');
-          return;
-        }
-
         const fixturePath = `/fixtures/synthetic/v1/raw_uploads/${activeProfileId}_linkedin.json`;
         
         try {
