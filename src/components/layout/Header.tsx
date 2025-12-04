@@ -163,18 +163,18 @@ export const Header = ({ currentPage }: HeaderProps) => {
           <nav className="hidden md:flex">
             <div className="flex items-center gap-1">
               {/* Dashboard - Simple Dynamic Link */}
-              <Link
+                <Link
                 to="/dashboard"
-                className={cn(
+                  className={cn(
                   "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-all rounded-md",
-                  activePage === "dashboard" 
-                    ? "bg-white text-[#121212] hover:bg-white" 
-                    : "text-white opacity-90 hover:opacity-100"
-                )}
-              >
-                <Target className="h-4 w-4" />
-                Dashboard
-              </Link>
+                    activePage === "dashboard" 
+                      ? "bg-white text-[#121212] hover:bg-white" 
+                      : "text-white opacity-90 hover:opacity-100"
+                  )}
+                >
+                  <Target className="h-4 w-4" />
+                  Dashboard
+                    </Link>
 
               {/* Work History - Main Link + Dropdown */}
               <div className="relative group">
@@ -467,12 +467,12 @@ export const Header = ({ currentPage }: HeaderProps) => {
                   </div>
                   
                   {/* User Name - First Name Only */}
-                  <span className="text-sm font-medium">
-                    {(() => {
-                      const oauthData = getOAuthData();
-                      return oauthData.firstName || oauthData.fullName || user?.email?.split('@')[0] || 'User';
-                    })()}
-                  </span>
+                    <span className="text-sm font-medium">
+                      {(() => {
+                        const oauthData = getOAuthData();
+                        return oauthData.firstName || oauthData.fullName || user?.email?.split('@')[0] || 'User';
+                      })()}
+                    </span>
                   
                   <ChevronDown className="h-4 w-4" />
                 </div>
@@ -498,7 +498,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
               </DropdownMenuItem>
               {gapSummary.data && gapSummary.data.total > 0 && (
                 <DropdownMenuItem 
-                  onClick={() => navigate('/new-user-dashboard?contentType=all&severity=all&scrollTo=tabs')}
+                  onClick={() => navigate('/dashboard/onboarding?contentType=all&severity=all&scrollTo=tabs')}
                   className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end items-center gap-2"
                 >
                   <span>Review Gaps</span>
