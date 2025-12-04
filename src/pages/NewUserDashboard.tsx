@@ -17,7 +17,9 @@ import {
   ArrowRight,
   ExternalLink,
   Calendar,
-  TrendingUp
+  TrendingUp,
+  Settings,
+  Briefcase
 } from "lucide-react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { ContentQualityWidget, ContentQualityWidgetRef, ContentTypeFilter, SeverityFilter } from "@/components/dashboard/ContentQualityWidget";
@@ -560,50 +562,10 @@ export default function NewUserDashboard() {
 
           {/* Task Categories */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Personalize Narrata - Full Width */}
-            {groupedTasks['Personalize Narrata'] && (
-              <div className="lg:col-span-2">
-                <Card className="shadow-soft">
-                  <CardHeader>
-                    <CardTitle className="text-lg font-semibold">Personalize Narrata</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {groupedTasks['Personalize Narrata'].map((task) => (
-                        <div 
-                          key={task.id}
-                          className="flex items-start gap-3 p-3 rounded-lg border hover:border-primary/50 transition-colors cursor-pointer"
-                          onClick={() => handleTaskClick(task)}
-                        >
-                          <Checkbox
-                            checked={task.completed}
-                            onCheckedChange={() => handleTaskToggle(task.id)}
-                            onClick={(e) => e.stopPropagation()}
-                            className="mt-1"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-medium text-sm truncate">
-                                {task.title}
-                              </h3>
-                              <ExternalLink className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {task.description}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-            
-            {/* Other Task Categories */}
-            {Object.entries(groupedTasks)
-              .filter(([category]) => category !== 'Personalize Narrata')
-              .map(([category, categoryTasks]) => {
+            {Object.entries(groupedTasks).map(([category, categoryTasks]) => {
+              // Personalize Narrata spans full width
+              const isPersonalize = category === 'Personalize Narrata';
+              const containerClass = isPersonalize ? "lg:col-span-2" : "";
               // Calculate gap counts for badges
               let gapCount = 0;
               let severityCounts = { high: 0, medium: 0, low: 0 };
@@ -623,44 +585,47 @@ export default function NewUserDashboard() {
               }
 
               return (
-              <Card key={category} className="shadow-soft">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    {category === 'Review Work History' && <Users className="w-5 h-5" />}
-                    {category === 'Review Cover Letter Template' && <LayoutTemplate className="w-5 h-5" />}
-                    {category === 'Create Your First Cover Letter!' && <Mail className="w-5 h-5" />}
-                    {category === 'Review your PM Level' && <Trophy className="w-5 h-5" />}
-                    {category}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {categoryTasks.map((task) => (
-                    <div 
-                      key={task.id}
-                      className="flex items-start gap-3 p-3 rounded-lg border hover:border-primary/50 transition-colors cursor-pointer"
-                      onClick={() => handleTaskClick(task)}
-                    >
-                      <Checkbox
-                        checked={task.completed}
-                        onCheckedChange={() => handleTaskToggle(task.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="mt-1"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h4 className={`font-medium ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
-                            {task.title}
-                          </h4>
-                          <ExternalLink className="w-3 h-3 text-muted-foreground" />
+              <div key={category} className={containerClass}>
+                <Card className="shadow-soft">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      {category === 'Personalize Narrata' && <Settings className="w-5 h-5" />}
+                      {category === 'Review Work History' && <Briefcase className="w-5 h-5" />}
+                      {category === 'Review Cover Letter Template' && <LayoutTemplate className="w-5 h-5" />}
+                      {category === 'Create Your First Cover Letter!' && <Mail className="w-5 h-5" />}
+                      {category === 'Review your PM Level' && <Trophy className="w-5 h-5" />}
+                      {category}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className={isPersonalize ? "grid grid-cols-1 md:grid-cols-3 gap-4" : "space-y-3"}>
+                    {categoryTasks.map((task) => (
+                      <div 
+                        key={task.id}
+                        className="flex items-start gap-3 p-3 rounded-lg border hover:border-primary/50 transition-colors cursor-pointer"
+                        onClick={() => handleTaskClick(task)}
+                      >
+                        <Checkbox
+                          checked={task.completed}
+                          onCheckedChange={() => handleTaskToggle(task.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="mt-1"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h4 className={`font-medium ${task.completed ? 'line-through text-muted-foreground' : ''}`}>
+                              {task.title}
+                            </h4>
+                            <ExternalLink className="w-3 h-3 text-muted-foreground" />
+                          </div>
+                          <p className={`text-sm text-muted-foreground ${task.completed ? 'line-through' : ''}`}>
+                            {task.description}
+                          </p>
                         </div>
-                        <p className={`text-sm text-muted-foreground ${task.completed ? 'line-through' : ''}`}>
-                          {task.description}
-                        </p>
                       </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
+                    ))}
+                  </CardContent>
+                </Card>
+              </div>
               );
             })}
           </div>
