@@ -33,11 +33,11 @@ const shouldShowFeedbackSystem = (): boolean => {
 import LandingPage from "./pages/LandingPage";
 import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
+import DashboardRouter from "./pages/DashboardRouter";
 import WorkHistory from "./pages/WorkHistory";
 import CoverLetters from "./pages/CoverLetters";
 import CoverLetterTemplate from "./pages/CoverLetterTemplate";
 import Assessment from "./pages/Assessment";
-import OnboardingDashboard from "./pages/OnboardingDashboard";
 import NewUserDashboard from "./pages/NewUserDashboard";
 
 import { HILDemo } from "./pages/HILDemo";
@@ -67,12 +67,6 @@ function AppLayout() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/marketing" element={<Landing />} />
-        <Route path="/dashboard" element={
-          <ProtectedRoute>
-            <Header />
-            <Dashboard />
-          </ProtectedRoute>
-        } />
         <Route path="/work-history" element={
           <ProtectedRoute>
             <Header />
@@ -196,16 +190,22 @@ function AppLayout() {
             <NewUserOnboarding />
           </ProtectedRoute>
         } />
-        <Route path="/onboarding-dashboard" element={
+        <Route path="/dashboard" element={
           <ProtectedRoute>
             <Header />
-            <OnboardingDashboard />
+            <DashboardRouter />
           </ProtectedRoute>
         } />
-        <Route path="/new-user-dashboard" element={
+        <Route path="/dashboard/onboarding" element={
           <ProtectedRoute>
             <Header />
             <NewUserDashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/dashboard/main" element={
+          <ProtectedRoute>
+            <Header />
+            <Dashboard />
           </ProtectedRoute>
         } />
         <Route path="/feedback-admin" element={

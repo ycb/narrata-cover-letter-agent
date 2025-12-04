@@ -95,14 +95,14 @@ export function TourProvider({ children }: { children: ReactNode }) {
     setIsActive(false);
     setCurrentStep(0);
     // Navigate to onboarding dashboard
-    navigate('/onboarding-dashboard');
+    navigate('/dashboard/onboarding');
   }, [navigate]);
 
   const completeTour = useCallback(() => {
     setIsActive(false);
     setCurrentStep(0);
-    // Navigate to existing dashboard
-    navigate('/dashboard');
+    // Navigate to onboarding dashboard (user will review/complete tasks)
+    navigate('/dashboard/onboarding');
   }, [navigate]);
 
   const value: TourContextType = {
