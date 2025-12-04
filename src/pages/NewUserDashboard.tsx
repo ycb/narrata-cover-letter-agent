@@ -290,20 +290,12 @@ export default function NewUserDashboard() {
       link: '/assessment' // Main Assessment page
     },
     {
-      id: 'pm-core-skills',
-      title: 'Review Core Skills',
-      description: 'Assess your competencies in 4 areas',
+      id: 'pm-core-skills-specializations',
+      title: 'Review Core Skills and Specializations',
+      description: 'Assess your competencies and areas of expertise',
       category: 'Review your PM Level',
       completed: false,
       link: '/assessment?section=competencies' // Anchor to Competencies section
-    },
-    {
-      id: 'pm-specialization',
-      title: 'Review Specializations',
-      description: 'Explore your areas of expertise',
-      category: 'Review your PM Level',
-      completed: false,
-      link: '/assessment?section=specialization' // Anchor to Specialization section
     }
   ]);
 
