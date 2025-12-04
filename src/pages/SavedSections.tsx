@@ -472,7 +472,7 @@ export default function SavedSections() {
       <div className="container mx-auto px-4 py-6">
         <h1 className="text-3xl font-bold text-foreground mb-2">Saved Sections</h1>
         <p className="text-muted-foreground mb-6">
-          Manage your reusable cover letter sections and templates
+          Manage your reusable cover letter sections
         </p>
 
         {error && (
