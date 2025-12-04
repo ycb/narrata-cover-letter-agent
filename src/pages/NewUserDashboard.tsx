@@ -21,6 +21,9 @@ import {
 } from "lucide-react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { ContentQualityWidget, ContentQualityWidgetRef, ContentTypeFilter, SeverityFilter } from "@/components/dashboard/ContentQualityWidget";
+import { UserGoalsModal } from "@/components/user-goals/UserGoalsModal";
+import { MyVoiceModal } from "@/components/user-voice/MyVoiceModal";
+import { MyDataModal } from "@/components/user-data/MyDataModal";
 import { TotalGapsWidget } from "@/components/dashboard/TotalGapsWidget";
 import { WorkHistoryGapsCountWidget } from "@/components/dashboard/WorkHistoryGapsCountWidget";
 import { SavedSectionsGapsCountWidget } from "@/components/dashboard/SavedSectionsGapsCountWidget";
@@ -48,6 +51,11 @@ export default function NewUserDashboard() {
   const gapSummary = useGapSummary();
   const contentItemsWithGaps = useContentItemsWithGaps();
   const contentQualityWidgetRef = React.useRef<ContentQualityWidgetRef>(null);
+  
+  // Modal states for Personalize Narrata
+  const [showGoalsModal, setShowGoalsModal] = useState(false);
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
+  const [showDataModal, setShowDataModal] = useState(false);
   const [contentTypeFilter, setContentTypeFilter] = React.useState<ContentTypeFilter>('all');
   const [severityFilter, setSeverityFilter] = React.useState<SeverityFilter>('all');
   
@@ -189,7 +197,7 @@ export default function NewUserDashboard() {
       description: 'Add target job titles, minimum salary, and other deal-breakers',
       category: 'Personalize Narrata',
       completed: false,
-      link: '/profile?section=goals'
+      link: 'modal:goals' // Special prefix to indicate modal action
     },
     {
       id: 'my-voice',
@@ -197,7 +205,7 @@ export default function NewUserDashboard() {
       description: 'Review and refine your writing style preferences',
       category: 'Personalize Narrata',
       completed: false,
-      link: '/profile?section=voice'
+      link: 'modal:voice'
     },
     {
       id: 'my-data',
@@ -205,7 +213,7 @@ export default function NewUserDashboard() {
       description: 'Import context from other LLMs via API key',
       category: 'Personalize Narrata',
       completed: false,
-      link: '/profile?section=data'
+      link: 'modal:data'
     }
   ];
 
@@ -322,6 +330,20 @@ export default function NewUserDashboard() {
   };
 
   const handleTaskClick = (task: OnboardingTask) => {
+    // Handle modal actions for Personalize Narrata tasks
+    if (task.link.startsWith('modal:')) {
+      const modalType = task.link.replace('modal:', '');
+      if (modalType === 'goals') {
+        setShowGoalsModal(true);
+      } else if (modalType === 'voice') {
+        setShowVoiceModal(true);
+      } else if (modalType === 'data') {
+        setShowDataModal(true);
+      }
+      return;
+    }
+    
+    // Normal navigation for other tasks
     navigate(task.link);
   };
 
@@ -673,6 +695,20 @@ export default function NewUserDashboard() {
           </Card>
         </div>
       </div>
+      
+      {/* Modals for Personalize Narrata */}
+      <UserGoalsModal 
+        isOpen={showGoalsModal} 
+        onClose={() => setShowGoalsModal(false)} 
+      />
+      <MyVoiceModal 
+        isOpen={showVoiceModal} 
+        onClose={() => setShowVoiceModal(false)} 
+      />
+      <MyDataModal 
+        isOpen={showDataModal} 
+        onClose={() => setShowDataModal(false)} 
+      />
     </div>
   );
 }
