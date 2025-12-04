@@ -170,8 +170,8 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Metrics Overview - Stories + Cover Letters + Total Gaps (2 cols) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+        {/* Metrics Overview - 3 Widgets */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <StatsCard
             title="Stories"
             value={dashboardData.stats.stories}
@@ -194,16 +194,14 @@ const Dashboard = () => {
             }}
             onClick={() => navigate('/cover-letters')}
           />
-          <div className="col-span-1 md:col-span-2">
-            <TotalGapsWidget
-              gapSummary={gapSummary.data}
-              isLoading={gapSummary.isLoading}
-              onClick={() => {
-                // Navigate to onboarding dashboard to review gaps
-                navigate('/dashboard/onboarding?scrollTo=tabs');
-              }}
-            />
-          </div>
+          <TotalGapsWidget
+            gapSummary={gapSummary.data}
+            isLoading={gapSummary.isLoading}
+            onClick={() => {
+              // Navigate to onboarding dashboard to review gaps
+              navigate('/dashboard/onboarding?scrollTo=tabs');
+            }}
+          />
         </div>
 
         {/* 4 Small Modules - Top Action + Content Health + Top Roles + Level Card */}
@@ -306,10 +304,9 @@ const Dashboard = () => {
               <CardTitle className="text-lg font-semibold">
                 PM Core Competencies
               </CardTitle>
-              <CardDescription>Your strengths across key PM domains</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-3">
                 {levelData?.competencyScores && Object.keys(levelData.competencyScores).length > 0 ? (
                   [
                     {
@@ -341,18 +338,18 @@ const Dashboard = () => {
                       <button
                         key={competency.key}
                         onClick={() => navigate(`/assessment?competency=${competency.key}`)}
-                        className="flex flex-col gap-2 p-3 rounded-lg border hover:border-primary/50 hover:bg-accent/50 transition-all text-left"
+                        className="flex items-center justify-between p-3 rounded-lg border hover:border-primary/50 hover:bg-accent/50 transition-all"
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-medium text-muted-foreground">{competency.name}</span>
+                        <span className="text-sm font-medium">{competency.name}</span>
+                        <div className="flex items-center gap-3">
                           <Badge className={`text-xs ${badgeColor}`}>{level}</Badge>
+                          <span className="text-lg font-bold">{percentage}%</span>
                         </div>
-                        <div className="text-lg font-bold">{percentage}%</div>
                       </button>
                     );
                   })
                 ) : (
-                  <div className="col-span-2 text-center py-8 text-muted-foreground">
+                  <div className="text-center py-8 text-muted-foreground">
                     <p className="text-sm">No assessment data available.</p>
                     <p className="text-xs">Complete your PM Level Assessment to see your competencies.</p>
                     <Button variant="secondary" size="sm" className="mt-4" onClick={() => navigate('/assessment')}>
