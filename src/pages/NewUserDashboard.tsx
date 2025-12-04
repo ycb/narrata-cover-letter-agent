@@ -226,7 +226,7 @@ export default function NewUserDashboard() {
       description: 'Enhance your stories with quantifiable achievements',
       category: 'Review Work History',
       completed: false,
-      link: '/work-history'
+      link: '/work-history?tab=role' // Navigate to most recent role's Role tab
     },
     {
       id: 'work-history-stories',
@@ -234,7 +234,7 @@ export default function NewUserDashboard() {
       description: 'Refine your professional narratives for impact',
       category: 'Review Work History',
       completed: false,
-      link: '/work-history'
+      link: '/work-history?tab=stories' // Navigate to most recent role's Stories tab
     },
     
     // Cover Letter Template Tasks
