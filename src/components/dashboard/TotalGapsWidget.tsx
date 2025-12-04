@@ -23,7 +23,10 @@ export function TotalGapsWidget({ gapSummary, previousGapSummary, isLoading, onC
   const total = gapSummary?.total || 0;
   const previousTotal = previousGapSummary?.total || 0;
   const change = total - previousTotal;
-  const isPositive = change <= 0; // Fewer gaps is positive
+  
+  // For gaps: increase is bad (red), decrease is good (green)
+  const isGood = change < 0; // Decrease in gaps is good
+  const arrowIcon = change > 0 ? '↗' : '↘'; // Up arrow for increase, down for decrease
 
   return (
     <Card 
@@ -34,8 +37,8 @@ export function TotalGapsWidget({ gapSummary, previousGapSummary, isLoading, onC
         <div className="text-center">
           <p className="text-sm font-medium text-muted-foreground">Gaps</p>
           <p className="text-3xl font-bold text-foreground mt-2">{total}</p>
-          <div className={`text-sm mt-2 ${isPositive ? 'text-success' : 'text-destructive'}`}>
-            {isPositive ? '↗' : '↘'} {change >= 0 ? '+' : ''}{change} this month
+          <div className={`text-sm mt-2 ${isGood ? 'text-success' : 'text-destructive'}`}>
+            {arrowIcon} {change >= 0 ? '+' : ''}{change} this month
           </div>
         </div>
       </CardContent>
