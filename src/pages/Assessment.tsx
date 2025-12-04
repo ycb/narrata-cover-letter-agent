@@ -522,14 +522,25 @@ function Assessment({ initialSection = "overview" }: AssessmentProps) {
   }, [searchParams, initialSection, assessmentData]);
 
   useEffect(() => {
-    const params = new URLSearchParams();
+    const params = new URLSearchParams(searchParams);
+    
+    // Preserve competency param if it exists
+    const competencyParam = searchParams.get("competency");
+    
     if (activeTab !== "overview") {
       params.set("section", activeTab);
-      navigate(`?${params.toString()}`, { replace: true });
     } else {
-      navigate("", { replace: true });
+      params.delete("section");
     }
-  }, [activeTab, navigate]);
+    
+    // Only navigate if params actually changed
+    const newParamsString = params.toString();
+    const currentParamsString = searchParams.toString();
+    
+    if (newParamsString !== currentParamsString) {
+      navigate(newParamsString ? `?${newParamsString}` : "", { replace: true });
+    }
+  }, [activeTab, navigate, searchParams]);
 
   const handleRunAnalysis = () => {
     setIsAnalyzing(true);
