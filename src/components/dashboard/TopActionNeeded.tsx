@@ -47,7 +47,7 @@ export function TopActionNeeded({ actions }: TopActionNeededProps) {
   return (
     <Card className="shadow-soft">
       <CardHeader>
-        <CardTitle className="text-lg font-semibold">
+        <CardTitle className="text-xl font-semibold">
           Top Action Needed
         </CardTitle>
       </CardHeader>

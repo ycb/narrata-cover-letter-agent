@@ -213,7 +213,7 @@ const Dashboard = () => {
           {/* Content Health */}
           <Card className="shadow-soft">
             <CardHeader>
-              <CardTitle className="text-lg font-semibold">
+              <CardTitle className="text-xl font-semibold">
                 Content Health
               </CardTitle>
             </CardHeader>
@@ -254,7 +254,7 @@ const Dashboard = () => {
           {/* Top Roles Targeted */}
           <Card className="shadow-soft">
             <CardHeader>
-              <CardTitle className="text-lg font-semibold">
+              <CardTitle className="text-xl font-semibold">
                 Top Roles Targeted
               </CardTitle>
             </CardHeader>
@@ -302,8 +302,8 @@ const Dashboard = () => {
           {/* PM Core Competencies - Right Side */}
           <Card className="shadow-soft col-span-1 lg:col-span-1">
             <CardHeader>
-              <CardTitle className="text-lg font-semibold">
-                PM Core Competencies
+              <CardTitle className="text-xl font-semibold">
+                PM Skills
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -332,12 +332,6 @@ const Dashboard = () => {
                     }
                   ].map((competency) => {
                     const percentage = Math.round((competency.score / 3) * 100);
-                    const level = percentage >= 90 ? "Advanced" : percentage >= 70 ? "Proficient" : percentage >= 50 ? "Developing" : "Needs Work";
-                    const badgeColor = 
-                      percentage >= 80 ? "bg-green-100 text-green-800 border-green-200" : 
-                      percentage >= 60 ? "bg-blue-100 text-blue-800 border-blue-200" : 
-                      percentage >= 40 ? "bg-yellow-100 text-yellow-800 border-yellow-200" : 
-                      "bg-gray-100 text-gray-800 border-gray-200";
                     
                     return (
                       <button
@@ -345,9 +339,8 @@ const Dashboard = () => {
                         onClick={() => navigate(`/assessment?competency=${competency.key}`)}
                         className="w-full text-left hover:bg-accent/50 rounded-lg p-3 transition-all"
                       >
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="mb-2">
                           <span className="text-sm font-medium">{competency.name}</span>
-                          <Badge className={`text-xs ${badgeColor} border`}>{level}</Badge>
                         </div>
                         <ConfidenceBar percentage={percentage} />
                       </button>

@@ -25,7 +25,7 @@ export function LevelCard({ levelData, isLoading, onRecalculate }: LevelCardProp
     return (
       <Card className="shadow-soft">
         <CardHeader>
-          <CardTitle className="text-lg font-semibold">PM Level Assessment</CardTitle>
+          <CardTitle className="text-xl font-semibold">PM Level Assessment</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center py-8">
@@ -41,7 +41,7 @@ export function LevelCard({ levelData, isLoading, onRecalculate }: LevelCardProp
     return (
       <Card className="shadow-soft">
         <CardHeader>
-          <CardTitle className="text-lg font-semibold">PM Level Assessment</CardTitle>
+          <CardTitle className="text-xl font-semibold">PM Level Assessment</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8">
@@ -68,7 +68,7 @@ export function LevelCard({ levelData, isLoading, onRecalculate }: LevelCardProp
     <>
       <Card className="shadow-soft">
         <CardHeader>
-          <CardTitle className="text-lg font-semibold">Current PM Level</CardTitle>
+          <CardTitle className="text-xl font-semibold">Current PM Level</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Level Display */}
