@@ -28,6 +28,7 @@ import { MediumSeverityGapsWidget } from "@/components/dashboard/MediumSeverityG
 import { LowSeverityGapsWidget } from "@/components/dashboard/LowSeverityGapsWidget";
 import { useGapSummary } from "@/hooks/useGapSummary";
 import { useContentItemsWithGaps } from "@/hooks/useContentItemsWithGaps";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface OnboardingTask {
   id: string;
@@ -41,6 +42,7 @@ interface OnboardingTask {
 export default function NewUserDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, profile, updateProfile } = useAuth();
   const gapSummary = useGapSummary();
   const contentItemsWithGaps = useContentItemsWithGaps();
   const contentQualityWidgetRef = React.useRef<ContentQualityWidgetRef>(null);
@@ -267,9 +269,26 @@ export default function NewUserDashboard() {
   const progress = (completedTasks / totalTasks) * 100;
 
   const handleTaskToggle = (taskId: string) => {
-    setTasks(prev => prev.map(task => 
-      task.id === taskId ? { ...task, completed: !task.completed } : task
-    ));
+    setTasks(prev => {
+      const updated = prev.map(task => 
+        task.id === taskId ? { ...task, completed: !task.completed } : task
+      );
+      
+      // Check if all tasks are now completed
+      const allCompleted = updated.every(t => t.completed);
+      const preferredDashboard = (profile as any)?.preferred_dashboard;
+      
+      // If all completed and preference is still onboarding, flip to main
+      if (allCompleted && preferredDashboard !== 'main') {
+        updateProfile({ preferred_dashboard: 'main' } as any);
+        // Show toast notification
+        setTimeout(() => {
+          alert("Nice! You've completed onboarding. The main dashboard is now your default home.");
+        }, 300);
+      }
+      
+      return updated;
+    });
   };
 
   const handleTaskClick = (task: OnboardingTask) => {
@@ -283,7 +302,8 @@ export default function NewUserDashboard() {
   }, [completedTasks, totalTasks, showCongratulations]);
 
   const handleContinueToDashboard = () => {
-    navigate('/dashboard');
+    // Navigate to main dashboard (preference already updated when completing tasks)
+    navigate('/dashboard/main');
   };
 
   const groupedTasks = tasks.reduce((acc, task) => {
@@ -350,10 +370,44 @@ export default function NewUserDashboard() {
     );
   }
 
+  const handleSwitchToMain = async () => {
+    if (!user) return;
+    
+    // Update preference to main
+    await updateProfile({ preferred_dashboard: 'main' } as any);
+    
+    // Navigate to main dashboard
+    navigate('/dashboard/main');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto space-y-8">
+
+          {/* Dashboard Toggle Banner */}
+          <Card className="border-blue-200 bg-blue-50">
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-blue-900">
+                    Ready to see your full dashboard?
+                  </p>
+                  <p className="text-xs text-blue-700 mt-1">
+                    Switch to the main dashboard view for ongoing insights
+                  </p>
+                </div>
+                <Button
+                  variant="secondary"
+                  onClick={handleSwitchToMain}
+                  className="bg-white hover:bg-blue-100 border border-blue-300"
+                >
+                  View Dashboard for Onboarded Users
+                  <ArrowRight className="ml-2 w-4 h-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Top Row: Progress (80%) | Total Gaps (20%) */}
           <div className="grid grid-cols-5 gap-4">

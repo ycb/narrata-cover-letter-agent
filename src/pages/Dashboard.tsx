@@ -27,13 +27,18 @@ import { LevelCard } from "@/components/dashboard/LevelCard";
 // Import real data hook
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { usePMLevel } from "@/hooks/usePMLevel";
+import { useNavigate } from "react-router-dom";
+import { useGapSummary } from "@/hooks/useGapSummary";
+import { TotalGapsWidget } from "@/components/dashboard/TotalGapsWidget";
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [showProfileCompletion, setShowProfileCompletion] = useState(false);
   const { data: dashboardData, isLoading, error, refetch } = useDashboardData();
   const { levelData, isLoading: isLevelLoading, recalculate } = usePMLevel();
-  const { user, profile, getOAuthData, needsProfileCompletion } = useAuth();
+  const { user, profile, getOAuthData, needsProfileCompletion, updateProfile } = useAuth();
+  const gapSummary = useGapSummary();
 
   // Check if user needs profile completion (e.g., magic link users)
   useEffect(() => {
@@ -153,8 +158,35 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Metrics Overview - 3 Widgets */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {/* Dashboard Toggle Banner */}
+        <Card className="border-purple-200 bg-purple-50 mb-8">
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-purple-900">
+                  Still refining your stories and sections?
+                </p>
+                <p className="text-xs text-purple-700 mt-1">
+                  Switch to the onboarding dashboard to review gaps and complete tasks
+                </p>
+              </div>
+              <Button
+                variant="secondary"
+                onClick={async () => {
+                  await updateProfile({ preferred_dashboard: 'onboarding' } as any);
+                  navigate('/dashboard/onboarding');
+                }}
+                className="bg-white hover:bg-purple-100 border border-purple-300"
+              >
+                View Onboarding Dashboard
+                <ArrowRight className="ml-2 w-4 h-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Metrics Overview - 4 Widgets */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
           <StatsCard
             title="Stories"
             value={dashboardData.stats.stories}
@@ -183,6 +215,14 @@ const Dashboard = () => {
             trend={{
               value: `+${dashboardData.stats.skillsImprovement}% improvement this month`,
               isPositive: dashboardData.stats.skillsImprovement > 0
+            }}
+          />
+          <TotalGapsWidget
+            gapSummary={gapSummary.data}
+            isLoading={gapSummary.isLoading}
+            onClick={() => {
+              // Navigate to onboarding dashboard to review gaps
+              navigate('/dashboard/onboarding?scrollTo=tabs');
             }}
           />
         </div>
