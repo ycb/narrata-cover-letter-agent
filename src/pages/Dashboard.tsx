@@ -123,26 +123,11 @@ const Dashboard = () => {
                     const oauthData = getOAuthData();
                     const firstName = oauthData.firstName;
                     if (firstName) {
-                      return `Ready to land your next interview with strategic storytelling, ${firstName}?`;
+                      return `Ready to land your next interview with strategic storytelling?`;
                     }
                     return 'Ready to land your next interview with strategic storytelling?';
                   })()}
                 </p>
-                {/* OAuth Provider Info (for debugging) */}
-                {process.env.NODE_ENV === 'development' && (() => {
-                  const oauthData = getOAuthData();
-                  return (
-                    <div className="mt-2 p-2 bg-red-100 border border-red-300 rounded text-xs">
-                      <p className="text-red-800 font-bold">🔍 OAuth Debug Info:</p> <br />
-                      <p className="text-red-700"><strong>Full Name:</strong> {oauthData.fullName || '❌ Not available'}</p>
-                      <p className="text-red-700"><strong>First Name:</strong> {oauthData.firstName || '❌ Not available'}</p>
-                      <p className="text-red-700"><strong>Last Name:</strong> {oauthData.lastName || '❌ Not available'}</p>
-                      <p className="text-red-700"><strong>Avatar:</strong> {oauthData.picture ? '✅ Available' : '❌ Not available'}</p>
-                      <p className="text-red-700"><strong>Profile ID:</strong> {profile?.id || '❌ Not available'}</p>
-                      <p className="text-red-700"><strong>User Email:</strong> {user?.email || '❌ Not available'}</p>
-                    </div>
-                  );
-                })()}
               </div>
             </div>
             <Button
@@ -196,6 +181,7 @@ const Dashboard = () => {
               value: `+${dashboardData.stats.lastMonthStories} this month`, 
               isPositive: dashboardData.stats.lastMonthStories > 0 
             }}
+            onClick={() => navigate('/work-history')}
           />
           <StatsCard
             title="Cover Letters"
@@ -206,6 +192,7 @@ const Dashboard = () => {
               value: `+${dashboardData.stats.lastMonthCoverLetters} this month`,
               isPositive: dashboardData.stats.lastMonthCoverLetters > 0
             }}
+            onClick={() => navigate('/cover-letters')}
           />
           <StatsCard
             title="Senior PM Skills Coverage"
@@ -216,6 +203,7 @@ const Dashboard = () => {
               value: `+${dashboardData.stats.skillsImprovement}% improvement this month`,
               isPositive: dashboardData.stats.skillsImprovement > 0
             }}
+            onClick={() => navigate('/assessment')}
           />
           <TotalGapsWidget
             gapSummary={gapSummary.data}
