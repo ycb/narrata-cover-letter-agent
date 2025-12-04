@@ -193,3 +193,5 @@ Or click the refresh button in the LinkedIn panel (if component supports it).
 
 The LinkedIn data was always there in the database - the UI just wasn't looking in the right place. Now it checks both `linkedin_profiles` (primary) and `sources` (fallback) tables, ensuring the data displays correctly regardless of where it's stored.
 
+
+

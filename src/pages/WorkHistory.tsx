@@ -398,14 +398,9 @@ export default function WorkHistory() {
       const syntheticUserService = new SyntheticUserService();
       const syntheticContext = await syntheticUserService.getSyntheticUserContext();
       
-      // Tour mode: Handle separately - for now show empty state
-      // In production, tour should use real data or empty states
-      if (isTourActive && !syntheticContext.isSyntheticTestingEnabled) {
-        console.log('Tour mode active - showing empty state');
-        setWorkHistory([]);
-        setIsLoading(false);
-        return;
-      }
+      // Tour mode: Use real data, not empty state
+      // Only show empty if synthetic testing is explicitly disabled AND no real data exists
+      // (Removed the early return that forced empty state during tours)
       
       console.log('[WorkHistory] Synthetic context:', {
         enabled: syntheticContext.isSyntheticTestingEnabled,

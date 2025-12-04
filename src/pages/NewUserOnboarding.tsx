@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
   Upload, 
-  FileText, 
+  FileText,
   LinkedinIcon, 
   Mail, 
   CheckCircle, 
@@ -16,6 +16,7 @@ import {
   Lightbulb,
   BookOpen,
 } from "lucide-react";
+// Streaming runs under the hood only (blocking UX). No provider/global progress bar.
 import { ImportSummaryStep } from "@/components/onboarding/ImportSummaryStep";
 import { FileUploadCard } from "@/components/onboarding/FileUploadCard";
 import { useTour } from "@/contexts/TourContext";
@@ -25,6 +26,10 @@ import { useLinkedInUpload } from "@/hooks/useFileUpload";
 import { useOnboardingJobStream } from "@/hooks/useJobStream";
 import { StageStepper } from "@/components/streaming/StageStepper";
 import { isValidLinkedInUrl, normalizeLinkedInUrl } from "@/utils/linkedinUtils";
+import { FILE_UPLOAD_CONFIG } from "@/lib/config/fileUpload";
+import { TextExtractionService } from "@/services/textExtractionService";
+import { Progress } from "@/components/ui/progress";
+import { createClient as createSbClient } from "@supabase/supabase-js";
 
 type OnboardingStep = 'welcome' | 'upload' | 'review';
 
@@ -68,6 +73,13 @@ export default function NewUserOnboarding() {
   const [resumeCompleted, setResumeCompleted] = useState(false);
   const [linkedinCompleted, setLinkedinCompleted] = useState(false);
   const [coverLetterCompleted, setCoverLetterCompleted] = useState(false);
+  // Once the resume flow starts, keep CL & LI enabled for the rest of onboarding
+  const [resumeGateOpen, setResumeGateOpen] = useState(false);
+  // Timing metrics (ms since epoch)
+  const [onboardingStartMs, setOnboardingStartMs] = useState<number | null>(null);
+  const [resumeStartMs, setResumeStartMs] = useState<number | null>(null);
+  const [clStartMs, setClStartMs] = useState<number | null>(null);
+  const [liStartMs, setLiStartMs] = useState<number | null>(null);
   const linkedinRef = useRef<HTMLDivElement>(null);
   const coverLetterRef = useRef<HTMLDivElement>(null);
 
@@ -77,6 +89,164 @@ export default function NewUserOnboarding() {
   const { startTour } = useTour();
   const { user, profile } = useAuth();
   const linkedInUpload = useLinkedInUpload();
+  const [blockingStage, setBlockingStage] = useState<'pending' | 'extracting' | 'skeleton' | 'skills' | 'complete' | 'error'>('pending');
+  const [showBlockingProgress, setShowBlockingProgress] = useState(false);
+
+  const stageConfig: Record<string, { label: string; percent: number }> = {
+    pending: { label: 'Preparing...', percent: 5 },
+    extracting: { label: 'Reading resume...', percent: 15 },
+    skeleton: { label: 'Identifying roles...', percent: 50 },
+    skills: { label: 'Analyzing skills...', percent: 85 },
+    complete: { label: 'Profile ready!', percent: 100 },
+    error: { label: 'Processing failed', percent: 0 }
+  };
+  // Blocking resume upload using streaming under the hood with polling
+  const resumeBlockingUpload = useCallback(async (file: File) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return { success: false, error: 'Not authenticated' };
+
+      // Create an authenticated client to guarantee JWT on every request (avoids RLS role mismatch)
+      const url = (import.meta.env?.VITE_SUPABASE_URL) || '';
+      const key = (import.meta.env?.VITE_SUPABASE_ANON_KEY) || '';
+      const authSupabase = createSbClient(url, key, {
+        global: { headers: { Authorization: `Bearer ${session.access_token}` } }
+      });
+
+      // Open gates for subsequent cards immediately after starting resume flow
+      setResumeGateOpen(true);
+      setOnboardingStartMs(Date.now());
+      setResumeStartMs(Date.now());
+
+      // 1) Upload to storage
+      const fileName = `${Date.now()}-${file.name}`;
+      const storagePath = `resumes/${session.user.id}/${fileName}`;
+      const bucket = FILE_UPLOAD_CONFIG?.STORAGE?.BUCKET_NAME || 'user-files';
+      const { error: uploadError } = await authSupabase.storage.from(bucket).upload(storagePath, file, { upsert: true });
+      if (uploadError) return { success: false, error: uploadError.message };
+
+      // 2) Create source row
+      const checksum = await (async () => {
+        const buffer = await file.arrayBuffer();
+        const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      })();
+
+      const { data: source, error: sourceError } = await authSupabase
+        .from('sources')
+        .insert({
+          file_name: file.name,
+          file_type: file.type,
+          file_size: file.size,
+          file_checksum: checksum,
+          storage_path: storagePath,
+          source_type: 'resume',
+          processing_status: 'pending',
+          processing_stage: 'pending'
+        })
+        .select()
+        .single();
+      if (sourceError || !source?.id) {
+        return { success: false, error: sourceError?.message || 'Failed to create source' };
+      }
+
+      // 3) Client-side text extraction and update raw_text
+      const extractor = new TextExtractionService();
+      const extraction = await extractor.extractText(file);
+      if (!extraction.success) return { success: false, error: extraction.error || 'Text extraction failed' };
+
+      await authSupabase
+        .from('sources')
+        .update({ raw_text: extraction.text, processing_stage: 'extracting' })
+        .eq('id', source.id);
+
+      // Best-effort: extract LinkedIn URL from resume text and prefill UI + DB structured_data
+      const detectedLinkedIn = extractLinkedInUrl(extraction.text);
+      if (detectedLinkedIn) {
+        const normalized = normalizeLinkedInUrl(detectedLinkedIn);
+        if (normalized && isValidLinkedInUrl(normalized)) {
+          // Prefill UI immediately
+          setOnboardingData(prev => ({ ...prev, linkedinUrl: normalized }));
+          // Persist for later reference (non-destructive for MVP; may overwrite structured_data)
+          try {
+            await authSupabase
+              .from('sources')
+              .update({ structured_data: { contactInfo: { linkedin: normalized } } })
+              .eq('id', source.id);
+          } catch {}
+        }
+      }
+      setShowBlockingProgress(true);
+      setBlockingStage('extracting');
+
+      // 4) Trigger Edge function (do NOT await to keep UI polling responsive)
+      const fnPromise = fetch(
+        `${url}/functions/v1/process-resume`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+            'apikey': (import.meta.env?.VITE_SUPABASE_ANON_KEY) || ''
+          },
+          body: JSON.stringify({ sourceId: source.id, userId: session.user.id })
+        }
+      ).then(async (res) => {
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({} as any));
+          throw new Error(err?.message || 'Failed to start processing');
+        }
+      }).catch((e) => {
+        console.warn('[Onboarding] Edge start error (will continue polling):', e);
+      });
+
+      // 5) Poll until complete or error (blocking UX) while edge function runs
+      const deadline = Date.now() + 180_000; // up to 3 minutes
+      while (Date.now() < deadline) {
+        const { data: s, error: sErr } = await authSupabase
+          .from('sources')
+          .select('processing_stage, processing_error')
+          .eq('id', source.id)
+          .single();
+        if (!sErr) {
+          if (s?.processing_stage === 'complete') {
+            setBlockingStage('complete');
+            setShowBlockingProgress(false);
+            setOnboardingData(prev => ({ ...prev, resume: file }));
+            setResumeCompleted(true);
+            // Client-side resume duration (server also logs in evaluation_runs)
+            try {
+              if (resumeStartMs) {
+                const resumeMs = Date.now() - resumeStartMs;
+                await authSupabase.from('evaluation_runs').insert({
+                  user_id: session.user.id,
+                  session_id: (session as any)?.session?.id || (session as any).user?.id,
+                  source_id: source.id,
+                  file_type: 'resume_client',
+                  total_latency_ms: resumeMs
+                });
+              }
+            } catch {}
+            return { success: true, fileId: source.id };
+          }
+          if (s?.processing_stage === 'skeleton') setBlockingStage('skeleton');
+          if (s?.processing_stage === 'skills') setBlockingStage('skills');
+          if (s?.processing_stage === 'error') {
+            setBlockingStage('error');
+            setShowBlockingProgress(false);
+            return { success: false, error: s?.processing_error || 'Processing failed' };
+          }
+        }
+        await new Promise(r => setTimeout(r, 1000));
+      }
+      // Ensure the function promise settles; if it threw earlier, surface timeout
+      await Promise.race([fnPromise, Promise.resolve()]);
+      return { success: false, error: 'Processing timeout' };
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Upload failed' };
+    }
+  }, [setCurrentStep, setOnboardingData, setResumeCompleted]);
 
   // Streaming: onboarding analysis
   const {
@@ -125,20 +295,33 @@ export default function NewUserOnboarding() {
     }
   };
 
+  // Pull a LinkedIn profile URL from free-form text
+  function extractLinkedInUrl(text: string): string | null {
+    if (!text) return null;
+    // Match common LinkedIn profile URL variants
+    const re = /(https?:\/\/)?(www\.)?linkedin\.com\/(in|pub)\/[A-Za-z0-9\-_%/]+/i;
+    const m = text.match(re);
+    return m ? m[0] : null;
+  }
+
   const handleFileUpload = (type: 'resume' | 'coverLetter', file: File | null) => {
     if (file === null) {
       // Clear the file from state
       if (type === 'coverLetter') {
         setOnboardingData(prev => ({ ...prev, coverLetterFile: undefined }));
         setCoverLetterCompleted(false);
+        setClStartMs(null);
       } else if (type === 'resume') {
         setOnboardingData(prev => ({ ...prev, [type]: undefined }));
         setResumeCompleted(false);
+        setResumeStartMs(null);
       }
     } else {
       // Set the file in state
       if (type === 'coverLetter') {
         setOnboardingData(prev => ({ ...prev, coverLetterFile: file }));
+        // Start CL timer on first selection
+        if (!clStartMs) setClStartMs(Date.now());
       } else {
         setOnboardingData(prev => ({ ...prev, [type]: file }));
       }
@@ -162,6 +345,24 @@ export default function NewUserOnboarding() {
       setLinkedinCompleted(true);
     } else if (uploadType === 'coverLetter') {
       setCoverLetterCompleted(true);
+      // Log CL latency
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && clStartMs) {
+          const url = (import.meta.env?.VITE_SUPABASE_URL) || '';
+          const key = (import.meta.env?.VITE_SUPABASE_ANON_KEY) || '';
+          const authSupabase = createSbClient(url, key, {
+            global: { headers: { Authorization: `Bearer ${session.access_token}` } }
+          });
+          const clMs = Date.now() - clStartMs;
+          await authSupabase.from('evaluation_runs').insert({
+            user_id: session.user.id,
+            session_id: (session as any)?.session?.id || (session as any).user?.id,
+            file_type: 'cover_letter',
+            total_latency_ms: clMs
+          });
+        }
+      } catch {}
     }
     
     // Clear processing state after upload completes
@@ -265,9 +466,29 @@ export default function NewUserOnboarding() {
   // Auto-clear processing state when all uploads are complete
   useEffect(() => {
     if (resumeCompleted && linkedinCompleted && coverLetterCompleted) {
-      // All uploads complete - ensure processing state is cleared
-      console.log('[Onboarding] All uploads complete - clearing processing state');
+      // All uploads complete - proceed to confirmation automatically
       setIsProcessing(false);
+      // Log overall onboarding total time
+      (async () => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session && onboardingStartMs) {
+            const url = (import.meta.env?.VITE_SUPABASE_URL) || '';
+            const key = (import.meta.env?.VITE_SUPABASE_ANON_KEY) || '';
+            const authSupabase = createSbClient(url, key, {
+              global: { headers: { Authorization: `Bearer ${session.access_token}` } }
+            });
+            const totalMs = Date.now() - onboardingStartMs;
+            await authSupabase.from('evaluation_runs').insert({
+              user_id: session.user.id,
+              session_id: (session as any)?.session?.id || (session as any).user?.id,
+              file_type: 'onboarding_total',
+              total_latency_ms: totalMs
+            });
+          }
+        } catch {}
+      })();
+      setCurrentStep('review');
     }
   }, [resumeCompleted, linkedinCompleted, coverLetterCompleted]);
 
@@ -306,13 +527,32 @@ export default function NewUserOnboarding() {
 
       try {
         if (linkedInUpload?.connectLinkedIn) {
+          // Start LI timer
+          setLiStartMs(Date.now());
           const result = await linkedInUpload.connectLinkedIn(normalizedUrl);
           if (result?.success) {
             setLinkedinAutoCompleted(true);
             await handleUploadComplete(result.fileId || `linkedin_${Date.now()}`, 'linkedin');
+            // Log LI latency
+            try {
+              const { data: { session } } = await supabase.auth.getSession();
+              if (session && liStartMs) {
+                const url = (import.meta.env?.VITE_SUPABASE_URL) || '';
+                const key = (import.meta.env?.VITE_SUPABASE_ANON_KEY) || '';
+                const authSupabase = createSbClient(url, key, {
+                  global: { headers: { Authorization: `Bearer ${session.access_token}` } }
+                });
+                const liMs = Date.now() - liStartMs;
+                await authSupabase.from('evaluation_runs').insert({
+                  user_id: session.user.id,
+                  session_id: (session as any)?.session?.id || (session as any).user?.id,
+                  file_type: 'linkedin',
+                  total_latency_ms: liMs
+                });
+              }
+            } catch {}
           }
         }
-        setLinkedinCompleted(true);
       } finally {
         setAutoPopulatingLinkedIn(false);
       }
@@ -391,48 +631,83 @@ export default function NewUserOnboarding() {
       </Card>
 
       {/* Welcome Content */}
-      <div className="text-center space-y-6">
+      <div className="text-center space-y-8 max-w-3xl mx-auto">
         <div className="space-y-4">
-          <div className="mx-auto w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-            <Sparkles className="w-10 h-10 text-white" />
-          </div>
+       
           <h1 className="text-4xl font-bold text-foreground">
             Welcome to Narrata!
           </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Let's unlock your job search superpowers.
+          <p className="text-lg text-muted-foreground">
+            Setting up your profile is simple and fast
           </p>
         </div>
-        
-        <div className="max-w-md mx-auto space-y-4">
-          <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            <CheckCircle className="w-4 h-4 text-green-500" />
-            <span>Get your personalized PM Level Assessment</span>
-          </div>
-          <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            <CheckCircle className="w-4 h-4 text-green-500" />
-            <span>Build a reusable story library</span>
-          </div>
-          <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            <CheckCircle className="w-4 h-4 text-green-500" />
-            <span>Generate targeted cover letters</span>
-          </div>
+
+        {/* Have Ready Section */}
+        <div className="text-left space-y-4 bg-slate-50 p-6 rounded-lg">
+          <h2 className="text-xl font-semibold text-foreground">Have ready</h2>
+          <ul className="space-y-2 text-muted-foreground">
+            <li className="flex items-start gap-2">
+              <span className="text-blue-500 font-bold mt-1">•</span>
+              <span>Your most recent resume (PDF, DOCX, TXT)</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-blue-500 font-bold mt-1">•</span>
+              <span>Your best cover letter (PDF, DOCX, TXT)</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-blue-500 font-bold mt-1">•</span>
+              <span>Your LinkedIn profile URL (if included in your resume, we extract automatically)</span>
+            </li>
+          </ul>
         </div>
 
-        <Button 
-          size="lg" 
-          onClick={handleNextStep}
-          className="px-8 py-3 text-lg"
-        >
-          Get Started
-          <ArrowRight className="ml-2 w-5 h-5" />
-        </Button>
+        {/* How It Works Section */}
+        <div className="text-left space-y-3">
+          <h2 className="text-xl font-semibold text-foreground">How it works</h2>
+          <p className="text-muted-foreground">
+            Upload your documents on the next screen. We'll import your work history, create a smart cover letter template, and flag any issues worth addressing before applying to new jobs.
+          </p>
+        </div>
+
+        {/* How Long It Takes Section */}
+        <div className="text-left space-y-3">
+          <h2 className="text-xl font-semibold text-foreground">How long it takes</h2>
+          <p className="text-muted-foreground font-semibold">About 1 minute</p>
+          <p className="text-muted-foreground">
+            Once we finish, you'll get summary of everything we imported.
+          </p>
+        </div>
+
+        {/* CTA */}
+        <div className="space-y-2 pt-4">
+          <Button 
+            size="lg" 
+            onClick={handleNextStep}
+            className="px-8 py-3 text-lg"
+          >
+            Continue to Upload
+            <ArrowRight className="ml-2 w-5 h-5" />
+          </Button>
+        </div>
       </div>
     </div>
   );
 
+  // Streaming upload UI removed per UI rollback request
+
   const renderUploadStep = () => (
     <div className="space-y-8">
+      {/* Global progress (blocking, single indicator) */}
+      {showBlockingProgress && currentStep === 'upload' && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-background/95 border-b px-4 py-2">
+          <div className="max-w-4xl mx-auto flex items-center gap-4">
+            <Progress value={(stageConfig[blockingStage] || stageConfig.pending).percent} className="flex-1 h-2" />
+            <span className="text-sm text-muted-foreground whitespace-nowrap">
+              {(stageConfig[blockingStage] || stageConfig.pending).label}
+            </span>
+          </div>
+        </div>
+      )}
       {/* Progress Bar */}
       <Card className="p-6">
         <div className="flex items-center justify-center relative">
@@ -506,7 +781,6 @@ export default function NewUserOnboarding() {
       </div>
 
       <div className="flex flex-col gap-6">
-        
         {/* Resume */}
         <div>
           <FileUploadCard
@@ -519,12 +793,34 @@ export default function NewUserOnboarding() {
             onUploadError={handleUploadError}
             currentValue={onboardingData.resume}
             required={true}
+            customUpload={resumeBlockingUpload}
           />
         </div>
         
-        {/* LinkedIn */}
+        {/* Cover Letter (placed before LinkedIn; enabled once resume flow starts) */}
+        <div ref={coverLetterRef}>
+          <div className={!resumeGateOpen ? 'opacity-50 pointer-events-none' : ''}>
+            <FileUploadCard
+              type="coverLetter"
+              title="Best Cover Letter"
+              description={resumeGateOpen 
+                ? "Upload or paste your best cover letter example" 
+                : "Complete resume upload first"}
+              icon={Mail}
+              onTextInput={handleCoverLetterText}
+              onFileUpload={handleFileUpload}
+              onUploadComplete={handleUploadComplete}
+              onUploadError={handleUploadError}
+              currentValue={(onboardingData as any).coverLetterFile || onboardingData.coverLetter}
+              disabled={!resumeGateOpen}
+              required={true}
+            />
+          </div>
+        </div>
+
+        {/* LinkedIn (moved after Cover Letter; enabled once resume flow starts) */}
         <div ref={linkedinRef}>
-          <div className={!resumeCompleted ? 'opacity-50 pointer-events-none' : ''}>
+          <div className={!resumeGateOpen ? 'opacity-50 pointer-events-none' : ''}>
             <FileUploadCard
               type="linkedin"
               title="LinkedIn Profile"
@@ -532,7 +828,7 @@ export default function NewUserOnboarding() {
                 ? "✨ Auto-populating from resume..." 
                 : linkedinAutoCompleted && linkedinCompleted
                   ? "LinkedIn profile imported from your resume"
-                  : resumeCompleted 
+                  : resumeGateOpen 
                     ? (linkedinUrl 
                       ? "LinkedIn URL found in resume - click Connect to enrich" 
                       : "Enter your LinkedIn URL to enrich your work history")
@@ -542,28 +838,7 @@ export default function NewUserOnboarding() {
               onUploadComplete={handleUploadComplete}
               onUploadError={handleUploadError}
               currentValue={linkedinUrl}
-              disabled={!resumeCompleted || autoPopulatingLinkedIn}
-              required={true}
-            />
-          </div>
-        </div>
-        
-        {/* Cover Letter */}
-        <div ref={coverLetterRef}>
-          <div className={!linkedinCompleted ? 'opacity-50 pointer-events-none' : ''}>
-            <FileUploadCard
-              type="coverLetter"
-              title="Best Cover Letter"
-              description={linkedinCompleted 
-                ? "Upload or paste your best cover letter example" 
-                : "Complete LinkedIn step first"}
-              icon={Mail}
-              onTextInput={handleCoverLetterText}
-              onFileUpload={handleFileUpload}
-              onUploadComplete={handleUploadComplete}
-              onUploadError={handleUploadError}
-              currentValue={onboardingData.coverLetter}
-              disabled={!linkedinCompleted}
+              disabled={!resumeGateOpen || autoPopulatingLinkedIn}
               required={true}
             />
           </div>
@@ -571,39 +846,7 @@ export default function NewUserOnboarding() {
         
       </div>
 
-      <div className="text-center">
-        <Button 
-          size="lg" 
-          onClick={handleNextStep}
-          disabled={!resumeCompleted || !linkedinCompleted || !coverLetterCompleted || isProcessing}
-          className="px-8 py-3 text-lg"
-        >
-          {isProcessing ? (
-            <>
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" />
-              Analyzing...
-            </>
-          ) : !resumeCompleted ? (
-            <>
-              Upload Resume to Continue
-            </>
-          ) : !linkedinCompleted ? (
-            <>
-              Add LinkedIn to Continue
-            </>
-          ) : !coverLetterCompleted ? (
-            <>
-              Add Cover Letter to Continue
-            </>
-          ) : (
-            <>
-              Review & Approve
-              <ArrowRight className="ml-2 w-5 h-5" />
-            </>
-          )}
-        </Button>
-        
-      </div>
+      {/* Button removed in blocking UX; auto-advance on completion */}
     </div>
   );
 
@@ -811,7 +1054,6 @@ export default function NewUserOnboarding() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       <div className="container mx-auto px-4 py-8">
-
         {/* Main Content */}
         <div className="max-w-4xl mx-auto">
           {renderCurrentStep()}

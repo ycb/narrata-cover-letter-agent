@@ -27,23 +27,23 @@ const DEFAULT_TOUR_STEPS: TourStep[] = [
   {
     id: 'work-history',
     path: '/work-history',
-    title: 'Work History & Stories',
-    description: 'Your work history is organized by roles and stories. Showing your work via external links can strengthen your cover letters.',
-    highlights: ['Roles', 'Stories', 'Links']
+    title: 'Work History',
+    description: 'Your work history is organized by roles and stories. Confirm correct and resolve gaps here first',
+    highlights: ['Roles', 'Stories', 'Gaps', 'Metrics']
   },
   {
-    id: 'edit-template',
+    id: 'saved-sections',
+    path: '/saved-sections',
+    title: 'Saved Sections',
+    description: 'Saved Sections is your library of cover letter content.',
+    highlights: ['Saved Sections']
+  },
+  {
+    id: 'cover-letter-template',
     path: '/cover-letter-template',
-    title: 'Edit Template & Saved Sections',
-    description: 'Your template is used to create a first draft. Choose between static or dynamic content. Saved Sections is your library of cover letter content.',
-    highlights: ['Template', 'Saved Sections']
-  },
-  {
-    id: 'cover-letters',
-    path: '/cover-letters',
-    title: 'Cover Letter Generator',
-    description: 'Creating new cover letters and tracking progress has never been easier!',
-    highlights: ['Generator', 'Progress']
+    title: 'Cover Letter Template',
+    description: 'Your template is used to create a first draft. Choose between static or dynamic content.',
+    highlights: ['Template']
   }
 ];
 

@@ -34,23 +34,30 @@ export function ImportSummaryStep({ onNext }: ImportSummaryStepProps) {
       try {
         console.log('[ImportSummary] Fetching import stats for user:', user.id);
         
-        // Get companies count
-        const { count: companiesCount, error: companiesError } = await supabase
-          .from('companies')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', user.id);
-
-        if (companiesError) {
-          console.error('[ImportSummary] Error fetching companies:', companiesError);
-        } else {
-          console.log('[ImportSummary] Companies count:', companiesCount);
+        // Find the latest resume source for this user (scope counts to the current run)
+        const { data: latestSource, error: sourceErr } = await supabase
+          .from('sources')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('source_type', 'resume')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (sourceErr && sourceErr.code !== 'PGRST116') {
+          console.error('[ImportSummary] Error fetching latest source:', sourceErr);
         }
+        const sourceId = latestSource?.id || null;
 
-        // Get work items count
-        const { count: rolesCount, error: rolesError } = await supabase
+        // Roles = work_items for current source (fallback to user scope if no source)
+        const rolesQuery = supabase
           .from('work_items')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', user.id);
+          .select('*', { count: 'exact', head: true });
+        if (sourceId) {
+          rolesQuery.eq('source_id', sourceId);
+        } else {
+          rolesQuery.eq('user_id', user.id);
+        }
+        const { count: rolesCount, error: rolesError } = await rolesQuery;
 
         if (rolesError) {
           console.error('[ImportSummary] Error fetching work_items:', rolesError);
@@ -58,11 +65,32 @@ export function ImportSummaryStep({ onNext }: ImportSummaryStepProps) {
           console.log('[ImportSummary] Work items count:', rolesCount);
         }
 
+        // Companies = distinct companies linked to work_items in current source
+        // Companies count by distinct company_id from work_items (scoped to source if available)
+        let companiesCount = 0;
+        const companyQuery = supabase
+          .from('work_items')
+          .select('company_id', { head: false })
+          .not('company_id', 'is', null);
+        if (sourceId) {
+          companyQuery.eq('source_id', sourceId);
+        } else {
+          companyQuery.eq('user_id', user.id);
+        }
+        const { data: companyRows, error: companiesError } = await companyQuery;
+        if (companiesError) {
+          console.error('[ImportSummary] Error fetching company_ids:', companiesError);
+        } else {
+          const unique = new Set((companyRows || []).map((r: any) => r.company_id));
+          companiesCount = unique.size;
+        }
+
         // Get stories count
         const { count: storiesCount, error: storiesError } = await supabase
           .from('stories')
           .select('*', { count: 'exact', head: true })
-          .eq('user_id', user.id);
+          .eq('user_id', user.id)
+          .maybeSingle(); // count-only head; maybeSingle to silence "no rows" logs
 
         if (storiesError) {
           console.error('[ImportSummary] Error fetching approved_content:', storiesError);
@@ -100,7 +128,7 @@ export function ImportSummaryStep({ onNext }: ImportSummaryStepProps) {
         }
 
         setStats({
-          companies: companiesCount || 0,
+          companies: companiesCount ?? 0,
           roles: rolesCount || 0,
           stories: storiesCount || 0,
           linkedinConnected: !!linkedinData,
@@ -120,9 +148,6 @@ export function ImportSummaryStep({ onNext }: ImportSummaryStepProps) {
       {/* Success Header */}
       <div className="text-center space-y-4">
         <div className="flex justify-center">
-          <div className="rounded-full bg-green-100 p-3">
-            <CheckCircle2 className="h-12 w-12 text-green-600" />
-          </div>
         </div>
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Import Successful!</h2>
@@ -218,6 +243,7 @@ export function ImportSummaryStep({ onNext }: ImportSummaryStepProps) {
       )}
 
       {/* Sharpen the Axe Message - only show if we have data */}
+      {/* TODO: Move to dashboard or remove later
       {!stats.loading && (stats.companies > 0 || stats.roles > 0 || stats.stories > 0) && (
         <Card className="border-primary/20 bg-primary/5">
           <CardHeader>
@@ -250,19 +276,14 @@ export function ImportSummaryStep({ onNext }: ImportSummaryStepProps) {
           </CardContent>
         </Card>
       )}
+      */}
 
       {/* Action Buttons */}
-      <div className="flex justify-between items-center pt-4">
-        <Button
-          variant="outline"
-          onClick={() => window.location.href = '/work-history'}
-        >
-          Go to Work History
-        </Button>
+      <div className="flex justify-center items-center pt-4">
         <Button
           onClick={onNext}
           size="lg"
-          className="gap-2"
+          className="gap-2 w-full max-w-md"
         >
           Start Product Tour
           <ArrowRight className="h-4 w-4" />

@@ -20,11 +20,9 @@ import {
 import { useFileUpload, useLinkedInUpload } from "@/hooks/useFileUpload";
 import type { FileType } from "@/types/fileUpload";
 import { TextExtractionService } from "@/services/textExtractionService";
-import { UploadProgressBar } from "./UploadProgressBar";
+// Inline progress bars removed in favor of global progress bar
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { StreamingProgress } from "@/components/shared/StreamingProgress";
-import { useStreamingProgress } from "@/hooks/useStreamingProgress";
-import type { StreamingLifecycleStatus } from "@/hooks/useStreamingProgress";
+// Inline streaming panel removed
 
 interface FileUploadCardProps {
   type: 'resume' | 'linkedin' | 'coverLetter' | 'caseStudies';
@@ -40,6 +38,12 @@ interface FileUploadCardProps {
   currentValue?: string | File;
   onUploadComplete?: (fileId: string, type: FileType) => void;
   onUploadError?: (error: string) => void;
+  /**
+   * Optional custom upload handler. When provided (e.g., for resume streaming),
+   * the component will call this instead of the default fileUpload service.
+   * Must return { success, fileId?, error? } similar to UploadResult.
+   */
+  customUpload?: (file: File) => Promise<{ success: boolean; fileId?: string; error?: string }>;
 }
 
 export function FileUploadCard({
@@ -55,7 +59,8 @@ export function FileUploadCard({
   disabled = false,
   currentValue,
   onUploadComplete,
-  onUploadError
+  onUploadError,
+  customUpload
 }: FileUploadCardProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [linkedInUrl, setLinkedInUrl] = useState('');
@@ -69,54 +74,7 @@ export function FileUploadCard({
   const manualTextHashRef = useRef<string | null>(null);
   const manualTextProcessingRef = useRef(false);
 
-  const streamingStepDefinitions = useMemo(() => {
-    if (type === 'resume') {
-      return [
-        { id: 'upload', label: 'Upload resume' },
-        { id: 'extract', label: 'Extract resume text' },
-        { id: 'analyze', label: 'Analyze resume' },
-        { id: 'finalize', label: 'Organize results' }
-      ];
-    }
-
-    if (type === 'coverLetter') {
-      return [
-        { id: 'upload', label: 'Upload cover letter' },
-        { id: 'extract', label: 'Extract letter text' },
-        { id: 'analyze', label: 'Analyze with AI' },
-        { id: 'finalize', label: 'Save reusable sections' }
-      ];
-    }
-
-    return [];
-  }, [type]);
-
-  const {
-    steps: streamingSteps,
-    status: _streamingStatus,
-    reset: resetStreaming,
-    setStepStatus: setStreamingStepStatus,
-    setStepProgress: setStreamingStepProgress
-  } = useStreamingProgress({ steps: streamingStepDefinitions, autoResolveSteps: false });
-
-  const streamingActiveRef = useRef(false);
-
-  const streamingLifecycleStatus = useMemo<StreamingLifecycleStatus>(() => {
-    if (streamingSteps.some(step => step.status === "error")) {
-      return "error";
-    }
-    if (streamingSteps.some(step => step.status === "running")) {
-      return "streaming";
-    }
-    if (streamingSteps.some(step => step.status === "success")) {
-      return "complete";
-    }
-    return "idle";
-  }, [streamingSteps]);
-
-  const shouldShowStreaming =
-    streamingStepDefinitions.length > 0 &&
-    streamingSteps.some(step => step.status !== "pending");
+  // Streaming step state removed
 
   // Update local state when currentValue prop changes
   useEffect(() => {
@@ -129,7 +87,7 @@ export function FileUploadCard({
     }
   }, [currentValue, type]);
 
-  // Listen for file upload progress events and update streaming timeline
+  // Listen for file upload progress events (status text only; no inline progress UI)
   useEffect(() => {
     const handleProgress = (event: Event) => {
       const customEvent = event as CustomEvent;
@@ -149,94 +107,15 @@ export function FileUploadCard({
         setProcessingStatus(message);
       }
 
-      if (!streamingStepDefinitions.length || !stage) {
+      if (!stage) {
         return;
       }
-
-      const normalizedProgress =
-        typeof progress === "number" ? Math.max(0, Math.min(1, progress / 100)) : undefined;
-
-      switch (stage) {
-        case "uploading": {
-          if (!streamingActiveRef.current) {
-            resetStreaming();
-            streamingActiveRef.current = true;
-          }
-          setStreamingStepStatus("upload", "running", message);
-          if (normalizedProgress !== undefined) {
-            setStreamingStepProgress("upload", normalizedProgress);
-          }
-          break;
-        }
-        case "extracting": {
-          setStreamingStepStatus("upload", "success");
-          setStreamingStepProgress("upload", 1);
-          setStreamingStepStatus("extract", "running", message);
-          if (normalizedProgress !== undefined) {
-            setStreamingStepProgress("extract", normalizedProgress);
-          }
-          break;
-        }
-        case "extracted": {
-          setStreamingStepStatus("extract", "success", message);
-          setStreamingStepProgress("extract", 1);
-          break;
-        }
-        case "analyzing": {
-          setStreamingStepStatus("extract", "success");
-          setStreamingStepProgress("extract", 1);
-          setStreamingStepStatus("analyze", "running", message);
-          if (normalizedProgress !== undefined) {
-            setStreamingStepProgress("analyze", normalizedProgress);
-          }
-          break;
-        }
-        case "structuring": {
-          setStreamingStepStatus("analyze", "success");
-          setStreamingStepProgress("analyze", 1);
-          setStreamingStepStatus("finalize", "running", message);
-          if (normalizedProgress !== undefined) {
-            setStreamingStepProgress("finalize", normalizedProgress);
-          }
-          break;
-        }
-        case "complete": {
-          setStreamingStepStatus("finalize", "success", message ?? "Complete!");
-          setStreamingStepProgress("finalize", 1);
-          streamingActiveRef.current = false;
-          break;
-        }
-        case "duplicate": {
-          resetStreaming();
-          setStreamingStepStatus("upload", "success", message);
-          setStreamingStepProgress("upload", 1);
-          setStreamingStepStatus("extract", "success");
-          setStreamingStepProgress("extract", 1);
-          setStreamingStepStatus("analyze", "success");
-          setStreamingStepProgress("analyze", 1);
-          setStreamingStepStatus("finalize", "success");
-          setStreamingStepProgress("finalize", 1);
-          streamingActiveRef.current = false;
-          break;
-        }
-        case "error": {
-          setStreamingStepStatus("finalize", "error", message ?? "Processing failed");
-          streamingActiveRef.current = false;
-          break;
-        }
-        default: {
-          break;
-        }
-      }
+      // Only update status text; detailed inline progress removed
     };
 
     window.addEventListener("file-upload-progress", handleProgress);
     return () => window.removeEventListener("file-upload-progress", handleProgress);
   }, [
-    resetStreaming,
-    setStreamingStepProgress,
-    setStreamingStepStatus,
-    streamingStepDefinitions.length,
     type,
   ]);
 
@@ -427,13 +306,19 @@ export function FileUploadCard({
     // ACTUALLY UPLOAD AND PROCESS THE FILE
     console.log('📤 Triggering actual file upload and processing for:', file.name);
     try {
-      const result = await fileUpload.uploadFile(file, type as FileType);
+      // Prefer custom uploader when provided (e.g., streaming resume path)
+      const result = customUpload && type === 'resume'
+        ? await customUpload(file)
+        : await fileUpload.uploadFile(file, type as FileType);
       
       if (result.success && result.fileId) {
         console.log('✅ File upload and processing successful, ID:', result.fileId);
         setUploadedFileId(result.fileId);
         setProcessingStatus('Complete!');
-        // onUploadComplete will be called by the fileUpload hook's onComplete callback
+        // If a custom uploader was used, the hook won't auto-call onUploadComplete; call it here.
+        if (onUploadComplete && (customUpload && type === 'resume')) {
+          onUploadComplete(result.fileId, type as FileType);
+        }
       } else {
         console.error('❌ File upload failed:', result.error);
         setError(result.error || 'Upload failed');
@@ -451,7 +336,7 @@ export function FileUploadCard({
         onUploadError(errorMsg);
       }
     }
-  }, [fileUpload, onFileUpload, type, onUploadError]);
+  }, [fileUpload, onFileUpload, type, onUploadError, customUpload, onUploadComplete]);
 
   const handleLinkedInSubmit = useCallback(async () => {
     if (!onLinkedInUrl) return;
@@ -582,16 +467,7 @@ export function FileUploadCard({
         </div>
       )}
 
-      <UploadProgressBar
-        isUploading={fileUpload.isUploading}
-        isConnecting={linkedInUpload.isConnecting}
-        progress={fileUpload.progress}
-        onRetry={fileUpload.retryUpload}
-        uploadingText={processingStatus || "Processing..."}
-        connectingText="Connecting to LinkedIn..."
-      />
-
-      {renderStreamingPanel()}
+      {/* Inline progress removed - use global progress bar */}
     </div>
   );
 
@@ -633,15 +509,7 @@ export function FileUploadCard({
         {error && <ErrorMessage message={error} />}
       </div>
 
-      {/* Show progress bar for LinkedIn connections */}
-      {(linkedInUpload.isConnecting || uploadedFileId) && (
-        <UploadProgressBar
-          isConnecting={linkedInUpload.isConnecting}
-          isUploading={false}
-          progress={[]}
-          connectingText="Connecting to LinkedIn and enriching data..."
-        />
-      )}
+      {/* Inline LinkedIn progress removed - use global progress bar */}
 
       {linkedInUpload.error && (
         <div className="flex items-center gap-2 text-red-600 text-sm">
@@ -652,21 +520,7 @@ export function FileUploadCard({
     </div>
   );
 
-  const renderStreamingPanel = () => {
-    if (!shouldShowStreaming) {
-      return null;
-    }
-
-    return (
-      <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-4">
-        <StreamingProgress
-          steps={streamingSteps}
-          status={streamingLifecycleStatus}
-          showTimeline={false}
-        />
-      </div>
-    );
-  };
+  // Streaming panel removed
 
   const renderCoverLetterInput = () => (
     <div className="space-y-4">
@@ -708,17 +562,7 @@ export function FileUploadCard({
         {error && <ErrorMessage message={error} />}
       </div>
 
-      {/* Show progress bar for file uploads (when uploading or when file is uploaded) */}
-      {(fileUpload.isUploading || uploadedFileId) && (
-        <UploadProgressBar
-          isUploading={fileUpload.isUploading}
-          progress={fileUpload.progress}
-          onRetry={fileUpload.retryUpload}
-          uploadingText={processingStatus || "Processing..."}
-        />
-      )}
-
-      {renderStreamingPanel()}
+      {/* Inline cover letter progress removed - use global progress bar */}
 
       {/* Divider */}
       <div className="relative">

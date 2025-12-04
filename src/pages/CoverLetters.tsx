@@ -27,8 +27,6 @@ import { CoverLetterViewModal } from "@/components/cover-letters/CoverLetterView
 import { CoverLetterEditModal } from "@/components/cover-letters/CoverLetterEditModal";
 import { UserGoalsModal } from "@/components/user-goals/UserGoalsModal";
 import { AddStoryModal } from "@/components/work-history/AddStoryModal";
-import { useTour } from "@/contexts/TourContext";
-import { TourBannerFull } from "@/components/onboarding/TourBannerFull";
 import { useAuth } from "@/contexts/AuthContext";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingState } from "@/components/shared/LoadingState";
@@ -241,15 +239,6 @@ const formatShortDate = (value: string): string =>
 
 export default function CoverLetters() {
   const { user } = useAuth();
-  const {
-    isActive: isTourActive,
-    currentStep: tourStep,
-    tourSteps,
-    currentTourStep,
-    nextStep,
-    previousStep,
-    cancelTour
-  } = useTour();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | CoverLetterStatus>("all");
@@ -449,7 +438,7 @@ export default function CoverLetters() {
 
   return (
     <div className="min-h-screen bg-background">
-      <main className={`container mx-auto px-4 py-6 ${isTourActive ? "pt-24" : ""}`}>
+      <main className="container mx-auto px-4 py-6">
         <div className="max-w-7xl mx-auto space-y-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
@@ -726,21 +715,6 @@ export default function CoverLetters() {
         onSave={handleStorySaved}
         isViewAllContext={true}
       />
-      
-      {isTourActive && (
-        <TourBannerFull
-          currentStep={tourStep}
-          totalSteps={tourSteps.length}
-          title={currentTourStep?.title ?? "Cover letter workspace tour"}
-          description={currentTourStep?.description ?? ""}
-          onNext={nextStep}
-          onPrevious={previousStep}
-          onCancel={cancelTour}
-          canGoNext={tourStep < tourSteps.length - 1}
-          canGoPrevious={tourStep > 0}
-          isLastStep={tourStep >= tourSteps.length - 1}
-        />
-      )}
     </div>
   );
 }

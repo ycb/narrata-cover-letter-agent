@@ -667,6 +667,8 @@ source_type: dbSourceType,
         }
       }
       
+      // Resume continues through legacy client-side path until streaming UI is approved
+      
       // BATCHING DISABLED - GPT-3.5-turbo is fast enough for individual processing
       // Process each file immediately instead of waiting for batching
       console.log(`→ Batching DISABLED - will process ${type} immediately`);

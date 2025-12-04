@@ -19,6 +19,8 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingState } from "@/components/shared/LoadingState";
 import { useToast } from "@/hooks/use-toast";
 import { SyntheticUserService } from "@/services/syntheticUserService";
+import { useTour } from "@/contexts/TourContext";
+import { TourBannerFull } from "@/components/onboarding/TourBannerFull";
 
 type SavedSectionItem = {
   id: string;
@@ -54,6 +56,7 @@ export default function SavedSections() {
   const { user } = useAuth();
   const { goals } = useUserGoals();
   const { toast } = useToast();
+  const { isActive: isTourActive, currentStep: tourStep, tourSteps, currentTourStep, nextStep, previousStep, cancelTour } = useTour();
   const [savedSections, setSavedSections] = useState<SavedSectionItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditingSection, setIsEditingSection] = useState(false);
@@ -870,6 +873,22 @@ export default function SavedSections() {
             setExistingTags([]);
           }}
           onApplyTags={handleApplyTags}
+        />
+      )}
+
+      {/* Tour Banner */}
+      {isTourActive && currentTourStep && (
+        <TourBannerFull
+          currentStep={tourStep}
+          totalSteps={tourSteps.length}
+          title={currentTourStep.title}
+          description={currentTourStep.description}
+          onNext={nextStep}
+          onPrevious={previousStep}
+          onCancel={cancelTour}
+          canGoNext={tourStep < tourSteps.length - 1}
+          canGoPrevious={tourStep > 0}
+          isLastStep={tourStep === tourSteps.length - 1}
         />
       )}
     </div>

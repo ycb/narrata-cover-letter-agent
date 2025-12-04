@@ -211,3 +211,5 @@ This will restore LinkedIn OAuth as Strategy 1 (though it will still have CORS i
 ## Conclusion
 The LinkedIn URL input during onboarding now uses **Appify API** instead of broken LinkedIn OAuth. This eliminates CORS errors and provides proper LinkedIn profile enrichment. The enriched data flows into the same processing pipeline as resume/cover letter data, creating companies, roles, and stories in the database.
 
+
+

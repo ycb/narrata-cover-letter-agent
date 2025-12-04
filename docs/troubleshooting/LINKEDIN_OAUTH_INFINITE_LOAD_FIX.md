@@ -244,3 +244,5 @@ This is an unfortunate limitation of LinkedIn's OAuth security implementation. B
 
 **Recommendation**: Monitor LinkedIn OAuth success rate over the next 30 days. If it remains below 85%, consider removing it from primary auth options and moving it to Settings → Connected Accounts as a post-signup integration only.
 
+
+
