@@ -171,7 +171,7 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Metrics Overview - 4 Widgets */}
+        {/* Metrics Overview - Stories + Cover Letters + PM Skills (2 cols) + Total Gaps */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
           <StatsCard
             title="Stories"
@@ -195,17 +195,61 @@ const Dashboard = () => {
             }}
             onClick={() => navigate('/cover-letters')}
           />
-          <StatsCard
-            title="Senior PM Skills Coverage"
-            value={`${dashboardData.stats.skillsCoverage}%`}
-            description="PM skills coverage"
-            icon={TrendingUp}
-            trend={{
-              value: `+${dashboardData.stats.skillsImprovement}% improvement this month`,
-              isPositive: dashboardData.stats.skillsImprovement > 0
-            }}
-            onClick={() => navigate('/assessment')}
-          />
+          {/* PM Skills Widget with Competencies */}
+          <Card className="shadow-soft col-span-2 overflow-hidden">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg font-semibold">PM Skills Coverage</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-3 p-4 pt-0">
+              {levelData?.competencyScores && Object.keys(levelData.competencyScores).length > 0 ? (
+                [
+                  {
+                    name: "Product Execution",
+                    score: levelData.competencyScores.execution || 0,
+                    key: 'execution'
+                  },
+                  {
+                    name: "Customer Insight",
+                    score: levelData.competencyScores.customer_insight || 0,
+                    key: 'customer_insight'
+                  },
+                  {
+                    name: "Product Strategy",
+                    score: levelData.competencyScores.strategy || 0,
+                    key: 'strategy'
+                  },
+                  {
+                    name: "Influencing People",
+                    score: levelData.competencyScores.influence || 0,
+                    key: 'influence'
+                  }
+                ].map((competency) => {
+                  const percentage = Math.round((competency.score / 3) * 100);
+                  const level = percentage >= 90 ? "Advanced" : percentage >= 70 ? "Proficient" : percentage >= 50 ? "Developing" : "Needs Work";
+                  const badgeColor = percentage >= 80 ? "bg-green-100 text-green-800" : percentage >= 60 ? "bg-blue-100 text-blue-800" : percentage >= 40 ? "bg-yellow-100 text-yellow-800" : "bg-gray-100 text-gray-800";
+                  
+                  return (
+                    <button
+                      key={competency.key}
+                      onClick={() => navigate(`/assessment?competency=${competency.key}`)}
+                      className="flex flex-col gap-2 p-3 rounded-lg border hover:border-primary/50 hover:bg-accent/50 transition-all text-left"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-muted-foreground">{competency.name}</span>
+                        <Badge className={`text-xs ${badgeColor}`}>{level}</Badge>
+                      </div>
+                      <div className="text-lg font-bold">{percentage}%</div>
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="col-span-2 text-center py-6 text-muted-foreground">
+                  <p className="text-sm">No assessment data</p>
+                  <p className="text-xs mt-1">Run PM levels assessment</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
           <TotalGapsWidget
             gapSummary={gapSummary.data}
             isLoading={gapSummary.isLoading}
@@ -216,47 +260,10 @@ const Dashboard = () => {
           />
         </div>
 
-        {/* 4 Small Modules - Top Action + Top Roles + Content Health + Level Card */}
+        {/* 4 Small Modules - Top Action + Content Health + Top Roles + Level Card */}
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
           {/* Top Action Needed */}
           <TopActionNeeded actions={topActions} />
-
-          {/* PM Level Card */}
-          <LevelCard 
-            levelData={levelData} 
-            isLoading={isLevelLoading}
-            onRecalculate={() => recalculate()}
-          />
-
-          {/* Top Roles Targeted */}
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold">
-                Top Roles Targeted
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                {dashboardData.topRoles.map((role, index) => (
-                  <div key={index} className="p-3 border rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium text-sm">{role.title}</span>
-                      <Badge variant="secondary">{role.count} jobs ({role.percentage}%)</Badge>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Last applied: {role.lastApplied}
-                    </div>
-                  </div>
-                ))}
-                {dashboardData.topRoles.length === 0 && (
-                  <div className="text-center py-4 text-muted-foreground">
-                    <p className="text-sm">No role targeting data available</p>
-                    <p className="text-xs">Complete onboarding to see your targets</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
 
           {/* Content Health */}
           <Card className="shadow-soft">
@@ -298,6 +305,43 @@ const Dashboard = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Top Roles Targeted */}
+          <Card className="shadow-soft">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">
+                Top Roles Targeted
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                {dashboardData.topRoles.map((role, index) => (
+                  <div key={index} className="p-3 border rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium text-sm">{role.title}</span>
+                      <Badge variant="secondary">{role.count} jobs ({role.percentage}%)</Badge>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Last applied: {role.lastApplied}
+                    </div>
+                  </div>
+                ))}
+                {dashboardData.topRoles.length === 0 && (
+                  <div className="text-center py-4 text-muted-foreground">
+                    <p className="text-sm">No role targeting data available</p>
+                    <p className="text-xs">Complete onboarding to see your targets</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* PM Level Card */}
+          <LevelCard 
+            levelData={levelData} 
+            isLoading={isLevelLoading}
+            onRecalculate={() => recalculate()}
+          />
         </div>
 
 
