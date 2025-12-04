@@ -115,7 +115,12 @@ export async function processCoverLetter(
 
     // Step 4: Extract My Voice
     try {
-      const apiKey = openaiApiKey || import.meta.env.VITE_OPENAI_API_KEY;
+      const apiKey =
+        openaiApiKey ||
+        (import.meta.env?.VITE_OPENAI_API_KEY as string | undefined) ||
+        (import.meta.env?.VITE_OPENAI_KEY as string | undefined) ||
+        (typeof process !== 'undefined' ? process.env.VITE_OPENAI_API_KEY : undefined) ||
+        (typeof process !== 'undefined' ? process.env.VITE_OPENAI_KEY : undefined);
       if (apiKey) {
         // Merge intro + closing for voice extraction (skip body paragraphs)
         const introPara = paragraphs.find(p => p.type === 'intro');

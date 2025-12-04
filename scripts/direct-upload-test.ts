@@ -54,6 +54,7 @@ const FIXTURES_PATH = path.join(__dirname, '../fixtures/synthetic/v1/raw_uploads
 process.env.VITE_SUPABASE_URL = SUPABASE_URL;
 process.env.VITE_SUPABASE_ANON_KEY = SUPABASE_ANON_KEY;
 process.env.VITE_OPENAI_KEY = envVars['VITE_OPENAI_KEY'] || process.env.VITE_OPENAI_KEY!;
+process.env.VITE_OPENAI_API_KEY = envVars['VITE_OPENAI_API_KEY'] || process.env.VITE_OPENAI_API_KEY || process.env.VITE_OPENAI_KEY!;
 process.env.VITE_OPENAI_MODEL = envVars['VITE_OPENAI_MODEL'] || process.env.VITE_OPENAI_MODEL || 'gpt-4o-mini';
 process.env.VITE_SYNTHETIC_LOCAL_ONLY = envVars['VITE_SYNTHETIC_LOCAL_ONLY'] || process.env.VITE_SYNTHETIC_LOCAL_ONLY || 'true';
 
@@ -63,6 +64,7 @@ const envValues = {
   VITE_SUPABASE_URL: SUPABASE_URL,
   VITE_SUPABASE_ANON_KEY: SUPABASE_ANON_KEY,
   VITE_OPENAI_KEY: envVars['VITE_OPENAI_KEY'] || process.env.VITE_OPENAI_KEY!,
+  VITE_OPENAI_API_KEY: envVars['VITE_OPENAI_API_KEY'] || process.env.VITE_OPENAI_API_KEY || process.env.VITE_OPENAI_KEY!,
   VITE_OPENAI_MODEL: envVars['VITE_OPENAI_MODEL'] || process.env.VITE_OPENAI_MODEL || 'gpt-4o-mini',
   VITE_APPIFY_API_KEY: envVars['VITE_APPIFY_API_KEY'] || process.env.VITE_APPIFY_API_KEY || '', // Optional, for synthetic mode not needed
   VITE_SYNTHETIC_LOCAL_ONLY: process.env.VITE_SYNTHETIC_LOCAL_ONLY

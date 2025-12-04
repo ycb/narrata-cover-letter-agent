@@ -182,7 +182,35 @@ export default function NewUserDashboard() {
       setTimeout(() => scrollTabsWhenReady(20, 75, getTabsScrollOffset()), changed ? 150 : 90);
     }
   }, [location.search]);
+  const personalizeNarrataTasks: OnboardingTask[] = [
+    {
+      id: 'my-goals',
+      title: 'My Goals',
+      description: 'Add target job titles, minimum salary, and other deal-breakers',
+      category: 'Personalize Narrata',
+      completed: false,
+      link: '/profile?section=goals'
+    },
+    {
+      id: 'my-voice',
+      title: 'My Voice',
+      description: 'Review and refine your writing style preferences',
+      category: 'Personalize Narrata',
+      completed: false,
+      link: '/profile?section=voice'
+    },
+    {
+      id: 'my-data',
+      title: 'My Data',
+      description: 'Import context from other LLMs via API key',
+      category: 'Personalize Narrata',
+      completed: false,
+      link: '/profile?section=data'
+    }
+  ];
+
   const [tasks, setTasks] = useState<OnboardingTask[]>([
+    ...personalizeNarrataTasks,
     // Work History Tasks
     {
       id: 'work-history-metrics',
@@ -504,7 +532,48 @@ export default function NewUserDashboard() {
 
           {/* Task Categories */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {Object.entries(groupedTasks).map(([category, categoryTasks]) => {
+            {/* Personalize Narrata - Full Width */}
+            {groupedTasks['Personalize Narrata'] && (
+              <div className="lg:col-span-2">
+                <Card className="shadow-soft">
+                  <CardHeader>
+                    <CardTitle className="text-lg font-semibold">Personalize Narrata</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {groupedTasks['Personalize Narrata'].map((task) => (
+                        <div key={task.id} className="flex items-start gap-3 p-4 rounded-lg border hover:border-primary/50 hover:bg-accent/50 transition-all">
+                          <Checkbox
+                            id={task.id}
+                            checked={task.completed}
+                            onCheckedChange={() => handleTaskToggle(task.id)}
+                            className="mt-1"
+                          />
+                          <div className="flex-1">
+                            <button
+                              onClick={() => navigate(task.link)}
+                              className="text-left w-full group"
+                            >
+                              <h3 className="font-medium text-base group-hover:text-primary transition-colors">
+                                {task.title}
+                              </h3>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {task.description}
+                              </p>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+            
+            {/* Other Task Categories */}
+            {Object.entries(groupedTasks)
+              .filter(([category]) => category !== 'Personalize Narrata')
+              .map(([category, categoryTasks]) => {
               // Calculate gap counts for badges
               let gapCount = 0;
               let severityCounts = { high: 0, medium: 0, low: 0 };

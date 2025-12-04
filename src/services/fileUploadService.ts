@@ -877,35 +877,40 @@ source_type: dbSourceType,
       }
       
       // Match cover letter stories to existing work_items and extract profile data
-      if (type === 'coverLetter') {
-        // Fetch user_id once for downstream operations
-        const { data: sourceData } = await supabase
-          .from('sources')
-          .select('user_id')
+          if (type === 'coverLetter') {
+            // Fetch user_id once for downstream operations
+            const { data: sourceData } = await supabase
+              .from('sources')
+              .select('user_id')
           .eq('id', sourceId)
           .single();
 
         await this.processCoverLetterData(structuredData, sourceId, accessToken);
         
-        // NEW: Run comprehensive cover letter processing pipeline
-        // (Saved Sections, Template, My Voice, Story Detection)
-        try {
-          const { processCoverLetter } = await import('./coverLetterProcessingService');
-          const rawText = extractedText; // Use the extracted text
-          const userId = sourceData?.user_id;
-          
-          if (userId && rawText) {
-            console.log('[FileUpload] Running cover letter processing pipeline...');
-            const result = await processCoverLetter(
-              userId,
-              sourceId,
-              rawText,
-              import.meta.env.VITE_OPENAI_API_KEY
-            );
-            console.log(`[FileUpload] CL pipeline complete: ${result.savedSectionsCreated} sections, ${result.storiesCreated} stories, voice=${result.myVoiceCreated}`);
-            if (result.errors.length > 0) {
-              console.warn('[FileUpload] CL pipeline errors:', result.errors);
-            }
+            // NEW: Run comprehensive cover letter processing pipeline
+            // (Saved Sections, Template, My Voice, Story Detection)
+            try {
+              const { processCoverLetter } = await import('./coverLetterProcessingService');
+              const rawText = extractedText; // Use the extracted text
+              const userId = sourceData?.user_id;
+              const openaiKey =
+                (import.meta.env?.VITE_OPENAI_API_KEY as string | undefined) ||
+                (import.meta.env?.VITE_OPENAI_KEY as string | undefined) ||
+                (typeof process !== 'undefined' ? process.env.VITE_OPENAI_API_KEY : undefined) ||
+                (typeof process !== 'undefined' ? process.env.VITE_OPENAI_KEY : undefined);
+              
+              if (userId && rawText) {
+                console.log('[FileUpload] Running cover letter processing pipeline...');
+                const result = await processCoverLetter(
+                  userId,
+                  sourceId,
+                  rawText,
+                  openaiKey
+                );
+                console.log(`[FileUpload] CL pipeline complete: ${result.savedSectionsCreated} sections, ${result.storiesCreated} stories, voice=${result.myVoiceCreated}`);
+                if (result.errors.length > 0) {
+                  console.warn('[FileUpload] CL pipeline errors:', result.errors);
+                }
           }
         } catch (clError) {
           console.warn('[FileUpload] Cover letter processing pipeline failed (non-critical):', clError);
@@ -2746,9 +2751,9 @@ source_type: dbSourceType,
           database_save_latency_ms: data.dbLatencyMs ? Math.round(data.dbLatencyMs) : null,
           total_latency_ms: data.totalLatencyMs ? Math.round(data.totalLatencyMs) : Math.round(data.latency),
           
-          // Token Usage
-          input_tokens: data.inputTokens,
-          output_tokens: data.outputTokens,
+      // Token Usage
+      input_tokens: data.inputTokens != null ? Math.round(data.inputTokens) : null,
+      output_tokens: data.outputTokens != null ? Math.round(data.outputTokens) : null,
           model: data.model,
           
           // Evaluation Results
@@ -2880,6 +2885,7 @@ source_type: dbSourceType,
       let appifyResult;
       let appifyRawData: any = null;
       let activeProfileId: string | null = await this.getActiveSyntheticProfileId(authSupabase, user.id);
+      const isSyntheticEnabled = !!activeProfileId;
 
       if (activeProfileId) {
         // Synthetic mode: Load JSON fixture file
