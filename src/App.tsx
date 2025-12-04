@@ -11,6 +11,7 @@ import { UserVoiceProvider } from "@/contexts/UserVoiceContext";
 import { UploadProgressProvider } from "@/contexts/UploadProgressContext";
 import { GapsJobProvider } from "@/contexts/GapsJobContext";
 import { Header } from "@/components/layout/Header";
+import { Footer } from "@/components/layout/Footer";
 import { FeedbackSystem } from "@/components/feedback/FeedbackSystem";
 import { FeedbackAdmin } from "@/components/feedback/FeedbackAdmin";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -254,6 +255,8 @@ function AppLayout() {
       {/* Feedback system available on all pages */}
       {shouldShowFeedbackSystem() && <FeedbackSystem />}
       
+      {/* Footer on all pages */}
+      <Footer />
     </div>
   );
 }
