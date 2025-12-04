@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { AlertTriangle } from 'lucide-react';
 import { GapSummary } from '@/services/gapDetectionService';
 
@@ -13,10 +13,7 @@ export function MediumSeverityGapsWidget({ gapSummary, isLoading, onClick }: Med
   if (isLoading) {
     return (
       <Card className="shadow-soft">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm text-center">Medium</CardTitle>
-        </CardHeader>
-        <CardContent className="text-center">
+        <CardContent className="py-8 text-center">
           <div className="text-sm text-muted-foreground">Loading...</div>
         </CardContent>
       </Card>
@@ -29,18 +26,18 @@ export function MediumSeverityGapsWidget({ gapSummary, isLoading, onClick }: Med
 
   return (
     <Card 
-      className={`shadow-soft border-muted ${hasGaps ? 'cursor-pointer hover:shadow-medium' : 'opacity-50'} transition-shadow`}
+      className={`shadow-soft border-muted ${hasGaps ? 'cursor-pointer hover:shadow-medium' : 'opacity-50'} transition-shadow overflow-hidden relative`}
       onClick={hasGaps ? onClick : undefined}
     >
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm flex items-center justify-center gap-2">
-          <AlertTriangle className="w-4 h-4 text-warning" />
-          Medium
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="text-center">
-        <div className="text-3xl font-bold text-warning">{displayValue}</div>
-        <div className="text-xs text-muted-foreground mt-1">medium priority</div>
+      {/* Background Icon */}
+      <div className="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none">
+        <AlertTriangle className="w-32 h-32" />
+      </div>
+      
+      {/* Content */}
+      <CardContent className="py-6 text-center relative z-10">
+        <div className="text-xs font-medium text-muted-foreground mb-3">Medium</div>
+        <div className="text-4xl font-bold text-warning">{displayValue}</div>
       </CardContent>
     </Card>
   );
