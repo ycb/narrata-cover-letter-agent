@@ -570,6 +570,10 @@ function Assessment({ initialSection = "overview" }: AssessmentProps) {
   // Handle competency query param to auto-open evidence modal
   useEffect(() => {
     const competencyParam = searchParams.get("competency");
+    console.log('[Assessment] competency param:', competencyParam);
+    console.log('[Assessment] assessmentData:', assessmentData);
+    console.log('[Assessment] evidenceModalOpen:', evidenceModalOpen);
+    
     if (competencyParam && assessmentData?.competencies && !evidenceModalOpen) {
       const competencyMap: Record<string, string> = {
         'execution': 'Product Execution',
@@ -579,9 +583,12 @@ function Assessment({ initialSection = "overview" }: AssessmentProps) {
       };
       
       const competencyName = competencyMap[competencyParam];
+      console.log('[Assessment] looking for competency:', competencyName);
       const competency = assessmentData.competencies.find((c: any) => c.domain === competencyName);
+      console.log('[Assessment] found competency:', competency);
       
       if (competency) {
+        console.log('[Assessment] opening modal for:', competency.domain);
         setTimeout(() => {
           handleShowEvidence(competency);
         }, 100);

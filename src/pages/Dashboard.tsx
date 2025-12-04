@@ -306,7 +306,7 @@ const Dashboard = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {levelData?.competencyScores && Object.keys(levelData.competencyScores).length > 0 ? (
                   [
                     {
@@ -332,18 +332,43 @@ const Dashboard = () => {
                   ].map((competency) => {
                     const percentage = Math.round((competency.score / 3) * 100);
                     const level = percentage >= 90 ? "Advanced" : percentage >= 70 ? "Proficient" : percentage >= 50 ? "Developing" : "Needs Work";
-                    const badgeColor = percentage >= 80 ? "bg-green-100 text-green-800" : percentage >= 60 ? "bg-blue-100 text-blue-800" : percentage >= 40 ? "bg-yellow-100 text-yellow-800" : "bg-gray-100 text-gray-800";
+                    const levelColor = 
+                      percentage >= 80 ? "text-green-600" : 
+                      percentage >= 60 ? "text-blue-600" : 
+                      percentage >= 40 ? "text-yellow-600" : 
+                      "text-gray-600";
+                    const badgeColor = 
+                      percentage >= 80 ? "bg-green-100 text-green-800 border-green-200" : 
+                      percentage >= 60 ? "bg-blue-100 text-blue-800 border-blue-200" : 
+                      percentage >= 40 ? "bg-yellow-100 text-yellow-800 border-yellow-200" : 
+                      "bg-gray-100 text-gray-800 border-gray-200";
+                    const barColor = 
+                      percentage >= 80 ? "bg-green-500" : 
+                      percentage >= 60 ? "bg-blue-500" : 
+                      percentage >= 40 ? "bg-yellow-500" : 
+                      "bg-gray-400";
                     
                     return (
                       <button
                         key={competency.key}
                         onClick={() => navigate(`/assessment?competency=${competency.key}`)}
-                        className="w-full flex items-center justify-between p-3 rounded-lg border hover:border-primary/50 hover:bg-accent/50 transition-all"
+                        className="w-full text-left hover:bg-accent/50 rounded-lg p-3 transition-all"
                       >
-                        <span className="text-sm font-medium">{competency.name}</span>
-                        <div className="flex items-center gap-3">
-                          <Badge className={`text-xs ${badgeColor}`}>{level}</Badge>
-                          <span className="text-lg font-bold">{percentage}%</span>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium">{competency.name}</span>
+                          <Badge className={`text-xs ${badgeColor} border`}>{level}</Badge>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-muted-foreground">Confidence</span>
+                            <span className={`font-semibold ${levelColor}`}>{percentage}%</span>
+                          </div>
+                          <div className="w-full bg-muted rounded-full h-2">
+                            <div 
+                              className={`${barColor} h-2 rounded-full transition-all`} 
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
                         </div>
                       </button>
                     );
