@@ -188,7 +188,7 @@ const EvidenceModal = ({
           {/* Summary Stats */}
             <EvidenceSummaryStats
               stats={[
-                { label: "Stories", value: storyCount },
+                { label: storyCount === 1 ? "Story" : "Stories", value: storyCount },
                 { label: "Tags", value: tagCount },
                 { label: "Metrics", value: metricsCount }
               ]}
