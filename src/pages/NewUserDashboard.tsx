@@ -603,27 +603,27 @@ export default function NewUserDashboard() {
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex flex-wrap justify-center gap-3">
                 <Button variant="outline" asChild>
-                  <Link to="/work-history" className="inline-flex items-center">
+                  <Link to="/work-history">
                     <Users className="w-4 h-4 mr-2" />
                     Work History
                   </Link>
                 </Button>
                 <Button variant="outline" asChild>
-                  <Link to="/cover-letter-template" className="inline-flex items-center">
+                  <Link to="/cover-letter-template">
                     <LayoutTemplate className="w-4 h-4 mr-2" />
                     Edit Template
                   </Link>
                 </Button>
                 <Button variant="outline" asChild>
-                  <Link to="/cover-letters" className="inline-flex items-center">
+                  <Link to="/cover-letters">
                     <Mail className="w-4 h-4 mr-2" />
                     Cover Letters
                   </Link>
                 </Button>
                 <Button variant="outline" asChild>
-                  <Link to="/assessment" className="inline-flex items-center">
+                  <Link to="/assessment">
                     <Trophy className="w-4 h-4 mr-2" />
                     Assessment
                   </Link>
