@@ -37,7 +37,7 @@ export function HighSeverityGapsWidget({ gapSummary, isLoading, onClick }: HighS
         
         {/* Row 2: Icon + Count */}
         <div className="flex items-center justify-center gap-3">
-          <AlertTriangle className="w-8 h-8 text-destructive opacity-60" />
+          <AlertTriangle className="w-8 h-8 text-destructive" />
           <div className="text-4xl font-bold text-destructive">{displayValue}</div>
         </div>
       </CardContent>

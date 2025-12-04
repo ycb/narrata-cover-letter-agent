@@ -37,7 +37,7 @@ export function LowSeverityGapsWidget({ gapSummary, isLoading, onClick }: LowSev
         
         {/* Row 2: Icon + Count */}
         <div className="flex items-center justify-center gap-3">
-          <AlertTriangle className="w-8 h-8 text-muted-foreground opacity-40" />
+          <AlertTriangle className="w-8 h-8 text-muted-foreground" />
           <div className="text-4xl font-bold text-muted-foreground">{displayValue}</div>
         </div>
       </CardContent>

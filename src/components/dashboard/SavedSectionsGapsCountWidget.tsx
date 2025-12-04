@@ -37,7 +37,7 @@ export function SavedSectionsGapsCountWidget({ items, isLoading, onClick }: Save
         
         {/* Row 2: Icon + Count */}
         <div className="flex items-center justify-center gap-3">
-          <BookOpen className="w-8 h-8 text-muted-foreground opacity-40" />
+          <BookOpen className="w-8 h-8 text-muted-foreground" />
           <div className="text-4xl font-bold text-foreground">{displayValue}</div>
         </div>
       </CardContent>

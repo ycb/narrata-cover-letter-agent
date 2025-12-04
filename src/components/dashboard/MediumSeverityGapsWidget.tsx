@@ -37,7 +37,7 @@ export function MediumSeverityGapsWidget({ gapSummary, isLoading, onClick }: Med
         
         {/* Row 2: Icon + Count */}
         <div className="flex items-center justify-center gap-3">
-          <AlertTriangle className="w-8 h-8 text-warning opacity-60" />
+          <AlertTriangle className="w-8 h-8 text-warning" />
           <div className="text-4xl font-bold text-warning">{displayValue}</div>
         </div>
       </CardContent>
