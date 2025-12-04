@@ -192,6 +192,66 @@ This directory contains the complete documentation for Narrata's Evals V1.1 syst
 
 ---
 
+### 10. **DASHBOARD_EVOLUTION_PLAN.md** — Dashboard Enhancement Roadmap ⭐ UPDATED
+
+**Purpose:** Comprehensive plan for evolving both dashboards with cost tracking, universal LLM tracking, and type-specific customization.
+
+**Audience:** Frontend engineers, product managers, database admins.
+
+**Length:** ~1,080 lines
+
+**Key Sections:**
+- **Phase 0: Schema Extensions** (cost tracking + prompt metadata) ⭐ NEW
+- Phase 1: `/evals` cost tracking UI
+- Phase 2: `/evaluation-dashboard` universal extensions
+- Phase 3: Type-specific customization
+- Phase 4: Prompt performance view
+- Phase 5: Prompt viewer
+- Cost tracking in both dashboards
+- Implementation timeline (11-14 days)
+
+**When to read:** Before working on dashboard enhancements.
+
+---
+
+### 11. **PHASE_0_COST_TRACKING_README.md** — Phase 0 Implementation Guide ⭐ NEW
+
+**Purpose:** Complete guide for Phase 0 (Schema Extensions) - adding cost tracking to both dashboards.
+
+**Audience:** Backend engineers, database admins.
+
+**Length:** ~350 lines
+
+**Key Sections:**
+- Database schema changes (`evals_log`, `evaluation_runs`)
+- New aggregate functions (`get_evals_cost_by_job_type`, `get_evals_cost_by_prompt`)
+- TypeScript type definitions (`src/types/evals-cost.ts`)
+- Automated test suite (9 tests)
+- Deployment steps (SQL Editor + CLI)
+- Validation checklist
+
+**When to read:** Before implementing Phase 0.
+
+---
+
+### 12. **DASHBOARD_PLAN_UPDATE_SUMMARY.md** — Plan Update Summary ⭐ NEW
+
+**Purpose:** Quick summary of what changed in the dashboard evolution plan (cost tracking additions).
+
+**Audience:** Engineering leads, anyone catching up on recent changes.
+
+**Length:** ~150 lines
+
+**Key Sections:**
+- What was updated
+- Cost tracking features for both dashboards
+- Updated implementation timeline
+- Phased rollout recommendation
+
+**When to read:** For a quick overview of recent plan updates.
+
+---
+
 ## 🎯 QUICK START
 
 ### For Backend Engineers
