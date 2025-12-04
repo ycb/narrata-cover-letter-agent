@@ -4,11 +4,12 @@ import { GapSummary } from '@/services/gapDetectionService';
 
 interface TotalGapsWidgetProps {
   gapSummary: GapSummary | null;
+  previousGapSummary?: GapSummary | null;
   isLoading?: boolean;
   onClick?: () => void;
 }
 
-export function TotalGapsWidget({ gapSummary, isLoading, onClick }: TotalGapsWidgetProps) {
+export function TotalGapsWidget({ gapSummary, previousGapSummary, isLoading, onClick }: TotalGapsWidgetProps) {
   if (isLoading) {
     return (
       <Card className="shadow-soft">
@@ -20,12 +21,26 @@ export function TotalGapsWidget({ gapSummary, isLoading, onClick }: TotalGapsWid
   }
 
   const total = gapSummary?.total || 0;
+  const previousTotal = previousGapSummary?.total || 0;
+  const change = total - previousTotal;
+  const isPositive = change <= 0; // Fewer gaps is positive
 
   return (
-    <Card className="shadow-soft h-full cursor-pointer hover:shadow-medium transition-shadow" onClick={onClick}>
-      <CardContent className="flex flex-col items-center justify-center h-full p-6">
-        <div className="text-5xl font-bold text-foreground">{total}</div>
-        <div className="text-sm text-muted-foreground mt-2">Total Gaps</div>
+    <Card 
+      className={`shadow-soft hover:shadow-medium transition-all duration-200 ${onClick ? 'cursor-pointer' : ''}`}
+      onClick={onClick}
+    >
+      <CardContent className="p-6">
+        <div className="text-center">
+          <p className="text-sm font-medium text-muted-foreground">Total Gaps</p>
+          <p className="text-3xl font-bold text-foreground mt-2">{total}</p>
+          <p className="text-sm text-muted-foreground mt-1">Content items with gaps</p>
+          {change !== 0 && (
+            <div className={`text-sm mt-2 ${isPositive ? 'text-success' : 'text-destructive'}`}>
+              {isPositive ? '↗' : '↘'} {Math.abs(change)} this month
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
