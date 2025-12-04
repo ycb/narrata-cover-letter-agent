@@ -19,7 +19,8 @@ import {
   Calendar,
   TrendingUp,
   Settings,
-  Briefcase
+  Briefcase,
+  BookOpen
 } from "lucide-react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { ContentQualityWidget, ContentQualityWidgetRef, ContentTypeFilter, SeverityFilter } from "@/components/dashboard/ContentQualityWidget";
@@ -590,10 +591,10 @@ export default function NewUserDashboard() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       {category === 'Personalize Narrata' && <Settings className="w-5 h-5" />}
-                      {category === 'Review Work History' && <Briefcase className="w-5 h-5" />}
-                      {category === 'Review Cover Letter Template' && <LayoutTemplate className="w-5 h-5" />}
+                      {category === 'Review Work History' && <Calendar className="w-5 h-5" />}
+                      {category === 'Review Cover Letter Template' && <BookOpen className="w-5 h-5" />}
                       {category === 'Create Your First Cover Letter!' && <Mail className="w-5 h-5" />}
-                      {category === 'Review your PM Level' && <Trophy className="w-5 h-5" />}
+                      {category === 'Review your PM Level' && <TrendingUp className="w-5 h-5" />}
                       {category}
                     </CardTitle>
                   </CardHeader>
