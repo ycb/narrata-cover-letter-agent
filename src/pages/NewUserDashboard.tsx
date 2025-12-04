@@ -239,17 +239,17 @@ export default function NewUserDashboard() {
     
     // Cover Letter Template Tasks
     {
-      id: 'template-customize',
-      title: 'Customize your Template',
-      description: 'Personalize your cover letter structure',
-      category: 'Review Cover Letter Template',
-      completed: false,
-      link: '/cover-letter-template'
-    },
-    {
       id: 'template-saved-sections',
       title: 'Add/revise Saved Sections',
       description: 'Build your library of reusable content',
+      category: 'Review Cover Letter Template',
+      completed: false,
+      link: '/saved-sections' // Link to Saved Sections page
+    },
+    {
+      id: 'template-customize',
+      title: 'Customize your Template',
+      description: 'Personalize your cover letter structure',
       category: 'Review Cover Letter Template',
       completed: false,
       link: '/cover-letter-template'
