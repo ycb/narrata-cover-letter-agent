@@ -1039,7 +1039,13 @@ function Assessment({ initialSection = "overview" }: AssessmentProps) {
 
       <EvidenceModal
         isOpen={evidenceModalOpen}
-        onClose={() => setEvidenceModalOpen(false)}
+        onClose={() => {
+          setEvidenceModalOpen(false);
+          // Clear competency query param when closing modal
+          const params = new URLSearchParams(searchParams);
+          params.delete('competency');
+          navigate(params.toString() ? `?${params.toString()}` : '', { replace: true });
+        }}
         evidence={selectedEvidence?.evidence || []}
         matchedTags={selectedEvidence?.matchedTags || []}
         overallConfidence={selectedEvidence?.overallConfidence || "medium"}
