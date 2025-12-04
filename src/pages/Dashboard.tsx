@@ -134,7 +134,7 @@ const Dashboard = () => {
             <Button
               variant="cta-primary"
               size="lg"
-              className="gap-2"
+              className="gap-2 mt-9"
               onClick={() => setIsCreateModalOpen(true)}
             >
               <Plus className="h-5 w-5" />
