@@ -201,7 +201,7 @@ export default function NewUserDashboard() {
     {
       id: 'my-goals',
       title: 'My Goals',
-      description: 'Add target job titles, minimum salary, and other deal-breakers',
+      description: 'Add target titles, min salary, and other deal-breakers',
       category: 'Personalize Narrata',
       completed: false,
       link: 'modal:goals' // Special prefix to indicate modal action
@@ -209,7 +209,7 @@ export default function NewUserDashboard() {
     {
       id: 'my-voice',
       title: 'My Voice',
-      description: 'Review and refine your writing style preferences',
+      description: 'Review and refine your inferred writing style',
       category: 'Personalize Narrata',
       completed: false,
       link: 'modal:voice'
@@ -283,24 +283,24 @@ export default function NewUserDashboard() {
     // PM Level Tasks
     {
       id: 'pm-overall',
-      title: 'Review Overall Analysis',
-      description: 'Understand your comprehensive PM level',
+      title: 'Review Overall Assessment',
+      description: 'View your inferred PM level',
       category: 'Review your PM Level',
       completed: false,
       link: '/assessment' // Main Assessment page
     },
     {
       id: 'pm-core-skills',
-      title: 'Review Core Skills Analysis',
-      description: 'Assess your fundamental competencies',
+      title: 'Review Core Skills',
+      description: 'Assess your competencies in 4 areas',
       category: 'Review your PM Level',
       completed: false,
       link: '/assessment?section=competencies' // Anchor to Competencies section
     },
     {
       id: 'pm-specialization',
-      title: 'Review Specialization Analysis',
-      description: 'Explore your area of expertise',
+      title: 'Review Specializations',
+      description: 'Explore your areas of expertise',
       category: 'Review your PM Level',
       completed: false,
       link: '/assessment?section=specialization' // Anchor to Specialization section
