@@ -170,8 +170,8 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Metrics Overview - Stories + Cover Letters + PM Skills (2 cols) + Total Gaps */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
+        {/* Metrics Overview - Stories + Cover Letters + Total Gaps (2 cols) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
           <StatsCard
             title="Stories"
             value={dashboardData.stats.stories}
@@ -194,14 +194,16 @@ const Dashboard = () => {
             }}
             onClick={() => navigate('/cover-letters')}
           />
-          <TotalGapsWidget
-            gapSummary={gapSummary.data}
-            isLoading={gapSummary.isLoading}
-            onClick={() => {
-              // Navigate to onboarding dashboard to review gaps
-              navigate('/dashboard/onboarding?scrollTo=tabs');
-            }}
-          />
+          <div className="col-span-1 md:col-span-2">
+            <TotalGapsWidget
+              gapSummary={gapSummary.data}
+              isLoading={gapSummary.isLoading}
+              onClick={() => {
+                // Navigate to onboarding dashboard to review gaps
+                navigate('/dashboard/onboarding?scrollTo=tabs');
+              }}
+            />
+          </div>
         </div>
 
         {/* 4 Small Modules - Top Action + Content Health + Top Roles + Level Card */}
