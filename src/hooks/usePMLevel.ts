@@ -109,7 +109,16 @@ export function usePMLevel() {
     queryFn: async () => {
       if (!user) return null;
       try {
+        // Always try to read from database first (works for both regular and synthetic users now)
+        const cached = await pmLevelsService.getUserLevel(user.id, syntheticProfileId);
+        if (cached) {
+          console.log(`[usePMLevel] Loaded from cache for ${syntheticProfileId ? `synthetic user ${syntheticProfileId}` : 'user'}`);
+          return cached;
+        }
+
+        // If no cached data and it's a synthetic user, run fresh analysis
         if (syntheticProfileId) {
+          console.log(`[usePMLevel] No cache found for synthetic user ${syntheticProfileId}, running fresh analysis`);
           return await pmLevelsService.analyzeUserLevel(
             user.id,
             undefined,
@@ -123,7 +132,8 @@ export function usePMLevel() {
           );
         }
 
-        return await pmLevelsService.getUserLevel(user.id);
+        // For regular users with no data, return null (they haven't run assessment yet)
+        return null;
       } catch (err) {
         console.error('Error fetching PM level:', err);
         throw err;

@@ -5,6 +5,9 @@
 --   - Add source_type/source_id to stories for provenance
 --   - Create user_voice table expected by cover letter processing
 
+-- Ensure UUID generation is available
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 BEGIN;
 
 -- saved_sections: add is_dynamic, source_type, and relax type check to include body/closing
@@ -37,8 +40,11 @@ BEGIN
   ) THEN
     ALTER TABLE public.saved_sections DROP CONSTRAINT IF EXISTS saved_sections_type_check;
   END IF;
+  -- Preserve legacy values (closer/signature) while allowing new parser values (intro/body/closing/other)
   ALTER TABLE public.saved_sections
-    ADD CONSTRAINT saved_sections_type_check CHECK (type IN ('intro', 'body', 'closing', 'other'));
+    ADD CONSTRAINT saved_sections_type_check CHECK (
+      type IS NULL OR type IN ('intro', 'body', 'closing', 'closer', 'signature', 'other')
+    ) NOT VALID;
 END $$;
 
 -- stories: add source_type and source_id for provenance
@@ -71,7 +77,7 @@ BEGIN
     WHERE table_schema = 'public' AND table_name = 'user_voice'
   ) THEN
     CREATE TABLE public.user_voice (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
       prompt TEXT NOT NULL,
       source_type TEXT,

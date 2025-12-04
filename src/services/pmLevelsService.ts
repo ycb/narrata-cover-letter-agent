@@ -186,7 +186,7 @@ export class PMLevelsService {
     };
 
     try {
-      const previousSnapshot = await this.getLatestUserLevelSnapshot(userId);
+      const previousSnapshot = await this.getLatestUserLevelSnapshot(userId, syntheticProfileId);
       if (!tracking.previousLevel && previousSnapshot?.level) {
         tracking.previousLevel = previousSnapshot.level;
       }
@@ -293,8 +293,8 @@ export class PMLevelsService {
 
       const pmLevelSnapshot = this.buildEvaluationSnapshotFromInference(inference);
 
-      // Store results in database
-      await this.saveLevelAssessment(userId, inference);
+      // Store results in database (including synthetic users for caching)
+      await this.saveLevelAssessment(userId, inference, syntheticProfileId);
 
       GapDetectionService.syncPmLevelExpectationGaps(userId, inference).catch((gapError) => {
         console.error('[PMLevelsService] Failed to sync PM level expectation gaps:', gapError);
@@ -1844,17 +1844,20 @@ export class PMLevelsService {
     };
   }
 
-  private async getLatestUserLevelSnapshot(userId: string): Promise<{
+  private async getLatestUserLevelSnapshot(userId: string, syntheticProfileId?: string): Promise<{
     level: PMLevelCode | null;
     confidence: number | null;
     snapshot: Record<string, unknown> | null;
   } | null> {
     try {
+      // For synthetic users, use synthetic_ prefix for user_id
+      const userIdToQuery = syntheticProfileId ? `synthetic_${syntheticProfileId}` : userId;
+      
       const supabaseAny = supabase as any;
       const userLevelsTable: any = supabaseAny.from('user_levels');
       const { data: rows, error } = await (userLevelsTable as any)
         .select('inferred_level, confidence, scope_score, level_evidence, evidence_by_competency, recommendations, role_type, maturity_info, competency_scores, signals, last_run_timestamp, updated_at')
-        .eq('user_id', userId)
+        .eq('user_id', userIdToQuery)
         .order('last_run_timestamp', { ascending: false })
         .limit(1);
 
@@ -1885,19 +1888,25 @@ export class PMLevelsService {
 
   /**
    * Save level assessment to database
+   * For synthetic users, saves with synthetic_ prefix to enable caching while keeping data separate
    */
   private async saveLevelAssessment(
     userId: string,
-    inference: PMLevelInference
+    inference: PMLevelInference,
+    syntheticProfileId?: string
   ): Promise<void> {
     try {
+      // For synthetic users, use synthetic_ prefix for user_id to enable caching
+      // This allows proper cache behavior while keeping synthetic data separate from real users
+      const userIdToSave = syntheticProfileId ? `synthetic_${syntheticProfileId}` : userId;
+      
       // Build upsert payload - exclude deprecated maturity_modifier
       const runTimestamp = inference.lastAnalyzedAt ?? new Date().toISOString();
 
       const sanitizedScopeScore = Number.isFinite(inference.scopeScore) ? inference.scopeScore : 0;
 
       const upsertPayload: any = {
-        user_id: userId,
+        user_id: userIdToSave,
         inferred_level: inference.inferredLevel,
         confidence: inference.confidence,
         scope_score: sanitizedScopeScore,
@@ -1923,7 +1932,8 @@ export class PMLevelsService {
         throw error;
       }
 
-      console.log('[PMLevelsService] Level assessment saved to database');
+      const userType = syntheticProfileId ? `synthetic user ${syntheticProfileId}` : 'user';
+      console.log(`[PMLevelsService] Level assessment saved to database for ${userType}`);
     } catch (error) {
       console.error('[PMLevelsService] Error saving level assessment:', error);
       throw error;
@@ -2097,13 +2107,17 @@ export class PMLevelsService {
 
   /**
    * Get user's level assessment from database
+   * For synthetic users, reads from synthetic_ prefixed records
    */
-  async getUserLevel(userId: string): Promise<PMLevelInference | null> {
+  async getUserLevel(userId: string, syntheticProfileId?: string): Promise<PMLevelInference | null> {
     try {
+      // For synthetic users, use synthetic_ prefix for user_id
+      const userIdToQuery = syntheticProfileId ? `synthetic_${syntheticProfileId}` : userId;
+      
       const { data, error } = await (supabase as any)
         .from('user_levels')
         .select('*')
-        .eq('user_id', userId)
+        .eq('user_id', userIdToQuery)
         .single();
 
       if (error) {
