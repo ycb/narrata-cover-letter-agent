@@ -284,7 +284,7 @@ export default function NewUserDashboard() {
       description: 'Understand your comprehensive PM level',
       category: 'Review your PM Level',
       completed: false,
-      link: '/assessment'
+      link: '/assessment' // Main Assessment page
     },
     {
       id: 'pm-core-skills',
@@ -292,7 +292,7 @@ export default function NewUserDashboard() {
       description: 'Assess your fundamental competencies',
       category: 'Review your PM Level',
       completed: false,
-      link: '/assessment'
+      link: '/assessment?section=competencies' // Anchor to Competencies section
     },
     {
       id: 'pm-specialization',
@@ -300,7 +300,7 @@ export default function NewUserDashboard() {
       description: 'Explore your area of expertise',
       category: 'Review your PM Level',
       completed: false,
-      link: '/assessment'
+      link: '/assessment?section=specialization' // Anchor to Specialization section
     }
   ]);
 
