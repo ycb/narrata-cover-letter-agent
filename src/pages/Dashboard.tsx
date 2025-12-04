@@ -134,7 +134,7 @@ const Dashboard = () => {
             <Button
               variant="brand"
               size="lg"
-              className="gap-2 cta-center"
+              className="gap-2"
               onClick={() => setIsCreateModalOpen(true)}
             >
               <Plus className="h-5 w-5" />
