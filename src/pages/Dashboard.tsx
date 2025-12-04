@@ -338,7 +338,7 @@ const Dashboard = () => {
                       <button
                         key={competency.key}
                         onClick={() => navigate(`/assessment?competency=${competency.key}`)}
-                        className="flex items-center justify-between p-3 rounded-lg border hover:border-primary/50 hover:bg-accent/50 transition-all"
+                        className="w-full flex items-center justify-between p-3 rounded-lg border hover:border-primary/50 hover:bg-accent/50 transition-all"
                       >
                         <span className="text-sm font-medium">{competency.name}</span>
                         <div className="flex items-center gap-3">
