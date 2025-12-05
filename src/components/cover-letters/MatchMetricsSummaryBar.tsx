@@ -50,26 +50,20 @@ const SummaryItem = ({
         <ChevronRight className="h-4 w-4 text-muted-foreground" />
       </button>
       {open && items && items.length > 0 && (
-        <div className="mt-2 border border-border/60 rounded-lg overflow-hidden">
-          <div className="bg-foreground text-background px-4 py-2 flex items-center justify-between">
-            <span className="text-sm font-semibold uppercase tracking-wide">{label}</span>
-            <span className="text-sm font-semibold">{met}/{total}</span>
-          </div>
-          <div className="bg-background">
-            {items.map((item, idx) => (
-              <div
-                key={`${item.requirement || item.label}-${idx}`}
-                className={cn('flex items-center justify-between px-3 py-3', idx > 0 && 'border-t border-border/40')}
-              >
-                <div className="text-sm font-medium text-foreground">
-                  {item.requirement || item.label}
-                </div>
-                <div className="flex-shrink-0 px-2">
-                  <StatusIcon met={item.demonstrated === true} />
-                </div>
+        <div className="mt-2 border border-border/60 rounded-lg overflow-hidden bg-background">
+          {items.map((item, idx) => (
+            <div
+              key={`${item.requirement || item.label}-${idx}`}
+              className={cn('flex items-center justify-between px-3 py-3', idx > 0 && 'border-t border-border/40')}
+            >
+              <div className="text-sm font-medium text-foreground">
+                {item.requirement || item.label}
               </div>
-            ))}
-          </div>
+              <div className="flex-shrink-0 px-2">
+                <StatusIcon met={item.demonstrated === true} />
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

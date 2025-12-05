@@ -11,15 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { 
-  Building2,
   Calendar,
   CheckCircle,
   Clock,
   LayoutTemplate,
   Mail,
   Plus,
-  Search,
-  User
+  Search
 } from "lucide-react";
 import CoverLetterCreateModal from "@/components/cover-letters/CoverLetterCreateModal";
 import { CoverLetterViewModal } from "@/components/cover-letters/CoverLetterViewModal";
@@ -569,29 +567,12 @@ export default function CoverLetters() {
                 >
                 <CardHeader className="pb-3">
                     <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <CardTitle className="text-lg">{coverLetter.title}</CardTitle>
-                        <CardDescription className="text-sm">
-                          Template • {coverLetter.templateName ?? "Untitled template"}
-                        </CardDescription>
-                      </div>
+                      <CardTitle className="text-lg">{coverLetter.title}</CardTitle>
                       <Badge className={getStatusTone(coverLetter.status)}>
                         {getStatusLabel(coverLetter.status)}
                       </Badge>
                     </div>
-                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Building2 className="h-4 w-4" />
-                        <span>{coverLetter.company}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <User className="h-4 w-4" />
-                        <span>{coverLetter.position}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        <span>Created {formatShortDate(coverLetter.createdAt)}</span>
-                      </div>
+                    <div className="mt-2">
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Calendar className="h-3 w-3" />
                         <span>Updated {formatShortDate(coverLetter.updatedAt)}</span>
@@ -602,28 +583,21 @@ export default function CoverLetters() {
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <div className="rounded-lg border border-muted/40 bg-muted/10 p-3">
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                          ATS score
+                          Overall Score
                         </p>
                         <p className="text-lg font-semibold text-foreground">
-                          {typeof coverLetter.analytics.atsScore === "number"
-                            ? `${coverLetter.analytics.atsScore}%`
-                            : "Pending"}
+                          27%
                         </p>
-                  </div>
+                      </div>
                       <div className="rounded-lg border border-muted/40 bg-muted/10 p-3">
                         <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                          LLM rating
+                          Readiness
                         </p>
-                        <p className="text-lg font-semibold text-foreground capitalize">
-                          {coverLetter.analytics.rating ?? "Awaiting review"}
+                        <p className="text-lg font-semibold text-foreground">
+                          Strong
                         </p>
+                      </div>
                     </div>
-                    </div>
-                    {coverLetter.analytics.summary && (
-                      <div className="rounded-lg border border-muted/40 bg-muted/5 p-3 text-sm text-muted-foreground">
-                        {coverLetter.analytics.summary}
-                  </div>
-                    )}
                 </CardContent>
               </Card>
             ))}
