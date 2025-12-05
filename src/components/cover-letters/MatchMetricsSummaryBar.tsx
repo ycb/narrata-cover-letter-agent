@@ -39,22 +39,13 @@ const SummaryItem = ({
   open: boolean;
   onToggle: () => void;
 }) => {
-  const percent = total > 0 ? Math.round((met / total) * 100) : 0;
-  const status =
-    percent === 100 ? 'success' : percent >= 60 ? 'warn' : 'error';
-
-  const statusIcon =
-    status === 'success' ? <CheckCircle className="h-4 w-4 text-success" /> :
-    status === 'warn' ? <AlertTriangle className="h-4 w-4 text-warning" /> :
-    <XCircle className="h-4 w-4 text-destructive" />;
-
   return (
     <div className="flex-1 min-w-[180px]">
       <button
         type="button"
         onClick={onToggle}
         className={cn(
-          'w-full flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-4 py-3 text-left hover:bg-muted/50 transition',
+          'w-full flex items-center justify-between rounded-2xl border border-border/60 bg-muted/20 px-4 py-3 text-left hover:bg-muted/40 transition',
           open && 'ring-1 ring-primary/30'
         )}
       >
@@ -62,7 +53,7 @@ const SummaryItem = ({
           {icon}
           <div className="flex flex-col">
             <span className="text-xs uppercase tracking-wide text-muted-foreground">{label}</span>
-            <span className="text-sm font-semibold text-foreground">{met}/{total} ({percent}%)</span>
+            <span className="text-lg font-semibold text-foreground">{met}/{total}</span>
           </div>
         </div>
         <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -95,14 +86,14 @@ export function MatchMetricsSummaryBar({ metrics, goNoGoAnalysis, className }: M
         met: metrics.coreRequirements?.met ?? 0,
         total: metrics.coreRequirements?.total ?? 0,
         items: metrics.coreRequirements?.items ?? [],
-        icon: <Badge variant="secondary" className="text-xs">Core</Badge>,
+        icon: <></>,
       },
       preferred: {
         label: 'Pref Req',
         met: metrics.preferredRequirements?.met ?? 0,
         total: metrics.preferredRequirements?.total ?? 0,
         items: metrics.preferredRequirements?.items ?? [],
-        icon: <Badge variant="outline" className="text-xs">Pref</Badge>,
+        icon: <></>,
       },
     };
   }, [metrics]);

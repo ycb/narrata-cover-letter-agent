@@ -95,7 +95,7 @@ export function CoverLetterFinalization({
   return (
     <>
     <Dialog open={isOpen} onOpenChange={open => (!open ? onClose() : undefined)}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto dialog-top-anchored">
+      <DialogContent className="max-w-6xl h-[85vh] overflow-hidden flex flex-col dialog-top-anchored">
         {/* 1. Header with CTAs */}
         <DialogHeader className="pb-4 border-b border-border/50 pr-8">
           <div className="flex items-start justify-between gap-4">
@@ -137,15 +137,16 @@ export function CoverLetterFinalization({
           </div>
         </DialogHeader>
 
-        {/* Error message if any */}
-        {errorMessage && (
-          <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md">
-            {errorMessage}
-          </div>
-        )}
+        {/* Scrollable content area */}
+        <div className="flex-1 overflow-y-auto py-4">
+          {/* Error message if any */}
+          {errorMessage && (
+            <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md mb-4">
+              {errorMessage}
+            </div>
+          )}
 
-        {/* 2. The final rendered cover letter */}
-        <div className="py-4">
+          {/* The final rendered cover letter */}
           <div className="bg-white border border-border/50 rounded-lg p-8 shadow-sm">
             <div className="font-serif text-[15px] leading-relaxed whitespace-pre-line text-foreground">
               {finalLetter}
@@ -160,7 +161,7 @@ export function CoverLetterFinalization({
           </div>
         </div>
 
-        {/* 3. Utility buttons (centered) */}
+        {/* 3. Utility buttons (centered) - Fixed at bottom */}
         <div className="flex items-center justify-center gap-3 pt-4 border-t border-border/50">
           <Button 
             onClick={handleCopy} 
