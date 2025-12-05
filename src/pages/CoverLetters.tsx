@@ -428,7 +428,7 @@ export default function CoverLetters() {
             <div>
               <h1 className="text-3xl font-bold text-foreground mb-2">All Cover Letters</h1>
               <p className="text-muted-foreground">
-                Manage drafts, monitor AI feedback, and prepare tailored outreach.
+                Manage drafts and keep track of your cover letter history
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
