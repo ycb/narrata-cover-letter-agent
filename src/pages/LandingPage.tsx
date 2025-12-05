@@ -73,8 +73,8 @@ const LandingPage = () => {
               {/* Mobile: Fade in/out carousel */}
               <div className="block md:hidden relative rounded-lg">
                 <img 
-                  src="/docs/marketing/screenshots/cover-letter-editor-2.png" 
-                  alt="Narrata cover letter editor showing job insights and personalized draft content"
+                  src="/docs/marketing/screenshots/dashboard.png" 
+                  alt="Narrata dashboard showing personalized insights and quick actions"
                   className="w-full h-auto animate-hero-mobile-1"
                   loading="eager"
                 />
@@ -100,8 +100,8 @@ const LandingPage = () => {
               {/* Desktop: Vertical scroll animation */}
               <div className="hidden md:block h-[500px] lg:h-[600px] overflow-hidden relative rounded-lg">
                 <img 
-                  src="/docs/marketing/screenshots/cover-letter-editor-2.png" 
-                  alt="Narrata cover letter editor showing job insights and personalized draft content"
+                  src="/docs/marketing/screenshots/dashboard.png" 
+                  alt="Narrata dashboard showing personalized insights and quick actions"
                   className="w-full h-auto absolute top-0 left-0 animate-hero-1"
                   loading="eager"
                 />
