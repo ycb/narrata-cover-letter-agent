@@ -505,3 +505,4 @@ async function getCompanyIdForWorkItem(workItemId: string): Promise<string | nul
     return null;
   }
 }
+

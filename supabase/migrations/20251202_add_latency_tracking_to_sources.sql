@@ -17,3 +17,4 @@ COMMENT ON COLUMN public.sources.llm_latency_ms IS 'Time for LLM analysis (resum
 COMMENT ON COLUMN public.sources.db_latency_ms IS 'Time to save structured data to database in milliseconds';
 COMMENT ON COLUMN public.sources.total_processing_ms IS 'Total processing time from upload start to completion in milliseconds';
 
+

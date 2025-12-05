@@ -252,6 +252,31 @@ This directory contains the complete documentation for Narrata's Evals V1.1 syst
 
 ---
 
+### 13. **PHASE_1_INSTRUMENTATION_SUMMARY.md** — Phase 1 Implementation Summary ⭐ NEW
+
+**Purpose:** Summary of LLM call instrumentation work (Phase 1).
+
+**Audience:** Engineering team, QA, code reviewers.
+
+**Length:** ~500 lines
+
+**Key Sections:**
+- Schema extensions (types & logging)
+- Instrumented LLM calls (4 of 13)
+  - JD Analysis (`preanalyze-jd`)
+  - Company Tags (`cover-letter`)
+  - Draft Readiness Judge (`evaluate-draft-readiness`)
+- Coverage status table
+- Impact & observability gains
+- Next steps (remaining calls + token tracking)
+- Verification SQL queries
+- Files modified (5 files)
+- Deployment checklist
+
+**When to read:** After completing Phase 1 instrumentation, before deployment.
+
+---
+
 ## 🎯 QUICK START
 
 ### For Backend Engineers

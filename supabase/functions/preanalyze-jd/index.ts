@@ -23,6 +23,7 @@ import {
   sanitizeRoleInsights,
   type RawRoleInsights,
 } from '../_shared/pipelines/cover-letter.ts';
+import { voidLogEval } from '../_shared/evals/log.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -126,6 +127,7 @@ serve(async (req: Request) => {
     const rolePrompt = buildJdRolePrompt(jdTitle, companyName, jdText);
     
     let roleInsights: RoleInsightsPayload | null = null;
+    const llmStart = Date.now();
     
     const rawResult = await streamJsonFromLLM<RawRoleInsights>({
       apiKey: openaiApiKey,
@@ -134,6 +136,22 @@ serve(async (req: Request) => {
     });
     
     roleInsights = sanitizeRoleInsights(rawResult);
+    const llmDuration = Date.now() - llmStart;
+
+    // Log LLM call for observability (Phase 0: Cost Tracking)
+    voidLogEval(supabase, {
+      job_id: jobDescriptionId, // Using JD ID as surrogate for job_id
+      job_type: 'coverLetter', // JD analysis is part of cover letter flow
+      stage: 'jd_analysis',
+      user_id: user.id,
+      started_at: new Date(llmStart),
+      completed_at: new Date(),
+      duration_ms: llmDuration,
+      success: !!roleInsights,
+      prompt_name: 'buildJdRolePrompt',
+      model: 'gpt-4o-mini', // Default model for streamJsonFromLLM
+      // Token counts would require OpenAI response metadata - add in future iteration
+    });
 
     // Extract requirement summary
     const jdRequirementSummary = extractJdRequirementSummary(jd);

@@ -590,8 +590,31 @@ const goalsAndStrengthsStage: PipelineStage = {
         companyName &&
         needsCompanyContextFallback(stageData.companyContext)
       ) {
+        const companyTagsStart = Date.now();
         try {
           const webContext = await companyTagsClient.fetchCompanyContext({ companyName });
+          const companyTagsDuration = Date.now() - companyTagsStart;
+          
+          // Log company tags LLM call (Phase 0: Cost Tracking)
+          voidLogEval(supabase, {
+            job_id: job.id,
+            job_type: 'coverLetter',
+            stage: 'company_tags_extraction',
+            user_id: job.user_id,
+            started_at: new Date(companyTagsStart),
+            completed_at: new Date(),
+            duration_ms: companyTagsDuration,
+            success: !!webContext,
+            prompt_name: 'companyTagsAPI', // External API call
+            model: 'external_api', // Not an LLM, but tracked for cost analysis
+            result_subset: webContext ? {
+              industry: webContext.industry,
+              maturity: webContext.maturity,
+              source: webContext.source,
+              confidence: webContext.confidence,
+            } : undefined,
+          });
+          
           if (webContext) {
             const merged = mergeCompanyContexts(stageData.companyContext, webContext);
             if (merged) {
@@ -605,6 +628,22 @@ const goalsAndStrengthsStage: PipelineStage = {
             }
           }
         } catch (error) {
+          // Log failed company tags call
+          voidLogEval(supabase, {
+            job_id: job.id,
+            job_type: 'coverLetter',
+            stage: 'company_tags_extraction',
+            user_id: job.user_id,
+            started_at: new Date(companyTagsStart),
+            completed_at: new Date(),
+            duration_ms: Date.now() - companyTagsStart,
+            success: false,
+            error_type: 'CompanyTagsAPIError',
+            error_message: error instanceof Error ? error.message : String(error),
+            prompt_name: 'companyTagsAPI',
+            model: 'external_api',
+          });
+          
           await logStreamInfo('[STREAM] goalsAndStrengths.companyContext fallback failed', {
             jobId: job.id,
             error: error instanceof Error ? error.message : String(error),

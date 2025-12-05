@@ -15,6 +15,7 @@ import {
 } from '../_shared/readiness.ts';
 import { ZodError } from 'https://esm.sh/zod@3.23.8';
 import { elog } from '../_shared/log.ts';
+import { voidLogEval } from '../_shared/evals/log.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -276,6 +277,25 @@ export async function evaluateDraftReadinessCore(
   });
   const llmEnd = typeof performance !== 'undefined' ? performance.now() : Date.now();
   const latencyMs = Math.max(0, Math.round(llmEnd - llmStart));
+
+  // Log LLM-as-Judge call (Phase 0: Cost Tracking)
+  voidLogEval(params.supabase, {
+    job_id: params.draftId, // Using draft ID as surrogate for job_id
+    job_type: 'coverLetter', // Draft readiness is part of cover letter flow
+    stage: 'draft_readiness_judge',
+    user_id: params.userId,
+    started_at: new Date(llmStart),
+    completed_at: new Date(llmEnd),
+    duration_ms: latencyMs,
+    success: !!result,
+    prompt_name: 'draftReadinessJudgePrompt',
+    model: 'gpt-4o-mini',
+    result_subset: {
+      verdict: result.verdict,
+      dimensionsPopulated: Object.values(result.dimensions).filter(v => v != null).length,
+      improvementCount: result.improvements?.length ?? 0,
+    },
+  });
 
   // Convert to legacy format for DB storage and API response
   const legacyPayload = convertToLegacyFormat(result);

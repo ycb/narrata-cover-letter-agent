@@ -102,6 +102,12 @@ export async function logEval(
         error_message: payload.error_message,
         quality_checks: payload.quality_checks,
         quality_score: payload.quality_score,
+        prompt_name: payload.prompt_name,
+        prompt_version: payload.prompt_version,
+        model: payload.model,
+        prompt_tokens: payload.prompt_tokens,
+        completion_tokens: payload.completion_tokens,
+        total_tokens: payload.total_tokens,
         result_subset: payload.result_subset,
       });
 

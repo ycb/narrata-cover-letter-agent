@@ -562,32 +562,37 @@ export const ContentQualityWidget = React.forwardRef<ContentQualityWidgetRef, Co
             No items found with the selected filters.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-muted/50">
-                <tr>
-                  <th className="text-left p-3 w-6">#</th>
-                  <th className="text-left p-3 w-6 cursor-pointer select-none" onClick={() => toggleSort('severity')}>
-                    <span className="inline-flex items-center gap-1">
-                      <AlertTriangle className="w-4 h-4 text-muted-foreground" />
-                      {sortField==='severity' ? (sortDirection==='asc'?<ChevronUp className="w-4 h-4"/>:<ChevronDown className="w-4 h-4"/>) : <ChevronDown className="w-4 h-4 text-muted-foreground"/>}
-                    </span>
-                  </th>
-                  <th className="text-left p-3 cursor-pointer select-none" onClick={() => toggleSort('company')}>
-                    <span className="inline-flex items-center gap-2">Company {sortField==='company' ? (sortDirection==='asc'?<ChevronUp className="w-4 h-4"/>:<ChevronDown className="w-4 h-4"/>) : <ChevronDown className="w-4 h-4 text-muted-foreground"/>}</span>
-                  </th>
-                  <th className="text-left p-3 cursor-pointer select-none" onClick={() => toggleSort('role')}>
-                    <span className="inline-flex items-center gap-2">Role {sortField==='role' ? (sortDirection==='asc'?<ChevronUp className="w-4 h-4"/>:<ChevronDown className="w-4 h-4"/>) : <ChevronDown className="w-4 h-4 text-muted-foreground"/>}</span>
-                  </th>
-                  <th className="text-left p-3 cursor-pointer select-none" onClick={() => toggleSort('title')}>
-                    <span className="inline-flex items-center gap-2">Title {sortField==='title' ? (sortDirection==='asc'?<ChevronUp className="w-4 h-4"/>:<ChevronDown className="w-4 h-4"/>) : <ChevronDown className="w-4 h-4 text-muted-foreground"/>}</span>
-                  </th>
-                  <th className="text-left p-3 w-48 cursor-pointer select-none" onClick={() => toggleSort('type')}>
-                    <span className="inline-flex items-center gap-2">Type {sortField==='type' ? (sortDirection==='asc'?<ChevronUp className="w-4 h-4"/>:<ChevronDown className="w-4 h-4"/>) : <ChevronDown className="w-4 h-4 text-muted-foreground"/>}</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
+          <div className="border rounded-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-muted/50 sticky top-0 z-10">
+                  <tr>
+                    <th className="text-left p-3 w-6">#</th>
+                    <th className="text-left p-3 w-6 cursor-pointer select-none" onClick={() => toggleSort('severity')}>
+                      <span className="inline-flex items-center gap-1">
+                        <AlertTriangle className="w-4 h-4 text-muted-foreground" />
+                        {sortField==='severity' ? (sortDirection==='asc'?<ChevronUp className="w-4 h-4"/>:<ChevronDown className="w-4 h-4"/>) : <ChevronDown className="w-4 h-4 text-muted-foreground"/>}
+                      </span>
+                    </th>
+                    <th className="text-left p-3 cursor-pointer select-none" onClick={() => toggleSort('company')}>
+                      <span className="inline-flex items-center gap-2">Company {sortField==='company' ? (sortDirection==='asc'?<ChevronUp className="w-4 h-4"/>:<ChevronDown className="w-4 h-4"/>) : <ChevronDown className="w-4 h-4 text-muted-foreground"/>}</span>
+                    </th>
+                    <th className="text-left p-3 cursor-pointer select-none" onClick={() => toggleSort('role')}>
+                      <span className="inline-flex items-center gap-2">Role {sortField==='role' ? (sortDirection==='asc'?<ChevronUp className="w-4 h-4"/>:<ChevronDown className="w-4 h-4"/>) : <ChevronDown className="w-4 h-4 text-muted-foreground"/>}</span>
+                    </th>
+                    <th className="text-left p-3 cursor-pointer select-none" onClick={() => toggleSort('title')}>
+                      <span className="inline-flex items-center gap-2">Title {sortField==='title' ? (sortDirection==='asc'?<ChevronUp className="w-4 h-4"/>:<ChevronDown className="w-4 h-4"/>) : <ChevronDown className="w-4 h-4 text-muted-foreground"/>}</span>
+                    </th>
+                    <th className="text-left p-3 w-48 cursor-pointer select-none" onClick={() => toggleSort('type')}>
+                      <span className="inline-flex items-center gap-2">Type {sortField==='type' ? (sortDirection==='asc'?<ChevronUp className="w-4 h-4"/>:<ChevronDown className="w-4 h-4"/>) : <ChevronDown className="w-4 h-4 text-muted-foreground"/>}</span>
+                    </th>
+                  </tr>
+                </thead>
+              </table>
+            </div>
+            <div className="overflow-x-auto overflow-y-auto max-h-[60vh] md:max-h-[500px]">
+              <table className="w-full">
+                <tbody>
             {sortedItems.map((item, index) => {
               const severityConfig = SEVERITY_CONFIG[item.max_severity];
               // Company / Role / Title fields
@@ -636,8 +641,9 @@ export const ContentQualityWidget = React.forwardRef<ContentQualityWidgetRef, Co
                 </tr>
               );
             })}
-              </tbody>
-            </table>
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </CardContent>

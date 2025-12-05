@@ -567,3 +567,4 @@ await createJob('coverLetter', {
 **Last Updated:** December 4, 2025  
 **Next Review:** After streaming onboarding completion
 
+

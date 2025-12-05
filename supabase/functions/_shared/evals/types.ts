@@ -98,6 +98,14 @@ export interface LogEvalPayload {
   quality_checks?: StructuralEvalResult;
   quality_score?: number; // 0-100
   
+  // Prompt Metadata (Phase 0: Cost Tracking)
+  prompt_name?: string; // e.g., 'buildJdRolePrompt'
+  prompt_version?: string; // e.g., hash or version tag
+  model?: string; // e.g., 'gpt-4o'
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+  
   // Optional result snapshot (safe subset, no PII)
   result_subset?: Record<string, unknown>;
 }
