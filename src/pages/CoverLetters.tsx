@@ -33,7 +33,6 @@ import {
   CoverLetterTemplateService,
   type CoverLetterSummary
 } from "@/services/coverLetterTemplateService";
-import { SyntheticUserService } from "@/services/syntheticUserService";
 import type {
   CoverLetterGeneratedSection,
   CoverLetterSection
@@ -255,7 +254,6 @@ export default function CoverLetters() {
   const [storyCTAContext, setStoryCTAContext] = useState<{requirement?: string; severity?: string} | null>(null);
   const [selectedCoverLetter, setSelectedCoverLetter] = useState<CoverLetterListItem | null>(null);
   const [coverLetters, setCoverLetters] = useState<CoverLetterListItem[]>([]);
-  const [activeProfileId, setActiveProfileId] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const mountedRef = useRef(true);
@@ -280,18 +278,6 @@ export default function CoverLetters() {
     setLoadError(null);
 
     try {
-      const syntheticService = new SyntheticUserService();
-      const syntheticContext = await syntheticService.getSyntheticUserContext();
-      const profileId = syntheticContext.isSyntheticTestingEnabled
-        ? syntheticContext.currentUser?.profileId
-        : undefined;
-
-      if (!mountedRef.current) {
-        return;
-      }
-
-      setActiveProfileId(profileId ?? undefined);
-
       const summaries = await CoverLetterTemplateService.getUserCoverLetters(user.id);
       if (!mountedRef.current) {
         return;
@@ -445,11 +431,6 @@ export default function CoverLetters() {
               <p className="text-muted-foreground">
                 Manage drafts, monitor AI feedback, and prepare tailored outreach.
               </p>
-              {activeProfileId && (
-                <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
-                  Persona • {activeProfileId}
-                </div>
-              )}
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <Button variant="secondary" asChild>
