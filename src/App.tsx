@@ -49,6 +49,7 @@ import ShowAllStories from "./pages/ShowAllStories";
 import ShowAllLinks from "./pages/ShowAllLinks";
 import SavedSections from "./pages/SavedSections";
 import NewUserOnboarding from "./pages/NewUserOnboarding";
+import GoNoGoDemo from "./pages/GoNoGoDemo";
 import { EvaluationDashboard } from "./components/evaluation/EvaluationDashboard";
 import { PipelineEvaluationDashboard } from "./components/evaluation/PipelineEvaluationDashboard";
 
@@ -183,6 +184,12 @@ function AppLayout() {
             </ProtectedRoute>
           } />
         )}
+        <Route path="/dev/go-no-go-demo" element={
+          <ProtectedRoute>
+            <Header />
+            <GoNoGoDemo />
+          </ProtectedRoute>
+        } />
         <Route path="/saved-sections" element={
           <ProtectedRoute>
             <Header />

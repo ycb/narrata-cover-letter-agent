@@ -268,7 +268,7 @@ export async function evaluateDraftReadinessCore(
   const llmStart = typeof performance !== 'undefined' ? performance.now() : Date.now();
   
   // Call judge - LLM determines verdict holistically (no weighted median)
-  const result = await deps.callJudge({
+  const { result, usage } = await deps.callJudge({
     apiKey: params.openAiApiKey,
     draftText: context.promptDraft,
     wordCount: context.wordCount,
@@ -278,7 +278,7 @@ export async function evaluateDraftReadinessCore(
   const llmEnd = typeof performance !== 'undefined' ? performance.now() : Date.now();
   const latencyMs = Math.max(0, Math.round(llmEnd - llmStart));
 
-  // Log LLM-as-Judge call (Phase 0: Cost Tracking)
+  // Log LLM-as-Judge call (Phase 1b: Token Tracking)
   voidLogEval(params.supabase, {
     job_id: params.draftId, // Using draft ID as surrogate for job_id
     job_type: 'coverLetter', // Draft readiness is part of cover letter flow
@@ -290,6 +290,9 @@ export async function evaluateDraftReadinessCore(
     success: !!result,
     prompt_name: 'draftReadinessJudgePrompt',
     model: 'gpt-4o-mini',
+    prompt_tokens: usage?.prompt_tokens,
+    completion_tokens: usage?.completion_tokens,
+    total_tokens: usage?.total_tokens,
     result_subset: {
       verdict: result.verdict,
       dimensionsPopulated: Object.values(result.dimensions).filter(v => v != null).length,

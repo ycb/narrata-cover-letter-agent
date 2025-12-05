@@ -129,7 +129,7 @@ serve(async (req: Request) => {
     let roleInsights: RoleInsightsPayload | null = null;
     const llmStart = Date.now();
     
-    const rawResult = await streamJsonFromLLM<RawRoleInsights>({
+    const { data: rawResult, usage } = await streamJsonFromLLM<RawRoleInsights>({
       apiKey: openaiApiKey,
       prompt: rolePrompt,
       schema: roleInsightsSchema,
@@ -138,7 +138,7 @@ serve(async (req: Request) => {
     roleInsights = sanitizeRoleInsights(rawResult);
     const llmDuration = Date.now() - llmStart;
 
-    // Log LLM call for observability (Phase 0: Cost Tracking)
+    // Log LLM call for observability (Phase 1b: Token Tracking)
     voidLogEval(supabase, {
       job_id: jobDescriptionId, // Using JD ID as surrogate for job_id
       job_type: 'coverLetter', // JD analysis is part of cover letter flow
@@ -149,8 +149,10 @@ serve(async (req: Request) => {
       duration_ms: llmDuration,
       success: !!roleInsights,
       prompt_name: 'buildJdRolePrompt',
-      model: 'gpt-4o-mini', // Default model for streamJsonFromLLM
-      // Token counts would require OpenAI response metadata - add in future iteration
+      model: 'gpt-4o-mini',
+      prompt_tokens: usage.prompt_tokens,
+      completion_tokens: usage.completion_tokens,
+      total_tokens: usage.total_tokens,
     });
 
     // Extract requirement summary

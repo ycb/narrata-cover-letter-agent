@@ -318,9 +318,20 @@ type StreamJsonFromLLMOptions<TSchema extends z.ZodTypeAny> = {
   onPartial?: (partial: Partial<z.infer<TSchema>>) => void | Promise<void>;
 };
 
+export interface LLMUsage {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+}
+
+export interface StreamJsonResult<T> {
+  data: T;
+  usage: LLMUsage;
+}
+
 export async function streamJsonFromLLM<TSchema extends z.ZodTypeAny>(
   options: StreamJsonFromLLMOptions<TSchema>
-): Promise<z.infer<TSchema>> {
+): Promise<StreamJsonResult<z.infer<TSchema>>> {
   const {
     apiKey,
     prompt,
@@ -342,8 +353,17 @@ export async function streamJsonFromLLM<TSchema extends z.ZodTypeAny>(
   });
   const content = raw?.choices?.[0]?.message?.content;
   const parsed = typeof content === 'string' ? parseJSONResponse(content) : content;
-  // Validate against provided schema
-  return schema.parse(parsed) as z.infer<TSchema>;
+  
+  // Extract usage data from OpenAI response
+  const usage: LLMUsage = {
+    prompt_tokens: raw?.usage?.prompt_tokens ?? 0,
+    completion_tokens: raw?.usage?.completion_tokens ?? 0,
+    total_tokens: raw?.usage?.total_tokens ?? 0,
+  };
+  
+  // Validate against provided schema and return both data and usage
+  const data = schema.parse(parsed) as z.infer<TSchema>;
+  return { data, usage };
 }
 
 export function extractJdRequirementSummary(jd: Record<string, any> | null): JdRequirementSummary {

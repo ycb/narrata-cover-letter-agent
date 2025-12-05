@@ -15,7 +15,6 @@ import {
   Calendar,
   CheckCircle,
   Clock,
-  Eye,
   LayoutTemplate,
   Mail,
   Plus,
@@ -585,7 +584,8 @@ export default function CoverLetters() {
             {filteredCoverLetters.map((coverLetter) => (
                 <Card
                   key={coverLetter.id}
-                  className="shadow-soft transition-all duration-200 hover:shadow-medium"
+                  className="shadow-soft transition-all duration-200 hover:shadow-medium cursor-pointer"
+                  onClick={() => handleEdit(coverLetter)}
                 >
                 <CardHeader className="pb-3">
                     <div className="flex items-start justify-between gap-3">
@@ -644,26 +644,6 @@ export default function CoverLetters() {
                         {coverLetter.analytics.summary}
                   </div>
                     )}
-                  <div className="flex gap-2">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleView(coverLetter)}
-                        className="flex-1"
-                    >
-                      <Eye className="h-4 w-4 mr-1" />
-                      View
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleEdit(coverLetter)}
-                        className="flex-1"
-                    >
-                        <CheckCircle className="h-4 w-4 mr-1" />
-                      Edit
-                    </Button>
-                  </div>
                 </CardContent>
               </Card>
             ))}

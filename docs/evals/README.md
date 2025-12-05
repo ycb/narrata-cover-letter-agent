@@ -252,9 +252,9 @@ This directory contains the complete documentation for Narrata's Evals V1.1 syst
 
 ---
 
-### 13. **PHASE_1_INSTRUMENTATION_SUMMARY.md** — Phase 1 Implementation Summary ⭐ NEW
+### 13. **PHASE_1_INSTRUMENTATION_SUMMARY.md** — Phase 1a Implementation Summary ⭐ NEW
 
-**Purpose:** Summary of LLM call instrumentation work (Phase 1).
+**Purpose:** Summary of LLM call instrumentation work (Phase 1a).
 
 **Audience:** Engineering team, QA, code reviewers.
 
@@ -273,7 +273,67 @@ This directory contains the complete documentation for Narrata's Evals V1.1 syst
 - Files modified (5 files)
 - Deployment checklist
 
-**When to read:** After completing Phase 1 instrumentation, before deployment.
+**When to read:** After completing Phase 1a instrumentation.
+
+---
+
+### 14. **PHASE_1B_TOKEN_TRACKING_SUMMARY.md** — Phase 1b Token Tracking Summary ⭐ NEW
+
+**Purpose:** Summary of token count tracking implementation (Phase 1b).
+
+**Audience:** Engineering team, QA, DevOps.
+
+**Length:** ~400 lines
+
+**Key Sections:**
+- `streamJsonFromLLM()` refactor (breaking change)
+- Updated all 4 callers (pipeline-utils, preanalyze-jd, cover-letter, readiness)
+- Token usage now tracked for 7 LLM calls
+- Cost calculation examples
+- Business impact (cost visibility)
+- Deployment notes
+
+**When to read:** After completing Phase 1b token tracking.
+
+---
+
+### 15. **COMPREHENSIVE_TESTING_GUIDE.md** — Complete Test Suite ⭐ NEW
+
+**Purpose:** Comprehensive testing guide for all implemented phases (0, 1a, 1b).
+
+**Audience:** QA team, engineers, product managers.
+
+**Length:** ~600 lines
+
+**Key Sections:**
+- 12 test cases (JD Analysis, Cover Letter stages, Draft Readiness, Resume, PM Levels, Cost Functions, Dashboards)
+- Expected metrics & benchmarks
+- Troubleshooting guide (4 common issues)
+- Performance expectations
+- Sign-off checklist
+
+**When to read:** Before testing, after onboarding pipeline is running.
+
+---
+
+### 16. **FINAL_IMPLEMENTATION_SUMMARY.md** — Executive Summary ⭐ NEW
+
+**Purpose:** High-level summary of all completed work (Phases 0, 1a, 1b).
+
+**Audience:** All stakeholders, project managers, executives.
+
+**Length:** ~350 lines
+
+**Key Sections:**
+- What was delivered (3 phases)
+- Coverage summary (12 LLM calls instrumented)
+- Files modified (7 files)
+- Deployment checklist
+- Business impact (cost visibility, $46/month estimate)
+- Success criteria
+- Quick links to all docs
+
+**When to read:** For final sign-off, before production deployment.
 
 ---
 

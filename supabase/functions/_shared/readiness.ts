@@ -196,14 +196,14 @@ export async function callReadinessJudge(params: {
   wordCount: number;
   companyContext: ReadinessCompanyContext;
   roleContext: ReadinessRoleContext;
-}): Promise<DraftReadinessResult> {
+}): Promise<{ result: DraftReadinessResult; usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number } }> {
   // Special handling for drafts below 150 words
   if (params.wordCount < DRAFT_READINESS_MIN_WORDS) {
-    return createTooShortResult(params.wordCount);
+    return { result: createTooShortResult(params.wordCount) };
   }
   
   const prompt = buildReadinessPrompt(params);
-  return streamJsonFromLLM({
+  const { data, usage } = await streamJsonFromLLM({
     apiKey: params.apiKey,
     model: DRAFT_READINESS_MODEL,
     temperature: 0.2,
@@ -211,6 +211,7 @@ export async function callReadinessJudge(params: {
     prompt,
     schema: draftReadinessSchema,
   });
+  return { result: data, usage };
 }
 
 // Create result for drafts that are too short

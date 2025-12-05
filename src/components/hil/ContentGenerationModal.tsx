@@ -9,6 +9,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { ContentGapBanner } from '@/components/shared/ContentGapBanner';
 import type { Gap } from '@/services/gapTransformService';
 import { SectionInspector, type SectionAttributionData } from '@/components/cover-letters/SectionInspector';
+import { supabase } from '@/lib/supabase';
 
 interface GapAnalysis {
   id: string;
@@ -225,14 +226,49 @@ export function ContentGenerationModal({
     handleGenerate();
   };
 
-  const handleApply = () => {
-    if (generatedContent.trim()) {
-      onApplyContent(generatedContent);
-      onClose();
-      // Reset state
-      setGeneratedContent('');
-      setContentQuality('draft');
+  const handleApply = async () => {
+    if (!generatedContent.trim()) return;
+
+    // Persist as a variation when we have context
+    if (gap && entityId && contentType) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { ContentGenerationService } = await import('@/services/contentGenerationService');
+          const svc = new ContentGenerationService();
+          const parentEntityType =
+            contentType === 'saved_section'
+              ? 'saved_section'
+              : 'approved_content';
+
+          await svc.saveGeneratedContent({
+            userId: user.id,
+            entityType: parentEntityType as 'saved_section' | 'approved_content',
+            entityId,
+            content: generatedContent,
+            mode: 'variation',
+            gapId: gap.id,
+            variationData: {
+              title: gap.description || 'Gap fix',
+              gapTags: gap.addresses || [],
+              targetJobTitle: gap.gapSummary || undefined,
+              targetCompany: undefined,
+              jobDescriptionId: gap.requirementId || undefined,
+            },
+          });
+        }
+      } catch (err) {
+        console.warn('[ContentGenerationModal] Failed to save variation:', err);
+      }
     }
+
+    if (onApplyContent) {
+      onApplyContent(generatedContent);
+    }
+    onClose();
+    // Reset state
+    setGeneratedContent('');
+    setContentQuality('draft');
   };
 
   const handleClose = () => {

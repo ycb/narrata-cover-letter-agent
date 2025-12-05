@@ -154,10 +154,11 @@ const jdAnalysisStage: PipelineStage = {
       await emitPartial({ jdRequirementSummary });
 
       let accumulatedRoleInsights: RoleInsightsPayload | null = null;
+      let llmUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null = null;
 
       try {
         const rolePrompt = buildJdRolePrompt(jdTitle, jd.company, jdText);
-        const roleResult = await streamJsonFromLLM<RawRoleInsights>({
+        const { data: roleResult, usage: roleUsage } = await streamJsonFromLLM<RawRoleInsights>({
           apiKey: openaiApiKey,
           prompt: rolePrompt,
           schema: roleInsightsSchema,
@@ -170,6 +171,7 @@ const jdAnalysisStage: PipelineStage = {
           },
         });
 
+        llmUsage = roleUsage; // Store for return data
         const sanitizedFinal = sanitizeRoleInsights(roleResult);
         accumulatedRoleInsights = mergeRoleInsights(accumulatedRoleInsights, sanitizedFinal);
       } catch (error) {
@@ -228,6 +230,7 @@ const jdAnalysisStage: PipelineStage = {
       status: stageStatus,
       isPartial: false,
       data: finalData,
+      usage: llmUsage, // Include token usage for logging
     };
   },
 };
@@ -471,9 +474,10 @@ const goalsAndStrengthsStage: PipelineStage = {
         null;
 
       // --- MWS STREAMING ---------------------------------------------------
+      let mwsUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null = null;
       try {
         const mwsPrompt = buildMwsPrompt(pmProfile, jdSignals, truncatedJd);
-        const mwsResult = await streamJsonFromLLM<RawMwsSummary>({
+        const { data: mwsResult, usage: mwsTokenUsage } = await streamJsonFromLLM<RawMwsSummary>({
           apiKey: openaiApiKey,
           prompt: mwsPrompt,
           schema: MWS_SCHEMA,
@@ -499,6 +503,7 @@ const goalsAndStrengthsStage: PipelineStage = {
           },
         });
 
+        mwsUsage = mwsTokenUsage; // Store for return data
         const finalMws = sanitizeMwsSummary(mwsResult);
         if (finalMws) {
           stageData.mws = finalMws;
@@ -554,15 +559,17 @@ const goalsAndStrengthsStage: PipelineStage = {
 
       // --- COMPANY CONTEXT (JD FIRST) --------------------------------------
       let jdContext: CompanyContext | null = null;
+      let jdContextUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null = null;
       try {
         const contextPrompt = buildCompanyContextPrompt(companyName, jdSignals, truncatedJd);
-        const jdContextRaw = await streamJsonFromLLM<RawCompanyContext>({
+        const { data: jdContextRaw, usage: contextTokenUsage } = await streamJsonFromLLM<RawCompanyContext>({
           apiKey: openaiApiKey,
           prompt: contextPrompt,
           schema: COMPANY_CONTEXT_SCHEMA,
           temperature: 0.2,
           maxTokens: 500,
         });
+        jdContextUsage = contextTokenUsage; // Store for return data
         const sanitizedContext = sanitizeCompanyContext(jdContextRaw, 'jd');
         if (sanitizedContext) {
           sanitizedContext.confidence =
@@ -687,6 +694,10 @@ const goalsAndStrengthsStage: PipelineStage = {
       status: stageStatus,
       isPartial: false,
       data: stageStatus === 'failed' ? {} : stageData,
+      usage: { // Include token usage for logging (multiple LLM calls)
+        mws: mwsUsage,
+        companyContext: jdContextUsage,
+      },
     };
   },
 };
@@ -1075,7 +1086,7 @@ export async function executeCoverLetterPipeline(
       results.jdAnalysis = await jdAnalysisStage.execute(context);
       telemetry?.endStage(true);
       
-      // Log eval metrics
+      // Log eval metrics (Phase 1b: with token tracking)
       voidLogEval(supabase, {
         job_id: job.id,
         job_type: 'coverLetter',
@@ -1085,6 +1096,11 @@ export async function executeCoverLetterPipeline(
         completed_at: new Date(),
         duration_ms: Date.now() - jdAnalysisStart,
         success: true,
+        prompt_name: 'buildJdRolePrompt',
+        model: 'gpt-4o-mini',
+        prompt_tokens: results.jdAnalysis?.usage?.prompt_tokens,
+        completion_tokens: results.jdAnalysis?.usage?.completion_tokens,
+        total_tokens: results.jdAnalysis?.usage?.total_tokens,
         result_subset: {
           hasRoleInsights: Boolean(results.jdAnalysis?.data?.roleInsights),
           hasRequirementSummary: Boolean(results.jdAnalysis?.data?.jdRequirementSummary),
@@ -1173,7 +1189,52 @@ export async function executeCoverLetterPipeline(
           const result = await goalsAndStrengthsStage.execute(context);
           telemetry?.endStage(true);
           
-          // Log eval metrics
+          // Log eval metrics for MWS call (Phase 1b: Token Tracking)
+          if (result?.usage?.mws) {
+            voidLogEval(supabase, {
+              job_id: job.id,
+              job_type: 'coverLetter',
+              stage: 'goalsAndStrengths_mws',
+              user_id: job.user_id,
+              started_at: new Date(stageStart),
+              completed_at: new Date(),
+              duration_ms: Date.now() - stageStart,
+              success: Boolean(result?.data?.mws),
+              prompt_name: 'buildMwsPrompt',
+              model: 'gpt-4o-mini',
+              prompt_tokens: result.usage.mws.prompt_tokens,
+              completion_tokens: result.usage.mws.completion_tokens,
+              total_tokens: result.usage.mws.total_tokens,
+              result_subset: {
+                mwsScore: result?.data?.mws?.summaryScore,
+              },
+            });
+          }
+          
+          // Log eval metrics for Company Context call
+          if (result?.usage?.companyContext) {
+            voidLogEval(supabase, {
+              job_id: job.id,
+              job_type: 'coverLetter',
+              stage: 'goalsAndStrengths_company_context',
+              user_id: job.user_id,
+              started_at: new Date(stageStart),
+              completed_at: new Date(),
+              duration_ms: Date.now() - stageStart,
+              success: Boolean(result?.data?.companyContext),
+              prompt_name: 'buildCompanyContextPrompt',
+              model: 'gpt-4o-mini',
+              prompt_tokens: result.usage.companyContext.prompt_tokens,
+              completion_tokens: result.usage.companyContext.completion_tokens,
+              total_tokens: result.usage.companyContext.total_tokens,
+              result_subset: {
+                source: result?.data?.companyContext?.source,
+                confidence: result?.data?.companyContext?.confidence,
+              },
+            });
+          }
+          
+          // Log overall stage metrics (backward compatible)
           voidLogEval(supabase, {
             job_id: job.id,
             job_type: 'coverLetter',
