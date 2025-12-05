@@ -14,6 +14,7 @@ import {
   Calendar,
   CheckCircle,
   Clock,
+  LayoutTemplate,
   Mail,
   Plus,
   Search

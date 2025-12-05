@@ -109,11 +109,11 @@ export function MatchMetricsSummaryBar({ metrics, goNoGoAnalysis, className }: M
   return (
     <div className={cn('w-full space-y-3', className)}>
       <div className="flex flex-wrap gap-3">
-        {(['goals','strengths','core','preferred'] as SummaryKey[]).map((key) => {
-          const data = summary[key];
-          const open = openKey === key;
-          return (
-            <SummaryItem
+      {(['goals','strengths','core','preferred'] as SummaryKey[]).map((key) => {
+        const data = summary[key];
+        const open = openKey === key;
+        return (
+          <SummaryItem
               key={key}
               label={data.label}
               met={data.met}
@@ -126,30 +126,6 @@ export function MatchMetricsSummaryBar({ metrics, goNoGoAnalysis, className }: M
           );
         })}
       </div>
-
-      {openKey && summary[openKey]?.items?.length ? (
-        <div className="w-full border border-border/60 rounded-lg overflow-hidden">
-          <div className="bg-foreground text-background px-4 py-2 flex items-center justify-between">
-            <span className="text-sm font-semibold uppercase tracking-wide">{summary[openKey].label}</span>
-            <span className="text-sm font-semibold">{summary[openKey].met}/{summary[openKey].total}</span>
-          </div>
-          <div className="bg-background">
-            {summary[openKey].items!.map((item, idx) => (
-              <div
-                key={`${item.requirement || item.label}-${idx}`}
-                className={cn('flex items-center justify-between px-3 py-3', idx > 0 && 'border-t border-border/40')}
-              >
-                <div className="text-sm font-medium text-foreground">
-                  {item.requirement || item.label}
-                </div>
-                <div className="flex-shrink-0 px-2">
-                  <StatusIcon met={item.demonstrated === true} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
