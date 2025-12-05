@@ -180,7 +180,8 @@ const Dashboard = () => {
             icon={FileText}
             trend={{ 
               value: `+${dashboardData.stats.lastMonthStories} this month`, 
-              isPositive: dashboardData.stats.lastMonthStories > 0 
+              isPositive: dashboardData.stats.lastMonthStories > 0,
+              change: dashboardData.stats.lastMonthStories
             }}
             onClick={() => navigate('/work-history')}
           />
@@ -191,7 +192,8 @@ const Dashboard = () => {
             icon={Mail}
             trend={{
               value: `+${dashboardData.stats.lastMonthCoverLetters} this month`,
-              isPositive: dashboardData.stats.lastMonthCoverLetters > 0
+              isPositive: dashboardData.stats.lastMonthCoverLetters > 0,
+              change: dashboardData.stats.lastMonthCoverLetters
             }}
             onClick={() => navigate('/cover-letters')}
           />

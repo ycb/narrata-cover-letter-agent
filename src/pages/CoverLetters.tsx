@@ -480,7 +480,8 @@ export default function CoverLetters() {
               icon={Calendar}
               trend={{
                 value: `+${stats.lastMonthTotal} this month`,
-                isPositive: stats.lastMonthTotal > 0
+                isPositive: stats.lastMonthTotal > 0,
+                change: stats.lastMonthTotal
               }}
             />
             <StatsCard
@@ -490,7 +491,8 @@ export default function CoverLetters() {
               icon={Calendar}
               trend={{
                 value: `+${stats.lastMonthFinalized} this month`,
-                isPositive: stats.lastMonthFinalized > 0
+                isPositive: stats.lastMonthFinalized > 0,
+                change: stats.lastMonthFinalized
               }}
             />
             <StatsCard
@@ -500,7 +502,8 @@ export default function CoverLetters() {
               icon={Calendar}
               trend={{
                 value: `+${stats.lastMonthDrafts} this month`,
-                isPositive: stats.lastMonthDrafts > 0
+                isPositive: stats.lastMonthDrafts > 0,
+                change: stats.lastMonthDrafts
               }}
             />
           </div>

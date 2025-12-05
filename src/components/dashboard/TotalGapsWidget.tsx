@@ -24,9 +24,27 @@ export function TotalGapsWidget({ gapSummary, previousGapSummary, isLoading, onC
   const previousTotal = previousGapSummary?.total || 0;
   const change = total - previousTotal;
   
-  // For gaps: increase is bad (red), decrease is good (green)
-  const isGood = change < 0; // Decrease in gaps is good
-  const arrowIcon = change > 0 ? '↗' : '↘'; // Up arrow for increase, down for decrease
+  // Determine trend display
+  const getTrendDisplay = () => {
+    // If no change, show neutral (grey, no arrow)
+    if (change === 0) {
+      return (
+        <div className="text-sm mt-2 text-muted-foreground">
+          +0 this month
+        </div>
+      );
+    }
+    
+    // For gaps: increase is bad (red), decrease is good (green)
+    const isGood = change < 0;
+    const arrowIcon = change > 0 ? '↗' : '↘';
+    
+    return (
+      <div className={`text-sm mt-2 ${isGood ? 'text-success' : 'text-destructive'}`}>
+        {arrowIcon} {change >= 0 ? '+' : ''}{change} this month
+      </div>
+    );
+  };
 
   return (
     <Card 
@@ -37,9 +55,7 @@ export function TotalGapsWidget({ gapSummary, previousGapSummary, isLoading, onC
         <div className="text-center">
           <p className="text-sm font-medium text-muted-foreground">Gaps</p>
           <p className="text-3xl font-bold text-foreground mt-2">{total}</p>
-          <div className={`text-sm mt-2 ${isGood ? 'text-success' : 'text-destructive'}`}>
-            {arrowIcon} {change >= 0 ? '+' : ''}{change} this month
-          </div>
+          {getTrendDisplay()}
         </div>
       </CardContent>
     </Card>
