@@ -12,10 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { 
   Calendar,
-  CheckCircle,
-  Clock,
   LayoutTemplate,
-  Mail,
   Plus,
   Search
 } from "lucide-react";
@@ -27,6 +24,7 @@ import { AddStoryModal } from "@/components/work-history/AddStoryModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { LoadingState } from "@/components/shared/LoadingState";
+import { StatsCard } from "@/components/dashboard/StatsCard";
 import {
   CoverLetterTemplateService,
   type CoverLetterSummary
@@ -457,39 +455,24 @@ export default function CoverLetters() {
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="shadow-soft">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Letters</p>
-                    <p className="text-2xl font-bold">{stats.total}</p>
-                  </div>
-                  <Mail className="h-8 w-8 text-muted-foreground" />
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="shadow-soft">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Finalized</p>
-                    <p className="text-2xl font-bold">{stats.finalized}</p>
-                  </div>
-                  <CheckCircle className="h-8 w-8 text-success" />
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="shadow-soft">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Drafts</p>
-                    <p className="text-2xl font-bold">{stats.drafts}</p>
-                  </div>
-                  <Clock className="h-8 w-8 text-warning" />
-                </div>
-              </CardContent>
-            </Card>
+            <StatsCard
+              title="Total Letters"
+              value={stats.total}
+              description=""
+              icon={Calendar}
+            />
+            <StatsCard
+              title="Finalized"
+              value={stats.finalized}
+              description=""
+              icon={Calendar}
+            />
+            <StatsCard
+              title="Drafts"
+              value={stats.drafts}
+              description=""
+              icon={Calendar}
+            />
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-[2fr_1fr]">

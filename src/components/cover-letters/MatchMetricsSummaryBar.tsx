@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { MatchMetricsData, RequirementDisplayItem } from './useMatchMetricsDetails';
 import type { GoNoGoAnalysis } from '@/services/goNoGoService';
@@ -47,7 +47,7 @@ const SummaryItem = ({
             <span className="text-lg font-semibold text-foreground">{met}/{total}</span>
           </div>
         </div>
-        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        <ChevronDown className="h-4 w-4 text-muted-foreground" />
       </button>
       {open && items && items.length > 0 && (
         <div className="mt-2 border border-border/60 rounded-lg overflow-hidden bg-background">
