@@ -101,6 +101,37 @@ export default function GoNoGoDemo() {
         onOverride={() => console.log('override')}
         onRetry={() => console.log('retry')}
       />
+
+      <Card className="p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Job description (parsed)</h3>
+          <span className="text-sm text-muted-foreground">
+            {mockJD.company} — {mockJD.role}
+          </span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <div className="text-sm font-semibold text-muted-foreground">Core requirements</div>
+            <div className="space-y-2 rounded-lg border border-border/60 bg-muted/10 p-3">
+              {mockJD.coreRequirements.map((req, idx) => (
+                <div key={idx} className="flex items-center justify-between text-sm">
+                  <span className="text-foreground">{req}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div className="text-sm font-semibold text-muted-foreground">Preferred requirements</div>
+            <div className="space-y-2 rounded-lg border border-border/60 bg-muted/10 p-3">
+              {mockJD.preferredRequirements.map((req, idx) => (
+                <div key={idx} className="flex items-center justify-between text-sm">
+                  <span className="text-foreground">{req}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 }

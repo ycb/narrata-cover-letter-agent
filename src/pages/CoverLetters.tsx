@@ -324,6 +324,9 @@ export default function CoverLetters() {
         total: 0,
         finalized: 0,
         drafts: 0,
+        lastMonthTotal: 0,
+        lastMonthFinalized: 0,
+        lastMonthDrafts: 0,
         averageAts: null as number | null,
         lastUpdated: null as string | null
       };
@@ -331,6 +334,18 @@ export default function CoverLetters() {
 
     const finalized = coverLetters.filter((item) => item.status === "finalized").length;
     const drafts = coverLetters.filter((item) => item.status === "draft").length;
+
+    // Calculate monthly stats (created in the last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const lastMonthLetters = coverLetters.filter((item) => 
+      new Date(item.createdAt) >= thirtyDaysAgo
+    );
+    
+    const lastMonthTotal = lastMonthLetters.length;
+    const lastMonthFinalized = lastMonthLetters.filter((item) => item.status === "finalized").length;
+    const lastMonthDrafts = lastMonthLetters.filter((item) => item.status === "draft").length;
 
     const atsScores = coverLetters
       .map((item) => item.analytics.atsScore)
@@ -349,6 +364,9 @@ export default function CoverLetters() {
       total: coverLetters.length,
       finalized,
       drafts,
+      lastMonthTotal,
+      lastMonthFinalized,
+      lastMonthDrafts,
       averageAts,
       lastUpdated
     };
@@ -460,18 +478,30 @@ export default function CoverLetters() {
               value={stats.total}
               description=""
               icon={Calendar}
+              trend={{
+                value: `+${stats.lastMonthTotal} this month`,
+                isPositive: stats.lastMonthTotal > 0
+              }}
             />
             <StatsCard
               title="Finalized"
               value={stats.finalized}
               description=""
               icon={Calendar}
+              trend={{
+                value: `+${stats.lastMonthFinalized} this month`,
+                isPositive: stats.lastMonthFinalized > 0
+              }}
             />
             <StatsCard
               title="Drafts"
               value={stats.drafts}
               description=""
               icon={Calendar}
+              trend={{
+                value: `+${stats.lastMonthDrafts} this month`,
+                isPositive: stats.lastMonthDrafts > 0
+              }}
             />
           </div>
 
