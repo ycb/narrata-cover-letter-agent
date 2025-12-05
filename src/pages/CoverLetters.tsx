@@ -14,7 +14,6 @@ import {
   Calendar,
   CheckCircle,
   Clock,
-  LayoutTemplate,
   Mail,
   Plus,
   Search
@@ -326,7 +325,6 @@ export default function CoverLetters() {
         total: 0,
         finalized: 0,
         drafts: 0,
-        templatesUsed: 0,
         averageAts: null as number | null,
         lastUpdated: null as string | null
       };
@@ -334,7 +332,6 @@ export default function CoverLetters() {
 
     const finalized = coverLetters.filter((item) => item.status === "finalized").length;
     const drafts = coverLetters.filter((item) => item.status === "draft").length;
-    const templateIds = new Set(coverLetters.map((item) => item.templateId));
 
     const atsScores = coverLetters
       .map((item) => item.analytics.atsScore)
@@ -353,7 +350,6 @@ export default function CoverLetters() {
       total: coverLetters.length,
       finalized,
       drafts,
-      templatesUsed: templateIds.size,
       averageAts,
       lastUpdated
     };
@@ -459,7 +455,7 @@ export default function CoverLetters() {
             </Card>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="shadow-soft">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
@@ -490,17 +486,6 @@ export default function CoverLetters() {
                     <p className="text-2xl font-bold">{stats.drafts}</p>
                   </div>
                   <Clock className="h-8 w-8 text-warning" />
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="shadow-soft">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Templates Used</p>
-                    <p className="text-2xl font-bold">{stats.templatesUsed}</p>
-                  </div>
-                  <LayoutTemplate className="h-8 w-8 text-muted-foreground" />
                 </div>
               </CardContent>
             </Card>
