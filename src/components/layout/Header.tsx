@@ -440,7 +440,8 @@ export const Header = ({ currentPage }: HeaderProps) => {
                   </div>
                 </div>
               </div>
-            </div>
+              </div>
+            </nav>
           )}
         </div>
 

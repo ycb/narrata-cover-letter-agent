@@ -544,39 +544,9 @@ export default function NewUserOnboarding() {
       }
 
       setOnboardingData(prev => ({ ...prev, linkedinUrl: normalizedUrl }));
-      setAutoPopulatingLinkedIn(true);
-
-      try {
-        if (linkedInUpload?.connectLinkedIn) {
-          // Start LI timer
-          setLiStartMs(Date.now());
-          const result = await linkedInUpload.connectLinkedIn(normalizedUrl);
-          if (result?.success) {
-            setLinkedinAutoCompleted(true);
-            await handleUploadComplete(result.fileId || `linkedin_${Date.now()}`, 'linkedin');
-            // Log LI latency
-            try {
-              const { data: { session } } = await supabase.auth.getSession();
-              if (session && liStartMs) {
-                const url = (import.meta.env?.VITE_SUPABASE_URL) || '';
-                const key = (import.meta.env?.VITE_SUPABASE_ANON_KEY) || '';
-                const authSupabase = createSbClient(url, key, {
-                  global: { headers: { Authorization: `Bearer ${session.access_token}` } }
-                });
-                const liMs = Date.now() - liStartMs;
-                await authSupabase.from('evaluation_runs').insert({
-                  user_id: session.user.id,
-                  session_id: (session as any)?.session?.id || (session as any).user?.id,
-                  file_type: 'linkedin',
-                  total_latency_ms: liMs
-                });
-              }
-            } catch {}
-          }
-        }
-      } finally {
-        setAutoPopulatingLinkedIn(false);
-      }
+      // Do not auto-connect; user must click Connect to complete the step
+      setLinkedinAutoCompleted(false);
+      setAutoPopulatingLinkedIn(false);
     } catch (error) {
       console.error('Error during LinkedIn auto-population:', error);
       setAutoPopulatingLinkedIn(false);
@@ -720,8 +690,9 @@ export default function NewUserOnboarding() {
     <div className="space-y-8">
       {/* Global progress (blocking, single indicator) */}
       {showBlockingProgress && currentStep === 'upload' && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-background/95 border-b px-4 py-2">
+        <div className="fixed top-0 left-0 right-0 z-50 bg-white border-b px-4 py-2 shadow-sm">
           <div className="max-w-4xl mx-auto flex items-center gap-4">
+            <span className="text-sm font-medium text-gray-900 whitespace-nowrap">Progress</span>
             <Progress value={(stageConfig[blockingStage] || stageConfig.pending).percent} className="flex-1 h-2" />
             <span className="text-sm text-muted-foreground whitespace-nowrap">
               {(stageConfig[blockingStage] || stageConfig.pending).label}

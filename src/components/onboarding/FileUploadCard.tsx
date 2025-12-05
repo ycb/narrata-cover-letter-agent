@@ -168,12 +168,12 @@ export function FileUploadCard({
   );
 
 
-  const isCompleted = (currentValue && (
-    (typeof currentValue === 'string' && currentValue.trim().length > 0) || 
-    currentValue instanceof File
-  )) || 
-    (type === 'linkedin' && uploadedFileId !== null) ||
-    (type !== 'linkedin' && uploadedFileId !== null);
+  const isCompleted = type === 'linkedin'
+    ? uploadedFileId !== null
+    : (currentValue && (
+        (typeof currentValue === 'string' && currentValue.trim().length > 0) || 
+        currentValue instanceof File
+      )) || uploadedFileId !== null;
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
