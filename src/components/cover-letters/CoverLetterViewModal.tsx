@@ -84,7 +84,7 @@ export function CoverLetterViewModal({ isOpen, onClose, coverLetter }: CoverLett
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader className="pb-2">
           <div>
             <DialogTitle className="text-2xl font-bold">
@@ -96,7 +96,7 @@ export function CoverLetterViewModal({ isOpen, onClose, coverLetter }: CoverLett
           </div>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex-1 overflow-y-auto space-y-4">
           {/* Cover Letter Preview */}
           <Card className="border-2 border-success/20 bg-success/5">
             <CardHeader className="pb-3">
@@ -110,8 +110,10 @@ export function CoverLetterViewModal({ isOpen, onClose, coverLetter }: CoverLett
               </div>
             </CardContent>
           </Card>
+        </div>
 
-          {/* Action Buttons */}
+        {/* Action Buttons - Fixed at bottom */}
+        <div className="pt-4 border-t">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Button 
               onClick={handleCopy} 
