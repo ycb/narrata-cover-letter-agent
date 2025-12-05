@@ -550,17 +550,7 @@ export default function CoverLetters() {
             </div>
           </div>
 
-          {filteredCoverLetters.length === 0 && !isLoading ? (
-            <EmptyState
-              title="No cover letters yet"
-              description="Generate your first cover letter to populate this workspace."
-              action={{
-                label: "Create cover letter",
-                onClick: handleCreateNew
-              }}
-            />
-          ) : (
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             {filteredCoverLetters.map((coverLetter) => (
                 <Card
                   key={coverLetter.id}
@@ -604,7 +594,6 @@ export default function CoverLetters() {
               </Card>
             ))}
           </div>
-          )}
         </div>
       </main>
 

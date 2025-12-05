@@ -33,31 +33,12 @@ export function ImportSummaryStep({ onNext }: ImportSummaryStepProps) {
 
       try {
         console.log('[ImportSummary] Fetching import stats for user:', user.id);
-        
-        // Find the latest resume source for this user (scope counts to the current run)
-        const { data: latestSource, error: sourceErr } = await supabase
-          .from('sources')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('source_type', 'resume')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (sourceErr && sourceErr.code !== 'PGRST116') {
-          console.error('[ImportSummary] Error fetching latest source:', sourceErr);
-        }
-        const sourceId = latestSource?.id || null;
 
-        // Roles = work_items for current source (fallback to user scope if no source)
-        const rolesQuery = supabase
+        // Roles = all work items for the user (resume + LinkedIn merged)
+        const { count: rolesCount, error: rolesError } = await supabase
           .from('work_items')
-          .select('*', { count: 'exact', head: true });
-        if (sourceId) {
-          rolesQuery.eq('source_id', sourceId);
-        } else {
-          rolesQuery.eq('user_id', user.id);
-        }
-        const { count: rolesCount, error: rolesError } = await rolesQuery;
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
 
         if (rolesError) {
           console.error('[ImportSummary] Error fetching work_items:', rolesError);
@@ -65,19 +46,13 @@ export function ImportSummaryStep({ onNext }: ImportSummaryStepProps) {
           console.log('[ImportSummary] Work items count:', rolesCount);
         }
 
-        // Companies = distinct companies linked to work_items in current source
-        // Companies count by distinct company_id from work_items (scoped to source if available)
+        // Companies = distinct companies linked to work_items for the user
         let companiesCount = 0;
-        const companyQuery = supabase
+        const { data: companyRows, error: companiesError } = await supabase
           .from('work_items')
           .select('company_id', { head: false })
+          .eq('user_id', user.id)
           .not('company_id', 'is', null);
-        if (sourceId) {
-          companyQuery.eq('source_id', sourceId);
-        } else {
-          companyQuery.eq('user_id', user.id);
-        }
-        const { data: companyRows, error: companiesError } = await companyQuery;
         if (companiesError) {
           console.error('[ImportSummary] Error fetching company_ids:', companiesError);
         } else {
@@ -89,8 +64,7 @@ export function ImportSummaryStep({ onNext }: ImportSummaryStepProps) {
         const { count: storiesCount, error: storiesError } = await supabase
           .from('stories')
           .select('*', { count: 'exact', head: true })
-          .eq('user_id', user.id)
-          .maybeSingle(); // count-only head; maybeSingle to silence "no rows" logs
+          .eq('user_id', user.id);
 
         if (storiesError) {
           console.error('[ImportSummary] Error fetching approved_content:', storiesError);
@@ -292,4 +266,3 @@ export function ImportSummaryStep({ onNext }: ImportSummaryStepProps) {
     </div>
   );
 }
-

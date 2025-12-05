@@ -59,7 +59,7 @@ export function MyDataModal({ isOpen, onClose }: MyDataModalProps) {
               />
 
               <PersonalDataCard
-                sourceType="resume"
+                sourceType="linkedin"
                 title="LinkedIn"
                 description="Your LinkedIn profile data"
                 dependencyMessage="LinkedIn data is required to use Narrata. Deleting your LinkedIn data will return you to onboarding."

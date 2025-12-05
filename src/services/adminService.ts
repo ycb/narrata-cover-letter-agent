@@ -1,0 +1,228 @@
+/**
+ * Admin Service
+ * 
+ * Frontend service layer for admin tooling.
+ * Calls admin-only Edge Functions with service role access.
+ */
+
+import { supabase } from '../supabaseClient';
+import type {
+  AdminEvalsFilters,
+  AdminEvaluationRunsFilters,
+  FunnelStatsResponse,
+  LeaderboardResponse,
+  SpoofUserRequest,
+  SpoofUserResponse,
+  UserRole,
+} from '../types/admin';
+
+class AdminService {
+  /**
+   * Check if current user is an admin
+   */
+  async isAdmin(): Promise<boolean> {
+    const { data, error } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', (await supabase.auth.getUser()).data.user?.id || '')
+      .single();
+    
+    if (error || !data) {
+      return false;
+    }
+    
+    return data.role === 'admin';
+  }
+  
+  /**
+   * Get current user's role
+   */
+  async getUserRole(): Promise<UserRole | null> {
+    const { data, error } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', (await supabase.auth.getUser()).data.user?.id || '')
+      .single();
+    
+    if (error || !data) {
+      return null;
+    }
+    
+    return data.role as UserRole;
+  }
+  
+  /**
+   * Query global evals_log data (admin-only)
+   */
+  async queryEvalsLog(filters: AdminEvalsFilters = {}): Promise<{ data: any[]; count: number }> {
+    const { data: session } = await supabase.auth.getSession();
+    if (!session.session) {
+      throw new Error('Not authenticated');
+    }
+    
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-evals-query`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ filters }),
+      }
+    );
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to fetch evals data');
+    }
+    
+    return response.json();
+  }
+  
+  /**
+   * Query global evaluation_runs data (admin-only)
+   */
+  async queryEvaluationRuns(filters: AdminEvaluationRunsFilters = {}): Promise<{ data: any[]; count: number }> {
+    const { data: session } = await supabase.auth.getSession();
+    if (!session.session) {
+      throw new Error('Not authenticated');
+    }
+    
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-evaluation-runs-query`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ filters }),
+      }
+    );
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to fetch evaluation runs');
+    }
+    
+    return response.json();
+  }
+  
+  /**
+   * Get funnel analytics (admin-only)
+   */
+  async getFunnelStats(since: '7d' | '30d' | '90d' = '30d'): Promise<FunnelStatsResponse> {
+    const { data: session } = await supabase.auth.getSession();
+    if (!session.session) {
+      throw new Error('Not authenticated');
+    }
+    
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-funnel-stats`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ since }),
+      }
+    );
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to fetch funnel stats');
+    }
+    
+    return response.json();
+  }
+  
+  /**
+   * Get user activity leaderboard (admin-only)
+   */
+  async getLeaderboard(
+    since: '7d' | '30d' | '90d' = '30d', 
+    limit: number = 100
+  ): Promise<LeaderboardResponse> {
+    const { data: session } = await supabase.auth.getSession();
+    if (!session.session) {
+      throw new Error('Not authenticated');
+    }
+    
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-leaderboard`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ since, limit }),
+      }
+    );
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to fetch leaderboard');
+    }
+    
+    return response.json();
+  }
+  
+  /**
+   * Spoof user (admin-only)
+   * Returns a session token that allows admin to view app as target user
+   */
+  async spoofUser(request: SpoofUserRequest): Promise<SpoofUserResponse> {
+    const { data: session } = await supabase.auth.getSession();
+    if (!session.session) {
+      throw new Error('Not authenticated');
+    }
+    
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-spoof-user`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+      }
+    );
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to spoof user');
+    }
+    
+    return response.json();
+  }
+  
+  /**
+   * Get list of all users (for spoofing dropdown)
+   */
+  async getAllUsers(limit: number = 100): Promise<Array<{ id: string; email: string }>> {
+    // This is a basic implementation using evaluation_runs to get user emails
+    // For production, you might want a dedicated admin Edge Function
+    const { data, error } = await supabase
+      .from('evaluation_runs')
+      .select('user_id')
+      .limit(limit);
+    
+    if (error) {
+      console.error('Failed to fetch users:', error);
+      return [];
+    }
+    
+    // Get unique user IDs
+    const uniqueUserIds = [...new Set(data.map(row => row.user_id))];
+    
+    // Fetch user emails from auth.users (requires service role, so return IDs only for now)
+    return uniqueUserIds.map(id => ({ id, email: id }));
+  }
+}
+
+export const adminService = new AdminService();
+

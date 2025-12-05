@@ -786,6 +786,37 @@ export default function WorkHistory() {
           // Total items with gaps for badges = role-level items + story items
           const contentItemsWithGaps = roleLevelItems + storiesWithGaps;
 
+          // Normalize metadata in role description into tags
+          let roleDescription = item.description || '';
+          const roleTags: string[] = [...(item.tags || [])];
+          company.tags = company.tags || [];
+          const companyTags: string[] = [...company.tags];
+          if (roleDescription) {
+            const parts = roleDescription.split('|').map((p: string) => p.trim()).filter(Boolean);
+            const residual: string[] = [];
+            parts.forEach((p) => {
+              const lower = p.toLowerCase();
+              if (lower.startsWith('role:')) {
+                roleTags.push(p.replace(/role:\s*/i, '').trim());
+                return;
+              }
+              if (lower.startsWith('specialty:')) {
+                roleTags.push(p.replace(/specialty:\s*/i, '').trim());
+                return;
+              }
+              if (lower.startsWith('industry:')) {
+                companyTags.push(p.replace(/industry:\s*/i, '').trim());
+                return;
+              }
+              if (lower.startsWith('company size:')) {
+                companyTags.push(p.replace(/company size:\s*/i, '').trim());
+                return;
+              }
+              residual.push(p);
+            });
+            roleDescription = residual.join(' | ').trim();
+          }
+
           return {
             id: item.id,
             companyId: company.id,
@@ -793,9 +824,9 @@ export default function WorkHistory() {
             type: 'full-time' as const, // Default type
             startDate: item.start_date,
             endDate: item.end_date || undefined,
-            description: item.description || '',
+            description: roleDescription || '',
             inferredLevel: '', // Can be calculated if needed
-            tags: item.tags || [],
+            tags: Array.from(new Set(roleTags)),
             outcomeMetrics: item.achievements || [],
             blurbs: transformedBlurbs,
             gaps: workItemGaps, // Store actual gap objects for role
@@ -811,7 +842,7 @@ export default function WorkHistory() {
           id: company.id,
           name: company.name,
           description: company.description || '',
-          tags: company.tags || [],
+          tags: Array.from(new Set(companyTags)),
           source: 'manual' as const, // Changed from 'database' to valid type
           createdAt: company.created_at,
           updatedAt: company.updated_at,
@@ -1241,13 +1272,13 @@ export default function WorkHistory() {
 
   return (
     <div className="min-h-screen bg-background">
-      <main className={`container mx-auto px-4 pb-8 ${isTourActive ? 'pt-24' : ''}`}>
+      <main className={`container mx-auto px-4 pb-32 ${isTourActive ? 'pt-24' : ''}`}>
         <div>
           <p className="text-muted-foreground description-spacing">Summarize impact with metrics, stories and links</p>
         </div>
 
         {hasWorkHistory ? (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-280px)]">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Mobile Drawer */}
             <WorkHistoryDrawer
               isOpen={isDrawerOpen}

@@ -98,6 +98,17 @@ export async function processCoverLetter(
 
     // Step 3: Create Cover Letter Template
     if (sectionIds.length > 0) {
+      // Build template sections structure
+      const templateSections = paragraphs.map((para, idx) => ({
+        id: sectionIds[idx],
+        type: para.type === 'body' ? 'paragraph' : para.type === 'closing' ? 'closer' : 'intro',
+        title: para.type === 'body' ? `Body paragraph ${para.position + 1}` : para.type === 'closing' ? 'Closing paragraph' : 'Introduction',
+        isStatic: true,
+        staticContent: para.content,
+        savedSectionId: sectionIds[idx],
+        order: idx
+      }));
+
       try {
         const { data: template, error: templateError } = await supabase
           .from('cover_letter_templates')
@@ -106,6 +117,7 @@ export async function processCoverLetter(
             name: 'Imported Cover Letter',
             description: 'Template created from your uploaded cover letter',
             section_ids: sectionIds,
+            sections: templateSections,
             is_default: true, // Set as default template
             source_id: sourceId
           })
@@ -169,7 +181,7 @@ export async function processCoverLetter(
 
     // Step 5: Detect and store stories from paragraphs
     try {
-      const apiKey = openaiApiKey || import.meta.env.VITE_OPENAI_API_KEY;
+  const apiKey = openaiApiKey || import.meta.env.VITE_OPENAI_API_KEY || import.meta.env.VITE_OPENAI_KEY;
       if (apiKey) {
         // Check each paragraph for stories
         for (const para of paragraphs) {
@@ -246,72 +258,59 @@ export async function processCoverLetter(
  * Parse cover letter text into categorized paragraphs
  */
 function parseParagraphs(text: string): ProcessedParagraph[] {
-  // Split on double line breaks
-  const rawParagraphs = text
+  // Prefer blank-line splits, fall back to single newlines if only one chunk
+  let chunks = text
     .split(/\n\s*\n/)
-    .map(p => p.trim())
-    .filter(p => p.length > 0);
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
 
-  if (rawParagraphs.length === 0) {
-    return [];
+  if (chunks.length <= 1) {
+    chunks = text
+      .split(/\r?\n/)
+      .map((p) => p.trim())
+      .filter((p) => p.length > 0);
   }
 
+  if (chunks.length === 0) return [];
+
+  const closingPatterns = /(sincerely|best regards|regards|thank you|thanks|cordially)/i;
   const paragraphs: ProcessedParagraph[] = [];
   let position = 0;
 
-  // Detect greeting in first paragraph
-  const firstPara = rawParagraphs[0];
-  const greetingPatterns = /^(dear|to whom|hello|hi|greetings)/i;
-  const hasGreeting = greetingPatterns.test(firstPara);
+  // Intro = first paragraph
+  paragraphs.push({
+    type: 'intro',
+    content: chunks[0],
+    position: position++,
+  });
 
-  // Intro: merge greeting with second paragraph if detected
-  if (hasGreeting && rawParagraphs.length > 1) {
-    paragraphs.push({
-      type: 'intro',
-      content: `${firstPara}\n\n${rawParagraphs[1]}`,
-      position: position++
-    });
-    rawParagraphs.splice(0, 2); // Remove first two
-  } else {
-    paragraphs.push({
-      type: 'intro',
-      content: firstPara,
-      position: position++
-    });
-    rawParagraphs.splice(0, 1); // Remove first
-  }
-
-  // Detect closing in last 1-2 paragraphs
-  const closingPatterns = /(sincerely|best regards|regards|thank you|thanks|cordially)/i;
-  let closingStart = rawParagraphs.length;
-
-  // Check last paragraph
-  if (rawParagraphs.length > 0 && closingPatterns.test(rawParagraphs[rawParagraphs.length - 1])) {
-    closingStart = rawParagraphs.length - 1;
-  }
-
-  // Check second-to-last paragraph
-  if (rawParagraphs.length > 1 && closingPatterns.test(rawParagraphs[rawParagraphs.length - 2])) {
-    closingStart = rawParagraphs.length - 2;
+  // Determine closing index (only if it matches closing pattern)
+  let closingIndex: number | null = null;
+  if (chunks.length > 1) {
+    const lastIdx = chunks.length - 1;
+    if (closingPatterns.test(chunks[lastIdx])) {
+      closingIndex = lastIdx;
+    }
   }
 
   // Body paragraphs (everything between intro and closing)
-  const bodyParas = rawParagraphs.slice(0, closingStart);
-  for (const bodyPara of bodyParas) {
+  const bodyStart = 1;
+  const bodyEnd = closingIndex !== null ? closingIndex : chunks.length;
+  for (let i = bodyStart; i < bodyEnd; i++) {
     paragraphs.push({
       type: 'body',
-      content: bodyPara,
-      position: position++
+      content: chunks[i],
+      position: position++,
     });
   }
 
-  // Closing: merge all remaining paragraphs
-  if (closingStart < rawParagraphs.length) {
-    const closingParas = rawParagraphs.slice(closingStart);
+  // Closing (if detected)
+  if (closingIndex !== null) {
+    const closingContent = chunks.slice(closingIndex).join('\n\n');
     paragraphs.push({
       type: 'closing',
-      content: closingParas.join('\n\n'),
-      position: position++
+      content: closingContent,
+      position: position++,
     });
   }
 
@@ -505,4 +504,3 @@ async function getCompanyIdForWorkItem(workItemId: string): Promise<string | nul
     return null;
   }
 }
-

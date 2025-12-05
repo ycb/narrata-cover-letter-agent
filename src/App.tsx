@@ -52,6 +52,9 @@ import NewUserOnboarding from "./pages/NewUserOnboarding";
 import GoNoGoDemo from "./pages/GoNoGoDemo";
 import { EvaluationDashboard } from "./components/evaluation/EvaluationDashboard";
 import { PipelineEvaluationDashboard } from "./components/evaluation/PipelineEvaluationDashboard";
+import { AdminEvalsDashboard } from "./pages/admin/AdminEvalsDashboard";
+import { AdminFunnelDashboard } from "./pages/admin/AdminFunnelDashboard";
+import { AdminLeaderboardDashboard } from "./pages/admin/AdminLeaderboardDashboard";
 
 import SignUp from "./pages/SignUp";
 import SignIn from "./pages/SignIn";
@@ -198,7 +201,6 @@ function AppLayout() {
         } />
         <Route path="/new-user" element={
           <ProtectedRoute>
-            <Header />
             <NewUserOnboarding />
           </ProtectedRoute>
         } />
@@ -236,6 +238,23 @@ function AppLayout() {
           <ProtectedRoute>
             <Header />
             <PipelineEvaluationDashboard />
+          </ProtectedRoute>
+        } />
+        
+        {/* Admin Routes */}
+        <Route path="/admin/evals" element={
+          <ProtectedRoute>
+            <AdminEvalsDashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/funnel" element={
+          <ProtectedRoute>
+            <AdminFunnelDashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/leaderboard" element={
+          <ProtectedRoute>
+            <AdminLeaderboardDashboard />
           </ProtectedRoute>
         } />
         <Route path="/dev/job-cleaning" element={

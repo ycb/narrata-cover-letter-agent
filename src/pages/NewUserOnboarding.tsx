@@ -233,10 +233,11 @@ export default function NewUserOnboarding() {
             try {
               const { generateStoriesForWorkItems } = await import('@/services/storiesGenerationService');
               console.log(`[Onboarding] Generating stories for resume work_items...`);
+              const storyApiKey = (import.meta.env as any).VITE_OPENAI_API_KEY || (import.meta.env as any).VITE_OPENAI_KEY;
               generateStoriesForWorkItems(
                 session.user.id,
                 source.id,
-                import.meta.env.VITE_OPENAI_API_KEY
+                storyApiKey
               ).then(({ storiesCreated, errors }) => {
                 console.log(`[Onboarding] Stories generation complete: ${storiesCreated} created`);
                 if (errors.length > 0) {
