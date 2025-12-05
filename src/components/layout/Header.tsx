@@ -140,6 +140,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
     if (pathname === "/assessment" || pathname.startsWith("/assessment/")) return "assessment";
     return "";
   };
+  const isOnboardingFlow = location.pathname.startsWith("/new-user");
 
   // Helper functions to check if specific routes are active
   const isWorkHistoryChild = (pathname: string): boolean => {
@@ -184,21 +185,22 @@ export const Header = ({ currentPage }: HeaderProps) => {
           </Link>
           
           {/* Dropdown Navigation */}
-          <nav className="hidden md:flex">
-            <div className="flex items-center gap-1">
-              {/* Dashboard - Simple Dynamic Link */}
-                <Link
-                to="/dashboard"
-                  className={cn(
-                  "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-all rounded-md",
-                    activePage === "dashboard" 
-                      ? "bg-white text-[#121212] hover:bg-white" 
-                      : "text-white opacity-90 hover:opacity-100"
-                  )}
-                >
-                  <Target className="h-4 w-4" />
-                  Dashboard
-                    </Link>
+          {!isOnboardingFlow && (
+            <nav className="hidden md:flex">
+              <div className="flex items-center gap-1">
+                {/* Dashboard - Simple Dynamic Link */}
+                  <Link
+                  to="/dashboard"
+                    className={cn(
+                    "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-all rounded-md",
+                      activePage === "dashboard" 
+                        ? "bg-white text-[#121212] hover:bg-white" 
+                        : "text-white opacity-90 hover:opacity-100"
+                    )}
+                  >
+                    <Target className="h-4 w-4" />
+                    Dashboard
+                      </Link>
 
               {/* Work History - Main Link + Dropdown */}
               <div className="relative group">
@@ -439,7 +441,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 </div>
               </div>
             </div>
-          </nav>
+          )}
         </div>
 
         <div className="flex items-center gap-4">
@@ -506,12 +508,14 @@ export const Header = ({ currentPage }: HeaderProps) => {
             </DropdownMenuTrigger>
 
           {/* Mobile Menu Button - Primary position (rightmost) */}
-          <button
-            className="md:hidden text-white opacity-90 hover:opacity-100 transition-opacity p-2 rounded-md hover:bg-white/10"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          >
-            {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+          {!isOnboardingFlow && (
+            <button
+              className="md:hidden text-white opacity-90 hover:opacity-100 transition-opacity p-2 rounded-md hover:bg-white/10"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            >
+              {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          )}
             <DropdownMenuContent align="end" className="w-56 p-3 rounded-t-none border-0" style={{ backgroundColor: 'rgba(18, 18, 18, 0.9)' }}>
               <DropdownMenuItem onClick={() => setShowDataModal(true)} className="text-white opacity-90 hover:opacity-100 transition-opacity px-3 py-2 rounded-md hover:bg-[#E32D9A] focus:bg-[#E32D9A] flex justify-end">
                 <span>My Data</span>

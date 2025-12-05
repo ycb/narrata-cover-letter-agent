@@ -337,6 +337,28 @@ This directory contains the complete documentation for Narrata's Evals V1.1 syst
 
 ---
 
+### 17. **PHASE_1_FINAL_SUMMARY.md** — Phase 1 Complete Summary ⭐ NEW
+
+**Purpose:** Comprehensive summary of Phase 1 (Schema + Instrumentation + Token Tracking).
+
+**Audience:** Engineering team, QA, stakeholders.
+
+**Length:** ~550 lines
+
+**Key Sections:**
+- All 3 sub-phases (0, 1a, 1b)
+- 5 LLM calls instrumented (JD Analysis, Company Tags, MWS, Company Context, Draft Readiness)
+- Database schema complete (`evals_log` with prompt metadata)
+- Token tracking infrastructure refactor
+- Coverage status (backend ✅, frontend ⏸️)
+- Example `evals_log` entry
+- Files modified (8 files total)
+- Success metrics
+
+**When to read:** For complete Phase 1 reference, before user testing.
+
+---
+
 ## 🎯 QUICK START
 
 ### For Backend Engineers
@@ -654,24 +676,47 @@ git commit -m "evals: Instrument cover letter pipeline"
 
 ---
 
+## 🗂️ BACKLOG ITEMS
+
+### **Frontend LLM Migration to Edge Functions**
+
+**Document:** `docs/backlog/FRONTEND_LLM_TO_EDGE_FUNCTIONS.md`
+
+**Purpose:** Complete spec for moving My Voice + Story Detection LLM calls from frontend to Edge Functions.
+
+**LOE:** 8-12 hours  
+**Breaking Risk:** 20-25%  
+**Status:** Deferred until post-onboarding launch
+
+**Key Sections:**
+- Current architecture (frontend direct OpenAI calls)
+- Proposed Edge Functions (extract-my-voice, detect-cover-letter-stories)
+- Frontend service refactor
+- Implementation checklist (15 steps)
+- Testing strategy
+- Rollback plan
+
+**When to read:** Before implementing full evals coverage for cover letter upload flow.
+
+---
+
 ## 🚀 NEXT STEPS
 
 ### For Implementation Team
 
 1. ✅ Read this README
-2. Read **EVALS_AUDIT_SUMMARY.md**
-3. Read **EVALS_V1_1_IMPLEMENTATION_SPEC.md**
-4. Bookmark **QUICK_REFERENCE.md**
-5. Start Phase 1 (DB schema)
+2. ✅ Complete Phase 0-1 (DB schema + instrumentation + token tracking)
+3. **Current**: User testing + validation (see `COMPREHENSIVE_TESTING_GUIDE.md`)
+4. **Next**: Implement remaining LLM calls or frontend migration (see backlog)
 
 ---
 
 ### For Stakeholders
 
 1. ✅ Read this README
-2. Read **EVALS_AUDIT_SUMMARY.md**
-3. Review **MIGRATION_GUIDE.md** — Rollout timeline
-4. Approve implementation plan
+2. ✅ Phase 0-1 complete (5 backend LLM calls instrumented)
+3. **Current**: Waiting for onboarding pipeline testing
+4. **Next**: Review Phase 2 plan (dashboard enhancements)
 
 ---
 

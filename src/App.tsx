@@ -65,10 +65,10 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 function AppLayout() {
-
   return (
-    <div className="pb-16">
-      <Routes>
+    <div className="min-h-screen flex flex-col">
+      <div className="flex-1">
+        <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/marketing" element={<Landing />} />
         <Route path="/work-history" element={
@@ -255,6 +255,7 @@ function AppLayout() {
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </div>
       
       {/* Show prototype banner on all pages - DISABLED FOR USABILITY TESTING */}
       {/* <PrototypeStateBanner /> */}
