@@ -267,7 +267,6 @@ export default function CoverLetters() {
     if (!user?.id) {
       if (mountedRef.current) {
         setCoverLetters([]);
-        setActiveProfileId(undefined);
         setIsLoading(false);
         setLoadError(null);
       }
