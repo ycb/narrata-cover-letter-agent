@@ -26,10 +26,6 @@ import { useLinkedInUpload } from "@/hooks/useFileUpload";
 import { useOnboardingJobStream } from "@/hooks/useJobStream";
 import { StageStepper } from "@/components/streaming/StageStepper";
 import { isValidLinkedInUrl, normalizeLinkedInUrl } from "@/utils/linkedinUtils";
-import { FILE_UPLOAD_CONFIG } from "@/lib/config/fileUpload";
-import { TextExtractionService } from "@/services/textExtractionService";
-import { Progress } from "@/components/ui/progress";
-import { createClient as createSbClient } from "@supabase/supabase-js";
 
 type OnboardingStep = 'welcome' | 'upload' | 'review';
 
@@ -89,186 +85,6 @@ export default function NewUserOnboarding() {
   const { startTour } = useTour();
   const { user, profile } = useAuth();
   const linkedInUpload = useLinkedInUpload();
-  const [blockingStage, setBlockingStage] = useState<'pending' | 'extracting' | 'skeleton' | 'skills' | 'complete' | 'error'>('pending');
-  const [showBlockingProgress, setShowBlockingProgress] = useState(false);
-
-  const stageConfig: Record<string, { label: string; percent: number }> = {
-    pending: { label: 'Preparing...', percent: 5 },
-    extracting: { label: 'Reading resume...', percent: 15 },
-    skeleton: { label: 'Identifying roles...', percent: 50 },
-    skills: { label: 'Analyzing skills...', percent: 85 },
-    complete: { label: 'Profile ready!', percent: 100 },
-    error: { label: 'Processing failed', percent: 0 }
-  };
-  // Blocking resume upload using streaming under the hood with polling
-  const resumeBlockingUpload = useCallback(async (file: File) => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return { success: false, error: 'Not authenticated' };
-
-      // Create an authenticated client to guarantee JWT on every request (avoids RLS role mismatch)
-      const url = (import.meta.env?.VITE_SUPABASE_URL) || '';
-      const key = (import.meta.env?.VITE_SUPABASE_ANON_KEY) || '';
-      const authSupabase = createSbClient(url, key, {
-        global: { headers: { Authorization: `Bearer ${session.access_token}` } }
-      });
-
-      // Open gates for subsequent cards immediately after starting resume flow
-      setResumeGateOpen(true);
-      setOnboardingStartMs(Date.now());
-      setResumeStartMs(Date.now());
-
-      // 1) Upload to storage
-      const fileName = `${Date.now()}-${file.name}`;
-      const storagePath = `resumes/${session.user.id}/${fileName}`;
-      const bucket = FILE_UPLOAD_CONFIG?.STORAGE?.BUCKET_NAME || 'user-files';
-      const { error: uploadError } = await authSupabase.storage.from(bucket).upload(storagePath, file, { upsert: true });
-      if (uploadError) return { success: false, error: uploadError.message };
-
-      // 2) Create source row
-      const checksum = await (async () => {
-        const buffer = await file.arrayBuffer();
-        const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-      })();
-
-      const { data: source, error: sourceError } = await authSupabase
-        .from('sources')
-        .insert({
-          file_name: file.name,
-          file_type: file.type,
-          file_size: file.size,
-          file_checksum: checksum,
-          storage_path: storagePath,
-          source_type: 'resume',
-          processing_status: 'pending',
-          processing_stage: 'pending'
-        })
-        .select()
-        .single();
-      if (sourceError || !source?.id) {
-        return { success: false, error: sourceError?.message || 'Failed to create source' };
-      }
-
-      // 3) Client-side text extraction and update raw_text
-      const extractor = new TextExtractionService();
-      const extraction = await extractor.extractText(file);
-      if (!extraction.success) return { success: false, error: extraction.error || 'Text extraction failed' };
-
-      await authSupabase
-        .from('sources')
-        .update({ raw_text: extraction.text, processing_stage: 'extracting' })
-        .eq('id', source.id);
-
-      // Best-effort: extract LinkedIn URL from resume text and prefill UI + DB structured_data
-      const detectedLinkedIn = extractLinkedInUrl(extraction.text);
-      if (detectedLinkedIn) {
-        const normalized = normalizeLinkedInUrl(detectedLinkedIn);
-        if (normalized && isValidLinkedInUrl(normalized)) {
-          // Prefill UI immediately
-          setOnboardingData(prev => ({ ...prev, linkedinUrl: normalized }));
-          // Persist for later reference (non-destructive for MVP; may overwrite structured_data)
-          try {
-            await authSupabase
-              .from('sources')
-              .update({ structured_data: { contactInfo: { linkedin: normalized } } })
-              .eq('id', source.id);
-          } catch {}
-        }
-      }
-      setShowBlockingProgress(true);
-      setBlockingStage('extracting');
-
-      // 4) Trigger Edge function (do NOT await to keep UI polling responsive)
-      const fnPromise = fetch(
-        `${url}/functions/v1/process-resume`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-            'apikey': (import.meta.env?.VITE_SUPABASE_ANON_KEY) || ''
-          },
-          body: JSON.stringify({ sourceId: source.id, userId: session.user.id })
-        }
-      ).then(async (res) => {
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({} as any));
-          throw new Error(err?.message || 'Failed to start processing');
-        }
-      }).catch((e) => {
-        console.warn('[Onboarding] Edge start error (will continue polling):', e);
-      });
-
-      // 5) Poll until complete or error (blocking UX) while edge function runs
-      const deadline = Date.now() + 180_000; // up to 3 minutes
-      while (Date.now() < deadline) {
-        const { data: s, error: sErr } = await authSupabase
-          .from('sources')
-          .select('processing_stage, processing_error')
-          .eq('id', source.id)
-          .single();
-        if (!sErr) {
-          if (s?.processing_stage === 'complete') {
-            setBlockingStage('complete');
-            setShowBlockingProgress(false);
-            setOnboardingData(prev => ({ ...prev, resume: file }));
-            setResumeCompleted(true);
-            // Client-side resume duration (server also logs in evaluation_runs)
-            try {
-              if (resumeStartMs) {
-                const resumeMs = Date.now() - resumeStartMs;
-                await authSupabase.from('evaluation_runs').insert({
-                  user_id: session.user.id,
-                  session_id: (session as any)?.session?.id || (session as any).user?.id,
-                  source_id: source.id,
-                  file_type: 'resume_client',
-                  total_latency_ms: resumeMs
-                });
-              }
-            } catch {}
-            
-            // Generate stories from work_items (async, non-blocking)
-            try {
-              const { generateStoriesForWorkItems } = await import('@/services/storiesGenerationService');
-              console.log(`[Onboarding] Generating stories for resume work_items...`);
-              const storyApiKey = (import.meta.env as any).VITE_OPENAI_API_KEY || (import.meta.env as any).VITE_OPENAI_KEY;
-              generateStoriesForWorkItems(
-                session.user.id,
-                source.id,
-                storyApiKey
-              ).then(({ storiesCreated, errors }) => {
-                console.log(`[Onboarding] Stories generation complete: ${storiesCreated} created`);
-                if (errors.length > 0) {
-                  console.warn(`[Onboarding] Story generation errors:`, errors);
-                }
-              }).catch(err => {
-                console.warn('[Onboarding] Story generation failed (non-critical):', err);
-              });
-            } catch (importError) {
-              console.warn('[Onboarding] Could not import story generation service:', importError);
-            }
-            
-            return { success: true, fileId: source.id };
-          }
-          if (s?.processing_stage === 'skeleton') setBlockingStage('skeleton');
-          if (s?.processing_stage === 'skills') setBlockingStage('skills');
-          if (s?.processing_stage === 'error') {
-            setBlockingStage('error');
-            setShowBlockingProgress(false);
-            return { success: false, error: s?.processing_error || 'Processing failed' };
-          }
-        }
-        await new Promise(r => setTimeout(r, 1000));
-      }
-      // Ensure the function promise settles; if it threw earlier, surface timeout
-      await Promise.race([fnPromise, Promise.resolve()]);
-      return { success: false, error: 'Processing timeout' };
-    } catch (e: any) {
-      return { success: false, error: e?.message || 'Upload failed' };
-    }
-  }, [setCurrentStep, setOnboardingData, setResumeCompleted]);
 
   // Streaming: onboarding analysis
   const {
@@ -802,7 +618,6 @@ export default function NewUserOnboarding() {
             onUploadError={handleUploadError}
             currentValue={onboardingData.resume}
             required={true}
-            customUpload={resumeBlockingUpload}
           />
         </div>
         
