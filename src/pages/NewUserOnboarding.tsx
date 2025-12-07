@@ -26,9 +26,7 @@ import { useLinkedInUpload } from "@/hooks/useFileUpload";
 import { useOnboardingJobStream } from "@/hooks/useJobStream";
 import { StageStepper } from "@/components/streaming/StageStepper";
 import { isValidLinkedInUrl, normalizeLinkedInUrl } from "@/utils/linkedinUtils";
-import { FILE_UPLOAD_CONFIG } from "@/lib/config/fileUpload";
-import { TextExtractionService } from "@/services/textExtractionService";
-import { createClient as createSbClient } from "@supabase/supabase-js";
+import { Progress } from "@/components/ui/progress";
 
 type OnboardingStep = 'welcome' | 'upload' | 'review';
 
@@ -88,168 +86,6 @@ export default function NewUserOnboarding() {
   const { startTour } = useTour();
   const { user, profile } = useAuth();
   const linkedInUpload = useLinkedInUpload();
-  const [blockingStage, setBlockingStage] = useState<'pending' | 'extracting' | 'analyzing' | 'saving' | 'complete' | 'error'>('pending');
-  const [showBlockingProgress, setShowBlockingProgress] = useState(false);
-
-  const stageConfig: Record<string, { label: string; percent: number }> = {
-    pending: { label: 'Preparing...', percent: 5 },
-    extracting: { label: 'Reading resume...', percent: 20 },
-    analyzing: { label: 'Analyzing with AI...', percent: 60 },
-    saving: { label: 'Saving profile...', percent: 85 },
-    complete: { label: 'Complete!', percent: 100 },
-    error: { label: 'Processing failed', percent: 0 }
-  };
-
-  // Resume upload with Edge function (FIXED to use full prompt)
-  const resumeBlockingUpload = useCallback(async (file: File) => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return { success: false, error: 'Not authenticated' };
-
-      const url = (import.meta.env?.VITE_SUPABASE_URL) || '';
-      const key = (import.meta.env?.VITE_SUPABASE_ANON_KEY) || '';
-      const authSupabase = createSbClient(url, key, {
-        global: { headers: { Authorization: `Bearer ${session.access_token}` } }
-      });
-
-      // Open gates for CL+LI immediately
-      setResumeGateOpen(true);
-      setOnboardingStartMs(Date.now());
-      setResumeStartMs(Date.now());
-
-      // 1) Upload to storage
-      const fileName = `${Date.now()}-${file.name}`;
-      const storagePath = `resumes/${session.user.id}/${fileName}`;
-      const bucket = FILE_UPLOAD_CONFIG?.STORAGE?.BUCKET_NAME || 'user-files';
-      const { error: uploadError } = await authSupabase.storage.from(bucket).upload(storagePath, file, { upsert: true });
-      if (uploadError) return { success: false, error: uploadError.message };
-
-      // 2) Create source row
-      const checksum = await (async () => {
-        const buffer = await file.arrayBuffer();
-        const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-      })();
-
-      const { data: source, error: sourceError } = await authSupabase
-        .from('sources')
-        .insert({
-          file_name: file.name,
-          file_type: file.type,
-          file_size: file.size,
-          file_checksum: checksum,
-          storage_path: storagePath,
-          source_type: 'resume',
-          processing_status: 'pending',
-          processing_stage: 'pending'
-        })
-        .select()
-        .single();
-
-      if (sourceError || !source?.id) {
-        return { success: false, error: sourceError?.message || 'Failed to create source' };
-      }
-
-      // 3) Client-side text extraction
-      const extractor = new TextExtractionService();
-      const extraction = await extractor.extractText(file);
-      if (!extraction.success) return { success: false, error: extraction.error || 'Text extraction failed' };
-
-      await authSupabase
-        .from('sources')
-        .update({ raw_text: extraction.text, processing_stage: 'extracting' })
-        .eq('id', source.id);
-
-      // Auto-detect LinkedIn URL
-      const detectedLinkedIn = extractLinkedInUrl(extraction.text);
-      if (detectedLinkedIn) {
-        const normalized = normalizeLinkedInUrl(detectedLinkedIn);
-        if (normalized && isValidLinkedInUrl(normalized)) {
-          setOnboardingData(prev => ({ ...prev, linkedinUrl: normalized }));
-        }
-      }
-
-      setShowBlockingProgress(true);
-      setBlockingStage('extracting');
-
-      // 4) Trigger Edge function (FIXED: now uses full prompt + complete data extraction)
-      const fnPromise = fetch(
-        `${url}/functions/v1/process-resume`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-            'apikey': key
-          },
-          body: JSON.stringify({ sourceId: source.id, userId: session.user.id })
-        }
-      ).then(async (res) => {
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({} as any));
-          throw new Error(err?.error || 'Failed to start processing');
-        }
-      }).catch((e) => {
-        console.warn('[Onboarding] Edge function error:', e);
-      });
-
-      // 5) Poll for completion
-      const deadline = Date.now() + 180_000;
-      while (Date.now() < deadline) {
-        const { data: s, error: sErr } = await authSupabase
-          .from('sources')
-          .select('processing_stage, processing_error')
-          .eq('id', source.id)
-          .single();
-
-        if (!sErr && s) {
-          // Update UI based on stage
-          if (s.processing_stage === 'extracting') setBlockingStage('extracting');
-          if (s.processing_stage === 'analyzing') setBlockingStage('analyzing');
-          if (s.processing_stage === 'saving') setBlockingStage('saving');
-
-          if (s.processing_stage === 'complete') {
-            setBlockingStage('complete');
-            setShowBlockingProgress(false);
-            setOnboardingData(prev => ({ ...prev, resume: file }));
-            setResumeCompleted(true);
-
-            // Log timing
-            try {
-              if (resumeStartMs) {
-                const resumeMs = Date.now() - resumeStartMs;
-                await authSupabase.from('evaluation_runs').insert({
-                  user_id: session.user.id,
-                  session_id: source.id,
-                  source_id: source.id,
-                  file_type: 'resume_edge',
-                  total_latency_ms: resumeMs
-                });
-              }
-            } catch {}
-
-            return { success: true, fileId: source.id };
-          }
-
-          if (s.processing_stage === 'error') {
-            setBlockingStage('error');
-            setShowBlockingProgress(false);
-            return { success: false, error: s.processing_error || 'Processing failed' };
-          }
-        }
-
-        await new Promise(r => setTimeout(r, 1000));
-      }
-
-      await Promise.race([fnPromise, Promise.resolve()]);
-      return { success: false, error: 'Processing timeout' };
-    } catch (e: any) {
-      setShowBlockingProgress(false);
-      setBlockingStage('error');
-      return { success: false, error: e?.message || 'Upload failed' };
-    }
-  }, [setResumeGateOpen, setOnboardingStartMs, setResumeStartMs, setOnboardingData, setResumeCompleted]);
 
   // Streaming: onboarding analysis
   const {
@@ -783,7 +619,6 @@ export default function NewUserOnboarding() {
             onUploadError={handleUploadError}
             currentValue={onboardingData.resume}
             required={true}
-            customUpload={resumeBlockingUpload}
           />
         </div>
         
