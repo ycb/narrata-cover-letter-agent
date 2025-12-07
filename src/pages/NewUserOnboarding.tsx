@@ -83,9 +83,38 @@ export default function NewUserOnboarding() {
 
   const [autoPopulatingLinkedIn, setAutoPopulatingLinkedIn] = useState(false);
   const [linkedinAutoCompleted, setLinkedinAutoCompleted] = useState(false);
+  const [linkedinPrefetchAttempted, setLinkedinPrefetchAttempted] = useState(false);
+  const [linkedinPrefetchSuccess, setLinkedinPrefetchSuccess] = useState(false);
   const { startTour } = useTour();
   const { user, profile } = useAuth();
   const linkedInUpload = useLinkedInUpload();
+  
+  // Progress tracking for streaming UX (unified for all 3 uploads)
+  const [uploadProgress, setUploadProgress] = useState({ 
+    stage: 'idle', 
+    percent: 0, 
+    label: '',
+    activeUpload: '' // 'resume', 'coverLetter', or 'linkedin'
+  });
+
+  // Listen for file upload progress events
+  useEffect(() => {
+    const handleProgress = (event: Event) => {
+      const detail = (event as CustomEvent).detail;
+      const fileType = detail.fileType || detail.type || 'file';
+      const label = detail.label || detail.message || 'Processing...';
+      
+      setUploadProgress({
+        stage: detail.stage || 'processing',
+        percent: detail.percent || detail.progress || 0,
+        label: label,
+        activeUpload: fileType
+      });
+    };
+
+    window.addEventListener('file-upload-progress', handleProgress);
+    return () => window.removeEventListener('file-upload-progress', handleProgress);
+  }, []);
 
   // Streaming: onboarding analysis
   const {
@@ -214,10 +243,50 @@ export default function NewUserOnboarding() {
     // Don't block user flow, just log the error
   };
 
-  const handleLinkedInUrl = (url: string) => {
+  const handleLinkedInUrl = async (url: string) => {
     setOnboardingData(prev => ({ ...prev, linkedinUrl: url }));
-    // Set linkedinCompleted immediately when LinkedIn URL is connected
-    // The FileUploadCard will show "connected" state and we should advance
+    
+    // Emit progress: Connecting
+    window.dispatchEvent(new CustomEvent('file-upload-progress', {
+      detail: { 
+        stage: 'connecting', 
+        percent: 50, 
+        label: 'Connecting to LinkedIn...', 
+        fileType: 'linkedin' 
+      }
+    }));
+    
+    // User clicked Connect button
+    // If prefetch succeeded, this will be instant. If failed or not attempted, retry now.
+    if (!linkedinPrefetchSuccess) {
+      console.log('🔄 LinkedIn Connect: calling Appify...');
+      try {
+        const result = await linkedInUpload.uploadLinkedIn(url);
+        if (result.success) {
+          console.log('✅ LinkedIn Connect succeeded:', result);
+        } else {
+          console.warn('⚠️ LinkedIn Connect failed:', result.error);
+          // Still mark as completed - user gave permission
+        }
+      } catch (error) {
+        console.error('❌ LinkedIn Connect error:', error);
+        // Still mark as completed - user gave permission
+      }
+    } else {
+      console.log('✅ LinkedIn Connect: using prefetched data');
+    }
+    
+    // Emit progress: Connected
+    window.dispatchEvent(new CustomEvent('file-upload-progress', {
+      detail: { 
+        stage: 'connected', 
+        percent: 100, 
+        label: 'Connected to LinkedIn!', 
+        fileType: 'linkedin' 
+      }
+    }));
+    
+    // Set completed regardless of Appify success (user gave permission)
     setLinkedinCompleted(true);
   };
 
@@ -381,6 +450,27 @@ export default function NewUserOnboarding() {
       // Do not auto-connect; user must click Connect to complete the step
       setLinkedinAutoCompleted(false);
       setAutoPopulatingLinkedIn(false);
+      
+      // Silent prefetch: start Appify lookup in background
+      if (!linkedinPrefetchAttempted) {
+        console.log('🔄 Silent LinkedIn prefetch starting for:', normalizedUrl);
+        setLinkedinPrefetchAttempted(true);
+        
+        linkedInUpload.uploadLinkedIn(normalizedUrl)
+          .then(result => {
+            if (result.success) {
+              console.log('✅ LinkedIn prefetch succeeded:', result);
+              setLinkedinPrefetchSuccess(true);
+            } else {
+              console.warn('⚠️ LinkedIn prefetch failed (will retry on Connect):', result.error);
+              setLinkedinPrefetchSuccess(false);
+            }
+          })
+          .catch(error => {
+            console.error('❌ LinkedIn prefetch error (will retry on Connect):', error);
+            setLinkedinPrefetchSuccess(false);
+          });
+      }
     } catch (error) {
       console.error('Error during LinkedIn auto-population:', error);
       setAutoPopulatingLinkedIn(false);
@@ -520,8 +610,39 @@ export default function NewUserOnboarding() {
 
   // Streaming upload UI removed per UI rollback request
 
-  const renderUploadStep = () => (
-    <div className="space-y-8">
+  const renderUploadStep = () => {
+    // Determine which uploads are active/complete for progress display
+    const activeUploads = [
+      { name: 'Resume', active: !resumeCompleted && uploadProgress.activeUpload === 'resume' },
+      { name: 'Cover Letter', active: !coverLetterCompleted && uploadProgress.activeUpload === 'coverLetter' },
+      { name: 'LinkedIn', active: !linkedinCompleted && uploadProgress.activeUpload === 'linkedin' }
+    ].filter(u => u.active);
+    
+    const showProgress = uploadProgress.stage !== 'idle' && 
+                        uploadProgress.stage !== 'complete' && 
+                        uploadProgress.percent < 100;
+    
+    return (
+      <div className="space-y-8">
+        {/* Progress indicator for file uploads */}
+        {showProgress && (
+          <div className="fixed top-0 left-0 right-0 z-50 bg-white border-b px-4 py-2 shadow-sm">
+            <div className="max-w-4xl mx-auto flex items-center gap-4">
+              <span className="text-sm font-medium text-gray-900 whitespace-nowrap">
+                {uploadProgress.label}
+              </span>
+              <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-primary transition-all duration-300"
+                  style={{ width: `${uploadProgress.percent}%` }}
+                />
+              </div>
+              <span className="text-sm text-muted-foreground whitespace-nowrap">
+                {uploadProgress.percent}%
+              </span>
+            </div>
+          </div>
+        )}
       {/* Progress Bar */}
       <Card className="p-6">
         <div className="flex items-center justify-center relative">
@@ -661,7 +782,8 @@ export default function NewUserOnboarding() {
 
       {/* Button removed in blocking UX; auto-advance on completion */}
     </div>
-  );
+    );
+  };
 
   const renderReviewStep = () => {
     return (

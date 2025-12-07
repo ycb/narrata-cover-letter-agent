@@ -704,6 +704,15 @@ source_type: dbSourceType,
 
 
   /**
+   * Emit progress event for streaming UX
+   */
+  private emitProgress(stage: string, percent: number, label: string) {
+    window.dispatchEvent(new CustomEvent('file-upload-progress', {
+      detail: { stage, percent, label }
+    }));
+  }
+
+  /**
    * Process content (file or text) with unified LLM analysis
    */
   async processContent(
@@ -720,10 +729,14 @@ source_type: dbSourceType,
     let dbLatencyMs = 0;
 
     try {
+      // Emit initial progress
+      this.emitProgress('starting', 5, 'Starting upload...');
+      
       // Update status to processing
       await this.updateProcessingStatus(sourceId, 'processing', undefined, undefined, accessToken);
 
       let extractedText: string;
+      this.emitProgress('extracting', 15, 'Reading file...');
       
       if (originalContent instanceof File) {
         // Check for pre-extracted text first (performance optimization)
@@ -741,11 +754,11 @@ source_type: dbSourceType,
           extractedText = preExtracted;
           extractionLatencyMs = 0; // Cache hit
           console.log(`✨ Using pre-extracted text for: ${file.name} (cache hit)`);
-          window.dispatchEvent(new CustomEvent('file-upload-progress', { detail: { sourceId, stage: 'extracted', progress: 55, message: 'Text ready (cached)...' } }));
+          this.emitProgress('extracted', 25, 'Text ready');
         } else {
           // Extract text from uploaded file
           console.log('Extracting text from file:', file.name);
-          window.dispatchEvent(new CustomEvent('file-upload-progress', { detail: { sourceId, stage: 'extracting', progress: 40, message: 'Extracting text from file...' } }));
+          this.emitProgress('extracting', 20, 'Extracting text...');
           const extractionStartTime = performance.now();
           const extractionResult = await this.textExtractionService.extractText(file);
           const extractionEndTime = performance.now();
@@ -755,6 +768,8 @@ source_type: dbSourceType,
           if (!extractionResult.success) {
             throw new Error(`Text extraction failed: ${extractionResult.error}`);
           }
+          
+          this.emitProgress('extracted', 25, 'Text extracted');
           
           extractedText = extractionResult.text!;
           console.log('Text extraction successful, length:', extractedText.length);
@@ -870,6 +885,7 @@ source_type: dbSourceType,
 
       // Auto-save extracted data to database (both resume AND cover letter can have workHistory)
       // Cover letters may contain work history entries that should be processed
+      this.emitProgress('saving', 80, 'Saving to database...');
       if (type === 'resume' || (type === 'coverLetter' && structuredData.workHistory && Array.isArray(structuredData.workHistory) && structuredData.workHistory.length > 0)) {
       await this.processStructuredData(structuredData, sourceId, accessToken);
       }
