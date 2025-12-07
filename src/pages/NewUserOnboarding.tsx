@@ -522,18 +522,6 @@ export default function NewUserOnboarding() {
 
   const renderUploadStep = () => (
     <div className="space-y-8">
-      {/* Global progress (blocking, single indicator) */}
-      {showBlockingProgress && currentStep === 'upload' && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-white border-b px-4 py-2 shadow-sm">
-          <div className="max-w-4xl mx-auto flex items-center gap-4">
-            <span className="text-sm font-medium text-gray-900 whitespace-nowrap">Progress</span>
-            <Progress value={(stageConfig[blockingStage] || stageConfig.pending).percent} className="flex-1 h-2" />
-            <span className="text-sm text-muted-foreground whitespace-nowrap">
-              {(stageConfig[blockingStage] || stageConfig.pending).label}
-            </span>
-          </div>
-        </div>
-      )}
       {/* Progress Bar */}
       <Card className="p-6">
         <div className="flex items-center justify-center relative">
