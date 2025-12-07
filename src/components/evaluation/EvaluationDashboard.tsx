@@ -78,7 +78,19 @@ interface SourceData {
   storage_path?: string;
 }
 
-export const EvaluationDashboard: React.FC = () => {
+interface EvaluationDashboardProps {
+  isAdminView?: boolean;
+  adminUserId?: string;
+  adminUserType?: 'all' | 'real' | 'synthetic';
+  adminQualityFilter?: 'all' | 'go' | 'nogo' | 'needs-review';
+}
+
+export const EvaluationDashboard: React.FC<EvaluationDashboardProps> = ({ 
+  isAdminView = false,
+  adminUserId,
+  adminUserType = 'all',
+  adminQualityFilter = 'all'
+}) => {
   const [evaluationRuns, setEvaluationRuns] = useState<EvaluationRun[]>([]);
   const [sources, setSources] = useState<SourceData[]>([]);
   const [selectedRun, setSelectedRun] = useState<EvaluationRun | null>(null);
@@ -102,56 +114,130 @@ export const EvaluationDashboard: React.FC = () => {
   const [gapsLoading, setGapsLoading] = useState(false);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id && !isAdminView) return;
     
     const fetchEvaluationData = async () => {
       setLoading(true);
       try {
-        // Fetch evaluation runs with user type filtering
-        let query = supabase
-          .from('evaluation_runs')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-
-        if (userTypeFilter !== 'all') {
-          query = query.eq('user_type', userTypeFilter);
-        }
-
-        const { data: runs, error: runsError } = await query;
-
-        if (runsError) {
-          console.error('Failed to fetch evaluation runs:', runsError);
-          return;
-        }
-
-        // Fetch corresponding sources
-        if (runs && runs.length > 0) {
-          const sourceIds = (runs as EvaluationRun[])
-            .map((run: EvaluationRun) => run.source_id)
-            .filter((id): id is string => Boolean(id));
-
-          if (sourceIds.length > 0) {
-            const { data: sourcesData, error: sourcesError } = await supabase
-              .from('sources')
-              .select('id, file_name, file_type, raw_text, structured_data, created_at, storage_path')
-              .in('id', sourceIds);
-
-            if (sourcesError) {
-              console.error('Failed to fetch sources:', sourcesError);
-              return;
+        if (isAdminView) {
+          // Admin mode: fetch global data via Edge Function
+          const { data: session } = await supabase.auth.getSession();
+          if (!session.session) {
+            console.error('Not authenticated');
+            return;
+          }
+          
+          console.log('🔍 Admin filters:', { adminUserType, adminUserId, adminQualityFilter });
+          
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-evaluation-dashboard-query`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${session.session.access_token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ 
+                userTypeFilter: adminUserType,
+                userId: adminUserId 
+              }),
             }
+          );
+          
+          console.log('📡 Response status:', response.status, response.ok);
+          
+          if (!response.ok) {
+            const error = await response.json();
+            console.error('Failed to fetch admin evaluation data:', error);
+            return;
+          }
+          
+          const result = await response.json();
+          console.log('📊 Raw result from Edge Function:', { 
+            evaluationRunsCount: result.evaluationRuns?.length || 0,
+            sourcesCount: result.sources?.length || 0 
+          });
+          
+          let runs = result.evaluationRuns || [];
+          console.log('🎯 About to apply quality filter:', { 
+            adminQualityFilter, 
+            willFilter: !!(adminQualityFilter && adminQualityFilter !== 'all'),
+            runsBeforeFilter: runs.length 
+          });
+          
+          // Apply client-side quality filter
+          if (adminQualityFilter && adminQualityFilter !== 'all') {
+            runs = runs.filter((run: EvaluationRun) => {
+              const scores = [
+                run.accuracy_score,
+                run.relevance_score,
+                run.personalization_score,
+                run.clarity_tone_score,
+                run.framework_score
+              ].filter(s => s && s !== 'N/A').map(s => parseFloat(s as string));
+              
+              const avgScore = scores.length > 0 
+                ? scores.reduce((sum, s) => sum + s, 0) / scores.length 
+                : 0;
+              
+              if (adminQualityFilter === 'go') return avgScore >= 0.8;
+              if (adminQualityFilter === 'nogo') return avgScore < 0.5;
+              if (adminQualityFilter === 'needs-review') return avgScore >= 0.5 && avgScore < 0.8;
+              return true;
+            });
+            console.log('🎯 After quality filter:', { runsAfterFilter: runs.length });
+          }
+          
+          setEvaluationRuns(runs);
+          setSources(result.sources || []);
+          console.log('📊 Loaded admin evaluation runs:', runs.length);
+        } else {
+          // User mode: fetch own data with RLS
+          let query = supabase
+            .from('evaluation_runs')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
 
-            setSources(sourcesData || []);
+          if (userTypeFilter !== 'all') {
+            query = query.eq('user_type', userTypeFilter);
+          }
+
+          const { data: runs, error: runsError } = await query;
+
+          if (runsError) {
+            console.error('Failed to fetch evaluation runs:', runsError);
+            return;
+          }
+
+          // Fetch corresponding sources
+          if (runs && runs.length > 0) {
+            const sourceIds = (runs as EvaluationRun[])
+              .map((run: EvaluationRun) => run.source_id)
+              .filter((id): id is string => Boolean(id));
+
+            if (sourceIds.length > 0) {
+              const { data: sourcesData, error: sourcesError } = await supabase
+                .from('sources')
+                .select('id, file_name, file_type, raw_text, structured_data, created_at, storage_path')
+                .in('id', sourceIds);
+
+              if (sourcesError) {
+                console.error('Failed to fetch sources:', sourcesError);
+                return;
+              }
+
+              setSources(sourcesData || []);
+            } else {
+              setSources([]);
+            }
           } else {
             setSources([]);
           }
-        } else {
-          setSources([]);
-        }
 
-        setEvaluationRuns(runs || []);
-        console.log('📊 Loaded evaluation runs:', runs?.length || 0);
+          setEvaluationRuns(runs || []);
+          console.log('📊 Loaded evaluation runs:', runs?.length || 0);
+        }
       } catch (error) {
         console.error('Failed to fetch evaluation data:', error);
       } finally {
@@ -160,7 +246,7 @@ export const EvaluationDashboard: React.FC = () => {
     };
 
     fetchEvaluationData();
-  }, [user?.id, userTypeFilter]);
+  }, [user?.id, userTypeFilter, isAdminView, adminUserId, adminUserType, adminQualityFilter]);
 
   const handleRowClick = async (run: EvaluationRun) => {
     const source = run.source_id ? sources.find(s => s.id === run.source_id) : undefined;
@@ -1318,21 +1404,24 @@ export const EvaluationDashboard: React.FC = () => {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Evaluation Dashboard</h1>
-        <div className="flex gap-2">
-          <Button 
-            onClick={() => window.open('/new-user', '_blank')} 
-            size="sm"
-            variant="secondary"
-          >
-            Test Upload
-          </Button>
-          <Button onClick={handleExport} size="sm">
-            Export to CSV
-          </Button>
+      {/* Header - Hide in admin view (admin page has its own header) */}
+      {!isAdminView && (
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold">Evaluation Dashboard</h1>
+          <div className="flex gap-2">
+            <Button 
+              onClick={() => window.open('/new-user', '_blank')} 
+              size="sm"
+              variant="secondary"
+            >
+              Test Upload
+            </Button>
+            <Button onClick={handleExport} size="sm">
+              Export to CSV
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* User Type Filter */}
       <div className="flex gap-2">

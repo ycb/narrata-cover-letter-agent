@@ -59,20 +59,16 @@ function transformClustersToWorkHistory(
     const hasLinkedin = companyClusters.some(c => c.linkedinItems.length > 0);
     const source: 'resume' | 'linkedin' | 'manual' = hasResume ? 'resume' : hasLinkedin ? 'linkedin' : 'manual';
     
-    // Transform clusters to roles
+    // Transform clusters to roles (preserve resume + LI; carry gaps/metrics/tags)
     const roles: WorkHistoryRole[] = companyClusters.map(cluster => {
-      // Get all work item IDs in this cluster for gap lookup
       const allItemIds = [
         ...cluster.resumeItems.map(i => i.id),
         ...cluster.linkedinItems.map(i => i.id),
         ...cluster.otherItems.map(i => i.id),
       ];
-      
-      // Use first real work_item ID as the role ID (for gap queries etc.)
-      // Fall back to cluster ID if no work items (shouldn't happen)
+
       const primaryWorkItemId = allItemIds[0] || cluster.clusterId;
-      
-      // Aggregate gaps from all work items in cluster
+
       let totalGapCount = 0;
       const allGaps: Array<{ id: string; description: string; gap_category?: string }> = [];
       for (const itemId of allItemIds) {
@@ -80,20 +76,28 @@ function transformClustersToWorkHistory(
         const itemGaps = gapData.workItemGapsMap.get(itemId) || [];
         allGaps.push(...itemGaps);
       }
-      
-      // Transform stories to blurbs
+
+      // Merge metrics/tags (prefer resume first)
+      const mergedMetrics = [
+        ...cluster.resumeItems.flatMap(i => i.metrics || []),
+        ...cluster.linkedinItems.flatMap(i => i.metrics || []),
+        ...cluster.otherItems.flatMap(i => i.metrics || [])
+      ];
+      const mergedTags = Array.from(new Set([
+        ...cluster.resumeItems.flatMap(i => i.tags || []),
+        ...cluster.linkedinItems.flatMap(i => i.tags || []),
+        ...cluster.otherItems.flatMap(i => i.tags || []),
+      ]));
+
       const blurbs: WorkHistoryBlurb[] = cluster.stories.map(story => {
         const storyGapCount = gapData.storyGapMap.get(story.id) || 0;
         const storyGaps = gapData.storyGapsMap.get(story.id) || [];
-        
         return {
           id: story.id,
           roleId: primaryWorkItemId,
           title: story.title,
           content: story.content,
-          outcomeMetrics: story.metrics.map(m => 
-            m.context ? `${m.value} ${m.context}` : m.value
-          ),
+          outcomeMetrics: story.metrics.map(m => m.context ? `${m.value} ${m.context}` : m.value),
           tags: story.tags,
           source: 'resume' as const,
           status: 'approved' as const,
@@ -106,34 +110,31 @@ function transformClustersToWorkHistory(
           updatedAt: new Date().toISOString(),
         };
       });
-      
-      // Determine role type from title
+
       const titleLower = cluster.canonicalTitle.toLowerCase();
-      const roleType: 'full-time' | 'contract' | 'founder' = 
+      const roleType: 'full-time' | 'contract' | 'founder' =
         titleLower.includes('founder') || titleLower.includes('co-founder') ? 'founder' :
         titleLower.includes('contract') || titleLower.includes('consulting') ? 'contract' :
         'full-time';
-      
+
       return {
-        id: primaryWorkItemId, // Use real work_item UUID for DB queries
+        id: primaryWorkItemId,
         companyId: cluster.companyId,
         title: cluster.canonicalTitle,
         type: roleType,
         startDate: cluster.startDate || '',
         endDate: cluster.endDate || undefined,
         description: cluster.mergedDescription,
-        tags: cluster.mergedTags,
-        outcomeMetrics: cluster.mergedMetrics.map(m => 
-          m.context ? `${m.value} ${m.context}` : m.value
-        ),
+        tags: mergedTags,
+        outcomeMetrics: mergedMetrics.map(m => m.context ? `${m.value} ${m.context}` : m.value),
         blurbs,
-        externalLinks: [], // TODO: Fetch external links if needed
+        externalLinks: [],
         hasGaps: totalGapCount > 0,
         gapCount: totalGapCount,
         gaps: allGaps,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        workItemIds: allItemIds, // Store all underlying work_item IDs
+        workItemIds: allItemIds,
       };
     });
     
@@ -429,7 +430,7 @@ export default function WorkHistory() {
         
         // Fetch gaps for all work items in clusters
         const { GapDetectionService } = await import('../services/gapDetectionService');
-        const userGaps = await GapDetectionService.getUserGaps(user.id);
+        const userGaps = await GapDetectionService.getUserGaps(user.id, currentProfileId);
         
         // Build gap maps
         const workItemGapMap = new Map<string, number>();
@@ -827,7 +828,7 @@ export default function WorkHistory() {
             description: roleDescription || '',
             inferredLevel: '', // Can be calculated if needed
             tags: Array.from(new Set(roleTags)),
-            outcomeMetrics: item.achievements || [],
+            outcomeMetrics: item.achievements?.length ? item.achievements : (item as any).metrics || [],
             blurbs: transformedBlurbs,
             gaps: workItemGaps, // Store actual gap objects for role
             externalLinks: transformedLinks,

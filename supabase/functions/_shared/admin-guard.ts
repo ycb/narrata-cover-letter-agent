@@ -13,6 +13,40 @@ export interface AdminCheckResult {
   error?: string;
 }
 
+/**
+ * Check admin role using service role (bypasses RLS)
+ * Fallback when user client query fails due to RLS issues
+ */
+async function checkAdminWithServiceRole(userId: string): Promise<boolean> {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  
+  if (!supabaseUrl || !serviceRoleKey) {
+    console.error('[admin-guard] Service role credentials missing');
+    return false;
+  }
+  
+  const serviceClient = createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+  
+  const { data, error } = await serviceClient
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', userId)
+    .single();
+  
+  if (error) {
+    console.error('[admin-guard] Service role query failed:', error);
+    return false;
+  }
+  
+  return data?.role === 'admin';
+}
+
 export async function requireAdmin(authHeader: string | null): Promise<AdminCheckResult> {
   if (!authHeader) {
     return { 
@@ -34,16 +68,18 @@ export async function requireAdmin(authHeader: string | null): Promise<AdminChec
     };
   }
   
+  // Extract token from Authorization header
+  const token = authHeader.replace('Bearer ', '');
+  
   const userClient = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: authHeader } },
     auth: {
       autoRefreshToken: false,
       persistSession: false,
     },
   });
   
-  // Get authenticated user
-  const { data: { user }, error: authError } = await userClient.auth.getUser();
+  // Get authenticated user by token
+  const { data: { user }, error: authError } = await userClient.auth.getUser(token);
   
   if (authError || !user) {
     return { 
@@ -61,21 +97,49 @@ export async function requireAdmin(authHeader: string | null): Promise<AdminChec
     .single();
   
   if (roleError) {
-    // User has no role assigned
+    // Log the actual error for debugging
+    console.error('[admin-guard] Error fetching user role via user client:', {
+      code: roleError.code,
+      message: roleError.message,
+      details: roleError.details,
+      hint: roleError.hint,
+      userId: user.id,
+    });
+    
+    // Fallback: Try using service role (bypasses RLS)
+    console.log('[admin-guard] Attempting fallback with service role...');
+    const isAdminViaServiceRole = await checkAdminWithServiceRole(user.id);
+    
+    if (isAdminViaServiceRole) {
+      console.log('[admin-guard] Service role check succeeded - user is admin');
+      return {
+        isAdmin: true,
+        userId: user.id,
+      };
+    }
+    
+    // Both methods failed
     return { 
       isAdmin: false, 
       userId: user.id, 
-      error: 'No role assigned to user' 
+      error: `Database error: ${roleError.message}` 
     };
   }
   
   if (!roleData) {
+    console.warn('[admin-guard] No role data returned for user:', user.id);
     return { 
       isAdmin: false, 
       userId: user.id, 
       error: 'Role not found' 
     };
   }
+  
+  console.log('[admin-guard] User role check successful:', {
+    userId: user.id,
+    role: roleData.role,
+    isAdmin: roleData.role === 'admin',
+  });
   
   return {
     isAdmin: roleData.role === 'admin',

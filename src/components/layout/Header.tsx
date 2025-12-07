@@ -39,6 +39,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useGapSummary } from "@/hooks/useGapSummary";
 import { useGapsJob } from "@/contexts/GapsJobContext";
 import { isExternalLinksEnabled } from "@/lib/flags";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -96,6 +97,7 @@ export const Header = ({ currentPage }: HeaderProps) => {
   const { user, profile, signOut, getOAuthData } = useAuth();
   const { isRunning } = useGapsJob();
   const ENABLE_EXTERNAL_LINKS = isExternalLinksEnabled();
+  const { isAdmin } = useAdminAuth();
   const [showDataModal, setShowDataModal] = useState(false);
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
@@ -440,6 +442,76 @@ export const Header = ({ currentPage }: HeaderProps) => {
                   </div>
                 </div>
               </div>
+
+              {/* Admin Tools - Only show for admins */}
+              {isAdmin && (
+                <div className="relative group">
+                  <div className={cn(
+                    "inline-flex items-center gap-2 px-4 py-2 text-sm font-medium cursor-default transition-all rounded-md",
+                    location.pathname.startsWith("/admin")
+                      ? "bg-white text-[#121212] hover:bg-white" 
+                      : "text-white opacity-90 hover:opacity-100"
+                  )}>
+                    <Settings className="h-4 w-4" />
+                    Admin
+                    <ChevronDown className="h-3 w-3" />
+                  </div>
+                  
+                  {/* Hover Dropdown */}
+                  <div className="absolute top-full left-0 pt-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
+                    <div className="border-0 shadow-lg p-3 min-w-64" style={{ backgroundColor: 'rgba(18, 18, 18, 0.9)', borderRadius: '0 0 8px 8px' }}>
+                      <Link 
+                        to="/admin/evals" 
+                        className={cn(
+                          "flex items-center gap-2 px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity hover:bg-[#E32D9A]",
+                          location.pathname === "/admin/evals"
+                            ? "text-white bg-white/10"
+                            : "text-white"
+                        )}
+                      >
+                        <Cpu className="h-4 w-4" />
+                        Pipeline Evals
+                      </Link>
+                      <Link 
+                        to="/admin/evaluation" 
+                        className={cn(
+                          "flex items-center gap-2 px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity hover:bg-[#E32D9A]",
+                          location.pathname === "/admin/evaluation"
+                            ? "text-white bg-white/10"
+                            : "text-white"
+                        )}
+                      >
+                        <FileText className="h-4 w-4" />
+                        File Upload Quality
+                      </Link>
+                      <Link 
+                        to="/admin/funnel" 
+                        className={cn(
+                          "flex items-center gap-2 px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity hover:bg-[#E32D9A]",
+                          location.pathname === "/admin/funnel"
+                            ? "text-white bg-white/10"
+                            : "text-white"
+                        )}
+                      >
+                        <TrendingUp className="h-4 w-4" />
+                        Funnel Analytics
+                      </Link>
+                      <Link 
+                        to="/admin/leaderboard" 
+                        className={cn(
+                          "flex items-center gap-2 px-3 py-2 text-sm opacity-90 hover:opacity-100 rounded-md transition-opacity hover:bg-[#E32D9A]",
+                          location.pathname === "/admin/leaderboard"
+                            ? "text-white bg-white/10"
+                            : "text-white"
+                        )}
+                      >
+                        <Trophy className="h-4 w-4" />
+                        User Leaderboard
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )}
               </div>
             </nav>
           )}
@@ -784,6 +856,70 @@ export const Header = ({ currentPage }: HeaderProps) => {
                 </div>
               </div>
             </div>
+
+            {/* Admin Tools - Only show for admins */}
+            {isAdmin && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-3 px-4 py-2 text-sm font-medium text-white opacity-90">
+                  <Settings className="h-4 w-4" />
+                  Admin Tools
+                </div>
+                <div className="ml-7 space-y-1">
+                  <Link
+                    to="/admin/evals"
+                    className={cn(
+                      "flex items-center gap-3 px-4 py-2 text-sm transition-all rounded-md",
+                      location.pathname === "/admin/evals"
+                        ? "text-white bg-white/10"
+                        : "text-white opacity-75 hover:opacity-100"
+                    )}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <Cpu className="h-4 w-4" />
+                    Pipeline Evals
+                  </Link>
+                  <Link
+                    to="/admin/evaluation"
+                    className={cn(
+                      "flex items-center gap-3 px-4 py-2 text-sm transition-all rounded-md",
+                      location.pathname === "/admin/evaluation"
+                        ? "text-white bg-white/10"
+                        : "text-white opacity-75 hover:opacity-100"
+                    )}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <FileText className="h-4 w-4" />
+                    File Upload Quality
+                  </Link>
+                  <Link
+                    to="/admin/funnel"
+                    className={cn(
+                      "flex items-center gap-3 px-4 py-2 text-sm transition-all rounded-md",
+                      location.pathname === "/admin/funnel"
+                        ? "text-white bg-white/10"
+                        : "text-white opacity-75 hover:opacity-100"
+                    )}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <TrendingUp className="h-4 w-4" />
+                    Funnel Analytics
+                  </Link>
+                  <Link
+                    to="/admin/leaderboard"
+                    className={cn(
+                      "flex items-center gap-3 px-4 py-2 text-sm transition-all rounded-md",
+                      location.pathname === "/admin/leaderboard"
+                        ? "text-white bg-white/10"
+                        : "text-white opacity-75 hover:opacity-100"
+                    )}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <Trophy className="h-4 w-4" />
+                    User Leaderboard
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

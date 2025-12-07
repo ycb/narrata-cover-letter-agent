@@ -23,6 +23,9 @@ export const elog = {
   info: (...args: unknown[]) => {
     if (shouldLog('info')) console.log(...args);
   },
+  warn: (...args: unknown[]) => {
+    if (shouldLog('info')) console.warn(...args);
+  },
   error: (...args: unknown[]) => {
     if (shouldLog('error')) console.error(...args);
   },

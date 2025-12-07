@@ -198,6 +198,7 @@ CREATE TABLE user_events (
 | `admin-funnel-stats` | Funnel analytics | Service Role |
 | `admin-leaderboard` | User activity leaderboard | Service Role |
 | `admin-spoof-user` | Generate user session token | Service Role |
+| `admin-list-users` | Fetch users with emails | Service Role |
 
 ### Security Model
 
@@ -253,9 +254,10 @@ See **[DEPLOYMENT_SUMMARY.md](./DEPLOYMENT_SUMMARY.md)** for:
 ### ⏸️ Phase 5: Export to CSV (2-3h)
 - Add export buttons to all admin dashboards
 
-### ⏸️ Phase 6: User List API (1-2h)
+### ✅ Phase 6: User List API (Complete)
 - Improve user list fetching (emails, not just IDs)
 - Create dedicated admin Edge Function for user listing
+- **See:** [USER_LIST_EMAIL_FIX.md](./USER_LIST_EMAIL_FIX.md)
 
 ---
 
@@ -302,6 +304,7 @@ For issues or questions:
 - `supabase/functions/admin-funnel-stats/index.ts`
 - `supabase/functions/admin-leaderboard/index.ts`
 - `supabase/functions/admin-spoof-user/index.ts`
+- `supabase/functions/admin-list-users/index.ts`
 
 ### Frontend
 - `src/types/admin.ts`
@@ -320,8 +323,10 @@ For issues or questions:
 - `docs/admin/README.md` (this file)
 - `docs/admin/ADMIN_TOOLING_IMPLEMENTATION_PLAN.md`
 - `docs/admin/DEPLOYMENT_SUMMARY.md`
+- `docs/admin/USER_LIST_EMAIL_FIX.md`
+- `docs/admin/ADMIN_EVAL_FILTERS_COMPLETE.md`
 
-**Total:** 21 new files, 1 modified, ~60KB code, ~2,400 lines
+**Total:** 22 new files, 1 modified, ~62KB code, ~2,500 lines
 
 ---
 

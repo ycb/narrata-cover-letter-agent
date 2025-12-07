@@ -1,206 +1,269 @@
 /**
  * Admin Evals Dashboard
  * 
- * Global view of /evals dashboard for all users.
- * Extends PipelineEvaluationDashboard with admin data source.
+ * Global view of pipeline performance across all users.
+ * Shows rich UI with latency, quality, token/cost metrics.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AdminGuard } from '../../components/admin/AdminGuard';
+import { AdminNav } from '../../components/admin/AdminNav';
 import { UserSpoofBanner } from '../../components/admin/UserSpoofBanner';
-import { UserSpoofSelector } from '../../components/admin/UserSpoofSelector';
-import { useAdminEvalsData } from '../../hooks/useAdminData';
-import type { AdminEvalsFilters } from '../../types/admin';
+import { Card, CardContent } from '../../components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { LatencyOverviewCard } from '../../components/evaluation/pipeline/LatencyOverviewCard';
+import { StageLatencyChart } from '../../components/evaluation/pipeline/StageLatencyChart';
+import { StructuralChecksCard } from '../../components/evaluation/pipeline/StructuralChecksCard';
+import { ErrorTable } from '../../components/evaluation/pipeline/ErrorTable';
+import { TokenCostCard } from '../../components/evaluation/pipeline/TokenCostCard';
+import { supabase } from '../../lib/supabase';
+import { computeAllAggregates } from '../../utils/evalsAggregates';
+import { Loader2 } from 'lucide-react';
+
+interface UserOption {
+  id: string;
+  email: string;
+}
 
 export function AdminEvalsDashboard() {
-  const [filters, setFilters] = useState<AdminEvalsFilters>({
-    since: '7d',
-    job_type: null,
-    user_id: null,
-    limit: 1000,
-  });
-  
-  const { data, count, loading, error } = useAdminEvalsData(filters);
-  
+  const [timeRange, setTimeRange] = useState<string>('7d');
+  const [jobTypeFilter, setJobTypeFilter] = useState<string>('all');
+  const [selectedUserId, setSelectedUserId] = useState<string>('all');
+  const [userOptions, setUserOptions] = useState<UserOption[]>([]);
+  const [rawData, setRawData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch users list
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  // Fetch evals data
+  useEffect(() => {
+    fetchEvalsData();
+  }, [timeRange, jobTypeFilter, selectedUserId]);
+
+  async function fetchUsers() {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) return;
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-list-users`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ limit: 1000 }),
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        const users = (result.users || []).map((u: any) => ({
+          id: u.id,
+          email: u.email || `User ${u.id.slice(0, 8)}...`,
+        }));
+        setUserOptions(users);
+      }
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+    }
+  }
+
+  async function fetchEvalsData() {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) {
+        setError('Not authenticated');
+        return;
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-evals-query`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            filters: {
+              since: timeRange,
+              job_type: jobTypeFilter === 'all' ? null : jobTypeFilter,
+              user_id: selectedUserId === 'all' ? null : selectedUserId,
+              limit: 1000,
+            },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        setError(error.error || 'Failed to fetch data');
+        return;
+      }
+
+      const result = await response.json();
+      setRawData(result.data || []);
+    } catch (err) {
+      console.error('Failed to fetch evals data:', err);
+      setError('Failed to fetch data');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Compute aggregates from raw data
+  const aggregates = rawData.length > 0 
+    ? computeAllAggregates(rawData, jobTypeFilter)
+    : null;
+
+  if (loading && rawData.length === 0) {
+    return (
+      <AdminGuard>
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-pink-600 mx-auto mb-4" />
+            <p className="text-gray-600">Loading pipeline evaluations...</p>
+          </div>
+        </div>
+      </AdminGuard>
+    );
+  }
+
   return (
     <AdminGuard>
       <div className="min-h-screen bg-gray-50">
         <UserSpoofBanner />
-        
+        <AdminNav currentTab="evals" />
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header */}
-          <div className="mb-8">
+          <div className="mb-6">
             <h1 className="text-3xl font-bold text-gray-900">Admin: Pipeline Evals (Global)</h1>
             <p className="mt-2 text-gray-600">
-              Global view of pipeline performance, LLM usage, and quality metrics across all users.
+              Global view of pipeline performance, LLM usage, and quality metrics across all users
             </p>
           </div>
-          
-          {/* User Spoofing */}
-          <div className="mb-6">
-            <UserSpoofSelector />
-          </div>
-          
+
           {/* Filters */}
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-4">Filters</h2>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Time Range
-                </label>
-                <select
-                  value={filters.since}
-                  onChange={(e) => setFilters({ ...filters, since: e.target.value as any })}
-                  className="w-full border border-gray-300 rounded px-3 py-2"
-                >
-                  <option value="7d">Last 7 days</option>
-                  <option value="30d">Last 30 days</option>
-                  <option value="90d">Last 90 days</option>
-                </select>
+          <Card className="mb-6">
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Time Range</label>
+                  <Select value={timeRange} onValueChange={setTimeRange}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="7d">Last 7 days</SelectItem>
+                      <SelectItem value="30d">Last 30 days</SelectItem>
+                      <SelectItem value="90d">Last 90 days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Job Type</label>
+                  <Select value={jobTypeFilter} onValueChange={setJobTypeFilter}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Types</SelectItem>
+                      <SelectItem value="coverLetter">Cover Letter</SelectItem>
+                      <SelectItem value="pmLevels">PM Levels</SelectItem>
+                      <SelectItem value="onboarding">Onboarding</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Filter by User</label>
+                  <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Users" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Users ({userOptions.length})</SelectItem>
+                      {userOptions
+                        .sort((a, b) => a.email.localeCompare(b.email))
+                        .map(user => (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.email}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Job Type
-                </label>
-                <select
-                  value={filters.job_type || ''}
-                  onChange={(e) => setFilters({ ...filters, job_type: e.target.value || null })}
-                  className="w-full border border-gray-300 rounded px-3 py-2"
-                >
-                  <option value="">All Types</option>
-                  <option value="coverLetter">Cover Letter</option>
-                  <option value="pmLevels">PM Levels</option>
-                  <option value="onboarding">Onboarding</option>
-                </select>
+
+              <div className="mt-4 text-sm text-gray-600">
+                Showing {rawData.length} evaluation runs
               </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  User ID (Filter)
-                </label>
-                <input
-                  type="text"
-                  value={filters.user_id || ''}
-                  onChange={(e) => setFilters({ ...filters, user_id: e.target.value || null })}
-                  placeholder="UUID or leave blank"
-                  className="w-full border border-gray-300 rounded px-3 py-2"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Limit
-                </label>
-                <input
-                  type="number"
-                  value={filters.limit}
-                  onChange={(e) => setFilters({ ...filters, limit: parseInt(e.target.value) || 1000 })}
-                  className="w-full border border-gray-300 rounded px-3 py-2"
-                />
-              </div>
-            </div>
-          </div>
-          
-          {/* Results */}
-          {loading && (
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading evals data...</p>
-            </div>
-          )}
-          
+            </CardContent>
+          </Card>
+
+          {/* Error State */}
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-              <strong>Error:</strong> {error}
-            </div>
+            <Card className="mb-6 border-red-200">
+              <CardContent className="pt-6">
+                <p className="text-red-600">{error}</p>
+              </CardContent>
+            </Card>
           )}
-          
-          {!loading && !error && (
-            <div className="bg-white rounded-lg shadow">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold">
-                  Results <span className="text-gray-500 font-normal">({count} records)</span>
-                </h2>
+
+          {/* Empty State */}
+          {!loading && rawData.length === 0 && !error && (
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-center text-gray-500 py-8">
+                  No evaluation data available for the selected filters.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Rich Dashboard Cards */}
+          {aggregates && (
+            <div className="space-y-6">
+              {/* Row 1: Latency + Token/Cost */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <LatencyOverviewCard 
+                  data={aggregates.jobTypeAggregates} 
+                  loading={loading} 
+                />
+                <TokenCostCard 
+                  data={aggregates.tokenCost} 
+                  loading={loading} 
+                />
               </div>
-              
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Job ID
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Type
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Stage
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        User ID
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Success
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Duration
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Tokens
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Created
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {data.map((row) => (
-                      <tr key={row.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-600">
-                          {row.job_id?.slice(0, 8)}...
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {row.job_type}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {row.stage}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-600">
-                          {row.user_id?.slice(0, 8)}...
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {row.success ? (
-                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                              Success
-                            </span>
-                          ) : (
-                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                              Failed
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {row.duration_ms ? `${row.duration_ms}ms` : '—'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {row.total_tokens || '—'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(row.created_at).toLocaleString()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                
-                {data.length === 0 && (
-                  <div className="text-center py-12 text-gray-500">
-                    No evals data found for the selected filters.
-                  </div>
-                )}
-              </div>
+
+              {/* Row 2: Quality Distribution */}
+              <StructuralChecksCard 
+                data={aggregates.qualityBuckets} 
+                loading={loading} 
+              />
+
+              {/* Row 3: Stage Breakdown */}
+              <StageLatencyChart 
+                data={aggregates.stageAggregates} 
+                loading={loading} 
+              />
+
+              {/* Row 4: Recent Failures */}
+              <ErrorTable 
+                data={aggregates.recentFailures} 
+                loading={loading} 
+              />
             </div>
           )}
         </div>
@@ -208,4 +271,3 @@ export function AdminEvalsDashboard() {
     </AdminGuard>
   );
 }
-

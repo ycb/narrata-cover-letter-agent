@@ -490,6 +490,20 @@ export default function NewUserOnboarding() {
     if (resumeCompleted && linkedinCompleted && coverLetterCompleted) {
       // All uploads complete - proceed to confirmation automatically
       setIsProcessing(false);
+      // Kick off PM Levels in the background after onboarding artifacts exist
+      if (user?.id) {
+        import('@/services/pmLevelsService')
+          .then(({ schedulePMLevelBackgroundRun }) => {
+            schedulePMLevelBackgroundRun({
+              userId: user.id,
+              reason: 'onboarding-complete',
+              triggerReason: 'initial-load',
+              runType: 'first-run',
+              delayMs: 3000,
+            });
+          })
+          .catch((err) => console.warn('[Onboarding] PM Levels schedule failed:', err));
+      }
       // Log overall onboarding total time
       (async () => {
         try {
@@ -512,7 +526,7 @@ export default function NewUserOnboarding() {
       })();
       setCurrentStep('review');
     }
-  }, [resumeCompleted, linkedinCompleted, coverLetterCompleted]);
+  }, [resumeCompleted, linkedinCompleted, coverLetterCompleted, user?.id]);
 
   /**
    * Check if resume contains LinkedIn URL and auto-populate Step 2

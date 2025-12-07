@@ -21,24 +21,48 @@ import { StructuralChecksCard } from './pipeline/StructuralChecksCard';
 import { ErrorTable } from './pipeline/ErrorTable';
 import { ExportButton } from './pipeline/ExportButton';
 
-export function PipelineEvaluationDashboard() {
-  const [timeRange, setTimeRange] = useState<number>(7);
-  const [jobTypeFilter, setJobTypeFilter] = useState<string>('all');
+interface PipelineEvaluationDashboardProps {
+  isAdminView?: boolean;
+  adminUserId?: string;
+  adminTimeRange?: number;
+  adminJobType?: string;
+  onFiltersChange?: (filters: { timeRange: number; jobType: string; userId?: string }) => void;
+}
+
+export function PipelineEvaluationDashboard({ 
+  isAdminView = false,
+  adminUserId,
+  adminTimeRange = 7,
+  adminJobType = 'all',
+  onFiltersChange
+}: PipelineEvaluationDashboardProps = {}) {
+  const [timeRange, setTimeRange] = useState<number>(adminTimeRange);
+  const [jobTypeFilter, setJobTypeFilter] = useState<string>(adminJobType);
+  
+  // Sync with admin props
+  React.useEffect(() => {
+    if (isAdminView) {
+      setTimeRange(adminTimeRange);
+      setJobTypeFilter(adminJobType);
+    }
+  }, [isAdminView, adminTimeRange, adminJobType]);
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Pipeline Evaluations</h1>
-          <p className="text-muted-foreground mt-1">
-            Performance and quality metrics for cover letter and PM levels pipelines
-          </p>
+    <div className={isAdminView ? "space-y-6" : "container mx-auto py-6 space-y-6"}>
+      {/* Header (hidden in admin view) */}
+      {!isAdminView && (
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Pipeline Evaluations</h1>
+            <p className="text-muted-foreground mt-1">
+              Performance and quality metrics for cover letter and PM levels pipelines
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <ExportButton days={timeRange} jobType={jobTypeFilter} />
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <ExportButton days={timeRange} jobType={jobTypeFilter} />
-        </div>
-      </div>
+      )}
 
       {/* Filters */}
       <Card>

@@ -1051,24 +1051,26 @@ export class GapDetectionService {
         });
       }
 
-      // Check if metrics are present
-      const hasMetrics = /\d+%|\d+\$|\d+\s*(users|customers|revenue|growth|increase|decrease|improved|reduced)/i.test(section.content);
-      if (!hasMetrics) {
-        gaps.push({
-          user_id: userId,
-          entity_type: 'saved_section',
-          entity_id: section.id,
-          gap_type: 'best_practice',
-          gap_category: 'missing_metrics_cover_letter',
-          severity: 'medium',
-          description: 'Section would benefit from quantifiable achievements',
-          suggestions: [
-            {
-              type: 'add_metric',
-              description: 'Add specific metrics, percentages, or quantifiable results'
-            }
-          ]
-        });
+      // Closing should not require metrics; only body paragraphs get this check
+      if (section.type === 'paragraph') {
+        const hasMetrics = /\d+%|\d+\$|\d+\s*(users|customers|revenue|growth|increase|decrease|improved|reduced)/i.test(section.content);
+        if (!hasMetrics) {
+          gaps.push({
+            user_id: userId,
+            entity_type: 'saved_section',
+            entity_id: section.id,
+            gap_type: 'best_practice',
+            gap_category: 'missing_metrics_cover_letter',
+            severity: 'medium',
+            description: 'Section would benefit from quantifiable achievements',
+            suggestions: [
+              {
+                type: 'add_metric',
+                description: 'Add specific metrics, percentages, or quantifiable results'
+              }
+            ]
+          });
+        }
       }
     } else if (section.type === 'signature') {
       // Signature should have contact info
@@ -1617,14 +1619,10 @@ If content is specific with metrics and clear impact, set isGeneric to false.`;
    */
   static async getGapSummary(userId: string, profileId?: string, accessToken?: string): Promise<GapSummary> {
     try {
-      // Build the same item list used by the Content Quality widget
-      const itemsByType = await this.getContentItemsWithGaps(userId, profileId, accessToken);
-      const workHistoryItems = itemsByType.byContentType.workHistory || [];
-      const coverLetterItems = itemsByType.byContentType.coverLetterSavedSections || [];
-      const allItems = [...workHistoryItems, ...coverLetterItems];
-
+      // Prefer direct gaps list to avoid missing counts in summary cards
+      const gaps = await this.getUserGaps(userId, profileId, accessToken);
       const summary: GapSummary = {
-        total: allItems.length,
+        total: gaps.length,
         byContentType: {
           stories: 0,
           savedSections: 0,
@@ -1640,18 +1638,17 @@ If content is specific with metrics and clear impact, set isGeneric to false.`;
         },
       };
 
-      const mapItemToType = (item: any): 'stories' | 'savedSections' | 'roleDescriptions' | 'outcomeMetrics' | 'coverLetterSections' => {
-        if (item.item_type === 'story') return 'stories';
-        if (item.item_type === 'role_summary') return 'roleDescriptions';
-        if (item.item_type === 'role_metrics') return 'outcomeMetrics';
-        if (item.item_type === 'cover_letter_section') return 'coverLetterSections';
-        // default bucket by source list
-        return workHistoryItems.includes(item) ? 'roleDescriptions' : 'coverLetterSections';
+      const mapItemToType = (itemType: string | null | undefined): 'stories' | 'savedSections' | 'roleDescriptions' | 'outcomeMetrics' | 'coverLetterSections' => {
+        if (itemType === 'story') return 'stories';
+        if (itemType === 'role_summary') return 'roleDescriptions';
+        if (itemType === 'role_metrics') return 'outcomeMetrics';
+        if (itemType === 'cover_letter_section') return 'coverLetterSections';
+        return 'roleDescriptions';
       };
 
-      for (const item of allItems) {
-        const t = mapItemToType(item);
-        const sev = item.max_severity as 'high' | 'medium' | 'low';
+      for (const gap of gaps) {
+        const t = mapItemToType((gap as any).item_type);
+        const sev = (gap as any).severity as 'high' | 'medium' | 'low';
         summary.byContentType[t]++;
         summary.bySeverity[sev]++;
         summary.bySeverityAndType[sev][t]++;
@@ -2284,4 +2281,3 @@ If content is specific with metrics and clear impact, set isGeneric to false.`;
     }
   }
 }
-

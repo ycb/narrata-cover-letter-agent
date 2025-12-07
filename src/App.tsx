@@ -53,8 +53,10 @@ import GoNoGoDemo from "./pages/GoNoGoDemo";
 import { EvaluationDashboard } from "./components/evaluation/EvaluationDashboard";
 import { PipelineEvaluationDashboard } from "./components/evaluation/PipelineEvaluationDashboard";
 import { AdminEvalsDashboard } from "./pages/admin/AdminEvalsDashboard";
+import { AdminEvaluationDashboard } from "./pages/admin/AdminEvaluationDashboard";
 import { AdminFunnelDashboard } from "./pages/admin/AdminFunnelDashboard";
 import { AdminLeaderboardDashboard } from "./pages/admin/AdminLeaderboardDashboard";
+import { AdminDebug } from "./pages/admin/AdminDebug";
 
 import SignUp from "./pages/SignUp";
 import SignIn from "./pages/SignIn";
@@ -242,9 +244,19 @@ function AppLayout() {
         } />
         
         {/* Admin Routes */}
+        <Route path="/admin/debug" element={
+          <ProtectedRoute>
+            <AdminDebug />
+          </ProtectedRoute>
+        } />
         <Route path="/admin/evals" element={
           <ProtectedRoute>
             <AdminEvalsDashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/admin/evaluation" element={
+          <ProtectedRoute>
+            <AdminEvaluationDashboard />
           </ProtectedRoute>
         } />
         <Route path="/admin/funnel" element={

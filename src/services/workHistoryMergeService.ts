@@ -694,6 +694,28 @@ export async function getMergedWorkHistory(userId: string): Promise<MergedRoleCl
   const workItems: WorkItemWithSource[] = (workItemsData || []).map((wi: any) => {
     const company = wi.companies as any;
     const source = wi.sources as any;
+    const description = wi.description || '';
+    const tags: string[] = Array.isArray(wi.tags) ? wi.tags : [];
+    const companyTags: string[] = Array.isArray(company?.tags) ? company.tags : [];
+
+    // Extract LI metadata from description into tags
+    const parts = description.split('|').map((p: string) => p.trim()).filter(Boolean);
+    const residual: string[] = [];
+    parts.forEach((p) => {
+      const lower = p.toLowerCase();
+      if (lower.startsWith('role:')) {
+        tags.push(p.replace(/role:\s*/i, '').trim());
+      } else if (lower.startsWith('specialty:')) {
+        tags.push(p.replace(/specialty:\s*/i, '').trim());
+      } else if (lower.startsWith('industry:')) {
+        companyTags.push(p.replace(/industry:\s*/i, '').trim());
+      } else if (lower.startsWith('company size:')) {
+        companyTags.push(p.replace(/company size:\s*/i, '').trim());
+      } else {
+        residual.push(p);
+      }
+    });
+    const cleanDescription = residual.join(' | ').trim();
     
     // Determine source type
     let sourceType: 'resume' | 'linkedin' | 'cover_letter' | 'other' = 'other';
@@ -708,11 +730,12 @@ export async function getMergedWorkHistory(userId: string): Promise<MergedRoleCl
       title: wi.title || '',
       startDate: wi.start_date,
       endDate: wi.end_date,
-      description: wi.description,
+      description: cleanDescription,
       companyId: company?.id || wi.company_id,
       companyName: company?.name || 'Unknown Company',
       metrics: Array.isArray(wi.metrics) ? wi.metrics : [],
-      tags: Array.isArray(wi.tags) ? wi.tags : [],
+      tags: Array.from(new Set(tags)),
+      companyTags: Array.from(new Set(companyTags)),
       source: source ? {
         id: source.id,
         sourceType: source.source_type,
@@ -884,4 +907,3 @@ export async function getMergeStats(userId: string): Promise<{
     ambiguousClusters,
   };
 }
-

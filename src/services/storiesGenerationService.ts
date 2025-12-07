@@ -194,10 +194,28 @@ Return JSON:
     const content = data.choices[0].message.content;
     const parsed = JSON.parse(content);
 
-    return parsed.stories || [];
+    const stories = parsed.stories || [];
+
+    // Strip sentences with numbers not present in source description to reduce hallucinated metrics
+    const sourceNumbers = Array.from(description.match(/\d[\d.,]*/g) || []);
+    const sourceHasNumber = (num: string) => sourceNumbers.some(n => n === num || description.includes(num));
+
+    return stories.map((s: any) => {
+      const sentences = (s.content || '').split(/(?<=[.!?])\s+/);
+      const filtered = sentences.filter((sent: string) => {
+        const nums = sent.match(/\d[\d.,]*/g) || [];
+        if (nums.length === 0) return true;
+        return nums.every(sourceHasNumber);
+      });
+      return {
+        title: s.title || roleTitle,
+        content: filtered.join(' ').trim() || s.content,
+        tags: s.tags || [],
+        metrics: [], // drop LLM metrics to avoid fabricated numbers
+      };
+    });
   } catch (error) {
     console.error('[StoriesGen] Error calling OpenAI:', error);
     return [];
   }
 }
-

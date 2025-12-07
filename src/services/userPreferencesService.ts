@@ -261,6 +261,19 @@ export class UserPreferencesService {
           console.error('Error saving voice to database:', error);
           throw error;
         }
+
+        // Mirror to user_voice table for consistency
+        const { error: voiceTableError } = await supabase
+          .from('user_voice')
+          .upsert({
+            user_id: userId,
+            prompt: voice.prompt,
+            source_type: 'user',
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'user_id' });
+        if (voiceTableError) {
+          console.error('Error saving voice to user_voice table:', voiceTableError);
+        }
       }
     } catch (error) {
       console.error('Error in saveVoice:', error);
@@ -302,7 +315,21 @@ export class UserPreferencesService {
         
         return null;
       } else {
-        // Normal mode: load from profiles table
+        // Normal mode: try user_voice table first
+        const { data: uvRow, error: uvError } = await supabase
+          .from('user_voice')
+          .select('prompt, updated_at')
+          .eq('user_id', userId)
+          .single();
+
+        if (!uvError && uvRow?.prompt) {
+          return {
+            prompt: uvRow.prompt,
+            lastUpdated: uvRow.updated_at || new Date().toISOString()
+          };
+        }
+
+        // Fallback to profiles table
         const { data, error } = await supabase
           .from('profiles')
           .select('user_voice')
@@ -347,4 +374,3 @@ export class UserPreferencesService {
     }
   }
 }
-

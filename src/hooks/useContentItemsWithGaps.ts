@@ -52,9 +52,8 @@ export function useContentItemsWithGaps() {
       setError(null);
 
       // Read current synthetic profile id (if any)
-      let profileIdLocal: string | null = null;
-      try { profileIdLocal = localStorage.getItem('synthetic_active_profile_id'); } catch {}
-      const items = await GapDetectionService.getContentItemsWithGaps(user.id, profileIdLocal || undefined);
+      // Avoid over-filtering: fetch all items for user
+      const items = await GapDetectionService.getContentItemsWithGaps(user.id, undefined);
 
       // Update caches
       cache.set(cacheKey, {
@@ -164,6 +163,5 @@ export function useContentItemsWithGaps() {
     invalidateCache,
   };
 }
-
 
 

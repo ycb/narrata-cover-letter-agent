@@ -56,7 +56,7 @@ export async function processCoverLetter(
     const paragraphs = parseParagraphs(coverLetterText);
     console.log(`[CLProcess] Parsed ${paragraphs.length} paragraphs`);
 
-    // Step 2: Create Saved Sections
+    // Step 2: Create Saved Sections (strict: first=intro, last=closing, rest=body)
     const sectionIds: string[] = [];
     for (const para of paragraphs) {
       try {
@@ -74,12 +74,14 @@ export async function processCoverLetter(
           .insert({
             user_id: userId,
             type: para.type,
-            position: para.position,
             title,
             content: para.content,
-            is_dynamic: false, // All imported sections start as static
-            source_type: 'cover_letter',
-            source_id: sourceId
+            // Use paragraph_index to match schema; tags/purpose fields left empty
+            paragraph_index: para.position,
+            source_id: sourceId,
+            tags: [],
+            purpose_tags: [],
+            times_used: 0
           })
           .select('id')
           .single();
@@ -153,6 +155,11 @@ export async function processCoverLetter(
 
         const voicePrompt = await extractMyVoice(voiceText, apiKey);
         if (voicePrompt) {
+          const voiceObject = {
+            prompt: voicePrompt,
+            lastUpdated: new Date().toISOString()
+          };
+
           const { data: voice, error: voiceError } = await supabase
             .from('user_voice')
             .upsert({
@@ -172,6 +179,18 @@ export async function processCoverLetter(
           } else if (voice) {
             myVoiceCreated = true;
             console.log(`[CLProcess] Extracted and saved My Voice: ${voice.id}`);
+
+            // Also persist to profiles.user_voice so UI can read it
+            const { error: profileVoiceError } = await supabase
+              .from('profiles')
+              .update({
+                user_voice: voiceObject,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', userId);
+            if (profileVoiceError) {
+              console.warn('[CLProcess] Failed to mirror voice to profiles.user_voice:', profileVoiceError);
+            }
           }
         }
       }
@@ -258,24 +277,21 @@ export async function processCoverLetter(
  * Parse cover letter text into categorized paragraphs
  */
 function parseParagraphs(text: string): ProcessedParagraph[] {
-  // Prefer blank-line splits, fall back to single newlines if only one chunk
+  // Split on blank lines; do NOT split on single newlines to avoid fragments
   let chunks = text
     .split(/\n\s*\n/)
     .map((p) => p.trim())
     .filter((p) => p.length > 0);
 
-  if (chunks.length <= 1) {
-    chunks = text
-      .split(/\r?\n/)
-      .map((p) => p.trim())
-      .filter((p) => p.length > 0);
-  }
-
   if (chunks.length === 0) return [];
 
   const closingPatterns = /(sincerely|best regards|regards|thank you|thanks|cordially)/i;
+  const contactPatterns = /(https?:\/\/|linkedin\.com|@|tel:|\d{3}[-.\s]?\d{3}[-.\s]?\d{4})/i;
   const paragraphs: ProcessedParagraph[] = [];
   let position = 0;
+
+  // Filter out obvious contact/footer fragments
+  chunks = chunks.filter((c) => !contactPatterns.test(c.toLowerCase()) || c.length > 120);
 
   // Intro = first paragraph
   paragraphs.push({

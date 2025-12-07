@@ -51,9 +51,8 @@ export function useGapSummary() {
       setError(null);
 
       // Read current synthetic profile id (if any)
-      let profileId: string | null = null;
-      try { profileId = localStorage.getItem('synthetic_active_profile_id'); } catch {}
-      const summary = await GapDetectionService.getGapSummary(user.id, profileId || undefined);
+      // Avoid over-filtering: fetch full gap summary for user (no profile gating)
+      const summary = await GapDetectionService.getGapSummary(user.id, undefined);
 
       // Update caches
       cache.set(cacheKey, {
@@ -153,6 +152,5 @@ export function useGapSummary() {
     invalidateCache,
   };
 }
-
 
 

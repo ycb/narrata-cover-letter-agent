@@ -5,7 +5,7 @@
  * Calls admin-only Edge Functions with service role access.
  */
 
-import { supabase } from '../supabaseClient';
+import { supabase } from '../lib/supabase';
 import type {
   AdminEvalsFilters,
   AdminEvaluationRunsFilters,
@@ -38,17 +38,38 @@ class AdminService {
    * Get current user's role
    */
   async getUserRole(): Promise<UserRole | null> {
-    const { data, error } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', (await supabase.auth.getUser()).data.user?.id || '')
-      .single();
-    
-    if (error || !data) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        console.warn('[adminService] No authenticated user');
+        return null;
+      }
+      
+      console.log('[adminService] Checking role for user:', user.id);
+      
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (error) {
+        console.error('[adminService] Error fetching user role:', error);
+        return null;
+      }
+      
+      if (!data) {
+        console.warn('[adminService] No role found for user:', user.id);
+        return null;
+      }
+      
+      console.log('[adminService] User role:', data.role);
+      return data.role as UserRole;
+    } catch (err) {
+      console.error('[adminService] Unexpected error in getUserRole:', err);
       return null;
     }
-    
-    return data.role as UserRole;
   }
   
   /**
@@ -204,23 +225,30 @@ class AdminService {
    * Get list of all users (for spoofing dropdown)
    */
   async getAllUsers(limit: number = 100): Promise<Array<{ id: string; email: string }>> {
-    // This is a basic implementation using evaluation_runs to get user emails
-    // For production, you might want a dedicated admin Edge Function
-    const { data, error } = await supabase
-      .from('evaluation_runs')
-      .select('user_id')
-      .limit(limit);
-    
-    if (error) {
-      console.error('Failed to fetch users:', error);
-      return [];
+    const { data: session } = await supabase.auth.getSession();
+    if (!session.session) {
+      throw new Error('Not authenticated');
     }
     
-    // Get unique user IDs
-    const uniqueUserIds = [...new Set(data.map(row => row.user_id))];
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-list-users`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ limit }),
+      }
+    );
     
-    // Fetch user emails from auth.users (requires service role, so return IDs only for now)
-    return uniqueUserIds.map(id => ({ id, email: id }));
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to fetch users');
+    }
+    
+    const result = await response.json();
+    return result.users || [];
   }
 }
 
