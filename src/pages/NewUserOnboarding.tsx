@@ -399,7 +399,9 @@ export default function NewUserOnboarding() {
 
   const handleLinkedInUrl = (url: string) => {
     setOnboardingData(prev => ({ ...prev, linkedinUrl: url }));
-    // Note: linkedinCompleted will be set by handleUploadComplete when PDL processing finishes
+    // Set linkedinCompleted immediately when LinkedIn URL is connected
+    // The FileUploadCard will show "connected" state and we should advance
+    setLinkedinCompleted(true);
   };
 
   const handleCoverLetterText = (text: string) => {
