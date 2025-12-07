@@ -667,8 +667,6 @@ source_type: dbSourceType,
         }
       }
       
-      // Resume continues through legacy client-side path until streaming UI is approved
-      
       // BATCHING DISABLED - GPT-3.5-turbo is fast enough for individual processing
       // Process each file immediately instead of waiting for batching
       console.log(`→ Batching DISABLED - will process ${type} immediately`);
@@ -877,44 +875,8 @@ source_type: dbSourceType,
       }
       
       // Match cover letter stories to existing work_items and extract profile data
-          if (type === 'coverLetter') {
-            // Fetch user_id once for downstream operations
-            const { data: sourceData } = await supabase
-              .from('sources')
-              .select('user_id')
-          .eq('id', sourceId)
-          .single();
-
+      if (type === 'coverLetter') {
         await this.processCoverLetterData(structuredData, sourceId, accessToken);
-        
-            // NEW: Run comprehensive cover letter processing pipeline
-            // (Saved Sections, Template, My Voice, Story Detection)
-            try {
-              const { processCoverLetter } = await import('./coverLetterProcessingService');
-              const rawText = extractedText; // Use the extracted text
-              const userId = sourceData?.user_id;
-              const openaiKey =
-                (import.meta.env?.VITE_OPENAI_API_KEY as string | undefined) ||
-                (import.meta.env?.VITE_OPENAI_KEY as string | undefined) ||
-                (typeof process !== 'undefined' ? process.env.VITE_OPENAI_API_KEY : undefined) ||
-                (typeof process !== 'undefined' ? process.env.VITE_OPENAI_KEY : undefined);
-              
-              if (userId && rawText) {
-                console.log('[FileUpload] Running cover letter processing pipeline...');
-                const result = await processCoverLetter(
-                  userId,
-                  sourceId,
-                  rawText,
-                  openaiKey
-                );
-                console.log(`[FileUpload] CL pipeline complete: ${result.savedSectionsCreated} sections, ${result.storiesCreated} stories, voice=${result.myVoiceCreated}`);
-                if (result.errors.length > 0) {
-                  console.warn('[FileUpload] CL pipeline errors:', result.errors);
-                }
-          }
-        } catch (clError) {
-          console.warn('[FileUpload] Cover letter processing pipeline failed (non-critical):', clError);
-        }
       }
       
       // Normalize skills for both resume and cover letter
