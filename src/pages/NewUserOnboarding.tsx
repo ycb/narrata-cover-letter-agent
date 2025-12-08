@@ -70,8 +70,6 @@ export default function NewUserOnboarding() {
   const [resumeCompleted, setResumeCompleted] = useState(false);
   const [linkedinCompleted, setLinkedinCompleted] = useState(false);
   const [coverLetterCompleted, setCoverLetterCompleted] = useState(false);
-  // Once the resume flow starts, keep CL & LI enabled for the rest of onboarding
-  const [resumeGateOpen, setResumeGateOpen] = useState(false);
   // Timing metrics (ms since epoch)
   const [onboardingStartMs, setOnboardingStartMs] = useState<number | null>(null);
   const [resumeStartMs, setResumeStartMs] = useState<number | null>(null);
@@ -731,51 +729,42 @@ export default function NewUserOnboarding() {
           />
         </div>
         
-        {/* Cover Letter (placed before LinkedIn; enabled once resume flow starts) */}
+        {/* Cover Letter (parallel upload - streaming architecture) */}
         <div ref={coverLetterRef}>
-          <div className={!resumeGateOpen ? 'opacity-50 pointer-events-none' : ''}>
-            <FileUploadCard
-              type="coverLetter"
-              title="Best Cover Letter"
-              description={resumeGateOpen 
-                ? "Upload or paste your best cover letter example" 
-                : "Complete resume upload first"}
-              icon={Mail}
-              onTextInput={handleCoverLetterText}
-              onFileUpload={handleFileUpload}
-              onUploadComplete={handleUploadComplete}
-              onUploadError={handleUploadError}
-              currentValue={(onboardingData as any).coverLetterFile || onboardingData.coverLetter}
-              disabled={!resumeGateOpen}
-              required={true}
-            />
-          </div>
+          <FileUploadCard
+            type="coverLetter"
+            title="Best Cover Letter"
+            description="Upload or paste your best cover letter example"
+            icon={Mail}
+            onTextInput={handleCoverLetterText}
+            onFileUpload={handleFileUpload}
+            onUploadComplete={handleUploadComplete}
+            onUploadError={handleUploadError}
+            currentValue={(onboardingData as any).coverLetterFile || onboardingData.coverLetter}
+            required={true}
+          />
         </div>
 
-        {/* LinkedIn (moved after Cover Letter; enabled once resume flow starts) */}
+        {/* LinkedIn (parallel upload - streaming architecture) */}
         <div ref={linkedinRef}>
-          <div className={!resumeGateOpen ? 'opacity-50 pointer-events-none' : ''}>
-            <FileUploadCard
-              type="linkedin"
-              title="LinkedIn Profile"
-              description={autoPopulatingLinkedIn 
-                ? "✨ Auto-populating from resume..." 
-                : linkedinAutoCompleted && linkedinCompleted
-                  ? "LinkedIn profile imported from your resume"
-                  : resumeGateOpen 
-                    ? (linkedinUrl 
-                      ? "LinkedIn URL found in resume - click Connect to enrich" 
-                      : "Enter your LinkedIn URL to enrich your work history")
-                    : "Complete resume upload first"}
-              icon={LinkedinIcon}
-              onLinkedInUrl={handleLinkedInUrl}
-              onUploadComplete={handleUploadComplete}
-              onUploadError={handleUploadError}
-              currentValue={linkedinUrl}
-              disabled={!resumeGateOpen || autoPopulatingLinkedIn}
-              required={true}
-            />
-          </div>
+          <FileUploadCard
+            type="linkedin"
+            title="LinkedIn Profile"
+            description={autoPopulatingLinkedIn 
+              ? "✨ Auto-populating from resume..." 
+              : linkedinAutoCompleted && linkedinCompleted
+                ? "LinkedIn profile imported from your resume"
+                : linkedinUrl 
+                  ? "LinkedIn URL found in resume - click Connect to enrich" 
+                  : "Enter your LinkedIn URL to enrich your work history"}
+            icon={LinkedinIcon}
+            onLinkedInUrl={handleLinkedInUrl}
+            onUploadComplete={handleUploadComplete}
+            onUploadError={handleUploadError}
+            currentValue={linkedinUrl}
+            disabled={autoPopulatingLinkedIn}
+            required={true}
+          />
         </div>
         
       </div>
