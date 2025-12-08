@@ -298,7 +298,7 @@ type SourceEntry = { id: string; processing_status: string; structured_data?: un
       
       // Use direct fetch instead of Supabase client since it's not working
       console.log('Uploading to storage...');
-      window.dispatchEvent(new CustomEvent('file-upload-progress', { detail: { sourceId: '', stage: 'uploading', progress: 15, message: 'Uploading file...', fileType } }));
+      this.emitProgress('uploading', 10, 'Uploading file...', fileType);
       
       const { url: supabaseUrl, key: supabaseKey } = getSupabaseConfig();
       
@@ -652,14 +652,7 @@ source_type: dbSourceType,
         const existingSource = await this.findExistingSourceByChecksum(userId, checksum);
         if (existingSource) {
           console.log(`♻️ Detected duplicate ${type} upload, reusing existing structured data.`);
-          window.dispatchEvent(new CustomEvent('file-upload-progress', { 
-            detail: { 
-              sourceId: existingSource.id, 
-              stage: 'duplicate', 
-              progress: 100, 
-              message: `${type === 'resume' ? 'Resume' : 'Cover letter'} already processed — using saved data.` 
-            } 
-          }));
+          this.emitProgress('duplicate', 100, `${type === 'resume' ? 'Resume' : 'Cover letter'} already processed`, type);
           return {
             success: true,
             fileId: existingSource.id
@@ -684,7 +677,7 @@ source_type: dbSourceType,
       }
 
       console.log('✅ Content upload completed successfully');
-      window.dispatchEvent(new CustomEvent('file-upload-progress', { detail: { sourceId, stage: 'complete', progress: 100, message: 'Complete!' } }));
+      this.emitProgress('complete', 100, 'Upload complete!', fileType);
       return {
         success: true,
         fileId: sourceId
@@ -706,9 +699,9 @@ source_type: dbSourceType,
   /**
    * Emit progress event for streaming UX
    */
-  private emitProgress(stage: string, percent: number, label: string) {
+  private emitProgress(stage: string, percent: number, label: string, fileType?: string) {
     window.dispatchEvent(new CustomEvent('file-upload-progress', {
-      detail: { stage, percent, label }
+      detail: { stage, percent, label, fileType: fileType || 'file' }
     }));
   }
 
@@ -730,13 +723,13 @@ source_type: dbSourceType,
 
     try {
       // Emit initial progress
-      this.emitProgress('starting', 5, 'Starting upload...');
+      this.emitProgress('starting', 5, 'Starting upload...', type);
       
       // Update status to processing
       await this.updateProcessingStatus(sourceId, 'processing', undefined, undefined, accessToken);
 
       let extractedText: string;
-      this.emitProgress('extracting', 15, 'Reading file...');
+      this.emitProgress('extracting', 15, 'Reading file...', type);
       
       if (originalContent instanceof File) {
         // Check for pre-extracted text first (performance optimization)
@@ -754,11 +747,11 @@ source_type: dbSourceType,
           extractedText = preExtracted;
           extractionLatencyMs = 0; // Cache hit
           console.log(`✨ Using pre-extracted text for: ${file.name} (cache hit)`);
-          this.emitProgress('extracted', 25, 'Text ready');
+          this.emitProgress('extracted', 25, 'Text ready', type);
         } else {
           // Extract text from uploaded file
           console.log('Extracting text from file:', file.name);
-          this.emitProgress('extracting', 20, 'Extracting text...');
+          this.emitProgress('extracting', 20, 'Extracting text...', type);
           const extractionStartTime = performance.now();
           const extractionResult = await this.textExtractionService.extractText(file);
           const extractionEndTime = performance.now();
@@ -769,11 +762,10 @@ source_type: dbSourceType,
             throw new Error(`Text extraction failed: ${extractionResult.error}`);
           }
           
-          this.emitProgress('extracted', 25, 'Text extracted');
+          this.emitProgress('extracted', 25, 'Text extracted', type);
           
           extractedText = extractionResult.text!;
           console.log('Text extraction successful, length:', extractedText.length);
-          window.dispatchEvent(new CustomEvent('file-upload-progress', { detail: { sourceId, stage: 'extracted', progress: 55, message: 'Text extracted successfully...' } }));
         }
       } else {
         // Use manual text directly
@@ -793,7 +785,7 @@ source_type: dbSourceType,
 
       // Analyze text with LLM based on file type
       console.log('Analyzing text with LLM for type:', type);
-      window.dispatchEvent(new CustomEvent('file-upload-progress', { detail: { sourceId, stage: 'analyzing', progress: 70, message: 'Analyzing with AI...' } }));
+      this.emitProgress('analyzing', 40, 'Analyzing with AI...', type);
       let analysisResult;
       
       const llmStartTime = performance.now();
@@ -816,21 +808,13 @@ source_type: dbSourceType,
           extractedText,
           (stage: string, data: unknown) => {
             // Emit stage completion events for UI updates
-            const stageProgress: Record<string, { progress: number; message: string }> = {
-              workHistorySkeleton: { progress: 75, message: 'Work history extracted...' },
-              roleStories: { progress: 85, message: 'Stories and achievements extracted...' },
-              skillsAndEducation: { progress: 92, message: 'Skills and education extracted...' }
+            const stageProgress: Record<string, { percent: number; label: string }> = {
+              workHistorySkeleton: { percent: 55, label: 'Work history extracted...' },
+              roleStories: { percent: 70, label: 'Stories and achievements extracted...' },
+              skillsAndEducation: { percent: 75, label: 'Skills and education extracted...' }
             };
-            const stageInfo = stageProgress[stage] || { progress: 80, message: `${stage} complete...` };
-            window.dispatchEvent(new CustomEvent('file-upload-progress', { 
-              detail: { 
-                sourceId, 
-                stage, 
-                progress: stageInfo.progress, 
-                message: stageInfo.message,
-                stageData: data 
-              } 
-            }));
+            const stageInfo = stageProgress[stage] || { percent: 60, label: `${stage} complete...` };
+            this.emitProgress(stage, stageInfo.percent, stageInfo.label, type);
             console.warn(`📊 Stage ${stage} complete`, data);
           }
         );
@@ -848,7 +832,7 @@ source_type: dbSourceType,
       // Log structured data with detailed information
       console.log('═══════════════════════════════════════════════════════════');
       console.log('📊 STRUCTURED DATA FROM OPENAI PARSING:');
-      window.dispatchEvent(new CustomEvent('file-upload-progress', { detail: { sourceId, stage: 'structuring', progress: 90, message: 'Organizing data...' } }));
+      this.emitProgress('structuring', 78, 'Organizing data...', type);
       console.log('═══════════════════════════════════════════════════════════');
       console.log('Summary:', {
         workHistory: structuredData.workHistory?.length || 0,
@@ -885,7 +869,7 @@ source_type: dbSourceType,
 
       // Auto-save extracted data to database (both resume AND cover letter can have workHistory)
       // Cover letters may contain work history entries that should be processed
-      this.emitProgress('saving', 80, 'Saving to database...');
+      this.emitProgress('saving', 80, 'Saving to database...', type);
       if (type === 'resume' || (type === 'coverLetter' && structuredData.workHistory && Array.isArray(structuredData.workHistory) && structuredData.workHistory.length > 0)) {
       await this.processStructuredData(structuredData, sourceId, accessToken);
       }
