@@ -349,16 +349,24 @@ export class LLMAnalysisService {
   }
 
   /**
-   * Analyze cover letter text and extract structured data
+   * Analyze cover letter text and extract stories + voice
+   * NOTE: Paragraph parsing is done by rule-based parser (no LLM needed)
    */
-  async analyzeCoverLetter(text: string): Promise<LLMAnalysisResult> {
+  async analyzeCoverLetterStories(
+    text: string,
+    workHistory: Array<{ id: string; company: string; title: string; startDate: string | null; endDate: string | null }>
+  ): Promise<LLMAnalysisResult> {
     try {
-      // Calculate optimal token limit based on content analysis
-      const optimalTokens = this.calculateOptimalTokens(text, 'coverLetter');
-      console.warn(`🚀 Starting cover letter analysis with ${optimalTokens} tokens (smart calculation)`);
+      // Import prompt builder
+      const { buildCoverLetterStoryExtractionPrompt } = await import('@/prompts/coverLetterStoryExtraction');
       
-      // Use the dedicated cover letter prompt that extracts STORIES and TEMPLATE signals
-      const prompt = buildCoverLetterAnalysisPrompt(text);
+      // Build simplified prompt (just stories + voice, no paragraph parsing)
+      const prompt = buildCoverLetterStoryExtractionPrompt(text, workHistory);
+      
+      // Much smaller token allocation (no template extraction, no profile data)
+      const optimalTokens = 2500; // Fixed budget for stories + voice only
+      console.warn(`🚀 Starting cover letter story extraction with ${optimalTokens} tokens (2-stage approach)`);
+      
       const response = await this.callOpenAI(prompt, optimalTokens);
       
       if (!response.success) {
@@ -369,22 +377,30 @@ export class LLMAnalysisService {
         };
       }
 
-      // For cover letters we want the richer story-centric schema as-is
+      // Return stories + voice data
       const structuredData = response.data as Record<string, unknown>;
       
       return {
         success: true,
-        // Keep type compatibility while storing the richer schema in the database
         data: structuredData as unknown as StructuredResumeData
       };
     } catch (error) {
-      console.error('Cover letter LLM analysis error:', error);
+      console.error('Cover letter story extraction error:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Cover letter LLM analysis failed',
+        error: error instanceof Error ? error.message : 'Cover letter story extraction failed',
         retryable: true
       };
     }
+  }
+
+  /**
+   * Legacy method - kept for backwards compatibility
+   * @deprecated Use analyzeCoverLetterStories instead
+   */
+  async analyzeCoverLetter(text: string): Promise<LLMAnalysisResult> {
+    console.warn('⚠️ analyzeCoverLetter is deprecated - use analyzeCoverLetterStories with work history context');
+    return this.analyzeCoverLetterStories(text, []);
   }
 
   /**

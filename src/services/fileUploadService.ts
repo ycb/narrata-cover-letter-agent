@@ -791,8 +791,25 @@ source_type: dbSourceType,
       const llmStartTime = performance.now();
       // Determine analysis type based on file name or content
       if (file.name.toLowerCase().includes('cover') || file.name.toLowerCase().includes('letter') || type === 'coverLetter') {
-        console.log('→ Using COVER LETTER analysis');
-        analysisResult = await this.llmAnalysisService.analyzeCoverLetter(extractedText);
+        console.log('→ Using 2-STAGE COVER LETTER analysis (rule-based parsing + LLM stories)');
+        
+        // STAGE 1: Rule-based paragraph parsing (instant, no LLM)
+        const { parseCoverLetter, convertToSavedSections } = await import('@/services/coverLetterParser');
+        const parsed = parseCoverLetter(extractedText);
+        console.log(`📄 Parsed CL structure: ${parsed.bodyParagraphs.length} body paragraphs`);
+        
+        // Save sections immediately (no LLM wait)
+        const sections = convertToSavedSections(parsed);
+        await this.saveCoverLetterSections(sections, sourceId, accessToken);
+        this.emitProgress('sections-saved', 35, 'Sections extracted', type);
+        
+        // STAGE 2: LLM analysis for stories + voice (10-15s)
+        // First, get existing work history for story linking
+        const { data: { session } } = await supabase.auth.getSession();
+        const userId = session?.user?.id;
+        const workHistory = userId ? await this.getWorkHistoryForStoryLinking(userId, accessToken) : [];
+        
+        analysisResult = await this.llmAnalysisService.analyzeCoverLetterStories(extractedText, workHistory);
       } else if (file.name.toLowerCase().includes('case') || file.name.toLowerCase().includes('study') || type === 'caseStudies') {
         console.log('→ Using CASE STUDY analysis');
         analysisResult = await this.llmAnalysisService.analyzeCaseStudy(extractedText);
@@ -950,6 +967,89 @@ source_type: dbSourceType,
   /**
    * Process structured data into work_items and companies tables
    */
+  /**
+   * Save cover letter sections to saved_sections table
+   */
+  private async saveCoverLetterSections(
+    sections: Array<{ slug: string; title: string; content: string; order: number; isStatic: boolean }>,
+    sourceId: string,
+    accessToken?: string
+  ): Promise<void> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      
+      if (!userId) {
+        console.warn('⚠️ No user ID for saving CL sections');
+        return;
+      }
+
+      const dbClient = accessToken
+        ? createSbClient(
+            (import.meta.env?.VITE_SUPABASE_URL) || '',
+            (import.meta.env?.VITE_SUPABASE_ANON_KEY) || '',
+            { global: { headers: { Authorization: `Bearer ${accessToken}` } } }
+          )
+        : supabase;
+
+      // Save each section
+      for (const section of sections) {
+        await dbClient.from('saved_sections').insert({
+          user_id: userId,
+          slug: section.slug,
+          title: section.title,
+          content: section.content,
+          order_index: section.order,
+          is_static: section.isStatic,
+          source_id: sourceId,
+        });
+      }
+
+      console.log(`✅ Saved ${sections.length} CL sections`);
+    } catch (error) {
+      console.error('Error saving CL sections:', error);
+      // Don't throw - sections can be manually created later
+    }
+  }
+
+  /**
+   * Get existing work history for story linking
+   */
+  private async getWorkHistoryForStoryLinking(
+    userId: string,
+    accessToken?: string
+  ): Promise<Array<{ id: string; company: string; title: string; startDate: string | null; endDate: string | null }>> {
+    try {
+      const dbClient = accessToken
+        ? createSbClient(
+            (import.meta.env?.VITE_SUPABASE_URL) || '',
+            (import.meta.env?.VITE_SUPABASE_ANON_KEY) || '',
+            { global: { headers: { Authorization: `Bearer ${accessToken}` } } }
+          )
+        : supabase;
+
+      const { data: workItems } = await dbClient
+        .from('work_items')
+        .select('id, title, start_date, end_date, companies(name)')
+        .eq('user_id', userId)
+        .is('parent_id', null)
+        .order('start_date', { ascending: false });
+
+      if (!workItems) return [];
+
+      return workItems.map((item: any) => ({
+        id: item.id,
+        company: item.companies?.name || 'Unknown',
+        title: item.title || 'Unknown',
+        startDate: item.start_date,
+        endDate: item.end_date,
+      }));
+    } catch (error) {
+      console.error('Error getting work history for story linking:', error);
+      return [];
+    }
+  }
+
   private async processStructuredData(
     structuredData: any, 
     sourceId: string, 
