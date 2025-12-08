@@ -87,27 +87,33 @@ export default function NewUserOnboarding() {
   const { user, profile } = useAuth();
   const linkedInUpload = useLinkedInUpload();
   
-  // Progress tracking for streaming UX (unified for all 3 uploads)
-  const [uploadProgress, setUploadProgress] = useState({ 
-    stage: 'idle', 
-    percent: 0, 
-    label: '',
-    activeUpload: '' // 'resume', 'coverLetter', or 'linkedin'
-  });
+  // Approved blocking progress bar (tracks active upload)
+  const [uploadingFile, setUploadingFile] = useState<'resume' | 'coverLetter' | 'linkedin' | null>(null);
+  const [uploadStage, setUploadStage] = useState('');
+  const [uploadPercent, setUploadPercent] = useState(0);
 
   // Listen for file upload progress events
   useEffect(() => {
     const handleProgress = (event: Event) => {
       const detail = (event as CustomEvent).detail;
-      const fileType = detail.fileType || detail.type || 'file';
-      const label = detail.label || detail.message || 'Processing...';
+      const fileType = detail.fileType || detail.type;
+      const stage = detail.stage || '';
+      const percent = detail.percent || detail.progress || 0;
+      const label = detail.label || detail.message || '';
       
-      setUploadProgress({
-        stage: detail.stage || 'processing',
-        percent: detail.percent || detail.progress || 0,
-        label: label,
-        activeUpload: fileType
-      });
+      // Show progress bar when upload is active
+      if (fileType && percent < 100) {
+        setUploadingFile(fileType);
+        setUploadStage(label);
+        setUploadPercent(percent);
+      } else if (percent === 100) {
+        // Hide after brief delay
+        setTimeout(() => {
+          setUploadingFile(null);
+          setUploadStage('');
+          setUploadPercent(0);
+        }, 500);
+      }
     };
 
     window.addEventListener('file-upload-progress', handleProgress);
@@ -608,39 +614,22 @@ export default function NewUserOnboarding() {
 
   // Streaming upload UI removed per UI rollback request
 
-  const renderUploadStep = () => {
-    // Determine which uploads are active/complete for progress display
-    const activeUploads = [
-      { name: 'Resume', active: !resumeCompleted && uploadProgress.activeUpload === 'resume' },
-      { name: 'Cover Letter', active: !coverLetterCompleted && uploadProgress.activeUpload === 'coverLetter' },
-      { name: 'LinkedIn', active: !linkedinCompleted && uploadProgress.activeUpload === 'linkedin' }
-    ].filter(u => u.active);
-    
-    const showProgress = uploadProgress.stage !== 'idle' && 
-                        uploadProgress.stage !== 'complete' && 
-                        uploadProgress.percent < 100;
-    
-    return (
-      <div className="space-y-8">
-        {/* Progress indicator for file uploads */}
-        {showProgress && (
-          <div className="fixed top-0 left-0 right-0 z-50 bg-white border-b px-4 py-2 shadow-sm">
-            <div className="max-w-4xl mx-auto flex items-center gap-4">
-              <span className="text-sm font-medium text-gray-900 whitespace-nowrap">
-                {uploadProgress.label}
-              </span>
-              <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-primary transition-all duration-300"
-                  style={{ width: `${uploadProgress.percent}%` }}
-                />
-              </div>
-              <span className="text-sm text-muted-foreground whitespace-nowrap">
-                {uploadProgress.percent}%
-              </span>
-            </div>
+  const renderUploadStep = () => (
+    <div className="space-y-8">
+      {/* Approved blocking progress bar */}
+      {uploadingFile && uploadPercent < 100 && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-white border-b px-4 py-2 shadow-sm">
+          <div className="max-w-4xl mx-auto flex items-center gap-4">
+            <span className="text-sm font-medium text-gray-900 whitespace-nowrap">
+              {uploadStage}
+            </span>
+            <Progress value={uploadPercent} className="flex-1 h-2" />
+            <span className="text-sm text-muted-foreground whitespace-nowrap">
+              {uploadPercent}%
+            </span>
           </div>
-        )}
+        </div>
+      )}
       {/* Progress Bar */}
       <Card className="p-6">
         <div className="flex items-center justify-center relative">
@@ -771,8 +760,7 @@ export default function NewUserOnboarding() {
 
       {/* Button removed in blocking UX; auto-advance on completion */}
     </div>
-    );
-  };
+  );
 
   const renderReviewStep = () => {
     return (
