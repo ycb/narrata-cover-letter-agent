@@ -1297,11 +1297,28 @@ export class GapDetectionService {
    * - After: 1 call × 3-5s = 3-5s latency, ~$0.001-0.002
    */
   static async checkGenericContentBatch(
-    items: Array<{ id: string; content: string; type: 'work_item' | 'story' | 'section' }>
+    items: Array<{ id: string; content: string; type: 'work_item' | 'story' | 'section' }>,
+    options?: { useLLM?: boolean }
   ): Promise<Map<string, GenericContentGap>> {
     const results = new Map<string, GenericContentGap>();
     
     if (items.length === 0) {
+      return results;
+    }
+
+    const useLLM = options?.useLLM !== false; // default true
+
+    // Fast path: heuristics only (no LLM)
+    if (!useLLM) {
+      for (const item of items) {
+        const gap = this.fallbackGenericCheck(item.content);
+        results.set(item.id, {
+          ...gap,
+          entityId: item.id,
+          entityType: item.type === 'story' ? 'approved_content' : item.type === 'section' ? 'saved_section' : 'work_item',
+        });
+        this.genericContentCache.set(item.content, gap);
+      }
       return results;
     }
 

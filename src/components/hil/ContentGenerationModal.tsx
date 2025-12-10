@@ -102,7 +102,8 @@ export function ContentGenerationModal({
       // Reset when modal closes
       setSelectedTags([]);
     }
-  }, [isOpen, mode, suggestedTags]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, mode]); // Only run when modal opens/closes, not when suggestedTags changes
 
   // Toggle tag selection
   const toggleTag = (tagValue: string) => {
@@ -118,7 +119,8 @@ export function ContentGenerationModal({
     if (isOpen && mode === 'gap-detection' && gap && !generatedContent && !isGenerating) {
       handleGenerate();
     }
-  }, [isOpen, mode, gap]); // Only trigger on modal open, not on content changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, mode]); // Only trigger on modal open, not on gap/content changes
 
   const handleGenerate = async () => {
     if (!gap) {

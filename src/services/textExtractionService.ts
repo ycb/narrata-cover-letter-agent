@@ -87,11 +87,12 @@ export class TextExtractionService {
             
             // Detect line breaks based on Y position change
             if (lastY !== -1 && Math.abs(currentY - lastY) > 5) {
-              // Larger Y difference indicates new line or paragraph
-              if (Math.abs(currentY - lastY) > 15) {
-                pageText += '\n\n'; // Paragraph break
+              // Use larger threshold for paragraph breaks to avoid breaking within paragraphs
+              // Typical line spacing: ~12-15px, Paragraph spacing: 20-30px+
+              if (Math.abs(currentY - lastY) > 30) {
+                pageText += '\n\n'; // Paragraph break (significant vertical gap)
               } else {
-                pageText += '\n'; // Line break
+                pageText += '\n'; // Line break (normal line spacing)
               }
             } else if (index > 0 && lastY === currentY) {
               // Same line - add space if text doesn't start with punctuation
@@ -225,6 +226,10 @@ export class TextExtractionService {
         return `\n${bullet} `;
       });
     });
+    
+    // Fix artificial paragraph breaks within sentences (PDF extraction artifact)
+    // If a line doesn't end with sentence punctuation, merge with next line
+    cleaned = cleaned.replace(/([^.!?:)\]"'\n])\n\n([a-z])/g, '$1\n$2');
     
     // Now clean while preserving structure
     cleaned = cleaned

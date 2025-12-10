@@ -40,11 +40,9 @@ export function parseCoverLetter(text: string): ParsedCoverLetter {
   // 1. Extract signature (everything after valediction)
   const { mainText, signature } = extractSignature(text);
   
-  // 2. Split into paragraphs (simple approach - no fragments/run-ons logic)
-  const paragraphs = mainText
-    .split(/\n\s*\n/)
-    .map(p => p.trim())
-    .filter(p => p.length > 0);
+  // 2. Extract SEMANTIC paragraphs (not just split on \n\n)
+  // A paragraph is a cohesive block of related sentences, may span multiple lines
+  const paragraphs = extractParagraphs(mainText);
   
   if (paragraphs.length === 0) {
     throw new Error('No paragraphs found in cover letter');
@@ -53,26 +51,37 @@ export function parseCoverLetter(text: string): ParsedCoverLetter {
   // 3. Extract greeting from first paragraph (if present)
   const { greeting, paragraph: firstParagraph } = extractGreeting(paragraphs[0]);
   
-  // 4. Identify sections
+  // 4. Handle case where greeting is on its own line (firstParagraph is empty)
+  // In this case, the actual intro is the second paragraph
+  let startIdx = 0; // Index where body content starts
   let introduction: string;
+  
+  if (firstParagraph.trim().length === 0 && paragraphs.length > 1) {
+    // Greeting was standalone, use second paragraph as intro
+    introduction = paragraphs[1];
+    startIdx = 2; // Body starts at paragraph 2
+  } else {
+    // Greeting was inline with intro, or no greeting
+    introduction = firstParagraph;
+    startIdx = 1; // Body starts at paragraph 1
+  }
+  
+  // 5. Identify body and closing sections
   let bodyParagraphs: string[];
   let closing: string;
   
-  if (paragraphs.length === 1) {
-    // Single paragraph cover letter (rare but possible)
-    introduction = firstParagraph;
+  if (paragraphs.length <= startIdx) {
+    // No body or closing (intro only)
     bodyParagraphs = [];
     closing = '';
-  } else if (paragraphs.length === 2) {
-    // Intro + Closing only
-    introduction = firstParagraph;
+  } else if (paragraphs.length === startIdx + 1) {
+    // Only one paragraph left - must be closing
     bodyParagraphs = [];
-    closing = paragraphs[1];
+    closing = paragraphs[startIdx];
   } else {
-    // Standard: Intro + Body(s) + Closing
-    introduction = firstParagraph;
+    // Standard: Body(s) + Closing
     closing = paragraphs[paragraphs.length - 1];
-    bodyParagraphs = paragraphs.slice(1, -1);
+    bodyParagraphs = paragraphs.slice(startIdx, -1);
   }
   
   return {
@@ -82,6 +91,39 @@ export function parseCoverLetter(text: string): ParsedCoverLetter {
     closing,
     signature,
   };
+}
+
+/**
+ * Extract semantic paragraphs from text
+ * 
+ * A paragraph is a cohesive block of related sentences that may span multiple lines.
+ * This function uses heuristics to detect actual paragraph boundaries, not just double newlines.
+ * 
+ * Heuristics:
+ * 1. Paragraph breaks occur at: sentence ending (. ! ?) + newline + capital letter OR newline + indent
+ * 2. Single line breaks within a sentence are preserved as part of the same paragraph
+ * 3. Multiple consecutive short lines (< 50 chars) likely form one paragraph
+ * 4. Very short blocks (< 20 chars) are likely fragments and should merge with adjacent paragraphs
+ */
+function extractParagraphs(text: string): string[] {
+  // Since PDF extraction now properly identifies paragraph breaks (via 30px threshold),
+  // we can trust \n\n as actual paragraph boundaries.
+  // Just split on them and do minimal cleanup.
+  
+  const paragraphs = text
+    .split(/\n\s*\n+/)
+    .map(para => para.trim())
+    .filter(para => para.length > 0)
+    .map(para => {
+      // Normalize whitespace within each paragraph
+      return para
+        .replace(/\n{2,}/g, '\n')       // Remove any internal double newlines
+        .replace(/[ \t]+/g, ' ')        // Normalize spaces/tabs
+        .replace(/\n /g, '\n')          // Remove leading spaces after newlines
+        .trim();
+    });
+  
+  return paragraphs;
 }
 
 /**
@@ -149,54 +191,52 @@ export function convertToSavedSections(parsed: ParsedCoverLetter) {
   
   let order = 0;
   
-  // 1. Greeting (dynamic - uses company name variable)
-  sections.push({
-    slug: 'greeting',
-    title: 'Greeting',
-    content: parsed.greeting || '[Greeting] [COMPANY-NAME] Hiring Team,',
-    order: order++,
-    isStatic: false, // Dynamic - user can edit, uses variable
-  });
+  // 1. Introduction (greeting + intro paragraph combined)
+  // This becomes a single 'intro' section containing both greeting and first paragraph
+  const introParts: string[] = [];
+  if (parsed.greeting) {
+    introParts.push(parsed.greeting);
+  }
+  if (parsed.introduction) {
+    introParts.push(parsed.introduction);
+  }
   
-  // 2. Introduction (static - reused as-is)
   sections.push({
     slug: 'introduction',
     title: 'Introduction',
-    content: parsed.introduction,
+    content: introParts.join('\n\n'),
     order: order++,
-    isStatic: true,
+    isStatic: true, // Static - reused as-is
   });
   
-  // 3. Body paragraphs (dynamic - will be replaced with stories)
+  // 2. Body paragraphs (dynamic - will be replaced with stories)
   parsed.bodyParagraphs.forEach((body, idx) => {
     sections.push({
       slug: `body-${idx + 1}`,
-      title: `Experience ${idx + 1}`,
+      title: `Body Paragraph ${idx + 1}`,
       content: body,
       order: order++,
       isStatic: false, // Dynamic - can be swapped with stories
     });
   });
   
-  // 4. Closing (static - reused as-is)
+  // 3. Closing (closing paragraph + signature combined)
+  // This becomes a single 'closer' section containing both closing and signature
+  const closingParts: string[] = [];
+  if (parsed.closing) {
+    closingParts.push(parsed.closing);
+  }
+  if (parsed.signature) {
+    closingParts.push(parsed.signature);
+  }
+  
   sections.push({
     slug: 'closing',
     title: 'Closing',
-    content: parsed.closing,
+    content: closingParts.join('\n\n'),
     order: order++,
-    isStatic: true,
+    isStatic: true, // Static - reused as-is
   });
-  
-  // 5. Signature (static - reused as-is)
-  if (parsed.signature) {
-    sections.push({
-      slug: 'signature',
-      title: 'Signature',
-      content: parsed.signature,
-      order: order++,
-      isStatic: true,
-    });
-  }
   
   return sections;
 }

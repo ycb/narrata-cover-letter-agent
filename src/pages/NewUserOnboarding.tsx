@@ -27,6 +27,7 @@ import { useOnboardingJobStream } from "@/hooks/useJobStream";
 import { StageStepper } from "@/components/streaming/StageStepper";
 import { isValidLinkedInUrl, normalizeLinkedInUrl } from "@/utils/linkedinUtils";
 import { Progress } from "@/components/ui/progress";
+import { isLinkedInScrapingEnabled } from "@/lib/flags";
 
 type OnboardingStep = 'welcome' | 'upload' | 'review';
 
@@ -67,6 +68,17 @@ export default function NewUserOnboarding() {
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('welcome');
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({});
   const [isProcessing, setIsProcessing] = useState(false);
+  const [globalProgress, setGlobalProgress] = useState<{ percent: number; message: string; stage: string }>({
+    percent: 0,
+    message: '',
+    stage: 'idle',
+  });
+  // Per-task progress for aggregation into the single global bar
+  const [taskProgress, setTaskProgress] = useState<Record<'resume' | 'coverLetter' | 'linkedin', number>>({
+    resume: 0,
+    coverLetter: 0,
+    linkedin: 0,
+  });
   const [resumeCompleted, setResumeCompleted] = useState(false);
   const [linkedinCompleted, setLinkedinCompleted] = useState(false);
   const [coverLetterCompleted, setCoverLetterCompleted] = useState(false);
@@ -101,12 +113,13 @@ export default function NewUserOnboarding() {
       const percent = detail.percent || detail.progress || 0;
       const label = detail.label || detail.message || '';
       
-      // Show progress bar when upload is active
-      if (fileType && percent < 100) {
+      // Only show overlay during actual file upload/extraction stages
+      const isUploadStage = ['uploading', 'extracting', 'extracted', 'text_ready'].includes(stage);
+      if (fileType && percent < 100 && isUploadStage) {
         setUploadingFile(fileType);
         setUploadStage(label);
         setUploadPercent(percent);
-      } else if (percent === 100) {
+      } else if (percent === 100 && isUploadStage) {
         // Hide after brief delay
         setTimeout(() => {
           setUploadingFile(null);
@@ -189,6 +202,11 @@ export default function NewUserOnboarding() {
         setResumeStartMs(null);
       }
     } else {
+      // Reset global progress when a new upload starts to avoid flicker
+      setGlobalProgress({ percent: 1, message: 'Starting upload...', stage: 'starting' });
+      // Reset that task’s progress to a small non-zero value so aggregation is honest
+      setTaskProgress(prev => ({ ...prev, [type]: 1 }));
+      setIsProcessing(true);
       // Set the file in state
       if (type === 'coverLetter') {
         setOnboardingData(prev => ({ ...prev, coverLetterFile: file }));
@@ -208,14 +226,20 @@ export default function NewUserOnboarding() {
     }));
     
     // Mark steps as completed
+    let nextResumeDone = resumeCompleted;
+    let nextLinkedInDone = linkedinCompleted;
+    let nextCoverDone = coverLetterCompleted;
+
     if (uploadType === 'resume') {
+      nextResumeDone = true;
       setResumeCompleted(true);
-      
       // Check if resume contains LinkedIn URL and auto-populate
       await checkAndAutoPopulateLinkedIn(fileId);
     } else if (uploadType === 'linkedin') {
+      nextLinkedInDone = true;
       setLinkedinCompleted(true);
     } else if (uploadType === 'coverLetter') {
+      nextCoverDone = true;
       setCoverLetterCompleted(true);
       // Log CL latency
       try {
@@ -236,6 +260,13 @@ export default function NewUserOnboarding() {
         }
       } catch {}
     }
+
+    // If all three are done, advance immediately and sync global progress
+    if (nextResumeDone && nextLinkedInDone && nextCoverDone) {
+      setGlobalProgress({ percent: 100, message: 'All sources complete', stage: 'complete' });
+      setIsProcessing(false);
+      setCurrentStep('review');
+    }
     
     // Clear processing state after upload completes
     // This ensures button is enabled after all uploads are done
@@ -249,6 +280,13 @@ export default function NewUserOnboarding() {
 
   const handleLinkedInUrl = async (url: string) => {
     setOnboardingData(prev => ({ ...prev, linkedinUrl: url }));
+    
+    // Feature flag: If scraping disabled, this shouldn't be called
+    // (Connect button should be disabled), but handle it gracefully
+    if (!isLinkedInScrapingEnabled()) {
+      console.log('📌 LinkedIn scraping disabled - Connect button should be disabled');
+      return;
+    }
     
     // Emit progress: Connecting
     window.dispatchEvent(new CustomEvent('file-upload-progress', {
@@ -265,7 +303,7 @@ export default function NewUserOnboarding() {
     if (!linkedinPrefetchSuccess) {
       console.log('🔄 LinkedIn Connect: calling Appify...');
       try {
-        const result = await linkedInUpload.uploadLinkedIn(url);
+        const result = await linkedInUpload.connectLinkedIn(url);
         if (result.success) {
           console.log('✅ LinkedIn Connect succeeded:', result);
         } else {
@@ -315,72 +353,145 @@ export default function NewUserOnboarding() {
   useEffect(() => {
     let processingTimeout: NodeJS.Timeout | null = null;
 
-    const handleFileUploadProgress = (event: Event) => {
-      const detail = (event as CustomEvent).detail as { stage?: string } | undefined;
-      const stage = detail?.stage;
-      if (!stage) return;
+    // Compute required tasks based on LI flag
+    const getRequiredTasks = () => isLinkedInScrapingEnabled()
+      ? (['resume', 'coverLetter', 'linkedin'] as const)
+      : (['resume', 'coverLetter'] as const);
 
-      if (['uploading', 'extracting', 'analyzing', 'structuring'].includes(stage)) {
+    const applyAggregatedProgress = (
+      fileType: 'resume' | 'coverLetter' | 'linkedin',
+      rawPercent: number,
+      label?: string,
+      stage?: string
+    ) => {
+      // Cap per-task at 95% to avoid premature global 100
+      const capped = Math.min(rawPercent, 95);
+      setTaskProgress(prev => {
+        const next = { ...prev, [fileType]: capped };
+        const required = getRequiredTasks();
+        const avg = required.reduce((sum, t) => sum + (next[t] || 0), 0) / required.length;
+        const boundedAvg = Math.min(avg, 99);
+        setGlobalProgress(prevGp => {
+          if (prevGp.percent >= 100) return prevGp;
+          const nextPercent = Math.max(prevGp.percent, boundedAvg);
+          return {
+            percent: nextPercent,
+            message: label || prevGp.message,
+            stage: stage || prevGp.stage,
+          };
+        });
         setIsProcessing(true);
-        
-        // Safety timeout: clear processing state after 120 seconds if no completion event
-        // Increased from 30s to accommodate LLM analysis + gap detection batch call
         if (processingTimeout) clearTimeout(processingTimeout);
         processingTimeout = setTimeout(() => {
           console.warn('[Onboarding] Processing timeout - clearing isProcessing state');
           setIsProcessing(false);
         }, 120000);
-      }
+        return next;
+      });
+    };
 
-      if (stage === 'complete' || stage === 'duplicate') {
-        if (processingTimeout) {
-          clearTimeout(processingTimeout);
-          processingTimeout = null;
+    const handleFileUploadProgress = (event: Event) => {
+      const detail = (event as CustomEvent).detail as { stage?: string; percent?: number; label?: string; fileType?: string } | undefined;
+      if (!detail?.stage) return;
+      const { stage, percent = 0, label, fileType } = detail;
+      const taskKey: 'resume' | 'coverLetter' | 'linkedin' =
+        fileType === 'coverLetter' ? 'coverLetter' : fileType === 'linkedin' ? 'linkedin' : 'resume';
+      const message = label || stage;
+      const mappedPercent = (() => {
+        switch (stage) {
+          case 'uploading':
+          case 'extracting':
+            return Math.max(percent, 20);
+          case 'extracted':
+          case 'text_ready':
+            return Math.max(percent, 35);
+          case 'linkedin_detected':
+            return Math.max(percent, 37);
+          case 'linkedin_fetch':
+            return Math.max(percent, 45);
+          case 'analyzing':
+          case 'workHistorySkeleton':
+          case 'roleStories':
+          case 'skillsAndEducation':
+            return Math.max(percent, 55);
+          case 'structuring':
+            return Math.max(percent, 75);
+          case 'saving':
+            return Math.max(percent, 85);
+          case 'linkedin_complete':
+            return Math.max(percent, 90);
+          case 'saved':
+            return Math.max(percent, 90);
+          case 'done':
+          case 'complete':
+            return 95;
+          default:
+            return percent;
         }
-        setIsProcessing(false);
-      }
+      })();
+      applyAggregatedProgress(taskKey, mappedPercent, message, fileType || stage);
     };
 
     const handleUploadProgress = (event: Event) => {
-      const detail = (event as CustomEvent).detail as { step?: string } | undefined;
-      const step = detail?.step;
-      if (!step) return;
-
-      if (step === 'saving') {
-        setIsProcessing(true);
-        
-        // Safety timeout: clear processing state after 120 seconds if no completion event
-        // Increased from 30s to accommodate LLM analysis + gap detection batch call
-        if (processingTimeout) clearTimeout(processingTimeout);
-        processingTimeout = setTimeout(() => {
-          console.warn('[Onboarding] Processing timeout - clearing isProcessing state');
-          setIsProcessing(false);
-        }, 120000);
-      }
-
-      if (step === 'complete') {
-        if (processingTimeout) {
-          clearTimeout(processingTimeout);
-          processingTimeout = null;
+      const detail = (event as CustomEvent).detail as { step?: string; progress?: number; message?: string; fileType?: string } | undefined;
+      if (!detail?.step) return;
+      const { step, progress = 0, message, fileType } = detail;
+      const taskKey: 'resume' | 'coverLetter' | 'linkedin' =
+        fileType === 'coverLetter' ? 'coverLetter' : fileType === 'linkedin' ? 'linkedin' : 'resume';
+      const mappedPercent = (() => {
+        switch (step) {
+          case 'extractingSkeleton':
+            return Math.max(progress * 100, 40);
+          case 'extractingStories':
+            return Math.max(progress * 100, 60);
+          case 'detectingGaps':
+            return Math.max(progress * 100, 90);
+          case 'linkedin_detected':
+            return Math.max(progress * 100, 37);
+          case 'complete':
+            return 95;
+          default:
+            return progress * 100;
         }
-        setIsProcessing(false);
-      }
+      })();
+      applyAggregatedProgress(taskKey, mappedPercent, message || step, fileType || step);
     };
 
     window.addEventListener('file-upload-progress', handleFileUploadProgress as EventListener);
     window.addEventListener('upload:progress', handleUploadProgress as EventListener);
+    // Listen once for early LinkedIn detection (emitted when raw_text is saved)
+    const earlyLinkedIn = (event: Event) => {
+      const detail = (event as CustomEvent)?.detail;
+      const url = detail?.url as string | undefined;
+      if (!url) return;
+      const normalized = normalizeLinkedInUrl(url);
+      if (!normalized || !isValidLinkedInUrl(normalized)) return;
+      setOnboardingData(prev => ({ ...prev, linkedinUrl: normalized }));
+      setLinkedinAutoCompleted(false);
+      setAutoPopulatingLinkedIn(false);
+    };
+    window.addEventListener('linkedin-detected', earlyLinkedIn as EventListener);
 
     return () => {
       if (processingTimeout) clearTimeout(processingTimeout);
       window.removeEventListener('file-upload-progress', handleFileUploadProgress as EventListener);
       window.removeEventListener('upload:progress', handleUploadProgress as EventListener);
+      window.removeEventListener('linkedin-detected', earlyLinkedIn as EventListener);
     };
   }, []);
 
   // Auto-clear processing state when all uploads are complete
   useEffect(() => {
-    if (resumeCompleted && linkedinCompleted && coverLetterCompleted) {
-      // All uploads complete - proceed to confirmation automatically
+    // When LinkedIn scraping is disabled, only wait for resume + cover letter
+    const liScrapingEnabled = isLinkedInScrapingEnabled();
+    const allRequiredComplete = liScrapingEnabled 
+      ? (resumeCompleted && linkedinCompleted && coverLetterCompleted)
+      : (resumeCompleted && coverLetterCompleted);
+    
+    if (allRequiredComplete) {
+      // All uploads complete - update global progress and proceed
+      setGlobalProgress({ percent: 100, message: 'All sources complete', stage: 'complete' });
+      setIsProcessing(false);
       setIsProcessing(false);
       // Kick off PM Levels in the background after onboarding artifacts exist
       if (user?.id) {
@@ -420,134 +531,146 @@ export default function NewUserOnboarding() {
     }
   }, [resumeCompleted, linkedinCompleted, coverLetterCompleted, user?.id]);
 
+  // Auto-complete LinkedIn task when flag is off (immediately, no URL needed)
+  useEffect(() => {
+    if (!isLinkedInScrapingEnabled() && !linkedinCompleted) {
+      console.log('📌 LinkedIn scraping disabled - marking as complete immediately');
+      
+      // Mark as complete (no progress events needed since card is hidden)
+      setLinkedinCompleted(true);
+      setLinkedinAutoCompleted(true);
+    }
+  }, [linkedinCompleted]);
+
   /**
    * Check if resume contains LinkedIn URL and auto-populate Step 2
    */
   const checkAndAutoPopulateLinkedIn = async (resumeFileId: string) => {
     if (!user) return;
+    
+    // Skip entire function if LinkedIn scraping is disabled
+    if (!isLinkedInScrapingEnabled()) {
+      console.log('📌 LinkedIn scraping disabled - skipping auto-populate check');
+      return;
+    }
 
-    try {
+    const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+
+    const fetchStructured = async () => {
       const { data: fileData, error } = await supabase
         .from('sources')
-        .select('structured_data')
+        .select('structured_data, raw_text')
         .eq('id', resumeFileId)
         .eq('user_id', user.id)
         .single();
+      if (error || !fileData) return null;
 
-      if (error || !fileData) {
-        return;
+      const structured = (fileData as any).structured_data || {};
+      const rawText = (fileData as any).raw_text;
+
+      // If structured_data is empty but raw_text exists, return an object containing raw_text
+      if (!structured || Object.keys(structured).length === 0) {
+        if (rawText) {
+          return { raw_text: rawText };
+        }
+        return null;
       }
 
-      const structuredData = (fileData as any).structured_data;
-      const linkedinUrl = structuredData?.contactInfo?.linkedin;
+      return { ...structured, raw_text: rawText };
+    };
 
-      if (!linkedinUrl) {
-        return;
-      }
+    let structuredData: any = null;
+    for (let i = 0; i < 4; i++) {
+      structuredData = await fetchStructured();
+      if (structuredData && Object.keys(structuredData).length > 0) break;
+      await delay(750);
+    }
+    if (!structuredData) return;
 
-      const normalizedUrl = normalizeLinkedInUrl(linkedinUrl);
-      if (!normalizedUrl || !isValidLinkedInUrl(normalizedUrl)) {
-        return;
-      }
+    // Check common locations for LinkedIn URL
+    const candidates: Array<string | undefined> = [
+      structuredData?.contactInfo?.linkedin,
+      structuredData?.contact_info?.linkedin,
+      structuredData?.linkedin,
+      structuredData?.social?.linkedin,
+    ];
 
-      setOnboardingData(prev => ({ ...prev, linkedinUrl: normalizedUrl }));
-      // Do not auto-connect; user must click Connect to complete the step
-      setLinkedinAutoCompleted(false);
-      setAutoPopulatingLinkedIn(false);
+    // Fallback: scan text blobs
+    const blob = [
+      structuredData.raw_text,
+      structuredData.text,
+      structuredData.fullText,
+      structuredData.resumeText,
+      structuredData.summary,
+      JSON.stringify(structuredData),
+    ]
+      .filter(Boolean)
+      .join('\n');
+    const regexUrl = extractLinkedInUrl(blob);
+    candidates.push(regexUrl || undefined);
+
+    const linkedinUrl = candidates.find(u => !!u);
+    if (!linkedinUrl) return;
+
+    const normalizedUrl = normalizeLinkedInUrl(linkedinUrl);
+    if (!normalizedUrl || !isValidLinkedInUrl(normalizedUrl)) return;
+
+    setOnboardingData(prev => ({ ...prev, linkedinUrl: normalizedUrl }));
+    setLinkedinAutoCompleted(false);
+    setAutoPopulatingLinkedIn(false);
+    
+    // Skip prefetch if LinkedIn scraping is disabled
+    if (!isLinkedInScrapingEnabled()) {
+      console.log('📌 LinkedIn scraping disabled - skipping prefetch');
+      setLinkedinPrefetchAttempted(true);
+      setLinkedinPrefetchSuccess(true); // Mark as "success" so connect doesn't retry
+      return;
+    }
+    
+    if (!linkedinPrefetchAttempted) {
+      console.log('🔄 Silent LinkedIn prefetch starting for:', normalizedUrl);
+      setLinkedinPrefetchAttempted(true);
       
-      // Silent prefetch: start Appify lookup in background
-      if (!linkedinPrefetchAttempted) {
-        console.log('🔄 Silent LinkedIn prefetch starting for:', normalizedUrl);
-        setLinkedinPrefetchAttempted(true);
-        
-        linkedInUpload.uploadLinkedIn(normalizedUrl)
-          .then(result => {
-            if (result.success) {
-              console.log('✅ LinkedIn prefetch succeeded:', result);
-              setLinkedinPrefetchSuccess(true);
-            } else {
-              console.warn('⚠️ LinkedIn prefetch failed (will retry on Connect):', result.error);
-              setLinkedinPrefetchSuccess(false);
-            }
-          })
-          .catch(error => {
-            console.error('❌ LinkedIn prefetch error (will retry on Connect):', error);
+      // Reuse the same connectLinkedIn flow for silent prefetch; UI will still require Connect click.
+      linkedInUpload.connectLinkedIn(normalizedUrl)
+        .then(result => {
+          if (result.success) {
+            console.log('✅ LinkedIn prefetch succeeded:', result);
+            setLinkedinPrefetchSuccess(true);
+          } else {
+            console.warn('⚠️ LinkedIn prefetch failed (will retry on Connect):', result.error);
             setLinkedinPrefetchSuccess(false);
-          });
-      }
-    } catch (error) {
-      console.error('Error during LinkedIn auto-population:', error);
-      setAutoPopulatingLinkedIn(false);
+          }
+        })
+        .catch(error => {
+          console.error('❌ LinkedIn prefetch error (will retry on Connect):', error);
+          setLinkedinPrefetchSuccess(false);
+        });
     }
   };
 
   const renderWelcomeStep = () => (
     <div className="space-y-8">
       {/* Progress Bar */}
-      <Card className="p-6">
-        <div className="flex items-center justify-center relative">
-          <h3 className="font-semibold text-gray-900 absolute left-0">Progress</h3>
-          <div className="flex items-center space-x-8">
-            {/* Step 1: Welcome */}
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                {currentStep === 'welcome' ? (
-                  <div className="w-8 h-8 rounded-full border-2 border-blue-500 bg-blue-500 flex items-center justify-center">
-                    <div className="w-3 h-3 rounded-full bg-white"></div>
-                  </div>
-                ) : (
-                  <CheckCircle className="w-8 h-8 text-green-500" />
-                )}
-              </div>
-              <span className={`text-sm font-medium ${currentStep === 'welcome' ? 'text-blue-600' : 'text-gray-900'}`}>
-                Welcome
-              </span>
+      {isProcessing || globalProgress.percent > 0 ? (
+        <Card className="p-4">
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium text-gray-900">Progress</span>
+              <span className="text-sm text-gray-700">{globalProgress.percent.toFixed(0)}%</span>
             </div>
-            
-            {/* Connector line */}
-            <div className="w-12 h-0.5 bg-gray-200"></div>
-            
-            {/* Step 2: Upload */}
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                {currentStep === 'upload' ? (
-                  <div className="w-8 h-8 rounded-full border-2 border-blue-500 bg-blue-500 flex items-center justify-center">
-                    <div className="w-3 h-3 rounded-full bg-white"></div>
-                  </div>
-                ) : currentStep === 'welcome' ? (
-                  <div className="w-8 h-8 rounded-full border-2 border-gray-300 bg-white"></div>
-                ) : (
-                  <CheckCircle className="w-8 h-8 text-green-500" />
-                )}
-              </div>
-                     <span className={`text-sm font-medium ${currentStep === 'upload' ? 'text-blue-600' : 'text-gray-900'}`}>
-                       Content
-                     </span>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div
+                className="bg-blue-600 h-2 rounded-full transition-all"
+                style={{ width: `${Math.min(globalProgress.percent, 100)}%` }}
+              />
             </div>
-            
-            {/* Connector line */}
-            <div className="w-12 h-0.5 bg-gray-200"></div>
-            
-            {/* Step 3: Review */}
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                {currentStep === 'review' ? (
-                  <div className="w-8 h-8 rounded-full border-2 border-blue-500 bg-blue-500 flex items-center justify-center">
-                    <div className="w-3 h-3 rounded-full bg-white"></div>
-                  </div>
-                ) : ['welcome', 'upload'].includes(currentStep) ? (
-                  <div className="w-8 h-8 rounded-full border-2 border-gray-300 bg-white"></div>
-                ) : (
-                  <CheckCircle className="w-8 h-8 text-green-500" />
-                )}
-              </div>
-              <span className={`text-sm font-medium ${currentStep === 'review' ? 'text-blue-600' : 'text-gray-900'}`}>
-                Review
-              </span>
-            </div>
+            {globalProgress.message ? (
+              <div className="text-xs text-gray-600">{globalProgress.message}</div>
+            ) : null}
           </div>
-        </div>
-      </Card>
+        </Card>
+      ) : null}
 
       {/* Welcome Content */}
       <div className="text-center space-y-8 max-w-3xl mx-auto">
@@ -573,10 +696,13 @@ export default function NewUserOnboarding() {
               <span className="text-blue-500 font-bold mt-1">•</span>
               <span>Your best cover letter (PDF, DOCX, TXT)</span>
             </li>
-            <li className="flex items-start gap-2">
-              <span className="text-blue-500 font-bold mt-1">•</span>
-              <span>Your LinkedIn profile URL (if included in your resume, we extract automatically)</span>
-            </li>
+            {/* LinkedIn mention - HIDDEN when feature flag is OFF */}
+            {isLinkedInScrapingEnabled() && (
+              <li className="flex items-start gap-2">
+                <span className="text-blue-500 font-bold mt-1">•</span>
+                <span>Your LinkedIn profile URL (if included in your resume, we extract automatically)</span>
+              </li>
+            )}
           </ul>
         </div>
 
@@ -616,85 +742,26 @@ export default function NewUserOnboarding() {
 
   const renderUploadStep = () => (
     <div className="space-y-8">
-      {/* Approved blocking progress bar */}
-      {uploadingFile && uploadPercent < 100 && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-white border-b px-4 py-2 shadow-sm">
-          <div className="max-w-4xl mx-auto flex items-center gap-4">
-            <span className="text-sm font-medium text-gray-900 whitespace-nowrap">
-              {uploadStage}
-            </span>
-            <Progress value={uploadPercent} className="flex-1 h-2" />
-            <span className="text-sm text-muted-foreground whitespace-nowrap">
-              {uploadPercent}%
-            </span>
+      {/* Global streaming progress (LLM + DB) */}
+      {(isProcessing || globalProgress.percent > 0) && (
+        <Card className="p-4">
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-medium text-gray-900">Progress</span>
+              <span className="text-sm text-gray-700">{globalProgress.percent.toFixed(0)}%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div
+                className="bg-blue-600 h-2 rounded-full transition-all"
+                style={{ width: `${Math.min(globalProgress.percent, 100)}%` }}
+              />
+            </div>
+            {globalProgress.message ? (
+              <div className="text-xs text-gray-600">{globalProgress.message}</div>
+            ) : null}
           </div>
-        </div>
+        </Card>
       )}
-      {/* Progress Bar */}
-      <Card className="p-6">
-        <div className="flex items-center justify-center relative">
-          <h3 className="font-semibold text-gray-900 absolute left-0">Progress</h3>
-          <div className="flex items-center space-x-8">
-            {/* Step 1: Welcome */}
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                {currentStep === 'welcome' ? (
-                  <div className="w-8 h-8 rounded-full border-2 border-blue-500 bg-blue-500 flex items-center justify-center">
-                    <div className="w-3 h-3 rounded-full bg-white"></div>
-                  </div>
-                ) : (
-                  <CheckCircle className="w-8 h-8 text-green-500" />
-                )}
-              </div>
-              <span className={`text-sm font-medium ${currentStep === 'welcome' ? 'text-blue-600' : 'text-gray-900'}`}>
-                Welcome
-              </span>
-            </div>
-            
-            {/* Connector line */}
-            <div className="w-12 h-0.5 bg-gray-200"></div>
-            
-            {/* Step 2: Upload */}
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                {currentStep === 'upload' ? (
-                  <div className="w-8 h-8 rounded-full border-2 border-blue-500 bg-blue-500 flex items-center justify-center">
-                    <div className="w-3 h-3 rounded-full bg-white"></div>
-                  </div>
-                ) : currentStep === 'welcome' ? (
-                  <div className="w-8 h-8 rounded-full border-2 border-gray-300 bg-white"></div>
-                ) : (
-                  <CheckCircle className="w-8 h-8 text-green-500" />
-                )}
-              </div>
-                     <span className={`text-sm font-medium ${currentStep === 'upload' ? 'text-blue-600' : 'text-gray-900'}`}>
-                       Content
-                     </span>
-            </div>
-            
-            {/* Connector line */}
-            <div className="w-12 h-0.5 bg-gray-200"></div>
-            
-            {/* Step 3: Review */}
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                {currentStep === 'review' ? (
-                  <div className="w-8 h-8 rounded-full border-2 border-blue-500 bg-blue-500 flex items-center justify-center">
-                    <div className="w-3 h-3 rounded-full bg-white"></div>
-                  </div>
-                ) : ['welcome', 'upload'].includes(currentStep) ? (
-                  <div className="w-8 h-8 rounded-full border-2 border-gray-300 bg-white"></div>
-                ) : (
-                  <CheckCircle className="w-8 h-8 text-green-500" />
-                )}
-              </div>
-              <span className={`text-sm font-medium ${currentStep === 'review' ? 'text-blue-600' : 'text-gray-900'}`}>
-                Review
-              </span>
-            </div>
-          </div>
-        </div>
-      </Card>
 
       <div className="text-center space-y-4">
         <h2 className="text-3xl font-bold text-foreground">
@@ -735,26 +802,31 @@ export default function NewUserOnboarding() {
         </div>
 
         {/* LinkedIn (parallel upload - streaming architecture) */}
-        <div ref={linkedinRef}>
-          <FileUploadCard
-            type="linkedin"
-            title="LinkedIn Profile"
-            description={autoPopulatingLinkedIn 
-              ? "✨ Auto-populating from resume..." 
-              : linkedinAutoCompleted && linkedinCompleted
-                ? "LinkedIn profile imported from your resume"
-                : linkedinUrl 
-                  ? "LinkedIn URL found in resume - click Connect to enrich" 
-                  : "Enter your LinkedIn URL to enrich your work history"}
-            icon={LinkedinIcon}
-            onLinkedInUrl={handleLinkedInUrl}
-            onUploadComplete={handleUploadComplete}
-            onUploadError={handleUploadError}
-            currentValue={linkedinUrl}
-            disabled={autoPopulatingLinkedIn}
-            required={true}
-          />
-        </div>
+        {/* HIDDEN when feature flag is OFF */}
+        {isLinkedInScrapingEnabled() && (
+          <div ref={linkedinRef}>
+            <FileUploadCard
+              type="linkedin"
+              title="LinkedIn Profile"
+              description={
+                autoPopulatingLinkedIn 
+                  ? "✨ Auto-populating from resume..." 
+                  : linkedinAutoCompleted && linkedinCompleted
+                    ? "LinkedIn profile imported from your resume"
+                    : linkedinUrl 
+                      ? "LinkedIn URL found in resume - click Connect to enrich" 
+                      : "Enter your LinkedIn URL to enrich your work history"
+              }
+              icon={LinkedinIcon}
+              onLinkedInUrl={handleLinkedInUrl}
+              onUploadComplete={handleUploadComplete}
+              onUploadError={handleUploadError}
+              currentValue={linkedinUrl}
+              disabled={autoPopulatingLinkedIn}
+              required={true}
+            />
+          </div>
+        )}
         
       </div>
 
@@ -765,71 +837,6 @@ export default function NewUserOnboarding() {
   const renderReviewStep = () => {
     return (
       <div className="space-y-8">
-        {/* Progress Bar */}
-        <Card className="p-6">
-          <div className="flex items-center justify-center relative">
-            <h3 className="font-semibold text-gray-900 absolute left-0">Progress</h3>
-            <div className="flex items-center space-x-8">
-              {/* Step 1: Welcome */}
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  {currentStep === 'welcome' ? (
-                    <div className="w-8 h-8 rounded-full border-2 border-blue-500 bg-blue-500 flex items-center justify-center">
-                      <div className="w-3 h-3 rounded-full bg-white"></div>
-                    </div>
-                  ) : (
-                    <CheckCircle className="w-8 h-8 text-green-500" />
-                  )}
-                </div>
-                <span className={`text-sm font-medium ${currentStep === 'welcome' ? 'text-blue-600' : 'text-gray-900'}`}>
-                  Welcome
-                </span>
-              </div>
-              
-              {/* Connector line */}
-              <div className="w-12 h-0.5 bg-gray-200"></div>
-              
-              {/* Step 2: Upload */}
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  {currentStep === 'upload' ? (
-                    <div className="w-8 h-8 rounded-full border-2 border-blue-500 bg-blue-500 flex items-center justify-center">
-                      <div className="w-3 h-3 rounded-full bg-white"></div>
-                    </div>
-                  ) : currentStep === 'welcome' ? (
-                    <div className="w-8 h-8 rounded-full border-2 border-gray-300 bg-white"></div>
-                  ) : (
-                    <CheckCircle className="w-8 h-8 text-green-500" />
-                  )}
-                </div>
-                     <span className={`text-sm font-medium ${currentStep === 'upload' ? 'text-blue-600' : 'text-gray-900'}`}>
-                       Content
-                     </span>
-              </div>
-              
-              {/* Connector line */}
-              <div className="w-12 h-0.5 bg-gray-200"></div>
-              
-              {/* Step 3: Review */}
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  {currentStep === 'review' ? (
-                    <div className="w-8 h-8 rounded-full border-2 border-blue-500 bg-blue-500 flex items-center justify-center">
-                      <div className="w-3 h-3 rounded-full bg-white"></div>
-                    </div>
-                  ) : ['welcome', 'upload'].includes(currentStep) ? (
-                    <div className="w-8 h-8 rounded-full border-2 border-gray-300 bg-white"></div>
-                  ) : (
-                    <CheckCircle className="w-8 h-8 text-green-500" />
-                  )}
-                </div>
-                <span className={`text-sm font-medium ${currentStep === 'review' ? 'text-blue-600' : 'text-gray-900'}`}>
-                  Summary
-                </span>
-              </div>
-            </div>
-          </div>
-        </Card>
 
         <ImportSummaryStep onNext={handleNextStep} />
       </div>

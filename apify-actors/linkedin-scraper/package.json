@@ -1,0 +1,14 @@
+{
+  "name": "linkedin-scraper",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Simple LinkedIn profile scraper for Narrata",
+  "dependencies": {
+    "apify": "^3.0.0",
+    "crawlee": "^3.0.0",
+    "playwright": "^1.40.0"
+  },
+  "scripts": {
+    "start": "node main.js"
+  }
+}

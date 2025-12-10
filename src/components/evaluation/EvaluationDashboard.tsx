@@ -1572,7 +1572,7 @@ export const EvaluationDashboard: React.FC<EvaluationDashboardProps> = ({
                       <TableCell className="text-sm">
                         <div className="text-xs leading-tight">
                           <div>LLM: {((run.llm_analysis_latency_ms || 0) / 1000).toFixed(2)}s</div>
-                          <div>Pipeline: {(!isPmLevel && run.file_type === 'coverLetter' && (run.total_latency_ms || 0) > 0) ? ((run.total_latency_ms || 0) / 1000).toFixed(2) + 's' : '—'}</div>
+                          <div>Pipeline: {(!isPmLevel && (run.total_latency_ms || 0) > 0) ? ((run.total_latency_ms || 0) / 1000).toFixed(2) + 's' : '—'}</div>
                         </div>
                       </TableCell>
                       <TableCell>

@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { CheckCircle2, Building2, Briefcase, FileText, Linkedin, ArrowRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { isLinkedInScrapingEnabled } from '@/lib/flags';
 
 interface ImportSummaryStepProps {
   onNext: () => void;
@@ -72,19 +73,25 @@ export function ImportSummaryStep({ onNext }: ImportSummaryStepProps) {
           console.log('[ImportSummary] Stories count:', storiesCount);
         }
 
-        // Check LinkedIn connection (now in sources table)
-        const { data: linkedinData, error: linkedinError } = await supabase
-          .from('sources')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('source_type', 'linkedin')
-          .limit(1)
-          .maybeSingle();
+        // Check LinkedIn connection (only if feature flag is enabled)
+        let linkedinData = null;
+        if (isLinkedInScrapingEnabled()) {
+          const { data, error: linkedinError } = await supabase
+            .from('sources')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('source_type', 'linkedin')
+            .limit(1)
+            .maybeSingle();
 
-        if (linkedinError && linkedinError.code !== 'PGRST116') { // Ignore "no rows" error
-          console.error('[ImportSummary] Error fetching LinkedIn from sources:', linkedinError);
+          if (linkedinError && linkedinError.code !== 'PGRST116') { // Ignore "no rows" error
+            console.error('[ImportSummary] Error fetching LinkedIn from sources:', linkedinError);
+          } else {
+            console.log('[ImportSummary] LinkedIn connected:', !!data);
+            linkedinData = data;
+          }
         } else {
-          console.log('[ImportSummary] LinkedIn connected:', !!linkedinData);
+          console.log('[ImportSummary] LinkedIn scraping disabled - skipping check');
         }
 
         // Check if we have uploaded files but no extracted data
@@ -132,7 +139,7 @@ export function ImportSummaryStep({ onNext }: ImportSummaryStepProps) {
       </div>
 
       {/* Import Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className={`grid gap-4 md:grid-cols-2 ${isLinkedInScrapingEnabled() ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Companies</CardTitle>
@@ -172,20 +179,23 @@ export function ImportSummaryStep({ onNext }: ImportSummaryStepProps) {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">LinkedIn</CardTitle>
-            <Linkedin className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {stats.loading ? '...' : stats.linkedinConnected ? '✓' : '—'}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {stats.linkedinConnected ? 'Profile enriched' : 'Not connected'}
-            </p>
-          </CardContent>
-        </Card>
+        {/* LinkedIn card - HIDDEN when feature flag is OFF */}
+        {isLinkedInScrapingEnabled() && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">LinkedIn</CardTitle>
+              <Linkedin className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {stats.loading ? '...' : stats.linkedinConnected ? '✓' : '—'}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {stats.linkedinConnected ? 'Profile enriched' : 'Not connected'}
+              </p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Warning if no data was extracted */}

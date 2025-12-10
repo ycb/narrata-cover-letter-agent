@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Linkedin, FileText, CheckCircle, AlertCircle, Upload, ExternalLink } from "lucide-react";
+import { isLinkedInScrapingEnabled } from "@/lib/flags";
 
 interface DataSourcesStatusProps {
   linkedInConnected: boolean;
@@ -27,28 +28,30 @@ export function DataSourcesStatus({
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-muted-foreground">Data Sources</h3>
         <div className="flex items-center gap-4">
-          {/* LinkedIn Status */}
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground w-16">LinkedIn</span>
-            {linkedInConnected ? (
-              <button
-                onClick={onViewLinkedInProfile}
-                className="text-sm font-semibold text-primary hover:underline flex items-center gap-1"
-              >
-                Connected
-                <ExternalLink className="h-3 w-3" />
-              </button>
-            ) : (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={onConnectLinkedIn}
-                className="h-7 px-3 text-xs"
-              >
-                Connect
-              </Button>
-            )}
-          </div>
+          {/* LinkedIn Status - HIDDEN when feature flag is OFF */}
+          {isLinkedInScrapingEnabled() && (
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-muted-foreground w-16">LinkedIn</span>
+              {linkedInConnected ? (
+                <button
+                  onClick={onViewLinkedInProfile}
+                  className="text-sm font-semibold text-primary hover:underline flex items-center gap-1"
+                >
+                  Connected
+                  <ExternalLink className="h-3 w-3" />
+                </button>
+              ) : (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={onConnectLinkedIn}
+                  className="h-7 px-3 text-xs"
+                >
+                  Connect
+                </Button>
+              )}
+            </div>
+          )}
 
           {/* Resume Status */}
           <div className="flex items-center gap-4">

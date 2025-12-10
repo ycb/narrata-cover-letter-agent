@@ -1,5 +1,6 @@
 // File upload service for Supabase Storage
 import { supabase } from '@/lib/supabase';
+import { createClient as createSbClient } from '@supabase/supabase-js';
 import { FILE_UPLOAD_CONFIG, ERROR_MESSAGES } from '@/lib/config/fileUpload';
 import type { 
   FileUploadMetadata, 
@@ -15,6 +16,20 @@ interface SourceData {
   storage_path: string;
   processing_status: ProcessingStatus;
 }
+
+const isDedupDisabled = () => {
+  const env =
+    (typeof import.meta !== 'undefined' && (import.meta as any)?.env) || process.env;
+  const flag = env?.VITE_DISABLE_UPLOAD_DEDUP || env?.DISABLE_UPLOAD_DEDUP;
+  return typeof flag === 'string' && flag.toLowerCase() === 'true';
+};
+
+const isGapDetectionDisabled = () => {
+  const env =
+    (typeof import.meta !== 'undefined' && (import.meta as any)?.env) || process.env;
+  const flag = env?.VITE_DISABLE_GAP_DETECTION_ON_UPLOAD || env?.DISABLE_GAP_DETECTION_ON_UPLOAD;
+  return typeof flag === 'string' && flag.toLowerCase() === 'true';
+};
 
 // Helper function to get Supabase configuration
 const getSupabaseConfig = () => {
@@ -52,6 +67,13 @@ export class FileUploadService {
   private unifiedProfileService: UnifiedProfileService;
   private humanReviewService: HumanReviewService;
   private appifyService: AppifyService;
+  // LinkedIn regex (protocol optional, in|pub, allow trailing path)
+  private extractLinkedInUrl(text: string): string | null {
+    if (!text) return null;
+    const re = /(https?:\/\/)?(www\.)?linkedin\.com\/(in|pub)\/[A-Za-z0-9\-_%/]+/i;
+    const m = text.match(re);
+    return m ? m[0] : null;
+  }
   
   // Simple batching state
   private pendingResume: { sourceId: string; text: string } | null = null;
@@ -471,24 +493,42 @@ source_type: dbSourceType,
         updateData.processing_error = error;
       }
 
-      // Use direct fetch instead of Supabase client
-      const { url: supabaseUrl, key: supabaseKey } = getSupabaseConfig();
-      
-      const response = await fetch(`${supabaseUrl}/rest/v1/sources?id=eq.${sourceId}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'apikey': supabaseKey,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify(updateData)
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Update processing status failed:', errorText);
-        throw new Error(`Update failed: ${response.status} ${response.statusText}`);
+      // Use direct fetch when we have an access token; otherwise fall back to supabase client
+      if (accessToken) {
+        const { url: supabaseUrl, key: supabaseKey } = getSupabaseConfig();
+        const response = await fetch(`${supabaseUrl}/rest/v1/sources?id=eq.${sourceId}`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'apikey': supabaseKey,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify(updateData)
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Update processing status failed:', errorText);
+          throw new Error(`Update failed: ${response.status} ${response.statusText}`);
+        }
+      } else {
+        const { data: session } = await supabase.auth.getSession();
+        const token = session?.session?.access_token || session?.access_token;
+        if (!token) {
+          console.warn('No access token available for updateProcessingStatus; skipping update');
+          return;
+        }
+
+        const { error: clientError } = await supabase
+          .from('sources')
+          .update(updateData)
+          .eq('id', sourceId);
+
+        if (clientError) {
+          console.error('Update processing status failed via client:', clientError);
+          throw clientError;
+        }
       }
     } catch (error) {
       console.error('Update processing status error:', error);
@@ -602,7 +642,7 @@ source_type: dbSourceType,
       }
 
       // If resume or cover letter matches previously processed content, reuse existing data
-      if ((type === 'resume' || type === 'coverLetter') && checksum) {
+      if (!isDedupDisabled() && (type === 'resume' || type === 'coverLetter') && checksum) {
         const sourceType: 'resume' | 'cover_letter' = type === 'coverLetter' ? 'cover_letter' : 'resume';
         const existingSource = await this.findExistingSourceByChecksum(userId, checksum, sourceType);
         if (existingSource) {
@@ -648,7 +688,7 @@ source_type: dbSourceType,
       const contentSize = isManualText ? (content as string).length : file.size;
       
       // Check for duplicates
-      if ((type === 'resume' || type === 'coverLetter') && checksum) {
+      if (!isDedupDisabled() && (type === 'resume' || type === 'coverLetter') && checksum) {
         const existingSource = await this.findExistingSourceByChecksum(userId, checksum);
         if (existingSource) {
           console.log(`♻️ Detected duplicate ${type} upload, reusing existing structured data.`);
@@ -677,7 +717,7 @@ source_type: dbSourceType,
       }
 
       console.log('✅ Content upload completed successfully');
-      this.emitProgress('complete', 100, 'Upload complete!', fileType);
+      this.emitProgress('complete', 100, 'Upload complete!', type);
       return {
         success: true,
         fileId: sourceId
@@ -715,27 +755,48 @@ source_type: dbSourceType,
     type: FileType, 
     accessToken?: string
   ): Promise<void> {
-    // Track total processing time for performance monitoring
+    // ═══════════════════════════════════════════════════════════
+    // 🎯 TIMING INSTRUMENTATION - Streaming Onboarding Performance
+    // ═══════════════════════════════════════════════════════════
     const processStartTime = performance.now();
     let extractionLatencyMs = 0;
     let llmLatencyMs = 0;
     let dbLatencyMs = 0;
+    let saveSectionsMs = 0;
+    let normalizeSkillsMs = 0;
+    let gapHeuristicsMs = 0;
+
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log(`⏱️  [TIMING] processContent START for ${type} file: ${file.name}`);
+    console.log(`⏱️  [TIMING] Upload initiated at: ${new Date().toISOString()}`);
+    console.log('═══════════════════════════════════════════════════════════');
 
     try {
+      // Global progress start
+      window.dispatchEvent(new CustomEvent('global-progress', {
+        detail: { task: type, status: 'start', percent: 5, label: `[PROGRESS] ${type} started` }
+      }));
       // Emit initial progress
       this.emitProgress('starting', 5, 'Starting upload...', type);
       
       // Update status to processing
+      const updateStatusStart = performance.now();
       await this.updateProcessingStatus(sourceId, 'processing', undefined, undefined, accessToken);
+      console.log(`⏱️  [TIMING] Update status to 'processing': ${(performance.now() - updateStatusStart).toFixed(2)}ms`);
 
       let extractedText: string;
       this.emitProgress('extracting', 15, 'Reading file...', type);
+      
+      console.log('⏱️  [TIMING] ─── STAGE 1: TEXT EXTRACTION ───');
+      const extractionStageStart = performance.now();
       
       if (originalContent instanceof File) {
         // Check for pre-extracted text first (performance optimization)
         let checksum: string | undefined;
         try {
+          const checksumStart = performance.now();
           checksum = await this.generateChecksum(file);
+          console.log(`⏱️  [TIMING] Checksum generation: ${(performance.now() - checksumStart).toFixed(2)}ms`);
         } catch {
           // Checksum generation failed - proceed with normal extraction
         }
@@ -746,17 +807,17 @@ source_type: dbSourceType,
           // Use pre-extracted text (saves 1-3s)
           extractedText = preExtracted;
           extractionLatencyMs = 0; // Cache hit
-          console.log(`✨ Using pre-extracted text for: ${file.name} (cache hit)`);
+          console.log(`✨ [TIMING] Using pre-extracted text (cache hit) for: ${file.name}`);
           this.emitProgress('extracted', 25, 'Text ready', type);
         } else {
           // Extract text from uploaded file
-          console.log('Extracting text from file:', file.name);
+          console.log('⏱️  [TIMING] Extracting text from file:', file.name);
           this.emitProgress('extracting', 20, 'Extracting text...', type);
           const extractionStartTime = performance.now();
           const extractionResult = await this.textExtractionService.extractText(file);
           const extractionEndTime = performance.now();
           extractionLatencyMs = extractionEndTime - extractionStartTime;
-          console.warn(`⏱️ Text extraction took: ${extractionLatencyMs.toFixed(2)}ms`);
+          console.log(`⏱️  [TIMING] ✅ Text extraction: ${extractionLatencyMs.toFixed(2)}ms`);
           
           if (!extractionResult.success) {
             throw new Error(`Text extraction failed: ${extractionResult.error}`);
@@ -765,13 +826,16 @@ source_type: dbSourceType,
           this.emitProgress('extracted', 25, 'Text extracted', type);
           
           extractedText = extractionResult.text!;
-          console.log('Text extraction successful, length:', extractedText.length);
+          console.log(`⏱️  [TIMING] Text extracted successfully, length: ${extractedText.length} chars`);
         }
       } else {
         // Use manual text directly
         extractedText = originalContent;
-        console.log('Using manual text directly, length:', extractedText.length);
+        extractionLatencyMs = 0;
+        console.log(`⏱️  [TIMING] Using manual text directly, length: ${extractedText.length} chars`);
       }
+      
+      console.log(`⏱️  [TIMING] ✅ STAGE 1 COMPLETE (extraction): ${(performance.now() - extractionStageStart).toFixed(2)}ms`);
       
       // Log raw extracted text
       console.log('═══════════════════════════════════════════════════════════');
@@ -781,40 +845,69 @@ source_type: dbSourceType,
       console.log('═══════════════════════════════════════════════════════════');
       
       // Update with raw text
+      console.log('⏱️  [TIMING] Saving raw_text to sources...');
+      const saveRawTextStart = performance.now();
       await this.updateProcessingStatus(sourceId, 'processing', extractedText, undefined, accessToken);
+      console.log(`⏱️  [TIMING] ✅ raw_text saved: ${(performance.now() - saveRawTextStart).toFixed(2)}ms`);
+      this.emitProgress('text_ready', 35, 'Text extracted and saved', type);
+
+      // Early LinkedIn detection from raw text; notify UI immediately
+      const linkedInDetectStart = performance.now();
+      const linkedInUrl = this.extractLinkedInUrl(extractedText);
+      if (linkedInUrl) {
+        console.log(`⏱️  [TIMING] LinkedIn URL detected: ${linkedInUrl} (${(performance.now() - linkedInDetectStart).toFixed(2)}ms)`);
+        // Emit a progress event to keep global progress alive during LI detection
+        this.emitProgress('linkedin_detected', 37, 'LinkedIn profile found', type);
+        window.dispatchEvent(new CustomEvent('linkedin-detected', {
+          detail: { sourceId, url: linkedInUrl }
+        }));
+      } else {
+        console.log(`⏱️  [TIMING] No LinkedIn URL detected (${(performance.now() - linkedInDetectStart).toFixed(2)}ms)`);
+      }
 
       // Analyze text with LLM based on file type
-      console.log('Analyzing text with LLM for type:', type);
+      console.log('⏱️  [TIMING] ─── STAGE 2: LLM ANALYSIS ───');
+      console.log(`⏱️  [TIMING] Starting LLM analysis for type: ${type}`);
       this.emitProgress('analyzing', 40, 'Analyzing with AI...', type);
       let analysisResult;
       
       const llmStartTime = performance.now();
       // Determine analysis type based on file name or content
       if (file.name.toLowerCase().includes('cover') || file.name.toLowerCase().includes('letter') || type === 'coverLetter') {
-        console.log('→ Using 2-STAGE COVER LETTER analysis (rule-based parsing + LLM stories)');
+        console.log('⏱️  [TIMING] → Using 2-STAGE COVER LETTER analysis (rule-based parsing + LLM stories)');
         
         // STAGE 1: Rule-based paragraph parsing (instant, no LLM)
+        const parseStart = performance.now();
         const { parseCoverLetter, convertToSavedSections } = await import('@/services/coverLetterParser');
         const parsed = parseCoverLetter(extractedText);
-        console.log(`📄 Parsed CL structure: ${parsed.bodyParagraphs.length} body paragraphs`);
+        console.log(`⏱️  [TIMING] ✅ Rule-based CL parsing: ${(performance.now() - parseStart).toFixed(2)}ms (${parsed.bodyParagraphs.length} body paragraphs)`);
         
         // Save sections immediately (no LLM wait)
+        const sectionsStart = performance.now();
         const sections = convertToSavedSections(parsed);
         await this.saveCoverLetterSections(sections, sourceId, accessToken);
+        saveSectionsMs = performance.now() - sectionsStart;
+        console.log(`⏱️  [TIMING] ✅ Saved CL sections: ${saveSectionsMs.toFixed(2)}ms (${sections.length} sections)`);
         this.emitProgress('sections-saved', 35, 'Sections extracted', type);
         
         // STAGE 2: LLM analysis for stories + voice (10-15s)
         // First, get existing work history for story linking
+        const workHistoryStart = performance.now();
         const { data: { session } } = await supabase.auth.getSession();
         const userId = session?.user?.id;
         const workHistory = userId ? await this.getWorkHistoryForStoryLinking(userId, accessToken) : [];
+        console.log(`⏱️  [TIMING] ✅ Fetched work history for linking: ${(performance.now() - workHistoryStart).toFixed(2)}ms (${workHistory.length} items)`);
         
+        const llmCallStart = performance.now();
         analysisResult = await this.llmAnalysisService.analyzeCoverLetterStories(extractedText, workHistory);
+        console.log(`⏱️  [TIMING] ✅ CL LLM analysis (stories + voice): ${(performance.now() - llmCallStart).toFixed(2)}ms`);
       } else if (file.name.toLowerCase().includes('case') || file.name.toLowerCase().includes('study') || type === 'caseStudies') {
-        console.log('→ Using CASE STUDY analysis');
+        console.log('⏱️  [TIMING] → Using CASE STUDY analysis');
+        const caseStudyStart = performance.now();
         analysisResult = await this.llmAnalysisService.analyzeCaseStudy(extractedText);
+        console.log(`⏱️  [TIMING] ✅ Case study LLM analysis: ${(performance.now() - caseStudyStart).toFixed(2)}ms`);
       } else {
-        console.log('→ Using STAGED RESUME analysis (3-stage split for speed)');
+        console.log('⏱️  [TIMING] → Using STAGED RESUME analysis (3-stage split for speed)');
         // PERFORMANCE OPTIMIZATION: Use staged analysis for faster perceived performance
         // Stage 1: Work history skeleton (~5-8s) - shows structure immediately
         // Stage 2: Stories per role (parallel, ~3-5s each) - fills in details
@@ -832,13 +925,13 @@ source_type: dbSourceType,
             };
             const stageInfo = stageProgress[stage] || { percent: 60, label: `${stage} complete...` };
             this.emitProgress(stage, stageInfo.percent, stageInfo.label, type);
-            console.warn(`📊 Stage ${stage} complete`, data);
+            console.log(`⏱️  [TIMING] 📊 LLM Stage ${stage} complete`, data);
           }
         );
       }
       const llmEndTime = performance.now();
       llmLatencyMs = llmEndTime - llmStartTime;
-      console.warn(`⏱️ LLM analysis took: ${llmLatencyMs.toFixed(2)}ms`);
+      console.log(`⏱️  [TIMING] ✅ STAGE 2 COMPLETE (LLM analysis): ${llmLatencyMs.toFixed(2)}ms`);
       
       if (!analysisResult.success) {
         throw new Error(`LLM analysis failed: ${analysisResult.error}`);
@@ -876,27 +969,62 @@ source_type: dbSourceType,
       console.log(structuredData.summary);
       console.log('═══════════════════════════════════════════════════════════');
 
+      // Fallback LinkedIn detection from structured data (if raw text detection missed)
+      const structuredLinkedIn =
+        structuredData.contactInfo?.linkedin ||
+        structuredData.contact_info?.linkedin ||
+        structuredData.linkedin ||
+        null;
+      if (structuredLinkedIn) {
+        const normalizedLinkedIn = this.extractLinkedInUrl(structuredLinkedIn) || structuredLinkedIn;
+        console.log(`⏱️  [TIMING] LinkedIn URL found in structured data: ${normalizedLinkedIn}`);
+        this.emitProgress('linkedin_detected', 40, 'LinkedIn profile found', type);
+        window.dispatchEvent(new CustomEvent('linkedin-detected', {
+          detail: { sourceId, url: normalizedLinkedIn }
+        }));
+      }
+
+      console.log('⏱️  [TIMING] ─── STAGE 3: DATABASE OPERATIONS ───');
+      const dbStartTime = performance.now();
+      
       // Update with structured data - now includes all fields (outcomeMetrics, stories, etc.)
       // Types are now aligned with LLM prompt schema, so parsed data contains everything
-      const dbStartTime = performance.now();
+      console.log('⏱️  [TIMING] Saving structured_data to sources...');
+      const saveStructuredStart = performance.now();
       await this.updateProcessingStatus(sourceId, 'completed', structuredData as any, undefined, accessToken);
+      console.log(`⏱️  [TIMING] ✅ structured_data saved: ${(performance.now() - saveStructuredStart).toFixed(2)}ms`);
+      this.emitProgress('structured', 90, 'Analysis complete, saving data...', type);
 
       // Run code-driven heuristics
+      console.log('⏱️  [TIMING] Running heuristic checks...');
+      const heuristicsStart = performance.now();
       const heuristics = this.runHeuristics(structuredData, type);
+      gapHeuristicsMs = performance.now() - heuristicsStart;
+      console.log(`⏱️  [TIMING] ✅ Heuristic checks complete: ${gapHeuristicsMs.toFixed(2)}ms`);
 
       // Auto-save extracted data to database (both resume AND cover letter can have workHistory)
       // Cover letters may contain work history entries that should be processed
       this.emitProgress('saving', 80, 'Saving to database...', type);
       if (type === 'resume' || (type === 'coverLetter' && structuredData.workHistory && Array.isArray(structuredData.workHistory) && structuredData.workHistory.length > 0)) {
-      await this.processStructuredData(structuredData, sourceId, accessToken);
+        console.log('⏱️  [TIMING] Processing structured data (company/work_items/stories inserts)...');
+        const processDataStart = performance.now();
+        await this.processStructuredData(structuredData, sourceId, accessToken);
+        console.log(`⏱️  [TIMING] ✅ processStructuredData complete: ${(performance.now() - processDataStart).toFixed(2)}ms`);
       }
+      // Nudge progress forward once DB writes are done
+      this.emitProgress('saved', 95, 'Database save complete', type);
       
       // Match cover letter stories to existing work_items and extract profile data
       if (type === 'coverLetter') {
+        console.log('⏱️  [TIMING] Processing cover letter data (story matching)...');
+        const clDataStart = performance.now();
         await this.processCoverLetterData(structuredData, sourceId, accessToken);
+        console.log(`⏱️  [TIMING] ✅ CL data processing complete: ${(performance.now() - clDataStart).toFixed(2)}ms`);
       }
       
       // Normalize skills for both resume and cover letter
+      console.log('⏱️  [TIMING] Normalizing skills...');
+      const normalizeStart = performance.now();
       const { data: sourceData } = await supabase
         .from('sources')
         .select('user_id')
@@ -907,15 +1035,35 @@ source_type: dbSourceType,
         const skillsSourceType = type === 'coverLetter' ? 'cover_letter' : 'resume';
         await this.normalizeSkills(structuredData, sourceId, sourceData.user_id, skillsSourceType, accessToken);
       }
+      normalizeSkillsMs = performance.now() - normalizeStart;
+      console.log(`⏱️  [TIMING] ✅ Skills normalized: ${normalizeSkillsMs.toFixed(2)}ms`);
 
       // Track DB latency (includes all structured data processing)
       const dbEndTime = performance.now();
       dbLatencyMs = dbEndTime - dbStartTime;
-      console.warn(`⏱️ Database operations took: ${dbLatencyMs.toFixed(2)}ms`);
+      console.log(`⏱️  [TIMING] ✅ STAGE 3 COMPLETE (database operations): ${dbLatencyMs.toFixed(2)}ms`);
 
       // Calculate and save total processing time
       const totalProcessingMs = performance.now() - processStartTime;
-      console.warn(`⏱️ TOTAL processing time: ${totalProcessingMs.toFixed(2)}ms`);
+      
+      // ═══════════════════════════════════════════════════════════
+      // 🎯 TIMING SUMMARY - End-to-End Breakdown
+      // ═══════════════════════════════════════════════════════════
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('⏱️  [TIMING] 🏁 processContent COMPLETE - FULL BREAKDOWN:');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log(`⏱️  [TIMING] ├─ STAGE 1: Text Extraction        ${extractionLatencyMs.toFixed(2).padStart(10)}ms`);
+      console.log(`⏱️  [TIMING] ├─ STAGE 2: LLM Analysis           ${llmLatencyMs.toFixed(2).padStart(10)}ms`);
+      console.log(`⏱️  [TIMING] │   ├─ Save CL Sections            ${saveSectionsMs.toFixed(2).padStart(10)}ms`);
+      console.log(`⏱️  [TIMING] │   └─ (LLM call details in openaiService.ts)`);
+      console.log(`⏱️  [TIMING] ├─ STAGE 3: Database Operations    ${dbLatencyMs.toFixed(2).padStart(10)}ms`);
+      console.log(`⏱️  [TIMING] │   ├─ Heuristic Checks            ${gapHeuristicsMs.toFixed(2).padStart(10)}ms`);
+      console.log(`⏱️  [TIMING] │   ├─ Skills Normalization        ${normalizeSkillsMs.toFixed(2).padStart(10)}ms`);
+      console.log(`⏱️  [TIMING] │   └─ (processStructuredData details below)`);
+      console.log(`⏱️  [TIMING] ├─────────────────────────────────────────────`);
+      console.log(`⏱️  [TIMING] └─ 🎯 TOTAL END-TO-END TIME:       ${totalProcessingMs.toFixed(2).padStart(10)}ms (${(totalProcessingMs / 1000).toFixed(1)}s)`);
+      console.log(`⏱️  [TIMING] Completed at: ${new Date().toISOString()}`);
+      console.log('═══════════════════════════════════════════════════════════');
       
       // Save latency metrics (non-blocking)
       this.saveLatencyMetrics(sourceId, {
@@ -924,32 +1072,53 @@ source_type: dbSourceType,
         dbLatencyMs,
         totalProcessingMs
       }, accessToken);
+      this.emitProgress('done', 100, 'Processing complete', type);
+      window.dispatchEvent(new CustomEvent('global-progress', {
+        detail: { task: type, status: 'done', percent: 100, label: `[PROGRESS] ${type} complete` }
+      }));
 
-      // Log evaluation run IMMEDIATELY (no LLM judge - that's too slow)
-      // Judge evaluation can run separately if needed
-      const sessionId = `sess_${Date.now()}`;
-      console.log(`📊 [EVAL] Logging ${type} eval immediately (skipping LLM judge for speed)`);
-      
-      this.logLLMGeneration({
-        sessionId,
-        sourceId,
-        type,
-        inputTokens: extractedText.length / 4,
-        outputTokens: JSON.stringify(structuredData).length / 4,
-        latency: llmLatencyMs,
-        model: import.meta.env?.VITE_OPENAI_MODEL || (typeof process !== 'undefined' ? process.env.VITE_OPENAI_MODEL : undefined) || 'gpt-4o-mini',
-        inputText: extractedText,
-        outputText: JSON.stringify(structuredData, null, 2),
-        heuristics,
-        evaluation: null, // Skip LLM judge for now - too slow
-        extractionLatencyMs,
-        dbLatencyMs,
-        totalLatencyMs: totalProcessingMs,
-      }, accessToken).then(() => {
-        console.log(`✅ [EVAL] Successfully logged ${type} eval to DB`);
-      }).catch(error => {
-        console.error(`❌ [EVAL] Failed to log ${type} evaluation:`, error);
-      });
+      // Log evaluation run in background so it never blocks UI/progress
+      setTimeout(() => {
+        const sessionId = `sess_${Date.now()}`;
+        console.log(`📊 [EVAL] Logging ${type} eval in background (skipping judge)`);
+        
+        // Build detailed timing breakdown for dashboard visualization
+        const timingBreakdown = {
+          extraction: {
+            extraction_ms: extractionLatencyMs,
+            cache_hit: extractionLatencyMs === 0,
+          },
+          llm: {
+            total_ms: llmLatencyMs,
+          },
+          database: {
+            save_sections_ms: saveSectionsMs,
+            normalize_skills_ms: normalizeSkillsMs,
+            gap_heuristics_ms: gapHeuristicsMs,
+            total_ms: dbLatencyMs,
+          },
+        };
+        
+        this.logLLMGeneration({
+          sessionId,
+          sourceId,
+          type,
+          inputTokens: extractedText.length / 4,
+          outputTokens: JSON.stringify(structuredData).length / 4,
+          latency: llmLatencyMs,
+          model: import.meta.env?.VITE_OPENAI_MODEL || (typeof process !== 'undefined' ? process.env.VITE_OPENAI_MODEL : undefined) || 'gpt-4o-mini',
+          inputText: extractedText,
+          outputText: JSON.stringify(structuredData, null, 2),
+          heuristics,
+          evaluation: null, // Skip LLM judge for now - too slow
+          extractionLatencyMs,
+          dbLatencyMs,
+          totalLatencyMs: totalProcessingMs,
+          timingBreakdown,
+        }, accessToken).catch(error => {
+          console.error(`❌ [EVAL] Failed to log ${type} evaluation (background):`, error);
+        });
+      }, 0);
 
     } catch (error) {
       console.error('Content processing error:', error);
@@ -992,20 +1161,37 @@ source_type: dbSourceType,
           )
         : supabase;
 
-      // Save each section
-      for (const section of sections) {
-        await dbClient.from('saved_sections').insert({
-          user_id: userId,
-          slug: section.slug,
-          title: section.title,
-          content: section.content,
-          order_index: section.order,
-          is_static: section.isStatic,
-          source_id: sourceId,
-        });
-      }
+      // Map section types from parser to schema
+      // Note: All body paragraphs are typed as 'other' per schema constraints
+      const typeMapping: Record<string, 'intro' | 'closer' | 'signature' | 'other'> = {
+        'introduction': 'intro',
+        'closing': 'closer'
+        // All other slugs (body-1, body-2, etc.) default to 'other'
+      };
+      
+      const payload = sections.map((section, idx) => ({
+        user_id: userId,
+        type: typeMapping[section.slug] || 'other',
+        title: section.title,
+        content: section.content,
+        source_type: 'cover_letter',  // Schema field is source_type, not source
+        source_id: sourceId,           // Schema field is source_id, not source_file_id
+        tags: [] as string[],
+        is_dynamic: section.isStatic ? false : true,  // Schema has is_dynamic
+        paragraph_index: section.order,
+        position: section.order
+      }));
 
-      console.log(`✅ Saved ${sections.length} CL sections`);
+      // Insert sections (don't use upsert since we don't have a unique constraint on user_id+source_id+type)
+      const { error } = await dbClient
+        .from('saved_sections')
+        .insert(payload);
+
+      if (error) {
+        console.error('Error saving CL sections (upsert):', error);
+      } else {
+        console.log(`✅ Saved ${sections.length} CL sections`);
+      }
     } catch (error) {
       console.error('Error saving CL sections:', error);
       // Don't throw - sections can be manually created later
@@ -1055,11 +1241,16 @@ source_type: dbSourceType,
     sourceId: string, 
     accessToken?: string
   ): Promise<void> {
+    const processStructuredStart = performance.now();
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('⏱️  [TIMING] processStructuredData START');
+    console.log('═══════════════════════════════════════════════════════════');
+    
     try {
       console.log('🔄 Processing structured data into work_items and companies tables...');
       
       if (!structuredData.workHistory || !Array.isArray(structuredData.workHistory)) {
-        console.log('No work history to process');
+        console.log('⏱️  [TIMING] No work history to process - skipping');
         return;
       }
 
@@ -1105,9 +1296,15 @@ source_type: dbSourceType,
       
       // Track insertion stats
       let companiesCreated = 0;
+      let companiesUpdated = 0;
       let workItemsCreated = 0;
+      let workItemsUpdated = 0;
       let storiesCreated = 0;
       let storiesFailed = 0;
+      let companyUpsertMs = 0;
+      let workItemUpsertMs = 0;
+      let storyInsertMs = 0;
+      let gapDetectionMs = 0;
       
       // Debug: Log raw workHistory structure to see if stories are present
       console.log('🔍 DEBUG: Sample workHistory item:', {
@@ -1120,47 +1317,152 @@ source_type: dbSourceType,
 
       // PERFORMANCE: Batch all content for generic check in ONE LLM call
       // This reduces 43+ individual API calls to 1 batch call
-      try {
-        const { GapDetectionService } = await import('./gapDetectionService');
-        
-        // Collect all content items for batch evaluation
-        const contentItems: Array<{ id: string; content: string; type: 'work_item' | 'story' | 'section' }> = [];
-        
-        for (let i = 0; i < structuredData.workHistory.length; i++) {
-          const workItem = structuredData.workHistory[i];
-          // Add work item description
-          const description = workItem.roleSummary || workItem.description || '';
-          if (description) {
-            contentItems.push({
-              id: `work_item_${i}`,
-              content: description,
-              type: 'work_item'
+      if (!isGapDetectionDisabled()) {
+        try {
+          const { GapDetectionService } = await import('./gapDetectionService');
+          
+          // Collect all content items for batch evaluation
+          const contentItems: Array<{ id: string; content: string; type: 'work_item' | 'story' | 'section' }> = [];
+          
+          for (let i = 0; i < structuredData.workHistory.length; i++) {
+            const workItem = structuredData.workHistory[i];
+            // Add work item description
+            const description = workItem.roleSummary || workItem.description || '';
+            if (description) {
+              contentItems.push({
+                id: `work_item_${i}`,
+                content: description,
+                type: 'work_item'
+              });
+            }
+            // Add stories
+            const stories = workItem.stories || workItem.keyAccomplishments || [];
+            for (let j = 0; j < stories.length; j++) {
+              const story = stories[j];
+              const storyContent = story.content || story.description || (typeof story === 'string' ? story : '');
+              if (storyContent) {
+                contentItems.push({
+                  id: `story_${i}_${j}`,
+                  content: storyContent,
+                  type: 'story'
+                });
+              }
+            }
+          }
+          
+          if (contentItems.length > 0) {
+            console.log(`🔍 [GapDetection] Heuristic pre-check for ${contentItems.length} items (no LLM)...`);
+            await GapDetectionService.checkGenericContentBatch(contentItems, { useLLM: false });
+            console.log(`✅ [GapDetection] Heuristic cache primed for individual gap checks`);
+          }
+        } catch (batchError) {
+          console.warn('[GapDetection] Batch generic check failed, will fall back to heuristics:', batchError);
+        }
+      } else {
+        console.log('[GapDetection] Disabled during upload (env flag), skipping generic batch check');
+      }
+      
+      // Preload all companies to avoid per-role insert/update
+      const normalizeCompanyName = (name: string) => name.trim().toLowerCase();
+      const companyIdMap = new Map<string, string>(); // key: normalized name
+      const companyMeta = new Map<string, { description?: string; tags?: any[] }>();
+      const uniqueCompanyNames: string[] = [];
+
+      for (const workItem of structuredData.workHistory) {
+        if (workItem.company) {
+          const rawName = workItem.company;
+          const norm = normalizeCompanyName(rawName);
+          if (!companyMeta.has(norm)) {
+            uniqueCompanyNames.push(rawName);
+            companyMeta.set(norm, {
+              description: workItem.companyDescription || '',
+              tags: workItem.companyTags || [],
             });
           }
-          // Add stories
-          const stories = workItem.stories || workItem.keyAccomplishments || [];
-          for (let j = 0; j < stories.length; j++) {
-            const story = stories[j];
-            const storyContent = story.content || story.description || (typeof story === 'string' ? story : '');
-            if (storyContent) {
-              contentItems.push({
-                id: `story_${i}_${j}`,
-                content: storyContent,
-                type: 'story'
-              });
+        }
+      }
+
+      if (uniqueCompanyNames.length > 0) {
+        const { data: existingCompanies, error: existingErr } = await dbClient
+          .from('companies')
+          .select('id, name')
+          .eq('user_id', userId)
+          .in('name', uniqueCompanyNames);
+
+        if (!existingErr && existingCompanies) {
+          for (const row of existingCompanies) {
+            companyIdMap.set(normalizeCompanyName(row.name), row.id);
+          }
+        }
+
+        const toUpsert = uniqueCompanyNames.map((name) => {
+          const meta = companyMeta.get(normalizeCompanyName(name)) || {};
+          return {
+            name,
+            description: meta.description || '',
+            tags: meta.tags || [],
+            user_id: userId,
+          };
+        });
+
+        if (toUpsert.length > 0) {
+          const { data: inserted, error: insertErr } = await dbClient
+            .from('companies')
+            .upsert(toUpsert, { onConflict: 'user_id,name' })
+            .select('id, name');
+
+          if (insertErr) {
+            console.error('❌ Error upserting companies batch:', {
+              error: insertErr,
+              message: insertErr.message,
+              code: insertErr.code,
+              details: insertErr.details,
+              hint: insertErr.hint,
+              companyCount: toUpsert.length,
+              companies: toUpsert.map(c => c.name)
+            });
+            
+            // FALLBACK: Try individual inserts if batch fails
+            console.warn('⚠️ Batch upsert failed, attempting individual company inserts...');
+            for (const company of toUpsert) {
+              try {
+                const { data: singleInsert, error: singleErr } = await dbClient
+                  .from('companies')
+                  .upsert(company, { onConflict: 'user_id,name' })
+                  .select('id, name')
+                  .single();
+                
+                if (singleErr) {
+                  console.error(`❌ Failed to upsert company "${company.name}":`, singleErr);
+                } else if (singleInsert) {
+                  const norm = normalizeCompanyName(singleInsert.name);
+                  if (!companyIdMap.has(norm)) {
+                    companiesCreated++;
+                  } else {
+                    companiesUpdated++;
+                  }
+                  companyIdMap.set(norm, singleInsert.id);
+                  console.log(`✅ Individual upsert succeeded for "${company.name}"`);
+                }
+              } catch (individualErr) {
+                console.error(`❌ Exception upserting company "${company.name}":`, individualErr);
+              }
+            }
+          } else if (inserted) {
+            // Track creations by comparing to existing map
+            for (const row of inserted) {
+              const norm = normalizeCompanyName(row.name);
+              if (!companyIdMap.has(norm)) {
+                companiesCreated++;
+              } else {
+                companiesUpdated++;
+              }
+              companyIdMap.set(norm, row.id);
             }
           }
         }
-        
-        if (contentItems.length > 0) {
-          console.log(`🔍 [GapDetection] Pre-evaluating ${contentItems.length} content items for generic content (batch)...`);
-          await GapDetectionService.checkGenericContentBatch(contentItems);
-          console.log(`✅ [GapDetection] Batch evaluation complete - results cached for individual gap checks`);
-        }
-      } catch (batchError) {
-        console.warn('[GapDetection] Batch generic check failed, will fall back to heuristics:', batchError);
       }
-      
+
       // Process each work history entry
       for (const workItem of structuredData.workHistory) {
         // Extract title - LLM should always provide this
@@ -1171,51 +1473,25 @@ source_type: dbSourceType,
           continue;
         }
 
-        // First, create or find the company
-        let companyId: string;
-        
-        const { data: existingCompany } = await dbClient
-          .from('companies')
-          .select('id')
-          .eq('name', workItem.company)
-          .eq('user_id', userId)
-          .single();
-
-        if (existingCompany) {
-          companyId = existingCompany.id;
-          
-          // Update company description and tags if they exist
-          const updates: any = {};
-          if (workItem.companyDescription) {
-            updates.description = workItem.companyDescription;
-          }
-          if (workItem.companyTags && workItem.companyTags.length > 0) {
-            updates.tags = workItem.companyTags;
-          }
-          if (Object.keys(updates).length > 0) {
-            await dbClient
-              .from('companies')
-              .update(updates)
-              .eq('id', companyId);
-          }
-        } else {
-          const { data: newCompany, error: companyError } = await dbClient
+        const normalizeCompanyName = (name: string) => name.trim().toLowerCase();
+        const companyIdFromMap = workItem.company ? companyIdMap.get(normalizeCompanyName(workItem.company)) : undefined;
+        let companyId = companyIdFromMap;
+        if (!companyId && workItem.company) {
+          // Fallback: ilike lookup
+          const { data: fallbackCompany } = await dbClient
             .from('companies')
-            .insert({
-              name: workItem.company,
-              description: workItem.companyDescription || '',  // Use companyDescription, not role description
-              tags: workItem.companyTags || [],
-              user_id: userId
-            })
-            .select('id')
-            .single();
-
-          if (companyError) {
-            console.error('Error creating company:', companyError);
-            continue;
+            .select('id, name')
+            .ilike('name', workItem.company)
+            .eq('user_id', userId)
+            .maybeSingle();
+          if (fallbackCompany) {
+            companyId = fallbackCompany.id;
+            companyIdMap.set(normalizeCompanyName(fallbackCompany.name), fallbackCompany.id);
           }
-          companyId = newCompany.id;
-          companiesCreated++;
+        }
+        if (!companyId) {
+          console.warn(`⚠️ Company ID missing for ${workItem.company}, skipping work item`);
+          continue;
         }
 
         // Check for existing work_item (deduplication: same company + title + overlapping dates)
@@ -1225,12 +1501,22 @@ source_type: dbSourceType,
         
         // Query for existing work items - match on company and title, then check date overlap
         // Use a broader query first, then filter for date overlap in code
-        const { data: candidateWorkItems } = await dbClient
+        let { data: candidateWorkItems } = await dbClient
           .from('work_items')
           .select('id, source_id, description, metrics, start_date, end_date')
           .eq('user_id', userId)
           .eq('company_id', companyId)
           .eq('title', workItemTitle.trim());
+        
+        // Fallback: if no exact title match, try any work item for the company (best-effort dedupe across sources like LinkedIn)
+        if (!candidateWorkItems || candidateWorkItems.length === 0) {
+          const { data: fallbackWorkItems } = await dbClient
+            .from('work_items')
+            .select('id, source_id, description, metrics, start_date, end_date, title')
+            .eq('user_id', userId)
+            .eq('company_id', companyId);
+          candidateWorkItems = fallbackWorkItems || [];
+        }
         
         // Filter for date overlap (more flexible than exact match)
         const existingWorkItems = (candidateWorkItems || []).filter((existing: any) => {
@@ -1411,29 +1697,31 @@ source_type: dbSourceType,
           workItemsCreated++;
 
           // Phase 3: Detect role-level gaps (metrics, description, etc.)
-          try {
-            const { GapDetectionService } = await import('./gapDetectionService');
-            const outcomeMetrics = Array.isArray(workItem.outcomeMetrics) ? workItem.outcomeMetrics : [];
-            const roleGaps = await GapDetectionService.detectWorkItemGaps(
-              userId,
-              workItemId,
-              {
-                title: workItemTitle,
-                description: workItem.roleSummary || workItem.description || '',
-                metrics: outcomeMetrics,
-                startDate: workItem.startDate,
-                endDate: workItemEndDate
-              },
-              [] // Stories not yet inserted, will detect separately
-            );
+          if (!isGapDetectionDisabled()) {
+            try {
+              const { GapDetectionService } = await import('./gapDetectionService');
+              const outcomeMetrics = Array.isArray(workItem.outcomeMetrics) ? workItem.outcomeMetrics : [];
+              const roleGaps = await GapDetectionService.detectWorkItemGaps(
+                userId,
+                workItemId,
+                {
+                  title: workItemTitle,
+                  description: workItem.roleSummary || workItem.description || '',
+                  metrics: outcomeMetrics,
+                  startDate: workItem.startDate,
+                  endDate: workItemEndDate
+                },
+                [] // Stories not yet inserted, will detect separately
+              );
 
-            if (roleGaps.length > 0) {
-              await GapDetectionService.saveGaps(roleGaps, accessToken);
-              console.log(`🔍 Detected ${roleGaps.length} role-level gap(s) for work_item: ${workItemId}`);
+              if (roleGaps.length > 0) {
+                await GapDetectionService.saveGaps(roleGaps, accessToken);
+                console.log(`🔍 Detected ${roleGaps.length} role-level gap(s) for work_item: ${workItemId}`);
+              }
+            } catch (gapError) {
+              // Don't fail the upload if gap detection fails
+              console.error('⚠️ Error detecting role-level gaps:', gapError);
             }
-          } catch (gapError) {
-            // Don't fail the upload if gap detection fails
-            console.error('⚠️ Error detecting role-level gaps:', gapError);
           }
         }
 
@@ -1450,7 +1738,7 @@ source_type: dbSourceType,
 
         // Save stories to approved_content
         // Skip if this is an existing work_item that already has stories (to avoid duplicates)
-        if (isExisting) {
+          if (isExisting) {
           const { count: existingStoryCount } = await dbClient
             .from('stories')
             .select('id', { count: 'exact', head: true })
@@ -1522,8 +1810,8 @@ source_type: dbSourceType,
               console.log(`✅ Story created successfully: ${insertedStory?.id}`);
               storiesCreated++;
 
-              // Phase 3: Detect gaps for this story
-              if (insertedStory?.id) {
+              // Phase 3: Detect gaps for this story (no LLM judge here; LLM runs in background)
+              if (insertedStory?.id && !isGapDetectionDisabled()) {
                 try {
                   const { GapDetectionService } = await import('./gapDetectionService');
                   const storyGaps = await GapDetectionService.detectStoryGaps(
@@ -1554,10 +1842,25 @@ source_type: dbSourceType,
       // Normalize skills to user_skills table
       await this.normalizeSkills(structuredData, sourceId, userId, 'resume', accessToken);
 
-      // Log summary statistics
+      // ═══════════════════════════════════════════════════════════
+      // 🎯 processStructuredData TIMING SUMMARY
+      // ═══════════════════════════════════════════════════════════
+      const totalProcessStructuredMs = performance.now() - processStructuredStart;
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('⏱️  [TIMING] processStructuredData COMPLETE - BREAKDOWN:');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log(`⏱️  [TIMING] ├─ Company Upserts              ${companyUpsertMs.toFixed(2).padStart(10)}ms (${companiesCreated} created, ${companiesUpdated} updated)`);
+      console.log(`⏱️  [TIMING] ├─ Work Item Upserts            ${workItemUpsertMs.toFixed(2).padStart(10)}ms (${workItemsCreated} created, ${workItemsUpdated} updated)`);
+      console.log(`⏱️  [TIMING] ├─ Story Inserts                ${storyInsertMs.toFixed(2).padStart(10)}ms (${storiesCreated} created, ${storiesFailed} failed)`);
+      console.log(`⏱️  [TIMING] ├─ Gap Detection                ${gapDetectionMs.toFixed(2).padStart(10)}ms`);
+      console.log(`⏱️  [TIMING] ├─────────────────────────────────────────────`);
+      console.log(`⏱️  [TIMING] └─ 🎯 TOTAL processStructuredData: ${totalProcessStructuredMs.toFixed(2).padStart(10)}ms (${(totalProcessStructuredMs / 1000).toFixed(1)}s)`);
+      console.log('═══════════════════════════════════════════════════════════');
       console.log('📊 Database Insert Summary:', {
         companiesCreated,
+        companiesUpdated,
         workItemsCreated,
+        workItemsUpdated,
         storiesCreated,
         storiesFailed,
         totalWorkHistory: structuredData.workHistory.length
@@ -1572,6 +1875,12 @@ source_type: dbSourceType,
       }
 
       console.log('✅ Structured data processed successfully');
+
+      // Kick off background LLM judge for generic content gaps (non-blocking)
+      console.log('⏱️  [TIMING] Queueing background generic gap judge (non-blocking)...');
+      this.runBackgroundGenericGapJudge(sourceId, userId, accessToken).catch((err) => {
+        console.error('[GapDetection] Background generic gap judge failed:', err);
+      });
 
       schedulePMLevelBackgroundRun({
         userId,
@@ -1764,28 +2073,39 @@ source_type: dbSourceType,
       }
 
       // 4. Create saved sections and default template from cover letter paragraphs
-      if (structuredData.paragraphs && Array.isArray(structuredData.paragraphs)) {
+      // Handle both old format (paragraphs) and new format (stories from internal extractor)
+      const hasOldFormat = structuredData.paragraphs && Array.isArray(structuredData.paragraphs);
+      const hasNewFormat = structuredData.stories && Array.isArray(structuredData.stories);
+      
+      if (hasOldFormat || hasNewFormat) {
         try {
-          console.log(`📝 Creating saved sections and template from ${structuredData.paragraphs.length} paragraphs...`);
+          if (hasNewFormat && !hasOldFormat) {
+            console.log(`📝 Creating saved sections from ${structuredData.stories.length} stories (new format)...`);
+            // The backfill logic in coverLetterTemplateService.ts will handle this
+            // when getUserSavedSections() is called from the UI
+            console.log(`ℹ️ Saved sections will be created on-demand from stories in structured_data`);
+          } else {
+            console.log(`📝 Creating saved sections and template from ${structuredData.paragraphs.length} paragraphs...`);
 
-          // Import the service
-          const { CoverLetterTemplateService } = await import('./coverLetterTemplateService');
+            // Import the service
+            const { CoverLetterTemplateService } = await import('./coverLetterTemplateService');
 
-          // Process the cover letter and create template + saved sections
-          const result = await CoverLetterTemplateService.processUploadedCoverLetter(
-            userId,
-            structuredData,
-            sourceId,
-            'Professional Template',
-            {
-              rawText: sourceData.raw_text || undefined,
-              fileName: sourceData.file_name || undefined,
-              createdAt: sourceData.created_at || undefined
-            },
-            accessToken
-          );
+            // Process the cover letter and create template + saved sections
+            const result = await CoverLetterTemplateService.processUploadedCoverLetter(
+              userId,
+              structuredData,
+              sourceId,
+              'Professional Template',
+              {
+                rawText: sourceData.raw_text || undefined,
+                fileName: sourceData.file_name || undefined,
+                createdAt: sourceData.created_at || undefined
+              },
+              accessToken
+            );
 
-          console.log(`✅ Created template with ${result.savedSections.length} saved sections`);
+            console.log(`✅ Created template with ${result.savedSections.length} saved sections`);
+          }
         } catch (templateError) {
           // Don't fail the upload if template creation fails
           console.error('⚠️ Error creating cover letter template and saved sections:', templateError);
@@ -1824,7 +2144,9 @@ source_type: dbSourceType,
       .select('id, name')
       .ilike('name', companyName)
       .eq('user_id', userId)
-      .single();
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
     
     if (!company) {
       console.log(`⚠️ Company not found: "${companyName}"`);
@@ -2500,6 +2822,9 @@ source_type: dbSourceType,
         console.error('❌ Resume analysis failed:', combinedResult.resume.error);
       }
       
+      // Kick off LinkedIn enrichment as soon as resume is processed (parallel to cover letter handling)
+      const linkedInPromise = this.fetchAndProcessLinkedInData(accessToken);
+
       // Update cover letter with structured data
       if (combinedResult.coverLetter.success) {
         await this.updateProcessingStatus(this.pendingCoverLetter.sourceId, 'completed', combinedResult.coverLetter.data as any, undefined, accessToken);
@@ -2546,9 +2871,14 @@ source_type: dbSourceType,
         console.error('❌ Cover letter analysis failed:', combinedResult.coverLetter.error);
       }
       
-      // Process LinkedIn FIRST (for synthetic profiles, LinkedIn URL exists and API call is fast)
-      // This ensures work_items exist before matching cover letter stories
-      await this.fetchAndProcessLinkedInData(accessToken);
+      // Ensure LinkedIn enrichment has finished (work_items available) before matching cover letter stories
+      if (linkedInPromise) {
+        try {
+          await linkedInPromise;
+        } catch (e) {
+          console.warn('⚠️ LinkedIn enrichment failed (continuing with existing work_items):', e);
+        }
+      }
       
       // Now process cover letter stories - LinkedIn work_items should exist
       if (this.pendingCoverLetter && combinedResult.coverLetter.success) {
@@ -2746,6 +3076,7 @@ source_type: dbSourceType,
     extractionLatencyMs?: number;
     dbLatencyMs?: number;
     totalLatencyMs?: number;
+    timingBreakdown?: Record<string, any>;
   }, accessToken?: string): Promise<void> {
     try {
       // Use the default supabase client - it maintains auth state from user session
@@ -2832,7 +3163,10 @@ source_type: dbSourceType,
           
           // Gap Summary Snapshot (source of truth for counts at analysis time)
           gap_total: gapTotal,
-          gap_summary: gapSummary
+          gap_summary: gapSummary,
+          
+          // Detailed Timing Breakdown (from streaming onboarding instrumentation)
+          timing_breakdown: data.timingBreakdown || null
         } as any);
 
       if (error) {
@@ -2905,10 +3239,22 @@ source_type: dbSourceType,
    */
   private async fetchAndProcessLinkedInData(accessToken?: string): Promise<void> {
     try {
+      // Feature flag: Skip LinkedIn enrichment if disabled
+      const { isLinkedInScrapingEnabled } = await import('../lib/flags');
+      if (!isLinkedInScrapingEnabled()) {
+        console.log('📌 LinkedIn scraping disabled by feature flag (ENABLE_LI_SCRAPING=false)');
+        // Emit progress indicating disabled
+        this.emitProgress('linkedin_disabled', 100, 'LinkedIn scraping disabled', 'linkedin');
+        return;
+      }
+
       if (!this.pendingResume) {
         console.log('⚠️ No resume data available for LinkedIn enrichment');
         return;
       }
+
+      // Emit progress for LinkedIn fetch starting (keep global bar alive)
+      this.emitProgress('linkedin_fetch', 50, 'Fetching LinkedIn data...', 'linkedin');
 
       // Get user info - use authenticated client if accessToken provided
       let user: any = null;
@@ -3094,14 +3440,17 @@ source_type: dbSourceType,
           console.log(`✅ LinkedIn source saved: ${linkedinSource.id}`);
           
           // Process LinkedIn structured data into work_items
-          if (linkedinStructuredData.workHistory && Array.isArray(linkedinStructuredData.workHistory)) {
-            await this.processStructuredData(linkedinStructuredData, linkedinSource.id, accessToken);
-          }
-          // Ensure evaluation logging sees the LinkedIn source id
-          this.pendingLinkedIn = {
-            sourceId: linkedinSource.id,
-            structuredData: linkedinStructuredData
-          };
+        if (linkedinStructuredData.workHistory && Array.isArray(linkedinStructuredData.workHistory)) {
+          await this.processStructuredData(linkedinStructuredData, linkedinSource.id, accessToken);
+        }
+        // Ensure evaluation logging sees the LinkedIn source id
+        this.pendingLinkedIn = {
+          sourceId: linkedinSource.id,
+          structuredData: linkedinStructuredData
+        };
+
+          // Emit progress for LinkedIn completion
+          this.emitProgress('linkedin_complete', 95, 'LinkedIn data processed', 'linkedin');
         }
       } else {
         console.warn('⚠️ LinkedIn enrichment failed:', appifyResult.error);
@@ -3216,6 +3565,83 @@ source_type: dbSourceType,
     } catch (error) {
       console.error('❌ Error creating unified profile:', error);
       // Don't throw - this is enhancement, not required
+    }
+  }
+
+  /**
+   * Background LLM judge for generic content gaps (non-blocking)
+   */
+  private async runBackgroundGenericGapJudge(sourceId: string, userId: string, accessToken?: string): Promise<void> {
+    try {
+      const dbClient = accessToken
+        ? createSbClient(
+            (import.meta.env?.VITE_SUPABASE_URL) || '',
+            (import.meta.env?.VITE_SUPABASE_ANON_KEY) || '',
+            { global: { headers: { Authorization: `Bearer ${accessToken}` } } }
+          )
+        : supabase;
+
+      // Fetch work items and stories for this source
+      const { data: workItems } = await dbClient
+        .from('work_items')
+        .select('id, description')
+        .eq('source_id', sourceId)
+        .eq('user_id', userId);
+
+      const { data: stories } = await dbClient
+        .from('stories')
+        .select('id, content')
+        .eq('source_id', sourceId)
+        .eq('user_id', userId);
+
+      const contentItems: Array<{ id: string; content: string; type: 'work_item' | 'story' | 'section' }> = [];
+      (workItems || []).forEach((w: any, idx: number) => {
+        if (w.description) {
+          contentItems.push({
+            id: w.id,
+            content: w.description,
+            type: 'work_item',
+          });
+        }
+      });
+      (stories || []).forEach((s: any) => {
+        if (s.content) {
+          contentItems.push({
+            id: s.id,
+            content: s.content,
+            type: 'story',
+          });
+        }
+      });
+
+      if (contentItems.length === 0) {
+        return;
+      }
+
+      const { GapDetectionService } = await import('./gapDetectionService');
+      const results = await GapDetectionService.checkGenericContentBatch(contentItems, { useLLM: true });
+
+      const gaps: any[] = [];
+      for (const [id, gap] of results.entries()) {
+        if (!gap.isGeneric) continue;
+        const isStory = contentItems.find((c) => c.id === id)?.type === 'story';
+        gaps.push({
+          user_id: userId,
+          entity_type: isStory ? 'approved_content' : 'work_item',
+          entity_id: id,
+          gap_type: 'best_practice',
+          gap_category: isStory ? 'generic_story' : 'generic_role_description',
+          severity: gap.confidence && gap.confidence > 0.8 ? 'high' : 'medium',
+          description: gap.reasoning || 'Content may be too generic',
+        });
+      }
+
+      if (gaps.length > 0) {
+        await GapDetectionService.saveGaps(gaps, accessToken);
+        console.log(`[GapDetection] Background LLM judge created ${gaps.length} generic gap(s)`);
+      }
+    } catch (err) {
+      console.error('[GapDetection] Background judge error:', err);
     }
   }
 }

@@ -125,7 +125,8 @@ export default function SavedSections() {
             savedSectionGaps.map((item) => [
               item.entity_id,
               {
-                gapCount: item.gap_categories?.length ?? 0,
+                // Gap count: 1 if item has any gaps, 0 otherwise (per-item basis, not per-gap)
+                gapCount: (item.gap_categories?.length ?? 0) > 0 ? 1 : 0,
                 categories: item.gap_categories ?? [],
                 maxSeverity: item.max_severity ?? "low"
               }

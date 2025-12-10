@@ -353,6 +353,21 @@ export const WorkHistoryDetail = ({
   const [isEditingCompanyDescription, setIsEditingCompanyDescription] = useState(false);
   const [companyDescriptionDraft, setCompanyDescriptionDraft] = useState('');
 
+  // Handlers for company description editing
+  const handleSaveCompanyDescription = () => {
+    if (roleCompany) {
+      // Update the company description
+      roleCompany.description = companyDescriptionDraft;
+      setIsEditingCompanyDescription(false);
+      // TODO: Save to database via API call
+    }
+  };
+
+  const handleCancelEditCompanyDescription = () => {
+    setIsEditingCompanyDescription(false);
+    setCompanyDescriptionDraft(roleCompany?.description || '');
+  };
+
   // Reset editing state when company/role changes
   useEffect(() => {
     if (selectedRole) {

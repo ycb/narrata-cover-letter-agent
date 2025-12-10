@@ -5,6 +5,7 @@
  */
 
 import { supabase } from '@/lib/supabase';
+import { parseCoverLetter, convertToSavedSections } from '@/services/coverLetterParser';
 import type {
   CoverLetterGeneratedSection,
   CoverLetterSection,
@@ -647,7 +648,10 @@ export class CoverLetterTemplateService {
 
     const sourcesWithParagraphs = sources.filter((source) => {
       const paragraphs = source.structured_data?.paragraphs;
-      return Array.isArray(paragraphs) && paragraphs.length > 0;
+      const stories = Array.isArray((source.structured_data as any)?.stories) ? (source.structured_data as any).stories : [];
+      const meta = (source.structured_data as any)?.metadata;
+      const totalParas = meta?.totalParagraphs || 0;
+      return (Array.isArray(paragraphs) && paragraphs.length > 0) || stories.length > 0 || totalParas > 0 || !!source.raw_text;
     });
 
     if (savedSections.length === 0 && sourcesWithParagraphs.length > 0) {
@@ -863,9 +867,78 @@ export class CoverLetterTemplateService {
           continue;
         }
 
-        const parsed = typeof source.structured_data === 'string'
+        let parsed = typeof source.structured_data === 'string'
           ? (JSON.parse(source.structured_data) as ParsedCoverLetter)
           : (source.structured_data as ParsedCoverLetter | undefined);
+
+        // NEW FORMAT: Check for stories array (internal extractor format)
+        const hasNewFormat = parsed && Array.isArray((parsed as any).stories) && (parsed as any).stories.length > 0;
+        
+        if (hasNewFormat) {
+          // Stories detected - but we still need to parse paragraphs for saved sections
+          // Fall through to raw_text parsing below
+          console.log(`[SavedSections] Backfill: Source has ${(parsed as any).stories.length} stories, will parse raw_text for paragraphs`);
+
+          try {
+            const created = await this.createSavedSections(sectionsToCreate as any, undefined);
+            console.log(`[SavedSections] Backfill: created ${created.length} section(s) from stories for ${source.file_name}`);
+            
+            // Detect gaps for each section
+            if (created.length > 0) {
+              try {
+                const { GapDetectionService } = await import('./gapDetectionService');
+                const gapPayload: any[] = [];
+                for (const section of created) {
+                  const gaps = await GapDetectionService.detectCoverLetterSectionGaps(userId, {
+                    id: section.id!,
+                    type: section.type as 'intro' | 'paragraph' | 'closer' | 'signature',
+                    content: section.content,
+                    title: section.title
+                  });
+                  gapPayload.push(...gaps);
+                }
+                if (gapPayload.length > 0) {
+                  await GapDetectionService.saveGaps(gapPayload);
+                }
+              } catch (gapError) {
+                console.warn(`[SavedSections] Backfill: gap detection failed for ${source.file_name}`, gapError);
+              }
+            }
+          } catch (e) {
+            console.error(`[SavedSections] Backfill: failed to create sections from stories for ${source.file_name}`, e);
+          }
+          continue;
+        }
+
+        // OLD FORMAT OR FALLBACK: If no paragraphs present, attempt to parse raw_text via rule-based parser
+        if ((!parsed || !Array.isArray(parsed.paragraphs) || parsed.paragraphs.length === 0) && typeof source.raw_text === 'string') {
+          try {
+            const parsedFallback = parseCoverLetter(source.raw_text);
+            const sections = convertToSavedSections(parsedFallback);
+            if (sections.length > 0) {
+              await this.createSavedSections(
+                sections.map((section) => ({
+                  user_id: userId,
+                  title: section.title,
+                  content: section.content,
+                  source_id: source.id,
+                  type: section.slug === 'greeting' ? 'intro' : section.slug.startsWith('body') ? 'paragraph' : section.slug,
+                  is_dynamic: !section.isStatic,
+                  paragraph_index: section.order,
+                  tags: [],
+                  function_type: null,
+                  purpose_summary: null,
+                  purpose_tags: []
+                })) as any,
+                undefined
+              );
+              console.log(`[SavedSections] Backfill: created ${sections.length} section(s) via raw_text parse for ${source.file_name}`);
+            }
+          } catch (e) {
+            console.warn(`[SavedSections] Backfill: failed raw_text parse for ${source.file_name}`, e);
+          }
+          continue;
+        }
 
         if (!parsed || !Array.isArray(parsed.paragraphs) || parsed.paragraphs.length === 0) {
           console.log(`[SavedSections] Backfill: source ${source.file_name} has no paragraph data`);

@@ -22,6 +22,7 @@ export interface AppifyEnrichmentResult {
   data?: StructuredResumeData;
   error?: string;
   retryable: boolean;
+  cached?: boolean;
 }
 
 // Appify LinkedIn data structure (based on actual API response)
@@ -380,14 +381,25 @@ export class AppifyService {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), APPIFY_TIMEOUT);
 
-      // TODO: Update endpoint based on Appify API documentation
-      // This is a placeholder - need actual Appify API endpoint
-      const endpoint = `${APPIFY_API_URL}/v1/scrape/linkedin`;
+      // Use Supabase edge function proxy to avoid CORS issues
+      const { supabase } = await import('../lib/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        return {
+          success: false,
+          error: 'User not authenticated',
+          retryable: false
+        };
+      }
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const endpoint = `${supabaseUrl}/functions/v1/appify-proxy`;
       
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
+          'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
@@ -400,13 +412,13 @@ export class AppifyService {
       if (!response.ok) {
         // Handle rate limiting
         if (response.status === 429 && retryCount < MAX_RETRIES) {
-          console.log(`Appify rate limited, retrying (${retryCount + 1}/${MAX_RETRIES})...`);
+          console.log(`Appify proxy rate limited, retrying (${retryCount + 1}/${MAX_RETRIES})...`);
           await this.delay(1000 * (retryCount + 1)); // Exponential backoff
           return this.makeRequestWithRetry(params, retryCount + 1);
         }
 
         const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData.error?.message || errorData.message || `HTTP ${response.status}: ${response.statusText}`;
+        const errorMessage = errorData.error || `HTTP ${response.status}: ${response.statusText}`;
         
         return {
           success: false,
@@ -415,14 +427,26 @@ export class AppifyService {
         };
       }
 
-      const data: AppifyPersonData = await response.json();
+      const proxyResponse = await response.json();
+      
+      // Edge function returns { success, data, cached? } format
+      if (!proxyResponse.success) {
+        return {
+          success: false,
+          error: proxyResponse.error || 'Appify proxy error',
+          retryable: false
+        };
+      }
+
+      const data: AppifyPersonData = proxyResponse.data;
       
       // Convert to structured format
       const structuredData = this.convertToStructuredData(data);
       
       return {
         success: true,
-        data: structuredData
+        data: structuredData,
+        cached: proxyResponse.cached || false
       };
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {

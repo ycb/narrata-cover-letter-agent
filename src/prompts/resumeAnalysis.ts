@@ -1,36 +1,58 @@
-// Resume analysis prompt with robust story, metric, and tag extraction
-// Now supports cover letter context for enhanced tag extraction
-export const buildResumeAnalysisPrompt = (resumeText: string, coverLetterText?: string): string => {
-  const coverLetterSection = coverLetterText 
-    ? `\n\nCover Letter Text:
-${coverLetterText}
+import { SHARED_STORY_GUIDANCE } from './sharedStoryGuidance';
 
-IMPORTANT: Use cover letter content to enhance role tag extraction.
-Cover letters often expand on resume achievements with more detail and context.
-When extracting roleTags, consider both:
-1. Resume bullets (concise, metric-focused)
-2. Cover letter stories that reference each role (narrative, detailed)
-
-If a cover letter story references a specific role (company + title), use that story's context to enhance the roleTags for that role.
-Cover letter stories provide richer context about competencies, skills, and impact demonstrated in each role.
-` 
-    : '';
-
+// Resume analysis prompt with robust story, metric, and tag extraction (RESUME ONLY)
+export const buildResumeAnalysisPrompt = (resumeText: string): string => {
   return `
-You are analyzing a resume${coverLetterText ? ' and cover letter' : ''} to extract structured data for a job application platform.
+You are analyzing a resume to extract structured data for a job application platform.
 Your goal is to create a rich, searchable profile with stories, metrics, and thematic tags.
 
-CRITICAL: EXTRACTION ONLY - NO CONTENT CREATION
+CRITICAL: EXTRACTION ONLY FOR CONTENT FIELDS
 - Extract text VERBATIM from the resume. Do NOT paraphrase, summarize, or rewrite.
-- Preserve exact numbers: "20m users" stays "20m users", NOT "millions of users"
-- Preserve exact phrasing: copy sentences directly, don't rephrase
-- The only "creation" allowed is: tags, date formatting, and metric type classification
-- If something isn't in the resume, leave it empty. Do NOT invent or infer content.
+- Preserve exact numbers: "20m users" stays "20m users", NOT "millions of users".
+- Preserve exact phrasing for all content fields (summary, roleSummary, stories, etc.).
+- The ONLY allowed "creation" is:
+  - tags (companyTags, roleTags, story tags),
+  - companyDescription (high-level description of what the company does),
+  - story titles (5–8 word labels),
+  - date formatting (e.g., "2021-05-01"),
+  - metric type classification ("increase" | "decrease" | "absolute").
+- Do NOT invent specific factual details (e.g., revenue, user counts, funding stages) unless explicitly stated in the resume.
+- If something isn’t in the resume, leave the corresponding content value empty ("") or null as specified below.
+
+SUMMARY VS ROLE SUMMARY (DO NOT CONFUSE - CRITICAL)
+- "summary" (top-level field) = global career overview from TOP of resume
+- "roleSummary" (per workHistory entry) = text from THAT SPECIFIC ROLE'S section only
+  
+ANTI-DUPLICATION RULES:
+1. NEVER copy "summary" into any "roleSummary"
+2. NEVER copy the same text into multiple roles' "roleSummary" fields
+3. Each "roleSummary" must be UNIQUE or empty ("")
+4. If no role-specific header exists, use roleSummary = ""
+
+VALIDATION: Before returning JSON, verify no two roles share the same non-empty roleSummary.
+  
+SHARED STORY GUIDANCE:
+${SHARED_STORY_GUIDANCE}
+
+IMPORTANT (RESUME-SPECIFIC OVERRIDE):
+- For resumes, you must still EXTRACT stories even when the resume bullets are concise and not written in full
+  "Situation/Task/Action/Result" form.
+- A "story" is any concrete achievement or responsibility described in a bullet or sentence for THIS ROLE.
+- It is acceptable and expected that many stories will have problem/action/outcome as empty strings when the
+  resume does not separate them explicitly. Do NOT skip story extraction just because STAR fields are incomplete.
+- If SHARED_STORY_GUIDANCE above conflicts with any instructions in THIS prompt, THIS prompt takes priority.
+
+Missing Data Handling:
+- Keep the JSON shape and field names exactly as specified.
+- If a field has no source in the resume, use:
+  - "" for missing strings (e.g., summary, roleSummary),
+  - null for missing scalar values (e.g., email, phone, gpa, website),
+  - [] for arrays with no items (e.g., outcomeMetrics, stories, certifications, projects).
 
 Resume Text:
-${resumeText}${coverLetterSection}
+${resumeText}
 
-Return ONLY valid JSON with this exact structure. ALL FIELDS ARE REQUIRED:
+Return ONLY valid JSON with this exact structure. ALL FIELDS MUST EXIST, BUT MAY BE EMPTY/NULL AS SPECIFIED:
 
 {
   "contactInfo": {
@@ -41,46 +63,45 @@ Return ONLY valid JSON with this exact structure. ALL FIELDS ARE REQUIRED:
     "github": "https://github.com/username or null",
     "substack": "https://username.substack.com or null"
   },
-  "location": "City, State, Country or null",  // Geographic location (NOT contact info)
+  "location": "City, State, Country or null",
   "summary": "Professional summary (1-2 sentences) or empty string",
   "workHistory": [
     {
       "id": "1",
       "company": "Company Name",
-      "companyDescription": "REQUIRED: 1-2 sentences describing what this company does. ALWAYS provide this field - NEVER leave empty. Extract from: resume header, role context, or general knowledge. If not explicit, infer from company name, industry, or role descriptions. Examples: 'Electric vehicle and clean energy company', 'SaaS platform for customer engagement', 'Healthcare insurance provider'. For startups, describe their product/service.",  // MANDATORY: Company description must always be provided
-      "title": "Job Title",  // MANDATORY: Extract the actual job title - this field is REQUIRED and MUST NEVER be empty. Example: "Senior Product Manager"
+      "companyDescription": "REQUIRED: 1–2 sentences describing what this company does. ALWAYS provide this field. You may generate this at a high level using only information clearly implied by the resume. Focus on product/industry, not detailed facts.",
+      "title": "Job Title",
       "startDate": "YYYY-MM-DD",
-      "endDate": "YYYY-MM-DD or null if current",  // CRITICAL: Use null for "Present" or current positions
-      "current": true,  // CRITICAL: Set true if endDate is null or position shows "Present" or "Current"
+      "endDate": "YYYY-MM-DD or null if current",
+      "current": true,
       "location": "City, State or null",
-      "companyTags": ["SaaS", "B2B", "PLG"],  // REQUIRED: Always include tags
-      "roleTags": ["growth", "activation", "experimentation", "startup"],  // REQUIRED: Always include tags. Include ONE maturity tag: "startup", "growth-stage", or "enterprise" based on company stage during tenure.
-      "roleSummary": "EXTRACT verbatim from resume header/subheader. Do NOT paraphrase or rewrite. Example: if resume says 'Product leader for Samsung+ mobile app, improving the US customer experience for 20m users' → use that exact text.",  // REQUIRED: Extract, don't create
-      "outcomeMetrics": [  // Extract metrics WITHOUT story context (standalone metrics, no narrative). DO NOT duplicate metrics that appear in stories.
+      "companyTags": ["SaaS", "B2B", "PLG"],
+      "roleTags": ["growth", "activation", "experimentation", "startup"],
+      "roleSummary": "EXTRACTED verbatim from this role’s header/subheader or first bullet (see rules below).",
+      "outcomeMetrics": [
         {
-          "value": "+22%",  // REQUIRED: Extract numeric value (e.g., "+22%", "-3.5%", "30+", "+10")
-          "context": "Week-2 activation improvement",  // REQUIRED: Complete, self-explanatory phrase. BAD: "revenue" or "team". GOOD: "year-over-year revenue growth" or "team size increase". Must make sense without seeing original resume.
-          "type": "increase",  // REQUIRED: "increase" | "decrease" | "absolute"
-          "parentType": "role"  // REQUIRED: Always "role" for outcomeMetrics
+          "value": "+22%",
+          "context": "Week-2 activation improvement",
+          "type": "increase",
+          "parentType": "role"
         }
       ],
-      // CRITICAL: If a metric appears in a story.metrics[], do NOT also include it in outcomeMetrics[] (no duplication)
-      "stories": [  // REQUIRED: Extract 1-3+ stories per role and place them HERE in this array
+      "stories": [
         {
           "id": "1",
           "title": "Brief story title (5-8 words)",
-          "content": "Full text exactly as written",
-          "problem": "What challenge or opportunity (optional)",
-          "action": "What was done (optional)",
-          "outcome": "What resulted (optional)",
+          "content": "Full text exactly as written in the resume for this achievement.",
+          "problem": "What challenge or opportunity (optional, verbatim if present, else empty string)",
+          "action": "What was done (optional, verbatim if present, else empty string)",
+          "outcome": "What resulted (optional, verbatim if present, else empty string)",
           "tags": ["experimentation", "activation", "analytics"],
-          "linkedToRole": true,  // true if story clearly belongs to this workHistory entry
-          "company": "Company Name",  // Reference to parent company (same as workHistory.company)
-          "titleRole": "Job Title",  // Reference to parent title (same as workHistory.title)
+          "linkedToRole": true,
+          "company": "Company Name",
+          "titleRole": "Job Title",
           "metrics": [
             {
               "value": "+22%",
-              "context": "Week-2 activation", 
+              "context": "Week-2 activation improvement",
               "type": "increase",
               "parentType": "story"
             }
@@ -112,207 +133,243 @@ Return ONLY valid JSON with this exact structure. ALL FIELDS ARE REQUIRED:
 
 CRITICAL EXTRACTION RULES:
 
-1. STORIES (Most Important - Extract Aggressively):
-   CRITICAL: Extract EVERY distinct achievement/accomplishment as a separate story, regardless of formatting.
-   
-   What is a Story?
-   - ANY action with a result or impact (even if brief)
-   - Examples: "Led team of 6", "Drove $100K revenue", "Launched new feature", "Improved conversion by 10%"
-   - Format variations: bullets (•), dashes (-), paragraphs, semicolons, line breaks
-   - STAR format is ideal but NOT required - extract even short achievement statements
-   
-   Extraction Rules:
-   - ONE achievement = ONE story (do NOT collapse multiple achievements into one description)
-   - Example: "• Led X • Managed Y • Increased Z" = 3 separate stories, not 1
-   - Example: "Led X and managed Y, resulting in Z" = 2-3 stories (leadership + management + result)
-   - Empty stories[] should be RARE - most roles have 2-5+ achievements
-   - Place stories in workHistory[].stories[] array
-   
-   Story vs Metric:
-   - If has action + result = STORY (e.g., "Led team of 6" or "Drove 25% growth")
-   - If only metric with no action = role-level metric (e.g., just "25% YoY growth" in summary)
-   - When in doubt: Extract as story. Granular data is better.
-   
-   Story Structure (flexible):
-   - Minimum: action + result (e.g., "Increased activation by 22%")
-   - Ideal: problem/context + action + outcome (STAR format)
-   - Each story references parent role via company name and title
+1. METRICS (Story-Level vs Role-Level):
 
-2. METRICS (Story & Role Level):
-   Story Metrics:
-   - Extract ALL numbers: percentages ("+22%", "-3.5%"), counts ("30+"), money ("$2M")
-   - Each metric needs: value, context, type (increase/decrease/absolute), parentType ("story")
-   - Example: {"value": "+22%", "context": "Week-2 activation improvement", "type": "increase", "parentType": "story"}
-   - These metrics belong to specific stories within a role
-   
-   CONTEXT FIELD (CRITICAL):
-   - Must be a COMPLETE, SELF-EXPLANATORY phrase
-   - Include: what was measured + direction/outcome
-   - BAD: "revenue", "team", "activation" (too vague, missing direction)
-   - GOOD: "year-over-year revenue growth", "team size increase during tenure", "Week-2 activation improvement"
-   - The context should make sense WITHOUT seeing the original resume
-   
-   Role Metrics vs Story Metrics (CRITICAL - DO NOT DUPLICATE):
-   
-   Role-Level Metrics:
-   - Extract metrics that appear WITHOUT a story/narrative context
-   - Common in resumes: brief bullet points with just numbers (e.g., "Increased revenue by 25%")
-   - If a bullet has a metric but no story structure (no challenge/action/context), it's a role-level metric
-   - Examples of role-level metrics:
-     * "Increased revenue by 25%"
-     * "Reduced churn by 3.5%"
-     * "Launched 30+ features per year"
-   - Place these in outcomeMetrics[] array
-   - Each metric needs: value, context, type (increase/decrease/absolute), parentType ("role")
-   
+   PER-ROLE ISOLATION (MOST IMPORTANT):
+   - You MUST process each workHistory role INDEPENDENTLY.
+   - For a given role, you may ONLY use text from that role’s own section (its header/subheader and its bullets)
+     when extracting:
+       - outcomeMetrics for that role, and
+       - stories[].metrics for that role.
+   - NEVER copy, move, or share metrics from one role to another.
+     - Example: If a metric appears only under the Enact role, it MUST NOT appear in Aurora’s outcomeMetrics
+       or stories[].metrics unless that metric text is explicitly repeated in Aurora’s section.
+   - Metrics that appear ONLY in the global top-of-resume summary MUST NOT be assigned to any specific role
+     unless the same metric text is clearly repeated in that role’s section.
+     - In most cases, metrics in the global summary should be omitted from role-level outcomeMetrics and story.metrics.
+
    Story-Level Metrics:
-   - Extract metrics that appear WITHIN a story/narrative (STAR format, Google format, etc.)
-   - If a bullet tells a story (challenge → action → result with metric), it's a STORY with a metric
-   - Examples of story-level metrics (embedded in stories):
-     * "Faced declining activation rates, so I redesigned onboarding flows, resulting in +22% Week-2 activation"
-     * "Accomplished 30+ tests per year as measured by experimentation cadence, by implementing weekly triage process"
-   - Place these in story.metrics[] array (NOT in outcomeMetrics)
-   - Each metric needs: value, context, type, parentType ("story")
-   
-   CRITICAL RULE: A metric should appear in EITHER outcomeMetrics OR story.metrics, NEVER BOTH.
-   - If metric has story context → story.metrics only
-   - If metric is standalone/narrative-free → outcomeMetrics only
+   - Extract ALL numeric values that appear inside a story/narrative bullet for THIS ROLE.
+   - Examples: percentages ("+22%", "-3.5%"), counts ("30+"), money ("$2M", "$100K").
+   - Each story-level metric needs:
+     - value (e.g., "+22%"),
+     - context (complete, self-explanatory phrase),
+     - type: "increase" | "decrease" | "absolute",
+     - parentType: "story".
+   - Example:
+     {
+       "value": "+22%",
+       "context": "Week-2 activation improvement",
+       "type": "increase",
+       "parentType": "story"
+     }
 
-3. COMPANY DESCRIPTION (MANDATORY - NEVER SKIP):
-   CRITICAL: ALWAYS provide a company description. NEVER leave this field empty.
-   
-   Extraction Priority:
-   1. Role header taglines (e.g., "industry-leading SaaS platform", "healthcare startup")
-   2. Explicit mentions in resume header or role context
-   3. Infer from company name if well-known (e.g., "Meta" → "Social media and technology company")
-   4. Infer from industry/product mentions in role description
-   5. Infer from tags (SaaS, B2B, PLG → "B2B SaaS platform")
-   6. For obscure companies: describe the product/service based on role context
-   
-   INCLUDE FUNDING/STAGE when mentioned:
-   - If header says "Series A to C" → include in description (e.g., "Solar SaaS platform, Series A to C during tenure")
-   
-   Quality Standards:
-   - Length: 1-2 sentences describing what the company does
-   - Focus: Company's business/product/industry, NOT the specific role
-   - Examples:
-     * "Electric vehicle manufacturer and clean energy company"
-     * "No-code platform for building 3D simulations and mixed reality applications"
-     * "Solar software provider for residential and commercial installations"
-     * "Enterprise CRM and cloud software provider"
-   
-   Same Description Rule:
-   - If multiple roles at same company → use IDENTICAL companyDescription for all
-   - This is company-level info, not role-specific
+   Role-Level Metrics (outcomeMetrics):
+   - Role-level metrics are metrics that appear WITHOUT a described action in the same bullet for THIS ROLE.
+   - They are pure outcomes like:
+     - "Increased revenue by 25%"
+     - "Reduced churn by 3.5%"
+     - "Launched 30+ features per year"
+   - If a bullet only states the outcome, with no detail on what was done, treat this as a role-level metric.
+   - Place these in outcomeMetrics[] (NOT in story.metrics) for THIS ROLE only.
 
-4. TAGS (Three Levels):
-   Company Tags (2-3 tags):
-   - Industry/domain: "SaaS", "B2B", "CRM", "PLG", "enterprise"
-   - Company stage: "startup", "growth-stage", "established"
-   
-   Role Tags (3-5 tags):
-   - Core competencies demonstrated in this role
-   - Options: growth, activation, retention, experimentation, analytics, strategy, 
-     execution, plg, process, onboarding, ux, lifecycle, alignment, enablement, adoption
-   - Company maturity at tenure: Include ONE of "startup", "growth-stage", or "enterprise" 
-     based on company description, role context, or explicit mentions (e.g., "Series A startup", 
-     "enterprise software", "growth-stage company"). Infer from company size, funding stage, 
-     or description if not explicitly stated.
-   
-   Story Tags (2-3 tags per story):
-   - Specific themes of that achievement
-   - Use same vocabulary as role tags
+   Distinguishing Rule (CRITICAL):
+   - If a bullet/narrative for this role clearly describes an action and the result together, treat it as a STORY
+     with story-level metrics (see shared story guidance above).
+   - If a bullet/narrative only states the outcome (e.g., "Increased revenue by 25%") without describing what was done,
+     treat it as a ROLE-LEVEL metric.
 
-4. FIELD NAMES:
-   - Use "title" for job title - THIS FIELD IS REQUIRED AND MUST NEVER BE EMPTY
-   - Use "field" for education major
-   - Current jobs: endDate = null, current = true
+   CONTEXT FIELD (CRITICAL):
+   - Must be a COMPLETE, SELF-EXPLANATORY phrase.
+   - Include: what was measured + direction/outcome.
+   - BAD: "revenue", "team", "activation".
+   - GOOD: "year-over-year revenue growth", "team size increase during tenure", "Week-2 activation improvement".
+
+   NO DUPLICATION RULE (MOST IMPORTANT):
+   - A metric must appear in EITHER outcomeMetrics OR story.metrics, NEVER BOTH.
+   - If a metric has story context (action + result), put it ONLY in story.metrics.
+   - If a metric appears as a standalone outcome, put it ONLY in outcomeMetrics.
+   - NEVER duplicate a metric across roles. Each role’s metrics must come exclusively from that role’s text.
+
+2. COMPANY DESCRIPTION (MANDATORY - NEVER SKIP):
+
+   CRITICAL: ALWAYS provide a companyDescription. NEVER leave this field empty.
+
+   What companyDescription is:
+   - A 1–2 sentence, high-level description of what the company does: product, service, industry.
+   - Example patterns:
+     - "Solar software provider for residential and commercial installations."
+     - "Electric vehicle and clean energy company."
+     - "No-code platform for building 3D simulations and mixed reality applications."
+     - "Enterprise CRM and cloud software provider."
+
+   Allowed Inference (Exception to Extraction-Only Rule):
+   - You may infer a high-level description from:
+     - Company name if well-known,
+     - Industry or product mentions in the role bullets,
+     - Resume context around this company.
+   - Do NOT invent specific quantitative facts (revenue, user counts, funding) that the resume does not clearly imply.
+
+   Consistency:
+   - If multiple roles exist for the same company, use IDENTICAL companyDescription for all roles at that company.
+
+3. TAGS (Company, Role, Story):
+
+   Company Tags (companyTags, 2–4 tags):
+   - Industry/domain (e.g., "SaaS", "B2B", "CRM", "healthcare", "fintech").
+   - Stage: include exactly one maturity tag at the company level such as "startup", "growth-stage", or "enterprise".
+
+   Role Tags (roleTags, 3–7 tags):
+   - Core competencies demonstrated in this role:
+     - growth, activation, retention, experimentation, analytics, strategy,
+       execution, plg, process, onboarding, ux, lifecycle, alignment,
+       enablement, adoption, leadership, platform, ai-ml, etc.
+   - Include exactly ONE maturity tag for the company at the time of this role:
+     - "startup" | "growth-stage" | "enterprise".
+   - You may infer maturity from context (e.g., "Series A startup", "Fortune 500", "enterprise software company"), but do not invent details.
+
+   Story Tags (stories[].tags, 2–3 per story):
+   - Specific themes for that achievement.
+   - Use the same vocabulary set as roleTags, focusing only on what is clearly implied by the story text.
+
+4. FIELD NAMES AND MISSING DATA:
+
+   - Use "title" for the job title (this field is REQUIRED and must NEVER be empty; if you cannot find it, you have made an error).
+   - Use "field" for education major.
+   - Current jobs: endDate = null, current = true.
+   - If a value is missing:
+     - Strings → "" (empty string).
+     - email, phone, website, github, substack, gpa → null if missing.
+     - Arrays (outcomeMetrics, stories, certifications, projects) → [] if empty.
 
 5. DATES AND CURRENT STATUS:
-   - Format: "YYYY-MM-DD" (use -01-01 for year-only, -12-31 for end years)
-   - If endDate shows "Present", "Current", or no end date, set endDate = null AND current = true
-   
-6. JOB TITLE EXTRACTION (CRITICAL):
-   - EVERY resume entry includes both company name AND job title
-   - The job title appears immediately after the company name (e.g., "FlowHub — Senior Product Manager")
-   - You MUST extract the title regardless of formatting (dash, pipe, parentheses, etc.)
-   - The "title" field is MANDATORY - if you cannot extract it, you have made an error
-   - Examples: "Senior Product Manager", "Product Manager", "Associate Product Manager"
-   - DO NOT leave title empty or null under any circumstances
 
-7. ROLE SUMMARY (EXTRACTION ONLY):
-   - EXTRACT verbatim from resume header/subheader text
-   - Do NOT paraphrase, summarize, or rewrite
-   - Example: Resume says "Product leader for Samsung+ mobile app, improving the US customer experience for 20m users"
-     → Extract exactly: "Product leader for Samsung+ mobile app, improving the US customer experience for 20m users"
-     → BAD: "Product leader for Samsung+ mobile app, significantly improving customer experience for millions of users"
-   - Preserve exact numbers, exact phrasing, exact scope descriptions
-   - If no header/subheader text exists, leave empty or use first sentence of first bullet verbatim
+   - Date format: "YYYY-MM-DD".
+   - If only a year is available, use:
+     - Start: "YYYY-01-01"
+     - End: "YYYY-12-31"
+   - If the end date is labeled "Present", "Current", or missing:
+     - endDate = null,
+     - current = true.
 
-8. ROLE HEADER CONTEXT:
-   Resume entries often contain rich context in headers/subheaders beyond company + title:
-   - Funding/stage: "Series A", "Pre-IPO", "Fortune 500", "Seed to Series B"
-   - Growth multipliers: "2X revenue", "10X team", "3X ARR"
-   - Role positioning: "First hire", "Founding team", "Employee #5"
-   - Company descriptors: "leading SaaS platform", "healthcare startup"
-   
-   EXTRACTION RULES:
-   - Company descriptors → companyDescription field
-   - Funding/stage → include in companyTags AND companyDescription
-   - Growth multipliers → outcomeMetrics[] with FULL context (e.g., "2X" + "year-over-year revenue growth")
-   - Role positioning → include in roleSummary (e.g., "First product hire...")
-   
-   DO NOT lose header context just because it's not in bullet format.
+6. ROLE SUMMARY (EXTRACTION ONLY, PER ROLE):
+
+   - roleSummary is a SHORT, VERBATIM extract attached to THIS SPECIFIC ROLE.
+   - Acceptable sources for roleSummary, in priority order:
+     1) Role-level header/subheader text immediately attached to this job entry
+        (on the same line as, or directly under, the company + title).
+     2) If no role-level header/subheader exists, use the first sentence of the first bullet for this role, verbatim.
+     3) If neither exists, set roleSummary to "" (empty string).
+
+   CRITICAL: NEVER use the global resume header as roleSummary. NEVER duplicate roleSummary across roles.   - NEVER use the global resume header/profile summary at the top of the resume as roleSummary.
+   - NEVER copy the same non-empty global summary text into roleSummary for multiple roles.
+   - Do NOT copy the same non-empty roleSummary text into multiple roles unless the resume explicitly repeats
+     that exact text under each of those roles. In most resumes, each role should have a distinct roleSummary.
+   - If you cannot find any role-specific header/subheader or first-bullet sentence for a role, leave roleSummary = "".
+
+7. ROLE HEADER CONTEXT:
+
+   - Resume entries often contain rich context in each role’s header/subheader (not the global resume summary).
+     Examples:
+     - Funding/stage: "Series A to C", "Pre-IPO".
+     - Growth multipliers: "2X revenue", "10X team".
+     - Role positioning: "Founding PM", "First product hire".
+     - Company descriptors: "leading SaaS platform", "healthcare startup".
+
+   Extraction Rules:
+   - Use role-level descriptors in:
+     - companyDescription, when they describe the company.
+     - roleSummary, when they describe role positioning.
+   - If growth multipliers appear as bare outcomes (with no described action), treat them as outcomeMetrics FOR THAT ROLE ONLY.
+   - Do NOT treat the top-of-resume global summary/profile as a role header.
+
+8. CONTACT INFO AND LOCATION:
+
+   - contactInfo should include ONLY:
+     - email, phone, linkedin, website, github, substack (if present).
+   - Do NOT put geographic location in contactInfo.
+   - location (top-level field) is the geographic location (City, State, Country) for the candidate if provided.
+
+9. STORIES ARRAY (PER ROLE):
+
+   - stories[] should capture individual achievements for THIS ROLE, following the SHARED STORY GUIDANCE above.
+   - For each role, use ONLY the text from that role’s section to create stories.
+   - Each story:
+     - content: full bullet or paragraph text verbatim from the resume.
+     - title: a short 5–8 word label you create summarizing the achievement.
+     - metrics: any numeric values tied to this story, following the metric rules above (and NEVER copied from other roles).
+   - linkedToRole should be true for all stories derived from this role’s section.
+   - Each story must reference its parent role via company and titleRole.
+   - In a typical resume, most roles will have multiple achievements. For any role that contains concrete bullets
+  (ownership, improvements, launches, measurable impact), it is an error to leave stories: [].
+- When in doubt between "no story" and "a story with empty problem/action/outcome and metrics: []",
+  you MUST choose to extract the story.
 
 EXAMPLE OUTPUT (FlowHub role from resume):
+
 Resume text shows:
 "FlowHub — Senior Product Manager (2021-05–Present) | San Francisco, CA
-• Overhauled self-serve onboarding; Week‑2 activation +22% and trial→paid +11% across SMB.
+• Overhauled self-serve onboarding; Week-2 activation +22% and trial→paid +11% across SMB.
 • Built experimentation cadence (weekly triage, monthly reviews); 30+ tests/year.
 • Defined analytics taxonomy and dashboards adopted by PMM/CS for lifecycle targeting."
 
-Expected JSON:
+Expected JSON snippet for this role (illustrative, but follows all rules):
+
 {
   "company": "FlowHub",
-  "companyDescription": "SaaS platform for workflow automation and team collaboration",  // REQUIRED: Company-level description
-  "title": "Senior Product Manager",  // REQUIRED: Must extract actual title regardless of format
+  "companyDescription": "SaaS platform for workflow automation and team collaboration.",
+  "title": "Senior Product Manager",
   "startDate": "2021-05-01",
-  "endDate": null,  // null because current = true
-  "current": true,  // REQUIRED: Set true for "Present" or current positions
+  "endDate": null,
+  "current": true,
   "location": "San Francisco, CA",
-  "companyTags": ["SaaS", "B2B", "PLG"],
+  "companyTags": ["SaaS", "B2B", "PLG", "growth-stage"],
   "roleTags": ["growth", "activation", "experimentation", "analytics", "process", "growth-stage"],
-  "roleSummary": "Owned onboarding optimization and experimentation cadence for PLG SaaS platform, driving activation and trial conversion across SMB segment.",
-  "outcomeMetrics": [  // CRITICAL: Extract ALL 3 metrics from the bullets above
-    {"value": "+22%", "context": "Week-2 activation", "type": "increase", "parentType": "role"},
-    {"value": "+11%", "context": "trial-to-paid conversion", "type": "increase", "parentType": "role"},
-    {"value": "30+", "context": "tests per year", "type": "absolute", "parentType": "role"}
-  ],
+  "roleSummary": "Overhauled self-serve onboarding; Week-2 activation +22% and trial→paid +11% across SMB.",
+  "outcomeMetrics": [],
   "stories": [
     {
       "id": "1",
-      "title": "Overhauled self-serve onboarding for SMB activation",
-      "content": "Overhauled self-serve onboarding; Week-2 activation +22% and trial→paid +11% across SMB",
+      "title": "Overhauled self-serve onboarding for SMB",
+      "content": "Overhauled self-serve onboarding; Week-2 activation +22% and trial→paid +11% across SMB.",
+      "problem": "",
+      "action": "",
+      "outcome": "",
       "tags": ["onboarding", "activation", "growth"],
+      "linkedToRole": true,
+      "company": "FlowHub",
+      "titleRole": "Senior Product Manager",
       "metrics": [
-        {"value": "+22%", "context": "Week-2 activation", "type": "increase", "parentType": "story"},
-        {"value": "+11%", "context": "trial-to-paid conversion", "type": "increase", "parentType": "story"}
+        {"value": "+22%", "context": "Week-2 activation improvement", "type": "increase", "parentType": "story"},
+        {"value": "+11%", "context": "trial-to-paid conversion improvement", "type": "increase", "parentType": "story"}
       ]
     },
     {
       "id": "2",
-      "title": "Built experimentation cadence with weekly triage",
-      "content": "Built experimentation cadence (weekly triage, monthly reviews); 30+ tests/year",
+      "title": "Built experimentation cadence with reviews",
+      "content": "Built experimentation cadence (weekly triage, monthly reviews); 30+ tests/year.",
+      "problem": "",
+      "action": "",
+      "outcome": "",
       "tags": ["experimentation", "process"],
+      "linkedToRole": true,
+      "company": "FlowHub",
+      "titleRole": "Senior Product Manager",
       "metrics": [
-        {"value": "30+", "context": "tests per year", "type": "absolute", "parentType": "story"}
+        {"value": "30+", "context": "experiments run per year", "type": "absolute", "parentType": "story"}
       ]
     },
     {
       "id": "3",
-      "title": "Defined analytics taxonomy for lifecycle targeting",
-      "content": "Defined analytics taxonomy and dashboards adopted by PMM/CS for lifecycle targeting",
+      "title": "Defined analytics taxonomy for lifecycle",
+      "content": "Defined analytics taxonomy and dashboards adopted by PMM/CS for lifecycle targeting.",
+      "problem": "",
+      "action": "",
+      "outcome": "",
       "tags": ["analytics", "alignment", "lifecycle"],
+      "linkedToRole": true,
+      "company": "FlowHub",
+      "titleRole": "Senior Product Manager",
       "metrics": []
     }
   ]
@@ -320,25 +377,12 @@ Expected JSON:
 
 CRITICAL REMINDERS:
 
-1. Contact Info: Only include email, phone, and external URLs (linkedin, website, github, substack). Do NOT include location here.
-
-2. Location: Extract geographic location separately (City, State, Country). This is NOT contact information.
-
-3. stories[] array: Extract achievements with narrative context (challenge/action/result, STAR format, etc.). If a bullet tells a story, extract it as a story.
-
-4. Metrics Duplication Rule (MOST IMPORTANT):
-   - If a metric appears WITHIN a story (story.metrics[]) → DO NOT also put it in outcomeMetrics[]
-   - If a metric appears WITHOUT a story context (standalone bullet) → Put it in outcomeMetrics[] only
-   - Resumes are compact: Most metrics will be role-level (no story context)
-   - Stories with metrics (STAR format, Google format) → story.metrics[] only
-   - NEVER duplicate the same metric in both outcomeMetrics[] and story.metrics[]
-
-5. Resume vs Cover Letter Context:
-   - RESUMES: Contain achievements in compact format (bullets, short sentences). Extract EACH as a story.
-   - COVER LETTERS: Contain expanded narratives with more context. Often elaborates on resume achievements.
-   - BOTH contain stories - resumes have more (but shorter), cover letters have fewer (but longer)
-   - Extract aggressively from resumes - users rely on this data for cover letter generation.
-
-Return ONLY the JSON object. No markdown, no explanations, no additional text.
+1. Do NOT paraphrase content fields. Stories, summaries, and roleSummaries must use exact resume text.
+2. A metric appears in EITHER outcomeMetrics OR story.metrics, never both.
+3. Metrics must NEVER be shared or copied between roles. Each role’s metrics must come ONLY from that role’s own text.
+4. summary comes from the global top-of-resume profile only; roleSummary comes from each specific role section.
+5. It is an error if two different roles share the same non-empty roleSummary text unless the resume explicitly repeats that text.
+6. companyDescription may be lightly generated at a high level but must not invent specific facts not clearly implied by the resume.
+7. Return ONLY the JSON object. BEFORE RETURNING: Verify that "summary" ≠ any "roleSummary" AND all non-empty "roleSummary" values are unique. No markdown, no explanations, no additional text.
 `;
-};
+}

@@ -52,4 +52,31 @@ export function isExternalLinksEnabled(): boolean {
   return Boolean(viteExposed);
 }
 
+/**
+ * Feature flags helper for LinkedIn Scraping.
+ * Canonical name: ENABLE_LI_SCRAPING
+ * We also accept VITE_ENABLE_LI_SCRAPING for Vite builds, but canonical wins.
+ */
+export function isLinkedInScrapingEnabled(): boolean {
+  // Canonical first
+  const canonical =
+    (typeof process !== 'undefined' && process.env && process.env.ENABLE_LI_SCRAPING === 'true') ||
+    (typeof import.meta !== 'undefined' &&
+      (import.meta as any).env &&
+      (import.meta as any).env.ENABLE_LI_SCRAPING === 'true');
+
+  if (canonical) return true;
+
+  // Fallback to Vite-exposed name if canonical is not available
+  const viteExposed =
+    (typeof import.meta !== 'undefined' &&
+      (import.meta as any).env &&
+      (import.meta as any).env.VITE_ENABLE_LI_SCRAPING === 'true') ||
+    (typeof process !== 'undefined' &&
+      process.env &&
+      process.env.VITE_ENABLE_LI_SCRAPING === 'true');
+
+  return Boolean(viteExposed);
+}
+
 

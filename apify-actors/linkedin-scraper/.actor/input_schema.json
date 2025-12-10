@@ -1,0 +1,17 @@
+{
+  "title": "LinkedIn Profile Scraper Input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "profileUrls": {
+      "title": "Profile URLs",
+      "type": "array",
+      "description": "LinkedIn profile URLs to scrape",
+      "editor": "stringList",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": ["profileUrls"]
+}

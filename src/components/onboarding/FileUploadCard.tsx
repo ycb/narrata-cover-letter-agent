@@ -44,6 +44,10 @@ interface FileUploadCardProps {
    * Must return { success, fileId?, error? } similar to UploadResult.
    */
   customUpload?: (file: File) => Promise<{ success: boolean; fileId?: string; error?: string }>;
+  /**
+   * For LinkedIn type: disable Connect button (e.g., when feature flag is off)
+   */
+  disableConnect?: boolean;
 }
 
 export function FileUploadCard({
@@ -60,7 +64,8 @@ export function FileUploadCard({
   currentValue,
   onUploadComplete,
   onUploadError,
-  customUpload
+  customUpload,
+  disableConnect = false
 }: FileUploadCardProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [linkedInUrl, setLinkedInUrl] = useState('');
@@ -487,7 +492,7 @@ export function FileUploadCard({
           />
           <Button 
             onClick={handleLinkedInSubmit}
-            disabled={!linkedInUrl.trim() || linkedInUpload.isConnecting}
+            disabled={!linkedInUrl.trim() || linkedInUpload.isConnecting || disableConnect}
             size="sm"
             variant="secondary"
           >
@@ -625,7 +630,8 @@ export function FileUploadCard({
         </div>
       </CardHeader>
       <CardContent>
-        {isCompleted && (type === 'resume' || type === 'coverLetter') && uploadedFileId ? (
+        {/* Show uploaded state if we have either a stored fileId or a current file/value */}
+        {isCompleted && (type === 'resume' || type === 'coverLetter') ? (
           <div className="space-y-3">
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
               <div className="flex items-center gap-3">
@@ -633,7 +639,12 @@ export function FileUploadCard({
                   <FileText className="w-4 h-4 text-blue-600" />
                 </div>
                 <div>
-                  <p className="font-medium text-gray-900">{uploadedFileName}</p>
+                  <p className="font-medium text-gray-900">
+                    {uploadedFileName
+                      || (currentValue instanceof File && currentValue.name)
+                      || (typeof currentValue === 'string' && currentValue.trim().length > 0 ? currentValue.split('/').pop() : undefined)
+                      || 'Uploaded file'}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">

@@ -91,7 +91,10 @@ export class LLMAnalysisService {
     onStageComplete?: (stage: string, data: unknown) => void
   ): Promise<LLMAnalysisResult> {
     const startTime = Date.now();
-    console.warn('🚀 Starting STAGED resume analysis (3-stage split)');
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('⏱️  [TIMING] analyzeResumeStagedWithEvents START');
+    console.log('⏱️  [TIMING] Input length: ' + text.length + ' chars');
+    console.log('═══════════════════════════════════════════════════════════');
 
     try {
       // Import split prompts dynamically to avoid circular deps
@@ -186,9 +189,10 @@ export class LLMAnalysisService {
       };
 
       // STAGE 1: Work history skeleton (fast, ~5-8s)
-      console.warn('📋 Stage 1: Extracting work history skeleton...');
+      console.log('⏱️  [TIMING] ───  LLM Stage 1: Work History Skeleton ───');
       const stage1Start = Date.now();
       const skeletonPrompt = buildWorkHistorySkeletonPrompt(text);
+      console.log(`⏱️  [TIMING] Calling OpenAI for skeleton (maxTokens: 2000)...`);
       const skeletonResponse = await this.callOpenAI(skeletonPrompt, 2000); // Small output
       
       if (!skeletonResponse.success || !skeletonResponse.data) {
@@ -196,29 +200,37 @@ export class LLMAnalysisService {
       }
       
       const skeleton = skeletonResponse.data as unknown as WorkHistorySkeleton;
-      console.warn(`✅ Stage 1 complete: ${skeleton.workHistory?.length || 0} roles found (${Date.now() - stage1Start}ms)`);
+      const stage1Ms = Date.now() - stage1Start;
+      console.log(`⏱️  [TIMING] ✅ Stage 1 complete: ${stage1Ms}ms (${skeleton.workHistory?.length || 0} roles found)`);
       onStageComplete?.('workHistorySkeleton', skeleton);
 
       // STAGE 2 + STAGE 3: Run in PARALLEL (both only depend on Stage 1)
-      console.warn(`📖 Stage 2+3: Extracting stories (${skeleton.workHistory?.length || 0} roles) AND skills in parallel...`);
+      console.log(`⏱️  [TIMING] ───  LLM Stage 2+3: Stories (${skeleton.workHistory?.length || 0} roles) + Skills (PARALLEL) ───`);
       const stage2and3Start = Date.now();
       
       // Stage 2: Stories per role (parallel within itself)
-      const storyPromises = (skeleton.workHistory || []).map(async (role) => {
+      console.log(`⏱️  [TIMING] Launching ${skeleton.workHistory?.length || 0} parallel LLM calls for role stories...`);
+      const storyPromises = (skeleton.workHistory || []).map(async (role, idx) => {
+        const roleStart = Date.now();
         const prompt = buildRoleStoriesPrompt(text, {
           company: role.company,
           title: role.title,
           id: role.id
         });
         const response = await this.callOpenAI(prompt, 3000); // Medium output per role
+        const roleMs = Date.now() - roleStart;
         if (!response.success || !response.data) {
-          console.warn(`⚠️ Stage 2 failed for role ${role.company}: ${response.error}`);
+          console.log(`⏱️  [TIMING] ⚠️  Role ${idx + 1}/${skeleton.workHistory?.length} (${role.company}) failed: ${roleMs}ms - ${response.error}`);
           return { roleId: role.id, outcomeMetrics: [], stories: [] } as RoleStoriesResult;
         }
-        return response.data as unknown as RoleStoriesResult;
+        const result = response.data as unknown as RoleStoriesResult;
+        console.log(`⏱️  [TIMING] ✅ Role ${idx + 1}/${skeleton.workHistory?.length} (${role.company}): ${roleMs}ms (${result.stories?.length || 0} stories)`);
+        return result;
       });
 
       // Stage 3: Skills + education + contact
+      console.log(`⏱️  [TIMING] Launching LLM call for skills + education...`);
+      const stage3Start = Date.now();
       const skillsPrompt = buildSkillsAndEducationPrompt(text);
       const skillsPromise = this.callOpenAI(skillsPrompt, 2000);
 
@@ -228,7 +240,8 @@ export class LLMAnalysisService {
         skillsPromise
       ]);
 
-      console.warn(`✅ Stage 2 complete: ${roleStories.reduce((acc, r) => acc + (r.stories?.length || 0), 0)} total stories`);
+      const totalStories = roleStories.reduce((acc, r) => acc + (r.stories?.length || 0), 0);
+      console.log(`⏱️  [TIMING] ✅ Stage 2 complete: ${totalStories} total stories`);
       onStageComplete?.('roleStories', roleStories);
 
       if (!skillsResponse.success || !skillsResponse.data) {
@@ -236,8 +249,11 @@ export class LLMAnalysisService {
       }
       
       const skillsData = skillsResponse.data as unknown as SkillsAndEducationResult;
-      console.warn(`✅ Stage 3 complete: ${skillsData.skills?.length || 0} skill categories, ${skillsData.education?.length || 0} education entries`);
-      console.warn(`✅ Stage 2+3 parallel complete in ${Date.now() - stage2and3Start}ms`);
+      const stage3Ms = Date.now() - stage3Start;
+      console.log(`⏱️  [TIMING] ✅ Stage 3 complete: ${stage3Ms}ms (${skillsData.skills?.length || 0} skill categories, ${skillsData.education?.length || 0} education entries)`);
+      
+      const stage2and3Ms = Date.now() - stage2and3Start;
+      console.log(`⏱️  [TIMING] ✅ Stage 2+3 parallel complete in ${stage2and3Ms}ms`);
       onStageComplete?.('skillsAndEducation', skillsData);
 
       // MERGE all stages into final structured data
@@ -262,7 +278,10 @@ export class LLMAnalysisService {
       };
 
       const totalTime = Date.now() - startTime;
-      console.warn(`🎉 STAGED analysis complete in ${totalTime}ms (${(totalTime / 1000).toFixed(1)}s)`);
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log(`⏱️  [TIMING] 🎉 analyzeResumeStagedWithEvents COMPLETE`);
+      console.log(`⏱️  [TIMING] Total time: ${totalTime}ms (${(totalTime / 1000).toFixed(1)}s)`);
+      console.log('═══════════════════════════════════════════════════════════');
 
       return {
         success: true,
@@ -356,20 +375,32 @@ export class LLMAnalysisService {
     text: string,
     workHistory: Array<{ id: string; company: string; title: string; startDate: string | null; endDate: string | null }>
   ): Promise<LLMAnalysisResult> {
+    const startTime = Date.now();
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('⏱️  [TIMING] analyzeCoverLetterStories START');
+    console.log(`⏱️  [TIMING] Input length: ${text.length} chars, Work history items: ${workHistory.length}`);
+    console.log('═══════════════════════════════════════════════════════════');
+    
     try {
       // Import prompt builder
       const { buildCoverLetterStoryExtractionPrompt } = await import('@/prompts/coverLetterStoryExtraction');
       
       // Build simplified prompt (just stories + voice, no paragraph parsing)
+      const promptStart = Date.now();
       const prompt = buildCoverLetterStoryExtractionPrompt(text, workHistory);
+      console.log(`⏱️  [TIMING] Prompt built: ${(Date.now() - promptStart).toFixed(2)}ms`);
       
       // Much smaller token allocation (no template extraction, no profile data)
       const optimalTokens = 2500; // Fixed budget for stories + voice only
-      console.warn(`🚀 Starting cover letter story extraction with ${optimalTokens} tokens (2-stage approach)`);
+      console.log(`⏱️  [TIMING] Calling OpenAI for CL stories (maxTokens: ${optimalTokens})...`);
       
+      const llmStart = Date.now();
       const response = await this.callOpenAI(prompt, optimalTokens);
+      const llmMs = Date.now() - llmStart;
+      console.log(`⏱️  [TIMING] ✅ OpenAI call complete: ${llmMs}ms`);
       
       if (!response.success) {
+        console.log(`⏱️  [TIMING] ❌ LLM call failed after ${llmMs}ms`);
         return {
           success: false,
           error: response.error,
@@ -380,12 +411,19 @@ export class LLMAnalysisService {
       // Return stories + voice data
       const structuredData = response.data as Record<string, unknown>;
       
+      const totalTime = Date.now() - startTime;
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log(`⏱️  [TIMING] 🎉 analyzeCoverLetterStories COMPLETE`);
+      console.log(`⏱️  [TIMING] Total time: ${totalTime}ms (${(totalTime / 1000).toFixed(1)}s)`);
+      console.log('═══════════════════════════════════════════════════════════');
+      
       return {
         success: true,
         data: structuredData as unknown as StructuredResumeData
       };
     } catch (error) {
-      console.error('Cover letter story extraction error:', error);
+      const totalTime = Date.now() - startTime;
+      console.error(`⏱️  [TIMING] ❌ Cover letter story extraction error after ${totalTime}ms:`, error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Cover letter story extraction failed',

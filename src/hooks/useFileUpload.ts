@@ -3,10 +3,11 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { FileUploadService } from '@/services/fileUploadService';
 import { AppifyService, type AppifyEnrichmentResult } from '@/services/appifyService';
 import { LinkedInOAuthService } from '@/services/linkedinOAuthService';
-import { PeopleDataLabsService } from '@/services/peopleDataLabsService';
+// PDL deprecated for LinkedIn enrichment
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { extractLinkedInUsername } from '@/utils/linkedinUtils';
+import { isLinkedInScrapingEnabled } from '@/lib/flags';
 import type { 
   UseFileUploadOptions, 
   UseFileUploadReturn, 
@@ -151,17 +152,27 @@ export function useFileUpload(options: UseFileUploadOptions = {}): UseFileUpload
     allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain', 'text/markdown'],
     maxFileSize = 5 * 1024 * 1024 // 5MB
   } = options;
-  // Listen for file upload progress events from the service
+  // Listen for file upload progress events from the service (keep bar alive even if progress array is empty)
   useEffect(() => {
     const handleProgressEvent = (event: Event) => {
       const customEvent = event as CustomEvent;
-      const { progress: progressPercent } = customEvent.detail;
+      const { progress: progressPercent, fileType, fileId: eventFileId } = customEvent.detail || {};
+      const targetFileType = eventFileId || fileType || 'file';
       
       setProgress(prev => {
-        if (prev.length === 0) return prev;
+        // If no entries, create a placeholder so progress doesn't vanish
+        if (prev.length === 0) {
+          return [{
+            fileId: targetFileType,
+            fileName: targetFileType,
+            status: 'processing',
+            progress: progressPercent || 0
+          }];
+        }
+        // Update the most recent entry
         const lastIndex = prev.length - 1;
         return prev.map((p, idx) => 
-          idx === lastIndex ? { ...p, progress: progressPercent } : p
+          idx === lastIndex ? { ...p, progress: progressPercent || p.progress, status: 'processing' } : p
         );
       });
     };
@@ -539,6 +550,42 @@ export function useLinkedInUpload() {
       return { success: false, error: errorMsg, retryable: false };
     }
 
+    // Feature flag: Skip scraping if disabled
+    if (!isLinkedInScrapingEnabled()) {
+      console.log('📌 LinkedIn scraping disabled by feature flag (ENABLE_LI_SCRAPING=false)');
+      setIsConnecting(false);
+      
+      // Create a stub fileId for consistency
+      const stubFileId = `linkedin_disabled_${Date.now()}`;
+      
+      // Emit progress event indicating scraping is disabled
+      if (onProgress) {
+        onProgress({
+          stage: 'complete',
+          percent: 100,
+          message: 'LinkedIn scraping disabled - URL saved',
+          status: 'success'
+        });
+      }
+      
+      // Emit global progress event so auto-advance works
+      window.dispatchEvent(new CustomEvent('global-progress', {
+        detail: {
+          task: 'linkedin',
+          status: 'done',
+          percent: 100,
+          label: 'LinkedIn scraping disabled'
+        }
+      }));
+      
+      // Return success with stub fileId
+      return { 
+        success: true, 
+        fileId: stubFileId,
+        message: 'LinkedIn scraping disabled - URL validated but not scraped'
+      };
+    }
+
     try {
       setIsConnecting(true);
       setError(null);
@@ -667,85 +714,12 @@ export function useLinkedInUpload() {
           }
         }
         
-        // Strategy 3: Try People Data Labs enrichment
-        if (!profileData) {
-          console.log('Attempting People Data Labs enrichment...');
-          
-          const pdlService = new PeopleDataLabsService();
-          
-          // Get user's name and resume data for PDL enrichment
-          const oauthData = getOAuthData();
-          const fullName = oauthData.fullName || profile?.full_name;
-          
-          // Try to get resume data to extract company info
-          let resumeData = null;
-          try {
-            const { data: uploadedFiles, error: resumeError } = await supabase
-              .from('sources')
-              .select('structured_data')
-              .eq('user_id', user.id)
-              .eq('file_type', 'resume')
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .single();
-            
-            if (uploadedFiles && !resumeError) {
-              resumeData = (uploadedFiles as any).structured_data;
-            }
-          } catch (err) {
-            console.log('No resume data found for PDL enrichment');
-          }
-          
-          const pdlResult = await pdlService.enrichFromResumeData(
-            fullName,
-            resumeData,
-            trimmedUrl
-          );
-          
-          if (pdlResult.success && pdlResult.data) {
-            console.log('✅ Successfully enriched LinkedIn data via People Data Labs');
-            console.log('PDL likelihood score:', pdlResult.likelihood);
-            dataSource = 'people_data_labs';
-            
-            // Convert PDL data to our format
-            const structuredData = pdlService.convertToStructuredData(pdlResult.data);
-            
-            profileData = {
-              id: profileId,
-              linkedinId: linkedinUsername,
-              profileUrl: trimmedUrl,
-              firstName: pdlResult.data.first_name || 'Unknown',
-              lastName: pdlResult.data.last_name || 'User',
-              headline: pdlResult.data.headline || pdlResult.data.job_title_name || 'Professional',
-              summary: pdlResult.data.summary || 'No summary available',
-              experience: structuredData.workHistory,
-              education: structuredData.education,
-              skills: structuredData.skills,
-              certifications: structuredData.certifications || [],
-              projects: structuredData.projects || []
-            };
-          }
-        }
-        
-        // Strategy 4: Fallback to minimal data if all strategies fail
-        if (!profileData) {
-          console.warn('All enrichment strategies failed, using minimal data');
-          dataSource = 'minimal';
-          profileData = {
-            id: profileId,
-            linkedinId: linkedinUsername,
-            profileUrl: trimmedUrl,
-            firstName: 'User',
-            lastName: 'Profile',
-            headline: 'Professional Profile',
-            summary: 'Professional with experience in the industry.',
-            experience: [],
-            education: [],
-            skills: [],
-            certifications: [],
-            projects: []
-          };
-        }
+      // Strategy 3: If all enrichment strategies fail, stop (no minimal fallback)
+      if (!profileData) {
+        console.warn('All enrichment strategies failed; not storing minimal LinkedIn data');
+        setIsConnecting(false);
+        return { success: false, error: 'LinkedIn enrichment failed', retryable: true };
+      }
       }
       
       // Store in sources table (unified storage)
@@ -814,6 +788,11 @@ export function useLinkedInUpload() {
         console.warn('Database not available for LinkedIn profile storage:', dbError);
         // Continue with profile data
       }
+
+      // Emit completion progress for LinkedIn after DB writes
+      window.dispatchEvent(new CustomEvent('global-progress', {
+        detail: { task: 'linkedin', status: 'done', percent: 100, label: '[PROGRESS] linkedin complete' }
+      }));
 
       return {
         success: true,

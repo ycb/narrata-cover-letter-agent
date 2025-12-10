@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar, Plus } from "lucide-react";
 import { IntelligentAlertBadge } from "@/components/ui/IntelligentAlertBadge";
 import { cn } from "@/lib/utils";
+import { isLinkedInScrapingEnabled } from "@/lib/flags";
 import type { WorkHistoryCompany, WorkHistoryRole } from "@/types/workHistory";
 
 interface WorkHistoryMasterProps {
@@ -57,12 +58,10 @@ export const WorkHistoryMaster = ({
     if (!(role as any).hasGaps) return 0;
     
     const originalGapCount = (role as any).gapCount || 0;
-    let resolvedCount = 0;
     
-    // Count resolved gaps for this role
-    if (resolvedGaps.has('role-description-gap')) resolvedCount++;
-    if (resolvedGaps.has('outcome-metrics-gap')) resolvedCount++;
-    if (resolvedGaps.has('story-content-gap')) resolvedCount++;
+    // Check if this specific role has any resolved gaps by matching gap IDs
+    const roleGaps = (role as any).gaps || [];
+    const resolvedCount = roleGaps.filter((gap: any) => resolvedGaps.has(gap.id)).length;
     
     return Math.max(0, originalGapCount - resolvedCount);
   };
@@ -178,34 +177,37 @@ export const WorkHistoryMaster = ({
         <div className="border-t border-muted mt-auto pt-4">
           <h2 className="text-lg font-semibold text-foreground mb-3">Data Sources</h2>
           <div className="space-y-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn(
-                "w-full justify-start text-left h-auto py-3 px-4 transition-colors group !rounded-none relative",
-                selectedDataSource === 'linkedin'
-                  ? "bg-muted/30 text-foreground hover:bg-muted/30"
-                  : "hover:bg-primary hover:text-primary-foreground"
-              )}
-              onClick={onLinkedInClick}
-            >
-              {selectedDataSource === 'linkedin' && (
-                <div className="absolute left-0 top-0 bottom-0 w-1 bg-foreground" />
-              )}
-              <div className="flex-1 text-left">
-                <div className={cn(
+            {/* LinkedIn data source - HIDDEN when feature flag is OFF */}
+            {isLinkedInScrapingEnabled() && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  "w-full justify-start text-left h-auto py-3 px-4 transition-colors group !rounded-none relative",
                   selectedDataSource === 'linkedin'
-                    ? "font-semibold text-foreground"
-                    : "font-medium group-hover:text-primary-foreground"
-                )}>LinkedIn</div>
-                <div className={cn(
-                  "text-xs",
-                  selectedDataSource === 'linkedin'
-                    ? "text-muted-foreground font-semibold"
-                    : "text-muted-foreground group-hover:text-primary-foreground"
-                )}>Connected</div>
-              </div>
-            </Button>
+                    ? "bg-muted/30 text-foreground hover:bg-muted/30"
+                    : "hover:bg-primary hover:text-primary-foreground"
+                )}
+                onClick={onLinkedInClick}
+              >
+                {selectedDataSource === 'linkedin' && (
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-foreground" />
+                )}
+                <div className="flex-1 text-left">
+                  <div className={cn(
+                    selectedDataSource === 'linkedin'
+                      ? "font-semibold text-foreground"
+                      : "font-medium group-hover:text-primary-foreground"
+                  )}>LinkedIn</div>
+                  <div className={cn(
+                    "text-xs",
+                    selectedDataSource === 'linkedin'
+                      ? "text-muted-foreground font-semibold"
+                      : "text-muted-foreground group-hover:text-primary-foreground"
+                  )}>Connected</div>
+                </div>
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"

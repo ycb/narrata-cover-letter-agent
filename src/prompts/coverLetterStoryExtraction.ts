@@ -1,3 +1,5 @@
+import { SHARED_STORY_GUIDANCE } from './sharedStoryGuidance';
+
 /**
  * Simplified LLM prompt for cover letter analysis
  * ONLY extracts: Stories + Voice
@@ -29,6 +31,8 @@ ${coverLetterText}
 
 EXISTING WORK HISTORY (for linking stories):
 ${workHistoryList}
+
+${SHARED_STORY_GUIDANCE}
 
 TASK:
 1. Identify any STORIES (concrete examples/accomplishments) in the cover letter
@@ -104,4 +108,3 @@ MATCHING GUIDANCE:
 Return ONLY valid JSON matching this schema. No markdown, no prose.
 `;
 }
-

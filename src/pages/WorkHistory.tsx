@@ -111,6 +111,18 @@ function transformClustersToWorkHistory(
         };
       });
 
+      // Count content ITEMS with gaps (not individual gaps)
+      // Role-level: check for role description and metrics gaps as distinct items
+      const hasRoleDescriptionItem = allGaps.some(g => g.gap_category === 'missing_role_description' || g.gap_category === 'generic_role_description');
+      const hasRoleMetricsItem = allGaps.some(g => g.gap_category === 'missing_role_metrics' || g.gap_category === 'insufficient_role_metrics');
+      const roleLevelItems = (hasRoleDescriptionItem ? 1 : 0) + (hasRoleMetricsItem ? 1 : 0);
+      
+      // Stories: count stories with at least one gap
+      const storiesWithGaps = blurbs.filter(b => b.gapCount > 0).length;
+      
+      // Total items with gaps = role-level items + story items
+      const contentItemsWithGaps = roleLevelItems + storiesWithGaps;
+
       const titleLower = cluster.canonicalTitle.toLowerCase();
       const roleType: 'full-time' | 'contract' | 'founder' =
         titleLower.includes('founder') || titleLower.includes('co-founder') ? 'founder' :
@@ -129,8 +141,8 @@ function transformClustersToWorkHistory(
         outcomeMetrics: mergedMetrics.map(m => m.context ? `${m.value} ${m.context}` : m.value),
         blurbs,
         externalLinks: [],
-        hasGaps: totalGapCount > 0,
-        gapCount: totalGapCount,
+        hasGaps: contentItemsWithGaps > 0,
+        gapCount: contentItemsWithGaps,
         gaps: allGaps,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -619,6 +631,11 @@ export default function WorkHistory() {
         .order('created_at', { ascending: false });
 
       if (blurbsError) throw blurbsError;
+      
+      console.log('[WorkHistory] Loaded blurbs/stories:', {
+        total: blurbs?.length || 0,
+        spatialThinkStories: blurbs?.filter(b => b.work_item_id === '3dc40ac2-65bc-4486-88f0-ce6a15202461').length || 0
+      });
 
       // Fetch external links - filter by work items if available
       let linksQuery = supabase
@@ -682,7 +699,8 @@ export default function WorkHistory() {
       console.log('[WorkHistory] Loaded gaps:', {
         total: userGaps.length,
         workItemGaps: Array.from(workItemGapMap.entries()).length,
-        storyGaps: Array.from(storyGapMap.entries()).length
+        storyGaps: Array.from(storyGapMap.entries()).length,
+        storyGapDetails: Array.from(storyGapMap.entries()).map(([id, count]) => ({ id, count }))
       });
 
       // Sort work items: current first (end_date null), then by start_date descending (current to past)
@@ -732,10 +750,26 @@ export default function WorkHistory() {
           // Get blurbs for this work item
           const itemBlurbs = blurbs?.filter((blurb: any) => blurb.work_item_id === item.id) || [];
           
+          if (item.id === '3dc40ac2-65bc-4486-88f0-ce6a15202461') {
+            console.log('[WorkHistory] SpatialThink blurbs:', {
+              workItemId: item.id,
+              blurbCount: itemBlurbs.length,
+              blurbIds: itemBlurbs.map(b => b.id)
+            });
+          }
+          
           // Transform blurbs
           const transformedBlurbs: WorkHistoryBlurb[] = itemBlurbs.map((blurb: any) => {
             const storyGapCount = storyGapMap.get(blurb.id) || 0;
             const storyGaps = storyGapsMap.get(blurb.id) || [];
+            if (item.id === '3dc40ac2-65bc-4486-88f0-ce6a15202461') {
+              console.log('[WorkHistory] SpatialThink story gap lookup:', {
+                blurbId: blurb.id,
+                blurbTitle: blurb.title,
+                storyGapCount,
+                hasGapsInMap: storyGapMap.has(blurb.id)
+              });
+            }
             return {
               id: blurb.id,
               roleId: blurb.work_item_id,
@@ -774,9 +808,11 @@ export default function WorkHistory() {
             createdAt: link.created_at
           }));
 
-          // Calculate gap count for role: count content items with gaps (not individual gaps)
-          // Role-level: treat role description and role metrics as two distinct content items
+          // Calculate gap count for role: count content ITEMS with gaps (not individual gaps)
+          // Each item with 1+ gaps counts as 1 actionable item for the user
           const workItemGaps = (workItemGapsMap.get(item.id) || []) as Array<{ id: string; description: string; gap_category?: string }>;
+          
+          // Role-level: treat role description and role metrics as two distinct content items
           const hasRoleDescriptionItem = workItemGaps.some(g => g.gap_category === 'missing_role_description' || g.gap_category === 'generic_role_description');
           const hasRoleMetricsItem = workItemGaps.some(g => g.gap_category === 'missing_role_metrics' || g.gap_category === 'insufficient_role_metrics');
           const roleLevelItems = (hasRoleDescriptionItem ? 1 : 0) + (hasRoleMetricsItem ? 1 : 0);

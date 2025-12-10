@@ -12,6 +12,7 @@ import { PrivacySection } from './PrivacySection';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useEffect } from 'react';
 import LogRocket from 'logrocket';
+import { isLinkedInScrapingEnabled } from '@/lib/flags';
 
 interface MyDataModalProps {
   isOpen: boolean;
@@ -58,13 +59,16 @@ export function MyDataModal({ isOpen, onClose }: MyDataModalProps) {
                 dependencyMessage="A cover letter is required to use Narrata. Deleting your only cover letter will return you to onboarding."
               />
 
-              <PersonalDataCard
-                sourceType="linkedin"
-                title="LinkedIn"
-                description="Your LinkedIn profile data"
-                dependencyMessage="LinkedIn data is required to use Narrata. Deleting your LinkedIn data will return you to onboarding."
-                isLinkedIn={true}
-              />
+              {/* LinkedIn section - HIDDEN when feature flag is OFF */}
+              {isLinkedInScrapingEnabled() && (
+                <PersonalDataCard
+                  sourceType="linkedin"
+                  title="LinkedIn"
+                  description="Your LinkedIn profile data"
+                  dependencyMessage="LinkedIn data is required to use Narrata. Deleting your LinkedIn data will return you to onboarding."
+                  isLinkedIn={true}
+                />
+              )}
             </div>
 
             <Separator />

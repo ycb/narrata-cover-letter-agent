@@ -63,12 +63,13 @@ export function ProtectedRoute({
   }
 
   // Onboarding guard: if user is not marked as completed, force /new-user
-  const preferredDashboard = (profile as any)?.preferred_dashboard || 'onboarding';
+  // Default new users to the onboarding dashboard
+  const preferredDashboard = (profile as any)?.preferred_dashboard ?? 'onboarding';
   const isOnboarding = preferredDashboard !== 'main';
-  const isOnboardingRoute = location.pathname.startsWith('/new-user') || location.pathname.startsWith('/dashboard/onboarding');
-  // Only redirect to onboarding entry if we're on a default landing route and user is not onboarded
+  const isOnboardingRoute = location.pathname.startsWith('/dashboard/onboarding');
+  // If user is not on main dashboard routes yet, send them to onboarding dashboard
   if (isOnboarding && !isOnboardingRoute && (location.pathname === '/' || location.pathname === '/dashboard' || location.pathname === '/dashboard/main')) {
-    return <Navigate to="/new-user" replace />
+    return <Navigate to="/dashboard/onboarding" replace />
   }
 
   return <>{children}</>

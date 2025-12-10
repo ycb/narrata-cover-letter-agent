@@ -26,6 +26,28 @@ We track both feature-flagged features and commented-out code here.
 - **Reactivate**: Set `ENABLE_DRAFT_READINESS=true` in environment
 - **Why Hidden**: Beta feature for controlled rollout
 
+### LinkedIn Scraping/Enrichment
+- **Flag**: `ENABLE_LI_SCRAPING` (default: off)
+- **Status**: Implemented but disabled due to Apify limitations
+- **Scope**: 
+  - LinkedIn URL scraping via Apify Actor (`useFileUpload.ts` - `connectLinkedIn`)
+  - Apify proxy edge function (`appify-proxy/index.ts`)
+  - Work history enrichment from LinkedIn profiles
+  - LinkedIn auto-population in onboarding (`NewUserOnboarding.tsx`)
+- **Files**: 
+  - Client: `src/hooks/useFileUpload.ts`, `src/pages/NewUserOnboarding.tsx`
+  - Server: `supabase/functions/appify-proxy/index.ts`
+  - Flag: `src/lib/flags.ts` (`isLinkedInScrapingEnabled`)
+  - Custom Actor: `apify-actors/linkedin-scraper/`
+- **Reactivate**: Set `ENABLE_LI_SCRAPING=true` and `VITE_ENABLE_LI_SCRAPING=true` in environment
+- **Why Hidden**: Apify free plan blocks API access; custom Actor incomplete; feature not production-ready
+- **Behavior when disabled**:
+  - LinkedIn URL validation only (no scraping)
+  - No Apify API calls
+  - No work_items/story generation from LinkedIn
+  - Progress bar treats LinkedIn as "disabled" (auto-advances)
+  - UI shows "LinkedIn enrichment temporarily disabled"
+
 ## Commented Code (Requires Code Changes to Reactivate)
 
 ### Job Description URL Ingestion
