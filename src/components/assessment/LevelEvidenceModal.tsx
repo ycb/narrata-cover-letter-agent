@@ -9,6 +9,7 @@ import { getConfidenceBadgeColor, textConfidenceToPercentage } from "@/utils/con
 import { CriteriaDisplay } from "./CriteriaDisplay";
 import { StoryCard } from "./StoryCard";
 import { DisputeFeedbackDialog } from "./DisputeFeedbackDialog";
+import { isLinkedInScrapingEnabled } from "@/lib/flags";
 
 interface LevelEvidence {
   currentLevel: string;
@@ -188,7 +189,7 @@ const LevelEvidenceModal = ({ isOpen, onClose, evidence }: LevelEvidenceModalPro
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-lg">
-                Resume & LinkedIn Evidence
+                {isLinkedInScrapingEnabled() ? 'Resume & LinkedIn Evidence' : 'Resume Evidence'}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">

@@ -92,18 +92,22 @@ export function ContentGenerationModal({
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isGeneratingTags, setIsGeneratingTags] = useState(false);
 
-  // Auto-select high-confidence tags when modal opens
+  // Auto-select high-confidence tags when modal opens OR when suggestedTags are loaded
   useEffect(() => {
     if (isOpen && mode === 'tag-suggestion') {
       // Pre-select ONLY the high-confidence (suggested) tags - replace, don't merge
       const highConfidenceTags = (suggestedTags || []).map(t => t.value);
+      console.log('🏷️ [Modal] Auto-selecting tags:', { 
+        suggestedTagsCount: suggestedTags?.length,
+        highConfidenceTags 
+      });
       setSelectedTags(highConfidenceTags);
     } else if (!isOpen) {
       // Reset when modal closes
+      console.log('🏷️ [Modal] Resetting selected tags (modal closed)');
       setSelectedTags([]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, mode]); // Only run when modal opens/closes, not when suggestedTags changes
+  }, [isOpen, mode, suggestedTags]); // Run when modal opens/closes OR when suggestedTags changes
 
   // Toggle tag selection
   const toggleTag = (tagValue: string) => {

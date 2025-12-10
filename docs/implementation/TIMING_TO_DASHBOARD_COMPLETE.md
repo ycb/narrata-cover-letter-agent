@@ -54,23 +54,26 @@ CREATE INDEX idx_evaluation_runs_timing_breakdown ON public.evaluation_runs USIN
 ### 3. EvaluationDashboard.tsx ✅
 **File:** `/src/components/evaluation/EvaluationDashboard.tsx`
 
-**Fix:** Line 1575 - **Removed `file_type === 'coverLetter'` restriction**
+**Changes:**
 
-**Before:**
-```typescript
-Pipeline: {(!isPmLevel && run.file_type === 'coverLetter' && (run.total_latency_ms || 0) > 0) 
-  ? ((run.total_latency_ms || 0) / 1000).toFixed(2) + 's' 
-  : '—'}
-```
+1. **Added `timing_breakdown` field** to `EvaluationRun` interface (line 31)
 
-**After:**
-```typescript
-Pipeline: {(!isPmLevel && (run.total_latency_ms || 0) > 0) 
-  ? ((run.total_latency_ms || 0) / 1000).toFixed(2) + 's' 
-  : '—'}
-```
+2. **Fixed Pipeline Column** - Line 1575 - Removed `file_type === 'coverLetter'` restriction
+   - **Before:** Only showed for coverLetters
+   - **After:** Shows for **all file types** (resume, coverLetter)
 
-**Result:** Pipeline timing now shows for **all file types** (resume, coverLetter), not just coverLetters.
+3. **Added Detailed Timing Breakdown View** (lines 1702-1835) - **NEW!**
+   - **Visual Progress Bar** - Shows extraction/LLM/database as colored segments
+   - **Stage-by-stage breakdown:**
+     - 📄 Text Extraction (with cache hit indicator)
+     - 🤖 LLM Analysis (with Stage 1/2/3 sub-timings for resume)
+     - 💾 Database Operations (companies, work items, stories, gaps, skills)
+   - **Expandable in detail modal** when clicking "View Details"
+
+**Result:** 
+- Pipeline timing shows for all file types
+- Detailed breakdown visible in modal with visual progress bar
+- Sub-operation timing for each major stage
 
 ---
 
@@ -185,4 +188,15 @@ LIMIT 5;
 ✅ **Database** - Long-term storage for analytics and reporting  
 
 **All timing metrics from streaming onboarding now surface in the admin dashboard for easy access and trend analysis.** 🎉
+
+---
+
+## 📖 User Guide
+
+See **[TIMING_BREAKDOWN_UI_GUIDE.md](./TIMING_BREAKDOWN_UI_GUIDE.md)** for:
+- How to view detailed timing in the UI
+- Visual examples of the breakdown (with ASCII art)
+- Performance expectations for resume/cover letter
+- Identifying bottlenecks
+- Troubleshooting
 

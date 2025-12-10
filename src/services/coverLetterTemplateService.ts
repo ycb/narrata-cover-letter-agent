@@ -141,6 +141,7 @@ export interface SavedSection {
   function_type?: string;
   purpose_summary?: string;
   purpose_tags?: string[];
+  is_dynamic?: boolean; // Whether content should be dynamically generated per application
   created_at?: string;
   updated_at?: string;
 }
@@ -1150,6 +1151,7 @@ export class CoverLetterTemplateService {
       function_type: row.function_type ?? undefined,
       purpose_summary: row.purpose_summary ?? undefined,
       purpose_tags: row.purpose_tags ?? [],
+      is_dynamic: row.is_dynamic ?? undefined,
       created_at: row.created_at,
       updated_at: row.updated_at
     };

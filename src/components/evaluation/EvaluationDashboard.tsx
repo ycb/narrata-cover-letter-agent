@@ -28,6 +28,7 @@ interface EvaluationRun {
   llm_analysis_latency_ms: number | null;
   database_save_latency_ms: number | null;
   total_latency_ms: number | null;
+  timing_breakdown: any | null;
   
   // Token Usage
   input_tokens: number | null;
@@ -1696,6 +1697,148 @@ export const EvaluationDashboard: React.FC<EvaluationDashboardProps> = ({
               </div>
 
               <hr className="border-gray-200" />
+
+              {/* Timing Breakdown - Detailed Performance Metrics */}
+              {selectedRun.timing_breakdown && (
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-semibold text-gray-900">⏱️ Performance Breakdown</h4>
+                    <div className="text-xs text-gray-600">
+                      Total: {((selectedRun.total_latency_ms ?? 0) / 1000).toFixed(2)}s
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 gap-3">
+                    {/* Extraction Stage */}
+                    {selectedRun.timing_breakdown.extraction && (
+                      <div className="bg-white rounded-md p-3 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-gray-700">📄 Text Extraction</span>
+                          <span className="text-sm font-mono text-gray-900">
+                            {(selectedRun.timing_breakdown.extraction.extraction_ms / 1000).toFixed(2)}s
+                          </span>
+                        </div>
+                        {selectedRun.timing_breakdown.extraction.cache_hit && (
+                          <div className="text-xs text-green-600">✨ Cache Hit</div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* LLM Stage */}
+                    {selectedRun.timing_breakdown.llm && (
+                      <div className="bg-white rounded-md p-3 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-gray-700">🤖 LLM Analysis</span>
+                          <span className="text-sm font-mono text-gray-900">
+                            {(selectedRun.timing_breakdown.llm.total_ms / 1000).toFixed(2)}s
+                          </span>
+                        </div>
+                        {selectedRun.timing_breakdown.llm.stage1_skeleton_ms && (
+                          <div className="text-xs text-gray-600 pl-2">
+                            • Stage 1 (Skeleton): {(selectedRun.timing_breakdown.llm.stage1_skeleton_ms / 1000).toFixed(2)}s
+                          </div>
+                        )}
+                        {selectedRun.timing_breakdown.llm.stage2_stories_ms && (
+                          <div className="text-xs text-gray-600 pl-2">
+                            • Stage 2 (Stories): {(selectedRun.timing_breakdown.llm.stage2_stories_ms / 1000).toFixed(2)}s
+                          </div>
+                        )}
+                        {selectedRun.timing_breakdown.llm.stage3_skills_ms && (
+                          <div className="text-xs text-gray-600 pl-2">
+                            • Stage 3 (Skills): {(selectedRun.timing_breakdown.llm.stage3_skills_ms / 1000).toFixed(2)}s
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Database Stage */}
+                    {selectedRun.timing_breakdown.database && (
+                      <div className="bg-white rounded-md p-3 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-gray-700">💾 Database Operations</span>
+                          <span className="text-sm font-mono text-gray-900">
+                            {(selectedRun.timing_breakdown.database.total_ms / 1000).toFixed(2)}s
+                          </span>
+                        </div>
+                        {selectedRun.timing_breakdown.database.save_sections_ms > 0 && (
+                          <div className="text-xs text-gray-600 pl-2">
+                            • Save Sections: {(selectedRun.timing_breakdown.database.save_sections_ms / 1000).toFixed(2)}s
+                          </div>
+                        )}
+                        {selectedRun.timing_breakdown.database.companies_upsert_ms > 0 && (
+                          <div className="text-xs text-gray-600 pl-2">
+                            • Companies Upsert: {(selectedRun.timing_breakdown.database.companies_upsert_ms / 1000).toFixed(2)}s
+                          </div>
+                        )}
+                        {selectedRun.timing_breakdown.database.work_items_upsert_ms > 0 && (
+                          <div className="text-xs text-gray-600 pl-2">
+                            • Work Items Upsert: {(selectedRun.timing_breakdown.database.work_items_upsert_ms / 1000).toFixed(2)}s
+                          </div>
+                        )}
+                        {selectedRun.timing_breakdown.database.stories_insert_ms > 0 && (
+                          <div className="text-xs text-gray-600 pl-2">
+                            • Stories Insert: {(selectedRun.timing_breakdown.database.stories_insert_ms / 1000).toFixed(2)}s
+                          </div>
+                        )}
+                        {selectedRun.timing_breakdown.database.gap_heuristics_ms > 0 && (
+                          <div className="text-xs text-gray-600 pl-2">
+                            • Gap Heuristics: {(selectedRun.timing_breakdown.database.gap_heuristics_ms / 1000).toFixed(2)}s
+                          </div>
+                        )}
+                        {selectedRun.timing_breakdown.database.normalize_skills_ms > 0 && (
+                          <div className="text-xs text-gray-600 pl-2">
+                            • Skills Normalization: {(selectedRun.timing_breakdown.database.normalize_skills_ms / 1000).toFixed(2)}s
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Visual Progress Bar */}
+                  <div className="space-y-1">
+                    <div className="flex h-6 rounded-md overflow-hidden border border-gray-300">
+                      {selectedRun.timing_breakdown.extraction && (
+                        <div
+                          className="bg-blue-500 flex items-center justify-center text-[10px] font-medium text-white"
+                          style={{
+                            width: `${((selectedRun.timing_breakdown.extraction.extraction_ms ?? 0) / (selectedRun.total_latency_ms ?? 1)) * 100}%`
+                          }}
+                          title={`Extraction: ${(selectedRun.timing_breakdown.extraction.extraction_ms / 1000).toFixed(2)}s`}
+                        >
+                          {((selectedRun.timing_breakdown.extraction.extraction_ms / (selectedRun.total_latency_ms ?? 1)) * 100).toFixed(0)}%
+                        </div>
+                      )}
+                      {selectedRun.timing_breakdown.llm && (
+                        <div
+                          className="bg-indigo-500 flex items-center justify-center text-[10px] font-medium text-white"
+                          style={{
+                            width: `${((selectedRun.timing_breakdown.llm.total_ms ?? 0) / (selectedRun.total_latency_ms ?? 1)) * 100}%`
+                          }}
+                          title={`LLM: ${(selectedRun.timing_breakdown.llm.total_ms / 1000).toFixed(2)}s`}
+                        >
+                          {((selectedRun.timing_breakdown.llm.total_ms / (selectedRun.total_latency_ms ?? 1)) * 100).toFixed(0)}%
+                        </div>
+                      )}
+                      {selectedRun.timing_breakdown.database && (
+                        <div
+                          className="bg-purple-500 flex items-center justify-center text-[10px] font-medium text-white"
+                          style={{
+                            width: `${((selectedRun.timing_breakdown.database.total_ms ?? 0) / (selectedRun.total_latency_ms ?? 1)) * 100}%`
+                          }}
+                          title={`Database: ${(selectedRun.timing_breakdown.database.total_ms / 1000).toFixed(2)}s`}
+                        >
+                          {((selectedRun.timing_breakdown.database.total_ms / (selectedRun.total_latency_ms ?? 1)) * 100).toFixed(0)}%
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-gray-600">
+                      <span>📄 Extraction</span>
+                      <span>🤖 LLM</span>
+                      <span>💾 Database</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {selectedRun.pm_levels_status && (
                 <>

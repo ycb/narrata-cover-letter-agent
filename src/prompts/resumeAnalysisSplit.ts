@@ -11,6 +11,24 @@
 export const buildWorkHistorySkeletonPrompt = (resumeText: string): string => {
   return `Extract work history from this resume. Return ONLY the structural data, NOT stories or detailed descriptions.
 
+CRITICAL: TWO-PASS PROCESSING
+
+PASS 1: Identify global resume header
+- The TOP of resume often has a 1-2 sentence career summary
+- This is NOT a role description - do not use it for ANY role's roleSummary
+
+PASS 2: Extract each role independently
+- For EACH role, extract roleSummary from THAT ROLE'S section ONLY
+- Use role-specific text (header under company/title, or first bullet)
+- FORBIDDEN: Using global summary as roleSummary for any role
+- FORBIDDEN: Copying the same roleSummary to multiple roles
+- If no role-specific text exists → roleSummary = ""
+
+VALIDATION BEFORE RETURNING:
+✓ No two roles have the same non-empty roleSummary
+✓ Global summary text does NOT appear in any roleSummary
+✓ If check fails → fix it before returning
+
 Resume:
 ${resumeText}
 
@@ -28,7 +46,7 @@ Return JSON with this exact structure:
       "location": "City, State or null",
       "companyTags": ["SaaS", "B2B"],
       "roleTags": ["growth", "activation"],
-      "roleSummary": "Extract verbatim from resume header/subheader. 1-2 sentences max."
+      "roleSummary": "Extract verbatim from THIS ROLE'S header/subheader or first bullet. NOT from global summary."
     }
   ]
 }
@@ -56,6 +74,25 @@ export const buildRoleStoriesPrompt = (
 ): string => {
   return `Extract stories and metrics for ONE specific role from this resume.
 
+METRIC ISOLATION (CRITICAL):
+
+You are extracting for ${roleContext.company} - ${roleContext.title} ONLY.
+
+Mental Model:
+- Imagine each role is on a SEPARATE PAGE
+- You can ONLY see THIS role's page right now
+- Metrics from other roles' pages CANNOT appear here
+
+Processing Steps:
+1. Locate the section for ${roleContext.company} in the resume text
+2. Identify the START and END of this role's section (usually ends before next company/role)
+3. Extract metrics ONLY from text between START and END
+4. Do NOT look at other roles' sections
+
+Common Error (FORBIDDEN):
+❌ "This role has no metrics, but I'll borrow from another role"
+✅ "This role has no metrics → outcomeMetrics: [], story.metrics: []"
+
 Resume:
 ${resumeText}
 
@@ -69,9 +106,9 @@ Return JSON with this exact structure:
   "roleId": "${roleContext.id}",
   "outcomeMetrics": [
     {
-      "value": "+22%",
-      "context": "Week-2 activation improvement",
-      "type": "increase",
+      "value": "extract from resume",
+      "context": "complete self-explanatory phrase",
+      "type": "increase|decrease|absolute",
       "parentType": "role"
     }
   ],
@@ -79,19 +116,19 @@ Return JSON with this exact structure:
     {
       "id": "1",
       "title": "Brief story title (5-8 words)",
-      "content": "Full text exactly as written in resume",
+      "content": "Full text exactly as written in resume for THIS ROLE",
       "problem": "Challenge or opportunity (optional)",
       "action": "What was done (optional)",
       "outcome": "What resulted (optional)",
-      "tags": ["experimentation", "activation"],
+      "tags": ["tag1", "tag2"],
       "linkedToRole": true,
       "company": "${roleContext.company}",
       "titleRole": "${roleContext.title}",
       "metrics": [
         {
-          "value": "+22%",
-          "context": "Week-2 activation",
-          "type": "increase",
+          "value": "extract from resume",
+          "context": "complete phrase",
+          "type": "increase|decrease|absolute",
           "parentType": "story"
         }
       ]
@@ -100,13 +137,19 @@ Return JSON with this exact structure:
 }
 
 CRITICAL RULES:
-1. Extract ONLY content for the TARGET ROLE (${roleContext.company} - ${roleContext.title})
-2. Stories = any action with result/impact. Extract EVERY bullet as separate story.
-3. Metrics in stories go in story.metrics[] ONLY (not in outcomeMetrics)
-4. Standalone metrics (no story context) go in outcomeMetrics[]
-5. NEVER duplicate metrics between outcomeMetrics and story.metrics
-6. Extract verbatim - do NOT paraphrase or summarize
-7. Story IDs: sequential within this role ("1", "2", "3", etc.)
+1. Extract ONLY content from ${roleContext.company}'s section in the resume
+2. Find the boundaries: where does this role's section start/end?
+3. Extract EVERY bullet for this role as a separate story
+4. Metrics: Can I find this exact number in THIS role's section?
+   - YES → Include it
+   - NO → Do NOT include it
+5. Extract verbatim - do NOT paraphrase or summarize
+6. Story IDs: sequential ("1", "2", "3", etc.)
+
+VALIDATION:
+- Every metric in outcomeMetrics appears in THIS role's section? YES/NO
+- Every metric in stories[].metrics appears in THIS role's section? YES/NO
+- If NO to either → remove that metric
 
 Return ONLY valid JSON. No markdown, no explanations.`;
 };
@@ -118,6 +161,11 @@ Return ONLY valid JSON. No markdown, no explanations.`;
  */
 export const buildSkillsAndEducationPrompt = (resumeText: string): string => {
   return `Extract skills, education, contact info, certifications, and projects from this resume.
+
+SUMMARY EXTRACTION:
+- The "summary" field is the global career overview from the TOP of the resume
+- Extract it verbatim (1-2 sentences)
+- This is different from role-specific descriptions
 
 Resume:
 ${resumeText}

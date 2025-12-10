@@ -37,7 +37,7 @@ const baselineAssessmentStage: PipelineStage = {
 
     // Build context
     const workHistoryText = workHistory
-      .map((wh: any) => `${wh.title} at ${wh.company} (${wh.start_date} - ${wh.end_date || 'Present'})`)
+      .map((wh: any) => `${wh.title} at ${wh.companies?.name || 'Unknown'} (${wh.start_date} - ${wh.end_date || 'Present'})`)
       .join('\n');
 
     const prompt = `Assess PM level for this profile:
@@ -57,15 +57,22 @@ You MUST respond with ONLY a valid JSON object (no markdown, no explanation) wit
 }
 
 Use this scale:
-- IC3: Entry PM (0-2 years)
-- IC4: Mid-level PM (2-4 years)
-- IC5: Senior PM (4-7 years)
-- IC6: Staff PM (7-10 years)
-- IC7: Senior Staff PM (10-15 years)
-- IC8: Principal PM (15+ years)
-- IC9: Distinguished PM (rare, 20+ years)
+- IC3: Entry PM (0-2 years, Associate Product Manager)
+- IC4: Mid-level PM (2-4 years, Product Manager)
+- IC5: Senior PM (4-7 years, Senior Product Manager)
+- IC6: Staff PM (7-10 years, Staff/Principal Product Manager)
+- IC7: Senior Staff PM (10-15 years, Senior Staff PM)
+- IC8: Principal PM (15+ years, Principal/Distinguished PM)
+- IC9: Distinguished PM (rare, 20+ years, Fellow/VP level IC)
+- M1: Group PM / Director (10+ years, managing PMs)
+- M2: VP of Product (12+ years, leading product org)
 
-Be conservative and evidence-based.`;
+IMPORTANT: 
+- VP of Product, Head of Product, Director of Product → typically M1-M2 (management track)
+- Principal/Staff PM with company-level impact → IC6-IC8 range
+- Look for years of experience AND scope of impact (feature → product → company)
+
+Be evidence-based but recognize leadership titles appropriately.`;
 
     const response = await callOpenAI({
       apiKey: openaiApiKey,
@@ -98,13 +105,23 @@ const competencyBreakdownStage: PipelineStage = {
     const workHistory = await fetchWorkHistory(supabase, job.user_id);
     const stories = await fetchStories(supabase, job.user_id);
 
-    // Build context
+    // Build context - include tags for better competency assessment
     const workHistoryText = workHistory
-      .map((wh: any) => `${wh.title} at ${wh.company}: ${wh.description || ''}`)
+      .map((wh: any) => {
+        const tags = wh.tags && Array.isArray(wh.tags) && wh.tags.length > 0 
+          ? ` [Tags: ${wh.tags.join(', ')}]` 
+          : '';
+        return `${wh.title} at ${wh.companies?.name || 'Unknown'}${tags}: ${wh.description || ''}`;
+      })
       .join('\n');
 
     const storiesText = stories
-      .map((s: any) => `${s.title}: ${s.content}`)
+      .map((s: any) => {
+        const tags = s.tags && Array.isArray(s.tags) && s.tags.length > 0 
+          ? ` [Tags: ${s.tags.join(', ')}]` 
+          : '';
+        return `${s.title}${tags}: ${s.content}`;
+      })
       .join('\n');
 
     const prompt = `Assess PM competencies for this profile:
@@ -164,13 +181,23 @@ const specializationAssessmentStage: PipelineStage = {
     const workHistory = await fetchWorkHistory(supabase, job.user_id);
     const stories = await fetchStories(supabase, job.user_id);
 
-    // Build context
+    // Build context - include tags for specialization detection
     const workHistoryText = workHistory
-      .map((wh: any) => `${wh.title} at ${wh.company}: ${wh.description || ''}`)
+      .map((wh: any) => {
+        const tags = wh.tags && Array.isArray(wh.tags) && wh.tags.length > 0 
+          ? ` [Tags: ${wh.tags.join(', ')}]` 
+          : '';
+        return `${wh.title} at ${wh.companies?.name || 'Unknown'}${tags}: ${wh.description || ''}`;
+      })
       .join('\n');
 
     const storiesText = stories
-      .map((s: any) => `${s.title}: ${s.content}`)
+      .map((s: any) => {
+        const tags = s.tags && Array.isArray(s.tags) && s.tags.length > 0 
+          ? ` [Tags: ${s.tags.join(', ')}]` 
+          : '';
+        return `${s.title}${tags}: ${s.content}`;
+      })
       .join('\n');
 
     const prompt = `Assess PM specializations for this profile:
@@ -183,10 +210,20 @@ ${storiesText}
 
 Rate these PM specializations (0-10 scale, 0 = no evidence):
 
-1. **Growth PM**: Growth loops, metrics, experimentation, acquisition/retention
-2. **Platform PM**: APIs, developer experience, infrastructure, multi-sided markets
-3. **AI/ML PM**: ML products, data pipelines, AI features, model productization
-4. **Founding PM**: 0-1, startups, entrepreneurship, building from scratch
+1. **Growth PM**: Growth loops, metrics, experimentation, acquisition/retention, activation, conversion, funnel optimization
+   - Look for tags: growth, activation, retention, experimentation, conversion, metrics, analytics, a/b-testing
+   
+2. **Platform PM**: APIs, developer experience, infrastructure, multi-sided markets, SDK development
+   - Look for tags: platform, api, sdk, developer-experience, infrastructure, ecosystem
+   
+3. **AI/ML PM**: ML products, data pipelines, AI features, model productization, machine learning systems
+   - Look for tags: ai, ml, machine-learning, ai-ml, nlp, computer-vision, recommendation
+   
+4. **Founding PM**: 0-1, startups, entrepreneurship, building from scratch, early-stage product development
+   - Look for tags: founding, 0-1, startup, launch, mvp, early-stage, pre-seed, seed
+
+IMPORTANT: Pay close attention to the [Tags: ...] annotations in the work history and stories above. 
+These tags are strong indicators of specialization areas.
 
 You MUST respond with ONLY a valid JSON object (no markdown, no explanation) with this exact structure:
 {
@@ -196,7 +233,8 @@ You MUST respond with ONLY a valid JSON object (no markdown, no explanation) wit
   "founding": number (0-10, omit if no evidence)
 }
 
-Only include specializations with clear evidence. Be selective.`;
+Only include specializations with clear evidence. Be selective but not overly conservative - 
+a score of 6-7 indicates solid evidence, 8-9 indicates strong specialization, 10 is exceptional depth.`;
 
     const response = await callOpenAI({
       apiKey: openaiApiKey,

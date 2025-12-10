@@ -930,15 +930,30 @@ source_type: dbSourceType,
             const { UserPreferencesService } = await import('@/services/userPreferencesService');
             const voiceData = analysisResult.data.voice;
             
-            // Convert LLM voice format to UserVoice format
+            // Save rich voice data with all analysis fields
+            // Use writingGuidance as the main prompt (most actionable)
+            // Fall back to summary, then legacy format
+            const mainPrompt = voiceData.writingGuidance || 
+                              voiceData.summary || 
+                              voiceData.style || 
+                              `Tone: ${voiceData.tone?.join(', ') || 'professional'}. Persona: ${voiceData.persona?.join(', ') || 'leader'}.`;
+            
             const userVoice = {
-              prompt: voiceData.style || 
-                `Tone: ${voiceData.tone?.join(', ') || 'professional'}. Persona: ${voiceData.persona?.join(', ') || 'leader'}.`,
-              lastUpdated: new Date().toISOString()
+              prompt: mainPrompt,
+              lastUpdated: new Date().toISOString(),
+              // Include all rich metadata for future use
+              metadata: {
+                summary: voiceData.summary,
+                tone: voiceData.tone,
+                stylePatterns: voiceData.stylePatterns,
+                credibilitySignals: voiceData.credibilitySignals,
+                persona: voiceData.persona,
+                writingGuidance: voiceData.writingGuidance
+              }
             };
             
             await UserPreferencesService.saveVoice(userId, userVoice);
-            console.log('✅ Voice data saved to user profile:', userVoice);
+            console.log('✅ Voice data saved to user profile with rich metadata');
           } catch (voiceError) {
             console.error('⚠️ Failed to save voice data:', voiceError);
             // Non-critical - don't fail the upload
@@ -1245,7 +1260,7 @@ source_type: dbSourceType,
         source_type: 'cover_letter',  // Schema field is source_type, not source
         source_id: sourceId,           // Schema field is source_id, not source_file_id
         tags: [] as string[],
-        is_dynamic: section.isStatic ? false : true,  // Schema has is_dynamic
+        is_dynamic: !section.isStatic,  // is_dynamic = true means dynamic (toggle OFF), false means static (toggle ON)
         paragraph_index: section.order,
         position: section.order
       }));
@@ -1430,482 +1445,235 @@ source_type: dbSourceType,
         console.log('[GapDetection] Disabled during upload (env flag), skipping generic batch check');
       }
       
-      // Preload all companies to avoid per-role insert/update
+      // Preload and batch insert companies/work items/stories to reduce DB latency
       const normalizeCompanyName = (name: string) => name.trim().toLowerCase();
-      const companyIdMap = new Map<string, string>(); // key: normalized name
-      const companyMeta = new Map<string, { description?: string; tags?: any[] }>();
-      const uniqueCompanyNames: string[] = [];
+      const companyIdMap = new Map<string, string>(); // key: normalized name -> company_id
 
+      // Build unique company payloads
+      const companyPayloads: any[] = [];
       for (const workItem of structuredData.workHistory) {
-        if (workItem.company) {
-          const rawName = workItem.company;
-          const norm = normalizeCompanyName(rawName);
-          if (!companyMeta.has(norm)) {
-            uniqueCompanyNames.push(rawName);
-            companyMeta.set(norm, {
-              description: workItem.companyDescription || '',
-              tags: workItem.companyTags || [],
-            });
-          }
-        }
-      }
-
-      if (uniqueCompanyNames.length > 0) {
-        const { data: existingCompanies, error: existingErr } = await dbClient
-          .from('companies')
-          .select('id, name')
-          .eq('user_id', userId)
-          .in('name', uniqueCompanyNames);
-
-        if (!existingErr && existingCompanies) {
-          for (const row of existingCompanies) {
-            companyIdMap.set(normalizeCompanyName(row.name), row.id);
-          }
-        }
-
-        const toUpsert = uniqueCompanyNames.map((name) => {
-          const meta = companyMeta.get(normalizeCompanyName(name)) || {};
-          return {
-            name,
-            description: meta.description || '',
-            tags: meta.tags || [],
-            user_id: userId,
-          };
+        if (!workItem.company) continue;
+        const norm = normalizeCompanyName(workItem.company);
+        if (companyIdMap.has(norm)) continue;
+        companyPayloads.push({
+          name: workItem.company,
+          description: workItem.companyDescription || '',
+          tags: workItem.companyTags || [],
+          user_id: userId,
         });
-
-        if (toUpsert.length > 0) {
-          const { data: inserted, error: insertErr } = await dbClient
-            .from('companies')
-            .upsert(toUpsert, { onConflict: 'user_id,name' })
-            .select('id, name');
-
-          if (insertErr) {
-            console.error('❌ Error upserting companies batch:', {
-              error: insertErr,
-              message: insertErr.message,
-              code: insertErr.code,
-              details: insertErr.details,
-              hint: insertErr.hint,
-              companyCount: toUpsert.length,
-              companies: toUpsert.map(c => c.name)
-            });
-            
-            // FALLBACK: Try individual inserts if batch fails
-            console.warn('⚠️ Batch upsert failed, attempting individual company inserts...');
-            for (const company of toUpsert) {
-              try {
-                const { data: singleInsert, error: singleErr } = await dbClient
-                  .from('companies')
-                  .upsert(company, { onConflict: 'user_id,name' })
-                  .select('id, name')
-                  .single();
-                
-                if (singleErr) {
-                  console.error(`❌ Failed to upsert company "${company.name}":`, singleErr);
-                } else if (singleInsert) {
-                  const norm = normalizeCompanyName(singleInsert.name);
-                  if (!companyIdMap.has(norm)) {
-                    companiesCreated++;
-                  } else {
-                    companiesUpdated++;
-                  }
-                  companyIdMap.set(norm, singleInsert.id);
-                  console.log(`✅ Individual upsert succeeded for "${company.name}"`);
-                }
-              } catch (individualErr) {
-                console.error(`❌ Exception upserting company "${company.name}":`, individualErr);
-              }
-            }
-          } else if (inserted) {
-            // Track creations by comparing to existing map
-            for (const row of inserted) {
-              const norm = normalizeCompanyName(row.name);
-              if (!companyIdMap.has(norm)) {
-                companiesCreated++;
-              } else {
-                companiesUpdated++;
-              }
-              companyIdMap.set(norm, row.id);
-            }
-          }
-        }
       }
 
-      // Process each work history entry
+      if (companyPayloads.length > 0) {
+        const start = performance.now();
+        const { data: upsertedCompanies, error: companiesErr } = await dbClient
+          .from('companies')
+          .upsert(companyPayloads, { onConflict: 'user_id,name' })
+          .select('id, name');
+
+        companyUpsertMs = performance.now() - start;
+        if (companiesErr) {
+          console.error('❌ Error upserting companies batch:', companiesErr);
+        }
+        (upsertedCompanies || []).forEach((row: any) => {
+          const norm = normalizeCompanyName(row.name);
+          const existed = companyIdMap.has(norm);
+          companyIdMap.set(norm, row.id);
+          if (existed) {
+            companiesUpdated++;
+          } else {
+            companiesCreated++;
+          }
+        });
+      }
+
+      // Gather work item payloads and detect existing ones in one query
+      const workItemPayloads: any[] = [];
+      const workItemKeyToData = new Map<string, any>(); // key -> payload
+      const companyIds = Array.from(companyIdMap.values());
+
       for (const workItem of structuredData.workHistory) {
-        // Extract title - LLM should always provide this
-        const workItemTitle = workItem.title;
-        
-        if (!workItemTitle || workItemTitle.trim() === '') {
-          console.warn(`⚠️ Skipping work item for ${workItem.company || 'Unknown'}: missing title`);
+        const workItemTitle = workItem.title?.trim();
+        if (!workItemTitle) {
+          console.warn(`⚠️ Skipping work item: missing title for ${workItem.company || 'Unknown'}`);
           continue;
         }
-
-        const normalizeCompanyName = (name: string) => name.trim().toLowerCase();
-        const companyIdFromMap = workItem.company ? companyIdMap.get(normalizeCompanyName(workItem.company)) : undefined;
-        let companyId = companyIdFromMap;
-        if (!companyId && workItem.company) {
-          // Fallback: ilike lookup
-          const { data: fallbackCompany } = await dbClient
-            .from('companies')
-            .select('id, name')
-            .ilike('name', workItem.company)
-            .eq('user_id', userId)
-            .maybeSingle();
-          if (fallbackCompany) {
-            companyId = fallbackCompany.id;
-            companyIdMap.set(normalizeCompanyName(fallbackCompany.name), fallbackCompany.id);
-          }
-        }
+        const companyId = workItem.company ? companyIdMap.get(normalizeCompanyName(workItem.company)) : undefined;
         if (!companyId) {
           console.warn(`⚠️ Company ID missing for ${workItem.company}, skipping work item`);
           continue;
         }
+        const endDate = (workItem.endDate === 'Present' || workItem.endDate === 'Current' || workItem.current === true) ? null : workItem.endDate;
+        const key = `${companyId}|${workItemTitle}|${workItem.startDate || ''}|${endDate || ''}`;
+        if (workItemKeyToData.has(key)) continue;
 
-        // Check for existing work_item (deduplication: same company + title + overlapping dates)
-        const workItemEndDate = (workItem.endDate === 'Present' || workItem.endDate === 'Current' || workItem.current === true) ? null : workItem.endDate;
-        const workItemStartDate = new Date(workItem.startDate);
-        const workItemEndDateObj = workItemEndDate ? new Date(workItemEndDate) : null;
-        
-        // Query for existing work items - match on company and title, then check date overlap
-        // Use a broader query first, then filter for date overlap in code
-        let { data: candidateWorkItems } = await dbClient
+        const outcomeMetrics = Array.isArray(workItem.outcomeMetrics)
+          ? workItem.outcomeMetrics.map((m: any) => ({ ...m, parentType: m.parentType || 'role' }))
+          : [];
+
+        const payload = {
+          user_id: userId,
+          company_id: companyId,
+          title: workItemTitle,
+          start_date: workItem.startDate,
+          end_date: endDate,
+          description: workItem.roleSummary || workItem.description || '',
+          achievements: workItem.outcomeMetrics?.map((m: any) => `${m.value || ''} ${m.context || ''}`).filter(Boolean) || workItem.achievements || [],
+          tags: workItem.roleTags || workItem.tags || [],
+          metrics: outcomeMetrics,
+          source_id: sourceId,
+        };
+        workItemPayloads.push(payload);
+        workItemKeyToData.set(key, payload);
+      }
+
+      // Fetch existing work_items once and map for reuse
+      const workItemKeyToId = new Map<string, string>();
+      if (companyIds.length > 0) {
+        const { data: existingItems, error: existingItemsErr } = await dbClient
           .from('work_items')
-          .select('id, source_id, description, metrics, start_date, end_date')
+          .select('id, company_id, title, start_date, end_date, metrics, description')
           .eq('user_id', userId)
-          .eq('company_id', companyId)
-          .eq('title', workItemTitle.trim());
-        
-        // Fallback: if no exact title match, try any work item for the company (best-effort dedupe across sources like LinkedIn)
-        if (!candidateWorkItems || candidateWorkItems.length === 0) {
-          const { data: fallbackWorkItems } = await dbClient
-            .from('work_items')
-            .select('id, source_id, description, metrics, start_date, end_date, title')
-            .eq('user_id', userId)
-            .eq('company_id', companyId);
-          candidateWorkItems = fallbackWorkItems || [];
-        }
-        
-        // Filter for date overlap (more flexible than exact match)
-        const existingWorkItems = (candidateWorkItems || []).filter((existing: any) => {
-          const existingStartDate = new Date(existing.start_date);
-          const existingEndDate = existing.end_date ? new Date(existing.end_date) : null;
-          
-          // Check for date overlap: start dates within 90 days OR end dates within 90 days
-          // OR both are current positions (null end_date)
-          const startDateDiff = Math.abs(existingStartDate.getTime() - workItemStartDate.getTime());
-          const startDateDiffDays = startDateDiff / (1000 * 60 * 60 * 24);
-          
-          // If both are current positions (null end_date), they're the same role
-          if (!existingEndDate && !workItemEndDateObj) {
-            return startDateDiffDays < 90; // Start dates within 90 days
-          }
-          
-          // If one is current and one isn't, check if start dates are close
-          if (!existingEndDate || !workItemEndDateObj) {
-            return startDateDiffDays < 90;
-          }
-          
-          // Both have end dates - check if they overlap or are close
-          const endDateDiff = Math.abs(existingEndDate.getTime() - workItemEndDateObj.getTime());
-          const endDateDiffDays = endDateDiff / (1000 * 60 * 60 * 24);
-          
-          // Consider them duplicates if start dates are within 90 days AND end dates are within 90 days
-          return startDateDiffDays < 90 && endDateDiffDays < 90;
-        });
-        
-        let workItemId: string;
-        let isExisting = false;
-        
-        if (existingWorkItems && existingWorkItems.length > 0) {
-          // Work item already exists - check if it has stories
-          // Take the first one (they should all be duplicates)
-          const existingWorkItem = existingWorkItems[0] as any;
-          workItemId = existingWorkItem.id;
-          isExisting = true;
-          
-          // Check if existing work_item has stories (CRITICAL: must check before deciding)
-          const { count: storyCount } = await dbClient
-            .from('stories')
-            .select('id', { count: 'exact', head: true })
-            .eq('work_item_id', workItemId);
-          
-          const newStoryCount = workItem.stories?.length || 0;
-          const existingStoryCount = storyCount || 0;
-          const existingHasStories = existingStoryCount > 0;
-          
-          // DECISION LOGIC: Always prefer work_item with stories
-          // If existing has stories and new doesn't, skip (keep existing with stories)
-          if (existingHasStories && newStoryCount === 0) {
-            console.log(`✅ Skipping duplicate work_item - existing has ${existingStoryCount} stories, new has 0 (keeping existing)`);
-            continue; // Skip creating/updating - keep the one with stories
-          }
-          
-          // If new has stories and existing doesn't, update existing to include new stories
-          // If both have stories, prefer existing (already has linked stories in approved_content)
-          if (newStoryCount > 0 && !existingHasStories) {
-            // Update existing work_item to include new stories (will be inserted below)
-            console.log(`🔄 Updating existing work_item ${workItemId} - new has ${newStoryCount} stories, existing has 0`);
-            
-            // Store role-level metrics as structured JSONB
-            const outcomeMetrics = Array.isArray(workItem.outcomeMetrics) 
-              ? workItem.outcomeMetrics.map((m: any) => ({
-                  ...m,
-                  parentType: m.parentType || 'role'
-                }))
-              : [];
-            
-            // Merge metrics (combine existing and new)
-            const existingMetrics = existingWorkItem.metrics || [];
-            const mergedMetrics = Array.isArray(existingMetrics) && existingMetrics.length > 0
-              ? [...existingMetrics, ...outcomeMetrics].filter((m, i, arr) => 
-                  arr.findIndex(m2 => m2.value === m.value && m2.context === m.context) === i
-                ) // Deduplicate
-              : outcomeMetrics;
-            
-            await dbClient
-              .from('work_items')
-              .update({
-                description: workItem.roleSummary || workItem.description || existingWorkItem.description || '',
-                achievements: workItem.outcomeMetrics?.map((m: any) => `${m.value || ''} ${m.context || ''}`).filter(Boolean) || workItem.achievements || [],
-                tags: workItem.roleTags || workItem.tags || [],
-                metrics: mergedMetrics,
-                source_id: sourceId // Update to new source since it has stories
-              })
-              .eq('id', workItemId);
-
-            // Phase 3: Detect role-level gaps after update
-            try {
-              const { GapDetectionService } = await import('./gapDetectionService');
-              const roleGaps = await GapDetectionService.detectWorkItemGaps(
-                userId,
-                workItemId,
-                {
-                  title: workItemTitle,
-                  description: workItem.roleSummary || workItem.description || '',
-                  metrics: mergedMetrics,
-                  startDate: workItem.startDate,
-                  endDate: workItemEndDate
-                },
-                [] // Stories not yet inserted, will detect separately
-              );
-
-              if (roleGaps.length > 0) {
-                await GapDetectionService.saveGaps(roleGaps, accessToken);
-                console.log(`🔍 Detected ${roleGaps.length} role-level gap(s) for updated work_item: ${workItemId}`);
-              }
-            } catch (gapError) {
-              console.error('⚠️ Error detecting role-level gaps for updated work_item:', gapError);
-            }
-          } else {
-            // Both have stories or neither has stories - keep existing as-is
-            console.log(`ℹ️ Keeping existing work_item ${workItemId} - existing has ${existingStoryCount} stories, new has ${newStoryCount} (preserving existing)`);
-            // Don't insert stories below if existing already has them
-            if (existingHasStories) {
-              // Still check for role-level metrics gaps even if we're keeping existing
-              try {
-                const { GapDetectionService } = await import('./gapDetectionService');
-                const existingMetrics = existingWorkItem.metrics || [];
-                const roleGaps = await GapDetectionService.detectWorkItemGaps(
-                  userId,
-                  workItemId,
-                  {
-                    title: workItemTitle,
-                    description: existingWorkItem.description || '',
-                    metrics: Array.isArray(existingMetrics) ? existingMetrics : [],
-                    startDate: existingWorkItem.start_date,
-                    endDate: existingWorkItem.end_date
-                  },
-                  [] // Stories already exist, will check separately
-                );
-
-                if (roleGaps.length > 0) {
-                  await GapDetectionService.saveGaps(roleGaps, accessToken);
-                  console.log(`🔍 Detected ${roleGaps.length} role-level gap(s) for existing work_item: ${workItemId}`);
-                }
-              } catch (gapError) {
-                console.error('⚠️ Error detecting role-level gaps for existing work_item:', gapError);
-              }
-              continue;
-            }
-          }
+          .in('company_id', companyIds);
+        if (existingItemsErr) {
+          console.error('❌ Error fetching existing work items:', existingItemsErr);
         } else {
-          // Create new work item with role-level data
-          // Store role-level metrics as structured JSONB
-          const outcomeMetrics = Array.isArray(workItem.outcomeMetrics) 
-            ? workItem.outcomeMetrics.map((m: any) => ({
-                ...m,
-                parentType: m.parentType || 'role' // Ensure parentType is set
-              }))
-            : [];
-          
-          const { data: newWorkItem, error: workItemError } = await dbClient
-            .from('work_items')
-            .insert({
-              user_id: userId,
-              company_id: companyId,
-              title: workItemTitle.trim(),
-              start_date: workItem.startDate,
-              end_date: workItemEndDate,
-              description: workItem.roleSummary || workItem.description || '',
-              achievements: workItem.outcomeMetrics?.map((m: any) => `${m.value || ''} ${m.context || ''}`).filter(Boolean) || workItem.achievements || [], // Keep TEXT[] for backward compatibility
-              tags: workItem.roleTags || workItem.tags || [],
-              metrics: outcomeMetrics, // NEW: Structured JSONB metrics
-              source_id: sourceId // NEW: Track data lineage
-            })
-            .select('id')
-            .single();
-
-          if (workItemError) {
-            console.error('Error creating work item:', workItemError);
-            continue;
-          }
-          
-          workItemId = newWorkItem.id;
-          workItemsCreated++;
-
-          // Phase 3: Detect role-level gaps (metrics, description, etc.)
-          if (!isGapDetectionDisabled()) {
-            try {
-              const { GapDetectionService } = await import('./gapDetectionService');
-              const outcomeMetrics = Array.isArray(workItem.outcomeMetrics) ? workItem.outcomeMetrics : [];
-              const roleGaps = await GapDetectionService.detectWorkItemGaps(
-                userId,
-                workItemId,
-                {
-                  title: workItemTitle,
-                  description: workItem.roleSummary || workItem.description || '',
-                  metrics: outcomeMetrics,
-                  startDate: workItem.startDate,
-                  endDate: workItemEndDate
-                },
-                [] // Stories not yet inserted, will detect separately
-              );
-
-              if (roleGaps.length > 0) {
-                await GapDetectionService.saveGaps(roleGaps, accessToken);
-                console.log(`🔍 Detected ${roleGaps.length} role-level gap(s) for work_item: ${workItemId}`);
-              }
-            } catch (gapError) {
-              // Don't fail the upload if gap detection fails
-              console.error('⚠️ Error detecting role-level gaps:', gapError);
-            }
-          }
-        }
-
-        // Validate that we have valid FK references before inserting stories
-        if (!workItemId) {
-          console.error('❌ Cannot insert stories: work_item_id is missing');
-          continue;
-        }
-
-        if (!companyId) {
-          console.error('❌ Cannot insert stories: company_id is missing');
-          continue;
-        }
-
-        // Save stories to approved_content
-        // Skip if this is an existing work_item that already has stories (to avoid duplicates)
-          if (isExisting) {
-          const { count: existingStoryCount } = await dbClient
-            .from('stories')
-            .select('id', { count: 'exact', head: true })
-            .eq('work_item_id', workItemId);
-          
-          if ((existingStoryCount || 0) > 0) {
-            console.log(`ℹ️ Skipping story insertion - work_item ${workItemId} already has ${existingStoryCount} stories`);
-            continue;
-          }
-        }
-        
-        if (workItem.stories && Array.isArray(workItem.stories) && workItem.stories.length > 0) {
-          console.log(`📝 Inserting ${workItem.stories.length} stories for work item ${workItemId}`);
-          
-          for (const story of workItem.stories) {
-            // Validate story has required content
-            if (!story.content && !story.title) {
-              console.warn('⚠️ Skipping story with no content or title');
-              continue;
-            }
-            
-            // Check if story already exists (by title and work_item_id) to avoid duplicates
-            const storyTitle = story.title || story.content?.substring(0, 100);
-            const { data: existingStory } = await dbClient
-              .from('stories')
-              .select('id')
-              .eq('work_item_id', workItemId)
-              .eq('title', storyTitle)
-              .maybeSingle();
-            
-            if (existingStory) {
-              console.log(`ℹ️ Story already exists, skipping duplicate: "${storyTitle}"`);
-              continue;
-            }
-
-            // Store story-level metrics as structured JSONB
-            const storyMetrics = Array.isArray(story.metrics)
-              ? story.metrics.map((m: any) => ({
-                  ...m,
-                  parentType: m.parentType || 'story' // Ensure parentType is set
-                }))
-              : [];
-            
-            const { data: insertedStory, error: storyError } = await dbClient
-              .from('stories')
-              .insert({
-                user_id: userId,
-                work_item_id: workItemId,
-                company_id: companyId, // NEW: Denormalized for query performance
-                title: story.title || story.content?.substring(0, 100),
-                content: story.content || '',
-                tags: story.tags || [],
-                metrics: storyMetrics, // NEW: Structured JSONB metrics (story-level)
-                source_id: sourceId // NEW: Track data lineage
-              })
-              .select('id')
-              .single();
-
-            if (storyError) {
-              console.error('❌ Error creating story:', {
-                error: storyError,
-                story_title: story.title,
-                work_item_id: workItemId,
-                company_id: companyId,
-                user_id: userId
-              });
-              storiesFailed++;
-            } else {
-              console.log(`✅ Story created successfully: ${insertedStory?.id}`);
-              storiesCreated++;
-
-              // Phase 3: Detect gaps for this story (no LLM judge here; LLM runs in background)
-              if (insertedStory?.id && !isGapDetectionDisabled()) {
-                try {
-                  const { GapDetectionService } = await import('./gapDetectionService');
-                  const storyGaps = await GapDetectionService.detectStoryGaps(
-                    userId,
-                    {
-                      id: insertedStory.id,
-                      title: story.title || story.content?.substring(0, 100) || '',
-                      content: story.content || '',
-                      metrics: storyMetrics
-                    },
-                    workItemId
-                  );
-
-                  if (storyGaps.length > 0) {
-                    await GapDetectionService.saveGaps(storyGaps, accessToken);
-                    console.log(`🔍 Detected ${storyGaps.length} gap(s) for story: ${insertedStory.id}`);
-                  }
-                } catch (gapError) {
-                  // Don't fail the upload if gap detection fails
-                  console.error('⚠️ Error detecting gaps for story:', gapError);
-                }
-              }
-            }
+          for (const wi of existingItems || []) {
+            const key = `${wi.company_id}|${wi.title}|${wi.start_date || ''}|${wi.end_date || ''}`;
+            workItemKeyToId.set(key, wi.id);
           }
         }
       }
+
+      // Insert only new work_items
+      const newWorkItems = workItemPayloads.filter((payload) => {
+        const key = `${payload.company_id}|${payload.title}|${payload.start_date || ''}|${payload.end_date || ''}`;
+        return !workItemKeyToId.has(key);
+      });
+
+      if (newWorkItems.length > 0) {
+        const start = performance.now();
+        const { data: insertedWorkItems, error: insertWorkErr } = await dbClient
+          .from('work_items')
+          .insert(newWorkItems)
+          .select('id, company_id, title, start_date, end_date');
+        workItemUpsertMs = performance.now() - start;
+        if (insertWorkErr) {
+          console.error('❌ Error inserting work items batch:', insertWorkErr);
+        }
+        (insertedWorkItems || []).forEach((wi: any) => {
+          const key = `${wi.company_id}|${wi.title}|${wi.start_date || ''}|${wi.end_date || ''}`;
+          workItemKeyToId.set(key, wi.id);
+          workItemsCreated++;
+        });
+      }
+
+      // Prepare stories payloads using mapped work_item_ids
+      const storyPayloads: any[] = [];
+      const seenStoryKey = new Set<string>(); // work_item_id + title
+      for (const workItem of structuredData.workHistory) {
+        const workItemTitle = workItem.title?.trim();
+        if (!workItemTitle || !workItem.company) continue;
+        const companyId = companyIdMap.get(normalizeCompanyName(workItem.company));
+        if (!companyId) continue;
+        const endDate = (workItem.endDate === 'Present' || workItem.endDate === 'Current' || workItem.current === true) ? null : workItem.endDate;
+        const key = `${companyId}|${workItemTitle}|${workItem.startDate || ''}|${endDate || ''}`;
+        const workItemId = workItemKeyToId.get(key);
+        if (!workItemId) continue;
+
+        const stories = Array.isArray(workItem.stories) ? workItem.stories : [];
+        for (const story of stories) {
+          const storyTitle = story.title || story.content?.substring(0, 100);
+          if (!storyTitle) continue;
+          const storyKey = `${workItemId}|${storyTitle}`;
+          if (seenStoryKey.has(storyKey)) continue;
+          seenStoryKey.add(storyKey);
+
+          const storyMetrics = Array.isArray(story.metrics)
+            ? story.metrics.map((m: any) => ({ ...m, parentType: m.parentType || 'story' }))
+            : [];
+
+          storyPayloads.push({
+            user_id: userId,
+            work_item_id: workItemId,
+            company_id: companyId,
+            title: storyTitle,
+            content: story.content || '',
+            tags: story.tags || [],
+            metrics: storyMetrics,
+            source_id: sourceId,
+          });
+        }
+      }
+
+      if (storyPayloads.length > 0) {
+        const start = performance.now();
+        const { data: insertedStories, error: storiesErr } = await dbClient
+          .from('stories')
+          .insert(storyPayloads)
+          .select('id, work_item_id, title');
+        storyInsertMs = performance.now() - start;
+        if (storiesErr) {
+          console.error('❌ Error inserting stories batch:', storiesErr);
+        }
+        storiesCreated = insertedStories?.length || 0;
+
+        // Run gap detection for inserted stories (non-blocking loop)
+        if (!isGapDetectionDisabled()) {
+          try {
+            const { GapDetectionService } = await import('./gapDetectionService');
+            for (const story of insertedStories || []) {
+              const payload = storyPayloads.find((p) => p.work_item_id === story.work_item_id && p.title === story.title);
+              if (!payload) continue;
+              const gaps = await GapDetectionService.detectStoryGaps(
+                userId,
+                {
+                  id: story.id,
+                  title: payload.title,
+                  content: payload.content,
+                  metrics: payload.metrics || []
+                },
+                story.work_item_id
+              );
+              if (gaps.length > 0) {
+                await GapDetectionService.saveGaps(gaps, accessToken);
+              }
+            }
+          } catch (gapErr) {
+            console.error('⚠️ Error detecting gaps for stories (batch):', gapErr);
+          }
+        }
+      }
+
+      // Role-level gap detection for work items (batch-friendly loop)
+      if (!isGapDetectionDisabled()) {
+        const { GapDetectionService } = await import('./gapDetectionService');
+        for (const [key, payload] of workItemKeyToData.entries()) {
+          const workItemId = workItemKeyToId.get(key);
+          if (!workItemId) continue;
+          try {
+            const roleGaps = await GapDetectionService.detectWorkItemGaps(
+              userId,
+              workItemId,
+              {
+                title: payload.title,
+                description: payload.description || '',
+                metrics: Array.isArray(payload.metrics) ? payload.metrics : [],
+                startDate: payload.start_date,
+                endDate: payload.end_date
+              },
+              []
+            );
+            if (roleGaps.length > 0) {
+              await GapDetectionService.saveGaps(roleGaps, accessToken);
+            }
+          } catch (gapErr) {
+            console.error('⚠️ Error detecting role-level gaps (batch):', gapErr);
+          }
+        }
+      }
+
+      // Estimate updated work items (existing mapped items minus new creations)
+      workItemsUpdated = Math.max(workItemKeyToId.size - workItemsCreated, 0);
 
       // Normalize skills to user_skills table
       await this.normalizeSkills(structuredData, sourceId, userId, 'resume', accessToken);

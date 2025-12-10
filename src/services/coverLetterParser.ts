@@ -178,6 +178,58 @@ function extractGreeting(firstParagraph: string): { greeting: string | null; par
 }
 
 /**
+ * Extract company name from greeting
+ * Returns null if no company name found
+ */
+function extractCompanyNameFromGreeting(greeting: string | null): string | null {
+  if (!greeting) return null;
+  
+  // Match patterns like:
+  // "Dear 23andMe team," -> "23andMe"
+  // "Dear Hiring Manager at Acme Corp," -> "Acme Corp"
+  // "Dear Acme team," -> "Acme"
+  
+  // Pattern 1: "Dear [COMPANY] team,"
+  const teamMatch = greeting.match(/Dear\s+(.+?)\s+team,?/i);
+  if (teamMatch) {
+    return teamMatch[1].trim();
+  }
+  
+  // Pattern 2: "Dear ... at [COMPANY],"
+  const atMatch = greeting.match(/Dear\s+.+?\s+at\s+(.+?),/i);
+  if (atMatch) {
+    return atMatch[1].trim();
+  }
+  
+  // Pattern 3: Generic "Dear [COMPANY]," (fallback)
+  const genericMatch = greeting.match(/Dear\s+(.+?),/i);
+  if (genericMatch) {
+    const candidate = genericMatch[1].trim();
+    // Exclude common generic recipients
+    const genericRecipients = ['Hiring Manager', 'Hiring Team', 'Recruiter', 'Sir or Madam', 'whom it may concern'];
+    if (!genericRecipients.some(generic => candidate.toLowerCase().includes(generic.toLowerCase()))) {
+      return candidate;
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Replace all instances of company name with [COMPANY-NAME] token
+ */
+function tokenizeCompanyName(text: string, companyName: string): string {
+  if (!companyName) return text;
+  
+  // Create regex that matches the company name (case-insensitive, whole word or possessive)
+  // Handles: "23andMe", "23andMe's", "Acme Corp", "Acme Corp's"
+  const escapedName = companyName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`\\b${escapedName}(?:'s)?\\b`, 'gi');
+  
+  return text.replace(regex, '[COMPANY-NAME]');
+}
+
+/**
  * Convert parsed CL to saved sections format
  * 
  * Structure (matching user requirements):
@@ -196,6 +248,9 @@ export function convertToSavedSections(parsed: ParsedCoverLetter) {
   
   let order = 0;
   
+  // Extract company name from greeting for tokenization
+  const companyName = extractCompanyNameFromGreeting(parsed.greeting);
+  
   // 1. Greeting (dynamic - uses [COMPANY-NAME] token)
   // Convert any extracted greeting to use the token format
   const greetingTemplate = parsed.greeting 
@@ -210,32 +265,32 @@ export function convertToSavedSections(parsed: ParsedCoverLetter) {
     isStatic: false, // Dynamic - uses [COMPANY-NAME] token
   });
   
-  // 2. Introduction (static - reused as-is)
+  // 2. Introduction (static - reused as-is, but tokenize company name)
   if (parsed.introduction) {
     sections.push({
       slug: 'introduction',
       title: 'Introduction',
-      content: parsed.introduction,
+      content: companyName ? tokenizeCompanyName(parsed.introduction, companyName) : parsed.introduction,
       order: order++,
       isStatic: true, // Static - reused as-is
     });
   }
   
-  // 3. Body paragraphs (dynamic - will be replaced with stories post-onboarding)
+  // 3. Body paragraphs (dynamic - will be replaced with stories post-onboarding, but tokenize company name)
   parsed.bodyParagraphs.forEach((body, idx) => {
     sections.push({
       slug: `body-${idx + 1}`,
       title: `Body Paragraph ${idx + 1}`,
-      content: body,
+      content: companyName ? tokenizeCompanyName(body, companyName) : body,
       order: order++,
       isStatic: false, // Dynamic - can be swapped with stories
     });
   });
   
-  // 4. Closing (static - closing paragraph + signature combined, reused as-is)
+  // 4. Closing (static - closing paragraph + signature combined, reused as-is, but tokenize company name)
   const closingParts: string[] = [];
   if (parsed.closing) {
-    closingParts.push(parsed.closing);
+    closingParts.push(companyName ? tokenizeCompanyName(parsed.closing, companyName) : parsed.closing);
   }
   if (parsed.signature) {
     closingParts.push(parsed.signature);

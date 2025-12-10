@@ -289,11 +289,14 @@ export async function fetchWorkHistory(supabase: SupabaseClient, userId: string)
 }
 
 export async function fetchStories(supabase: SupabaseClient, userId: string) {
+  // Query the 'stories' table (not deprecated 'approved_content')
+  // Include both 'approved' and 'draft' stories for PM Level assessment
   const { data, error } = await supabase
-    .from('approved_content')
-    .select('*, work_items!inner(*), companies(*)')
+    .from('stories')
+    .select('id, title, content, tags, work_item_id, source_id, metrics, created_at, updated_at')
     .eq('user_id', userId)
-    .eq('status', 'approved');
+    .in('status', ['approved', 'draft'])
+    .order('created_at', { ascending: false });
 
   if (error) {
     console.warn(`Failed to fetch stories: ${error.message}`);

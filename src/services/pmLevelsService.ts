@@ -261,6 +261,11 @@ export class PMLevelsService {
 
       const analysisTimestamp = new Date().toISOString();
 
+      // Detect specializations from tags if not provided
+      const detectedRoleTypes = roleType && roleType.length > 0 
+        ? roleType 
+        : await this.detectSpecializations(content);
+      
       // Build initial inference object (needed for collectLevelEvidence)
       inference = {
         inferredLevel: levelCode,
@@ -268,7 +273,7 @@ export class PMLevelsService {
         confidence,
         scopeScore,
         maturityInfo: maturityInfo.maturity, // Store for display/evidence, not used as modifier
-        roleType: roleType || [],
+        roleType: detectedRoleTypes,
         competencyScores,
         levelScore,
         deltaSummary,
@@ -412,7 +417,7 @@ export class PMLevelsService {
       // Fetch work items (filtered by source_id if synthetic profile provided)
       let workItemsQuery = supabase
         .from('work_items')
-        .select('id, title, description, achievements, metrics, source_id, start_date, end_date, companies(name, company_stage, maturity)')
+        .select('id, title, description, achievements, metrics, tags, source_id, start_date, end_date, companies(name, company_stage, maturity)')
         .eq('user_id', userId);
       
       if (syntheticProfileId && sourceRows.length > 0) {
@@ -739,10 +744,13 @@ export class PMLevelsService {
       return { levelCode: 'L5', displayLevel: 'Senior Product Manager' };
     } else if (score < 4.5) {
       return { levelCode: 'L6', displayLevel: 'Staff Product Manager' };
-    } else {
-      // Manager levels (M1/M2) would need additional signals (team size, direct reports)
-      // For now, default to L6 for high scores
+    } else if (score < 5.5) {
+      // High IC level - Principal/Staff with broad impact
       return { levelCode: 'L6', displayLevel: 'Principal Product Manager' };
+    } else {
+      // Very high scores indicate management-level scope
+      // M1 for Group PM/Director level, would need M2 for VP in future
+      return { levelCode: 'M1', displayLevel: 'Group Product Manager' };
     }
   }
 
@@ -1041,15 +1049,50 @@ export class PMLevelsService {
     
     // Parse work items for role titles, company info, and metrics
     // Helper function to check if role is PM-related
+    // Includes direct PM roles AND highly-relevant adjacent roles (UX leadership, Product Design)
     const isPMRole = (title: string): boolean => {
       const titleLower = title.toLowerCase();
-      return titleLower.includes('product manager') || 
-             titleLower.includes('product management') ||
-             titleLower.includes('pm') ||
-             titleLower.includes('associate pm') ||
-             titleLower.includes('senior pm') ||
-             titleLower.includes('staff pm') ||
-             titleLower.includes('principal pm');
+      
+      // Direct Product Management roles
+      const isDirectPM = titleLower.includes('product manager') || 
+                        titleLower.includes('product management') ||
+                        titleLower.includes('vp of product') ||
+                        titleLower.includes('vp product') ||
+                        titleLower.includes('vice president of product') ||
+                        titleLower.includes('vice president, product') ||
+                        titleLower.includes('head of product') ||
+                        titleLower.includes('director of product') ||
+                        titleLower.includes('product director') ||
+                        titleLower.includes('product lead') ||
+                        titleLower.includes('group product manager') ||
+                        titleLower.includes('principal product manager') ||
+                        titleLower.includes('staff product manager') ||
+                        titleLower.includes('senior product manager') ||
+                        titleLower.includes('associate product manager') ||
+                        // Shortened versions (but be careful with "pm" alone as it's too broad)
+                        (titleLower.match(/\bpm\b/) && !titleLower.includes('program manager') && !titleLower.includes('project manager'));
+      
+      // Highly-relevant adjacent roles that involve product work
+      // These roles often transition to PM or perform PM-adjacent work
+      const isProductAdjacent = (
+        // UX leadership roles (principal/staff level UX often does PM work)
+        (titleLower.includes('ux') && (
+          titleLower.includes('principal') ||
+          titleLower.includes('staff') ||
+          titleLower.includes('lead') ||
+          titleLower.includes('director') ||
+          titleLower.includes('head of')
+        )) ||
+        // Product Design leadership
+        (titleLower.includes('product design') && (
+          titleLower.includes('lead') ||
+          titleLower.includes('principal') ||
+          titleLower.includes('director') ||
+          titleLower.includes('head of')
+        ))
+      );
+      
+      return isDirectPM || isProductAdjacent;
     };
 
     let totalPMDuration = 0; // PM-specific experience
@@ -1181,7 +1224,7 @@ export class PMLevelsService {
       });
     }
 
-    // Sort roles by chronological order (oldest first, most recent last)
+    // Sort roles by chronological order (oldest first, most recent last) - show ALL roles
     const sortedRoleTitles = roleTitlesWithDates
       .sort((a, b) => {
         if (!a.startDate && !b.startDate) return 0;
@@ -1189,10 +1232,9 @@ export class PMLevelsService {
         if (!b.startDate) return -1; // No date goes to end
         return new Date(a.startDate).getTime() - new Date(b.startDate).getTime(); // Oldest first
       })
-      .map(item => item.title)
-      .slice(0, 5);
+      .map(item => item.title);
     
-    // Sort companies by chronological order (oldest first, most recent last)
+    // Sort companies by chronological order (oldest first, most recent last) - show ALL companies
     const sortedCompanies = companiesWithDates
       .sort((a, b) => {
         if (!a.startDate && !b.startDate) return 0;
@@ -1200,8 +1242,7 @@ export class PMLevelsService {
         if (!b.startDate) return -1; // No date goes to end
         return new Date(a.startDate).getTime() - new Date(b.startDate).getTime(); // Oldest first
       })
-      .map(item => item.name)
-      .slice(0, 5);
+      .map(item => item.name);
 
     // Process all stories for display (similar to collectCompetencyEvidence but without competency filtering)
     const stories: EvidenceStory[] = [];
@@ -1372,6 +1413,72 @@ export class PMLevelsService {
     }
 
     return evidenceByRole;
+  }
+
+  /**
+   * Detect specializations from user content (tags, titles, descriptions)
+   */
+  private async detectSpecializations(content: UserContent): Promise<RoleType[]> {
+    const specializations: RoleType[] = [];
+    const tagCounts: Record<RoleType, number> = {
+      growth: 0,
+      platform: 0,
+      ai_ml: 0,
+      founding: 0,
+      technical: 0,
+      general: 0
+    };
+    
+    // Define tag patterns for each specialization
+    const tagPatterns: Record<RoleType, string[]> = {
+      growth: ['growth', 'activation', 'retention', 'experimentation', 'conversion', 'metrics', 'analytics', 'a/b-testing', 'funnel', 'acquisition'],
+      platform: ['platform', 'api', 'sdk', 'developer-experience', 'infrastructure', 'ecosystem', 'integration'],
+      ai_ml: ['ai', 'ml', 'machine-learning', 'ai-ml', 'nlp', 'computer-vision', 'recommendation', 'data-science'],
+      founding: ['founding', '0-1', 'startup', 'launch', 'mvp', 'early-stage', 'pre-seed', 'seed', 'entrepreneur'],
+      technical: ['technical', 'engineering', 'architecture', 'system-design', 'backend', 'frontend'],
+      general: ['product', 'feature', 'user', 'customer', 'roadmap', 'strategy']
+    };
+    
+    // Count tags from work items and stories
+    for (const workItem of content.workItems) {
+      if (workItem.tags && Array.isArray(workItem.tags)) {
+        for (const tag of workItem.tags) {
+          const tagLower = tag.toLowerCase();
+          for (const [roleType, patterns] of Object.entries(tagPatterns)) {
+            if (patterns.some(pattern => tagLower.includes(pattern))) {
+              tagCounts[roleType as RoleType]++;
+            }
+          }
+        }
+      }
+    }
+    
+    for (const story of content.stories) {
+      if (story.tags && Array.isArray(story.tags)) {
+        for (const tag of story.tags) {
+          const tagLower = tag.toLowerCase();
+          for (const [roleType, patterns] of Object.entries(tagPatterns)) {
+            if (patterns.some(pattern => tagLower.includes(pattern))) {
+              tagCounts[roleType as RoleType]++;
+            }
+          }
+        }
+      }
+    }
+    
+    // Threshold: Include specialization if it has 3+ matching tags
+    // This ensures we only show specializations with clear evidence
+    const threshold = 3;
+    
+    if (tagCounts.growth >= threshold) specializations.push('growth');
+    if (tagCounts.platform >= threshold) specializations.push('platform');
+    if (tagCounts.ai_ml >= threshold) specializations.push('ai_ml');
+    if (tagCounts.founding >= threshold) specializations.push('founding');
+    
+    console.log(`[detectSpecializations] Tag counts:`, tagCounts);
+    console.log(`[detectSpecializations] Detected specializations:`, specializations);
+    
+    return specializations;
   }
 
   /**

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/components/ui/use-toast";
 import { StoryCard } from "@/components/work-history/StoryCard";
 import { LinkCard } from "@/components/work-history/LinkCard";
 import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
@@ -62,7 +63,6 @@ import {
 import type { WorkHistoryCompany, WorkHistoryRole, WorkHistoryBlurb } from "@/types/workHistory";
 import { useContentGeneration } from "@/hooks/useContentGeneration";
 import { supabase } from "@/lib/supabase";
-import { useToast } from "@/hooks/use-toast";
 
 interface WorkHistoryDetailProps {
   selectedCompany: WorkHistoryCompany | null;
@@ -471,42 +471,119 @@ export const WorkHistoryDetail = ({
   // Users can manually edit tags if needed, but auto-suggest is no longer needed for roles
 
   const handleApplyTags = async (selectedTags: string[]) => {
-    if (!user || !tagEntityId) return;
+    console.log('🏷️ handleApplyTags called with:', { 
+      selectedTags, 
+      user: !!user, 
+      tagEntityId, 
+      tagContentType 
+    });
+    
+    if (!user) {
+      console.error('🏷️ No user found');
+      setSearchError('User not authenticated. Please log in and try again.');
+      return;
+    }
+    
+    if (!tagEntityId) {
+      console.error('🏷️ No tagEntityId found');
+      setSearchError('Missing entity ID. Please close and try again.');
+      return;
+    }
     
     try {
       if (tagContentType === 'company') {
         // Find company by ID
         const targetCompany = selectedCompany || companies.find(c => c.id === tagEntityId);
-        if (targetCompany) {
-          // Merge with existing tags
-          const allTags = [...new Set([...(targetCompany.tags || []), ...selectedTags])];
-          await TagService.updateCompanyTags(tagEntityId, allTags, user.id);
+        console.log('🏷️ Target company:', { 
+          targetCompany: targetCompany?.name, 
+          selectedCompany: selectedCompany?.name,
+          companiesCount: companies.length 
+        });
+        
+        if (!targetCompany) {
+          console.error('🏷️ Company not found with ID:', tagEntityId);
+          setSearchError('Company not found. Please refresh and try again.');
+          return;
         }
+        
+        // Merge with existing tags
+        const allTags = [...new Set([...(targetCompany.tags || []), ...selectedTags])];
+        console.log('🏷️ Updating company tags:', { 
+          companyId: tagEntityId, 
+          existingTags: targetCompany.tags,
+          selectedTags,
+          allTags 
+        });
+        
+        await TagService.updateCompanyTags(tagEntityId, allTags, user.id);
+        console.log('🏷️ Company tags updated successfully');
+        
       } else if (tagContentType === 'role') {
         // Merge with existing tags for role
         const allTags = [...new Set([...(selectedRole?.tags || []), ...selectedTags])];
+        console.log('🏷️ Updating role tags:', { 
+          roleId: tagEntityId, 
+          existingTags: selectedRole?.tags,
+          selectedTags,
+          allTags 
+        });
+        
         await TagService.updateWorkItemTags(tagEntityId, allTags, user.id);
+        console.log('🏷️ Role tags updated successfully');
       }
       
       // Refresh work history
       if (onRefresh) {
+        console.log('🏷️ Refreshing work history');
         onRefresh();
       }
       
+      // Show success toast
+      toast({
+        title: 'Tags saved',
+        description: `${selectedTags.length} tag${selectedTags.length !== 1 ? 's' : ''} applied successfully.`,
+      });
+      
       setIsTagModalOpen(false);
       setSuggestedTags([]);
+      setOtherTags([]);
+      setSearchError(null);
     } catch (error) {
-      console.error('Error updating tags:', error);
-      setSearchError(error instanceof Error ? error.message : 'Failed to update tags. Please try again.');
+      console.error('🏷️ Error updating tags:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update tags. Please try again.';
+      setSearchError(errorMessage);
+      
+      // Also show error toast
+      toast({
+        title: 'Failed to save tags',
+        description: errorMessage,
+        variant: 'destructive',
+      });
     }
   };
 
   // Company tag suggestion handlers
   const handleCompanyTagSuggestions = async (company?: WorkHistoryCompany) => {
     const targetCompany = company || selectedCompany;
-    if (!targetCompany) return;
+    console.log('🏷️ handleCompanyTagSuggestions called with:', {
+      companyArg: company?.name,
+      selectedCompany: selectedCompany?.name,
+      targetCompany: targetCompany?.name,
+      targetCompanyId: targetCompany?.id
+    });
+    
+    if (!targetCompany) {
+      console.error('🏷️ No target company found');
+      return;
+    }
     
     const content = `${targetCompany.name}: ${targetCompany.description || 'Company information'}`;
+    
+    console.log('🏷️ Setting tag modal state:', {
+      content,
+      entityId: targetCompany.id,
+      contentType: 'company'
+    });
     
     setTagContent(content);
     setTagContentType('company');

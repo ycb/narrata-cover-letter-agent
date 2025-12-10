@@ -50,7 +50,7 @@ export function WorkHistoryEmptyState() {
       title="No work history yet"
       description="Start building your professional story by adding your work experience, stories, and achievements."
       actionLabel="Go to Onboarding"
-      actionLink="/onboarding"
+      actionLink="/new-user"
       icon={<Briefcase className="h-6 w-6 text-muted-foreground" />}
     />
   );
@@ -86,7 +86,7 @@ export function DashboardEmptyState() {
       title="Complete your onboarding"
       description="Finish setting up your profile to unlock your personalized dashboard and start creating cover letters."
       actionLabel="Complete Onboarding"
-      actionLink="/onboarding"
+      actionLink="/new-user"
       icon={<Upload className="h-6 w-6 text-muted-foreground" />}
     />
   );

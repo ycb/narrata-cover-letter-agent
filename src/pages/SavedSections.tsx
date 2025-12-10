@@ -24,7 +24,7 @@ import { TourBannerFull } from "@/components/onboarding/TourBannerFull";
 
 type SavedSectionItem = {
   id: string;
-  type: 'intro' | 'paragraph' | 'closer' | 'signature';
+  type: 'intro' | 'body' | 'closer' | 'signature';
   title: string;
   content: string;
   tags: string[];
@@ -221,7 +221,7 @@ export default function SavedSections() {
     setIsEditingSection(true);
   };
 
-  const handleCreateSection = (type?: 'intro' | 'paragraph' | 'closer' | 'signature' | string) => {
+  const handleCreateSection = (type?: 'intro' | 'body' | 'closer' | 'signature' | string) => {
     if (type) {
       setNewReusableContent(prev => ({ ...prev, contentType: type }));
       setShowAddReusableContentModal(true);
@@ -465,7 +465,8 @@ export default function SavedSections() {
     hasGaps: section.hasGaps,
     gapCount: section.gapCount,
     gapCategories: section.gapCategories,
-    maxGapSeverity: section.maxGapSeverity
+    maxGapSeverity: section.maxGapSeverity,
+    is_dynamic: section.is_dynamic
   }));
 
   return (
@@ -520,7 +521,7 @@ export default function SavedSections() {
                 icon: FileText
               },
               {
-                type: 'paragraph',
+                type: 'body',
                 label: 'Body Paragraph',
                 description: 'Static supporting paragraphs kept verbatim from uploads',
                 icon: BookOpen
@@ -812,7 +813,7 @@ export default function SavedSections() {
                       // Create saved section in database
                       const newSection: SavedSection = {
                         user_id: user.id,
-                        type: newReusableContent.contentType as 'intro' | 'paragraph' | 'closer' | 'signature' | 'other',
+                        type: newReusableContent.contentType as 'intro' | 'body' | 'closer' | 'signature' | 'other',
                         title: newReusableContent.title,
                         content: newReusableContent.content,
                         tags: newReusableContent.tags.split(',').map(tag => tag.trim()).filter(Boolean),
