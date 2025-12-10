@@ -44,11 +44,13 @@ TASK:
 3. Infer the writer's VOICE (tone, style, persona)
 
 CRITICAL RULES:
-- Stories MUST mention a specific company and role to be extractable
-- If a paragraph describes an accomplishment but lacks company/role context → skip it
-- Only extract stories where you can confidently match to work history
-- Use null for company/role if not identifiable (story won't be linked)
+- Extract ALL stories that mention a company and describe work/impact
+- Stories don't need perfect STAR format - extract what's available
+- Stories don't need to match work history - set workItemId to null if no match
+- If a story mentions a company not in work history, still extract it (set workItemId to null)
+- For stories without clear metrics, describe qualitative impact in the result field
 - Extract metrics exactly as written (don't invent or estimate)
+- Better to extract too many stories than miss relevant ones
 
 OUTPUT JSON SCHEMA:
 {
@@ -102,8 +104,14 @@ SKILLS GUIDANCE:
 MATCHING GUIDANCE:
 - Match company names flexibly (e.g., "Acme Corp" matches "Acme Corporation")
 - If multiple work items match company, use date range or title to disambiguate
-- Set workItemId to null if no confident match found
+- Set workItemId to null if no confident match found (story will still be extracted, just not linked)
+- Extract stories even if company is not in work history (e.g., side projects, consulting)
 - Include warning in metadata if matching is ambiguous
+
+EXAMPLES OF EXTRACTABLE STORIES:
+- "At Aurora Solar, I helped scale the platform..." → Extract even if metrics not explicit
+- "Currently building Narrata..." → Extract even though not in work history
+- "Earlier at HLI, I led UX..." → Extract even if dates/context unclear
 
 Return ONLY valid JSON matching this schema. No markdown, no prose.
 `;

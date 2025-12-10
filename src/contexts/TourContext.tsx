@@ -28,7 +28,7 @@ const DEFAULT_TOUR_STEPS: TourStep[] = [
     id: 'work-history',
     path: '/work-history',
     title: 'Work History',
-    description: 'Your work history is organized by roles and stories. Confirm correct and resolve gaps here first',
+    description: 'Work history is organized by roles and stories. Here we preview each tab.',
     highlights: ['Roles', 'Stories', 'Gaps', 'Metrics']
   },
   {

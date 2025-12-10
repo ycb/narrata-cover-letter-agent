@@ -369,14 +369,21 @@ export default function NewUserOnboarding() {
       setTaskProgress(prev => {
         const next = { ...prev, [fileType]: capped };
         const required = getRequiredTasks();
+        const taskIndex = required.findIndex(t => t === fileType);
         const avg = required.reduce((sum, t) => sum + (next[t] || 0), 0) / required.length;
         const boundedAvg = Math.min(avg, 99);
+        const fileLabels: Record<'resume' | 'coverLetter' | 'linkedin', string> = {
+          resume: 'Resume',
+          coverLetter: 'Cover letter',
+          linkedin: 'LinkedIn',
+        };
+        const prefix = taskIndex >= 0 ? `${fileLabels[fileType]} (${taskIndex + 1}/${required.length})` : fileLabels[fileType];
         setGlobalProgress(prevGp => {
           if (prevGp.percent >= 100) return prevGp;
           const nextPercent = Math.max(prevGp.percent, boundedAvg);
           return {
             percent: nextPercent,
-            message: label || prevGp.message,
+            message: label ? `${prefix}: ${label}` : prevGp.message,
             stage: stage || prevGp.stage,
           };
         });

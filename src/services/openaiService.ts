@@ -88,8 +88,10 @@ export class LLMAnalysisService {
    */
   async analyzeResumeStagedWithEvents(
     text: string,
-    onStageComplete?: (stage: string, data: unknown) => void
+    onStageComplete?: (stage: string, data: unknown) => void,
+    options?: { includeSkills?: boolean }
   ): Promise<LLMAnalysisResult> {
+    const includeSkills = options?.includeSkills !== false;
     const startTime = Date.now();
     console.log('═══════════════════════════════════════════════════════════');
     console.log('⏱️  [TIMING] analyzeResumeStagedWithEvents START');
@@ -204,11 +206,10 @@ export class LLMAnalysisService {
       console.log(`⏱️  [TIMING] ✅ Stage 1 complete: ${stage1Ms}ms (${skeleton.workHistory?.length || 0} roles found)`);
       onStageComplete?.('workHistorySkeleton', skeleton);
 
-      // STAGE 2 + STAGE 3: Run in PARALLEL (both only depend on Stage 1)
-      console.log(`⏱️  [TIMING] ───  LLM Stage 2+3: Stories (${skeleton.workHistory?.length || 0} roles) + Skills (PARALLEL) ───`);
-      const stage2and3Start = Date.now();
+      // STAGE 2: Stories per role (parallel within itself)
+      console.log(`⏱️  [TIMING] ───  LLM Stage 2: Stories (${skeleton.workHistory?.length || 0} roles) ───`);
+      const stage2Start = Date.now();
       
-      // Stage 2: Stories per role (parallel within itself)
       console.log(`⏱️  [TIMING] Launching ${skeleton.workHistory?.length || 0} parallel LLM calls for role stories...`);
       const storyPromises = (skeleton.workHistory || []).map(async (role, idx) => {
         const roleStart = Date.now();
@@ -227,34 +228,31 @@ export class LLMAnalysisService {
         console.log(`⏱️  [TIMING] ✅ Role ${idx + 1}/${skeleton.workHistory?.length} (${role.company}): ${roleMs}ms (${result.stories?.length || 0} stories)`);
         return result;
       });
-
-      // Stage 3: Skills + education + contact
-      console.log(`⏱️  [TIMING] Launching LLM call for skills + education...`);
-      const stage3Start = Date.now();
-      const skillsPrompt = buildSkillsAndEducationPrompt(text);
-      const skillsPromise = this.callOpenAI(skillsPrompt, 2000);
-
-      // Wait for BOTH Stage 2 and Stage 3 to complete
-      const [roleStories, skillsResponse] = await Promise.all([
-        Promise.all(storyPromises),
-        skillsPromise
-      ]);
+      
+      // Wait for Stage 2 to complete
+      const roleStories = await Promise.all(storyPromises);
 
       const totalStories = roleStories.reduce((acc, r) => acc + (r.stories?.length || 0), 0);
       console.log(`⏱️  [TIMING] ✅ Stage 2 complete: ${totalStories} total stories`);
       onStageComplete?.('roleStories', roleStories);
 
-      if (!skillsResponse.success || !skillsResponse.data) {
-        throw new Error(`Stage 3 failed: ${skillsResponse.error}`);
+      // STAGE 3: Skills + education + contact (optional; can be deferred)
+      let skillsData: SkillsAndEducationResult | null = null;
+      if (includeSkills) {
+        console.log(`⏱️  [TIMING] Launching LLM call for skills + education...`);
+        const stage3Start = Date.now();
+        const skillsPrompt = buildSkillsAndEducationPrompt(text);
+        const skillsResponse = await this.callOpenAI(skillsPrompt, 2000);
+        if (!skillsResponse.success || !skillsResponse.data) {
+          throw new Error(`Stage 3 failed: ${skillsResponse.error}`);
+        }
+        skillsData = skillsResponse.data as unknown as SkillsAndEducationResult;
+        const stage3Ms = Date.now() - stage3Start;
+        console.log(`⏱️  [TIMING] ✅ Stage 3 complete: ${stage3Ms}ms (${skillsData.skills?.length || 0} skill categories, ${skillsData.education?.length || 0} education entries)`);
+        onStageComplete?.('skillsAndEducation', skillsData);
+      } else {
+        console.log('⏱️  [TIMING] ⚡ Skills+Education stage deferred (includeSkills=false)');
       }
-      
-      const skillsData = skillsResponse.data as unknown as SkillsAndEducationResult;
-      const stage3Ms = Date.now() - stage3Start;
-      console.log(`⏱️  [TIMING] ✅ Stage 3 complete: ${stage3Ms}ms (${skillsData.skills?.length || 0} skill categories, ${skillsData.education?.length || 0} education entries)`);
-      
-      const stage2and3Ms = Date.now() - stage2and3Start;
-      console.log(`⏱️  [TIMING] ✅ Stage 2+3 parallel complete in ${stage2and3Ms}ms`);
-      onStageComplete?.('skillsAndEducation', skillsData);
 
       // MERGE all stages into final structured data
       const mergedWorkHistory = (skeleton.workHistory || []).map(role => {
@@ -267,14 +265,14 @@ export class LLMAnalysisService {
       });
 
       const structuredData: StructuredResumeData = {
-        contactInfo: skillsData.contactInfo || {},
-        location: skillsData.location || null,
-        summary: skillsData.summary || '',
+        contactInfo: skillsData?.contactInfo || {},
+        location: skillsData?.location || null,
+        summary: skillsData?.summary || '',
         workHistory: mergedWorkHistory,
-        education: skillsData.education || [],
-        skills: skillsData.skills || [],
-        certifications: skillsData.certifications || [],
-        projects: skillsData.projects || []
+        education: skillsData?.education || [],
+        skills: skillsData?.skills || [],
+        certifications: skillsData?.certifications || [],
+        projects: skillsData?.projects || []
       };
 
       const totalTime = Date.now() - startTime;
@@ -327,6 +325,27 @@ export class LLMAnalysisService {
         success: false,
         error: error instanceof Error ? error.message : 'Job description analysis failed',
         retryable: true,
+      };
+    }
+  }
+
+  /**
+   * Skills + education only (resume) - can be run as a background follow-up
+   */
+  async analyzeResumeSkillsOnly(text: string): Promise<LLMAnalysisResult> {
+    try {
+      const { buildSkillsAndEducationPrompt } = await import('../prompts/resumeAnalysisSplit');
+      const skillsPrompt = buildSkillsAndEducationPrompt(text);
+      const response = await this.callOpenAI(skillsPrompt, 2000);
+      if (!response.success || !response.data) {
+        return { success: false, error: response.error || 'Skills analysis failed', retryable: true };
+      }
+      return { success: true, data: response.data as any };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Skills analysis failed',
+        retryable: true
       };
     }
   }

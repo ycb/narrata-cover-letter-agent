@@ -179,6 +179,11 @@ function extractGreeting(firstParagraph: string): { greeting: string | null; par
 
 /**
  * Convert parsed CL to saved sections format
+ * 
+ * Structure (matching user requirements):
+ * 1. Introduction (greeting + intro paragraph combined in one section)
+ * 2. Body paragraphs (each separate)
+ * 3. Closing (closing paragraph + signature combined in one section)
  */
 export function convertToSavedSections(parsed: ParsedCoverLetter) {
   const sections: Array<{
@@ -191,25 +196,32 @@ export function convertToSavedSections(parsed: ParsedCoverLetter) {
   
   let order = 0;
   
-  // 1. Introduction (greeting + intro paragraph combined)
-  // This becomes a single 'intro' section containing both greeting and first paragraph
-  const introParts: string[] = [];
-  if (parsed.greeting) {
-    introParts.push(parsed.greeting);
-  }
-  if (parsed.introduction) {
-    introParts.push(parsed.introduction);
-  }
+  // 1. Greeting (dynamic - uses [COMPANY-NAME] token)
+  // Convert any extracted greeting to use the token format
+  const greetingTemplate = parsed.greeting 
+    ? parsed.greeting.replace(/Dear .+?,/, 'Dear [COMPANY-NAME] team,')
+    : 'Dear [COMPANY-NAME] team,';
   
   sections.push({
-    slug: 'introduction',
-    title: 'Introduction',
-    content: introParts.join('\n\n'),
+    slug: 'greeting',
+    title: 'Greeting',
+    content: greetingTemplate,
     order: order++,
-    isStatic: true, // Static - reused as-is
+    isStatic: false, // Dynamic - uses [COMPANY-NAME] token
   });
   
-  // 2. Body paragraphs (dynamic - will be replaced with stories)
+  // 2. Introduction (static - reused as-is)
+  if (parsed.introduction) {
+    sections.push({
+      slug: 'introduction',
+      title: 'Introduction',
+      content: parsed.introduction,
+      order: order++,
+      isStatic: true, // Static - reused as-is
+    });
+  }
+  
+  // 3. Body paragraphs (dynamic - will be replaced with stories post-onboarding)
   parsed.bodyParagraphs.forEach((body, idx) => {
     sections.push({
       slug: `body-${idx + 1}`,
@@ -220,8 +232,7 @@ export function convertToSavedSections(parsed: ParsedCoverLetter) {
     });
   });
   
-  // 3. Closing (closing paragraph + signature combined)
-  // This becomes a single 'closer' section containing both closing and signature
+  // 4. Closing (static - closing paragraph + signature combined, reused as-is)
   const closingParts: string[] = [];
   if (parsed.closing) {
     closingParts.push(parsed.closing);
@@ -230,13 +241,15 @@ export function convertToSavedSections(parsed: ParsedCoverLetter) {
     closingParts.push(parsed.signature);
   }
   
-  sections.push({
-    slug: 'closing',
-    title: 'Closing',
-    content: closingParts.join('\n\n'),
-    order: order++,
-    isStatic: true, // Static - reused as-is
-  });
+  if (closingParts.length > 0) {
+    sections.push({
+      slug: 'closing',
+      title: 'Closing',
+      content: closingParts.join('\n\n'),
+      order: order++,
+      isStatic: true, // Static - reused as-is (includes signature)
+    });
+  }
   
   return sections;
 }

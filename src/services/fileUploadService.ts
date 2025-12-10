@@ -739,9 +739,15 @@ source_type: dbSourceType,
   /**
    * Emit progress event for streaming UX
    */
-  private emitProgress(stage: string, percent: number, label: string, fileType?: string) {
+  private emitProgress(
+    stage: string, 
+    percent: number, 
+    label: string, 
+    fileType?: string,
+    extra?: Record<string, unknown>
+  ) {
     window.dispatchEvent(new CustomEvent('file-upload-progress', {
-      detail: { stage, percent, label, fileType: fileType || 'file' }
+      detail: { stage, percent, label, fileType: fileType || 'file', ...extra }
     }));
   }
 
@@ -880,7 +886,8 @@ source_type: dbSourceType,
         const parseStart = performance.now();
         const { parseCoverLetter, convertToSavedSections } = await import('@/services/coverLetterParser');
         const parsed = parseCoverLetter(extractedText);
-        console.log(`⏱️  [TIMING] ✅ Rule-based CL parsing: ${(performance.now() - parseStart).toFixed(2)}ms (${parsed.bodyParagraphs.length} body paragraphs)`);
+        const parseMs = (performance.now() - parseStart).toFixed(2);
+        console.log(`⏱️  [TIMING] ✅ Rule-based CL parsing: ${parseMs}ms (${parsed.bodyParagraphs.length} body paragraphs)`);
         
         // Save sections immediately (no LLM wait)
         const sectionsStart = performance.now();
@@ -888,7 +895,21 @@ source_type: dbSourceType,
         await this.saveCoverLetterSections(sections, sourceId, accessToken);
         saveSectionsMs = performance.now() - sectionsStart;
         console.log(`⏱️  [TIMING] ✅ Saved CL sections: ${saveSectionsMs.toFixed(2)}ms (${sections.length} sections)`);
-        this.emitProgress('sections-saved', 35, 'Sections extracted', type);
+        const totalParagraphs = parsed.bodyParagraphs.length + (parsed.introduction ? 1 : 0) + (parsed.closing ? 1 : 0) + (parsed.greeting ? 1 : 0);
+        this.emitProgress(
+          'sections-saved',
+          35,
+          `Sections extracted (${parsed.bodyParagraphs.length} body, intro, closing${parsed.signature ? ', signature' : ''})`,
+          type,
+          {
+            totalParagraphs,
+            bodyParagraphs: parsed.bodyParagraphs.length,
+            greetingFound: !!parsed.greeting,
+            closingFound: !!parsed.closing,
+            signatureFound: !!parsed.signature,
+            sectionsCount: sections.length,
+          }
+        );
         
         // STAGE 2: LLM analysis for stories + voice (10-15s)
         // First, get existing work history for story linking
@@ -900,7 +921,29 @@ source_type: dbSourceType,
         
         const llmCallStart = performance.now();
         analysisResult = await this.llmAnalysisService.analyzeCoverLetterStories(extractedText, workHistory);
-        console.log(`⏱️  [TIMING] ✅ CL LLM analysis (stories + voice): ${(performance.now() - llmCallStart).toFixed(2)}ms`);
+        const clLlmMs = (performance.now() - llmCallStart).toFixed(2);
+        console.log(`⏱️  [TIMING] ✅ CL LLM analysis (stories + voice): ${clLlmMs}ms`);
+        
+        // Save voice data to user profile if extracted
+        if (analysisResult.success && analysisResult.data?.voice) {
+          try {
+            const { UserPreferencesService } = await import('@/services/userPreferencesService');
+            const voiceData = analysisResult.data.voice;
+            
+            // Convert LLM voice format to UserVoice format
+            const userVoice = {
+              prompt: voiceData.style || 
+                `Tone: ${voiceData.tone?.join(', ') || 'professional'}. Persona: ${voiceData.persona?.join(', ') || 'leader'}.`,
+              lastUpdated: new Date().toISOString()
+            };
+            
+            await UserPreferencesService.saveVoice(userId, userVoice);
+            console.log('✅ Voice data saved to user profile:', userVoice);
+          } catch (voiceError) {
+            console.error('⚠️ Failed to save voice data:', voiceError);
+            // Non-critical - don't fail the upload
+          }
+        }
       } else if (file.name.toLowerCase().includes('case') || file.name.toLowerCase().includes('study') || type === 'caseStudies') {
         console.log('⏱️  [TIMING] → Using CASE STUDY analysis');
         const caseStudyStart = performance.now();
@@ -924,9 +967,24 @@ source_type: dbSourceType,
               skillsAndEducation: { percent: 75, label: 'Skills and education extracted...' }
             };
             const stageInfo = stageProgress[stage] || { percent: 60, label: `${stage} complete...` };
-            this.emitProgress(stage, stageInfo.percent, stageInfo.label, type);
+            // Derive useful counts for product value messaging
+            const extraCounts: Record<string, unknown> = {};
+            if (stage === 'workHistorySkeleton' && data && (data as any).workHistory) {
+              const wh = (data as any).workHistory as Array<any>;
+              extraCounts.companiesFound = wh.length;
+              extraCounts.rolesFound = wh.length;
+            }
+            if (stage === 'roleStories' && Array.isArray(data)) {
+              const rolesProcessed = (data as any[]).length;
+              const storiesFound = (data as any[]).reduce((sum, r: any) => sum + (Array.isArray(r?.stories) ? r.stories.length : 0), 0);
+              extraCounts.rolesProcessed = rolesProcessed;
+              extraCounts.storiesFound = storiesFound;
+            }
+            // Skills stage is optional; includeSkills=false defers it
+            this.emitProgress(stage, stageInfo.percent, stageInfo.label, type, extraCounts);
             console.log(`⏱️  [TIMING] 📊 LLM Stage ${stage} complete`, data);
-          }
+          },
+          { includeSkills: false }
         );
       }
       const llmEndTime = performance.now();
@@ -1031,9 +1089,14 @@ source_type: dbSourceType,
         .eq('id', sourceId)
         .single();
       
-      if (sourceData && sourceData.user_id) {
-        const skillsSourceType = type === 'coverLetter' ? 'cover_letter' : 'resume';
-        await this.normalizeSkills(structuredData, sourceId, sourceData.user_id, skillsSourceType, accessToken);
+      const userIdForSkills = sourceData?.user_id;
+      const skillsSourceType = type === 'coverLetter' ? 'cover_letter' : 'resume';
+      if (userIdForSkills) {
+        await this.normalizeSkills(structuredData, sourceId, userIdForSkills, skillsSourceType, accessToken);
+        // If skills were deferred (resume includeSkills=false), schedule background backfill
+        if (type === 'resume' && (!structuredData.skills || structuredData.skills.length === 0)) {
+          this.scheduleSkillsBackfill(sourceId, userIdForSkills, extractedText, accessToken);
+        }
       }
       normalizeSkillsMs = performance.now() - normalizeStart;
       console.log(`⏱️  [TIMING] ✅ Skills normalized: ${normalizeSkillsMs.toFixed(2)}ms`);
@@ -1161,17 +1224,22 @@ source_type: dbSourceType,
           )
         : supabase;
 
-      // Map section types from parser to schema
-      // Note: All body paragraphs are typed as 'other' per schema constraints
-      const typeMapping: Record<string, 'intro' | 'closer' | 'signature' | 'other'> = {
+      // Map section slugs to database types
+      // Section types: intro, body, closer
+      // - 'greeting' -> 'intro' (dynamic with [COMPANY-NAME] token)
+      // - 'introduction' -> 'intro' (static)
+      // - 'body-1', 'body-2', etc. -> 'body' (dynamic)
+      // - 'closing' -> 'closer' (static, includes signature)
+      const typeMapping: Record<string, string> = {
+        'greeting': 'intro',
         'introduction': 'intro',
         'closing': 'closer'
-        // All other slugs (body-1, body-2, etc.) default to 'other'
+        // All other slugs (body-1, body-2, etc.) default to 'body'
       };
       
       const payload = sections.map((section, idx) => ({
         user_id: userId,
-        type: typeMapping[section.slug] || 'other',
+        type: typeMapping[section.slug] || 'body',
         title: section.title,
         content: section.content,
         source_type: 'cover_letter',  // Schema field is source_type, not source
@@ -2386,6 +2454,62 @@ source_type: dbSourceType,
    * Normalize skills from structured data to user_skills table
    * OPTIMIZED: Uses batch upsert instead of individual inserts to avoid 409 conflicts
    */
+  private scheduleSkillsBackfill(
+    sourceId: string,
+    userId: string,
+    resumeText: string,
+    accessToken?: string
+  ) {
+    // Run asynchronously; do not block onboarding
+    setTimeout(async () => {
+      try {
+        console.log('⏱️  [TIMING] ⚡ Background skills/education backfill starting...');
+        const skillsResult = await this.llmAnalysisService.analyzeResumeSkillsOnly(resumeText);
+        if (!skillsResult.success || !skillsResult.data) {
+          console.warn('⚠️ Skills backfill failed:', skillsResult.error);
+          return;
+        }
+        const skillsData = skillsResult.data as any;
+
+        // Update sources.structured_data with new skills/education/contact/summary
+        const { supabase } = await import('../lib/supabase');
+        const { data: existing } = await supabase
+          .from('sources')
+          .select('structured_data')
+          .eq('id', sourceId)
+          .eq('user_id', userId)
+          .single();
+
+        const mergedStructured = {
+          ...(existing?.structured_data || {}),
+          contactInfo: skillsData.contactInfo || {},
+          location: skillsData.location || null,
+          summary: skillsData.summary || '',
+          education: skillsData.education || [],
+          skills: skillsData.skills || [],
+          certifications: skillsData.certifications || [],
+          projects: skillsData.projects || []
+        };
+
+        const { error: updateErr } = await supabase
+          .from('sources')
+          .update({ structured_data: mergedStructured })
+          .eq('id', sourceId)
+          .eq('user_id', userId);
+
+        if (updateErr) {
+          console.warn('⚠️ Skills backfill update failed:', updateErr);
+        } else {
+          // Normalize skills from backfill
+          await this.normalizeSkills(mergedStructured, sourceId, userId, 'resume', accessToken);
+          console.log('✅ Background skills/education backfill complete');
+        }
+      } catch (err) {
+        console.warn('⚠️ Skills backfill exception:', err);
+      }
+    }, 0);
+  }
+
   private async normalizeSkills(
     structuredData: any,
     sourceId: string,
