@@ -362,14 +362,14 @@ export default function NewUserOnboarding() {
       fileType: 'resume' | 'coverLetter' | 'linkedin',
       rawPercent: number,
       label?: string,
-      stage?: string
+      stage?: string,
+      counts?: Record<string, unknown>
     ) => {
       // Cap per-task at 95% to avoid premature global 100
       const capped = Math.min(rawPercent, 95);
       setTaskProgress(prev => {
         const next = { ...prev, [fileType]: capped };
         const required = getRequiredTasks();
-        const taskIndex = required.findIndex(t => t === fileType);
         const avg = required.reduce((sum, t) => sum + (next[t] || 0), 0) / required.length;
         const boundedAvg = Math.min(avg, 99);
         const fileLabels: Record<'resume' | 'coverLetter' | 'linkedin', string> = {
@@ -377,13 +377,39 @@ export default function NewUserOnboarding() {
           coverLetter: 'Cover letter',
           linkedin: 'LinkedIn',
         };
-        const prefix = taskIndex >= 0 ? `${fileLabels[fileType]} (${taskIndex + 1}/${required.length})` : fileLabels[fileType];
+        const prefix = fileLabels[fileType];
+        const countParts: string[] = [];
+        if (counts) {
+          const num = (key: string) => {
+            const val = counts[key];
+            return typeof val === 'number' ? val : undefined;
+          };
+          const mapping: Array<{ key: string; label: string }> = [
+            { key: 'companiesFound', label: 'companies' },
+            { key: 'rolesFound', label: 'roles' },
+            { key: 'rolesProcessed', label: 'roles' },
+            { key: 'storiesFound', label: 'stories' },
+            { key: 'totalParagraphs', label: 'paragraphs' },
+            { key: 'sectionsCount', label: 'sections' },
+            { key: 'bodyParagraphs', label: 'body paras' },
+            { key: 'gapsFound', label: 'gaps' },
+            { key: 'metricsFound', label: 'metrics' },
+          ];
+          mapping.forEach(({ key, label }) => {
+            const val = num(key);
+            if (val && val > 0) {
+              countParts.push(`${val} ${label}`);
+            }
+          });
+        }
+        const countText = countParts.length > 0 ? ` • ${countParts.join(', ')}` : '';
         setGlobalProgress(prevGp => {
           if (prevGp.percent >= 100) return prevGp;
           const nextPercent = Math.max(prevGp.percent, boundedAvg);
           return {
             percent: nextPercent,
-            message: label ? `${prefix}: ${label}` : prevGp.message,
+            // Always update the message when a new label is provided, even if percent stalls
+            message: label ? `${prefix}: ${label}${countText}` : prevGp.message,
             stage: stage || prevGp.stage,
           };
         });
@@ -400,7 +426,7 @@ export default function NewUserOnboarding() {
     const handleFileUploadProgress = (event: Event) => {
       const detail = (event as CustomEvent).detail as { stage?: string; percent?: number; label?: string; fileType?: string } | undefined;
       if (!detail?.stage) return;
-      const { stage, percent = 0, label, fileType } = detail;
+      const { stage, percent = 0, label, fileType, ...rest } = detail;
       const taskKey: 'resume' | 'coverLetter' | 'linkedin' =
         fileType === 'coverLetter' ? 'coverLetter' : fileType === 'linkedin' ? 'linkedin' : 'resume';
       const message = label || stage;
@@ -436,13 +462,13 @@ export default function NewUserOnboarding() {
             return percent;
         }
       })();
-      applyAggregatedProgress(taskKey, mappedPercent, message, fileType || stage);
+      applyAggregatedProgress(taskKey, mappedPercent, message, fileType || stage, rest);
     };
 
     const handleUploadProgress = (event: Event) => {
       const detail = (event as CustomEvent).detail as { step?: string; progress?: number; message?: string; fileType?: string } | undefined;
       if (!detail?.step) return;
-      const { step, progress = 0, message, fileType } = detail;
+      const { step, progress = 0, message, fileType, ...rest } = detail;
       const taskKey: 'resume' | 'coverLetter' | 'linkedin' =
         fileType === 'coverLetter' ? 'coverLetter' : fileType === 'linkedin' ? 'linkedin' : 'resume';
       const mappedPercent = (() => {
@@ -461,7 +487,7 @@ export default function NewUserOnboarding() {
             return progress * 100;
         }
       })();
-      applyAggregatedProgress(taskKey, mappedPercent, message || step, fileType || step);
+      applyAggregatedProgress(taskKey, mappedPercent, message || step, fileType || step, rest);
     };
 
     window.addEventListener('file-upload-progress', handleFileUploadProgress as EventListener);
@@ -502,7 +528,7 @@ export default function NewUserOnboarding() {
       setIsProcessing(false);
       // Kick off PM Levels in the background after onboarding artifacts exist
       if (user?.id) {
-        import('@/services/pmLevelsService')
+        import('@/services/pmLevelsEdgeClient')
           .then(({ schedulePMLevelBackgroundRun }) => {
             schedulePMLevelBackgroundRun({
               userId: user.id,
@@ -944,9 +970,9 @@ export default function NewUserOnboarding() {
                     className="mt-3"
                     percent={obPct}
                     stages={[
-                      { key: 'linkedInFetch', label: 'LinkedIn fetch' },
-                      { key: 'profileStructuring', label: 'Profile structuring' },
-                      { key: 'derivedArtifacts', label: 'Templates & baseline' },
+                      { key: 'linkedInFetch', label: 'Resume: ingest' },
+                      { key: 'profileStructuring', label: 'Resume: extract' },
+                      { key: 'derivedArtifacts', label: 'Resume: save insights' },
                     ]}
                     statusByKey={{
                       linkedInFetch: (onboardingJob?.stages as any)?.linkedInFetch?.status || 'running',
@@ -954,6 +980,35 @@ export default function NewUserOnboarding() {
                       derivedArtifacts: (onboardingJob?.stages as any)?.derivedArtifacts?.status || 'pending',
                     }}
                   />
+                  {/* Value-centric counts */}
+                  <div className="mt-3 text-xs text-muted-foreground space-y-1">
+                    {(() => {
+                      const li = (onboardingJob?.stages as any)?.linkedInFetch?.data || {};
+                      const ps = (onboardingJob?.stages as any)?.profileStructuring?.data || {};
+                      const da = (onboardingJob?.stages as any)?.derivedArtifacts?.data || {};
+                      const rows: string[] = [];
+                      if (li.jobsCount != null || li.skillsCount != null) {
+                        rows.push(`LinkedIn: ${li.jobsCount || 0} roles, ${li.skillsCount || 0} skills`);
+                      }
+                      if (ps.workHistoryItems != null || ps.storiesIdentified != null || ps.coreThemesCount != null) {
+                        rows.push(
+                          `Resume: ${ps.workHistoryItems || 0} roles, ${ps.storiesIdentified || 0} stories, ${ps.coreThemesCount || 0} themes`
+                        );
+                      }
+                      if (da.suggestedStories != null || da.confidenceScore != null) {
+                        rows.push(
+                          `Insights: ${da.suggestedStories || 0} story suggestions, confidence ${da.confidenceScore || 0}`
+                        );
+                      }
+                      return rows.length > 0 ? (
+                        <ul className="list-disc list-inside space-y-1">
+                          {rows.map((r) => (
+                            <li key={r}>{r}</li>
+                          ))}
+                        </ul>
+                      ) : null;
+                    })()}
+                  </div>
                 </div>
               ) : null}
               {renderReviewStep()}

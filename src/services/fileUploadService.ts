@@ -57,7 +57,7 @@ import { UnifiedProfileService } from './unifiedProfileService';
 import { HumanReviewService } from './humanReviewService';
 import { AppifyService } from './appifyService';
 import { getSyntheticLocalOnlyFlag, syntheticStorage } from '@/utils/storage';
-import { schedulePMLevelBackgroundRun } from './pmLevelsService';
+import { schedulePMLevelBackgroundRun } from './pmLevelsEdgeClient';
 
 export class FileUploadService {
   private textExtractionService: TextExtractionService;
@@ -911,6 +911,59 @@ source_type: dbSourceType,
           }
         );
         
+        // Create default template from saved sections if user doesn't have one
+        // CRITICAL: Must happen during onboarding, not deferred to UI visit
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const userId = session?.user?.id;
+          
+          if (!userId) {
+            console.warn('⚠️ Cannot create template: no user ID');
+          } else {
+            const { CoverLetterTemplateService } = await import('./coverLetterTemplateService');
+            const existingTemplates = await CoverLetterTemplateService.getUserTemplates(userId, accessToken);
+            
+            if (existingTemplates.length === 0) {
+              console.log('📋 Creating default template from saved sections...');
+              
+              // Fetch the saved sections we just created
+              const savedSections = await CoverLetterTemplateService.getUserSavedSections(userId, undefined, accessToken);
+              
+              if (savedSections.length > 0) {
+                // Build template structure 1:1 from saved sections (matches uploaded CL structure)
+                const templateStructure = savedSections
+                  .sort((a, b) => (a.paragraph_index || 0) - (b.paragraph_index || 0))
+                  .map((section, idx) => ({
+                    id: section.id!,
+                    type: section.type as any,
+                    title: section.title,
+                    slug: section.type,
+                    order: idx,
+                    isStatic: !section.is_dynamic,
+                    staticContent: section.content,
+                    savedSectionId: section.id
+                  }));
+                
+                const template = await CoverLetterTemplateService.createDefaultTemplate(
+                  userId,
+                  'My Cover Letter Template',
+                  templateStructure,
+                  savedSections,
+                  accessToken
+                );
+                console.log(`✅ Created 1:1 template from uploaded CL: ${template.id} (${templateStructure.length} sections)`);
+              } else {
+                console.warn('⚠️ No saved sections found to create template from');
+              }
+            } else {
+              console.log(`ℹ️ Template already exists (${existingTemplates.length}), skipping creation`);
+            }
+          }
+        } catch (templateError) {
+          console.error('⚠️ Failed to create template from saved sections:', templateError);
+          // Non-critical - user can create template manually later
+        }
+        
         // STAGE 2: LLM analysis for stories + voice (10-15s)
         // First, get existing work history for story linking
         const workHistoryStart = performance.now();
@@ -1093,6 +1146,15 @@ source_type: dbSourceType,
         const clDataStart = performance.now();
         await this.processCoverLetterData(structuredData, sourceId, accessToken);
         console.log(`⏱️  [TIMING] ✅ CL data processing complete: ${(performance.now() - clDataStart).toFixed(2)}ms`);
+
+        // Final cover letter progress push with counts to unstick the bar
+        const gapCounts = structuredData?.gaps ? structuredData.gaps.length : 0;
+        this.emitProgress('done', 95, 'Cover letter processed', type, {
+          sectionsCount: structuredData?.sections?.length,
+          paragraphs: structuredData?.sections?.length,
+          gapsFound: gapCounts,
+          storiesFound: structuredData?.stories ? structuredData.stories.length : 0,
+        });
       }
       
       // Normalize skills for both resume and cover letter
@@ -1906,46 +1968,6 @@ source_type: dbSourceType,
       // 3. Extract role-level metrics (not stories - update existing work_items)
       if (structuredData.roleLevelMetrics && Array.isArray(structuredData.roleLevelMetrics)) {
         await this.updateRoleLevelMetrics(structuredData.roleLevelMetrics, userId, dbClient, sourceId);
-      }
-
-      // 4. Create saved sections and default template from cover letter paragraphs
-      // Handle both old format (paragraphs) and new format (stories from internal extractor)
-      const hasOldFormat = structuredData.paragraphs && Array.isArray(structuredData.paragraphs);
-      const hasNewFormat = structuredData.stories && Array.isArray(structuredData.stories);
-      
-      if (hasOldFormat || hasNewFormat) {
-        try {
-          if (hasNewFormat && !hasOldFormat) {
-            console.log(`📝 Creating saved sections from ${structuredData.stories.length} stories (new format)...`);
-            // The backfill logic in coverLetterTemplateService.ts will handle this
-            // when getUserSavedSections() is called from the UI
-            console.log(`ℹ️ Saved sections will be created on-demand from stories in structured_data`);
-          } else {
-            console.log(`📝 Creating saved sections and template from ${structuredData.paragraphs.length} paragraphs...`);
-
-            // Import the service
-            const { CoverLetterTemplateService } = await import('./coverLetterTemplateService');
-
-            // Process the cover letter and create template + saved sections
-            const result = await CoverLetterTemplateService.processUploadedCoverLetter(
-              userId,
-              structuredData,
-              sourceId,
-              'Professional Template',
-              {
-                rawText: sourceData.raw_text || undefined,
-                fileName: sourceData.file_name || undefined,
-                createdAt: sourceData.created_at || undefined
-              },
-              accessToken
-            );
-
-            console.log(`✅ Created template with ${result.savedSections.length} saved sections`);
-          }
-        } catch (templateError) {
-          // Don't fail the upload if template creation fails
-          console.error('⚠️ Error creating cover letter template and saved sections:', templateError);
-        }
       }
 
       console.log(`📊 Cover letter processing summary: ${storiesMatched} stories matched, ${storiesSkipped} skipped (likely profile data)`);

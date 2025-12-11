@@ -1,26 +1,251 @@
-import { useState, useEffect, useRef } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/contexts/AuthContext';
-import { PMLevelsService } from '@/services/pmLevelsService';
-import { SyntheticUserService } from '@/services/syntheticUserService';
-import type { PMLevelInference, PMLevelCode, RoleType } from '@/types/content';
+import { useEffect, useRef, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+import { SyntheticUserService } from '@/services/syntheticUserService';
+import { supabase } from '@/lib/supabase';
+import type { PMLevelInference, PMLevelCode, RoleType } from '@/types/content';
+import type { PMLevelsJobResult } from '@/types/jobs';
 
-interface PMLevelEventDetail {
-  userId: string;
-  syntheticProfileId?: string;
-  reason?: string;
-  error?: string;
+type JobRow = {
+  id: string;
+  status: string;
+  result?: PMLevelsJobResult | null;
+  created_at?: string | null;
+  completed_at?: string | null;
+  updated_at?: string | null;
+  input?: Record<string, unknown> | null;
+  error_message?: string | null;
+  stages?: Record<string, unknown> | null;
+};
+
+const SPECIALIZATION_MAP: Record<string, RoleType> = {
+  'Growth PM': 'growth',
+  'Platform PM': 'platform',
+  'AI/ML PM': 'ai_ml',
+  'Founding PM': 'founding',
+};
+
+const LEVEL_MAP: Array<{ min: number; code: PMLevelCode; label: string }> = [
+  { min: 9, code: 'M2', label: 'VP of Product' },
+  { min: 7, code: 'M1', label: 'Group Product Manager' },
+  { min: 6, code: 'L6', label: 'Staff Product Manager' },
+  { min: 5, code: 'L5', label: 'Senior Product Manager' },
+  { min: 4, code: 'L4', label: 'Product Manager' },
+  { min: 0, code: 'L3', label: 'Associate Product Manager' },
+];
+
+const defaultSignals = {
+  scope: { teams: 0 },
+  impact: { metrics: [], quantified: false, scale: 'feature' as const },
+  influence: { crossFunctional: false, executive: false, external: false },
+  metrics: [],
+};
+
+const buildEmptyEvidence = (displayLevel: string, assessmentBand?: string) => ({
+  currentLevel: displayLevel,
+  nextLevel: '',
+  confidence: assessmentBand || 'pending',
+  resumeEvidence: {
+    roleTitles: [],
+    duration: '',
+    companyScale: [],
+  },
+  storyEvidence: {
+    totalStories: 0,
+    relevantStories: 0,
+    tagDensity: [],
+    stories: [],
+  },
+  levelingFramework: {
+    framework: 'PM Levels',
+    criteria: [],
+    match: assessmentBand || '',
+  },
+  gaps: [],
+  outcomeMetrics: {
+    roleLevel: [],
+    storyLevel: [],
+    analysis: {
+      totalMetrics: 0,
+      impactLevel: 'feature' as const,
+      keyAchievements: [],
+    },
+  },
+});
+
+const buildEmptyCompetencyEvidence = () => ({
+  execution: {
+    competency: 'execution',
+    evidence: [],
+    matchedTags: [],
+    overallConfidence: 'low' as const,
+  },
+  customer_insight: {
+    competency: 'customer_insight',
+    evidence: [],
+    matchedTags: [],
+    overallConfidence: 'low' as const,
+  },
+  strategy: {
+    competency: 'strategy',
+    evidence: [],
+    matchedTags: [],
+    overallConfidence: 'low' as const,
+  },
+  influence: {
+    competency: 'influence',
+    evidence: [],
+    matchedTags: [],
+    overallConfidence: 'low' as const,
+  },
+});
+
+const mapIcLevelToLevel = (icLevel: number): { levelCode: PMLevelCode; displayLevel: string } => {
+  const match = LEVEL_MAP.find((level) => icLevel >= level.min);
+  return match
+    ? { levelCode: match.code, displayLevel: match.label }
+    : { levelCode: 'L3', displayLevel: 'Associate Product Manager' };
+};
+
+const mapJobToInference = (job: JobRow | null): PMLevelInference | null => {
+  if (!job?.result) return null;
+
+  const { icLevel = 0, competencies = {}, specializations = [], assessmentBand, evidenceByCompetency, levelEvidence, roleArchetypeEvidence } = job.result as any;
+  const { levelCode, displayLevel } = mapIcLevelToLevel(icLevel);
+
+  const execution = (competencies.executionDelivery ?? 0) / 3.3;
+  const strategy = (competencies.productStrategy ?? 0) / 3.3;
+  const customerInsight = (competencies.technicalDepth ?? 0) / 3.3;
+  const influence = (competencies.leadershipInfluence ?? 0) / 3.3;
+
+  const avgCompetency = (execution + strategy + customerInsight + influence) / 4;
+  const confidence = Math.min(1, Math.max(0, avgCompetency / 3));
+
+  const roleType = specializations
+    .map((spec: string) => SPECIALIZATION_MAP[spec])
+    .filter(Boolean) as RoleType[];
+
+  const lastAnalyzedAt =
+    job.completed_at ||
+    job.updated_at ||
+    job.created_at ||
+    new Date().toISOString();
+
+  // Use edge-provided evidence; fallback to empty if missing
+  const compEvidence = evidenceByCompetency && Object.keys(evidenceByCompetency).length > 0
+    ? evidenceByCompetency
+    : buildEmptyCompetencyEvidence();
+
+  const lvlEvidence = levelEvidence || buildEmptyEvidence(displayLevel, assessmentBand);
+  const archetypeEvidence = roleArchetypeEvidence || {};
+
+  return {
+    inferredLevel: levelCode,
+    displayLevel,
+    confidence,
+    scopeScore: 0,
+    maturityInfo: 'growth',
+    roleType,
+    competencyScores: {
+      execution,
+      strategy,
+      customer_insight: customerInsight,
+      influence,
+    },
+    levelScore: icLevel,
+    deltaSummary: assessmentBand ? `Assessment band: ${assessmentBand}` : '',
+    recommendations: [],
+    signals: defaultSignals,
+    topArtifacts: [],
+    lastAnalyzedAt,
+    evidenceByCompetency: compEvidence,
+    levelEvidence: lvlEvidence,
+    roleArchetypeEvidence: archetypeEvidence,
+  };
+};
+
+async function fetchLatestPMLevelsResult(userId: string, profileId?: string | null) {
+  let query = supabase
+    .from('jobs')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('type', 'pmLevels')
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (profileId) {
+    query = query.eq('input->>profileId', profileId);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const job = Array.isArray(data) ? (data[0] as JobRow | undefined) : (data as JobRow | null);
+  return mapJobToInference(job || null);
+}
+
+async function startPMLevelsJob(profileId?: string | null): Promise<JobRow> {
+  const { data, error } = await supabase.functions.invoke<{ jobId: string }>('create-job', {
+    body: {
+      type: 'pmLevels',
+      input: {
+        profileId: profileId || undefined,
+        forceRefresh: true,
+      },
+    },
+  });
+
+  if (error || !data?.jobId) {
+    throw new Error(error?.message || 'Failed to create PM Levels job');
+  }
+
+  const jobId = data.jobId;
+
+  // Kick off processing (edge functions do not auto-call each other)
+  supabase.functions
+    .invoke('stream-job-process', { body: { jobId } })
+    .catch((procErr) => console.warn('[usePMLevel] stream-job-process invoke failed (non-blocking):', procErr));
+
+  const maxAttempts = 120; // up to ~4 minutes with 2s polling
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    const { data: job, error: jobError } = await supabase
+      .from('jobs')
+      .select('*')
+      .eq('id', jobId)
+      .single();
+
+    if (jobError) {
+      throw new Error(jobError.message);
+    }
+
+    if (job?.status === 'complete') {
+      return job as JobRow;
+    }
+    if (job?.status === 'error') {
+      throw new Error(job?.error_message || 'PM Levels job failed');
+    }
+
+    // If job is stuck pending/running with no stages after some attempts, re-trigger processing once
+    if (attempt === 10 && (job?.status === 'pending' || job?.status === 'running')) {
+      supabase.functions
+        .invoke('stream-job-process', { body: { jobId } })
+        .catch((procErr) => console.warn('[usePMLevel] stream-job-process re-invoke failed (non-blocking):', procErr));
+    }
+  }
+
+  throw new Error('PM Levels job timed out');
 }
 
 export function usePMLevel() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const pmLevelsService = new PMLevelsService();
   const [syntheticProfileId, setSyntheticProfileId] = useState<string | undefined | null>(null);
   const [isDeterminingProfile, setIsDeterminingProfile] = useState(true);
   const profileIdRef = useRef<string | undefined | null>(null);
-  const [isBackgroundAnalyzing, setIsBackgroundAnalyzing] = useState(false);
   const [backgroundError, setBackgroundError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -98,7 +323,7 @@ export function usePMLevel() {
     error,
     refetch,
   } = useQuery<PMLevelInference | null, Error>({
-    queryKey: ['pmLevel', user?.id, stableProfileId],
+    queryKey: ['pmLevelsJob', user?.id, stableProfileId],
     enabled: !!user && !isDeterminingProfile,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
@@ -108,173 +333,28 @@ export function usePMLevel() {
     placeholderData: (previousData) => previousData,
     queryFn: async () => {
       if (!user) return null;
-      try {
-        // Always try to read from database first (works for both regular and synthetic users now)
-        const cached = await pmLevelsService.getUserLevel(user.id, syntheticProfileId);
-        if (cached) {
-          console.log(`[usePMLevel] Loaded from cache for ${syntheticProfileId ? `synthetic user ${syntheticProfileId}` : 'user'}`);
-          return cached;
-        }
-
-        // If no cached data and it's a synthetic user, run fresh analysis
-        if (syntheticProfileId) {
-          console.log(`[usePMLevel] No cache found for synthetic user ${syntheticProfileId}, running fresh analysis`);
-          return await pmLevelsService.analyzeUserLevel(
-            user.id,
-            undefined,
-            undefined,
-            {
-              sessionId: `pm-level-ui-${Date.now()}-${syntheticProfileId}`,
-              triggerReason: 'initial-load',
-              syntheticProfileId,
-            },
-            syntheticProfileId,
-          );
-        }
-
-        // For regular users with no data, return null (they haven't run assessment yet)
-        return null;
-      } catch (err) {
-        console.error('Error fetching PM level:', err);
-        throw err;
-      }
+      return fetchLatestPMLevelsResult(user.id, stableProfileId);
     },
   });
 
-  useEffect(() => {
-    if (typeof window === 'undefined' || !user) {
-      return;
-    }
-
-    const matchesDetail = (detail: PMLevelEventDetail | undefined) => {
-      if (!detail) return false;
-      const eventProfileId = detail.syntheticProfileId ?? undefined;
-      return detail.userId === user.id && eventProfileId === stableProfileId;
-    };
-
-    const handleScheduled = (event: Event) => {
-      const customEvent = event as CustomEvent<PMLevelEventDetail>;
-      if (!matchesDetail(customEvent.detail)) return;
-
-      setIsBackgroundAnalyzing(true);
-      setBackgroundError(null);
-
-      if (customEvent.detail?.reason) {
-        console.log('[usePMLevel] Background analysis scheduled:', customEvent.detail.reason);
-      }
-    };
-
-    const handleUpdated = (event: Event) => {
-      const customEvent = event as CustomEvent<PMLevelEventDetail>;
-      if (!matchesDetail(customEvent.detail)) return;
-
-      setIsBackgroundAnalyzing(false);
-      setBackgroundError(null);
-
-      queryClient.invalidateQueries({
-        queryKey: ['pmLevel', user.id, stableProfileId],
-      });
-
-      if (!isDeterminingProfile) {
-        refetch();
-      }
-    };
-
-    const handleError = (event: Event) => {
-      const customEvent = event as CustomEvent<PMLevelEventDetail>;
-      if (!matchesDetail(customEvent.detail)) return;
-
-      setIsBackgroundAnalyzing(false);
-      setBackgroundError(customEvent.detail?.error || 'Analysis failed. Please try again.');
-    };
-
-    window.addEventListener('pm-levels:scheduled', handleScheduled as EventListener);
-    window.addEventListener('pm-levels:updated', handleUpdated as EventListener);
-    window.addEventListener('pm-levels:error', handleError as EventListener);
-
-    return () => {
-      window.removeEventListener('pm-levels:scheduled', handleScheduled as EventListener);
-      window.removeEventListener('pm-levels:updated', handleUpdated as EventListener);
-      window.removeEventListener('pm-levels:error', handleError as EventListener);
-    };
-  }, [user?.id, stableProfileId, queryClient, refetch, isDeterminingProfile]);
-
-  const { mutate: recalculate, isPending: isRecalculating } = useMutation({
-    mutationFn: async (params?: { targetLevel?: PMLevelCode; roleType?: RoleType[] }) => {
+  const { mutateAsync: recalculate, isPending: isRecalculating } = useMutation({
+    mutationFn: async () => {
       if (!user) throw new Error('User not authenticated');
-      return pmLevelsService.analyzeUserLevel(
-        user.id,
-        params?.targetLevel,
-        params?.roleType,
-        {
-          sessionId: `pm-level-recalc-${Date.now()}${syntheticProfileId ? `-${syntheticProfileId}` : ''}`,
-          triggerReason: 'manual-recalc',
-          syntheticProfileId,
-        },
-        syntheticProfileId,
-      );
-    },
-    onMutate: () => {
-      setIsBackgroundAnalyzing(true);
       setBackgroundError(null);
-
-      if (user && typeof window !== 'undefined') {
-        window.dispatchEvent(
-          new CustomEvent<PMLevelEventDetail>('pm-levels:scheduled', {
-            detail: {
-              userId: user.id,
-              syntheticProfileId: syntheticProfileId ?? undefined,
-              reason: 'User initiated manual recalc',
-            },
-          }),
-        );
-      }
+      const job = await startPMLevelsJob(stableProfileId);
+      return mapJobToInference(job);
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(['pmLevel', user?.id, syntheticProfileId], data);
-      toast.success('Analysis completed successfully');
-      setIsBackgroundAnalyzing(false);
-      setBackgroundError(null);
-
-      if (user && typeof window !== 'undefined') {
-        window.dispatchEvent(
-          new CustomEvent<PMLevelEventDetail>('pm-levels:updated', {
-            detail: {
-              userId: user.id,
-              syntheticProfileId: syntheticProfileId ?? undefined,
-              reason: 'Manual recalc complete',
-            },
-          }),
-        );
-      }
+      queryClient.setQueryData(['pmLevelsJob', user?.id, stableProfileId], data);
+      toast.success('PM Levels analysis completed');
     },
     onError: (err) => {
       console.error('Error recalculating PM level:', err);
-      toast.error('Failed to run analysis. Please try again.');
-      setIsBackgroundAnalyzing(false);
-      setBackgroundError(err instanceof Error ? err.message : 'Failed to run analysis');
-
-      if (user && typeof window !== 'undefined') {
-        window.dispatchEvent(
-          new CustomEvent<PMLevelEventDetail>('pm-levels:error', {
-            detail: {
-              userId: user.id,
-              syntheticProfileId: syntheticProfileId ?? undefined,
-              error: err instanceof Error ? err.message : String(err),
-              reason: 'Manual recalc failed',
-            },
-          }),
-        );
-      }
+      const message = err instanceof Error ? err.message : 'Failed to run analysis';
+      toast.error(message);
+      setBackgroundError(message);
     },
   });
-
-  useEffect(() => {
-    if (levelData && !isRecalculating) {
-      setIsBackgroundAnalyzing(false);
-      setBackgroundError(null);
-    }
-  }, [levelData, isRecalculating]);
 
   return {
     levelData,
@@ -282,8 +362,8 @@ export function usePMLevel() {
     error: error || null,
     isRecalculating,
     refetch,
-    recalculate: (targetLevel?: PMLevelCode, roleType?: RoleType[]) => recalculate({ targetLevel, roleType }),
-    isBackgroundAnalyzing,
+    recalculate,
+    isBackgroundAnalyzing: isRecalculating,
     backgroundError,
     activeProfileId: stableProfileId,
   };

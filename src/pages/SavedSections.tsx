@@ -517,19 +517,19 @@ export default function SavedSections() {
                     {
                       type: 'intro',
                       label: 'Introduction',
-                      description: 'Opening paragraphs that grab attention and introduce you',
+                      description: 'Opening paragraphs that grab attention',
                 icon: FileText
               },
               {
                 type: 'body',
                 label: 'Body Paragraph',
-                description: 'Static supporting paragraphs kept verbatim from uploads',
+                description: 'Supporting paragraphs from uploaded cover letter',
                 icon: BookOpen
                     },
                     {
                       type: 'closer',
                       label: 'Closing',
-                description: 'Professional closing paragraphs that reinforce your interest',
+                description: 'Closing paragraphs that reinforce your interest',
                 icon: CheckCircle
                     }
                   ]}

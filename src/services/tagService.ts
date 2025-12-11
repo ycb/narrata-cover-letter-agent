@@ -4,7 +4,7 @@
  */
 
 import { supabase } from '@/lib/supabase';
-import { schedulePMLevelBackgroundRun } from './pmLevelsService';
+import { schedulePMLevelBackgroundRun } from './pmLevelsEdgeClient';
 
 const getActiveSyntheticProfileId = () => {
   if (typeof window === 'undefined') {
@@ -108,4 +108,3 @@ export class TagService {
     }
   }
 }
-

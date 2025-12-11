@@ -56,12 +56,12 @@ const savedSectionGroups = [
   {
     value: 'paragraph',
     label: 'Body Paragraph',
-    description: 'Static supporting paragraphs kept verbatim from uploads'
+    description: 'Supporting paragraphs kept verbatim from uploads'
   },
   {
     value: 'closer',
     label: 'Closing',
-    description: 'Professional closing paragraphs that wrap up your letter'
+    description: 'Closing paragraphs that wrap up your letter'
   }
 ];
 

@@ -5,6 +5,13 @@
 
 ---
 
+## 🧭 How to Use This List
+- Treat this as the source of truth for active LLM call sites. Deprecated/unused calls are excluded.
+- For instrumentation/coverage summaries, cross-reference `docs/evals/COMPLETE_LLM_CALL_AUDIT.md` (now aligned to this verified list).
+- To re-count call sites locally, run `node scripts/llm-call-inventory.js` (uses `rg` to find `callOpenAI`/`streamText` occurrences).
+
+---
+
 ## ✅ Verification Method
 
 For each LLM call, I verified:
@@ -280,4 +287,3 @@ For each LLM call, I verified:
 ---
 
 **End of Verified LLM Calls Audit**
-

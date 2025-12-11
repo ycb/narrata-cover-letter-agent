@@ -331,13 +331,30 @@ const requirementAnalysisStage: PipelineStage = {
   name: 'requirementAnalysis',
   timeout: 30000, // 30s timeout
   execute: async (ctx: PipelineContext) => {
-    const { job, supabase, openaiApiKey } = ctx;
+    const { job, supabase, openaiApiKey, send } = ctx;
     const { jobDescriptionId } = job.input;
 
     // Fetch data
     const jd = await fetchJobDescription(supabase, jobDescriptionId);
     const workHistory = await fetchWorkHistory(supabase, job.user_id);
     const stories = await fetchStories(supabase, job.user_id);
+
+    // Early progress: surface counts so UI can tick forward immediately
+    try {
+      await send('progress', {
+        jobId: job.id,
+        stage: 'requirementAnalysis',
+        isPartial: true,
+        data: {
+          status: 'context_loaded',
+          workHistoryCount: workHistory.length,
+          storyCount: stories.length,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.warn('[requirementAnalysisStage] Failed to emit context_loaded progress', err);
+    }
 
     // Build context
     const workHistoryText = workHistory
@@ -391,6 +408,25 @@ Extract 5-10 core and 3-5 preferred requirements. Be specific with evidence.`;
     });
 
     const result = parseJSONResponse(response.choices[0].message.content);
+
+    // Late progress: counts to drive UI micro-steps
+    try {
+      await send('progress', {
+        jobId: job.id,
+        stage: 'requirementAnalysis',
+        isPartial: true,
+        data: {
+          status: 'requirements_extracted',
+          coreCount: Array.isArray(result.coreRequirements) ? result.coreRequirements.length : 0,
+          preferredCount: Array.isArray(result.preferredRequirements) ? result.preferredRequirements.length : 0,
+          requirementsMet: result.requirementsMet || 0,
+          totalRequirements: result.totalRequirements || 0,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.warn('[requirementAnalysisStage] Failed to emit requirements_extracted progress', err);
+    }
 
     return {
       coreRequirements: result.coreRequirements || [],
@@ -922,7 +958,7 @@ const sectionGapsStage: PipelineStage = {
   name: 'sectionGaps',
   timeout: 50000, // 50s timeout
   execute: async (ctx: PipelineContext) => {
-    const { job, supabase, openaiApiKey } = ctx;
+    const { job, supabase, openaiApiKey, send } = ctx;
     const { jobDescriptionId, templateId } = job.input;
 
     // Fetch data
@@ -942,6 +978,22 @@ const sectionGapsStage: PipelineStage = {
     // CANONICAL SECTION IDS: Only send section IDs to LLM (no slug to avoid confusion)
     // Frontend will match gaps by section.id ONLY.
     const templateSectionIds = template?.sections?.map((s: any) => s.id) || [];
+
+    // Early progress: let UI know gap analysis started and how many sections we will analyze
+    try {
+      await send('progress', {
+        jobId: job.id,
+        stage: 'sectionGaps',
+        isPartial: true,
+        data: {
+          status: 'starting',
+          sectionCount: templateSectionIds.length,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.warn('[sectionGapsStage] Failed to emit starting progress', err);
+    }
 
     const prompt = `Analyze gaps for cover letter sections for this job.
 
@@ -984,6 +1036,23 @@ Analyze ALL section IDs in the template. Focus on 1-3 gaps per section where app
     });
 
     const result = parseJSONResponse(response.choices[0].message.content);
+
+    // Late progress: total gaps + section count for UI ticks
+    try {
+      await send('progress', {
+        jobId: job.id,
+        stage: 'sectionGaps',
+        isPartial: true,
+        data: {
+          status: 'gaps_extracted',
+          sectionCount: Array.isArray(result.sections) ? result.sections.length : 0,
+          totalGaps: result.totalGaps || 0,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.warn('[sectionGapsStage] Failed to emit gaps_extracted progress', err);
+    }
     
     // CANONICAL ID VALIDATION: Ensure all returned sectionIds match template
     const validTemplateSectionIds = new Set(templateSectionIds);
@@ -1135,6 +1204,19 @@ export async function executeCoverLetterPipeline(
     // - goalsAndStrengths: MWS + company context
     // =========================================================================
     const layer2Start = Date.now();
+    const layer2Heartbeat = setInterval(() => {
+      try {
+        send('progress', {
+          jobId: job.id,
+          stage: 'layer2-heartbeat',
+          isPartial: true,
+          data: { message: 'Analyzing requirements and goals…', ts: new Date().toISOString() },
+          timestamp: new Date().toISOString(),
+        });
+      } catch {
+        // ignore
+      }
+    }, 5000);
     
     const [requirementResult, goalsResult] = await Promise.allSettled([
       (async () => {
@@ -1273,6 +1355,7 @@ export async function executeCoverLetterPipeline(
         }
       })(),
     ]);
+    clearInterval(layer2Heartbeat);
 
     // Extract results, handling failures gracefully
     results.requirementAnalysis = requirementResult.status === 'fulfilled' 
@@ -1295,6 +1378,19 @@ export async function executeCoverLetterPipeline(
     // LAYER 3: Section Gaps (needs requirements data)
     // =========================================================================
     const sectionGapsStart = Date.now();
+    const layer3Heartbeat = setInterval(() => {
+      try {
+        send('progress', {
+          jobId: job.id,
+          stage: 'layer3-heartbeat',
+          isPartial: true,
+          data: { message: 'Analyzing section gaps…', ts: new Date().toISOString() },
+          timestamp: new Date().toISOString(),
+        });
+      } catch {
+        // ignore
+      }
+    }, 5000);
     try {
       telemetry?.startStage('sectionGaps');
       results.sectionGaps = await sectionGapsStage.execute(context);
@@ -1336,6 +1432,8 @@ export async function executeCoverLetterPipeline(
       
       console.error('[Pipeline] sectionGaps failed:', error);
       results.sectionGaps = { status: 'failed', error: error instanceof Error ? error.message : String(error) };
+    } finally {
+      clearInterval(layer3Heartbeat);
     }
 
     try { 
@@ -1405,6 +1503,54 @@ export async function executeCoverLetterPipeline(
       })
       .eq('id', job.id);
 
+    // Persist enhanced analysis to the cover_letters row
+    // Prefer explicit draftId; fallback to latest draft by user + jobDescriptionId
+    const persistEnhancedData = async () => {
+      try {
+        let draftId = job.input?.draftId as string | undefined;
+        if (!draftId && job.input?.jobDescriptionId && job.user_id) {
+          const { data: draftRow } = await supabase
+            .from('cover_letters')
+            .select('id')
+            .eq('user_id', job.user_id)
+            .eq('job_description_id', job.input.jobDescriptionId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          draftId = draftRow?.id;
+        }
+
+        if (!draftId) return;
+
+        const { data: draftRow } = await supabase
+          .from('cover_letters')
+          .select('llm_feedback')
+          .eq('id', draftId)
+          .single();
+
+        const llmFeedback = (draftRow?.llm_feedback as Record<string, unknown>) || {};
+        const enhancedMatchData = {
+          coreRequirementDetails: results.requirementAnalysis?.coreRequirements || [],
+          preferredRequirementDetails: results.requirementAnalysis?.preferredRequirements || [],
+          sectionGapInsights: results.sectionGaps?.sections || [],
+        };
+
+        await supabase
+          .from('cover_letters')
+          .update({
+            llm_feedback: {
+              ...llmFeedback,
+              enhancedMatchData,
+            } as Record<string, unknown>,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', draftId);
+      } catch (persistError) {
+        try { const { elog } = await import('../log.ts'); elog.error('[executeCoverLetterPipeline] Failed to persist enhancedMatchData to draft', { error: persistError }); } catch (_) {}
+      }
+    };
+    await persistEnhancedData();
+
     // Mark telemetry as complete
     telemetry.complete(true);
 
@@ -1416,4 +1562,3 @@ export async function executeCoverLetterPipeline(
     throw error;
   }
 }
-

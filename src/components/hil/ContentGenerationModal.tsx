@@ -107,7 +107,8 @@ export function ContentGenerationModal({
       console.log('🏷️ [Modal] Resetting selected tags (modal closed)');
       setSelectedTags([]);
     }
-  }, [isOpen, mode, suggestedTags]); // Run when modal opens/closes OR when suggestedTags changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, mode]); // Only run when modal opens/closes, not when suggestedTags changes
 
   // Toggle tag selection
   const toggleTag = (tagValue: string) => {

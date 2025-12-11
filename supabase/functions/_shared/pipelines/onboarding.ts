@@ -23,13 +23,30 @@ const linkedInFetchStage: PipelineStage = {
   name: 'linkedInFetch',
   timeout: 8000, // 8s timeout
   execute: async (ctx: PipelineContext) => {
-    const { job } = ctx;
+    const { job, send } = ctx;
     const { linkedInData } = job.input || {};
 
     // No LLM: just summarize LI payload if provided
     const positions = Array.isArray(linkedInData?.positions) ? linkedInData.positions.length : 0;
     const headline = linkedInData?.headline ? String(linkedInData.headline) : null;
     const namePresent = !!(linkedInData?.firstName || linkedInData?.lastName);
+
+    try {
+      await send('progress', {
+        jobId: job.id,
+        stage: 'linkedInFetch',
+        isPartial: true,
+        data: {
+          status: 'reading',
+          jobsCount: positions,
+          skillsCount: Array.isArray(linkedInData?.skills) ? linkedInData.skills.length : 0,
+          headline: headline || undefined,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch {
+      // non-blocking
+    }
 
     return {
       jobsCount: positions,
@@ -51,7 +68,7 @@ const profileStructuringStage: PipelineStage = {
   name: 'profileStructuring',
   timeout: 25000, // 25s timeout
   execute: async (ctx: PipelineContext) => {
-    const { job, openaiApiKey, supabase } = ctx;
+    const { job, openaiApiKey, supabase, send } = ctx;
     const { resumeText, coverLetterText } = job.input;
 
     const inputText = [resumeText, coverLetterText].filter(Boolean).join('\n\n');
@@ -78,6 +95,23 @@ Focus on identifying key patterns and themes.`;
 
     const result = parseJSONResponse(response.choices[0].message.content);
 
+    try {
+      await send('progress', {
+        jobId: job.id,
+        stage: 'profileStructuring',
+        isPartial: true,
+        data: {
+          status: 'extracting',
+          workHistoryItems: result.workHistoryItems || 0,
+          storiesIdentified: result.storiesIdentified || 0,
+          coreThemesCount: Array.isArray(result.coreThemes) ? result.coreThemes.length : 0,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch {
+      // non-blocking
+    }
+
     // In a real implementation, we'd create skeleton work history items here
     // For MVP, we just return the counts
 
@@ -97,7 +131,7 @@ const derivedArtifactsStage: PipelineStage = {
   name: 'derivedArtifacts',
   timeout: 70000, // 70s timeout
   execute: async (ctx: PipelineContext) => {
-    const { job, openaiApiKey, supabase } = ctx;
+    const { job, openaiApiKey, supabase, send } = ctx;
     const { resumeText, coverLetterText } = job.input;
 
     const inputText = [resumeText, coverLetterText].filter(Boolean).join('\n\n');
@@ -127,6 +161,23 @@ Be thorough and analytical.`;
     });
 
     const result = parseJSONResponse(response.choices[0].message.content);
+
+    try {
+      await send('progress', {
+        jobId: job.id,
+        stage: 'derivedArtifacts',
+        isPartial: true,
+        data: {
+          status: 'saving',
+          suggestedStories: result.suggestedStories || 0,
+          impactScores: result.impactScores || {},
+          confidenceScore: result.confidenceScore || 0,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    } catch {
+      // non-blocking
+    }
 
     // In a real implementation, we'd:
     // - Create full profile record
@@ -251,4 +302,3 @@ export async function executeOnboardingPipeline(
     throw error;
   }
 }
-

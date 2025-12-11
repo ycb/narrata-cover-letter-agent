@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -316,6 +316,7 @@ function Assessment({ initialSection = "overview" }: AssessmentProps) {
     levelData,
     isLoading,
     error,
+    refetch,
     recalculate,
     isRecalculating,
     isBackgroundAnalyzing,
@@ -334,14 +335,14 @@ function Assessment({ initialSection = "overview" }: AssessmentProps) {
   const [roleEvidenceModalOpen, setRoleEvidenceModalOpen] = useState(false);
   const [changeSummary, setChangeSummary] = useState<ChangeSummary | null>(null);
   const [isSummaryDismissed, setIsSummaryDismissed] = useState(false);
+  const [localBackgroundError, setLocalBackgroundError] = useState<string | null>(null);
+  const autoTriggeredRef = useRef(false);
 
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const lastAnalyzedAt = levelData?.lastAnalyzedAt;
   const lastAnalyzedRelative = lastAnalyzedAt ? formatDistanceToNow(new Date(lastAnalyzedAt), { addSuffix: true }) : null;
   const lastAnalyzedExact = lastAnalyzedAt ? format(new Date(lastAnalyzedAt), "PPpp") : null;
-  const shouldShowStreaming = isAnalyzing || isRecalculating || isBackgroundAnalyzing;
-  const isInitialAnalysisStreaming = !assessmentData && shouldShowStreaming;
 
   // Streaming PM Levels job (polling)
   const {
@@ -349,25 +350,48 @@ function Assessment({ initialSection = "overview" }: AssessmentProps) {
     createJob: createPMJob,
     isStreaming: isPMStreaming,
     error: pmJobError,
-  } = usePMLevelsJobStream({ pollIntervalMs: 2000, timeout: 300000 });
+  } = usePMLevelsJobStream({
+    pollIntervalMs: 2000,
+    timeout: 300000,
+    disableSSE: true, // SSE failing with 401; force polling for PM Levels
+    onComplete: () => {
+      refetch();
+      setIsAnalyzing(false);
+    },
+    onError: (err) => {
+      setLocalBackgroundError(err);
+      setIsAnalyzing(false);
+    },
+  });
+
+  const effectiveBackgroundError = backgroundError || localBackgroundError;
+
+  const shouldShowStreaming = isAnalyzing || isRecalculating || isBackgroundAnalyzing || isPMStreaming;
+  const isInitialAnalysisStreaming = !assessmentData && shouldShowStreaming;
+
+  // Auto-trigger PM Levels if no data is present to avoid manual clicks
+  useEffect(() => {
+    if (
+      !autoTriggeredRef.current &&
+      !isLoading &&
+      !levelData &&
+      !isAnalyzing &&
+      !isPMStreaming &&
+      !isRecalculating
+    ) {
+      autoTriggeredRef.current = true;
+      handlePMLevelsRecalcStreaming();
+    }
+  }, [levelData, isLoading, isAnalyzing, isPMStreaming, isRecalculating]);
 
   const handlePMLevelsRecalcStreaming = async () => {
     try {
-      if (!activeProfileId) {
-        await recalculate();
-        return;
-      }
-      await createPMJob("pmLevels" as any, { profileId: activeProfileId } as any);
-      // When streaming completes, refresh query
-      const timer = window.setInterval(() => {
-        if (pmJob?.status === "complete") {
-          window.clearInterval(timer);
-          // Use existing hook path to refresh UI state
-          recalculate();
-        }
-      }, 1000);
+      setLocalBackgroundError(null);
+      setIsAnalyzing(true);
+      await createPMJob("pmLevels" as any, { profileId: activeProfileId || undefined, forceRefresh: true } as any);
     } catch (e) {
       console.error("[Assessment] PM Levels streaming recalc failed", e);
+      setIsAnalyzing(false);
       await recalculate();
     }
   };
@@ -421,11 +445,11 @@ function Assessment({ initialSection = "overview" }: AssessmentProps) {
   const analysisStatus: StreamingLifecycleStatus = error ? "error" : shouldShowStreaming ? "streaming" : "complete";
 
   const analysisEvents = useMemo<StreamingTimelineEvent[]>(() => {
-    if (backgroundError) {
+    if (effectiveBackgroundError) {
       return [
         {
           id: "analysis-error",
-          message: backgroundError,
+          message: effectiveBackgroundError,
           tone: "error",
           timestamp: Date.now(),
         },
@@ -444,7 +468,7 @@ function Assessment({ initialSection = "overview" }: AssessmentProps) {
     }
 
     return [];
-  }, [backgroundError, isBackgroundAnalyzing]);
+  }, [effectiveBackgroundError, isBackgroundAnalyzing]);
 
   useEffect(() => {
     if (levelData) {
@@ -543,15 +567,30 @@ function Assessment({ initialSection = "overview" }: AssessmentProps) {
   }, [activeTab, navigate, searchParams]);
 
   const handleRunAnalysis = () => {
-    setIsAnalyzing(true);
-    recalculate();
+    handlePMLevelsRecalcStreaming();
   };
 
   useEffect(() => {
-    if (!isRecalculating && isAnalyzing) {
+    if (!isRecalculating && !isPMStreaming && isAnalyzing) {
       setIsAnalyzing(false);
     }
-  }, [isRecalculating, isAnalyzing]);
+  }, [isRecalculating, isPMStreaming, isAnalyzing]);
+
+  useEffect(() => {
+    if (pmJob?.status === "complete") {
+      setIsAnalyzing(false);
+      refetch();
+    } else if (pmJob?.status === "error") {
+      setIsAnalyzing(false);
+      setLocalBackgroundError(pmJob.error || pmJobError || "PM Levels job failed");
+    }
+  }, [pmJob?.status, pmJob?.error, pmJobError, refetch]);
+
+  useEffect(() => {
+    if (pmJobError) {
+      setLocalBackgroundError(pmJobError);
+    }
+  }, [pmJobError]);
 
   const handleShowEvidence = (competency: any) => {
     setSelectedCompetency(competency.domain);
@@ -706,17 +745,17 @@ function Assessment({ initialSection = "overview" }: AssessmentProps) {
                     : "Get a detailed analysis of your product management level based on your experience, skills, and achievements. Understand your strengths and areas for growth with personalized recommendations."}
                 </p>
 
-                {backgroundError ? (
+                {effectiveBackgroundError ? (
                   <div className="max-w-2xl mx-auto mb-8">
                     <div className="p-6 border border-destructive/40 bg-destructive/10 rounded-lg text-left">
                       <div className="flex items-start gap-3">
                         <AlertCircle className="w-5 h-5 text-destructive mt-0.5" />
                         <div>
                           <h3 className="text-lg font-semibold text-destructive mb-1">We couldn't finish the analysis</h3>
-                          <p className="text-sm text-muted-foreground">{backgroundError}</p>
+                          <p className="text-sm text-muted-foreground">{effectiveBackgroundError}</p>
                           <div className="flex flex-wrap gap-3 mt-4">
-                            <Button onClick={handleRunAnalysis} disabled={isAnalyzing || isRecalculating}>
-                              {(isAnalyzing || isRecalculating) ? (
+                            <Button onClick={handleRunAnalysis} disabled={isAnalyzing || isRecalculating || isPMStreaming}>
+                              {(isAnalyzing || isRecalculating || isPMStreaming) ? (
                                 <>
                                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                                   Retrying...
@@ -766,8 +805,8 @@ function Assessment({ initialSection = "overview" }: AssessmentProps) {
                     </div>
 
                     <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
-                      <Button onClick={handleRunAnalysis} disabled={isAnalyzing || isRecalculating} size="lg" className="px-8 py-6 text-base">
-                        {(isAnalyzing || isRecalculating) ? (
+                      <Button onClick={handleRunAnalysis} disabled={isAnalyzing || isRecalculating || isPMStreaming} size="lg" className="px-8 py-6 text-base">
+                        {(isAnalyzing || isRecalculating || isPMStreaming) ? (
                           <>
                             <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                             Analyzing Your Profile...

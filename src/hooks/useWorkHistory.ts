@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import type { Database } from '@/types/supabase'
-import { schedulePMLevelBackgroundRun } from '@/services/pmLevelsService'
+import { schedulePMLevelBackgroundRun } from '@/services/pmLevelsEdgeClient'
 
 type Company = Database['public']['Tables']['companies']['Row']
 type WorkItem = Database['public']['Tables']['work_items']['Row']

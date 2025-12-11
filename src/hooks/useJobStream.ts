@@ -105,6 +105,7 @@ export function useJobStream(
 ): UseJobStreamReturn {
   const {
     autoStart = true,
+    disableSSE = false,
     pollIntervalMs = 2000,
     timeout = 300000, // 5 minutes
     onComplete,
@@ -196,6 +197,15 @@ export function useJobStream(
         });
 
         jobIdRef.current = jobId;
+
+        // Kick off processing immediately (bypass SSE dependency)
+        try {
+          await supabase.functions.invoke('stream-job-process', {
+            body: { jobId },
+          });
+        } catch (procErr) {
+          console.warn('[useJobStream] stream-job-process invoke failed (non-blocking):', procErr);
+        }
 
         // Auto-connect if enabled
         if (autoStart) {
@@ -308,7 +318,12 @@ export function useJobStream(
         }
       };
 
-      // Preferred: SSE
+      // Preferred: SSE (unless disabled)
+      if (disableSSE) {
+        startPolling();
+        return;
+      }
+
       (async () => {
         try {
           log.info('[useJobStream] Starting SSE for job:', jobId);

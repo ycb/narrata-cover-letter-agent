@@ -176,6 +176,7 @@ export const CoverLetterModal = ({
   
   // PROGRESS ANIMATION: Simulated progress during draft generation (30% → 95%)
   const [animatedDraftProgress, setAnimatedDraftProgress] = useState(30);
+  const enhancedHydratedRef = useRef(false);
   
   // Set initial tab when modal opens based on mode
   useEffect(() => {
@@ -546,6 +547,86 @@ export const CoverLetterModal = ({
   // Requirements come ONLY from draft
   const effectiveCoreRequirements = draft?.enhancedMatchData?.coreRequirementDetails || [];
   const effectivePreferredRequirements = draft?.enhancedMatchData?.preferredRequirementDetails || [];
+  // Shared metrics object (Phase A stream → draft) for toolbar + Go/No-Go
+  const sharedMatchMetrics = useMemo(() => {
+    const stage = jobState?.stages?.requirementAnalysis?.data as any;
+    const enhanced = draft?.enhancedMatchData;
+    if (!stage && !enhanced) return null;
+
+    if (stage) {
+      const coreReqs = stage.coreRequirements || [];
+      const prefReqs = stage.preferredRequirements || [];
+      const goalsReqs = stage.goalMatches || [];
+      return {
+        coreRequirements: {
+          met: coreReqs.filter((r: any) => r.demonstrated || r.met).length,
+          total: coreReqs.length,
+          items: coreReqs.map((r: any, idx: number) => ({
+            id: r.id || `core-${idx}`,
+            requirement: r.requirement || r.detail || r.label || 'Requirement',
+            demonstrated: r.demonstrated === true || r.met === true,
+          })),
+        },
+        preferredRequirements: {
+          met: prefReqs.filter((r: any) => r.demonstrated || r.met).length,
+          total: prefReqs.length,
+          items: prefReqs.map((r: any, idx: number) => ({
+            id: r.id || `pref-${idx}`,
+            requirement: r.requirement || r.detail || r.label || 'Requirement',
+            demonstrated: r.demonstrated === true || r.met === true,
+          })),
+        },
+        goals: {
+          met: goalsReqs.filter((g: any) => g.met).length,
+          total: goalsReqs.length,
+          items: goalsReqs.map((g: any, idx: number) => ({
+            id: g.id || `goal-${idx}`,
+            requirement: g.requirement || g.label || 'Goal',
+            demonstrated: g.met === true,
+          })),
+        },
+      };
+    }
+
+    const enhancedMetrics = enhanced?.metrics;
+    if (enhanced) {
+      const coreReqs = enhanced.coreRequirementDetails || [];
+      const prefReqs = enhanced.preferredRequirementDetails || [];
+      const goalsReqs = enhanced.goalMatches || [];
+      return {
+        coreRequirements: {
+          met: coreReqs.filter((r: any) => r.demonstrated).length,
+          total: coreReqs.length,
+          items: coreReqs.map((r: any, idx: number) => ({
+            id: r.id || `core-${idx}`,
+            requirement: r.requirement || r.detail || r.label || 'Requirement',
+            demonstrated: !!r.demonstrated,
+          })),
+        },
+        preferredRequirements: {
+          met: prefReqs.filter((r: any) => r.demonstrated).length,
+          total: prefReqs.length,
+          items: prefReqs.map((r: any, idx: number) => ({
+            id: r.id || `pref-${idx}`,
+            requirement: r.requirement || r.detail || r.label || 'Requirement',
+            demonstrated: !!r.demonstrated,
+          })),
+        },
+        goals: {
+          met: goalsReqs.filter((g: any) => g.met).length,
+          total: goalsReqs.length,
+          items: goalsReqs.map((g: any, idx: number) => ({
+            id: g.id || `goal-${idx}`,
+            requirement: g.requirement || g.label || 'Goal',
+            demonstrated: g.met === true,
+          })),
+        },
+        metrics: enhancedMetrics,
+      };
+    }
+
+    return null;
+  }, [jobState?.stages?.requirementAnalysis?.data, draft?.enhancedMatchData]);
   const setDraft = mode === 'create' ? createModeHook.setDraft : setLocalDraft;
   const workpad = mode === 'create' ? createModeHook.workpad : null;
   const streamingSections = mode === 'create' ? createModeHook.streamingSections : {};
@@ -556,6 +637,39 @@ export const CoverLetterModal = ({
   const isFinalizing = mode === 'create' ? createModeHook.isFinalizing : false;
   const generationError = mode === 'create' ? createModeHook.error : null;
   const generateDraft = mode === 'create' ? createModeHook.generateDraft : async () => {};
+
+  // Hydrate enhancedMatchData onto draft when present in llmFeedback or persisted backend
+  useEffect(() => {
+    if (mode !== 'create') return;
+    if (!draft?.id) return;
+    if (enhancedHydratedRef.current) return;
+
+    // If draft already has enhanced data, mark hydrated
+    if (draft.enhancedMatchData) {
+      enhancedHydratedRef.current = true;
+      return;
+    }
+
+    const enhancedFromFeedback = (draft.llmFeedback as any)?.enhancedMatchData;
+    if (enhancedFromFeedback) {
+      setDraft({ ...draft, enhancedMatchData: enhancedFromFeedback });
+      enhancedHydratedRef.current = true;
+      return;
+    }
+
+    // Fallback: fetch latest draft once to hydrate enhanced data if available
+    (async () => {
+      try {
+        const refreshed = await coverLetterDraftService.getDraft(draft.id);
+        if (refreshed?.enhancedMatchData) {
+          setDraft(refreshed);
+          enhancedHydratedRef.current = true;
+        }
+      } catch (err) {
+        console.warn('[CoverLetterModal] Fallback hydrate failed:', err);
+      }
+    })();
+  }, [mode, draft?.id, draft?.enhancedMatchData, draft?.llmFeedback, setDraft, coverLetterDraftService]);
   
   // Step 2: Auto-load draft when streaming job completes
   // PHASE 3: Log streaming results when job completes

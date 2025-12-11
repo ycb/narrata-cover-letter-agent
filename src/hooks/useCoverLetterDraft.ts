@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, useEffect } from 'react';
 import { CoverLetterDraftService } from '@/services/coverLetterDraftService';
 import { evaluateSectionGap } from '@/services/sectionGapEvaluator';
 import type {
@@ -244,29 +244,42 @@ export const useCoverLetterDraft = (options: UseCoverLetterDraftOptions): UseCov
         // Set up polling to check when metrics are complete
         const pollForMetrics = async () => {
           const maxAttempts = 15; // 15 attempts * 4s = 60s max
+          let lastDraft: CoverLetterDraft | null = null;
+
           for (let i = 0; i < maxAttempts; i++) {
             await new Promise(resolve => setTimeout(resolve, 4000)); // Check every 4s
 
             try {
               const updatedDraft = await service.getDraft(result.draft.id);
-              if (updatedDraft?.metrics && updatedDraft.metrics.length > 0) {
-                // Metrics are complete!
-                setState(prev => ({
-                  ...prev,
-                  draft: updatedDraft,
-                  metricsLoading: false,
-                  pendingSectionInsights: {}, // Clear heuristic gaps once LLM metrics complete
-                }));
-                return;
+              if (updatedDraft) {
+                lastDraft = updatedDraft;
+
+                const hasMetrics = Array.isArray(updatedDraft.metrics) && updatedDraft.metrics.length > 0;
+                const hasEnhancedMatchData =
+                  !!updatedDraft.enhancedMatchData &&
+                  Object.keys(updatedDraft.enhancedMatchData || {}).length > 0;
+                const hasContentStandards = !!(updatedDraft.llmFeedback as any)?.contentStandards;
+
+                // Accept any of the three signals as "ready" so enhanced data can flow even if metrics are empty
+                if (hasMetrics || hasEnhancedMatchData || hasContentStandards) {
+                  setState(prev => ({
+                    ...prev,
+                    draft: updatedDraft,
+                    metricsLoading: false,
+                    pendingSectionInsights: {}, // Clear heuristic gaps once LLM metrics complete
+                  }));
+                  return;
+                }
               }
             } catch (error) {
               console.error('[useCoverLetterDraft] Failed to poll for metrics:', error);
             }
           }
 
-          // Timeout after 60s
+          // Timeout after 60s (or no usable data found) – still lift last draft into state if we have one
           setState(prev => ({
             ...prev,
+            draft: lastDraft ?? prev.draft,
             metricsLoading: false,
             pendingSectionInsights: {}, // Clear heuristic gaps even on timeout
           }));
@@ -293,6 +306,16 @@ export const useCoverLetterDraft = (options: UseCoverLetterDraftOptions): UseCov
     },
     [context.jobDescriptionId, context.templateId, options.userId, service],
   );
+
+  // If enhancedMatchData arrives through any path, clear metricsLoading so UI can render data.
+  useEffect(() => {
+    setState(prev => {
+      if (prev.metricsLoading && prev.draft?.enhancedMatchData) {
+        return { ...prev, metricsLoading: false, pendingSectionInsights: {} };
+      }
+      return prev;
+    });
+  }, [state.draft?.enhancedMatchData]);
 
   const updateSection = useCallback<UseCoverLetterDraftReturn['updateSection']>(
     async ({ sectionId, content }) => {
@@ -618,4 +641,3 @@ export const useCoverLetterDraft = (options: UseCoverLetterDraftOptions): UseCov
     resetProgress,
   };
 };
-

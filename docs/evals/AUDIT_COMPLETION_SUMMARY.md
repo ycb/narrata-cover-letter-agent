@@ -26,21 +26,24 @@
 - ✅ Updated `docs/evals/README.md` to reference audit
 - ✅ Updated `docs/README.md` to highlight audit docs
 - ✅ All docs now discoverable from main index
+- ✅ Added `src/prompts/README.md` + audit note to surface prompt locations (incl. edge-function prompts)
+- ✅ Post-audit note: Cover letter parsing is now programmatic (no LLM). CL parsing call sites in the audit are obsolete; coverage totals should be recalculated after removing that call from the inventory.
 
 ---
 
 ## 🎯 Key Findings
 
-### Coverage Analysis
+### Coverage Analysis (based on `VERIFIED_LLM_CALLS.md`)
 | Category | Calls | Instrumented | % |
 |----------|-------|--------------|---|
 | **Pipelines (Resume, CL, PM)** | 13 | 13 | ✅ **100%** |
-| **HIL Gap Resolution** | 6 | 0 | ❌ **0%** |
-| **Draft Generation** | 8+ | 0 | ❌ **0%** |
-| **Quality Gates (Judge)** | 5 | 0 | ❌ **0%** |
-| **Content Extraction** | 3 | 1 | ⚠️ **33%** |
-| **Auxiliary** | 3-5 | 0 | ❌ **0%** |
-| **OVERALL** | ~86 | ~18 | ⚠️ **~21%** |
+| **HIL Gap Resolution** | 4 | 0 | ❌ **0%** |
+| **Draft Generation** | 4-6 | 0 | ❌ **0%** |
+| **Quality Gates (Judge/Standards)** | 3-6 | 0 | ❌ **0%** |
+| **Content Extraction (Voice/Stories)** | 2 | 0 | ❌ **0%** |
+| **Match Intelligence** | 1 | 0 | ❌ **0%** |
+| **Auxiliary (Tagging)** | 1 | 0 | ❌ **0%** |
+| **OVERALL** | ~35-40 | ~13 | ⚠️ **~35%** |
 
 ### Critical Gaps (Must Instrument)
 1. **JD Pre-Analysis** — Foundation for all cover letters
@@ -198,4 +201,3 @@ If you want to review the audit first, see:
 ---
 
 **End of Audit Task** ✅
-

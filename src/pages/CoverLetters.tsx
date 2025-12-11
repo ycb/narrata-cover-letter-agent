@@ -155,6 +155,10 @@ const transformSummary = (summary: CoverLetterSummary): CoverLetterListItem => {
 };
 
 const toModalPayload = (coverLetter: CoverLetterListItem): ModalCoverLetterPayload => {
+  // ALWAYS LOG (even in production) for debugging
+  console.log('🔍 [toModalPayload] START - coverLetter.id:', coverLetter.id);
+  console.log('🔍 [toModalPayload] llmFeedback keys:', coverLetter.llmFeedback ? Object.keys(coverLetter.llmFeedback) : 'NO LLM FEEDBACK');
+  
   const sectionsSource =
     coverLetter.sections.length > 0
       ? coverLetter.sections
@@ -193,12 +197,25 @@ const toModalPayload = (coverLetter: CoverLetterListItem): ModalCoverLetterPaylo
   const enhancedMatchData = coverLetter.llmFeedback?.enhancedMatchData as 
     import('@/types/coverLetters').EnhancedMatchData | undefined;
 
-  return {
+  // ALWAYS LOG (even in production) for debugging
+  console.log('🔍 [toModalPayload] enhancedMatchData extracted:', {
+    hasEnhancedMatchData: !!enhancedMatchData,
+    enhancedMatchDataKeys: enhancedMatchData ? Object.keys(enhancedMatchData) : [],
+    hasSectionGapInsights: !!(enhancedMatchData as any)?.sectionGapInsights,
+    sectionGapInsightsLength: (enhancedMatchData as any)?.sectionGapInsights?.length,
+  });
+
+  const result = {
     ...coverLetter,
     content: { sections },
     jobDescription: coverLetter.jobDescriptionContent,
     enhancedMatchData, // Agent C: pass through to modals
   };
+  
+  console.log('🔍 [toModalPayload] RESULT - has enhancedMatchData:', !!result.enhancedMatchData);
+  console.log('🔍 [toModalPayload] RESULT - enhancedMatchData keys:', result.enhancedMatchData ? Object.keys(result.enhancedMatchData) : []);
+  
+  return result;
 };
 
 const getStatusTone = (status: CoverLetterStatus): string => {

@@ -147,7 +147,7 @@ export function CoverLetterDraftEditor({
   // UNIFIED SKELETON: Trust isStreaming prop from parent (generationActive)
   // Parent sets this true while streaming OR draft generation OR !draft
   // We simply show skeleton when true, content when false
-  const isLoadingSection = isStreaming;
+  const isLoadingSection = isStreaming || metricsLoading;
 
   // Calculate job-level totals for requirement denominators
   const totalCoreReqs = draft?.enhancedMatchData?.coreRequirementDetails?.length ?? 0;
@@ -161,7 +161,7 @@ export function CoverLetterDraftEditor({
    * Get gaps for a section from draft.enhancedMatchData.sectionGapInsights
    * Match by section.id (preferred), fallback to slug/title for legacy drafts
    */
-  const getSectionGapInsights = (sectionId: string, sectionSlug: string) => {
+  const getSectionGapInsights = (sectionId: string, sectionSlug: string, sectionIndex: number) => {
     // Get all gap insights from draft (ONLY source)
     const allInsights = draft?.enhancedMatchData?.sectionGapInsights || [];
     
@@ -174,6 +174,11 @@ export function CoverLetterDraftEditor({
         insight.sectionSlug === sectionSlug || 
         insight.sectionSlug === sectionId.split('-')[0] // e.g., "intro-1" → "intro"
       );
+    }
+
+    // Fallback: positional match (pipeline may not preserve ids/slugs)
+    if (!sectionInsight && allInsights.length > 0) {
+      sectionInsight = allInsights[sectionIndex] || allInsights[0];
     }
     
     const requirementGaps = sectionInsight?.requirementGaps || [];
@@ -323,7 +328,7 @@ export function CoverLetterDraftEditor({
               const isDirty = editedContent !== section.content;
               const isSaving = !!savingSections[section.id];
               
-              const { promptSummary, gaps: gapObjects, isLoading: gapsLoading } = getSectionGapInsights(section.id, section.slug || section.type);
+              const { promptSummary, gaps: gapObjects, isLoading: gapsLoading } = getSectionGapInsights(section.id, section.slug || section.type, sectionIndex);
               const hasGaps = gapObjects.length > 0;
 
               // Strip trailing periods from gap summary for cover letters
@@ -502,4 +507,3 @@ export function CoverLetterDraftEditor({
     </div>
   );
 }
-

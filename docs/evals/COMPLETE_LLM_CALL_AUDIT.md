@@ -7,10 +7,14 @@
 
 ## Executive Summary
 
-**Total LLM Call Sites Found:** ~86 calls across 20 files  
-**Currently Instrumented:** 3 pipelines (Resume, Cover Letter, PM Levels)  
-**Instrumentation Coverage:** **~21%** 🚨  
-**Missing:** 11+ distinct LLM call types
+**Total LLM Call Sites Found (verified active):** ~35-40  
+**Currently Instrumented:** 3 pipelines (Resume, Cover Letter generation, PM Levels)  
+**Instrumentation Coverage:** ~13 of ~35-40 active calls (**≈35%**)  
+**Missing:** JD pre-analysis, HIL gap resolution, draft CL generation, judges/standards, match intelligence, voice/story extraction, and aux tagging
+
+> Notes (2025-12-05):  
+> - Cover letter parsing is now fully programmatic (no LLM); the CL parsing call was removed.  
+> - Counts above reflect the verified active list in `docs/evals/VERIFIED_LLM_CALLS.md` (supersedes earlier ~85-call estimate).
 
 ---
 
@@ -20,6 +24,8 @@
 2. **Service Layer Grep:** Found `callOpenAI`, `streamText`, and `buildXPrompt` references
 3. **Edge Functions Grep:** Found LLM calls in Supabase functions
 4. **Cross-Reference:** Matched prompts to actual call sites
+
+**Prompt visibility note (2025-12-05):** Some live prompts sit outside `/src/prompts` (e.g., PM Levels stages in `supabase/functions/_shared/pipelines/pm-levels.ts`). A new `src/prompts/README.md` documents current prompt locations to keep review/edits centralized.
 
 ---
 
@@ -57,13 +63,15 @@
 | Prompt File | Exports | Used In | **Instrumented?** |
 |------------|---------|---------|-------------------|
 | `contentTagging.ts` | `buildContentTaggingPrompt`<br>`buildJobMatchingTagsPrompt` | `tagSuggestionService.ts` | ❌ **NO** (Company Tag) |
-| `coverLetterAnalysis.ts` | `buildCoverLetterAnalysisPrompt` | `coverLetterProcessingService.ts` | ✅ **YES** (CL parse) |
+| `coverLetterAnalysis.ts` | `buildCoverLetterAnalysisPrompt` | _Deprecated (CL parsing now programmatic)_ | ⚪ **N/A** |
 | `unifiedProfile.ts` | `buildUnifiedProfilePrompt` | `unifiedProfileService.ts` | ❌ **NO** |
 | `dynamicMatching.ts` | `buildDynamicMatchingPrompt`<br>`buildContentLibraryAnalysisPrompt` | `browserSearchService.ts` (?) | ❌ **NO** |
 | `goNoGo.ts` | `buildGoNoGoPrompt` | `goNoGoService.ts` (deprecated?) | ❌ **NO** |
 | `experienceMatch.ts` | `buildExperienceMatchPrompt` | `experienceMatchService.ts` | ❌ **NO** |
 | `basicMetrics.ts` | `buildBasicMetricsPrompt` | `openaiService.ts` (?) | ❌ **NO** (Draft Metrics) |
 | `enhancedMetricsAnalysis.ts` | `buildEnhancedMetricsPrompt` | PM Levels service (?) | ❌ **NO** |
+
+> PM Levels prompt text currently lives in `supabase/functions/_shared/pipelines/pm-levels.ts` (edge pipeline), not in `/src/prompts`.
 
 ---
 
@@ -410,4 +418,3 @@ COMMENT ON COLUMN evals_log.total_tokens IS
 ---
 
 **End of Audit**
-

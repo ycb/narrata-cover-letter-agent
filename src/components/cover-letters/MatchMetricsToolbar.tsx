@@ -228,8 +228,11 @@ export function MatchMetricsToolbar({
   const allGaps = useMemo(() => {
     // Debug: Log gaps data source
     if (process.env.NODE_ENV !== 'production') {
-      console.log('[Gaps] Building allGaps:', {
+      console.log('[MatchMetricsToolbar] Gaps debug:', {
+        hasEnhancedMatchData: !!enhancedMatchData,
+        enhancedMatchDataKeys: enhancedMatchData ? Object.keys(enhancedMatchData) : [],
         hasSectionGapInsights: !!enhancedMatchData?.sectionGapInsights,
+        sectionGapInsightsType: typeof enhancedMatchData?.sectionGapInsights,
         sectionGapInsightsLength: enhancedMatchData?.sectionGapInsights?.length,
         sectionsLength: sections?.length,
         sectionGapInsights: enhancedMatchData?.sectionGapInsights?.map(i => ({

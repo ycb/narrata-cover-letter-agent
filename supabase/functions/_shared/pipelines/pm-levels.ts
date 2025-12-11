@@ -104,6 +104,12 @@ const competencyBreakdownStage: PipelineStage = {
     // Fetch user data
     const workHistory = await fetchWorkHistory(supabase, job.user_id);
     const stories = await fetchStories(supabase, job.user_id);
+    // Sort most recent roles first for progression display
+    workHistory.sort((a: any, b: any) => {
+      const aDate = a.start_date ? new Date(a.start_date).getTime() : 0;
+      const bDate = b.start_date ? new Date(b.start_date).getTime() : 0;
+      return bDate - aDate;
+    });
 
     // Build context - include tags for better competency assessment
     const workHistoryText = workHistory
@@ -420,6 +426,10 @@ export async function executePMLevelsPipeline(
       throw error;
     }
 
+    // Fetch data for evidence construction
+    const workHistory = await fetchWorkHistory(supabase, job.user_id);
+    const stories = await fetchStories(supabase, job.user_id);
+
     // Compile competencies for storage
     const competencies = {
       executionDelivery: results.competencyBreakdown?.execution || 0,
@@ -440,6 +450,17 @@ export async function executePMLevelsPipeline(
     // For MVP, we'll use a placeholder
     const assessmentId = `assessment-${job.id}`;
 
+    // Build evidence (deterministic, no LLM)
+    const evidenceByCompetency = buildCompetencyEvidence(workHistory, stories, competencies);
+    const levelEvidence = buildLevelEvidence(
+      workHistory,
+      stories,
+      results.baselineAssessment?.icLevel || 3,
+      specializations,
+      competencies
+    );
+    const roleArchetypeEvidence = buildRoleEvidence(workHistory, stories, specializations);
+
     // Compile final result
     const finalResult = {
       assessmentId,
@@ -447,6 +468,9 @@ export async function executePMLevelsPipeline(
       assessmentBand: results.baselineAssessment?.assessmentBand,
       competencies,
       specializations,
+      evidenceByCompetency,
+      levelEvidence,
+      roleArchetypeEvidence,
     };
 
     // =========================================================================
@@ -480,14 +504,386 @@ export async function executePMLevelsPipeline(
       .eq('id', job.id);
 
     // Mark telemetry as complete
-    telemetry.complete(true);
+  telemetry.complete(true);
 
-    return finalResult;
-  } catch (error) {
-    // Mark telemetry as failed
+  return finalResult;
+} catch (error) {
+  // Mark telemetry as failed
     const errorMessage = error instanceof Error ? error.message : String(error);
     telemetry.complete(false, errorMessage);
-    throw error;
-  }
+  throw error;
+}
 }
 
+// -----------------------------------------------------------------------------
+// Evidence builders (deterministic, no LLM) to match client-side structures
+// -----------------------------------------------------------------------------
+
+function buildCompetencyEvidence(
+  workHistory: any[],
+  stories: any[],
+  competencies: Record<string, number>
+) {
+  const dimensions = ['execution', 'customer_insight', 'strategy', 'influence'] as const;
+  const keywordMap: Record<typeof dimensions[number], string[]> = {
+    execution: ['launched', 'shipped', 'delivered', 'implemented', 'built', 'executed', 'released', 'rollout', 'experiment', 'a/b', 'conversion', 'retention'],
+    customer_insight: ['user', 'customer', 'research', 'feedback', 'interview', 'survey', 'persona', 'ux', 'analytics'],
+    strategy: ['roadmap', 'vision', 'strategy', 'okr', 'kpi', 'goal', 'market', 'competitive', 'framework'],
+    influence: ['stakeholder', 'alignment', 'executive', 'cross-functional', 'buy-in', 'presentation', 'collaboration', 'negotiation'],
+  };
+
+  const evidence: any = {};
+  for (const dim of dimensions) {
+    const matched: any[] = [];
+    const matchedTags = new Set<string>();
+    stories.forEach((story: any) => {
+      const content = `${story.title || ''} ${story.content || ''}`.toLowerCase();
+      const hits = keywordMap[dim].filter((k) => content.includes(k));
+      if (hits.length > 0) {
+        matched.push({
+          id: story.id,
+          title: story.title,
+          content: story.content,
+          tags: story.tags || [],
+          sourceRole: story.work_item_title || story.title || '',
+          sourceCompany: story.company || '',
+          lastUsed: story.updated_at || story.created_at,
+          timesUsed: 1,
+          confidence: hits.length > 3 ? 'high' : hits.length > 1 ? 'medium' : 'low',
+          outcomeMetrics: Array.isArray(story.metrics) ? story.metrics.map((m: any) => `${m.value || ''} ${m.context || ''}`.trim()).filter(Boolean) : [],
+          levelAssessment: 'meets',
+        });
+        hits.forEach((h) => matchedTags.add(h));
+      }
+    });
+    evidence[dim] = {
+      competency: dim,
+      evidence: matched.slice(0, 10),
+      matchedTags: Array.from(matchedTags),
+      overallConfidence: competencies[dim] && competencies[dim] >= 6 ? 'high' : competencies[dim] >= 4 ? 'medium' : 'low',
+    };
+  }
+  return evidence;
+}
+
+function buildLevelEvidence(
+  workHistory: any[],
+  stories: any[],
+  icLevel: number,
+  specializations: string[],
+  competencies: Record<string, number>
+) {
+  const roles = Array.isArray(workHistory) ? [...workHistory] : [];
+  // Most recent → oldest to match desired progression direction
+  roles.sort((a: any, b: any) => {
+    const aDate = a.start_date ? new Date(a.start_date).getTime() : 0;
+    const bDate = b.start_date ? new Date(b.start_date).getTime() : 0;
+    return bDate - aDate;
+  });
+
+  const seenCompanies = new Set<string>();
+  const companyScale: string[] = [];
+  const roleTitles: string[] = [];
+  let totalMonths = 0;
+  let pmMonths = 0;
+
+  const isPMRole = (title = '') => {
+    const lower = title.toLowerCase();
+    return (
+      lower.includes('product') ||
+      lower.includes('pm') ||
+      lower.includes('ux') ||
+      lower.includes('founder') ||
+      lower.includes('co-founder')
+    );
+  };
+
+  roles.forEach((role: any) => {
+    if (role.title) roleTitles.push(role.title);
+    const companyName = role.companies?.name || role.company;
+    if (companyName && !seenCompanies.has(companyName)) {
+      companyScale.push(companyName);
+      seenCompanies.add(companyName);
+    }
+    const start = role.start_date ? new Date(role.start_date).getTime() : null;
+    const end = role.end_date ? new Date(role.end_date).getTime() : Date.now();
+    if (start) {
+      const months = Math.max(0, (end - start) / (1000 * 60 * 60 * 24 * 30));
+      totalMonths += months;
+      if (isPMRole(role.title)) pmMonths += months;
+    }
+  });
+
+  // Tag density from all stories
+  const tagCounts = new Map<string, number>();
+  (stories || []).forEach((story: any) => {
+    (story.tags || []).forEach((tag: string) => {
+      if (!tag) return;
+      tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+    });
+  });
+  const tagDensity = Array.from(tagCounts.entries())
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 12);
+
+  // Story evidence with context
+  const storiesWithContext = (stories || []).slice(0, 25).map((s: any) => {
+    const role = roles.find((r: any) => r.id === s.work_item_id);
+    const metrics =
+      Array.isArray(s.metrics)
+        ? s.metrics
+            .map((m: any) => `${m.value || ''} ${m.context || ''}`.trim())
+            .filter(Boolean)
+        : [];
+    return {
+      id: s.id,
+      title: s.title,
+      content: s.content,
+      tags: s.tags || [],
+      sourceRole: role?.title || s.work_item_title || '',
+      sourceCompany: role?.companies?.name || role?.company || '',
+      lastUsed: s.updated_at || s.created_at,
+      timesUsed: 1,
+      confidence: metrics.length > 0 ? 'high' : 'medium',
+      outcomeMetrics: metrics,
+      levelAssessment: 'meets',
+    };
+  });
+
+  // Outcome metrics pulled from roles and stories
+  const roleLevelMetrics: string[] = [];
+  roles.forEach((role: any) => {
+    if (Array.isArray(role.metrics)) {
+      role.metrics.forEach((m: any) => {
+        const text = `${m.value || ''} ${m.context || ''}`.trim();
+        if (text) roleLevelMetrics.push(text);
+      });
+    }
+    if (Array.isArray(role.achievements)) {
+      role.achievements.forEach((a: string) => a && roleLevelMetrics.push(a));
+    }
+  });
+  const storyLevelMetrics = storiesWithContext.flatMap((s: any) => s.outcomeMetrics || []);
+
+  // Competency-based criteria
+  const execScore = competencies.executionDelivery ?? 0;
+  const stratScore = competencies.productStrategy ?? 0;
+  const custScore = competencies.technicalDepth ?? 0;
+  const inflScore = competencies.leadershipInfluence ?? 0;
+  const avgScore = (execScore + stratScore + custScore + inflScore) / 4 || 0;
+  const confidencePct = Math.min(95, Math.max(50, Math.round((avgScore / 10) * 100)));
+
+  const criteria = [
+    { criterion: 'Execution: ability to ship products', met: execScore >= 5 },
+    { criterion: 'Customer Insight: user research depth', met: custScore >= 5 },
+    { criterion: 'Strategy: vision and roadmap thinking', met: stratScore >= 5 },
+    { criterion: 'Influence: cross-functional leadership', met: inflScore >= 5 },
+  ];
+
+  const gaps: Array<{ area: string; description: string; examples: string[] }> = [];
+  if (execScore < 5) gaps.push({ area: 'Execution', description: 'Add launches with quantified impact', examples: ['Ship outcomes with metrics', 'Highlight rollout scale'] });
+  if (stratScore < 5) gaps.push({ area: 'Strategy', description: 'Show vision/roadmap ownership', examples: ['Roadmap artifacts', 'Cross-org strategy inputs'] });
+  if (custScore < 5) gaps.push({ area: 'Customer Insight', description: 'Add research depth', examples: ['User studies', 'Analytics-driven insights'] });
+  if (inflScore < 5) gaps.push({ area: 'Influence', description: 'Demonstrate exec and XFN influence', examples: ['Steering committees', 'C-suite reviews'] });
+
+  const nextLevel = icLevel >= 7 ? 'VP of Product' : icLevel >= 6 ? 'Group PM / Director' : 'Senior PM';
+
+  return {
+    currentLevel: mapLevel(icLevel).displayLevel,
+    nextLevel,
+    confidence: confidencePct >= 75 ? 'high' : confidencePct >= 60 ? 'medium' : 'low',
+    resumeEvidence: {
+      roleTitles,
+      duration: `${Math.round(totalMonths / 12)} years total / ${Math.round(pmMonths / 12)} years PM & adjacent experience`,
+      companyScale,
+    },
+    storyEvidence: {
+      totalStories: stories.length,
+      relevantStories: stories.length,
+      tagDensity,
+      stories: storiesWithContext,
+    },
+    levelingFramework: {
+      framework: 'PM Level Assessment',
+      criteria: criteria.map((c) => c.criterion),
+      match: `${confidencePct}% confident`,
+      confidencePercentage: confidencePct,
+      metCriteria: criteria,
+    },
+    gaps,
+    outcomeMetrics: {
+      roleLevel: roleLevelMetrics.slice(0, 25),
+      storyLevel: storyLevelMetrics.slice(0, 25),
+      analysis: {
+        totalMetrics: roleLevelMetrics.length + storyLevelMetrics.length,
+        impactLevel: icLevel >= 7 ? 'company' : icLevel >= 6 ? 'org' : icLevel >= 5 ? 'team' : 'feature',
+        keyAchievements: [...roleLevelMetrics, ...storyLevelMetrics].slice(0, 6),
+      },
+    },
+  };
+}
+
+function mapLevel(score: number) {
+  if (score >= 9) return { levelCode: 'M2', displayLevel: 'VP of Product' };
+  if (score >= 7) return { levelCode: 'M1', displayLevel: 'Group Product Manager' };
+  if (score >= 6) return { levelCode: 'L6', displayLevel: 'Staff Product Manager' };
+  if (score >= 5) return { levelCode: 'L5', displayLevel: 'Senior Product Manager' };
+  if (score >= 4) return { levelCode: 'L4', displayLevel: 'Product Manager' };
+  return { levelCode: 'L3', displayLevel: 'Associate Product Manager' };
+}
+
+function buildRoleEvidence(workHistory: any[], stories: any[], specializations: string[]) {
+  const specPatterns: Record<string, { patterns: string[]; description: string; industryPatterns: string[] }> = {
+    growth: {
+      patterns: ['growth', 'activation', 'retention', 'conversion', 'experimentation', 'a/b', 'funnel', 'acquisition'],
+      description: 'Focuses on acquisition, activation, retention, and monetization',
+      industryPatterns: ['Product-led growth', 'Experimentation culture', 'Acquisition funnels'],
+    },
+    platform: {
+      patterns: ['platform', 'api', 'sdk', 'developer', 'infrastructure', 'integration'],
+      description: 'Builds developer-facing products, APIs, SDKs, and shared infrastructure',
+      industryPatterns: ['Platform reliability', 'Ecosystem integrations', 'Developer experience'],
+    },
+    ai_ml: {
+      patterns: ['ai', 'ml', 'machine', 'model', 'data', 'nlp', 'vision', 'recommendation'],
+      description: 'Develops AI/ML-powered products and features',
+      industryPatterns: ['Model performance', 'Data quality', 'Responsible AI'],
+    },
+    founding: {
+      patterns: ['founding', 'startup', '0-1', 'zero to one', 'mvp', 'seed', 'early'],
+      description: '0-1 builder with end-to-end ownership in startup environments',
+      industryPatterns: ['0-1 product building', 'Fundraising stage', 'Scrappy execution'],
+    },
+  };
+
+  const tagIndex = new Map<string, string[]>();
+  (stories || []).forEach((story: any) => {
+    (story.tags || []).forEach((tag: string) => {
+      if (!tag) return;
+      const lower = tag.toLowerCase();
+      tagIndex.set(lower, [...(tagIndex.get(lower) || []), story.title || '']);
+    });
+  });
+
+  const evidence: Record<string, any> = {};
+
+  specializations.forEach((spec) => {
+    const key = spec.toLowerCase().includes('growth')
+      ? 'growth'
+      : spec.toLowerCase().includes('platform')
+      ? 'platform'
+      : spec.toLowerCase().includes('ai')
+      ? 'ai_ml'
+      : spec.toLowerCase().includes('founding')
+      ? 'founding'
+      : spec.toLowerCase();
+
+    const patternConfig = specPatterns[key] || { patterns: [], description: spec, industryPatterns: [] };
+
+    // Match counts
+    let tagHitCount = 0;
+    const matchedTags: Record<string, number> = {};
+
+    // Work history relevance
+    const workHistoryEvidence = (workHistory || []).map((role: any) => {
+      const description = `${role.title || ''} ${role.description || ''}`.toLowerCase();
+      const matches = patternConfig.patterns.filter((p) => description.includes(p));
+      matches.forEach((m) => {
+        matchedTags[m] = (matchedTags[m] || 0) + 1;
+        tagHitCount += 1;
+      });
+      return {
+        company: role.companies?.name || role.company || 'Unknown',
+        role: role.title || 'Unknown',
+        relevance: matches.length >= 3 ? 'High Relevance' : matches.length > 0 ? 'Medium Relevance' : 'Low Relevance',
+        tags: role.tags || [],
+      };
+    });
+
+    // Story matches
+    const matchedStories = (stories || []).filter((story: any) =>
+      (story.tags || []).some((tag: string) =>
+        patternConfig.patterns.some((p) => (tag || '').toLowerCase().includes(p))
+      )
+    );
+    matchedStories.forEach((story: any) => {
+      (story.tags || []).forEach((tag: string) => {
+        const lower = tag.toLowerCase();
+        if (patternConfig.patterns.some((p) => lower.includes(p))) {
+          matchedTags[lower] = (matchedTags[lower] || 0) + 1;
+          tagHitCount += 1;
+        }
+      });
+    });
+
+    const tagAnalysis = Object.entries(matchedTags)
+      .map(([tag, count]) => ({
+        tag,
+        count,
+        relevance: Math.min(100, count * 20 + 40),
+        examples: (tagIndex.get(tag) || []).slice(0, 3),
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    const roleLevelMetrics: string[] = [];
+    (workHistory || []).forEach((role: any) => {
+      (role.metrics || []).forEach((m: any) => {
+        const text = `${m.value || ''} ${m.context || ''}`.trim();
+        if (text) roleLevelMetrics.push(text);
+      });
+      (role.achievements || []).forEach((a: string) => a && roleLevelMetrics.push(a));
+    });
+    const storyLevelMetrics: string[] = [];
+    matchedStories.forEach((story: any) => {
+      (story.metrics || []).forEach((m: any) => {
+        const text = `${m.value || ''} ${m.context || ''}`.trim();
+        if (text) storyLevelMetrics.push(text);
+      });
+    });
+
+    const industryPatterns = (patternConfig.industryPatterns || []).map((p) => ({
+      pattern: p,
+      match: tagHitCount > 0,
+      examples: tagAnalysis.slice(0, 2).map((t) => t.tag),
+    }));
+
+    const matchScore = Math.min(95, 60 + tagHitCount * 10 + tagAnalysis.length * 3);
+
+    const gaps: Array<{ area: string; description: string; suggestions: string[] }> = [];
+    if (tagHitCount < 2) {
+      gaps.push({
+        area: 'Evidence',
+        description: 'Add more tagged stories for this specialization',
+        suggestions: ['Tag stories with specialization keywords', 'Add recent outcomes and metrics'],
+      });
+    }
+
+    evidence[key] = {
+      roleType: spec,
+      matchScore,
+      description: patternConfig.description,
+      industryPatterns,
+      problemComplexity: {
+        level: storyLevelMetrics.length > 3 ? 'High' : 'Medium',
+        examples: matchedStories.slice(0, 3).map((s: any) => s.title || 'Story'),
+        evidence: storyLevelMetrics.slice(0, 5),
+      },
+      workHistory: workHistoryEvidence.slice(0, 6),
+      tagAnalysis,
+      gaps,
+      outcomeMetrics: {
+        roleLevel: roleLevelMetrics.slice(0, 15),
+        storyLevel: storyLevelMetrics.slice(0, 15),
+        analysis: {
+          totalMetrics: roleLevelMetrics.length + storyLevelMetrics.length,
+          impactLevel: storyLevelMetrics.length > 5 ? 'org' : 'team',
+          keyAchievements: [...roleLevelMetrics, ...storyLevelMetrics].slice(0, 5),
+        },
+      },
+    };
+  });
+
+  return evidence;
+}

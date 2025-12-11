@@ -13,7 +13,6 @@ import type {
 } from '@/types/fileUpload';
 import { 
   buildResumeAnalysisPrompt, 
-  buildCoverLetterAnalysisPrompt,
   RESUME_COVER_LETTER_ANALYSIS_PROMPT,
   CASE_STUDY_ANALYSIS_PROMPT,
   JSON_EXTRACTION_SYSTEM_PROMPT,
@@ -542,7 +541,6 @@ export class LLMAnalysisService {
     return buildResumeAnalysisPrompt(text, coverLetterText);
   }
 
-  // Removed legacy cover letter prompt; we rely on prompts/coverLetterAnalysis.ts
 
   /**
    * Build prompt for combined resume and cover letter analysis

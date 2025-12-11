@@ -8,7 +8,6 @@ export {
   type RoleStoriesResult,
   type SkillsAndEducationResult
 } from './resumeAnalysisSplit';
-export { buildCoverLetterAnalysisPrompt } from './coverLetterAnalysis';
 export { buildJobDescriptionAnalysisPrompt } from './jobDescriptionAnalysis';
 export { buildTemplateCreationPrompt } from './coverLetterTemplate';
 export { buildTemplateEvaluationPrompt } from './templateEvaluation';
