@@ -205,3 +205,4 @@ Each segment shows the percentage of total time.
 
 **Now you can identify performance bottlenecks at a glance!** 🎉
 
+

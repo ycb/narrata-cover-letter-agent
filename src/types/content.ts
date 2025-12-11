@@ -60,6 +60,8 @@ export interface HILContentMetadata {
   impactScore?: number;
   truthScore?: number;
   tags?: string[];
+  saveAsSavedSection?: boolean;
+  saveAsStory?: boolean;
 }
 
 // Variation metadata for HIL integration
@@ -485,4 +487,3 @@ export interface LevelRecommendation {
   suggestedAction: string;
   relatedStories?: string[]; // Story IDs that could be improved
 }
-

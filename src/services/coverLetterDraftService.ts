@@ -2412,7 +2412,7 @@ export class CoverLetterDraftService {
         let builtSection: CoverLetterDraftSection;
 
         if (section.isStatic) {
-          const content = section.staticContent || '';
+          const content = this.applyCompanyTokens(section.staticContent || '', jobDescription.company);
           builtSection = this.createSection({
             id: sectionId,
             slug,
@@ -2429,7 +2429,8 @@ export class CoverLetterDraftService {
         } else if (section.contentType === 'saved') {
           const bestSaved = this.pickBestSavedSection(section, savedSections, jobDescription);
           if (bestSaved) {
-            const requirementsMatched = this.matchRequirements(bestSaved.content, jobDescription);
+            const content = this.applyCompanyTokens(bestSaved.content || '', jobDescription.company);
+            const requirementsMatched = this.matchRequirements(content, jobDescription);
             builtSection = this.createSection({
               id: sectionId,
               slug,
@@ -2437,7 +2438,7 @@ export class CoverLetterDraftService {
               templateSectionId: section.id,
               type: this.resolveSectionType(section),
               order: index + 1,
-              content: bestSaved.content,
+              content,
               source: { kind: 'saved_section', entityId: bestSaved.id },
               requirementsMatched,
               tags: bestSaved.tags ?? [],
@@ -2487,7 +2488,8 @@ export class CoverLetterDraftService {
           const bestStory = this.pickBestStory(section, stories, jobDescription, userGoals);
           if (bestStory && bestStory.content?.trim()) {
             // Only use story if it has actual content
-            const requirementsMatched = this.matchRequirements(bestStory.content, jobDescription);
+            const content = this.applyCompanyTokens(bestStory.content, jobDescription.company);
+            const requirementsMatched = this.matchRequirements(content, jobDescription);
             builtSection = this.createSection({
               id: sectionId,
               slug,
@@ -2495,7 +2497,7 @@ export class CoverLetterDraftService {
               templateSectionId: section.id,
               type: this.resolveSectionType(section),
               order: index + 1,
-              content: bestStory.content,
+              content,
               source: { kind: 'work_story', entityId: bestStory.id },
               requirementsMatched,
               tags: bestStory.tags ?? [],
@@ -2540,6 +2542,11 @@ export class CoverLetterDraftService {
     if (section.contentType === 'saved') return 'dynamic-saved';
     if (section.type === 'closer') return 'closing';
     return 'static';
+  }
+
+  private applyCompanyTokens(content: string, companyName?: string): string {
+    if (!companyName || !content) return content;
+    return content.replace(/\[COMPANY-NAME\]/gi, companyName);
   }
 
   private createSection(input: {
@@ -3225,4 +3232,3 @@ const countWords = (value: string): number =>
 
 const escapeRegExp = (value: string): string =>
   value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-

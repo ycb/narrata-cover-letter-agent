@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Edit,
   Save,
@@ -41,6 +42,8 @@ export function HILEditorPanel({
   const [isEditing, setIsEditing] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [activeTab, setActiveTab] = useState('editor');
+  const [addToSavedSections, setAddToSavedSections] = useState(Boolean(metadata.saveAsSavedSection));
+  const [addToStories, setAddToStories] = useState(Boolean(metadata.saveAsStory));
 
   const activeAnalysis = useMemo<GapAnalysis | null>(() => {
     if (!state.gapAnalysis) return null;
@@ -151,6 +154,8 @@ export function HILEditorPanel({
       competencyTags: autoTagging.competencies,
       tags: autoTagging.tags,
       notes: buildAutoNotes(autoTagging.tags, autoTagging.competencies),
+      saveAsSavedSection: metadata.source === 'work-history' ? addToSavedSections : metadata.saveAsSavedSection,
+      saveAsStory: metadata.source === 'reusable' ? addToStories : metadata.saveAsStory,
     };
 
     dispatch({
@@ -228,6 +233,26 @@ export function HILEditorPanel({
               </Badge>
             )}
           </div>
+        </div>
+        <div className="flex flex-wrap gap-4 mt-3 text-sm text-muted-foreground">
+          {metadata.source === 'work-history' && (
+            <label className="flex items-center gap-2">
+              <Checkbox
+                checked={addToSavedSections}
+                onCheckedChange={checked => setAddToSavedSections(Boolean(checked))}
+              />
+              Add to Saved Sections after save
+            </label>
+          )}
+          {metadata.source === 'reusable' && (
+            <label className="flex items-center gap-2">
+              <Checkbox
+                checked={addToStories}
+                onCheckedChange={checked => setAddToStories(Boolean(checked))}
+              />
+              Add to Stories after save
+            </label>
+          )}
         </div>
       </CardHeader>
 

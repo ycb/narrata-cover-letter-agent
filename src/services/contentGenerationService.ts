@@ -376,7 +376,8 @@ export class ContentGenerationService {
         userId,
         currentRole,
         allStories,
-        metrics
+        metrics,
+        unresolvedGaps: await this.fetchUnresolvedGaps(userId, entityType, entityId, workItemId),
       };
 
     } catch (error) {
@@ -388,6 +389,34 @@ export class ContentGenerationService {
   // ==========================================
   // Private Helper Methods
   // ==========================================
+
+  private async fetchUnresolvedGaps(
+    userId: string,
+    entityType: 'work_item' | 'approved_content' | 'saved_section',
+    entityId: string,
+    workItemId?: string
+  ): Promise<Array<{ id: string; category: string; severity: 'high' | 'medium' | 'low'; description?: string }>> {
+    try {
+      const gaps = await GapDetectionService.getUserGaps(userId);
+      const unresolved = (gaps || []).filter(gap => !gap.resolved);
+
+      const matchingGaps = unresolved.filter(gap => {
+        if (gap.entity_id === entityId) return true;
+        if (workItemId && gap.entity_id === workItemId) return true;
+        return false;
+      });
+
+      return matchingGaps.map(gap => ({
+        id: gap.id || '',
+        category: gap.gap_category,
+        severity: gap.severity,
+        description: gap.description,
+      }));
+    } catch (error) {
+      console.warn('[ContentGenerationService] Unable to fetch unresolved gaps for context', error);
+      return [];
+    }
+  }
 
   /**
    * Replace existing content

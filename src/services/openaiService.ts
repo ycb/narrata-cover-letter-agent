@@ -210,6 +210,7 @@ export class LLMAnalysisService {
       const stage2Start = Date.now();
       
       console.log(`⏱️  [TIMING] Launching ${skeleton.workHistory?.length || 0} parallel LLM calls for role stories...`);
+      const totalRoles = skeleton.workHistory?.length || 0;
       const storyPromises = (skeleton.workHistory || []).map(async (role, idx) => {
         const roleStart = Date.now();
         const prompt = buildRoleStoriesPrompt(text, {
@@ -221,10 +222,26 @@ export class LLMAnalysisService {
         const roleMs = Date.now() - roleStart;
         if (!response.success || !response.data) {
           console.log(`⏱️  [TIMING] ⚠️  Role ${idx + 1}/${skeleton.workHistory?.length} (${role.company}) failed: ${roleMs}ms - ${response.error}`);
+          const partialProgress = 55 + Math.min(20, ((idx + 1) / Math.max(totalRoles, 1)) * 20);
+          onStageComplete?.('roleStories', {
+            roleId: role.id,
+            rolesProcessed: idx + 1,
+            rolesTotal: totalRoles,
+            storiesFound: 0,
+            progressPct: partialProgress
+          });
           return { roleId: role.id, outcomeMetrics: [], stories: [] } as RoleStoriesResult;
         }
         const result = response.data as unknown as RoleStoriesResult;
         console.log(`⏱️  [TIMING] ✅ Role ${idx + 1}/${skeleton.workHistory?.length} (${role.company}): ${roleMs}ms (${result.stories?.length || 0} stories)`);
+        const partialProgress = 55 + Math.min(20, ((idx + 1) / Math.max(totalRoles, 1)) * 20);
+        onStageComplete?.('roleStories', {
+          roleId: role.id,
+          rolesProcessed: idx + 1,
+          rolesTotal: totalRoles,
+          storiesFound: (result.stories || []).length,
+          progressPct: partialProgress
+        });
         return result;
       });
       
@@ -233,7 +250,13 @@ export class LLMAnalysisService {
 
       const totalStories = roleStories.reduce((acc, r) => acc + (r.stories?.length || 0), 0);
       console.log(`⏱️  [TIMING] ✅ Stage 2 complete: ${totalStories} total stories`);
-      onStageComplete?.('roleStories', roleStories);
+      onStageComplete?.('roleStories', {
+        rolesProcessed: totalRoles,
+        rolesTotal: totalRoles,
+        storiesFound: totalStories,
+        progressPct: 75,
+        roleStories,
+      });
 
       // STAGE 3: Skills + education + contact (optional; can be deferred)
       let skillsData: SkillsAndEducationResult | null = null;

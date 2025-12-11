@@ -973,7 +973,23 @@ source_type: dbSourceType,
         console.log(`⏱️  [TIMING] ✅ Fetched work history for linking: ${(performance.now() - workHistoryStart).toFixed(2)}ms (${workHistory.length} items)`);
         
         const llmCallStart = performance.now();
-        analysisResult = await this.llmAnalysisService.analyzeCoverLetterStories(extractedText, workHistory);
+        const stopHeartbeat = (() => {
+          const hbStart = performance.now();
+          const timer = setInterval(() => {
+            const elapsedMs = performance.now() - hbStart;
+            // creep upward during long calls to avoid flatlines
+            const dynamicPercent = Math.min(80, 55 + elapsedMs / 500);
+            this.emitProgress('analyzing', dynamicPercent, 'Analyzing with AI...', type, {
+              elapsedMs
+            });
+          }, 2500);
+          return () => clearInterval(timer);
+        })();
+        try {
+          analysisResult = await this.llmAnalysisService.analyzeCoverLetterStories(extractedText, workHistory);
+        } finally {
+          stopHeartbeat();
+        }
         const clLlmMs = (performance.now() - llmCallStart).toFixed(2);
         console.log(`⏱️  [TIMING] ✅ CL LLM analysis (stories + voice): ${clLlmMs}ms`);
         
@@ -1034,7 +1050,10 @@ source_type: dbSourceType,
               roleStories: { percent: 70, label: 'Stories and achievements extracted...' },
               skillsAndEducation: { percent: 75, label: 'Skills and education extracted...' }
             };
-            const stageInfo = stageProgress[stage] || { percent: 60, label: `${stage} complete...` };
+            const progressPct = typeof (data as any)?.progressPct === 'number' ? (data as any).progressPct : undefined;
+            const stageInfo = progressPct !== undefined
+              ? { percent: progressPct, label: stageProgress[stage]?.label || `${stage} complete...` }
+              : stageProgress[stage] || { percent: 60, label: `${stage} complete...` };
             // Derive useful counts for product value messaging
             const extraCounts: Record<string, unknown> = {};
             if (stage === 'workHistorySkeleton' && data && (data as any).workHistory) {
@@ -1042,9 +1061,12 @@ source_type: dbSourceType,
               extraCounts.companiesFound = wh.length;
               extraCounts.rolesFound = wh.length;
             }
-            if (stage === 'roleStories' && Array.isArray(data)) {
-              const rolesProcessed = (data as any[]).length;
-              const storiesFound = (data as any[]).reduce((sum, r: any) => sum + (Array.isArray(r?.stories) ? r.stories.length : 0), 0);
+            if (stage === 'roleStories') {
+              const arrayData = Array.isArray(data) ? (data as any[]) : [];
+              const rolesProcessed = (data as any)?.rolesProcessed || arrayData.length;
+              const storiesFound = Array.isArray(arrayData)
+                ? arrayData.reduce((sum, r: any) => sum + (Array.isArray(r?.stories) ? r.stories.length : 0), 0)
+                : (data as any)?.storiesFound;
               extraCounts.rolesProcessed = rolesProcessed;
               extraCounts.storiesFound = storiesFound;
             }
@@ -1303,12 +1325,10 @@ source_type: dbSourceType,
 
       // Map section slugs to database types
       // Section types: intro, body, closer
-      // - 'greeting' -> 'intro' (dynamic with [COMPANY-NAME] token)
-      // - 'introduction' -> 'intro' (static)
+      // - 'introduction' -> 'intro' (static with [COMPANY-NAME] token support)
       // - 'body-1', 'body-2', etc. -> 'body' (dynamic)
       // - 'closing' -> 'closer' (static, includes signature)
       const typeMapping: Record<string, string> = {
-        'greeting': 'intro',
         'introduction': 'intro',
         'closing': 'closer'
         // All other slugs (body-1, body-2, etc.) default to 'body'

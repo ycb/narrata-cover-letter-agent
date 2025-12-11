@@ -139,7 +139,64 @@ export default function NewUserOnboarding() {
     createJob: createOnboardingJob,
     isStreaming: isOnboardingStreaming,
     error: onboardingError,
-  } = useOnboardingJobStream({ pollIntervalMs: 2000, timeout: 300000 });
+  } = useOnboardingJobStream({
+    pollIntervalMs: 2000,
+    timeout: 300000,
+    onProgress: (stage, data) => {
+      // Map backend onboarding stages to a coarse percent and readable label
+      const stagePercents: Record<string, number> = {
+        linkedInFetch: 45,
+        profileStructuring: 70,
+        derivedArtifacts: 90,
+      };
+      const messages: Record<string, string> = {
+        linkedInFetch: (() => {
+          const jobs = data?.jobsCount;
+          const skills = data?.skillsCount;
+          if (jobs || skills) {
+            const parts = [
+              jobs ? `${jobs} roles detected` : null,
+              skills ? `${skills} skills noted` : null,
+            ].filter(Boolean);
+            return `LinkedIn parsed${parts.length ? ` (${parts.join(', ')})` : ''}`;
+          }
+          return 'LinkedIn parsed';
+        })(),
+        profileStructuring: (() => {
+          const roles = data?.workHistoryItems;
+          const stories = data?.storiesIdentified;
+          const themes = data?.coreThemesCount;
+          const parts = [
+            roles ? `${roles} roles` : null,
+            stories ? `${stories} stories` : null,
+            themes ? `${themes} themes` : null,
+          ].filter(Boolean);
+          return `Profile skeleton${parts.length ? ` (${parts.join(', ')})` : ''}`;
+        })(),
+        derivedArtifacts: (() => {
+          const suggested = data?.suggestedStories;
+          const confidence = data?.confidenceScore;
+          const parts = [
+            suggested ? `${suggested} suggestions` : null,
+            typeof confidence === 'number' ? `confidence ${confidence}%` : null,
+          ].filter(Boolean);
+          return `Profile insights${parts.length ? ` (${parts.join(', ')})` : ''}`;
+        })(),
+      };
+
+      const percent = stagePercents[stage] ?? 60;
+      const message = messages[stage] || stage;
+      setGlobalProgress(prev => {
+        if (prev.percent >= 100) return prev;
+        return {
+          percent: Math.max(prev.percent, percent),
+          message,
+          stage,
+        };
+      });
+      setIsProcessing(true);
+    },
+  });
 
   const obStageOrder = ['linkedInFetch', 'profileStructuring', 'derivedArtifacts'] as const;
   const obCompleted = obStageOrder.filter(
@@ -338,7 +395,9 @@ export default function NewUserOnboarding() {
 
   const startFinalAnalysis = async () => {
     try {
-      const linkedInData = linkedinUrl ? { url: linkedinUrl } : undefined;
+      const linkedInData = isLinkedInScrapingEnabled() && linkedinUrl
+        ? { url: linkedinUrl }
+        : undefined;
       await createOnboardingJob('onboarding' as any, {
         linkedInData,
         resumeText: undefined,
@@ -391,7 +450,7 @@ export default function NewUserOnboarding() {
             { key: 'storiesFound', label: 'stories' },
             { key: 'totalParagraphs', label: 'paragraphs' },
             { key: 'sectionsCount', label: 'sections' },
-            { key: 'bodyParagraphs', label: 'body paras' },
+            { key: 'bodyParagraphs', label: 'body paragraphs' },
             { key: 'gapsFound', label: 'gaps' },
             { key: 'metricsFound', label: 'metrics' },
           ];
@@ -402,7 +461,8 @@ export default function NewUserOnboarding() {
             }
           });
         }
-        const countText = countParts.length > 0 ? ` • ${countParts.join(', ')}` : '';
+        const labelHasCounts = label ? /\d/.test(label) : false;
+        const countText = !labelHasCounts && countParts.length > 0 ? ` • ${countParts.join(', ')}` : '';
         setGlobalProgress(prevGp => {
           if (prevGp.percent >= 100) return prevGp;
           const nextPercent = Math.max(prevGp.percent, boundedAvg);

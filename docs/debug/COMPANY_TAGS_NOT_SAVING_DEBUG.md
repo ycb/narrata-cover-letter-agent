@@ -216,3 +216,4 @@ If tags don't save, check which log appears LAST:
 - `src/components/hil/ContentGenerationModal.tsx` - Modal UI
 - `src/services/tagService.ts` - Database persistence
 - `src/services/tagSuggestionService.ts` - Tag generation
+

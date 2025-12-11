@@ -21,6 +21,12 @@ export interface WorkHistoryContext {
     metrics?: string[];
   }>;
   metrics?: string[]; // Role-level metrics
+  unresolvedGaps?: Array<{
+    id: string;
+    category: string;
+    severity: 'high' | 'medium' | 'low';
+    description?: string;
+  }>;
 }
 
 /**
@@ -77,6 +83,11 @@ Duration: ${workHistoryContext.currentRole.startDate}${workHistoryContext.curren
 ${workHistoryContext.metrics && workHistoryContext.metrics.length > 0 ? `
 **Available Metrics** (use these in the story):
 ${workHistoryContext.metrics.map(m => `- ${m}`).join('\n')}
+` : ''}
+
+${workHistoryContext.unresolvedGaps && workHistoryContext.unresolvedGaps.length > 0 ? `
+**Known Unresolved Gaps for this content** (address these if relevant):
+${workHistoryContext.unresolvedGaps.slice(0, 5).map(gap => `- [${gap.severity}] ${gap.category.replace(/_/g, ' ')}${gap.description ? `: ${gap.description}` : ''}`).join('\n')}
 ` : ''}
 
 ${workHistoryContext.allStories.length > 0 ? `
@@ -236,6 +247,11 @@ ${workHistoryContext.currentRole ? `Most Recent Role: ${workHistoryContext.curre
 ${workHistoryContext.metrics && workHistoryContext.metrics.length > 0 ? `
 **Key Achievements to Reference**:
 ${workHistoryContext.metrics.slice(0, 3).map(m => `- ${m}`).join('\n')}
+` : ''}
+
+${workHistoryContext.unresolvedGaps && workHistoryContext.unresolvedGaps.length > 0 ? `
+**Known Unresolved Gaps for this section** (address if relevant):
+${workHistoryContext.unresolvedGaps.slice(0, 5).map(gap => `- [${gap.severity}] ${gap.category.replace(/_/g, ' ')}${gap.description ? `: ${gap.description}` : ''}`).join('\n')}
 ` : ''}
 
 ${workHistoryContext.allStories.length > 0 ? `

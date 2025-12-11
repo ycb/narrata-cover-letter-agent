@@ -250,33 +250,39 @@ export function convertToSavedSections(parsed: ParsedCoverLetter) {
   
   // Extract company name from greeting for tokenization
   const companyName = extractCompanyNameFromGreeting(parsed.greeting);
-  
-  // 1. Greeting (dynamic - uses [COMPANY-NAME] token)
-  // Convert any extracted greeting to use the token format
-  const greetingTemplate = parsed.greeting 
-    ? parsed.greeting.replace(/Dear .+?,/, 'Dear [COMPANY-NAME] team,')
-    : 'Dear [COMPANY-NAME] team,';
-  
-  sections.push({
-    slug: 'greeting',
-    title: 'Greeting',
-    content: greetingTemplate,
-    order: order++,
-    isStatic: false, // Dynamic - uses [COMPANY-NAME] token
-  });
-  
-  // 2. Introduction (static - reused as-is, but tokenize company name)
-  if (parsed.introduction) {
+
+  // Build introduction content by combining greeting + intro with tokenized company name
+  const introParts: string[] = [];
+
+  if (parsed.greeting || parsed.introduction) {
+    const greetingTemplate = parsed.greeting
+      ? parsed.greeting.replace(/Dear .+?,/, 'Dear [COMPANY-NAME] team,')
+      : 'Dear [COMPANY-NAME] team,';
+
+    introParts.push(greetingTemplate.trim());
+
+    if (parsed.introduction) {
+      const introBody = companyName
+        ? tokenizeCompanyName(parsed.introduction, companyName)
+        : parsed.introduction;
+      introParts.push(introBody.trim());
+    }
+  }
+
+  const introContent = introParts.join('\n\n').trim();
+
+  // 1. Introduction (static - greeting + intro paragraph combined, tokenized)
+  if (introContent) {
     sections.push({
       slug: 'introduction',
       title: 'Introduction',
-      content: companyName ? tokenizeCompanyName(parsed.introduction, companyName) : parsed.introduction,
+      content: introContent,
       order: order++,
       isStatic: true, // Static - reused as-is
     });
   }
   
-  // 3. Body paragraphs (dynamic - will be replaced with stories post-onboarding, but tokenize company name)
+  // Body paragraphs (dynamic - will be replaced with stories post-onboarding, but tokenize company name)
   parsed.bodyParagraphs.forEach((body, idx) => {
     sections.push({
       slug: `body-${idx + 1}`,
@@ -287,7 +293,7 @@ export function convertToSavedSections(parsed: ParsedCoverLetter) {
     });
   });
   
-  // 4. Closing (static - closing paragraph + signature combined, reused as-is, but tokenize company name)
+  // Closing (static - closing paragraph + signature combined, reused as-is, but tokenize company name)
   const closingParts: string[] = [];
   if (parsed.closing) {
     closingParts.push(companyName ? tokenizeCompanyName(parsed.closing, companyName) : parsed.closing);

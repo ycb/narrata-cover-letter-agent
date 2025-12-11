@@ -923,7 +923,13 @@ export class CoverLetterTemplateService {
                   title: section.title,
                   content: section.content,
                   source_id: source.id,
-                  type: section.slug === 'greeting' ? 'intro' : section.slug.startsWith('body') ? 'paragraph' : section.slug,
+                  type: section.slug === 'introduction'
+                    ? 'intro'
+                    : section.slug === 'closing'
+                    ? 'closer'
+                    : section.slug.startsWith('body')
+                    ? 'paragraph'
+                    : section.slug,
                   is_dynamic: !section.isStatic,
                   paragraph_index: section.order,
                   tags: [],

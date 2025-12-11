@@ -95,12 +95,19 @@ serve(async (req) => {
           .eq('id', jobId)
           .single();
 
+        const isPartial = Boolean(data.isPartial);
+        const existingStage = currentJob?.stages?.[data.stage] || {};
+        const mergedData = {
+          ...(existingStage.data || {}),
+          ...(data.data || {}),
+        };
+
         const updatedStages = {
           ...(currentJob?.stages || {}),
           [data.stage]: {
-            status: 'complete',
-            data: data.data,
-            completedAt: new Date().toISOString(),
+            status: isPartial ? 'running' : 'complete',
+            data: Object.keys(mergedData).length > 0 ? mergedData : data.data,
+            completedAt: isPartial ? existingStage.completedAt : new Date().toISOString(),
           },
         };
 
@@ -186,4 +193,3 @@ serve(async (req) => {
     );
   }
 });
-

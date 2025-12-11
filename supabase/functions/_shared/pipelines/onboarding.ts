@@ -15,6 +15,30 @@ import {
 } from '../pipeline-utils.ts';
 import { PipelineTelemetry } from '../telemetry.ts';
 
+// Lightweight heartbeat to keep the UI moving during long LLM calls
+function startHeartbeat(
+  stage: string,
+  jobId: string,
+  send: (event: string, data: any) => void,
+  intervalMs = 2500
+) {
+  const start = Date.now();
+  const timer = setInterval(() => {
+    send('progress', {
+      jobId,
+      stage,
+      isPartial: true,
+      data: {
+        status: 'running',
+        elapsedMs: Date.now() - start,
+      },
+      timestamp: new Date().toISOString(),
+    });
+  }, intervalMs);
+
+  return () => clearInterval(timer);
+}
+
 // ============================================================================
 // Stage 0: LinkedIn Fetch (Fast - no LLM)
 // ============================================================================
@@ -35,7 +59,6 @@ const linkedInFetchStage: PipelineStage = {
       await send('progress', {
         jobId: job.id,
         stage: 'linkedInFetch',
-        isPartial: true,
         data: {
           status: 'reading',
           jobsCount: positions,
@@ -86,40 +109,43 @@ You MUST respond with ONLY a valid JSON object (no markdown, no explanation) wit
 
 Focus on identifying key patterns and themes.`;
 
-    const response = await callOpenAI({
-      apiKey: openaiApiKey,
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.4,
-      maxTokens: 2000,
-    });
-
-    const result = parseJSONResponse(response.choices[0].message.content);
+    const stopHeartbeat = startHeartbeat('profileStructuring', job.id, send);
 
     try {
-      await send('progress', {
-        jobId: job.id,
-        stage: 'profileStructuring',
-        isPartial: true,
-        data: {
-          status: 'extracting',
-          workHistoryItems: result.workHistoryItems || 0,
-          storiesIdentified: result.storiesIdentified || 0,
-          coreThemesCount: Array.isArray(result.coreThemes) ? result.coreThemes.length : 0,
-        },
-        timestamp: new Date().toISOString(),
+      const response = await callOpenAI({
+        apiKey: openaiApiKey,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.4,
+        maxTokens: 2000,
       });
-    } catch {
-      // non-blocking
+
+      const result = parseJSONResponse(response.choices[0].message.content);
+
+      try {
+        await send('progress', {
+          jobId: job.id,
+          stage: 'profileStructuring',
+          data: {
+            status: 'extracting',
+            workHistoryItems: result.workHistoryItems || 0,
+            storiesIdentified: result.storiesIdentified || 0,
+            coreThemesCount: Array.isArray(result.coreThemes) ? result.coreThemes.length : 0,
+          },
+          timestamp: new Date().toISOString(),
+        });
+      } catch {
+        // non-blocking
+      }
+
+      return {
+        workHistoryItems: result.workHistoryItems || 0,
+        storiesIdentified: result.storiesIdentified || 0,
+        coreThemes: result.coreThemes || [],
+      };
+    } finally {
+      stopHeartbeat();
     }
 
-    // In a real implementation, we'd create skeleton work history items here
-    // For MVP, we just return the counts
-
-    return {
-      workHistoryItems: result.workHistoryItems || 0,
-      storiesIdentified: result.storiesIdentified || 0,
-      coreThemes: result.coreThemes || [],
-    };
   },
 };
 
@@ -153,42 +179,43 @@ You MUST respond with ONLY a valid JSON object (no markdown, no explanation) wit
 
 Be thorough and analytical.`;
 
-    const response = await callOpenAI({
-      apiKey: openaiApiKey,
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.5,
-      maxTokens: 3000,
-    });
-
-    const result = parseJSONResponse(response.choices[0].message.content);
+    const stopHeartbeat = startHeartbeat('derivedArtifacts', job.id, send);
 
     try {
-      await send('progress', {
-        jobId: job.id,
-        stage: 'derivedArtifacts',
-        isPartial: true,
-        data: {
-          status: 'saving',
-          suggestedStories: result.suggestedStories || 0,
-          impactScores: result.impactScores || {},
-          confidenceScore: result.confidenceScore || 0,
-        },
-        timestamp: new Date().toISOString(),
+      const response = await callOpenAI({
+        apiKey: openaiApiKey,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.5,
+        maxTokens: 3000,
       });
-    } catch {
-      // non-blocking
+
+      const result = parseJSONResponse(response.choices[0].message.content);
+
+      try {
+        await send('progress', {
+          jobId: job.id,
+          stage: 'derivedArtifacts',
+          data: {
+            status: 'saving',
+            suggestedStories: result.suggestedStories || 0,
+            impactScores: result.impactScores || {},
+            confidenceScore: result.confidenceScore || 0,
+          },
+          timestamp: new Date().toISOString(),
+        });
+      } catch {
+        // non-blocking
+      }
+
+      return {
+        impactScores: result.impactScores || { technical: 0, leadership: 0, strategic: 0 },
+        suggestedStories: result.suggestedStories || 0,
+        confidenceScore: result.confidenceScore || 0,
+      };
+    } finally {
+      stopHeartbeat();
     }
 
-    // In a real implementation, we'd:
-    // - Create full profile record
-    // - Generate suggested stories
-    // - Calculate confidence scores
-
-    return {
-      impactScores: result.impactScores || { technical: 0, leadership: 0, strategic: 0 },
-      suggestedStories: result.suggestedStories || 0,
-      confidenceScore: result.confidenceScore || 0,
-    };
   },
 };
 
