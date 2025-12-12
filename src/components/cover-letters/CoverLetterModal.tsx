@@ -78,8 +78,10 @@ import { CoverLetterFinalization } from './CoverLetterFinalization';
 import { CoverLetterDraftView } from './CoverLetterDraftView';
 import { CoverLetterDraftEditor } from './CoverLetterDraftEditor'; // Phase 1: New shared editor
 import { DraftProgressBanner } from './DraftProgressBanner'; // Progress banner moved to modal level
+import { GoNoGoGate } from './GoNoGoGate';
 import { ContentCard } from '@/components/shared/ContentCard';
 import { ContentGenerationModal } from '@/components/hil/ContentGenerationModal';
+import { CoverLetterTemplateService } from '@/services/coverLetterTemplateService';
 import { UserGoalsModal } from '@/components/user-goals/UserGoalsModal';
 import { AddSectionFromLibraryModal, type InvocationType } from './AddSectionFromLibraryModal';
 import { SectionInsertButton } from '@/components/template-blurbs/SectionInsertButton';
@@ -1916,6 +1918,30 @@ export const CoverLetterModal = ({
           </Alert>
         )}
 
+        {(() => {
+          const analysis = draft?.enhancedMatchData?.goNoGoAnalysis || null;
+          const decision = analysis?.decision;
+          const tier: 'high' | 'medium' | 'low' | 'pending' | 'error' =
+            jobState?.status === 'error'
+              ? 'error'
+              : decision === 'no-go'
+              ? 'low'
+              : decision === 'go'
+              ? 'high'
+              : 'pending';
+          return (
+            <GoNoGoGate
+              tier={tier}
+              analysis={analysis}
+              metrics={matchMetrics}
+              jobDescription={normalizedJobDescription || undefined}
+              enhancedMatchData={draft?.enhancedMatchData || null}
+              aPhaseInsights={aPhaseInsights}
+              isLoading={showSkeleton}
+            />
+          );
+        })()}
+
         <CoverLetterDraftEditor
         draft={draft}
         jobDescription={normalizedJobDescription}
@@ -2077,6 +2103,18 @@ export const CoverLetterModal = ({
           setShowContentGenerationModal(false);
           setSelectedGap(null);
         }}
+        allowSaveToSavedSections={(() => {
+          if (!selectedGap || !draft) return false;
+          const section = draft.sections.find(sec => sec.id === selectedGap.section_id);
+          const sourceKind = (section as any)?.source?.kind;
+          return sourceKind === 'work_story';
+        })()}
+        allowSaveToStories={(() => {
+          if (!selectedGap || !draft) return false;
+          const section = draft.sections.find(sec => sec.id === selectedGap.section_id);
+          const sourceKind = (section as any)?.source?.kind;
+          return sourceKind === 'saved_section';
+        })()}
         gap={selectedGap ? {
           id: selectedGap.id,
           type: selectedGap.type,
@@ -2093,7 +2131,7 @@ export const CoverLetterModal = ({
           // Pass section attribution to show what's working in HIL
           sectionAttribution: selectedGap.sectionAttribution
         } : null}
-        onApplyContent={async (content: string) => {
+        onApplyContent={async (content: string, options?: { saveToSavedSections?: boolean; saveToStories?: boolean }) => {
           if (!selectedGap || !draft) return;
           
           // Use the section_id from selectedGap (set when gap was clicked)
@@ -2129,6 +2167,45 @@ export const CoverLetterModal = ({
               console.log('[CoverLetterCreateModal] Gap resolved for section:', sectionId);
             } catch (error) {
               console.error('[CoverLetterCreateModal] Failed to apply generated content:', error);
+            }
+          }
+
+          // Optional save to Saved Sections
+          if (options?.saveToSavedSections && user?.id) {
+            try {
+              const targetSection = draft.sections.find(sec => sec.id === sectionId);
+              const sectionType = (targetSection?.type === 'intro' || selectedGap.paragraphId === 'intro')
+                ? 'intro'
+                : (targetSection?.type === 'closer' || selectedGap.paragraphId === 'closing')
+                  ? 'closer'
+                  : 'paragraph';
+
+              await CoverLetterTemplateService.createSavedSection({
+                user_id: user.id,
+                type: sectionType as any,
+                title: targetSection?.title || 'Generated Section',
+                content,
+                tags: targetSection?.tags ?? [],
+                times_used: 0,
+                last_used: null,
+                source_id: draft.id,
+                paragraph_index: targetSection?.order ?? null,
+                function_type: null,
+                purpose_summary: null,
+                purpose_tags: targetSection?.tags ?? [],
+              } as any);
+
+              toast({
+                title: 'Saved to library',
+                description: 'Content added to Saved Sections.',
+              });
+            } catch (error) {
+              console.error('[CoverLetterModal] Failed to save to Saved Sections', error);
+              toast({
+                title: 'Save failed',
+                description: 'Unable to add this content to Saved Sections.',
+                variant: 'destructive',
+              });
             }
           }
           

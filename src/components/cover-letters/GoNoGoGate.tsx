@@ -2,9 +2,11 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MatchMetricsSummaryBar } from './MatchMetricsSummaryBar';
+import { GoNoGoMetricsBar } from './GoNoGoMetricsBar';
 import type { GoNoGoAnalysis } from '@/services/goNoGoService';
-import type { MatchMetricsData } from './useMatchMetricsDetails';
+import type { MatchMetricsData, MatchJobDescription } from './useMatchMetricsDetails';
+import type { EnhancedMatchData } from '@/types/coverLetters';
+import type { APhaseInsights } from '@/types/jobs';
 
 type GoNoGoTier = 'high' | 'medium' | 'low' | 'pending' | 'error';
 
@@ -12,6 +14,9 @@ interface GoNoGoGateProps {
   tier: GoNoGoTier;
   analysis?: GoNoGoAnalysis | null;
   metrics: MatchMetricsData;
+  jobDescription?: MatchJobDescription | null;
+  enhancedMatchData?: EnhancedMatchData | null;
+  aPhaseInsights?: APhaseInsights | null;
   isLoading?: boolean;
   onProceed?: () => void;
   onOverride?: () => void;
@@ -23,6 +28,9 @@ export const GoNoGoGate: React.FC<GoNoGoGateProps> = ({
   tier,
   analysis,
   metrics,
+  jobDescription,
+  enhancedMatchData,
+  aPhaseInsights,
   isLoading = false,
   onProceed,
   onOverride,
@@ -52,10 +60,12 @@ export const GoNoGoGate: React.FC<GoNoGoGateProps> = ({
         </div>
 
         {/* Summary metrics */}
-        <MatchMetricsSummaryBar
+        <GoNoGoMetricsBar
           metrics={metrics}
-          goNoGoAnalysis={analysis || undefined}
-          className="border-none shadow-none p-0"
+          jobDescription={jobDescription}
+          enhancedMatchData={enhancedMatchData}
+          aPhaseInsights={aPhaseInsights}
+          isLoading={isLoading}
         />
 
         {/* Actions */}
