@@ -31,6 +31,9 @@ import { PMAssessmentPanel } from './PMAssessmentPanel';
 import { ContentGenerationPanel } from './ContentGenerationPanel';
 import type { WorkHistoryBlurb, BlurbVariation } from '@/types/workHistory';
 import type { HILContentMetadata, ImprovementSuggestion, GapAnalysis, ContentRecommendation } from '@/types/content';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { CoverLetterTemplateService, type SavedSection } from '@/services/coverLetterTemplateService';
 
 interface MainHILInterfaceProps {
   story: WorkHistoryBlurb;
@@ -47,6 +50,8 @@ export function MainHILInterface({
   onContentUpdated,
   onClose,
 }: MainHILInterfaceProps) {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const { state, dispatch, setActiveSection } = useHIL();
   const [selectedVariation, setSelectedVariation] = useState<BlurbVariation | null>(null);
   const [currentStep, setCurrentStep] = useState<number>(0);
@@ -282,11 +287,12 @@ export function MainHILInterface({
               variation={selectedVariation}
               story={story}
               metadata={state.metadata as HILContentMetadata}
-              onSave={(content, metadata) => {
+              onSave={async (content, metadata) => {
                 const updatedVariation = { ...selectedVariation, content };
                 setSelectedVariation(updatedVariation);
                 dispatch({ type: 'UPDATE_METADATA', payload: metadata });
                 onContentUpdated(content);
+                await persistCrossSaves(content, metadata);
               }}
               onCancel={onClose}
             />
@@ -294,6 +300,58 @@ export function MainHILInterface({
         );
       default:
         return null;
+    }
+  };
+
+  const persistCrossSaves = async (content: string, metadata: HILContentMetadata) => {
+    if (!user?.id) {
+      toast({
+        title: 'Not saved to library',
+        description: 'Log in to save this edit to Saved Sections or Stories.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Story -> Saved Section
+    if (metadata.saveAsSavedSection && metadata.source === 'work-history') {
+      try {
+        const section: SavedSection = {
+          user_id: user.id,
+          type: 'paragraph',
+          title: story.title || 'Body Paragraph',
+          content,
+          tags: Array.from(new Set([...(story.tags ?? []), ...(metadata.tags ?? [])])),
+          times_used: 0,
+          last_used: null,
+          source_id: null,
+          paragraph_index: null,
+          function_type: null,
+          purpose_summary: null,
+          purpose_tags: story.tags ?? [],
+        } as any;
+
+        const created = await CoverLetterTemplateService.createSavedSection(section);
+        toast({
+          title: 'Saved to Saved Sections',
+          description: `Created reusable paragraph: ${created.title}`,
+        });
+      } catch (error) {
+        console.error('[MainHILInterface] Failed to save to Saved Sections', error);
+        toast({
+          title: 'Save failed',
+          description: 'Could not add this edit to Saved Sections.',
+          variant: 'destructive',
+        });
+      }
+    }
+
+    // Saved Section -> Story (scoped placeholder)
+    if (metadata.saveAsStory && metadata.source === 'reusable') {
+      toast({
+        title: 'Add to Stories not yet supported here',
+        description: 'We need role context to create a story. Save skipped.',
+      });
     }
   };
 

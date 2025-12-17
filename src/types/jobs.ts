@@ -275,7 +275,8 @@ export interface OnboardingStreamState extends JobStreamState<'onboarding'> {
 export interface CoverLetterStreamState extends JobStreamState<'coverLetter'> {
   stages: {
     basicMetrics?: CoverLetterBasicMetricsData;
-    requirementAnalysis?: CoverLetterRequirementAnalysisData;
+    // NOTE: Client stores stage objects as { status, data } via useJobStream SSE merging
+    requirementAnalysis?: { status: string; data?: CoverLetterRequirementAnalysisData | any };
     sectionGaps?: CoverLetterSectionGapsData;
     draftLetter?: CoverLetterDraftData;
     // A-Phase Streaming (Task 4)
@@ -373,6 +374,22 @@ export interface APhaseInsights {
     source?: 'jd' | 'web' | 'mixed';
     confidence?: number;
   };
+  requirementAnalysis?: {
+    coreRequirements: Array<{
+      id: string;
+      text: string;
+      met: boolean;
+      evidence?: string;
+    }>;
+    preferredRequirements: Array<{
+      id: string;
+      text: string;
+      met: boolean;
+      evidence?: string;
+    }>;
+    requirementsMet: number;
+    totalRequirements: number;
+  };
   stageFlags: {
     hasJdAnalysis: boolean;
     hasRequirementAnalysis: boolean;
@@ -381,7 +398,7 @@ export interface APhaseInsights {
     hasJdRequirementSummary: boolean;
     hasMws: boolean;
     hasCompanyContext: boolean;
+    hasRequirementAnalysisData: boolean;
     phaseComplete: boolean; // true when all A-phase stages completed
   };
 }
-

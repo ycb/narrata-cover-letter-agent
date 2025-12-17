@@ -17,6 +17,7 @@ interface RequirementsTooltipProps {
   title: string;
   requirements: Requirement[];
   description?: string;
+  statusContext?: 'profile' | 'draft';
   onEnhanceSection?: (sectionId: string, requirement?: string) => void; // Agent C: enhance section CTA
   onAddMetrics?: (sectionId?: string) => void; // Agent C: add metrics CTA
 }
@@ -27,6 +28,7 @@ export function RequirementsTooltip({
   title,
   requirements,
   description,
+  statusContext = 'draft',
   onEnhanceSection,
   onAddMetrics
 }: RequirementsTooltipProps) {
@@ -69,7 +71,10 @@ export function RequirementsTooltip({
           {/* Evidence as body */}
           <div className="ml-6 space-y-2">
             <p className={`text-xs ${req.demonstrated ? 'text-foreground/80' : 'text-muted-foreground'}`}>
-              {req.evidence || (req.demonstrated ? 'Mentioned in draft' : 'Not mentioned in current draft')}
+              {req.evidence ||
+                (statusContext === 'profile'
+                  ? (req.demonstrated ? 'Supported by your background' : 'Not supported by your background')
+                  : (req.demonstrated ? 'Mentioned in draft' : 'Not mentioned in current draft'))}
             </p>
             
             {/* CTAs for demonstrated requirements */}
@@ -114,4 +119,3 @@ export function RequirementsTooltip({
     </FullWidthTooltip>
   );
 }
-

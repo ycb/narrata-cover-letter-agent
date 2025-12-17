@@ -479,3 +479,21 @@ All colors MUST be HSL.
 .accordion-item-spacing > * + * {
   margin-top: 1.5rem; /* 24px */
 }
+
+@layer utilities {
+  @keyframes fit-check-pulse {
+    0%,
+    100% {
+      opacity: 1;
+      box-shadow: 0 0 0 0 hsla(var(--primary) / 0);
+    }
+    50% {
+      opacity: 0.78;
+      box-shadow: 0 0 0 3px hsla(var(--primary) / 0.18);
+    }
+  }
+
+  .fit-check-loading {
+    animation: fit-check-pulse 2.6s ease-in-out infinite;
+  }
+}

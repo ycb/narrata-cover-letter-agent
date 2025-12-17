@@ -7,7 +7,7 @@ This document outlines all prompts and logic used for gap detection across diffe
 ### 1. **Role Description Gaps** (`work_item` entity)
 **Gap Categories:**
 - `missing_role_description` - High severity
-- `generic_role_description` - Medium/High severity (LLM-as-judge)
+- `role_description_needs_specifics` - Medium/High severity (content standards heuristic)
 
 **Detection Logic:**
 
@@ -20,8 +20,8 @@ if (!description || description.trim().length === 0) {
 }
 ```
 
-#### Generic Description Check (LLM-as-judge)
-**Prompt Used:**
+#### Content Standards Check (Heuristic)
+**Legacy prompt (disabled for beta):**
 ```
 Analyze this professional story/description and determine if it's too generic or lacks specific details.
 
@@ -136,9 +136,9 @@ if (!hasMetrics) {
 
 ### 5. **Story Generic Content Gaps** (`approved_content` entity)
 **Gap Categories:**
-- `too_generic` - Medium/High severity
+- `story_needs_specifics` - Medium/High severity (content standards heuristic)
 
-**Detection Logic (LLM-as-judge):**
+**Detection Logic (Heuristic):**
 
 **Same Prompt as Role Description:**
 ```
@@ -204,9 +204,9 @@ if (!hasMetrics) {
 }
 ```
 
-### Generic Content Detection Severity
+### Content Standards Detection Severity
 ```typescript
-// Severity based on LLM confidence score
+// Severity based on heuristic confidence score
 severity = genericGap.confidence > 0.8 ? 'high' : 'medium'
 ```
 
@@ -214,25 +214,21 @@ severity = genericGap.confidence > 0.8 ? 'high' : 'medium'
 
 | Gap Type | Entity | Categories | Detection Method | LLM Prompt? |
 |----------|--------|------------|------------------|-------------|
-| Role Description | `work_item` | `missing_role_description`, `generic_role_description` | Boolean + LLM-as-judge | ✅ Yes (generic check) |
+| Role Description | `work_item` | `missing_role_description`, `role_description_needs_specifics` | Boolean + heuristic | ❌ No |
 | Role Metrics | `work_item` | `missing_role_metrics`, `insufficient_role_metrics` | Rule-based counting | ❌ No |
 | Story Completeness | `approved_content` | `incomplete_story` | Regex pattern matching | ❌ No |
 | Story Missing Metrics | `approved_content` | `missing_metrics` | Boolean check | ❌ No |
-| Story Generic | `approved_content` | `too_generic` | LLM-as-judge | ✅ Yes |
+| Story Needs Specifics | `approved_content` | `story_needs_specifics` | Heuristic | ❌ No |
 
-## LLM Configuration
+## LLM Configuration (Internal / Future)
 
-**Model:** `gpt-4o-mini`  
-**Temperature:** `0.3`  
-**Max Tokens:** `200`  
-**Response Format:** `JSON object`  
-**API Endpoint:** `https://api.openai.com/v1/chat/completions`
+LLM-as-judge for content standards is intentionally disabled for beta user-facing gaps.
 
 ---
 
 ### 6. **Cover Letter Section Gaps** (`saved_section` entity)
 **Gap Categories:**
-- `generic_cover_letter_section` - Medium/High severity (LLM-as-judge)
+- `saved_section_needs_specifics` - Medium/High severity (content standards heuristic)
 - `incomplete_intro` - Medium severity
 - `incomplete_cover_letter_section` - High severity
 - `missing_metrics_cover_letter` - Medium severity
@@ -240,7 +236,7 @@ severity = genericGap.confidence > 0.8 ? 'high' : 'medium'
 
 **Detection Logic:**
 
-#### Generic Content Check (LLM-as-judge)
+#### Content Standards Check (Heuristic)
 **Same Prompt as Stories/Role Descriptions:**
 ```
 Analyze this professional story/description and determine if it's too generic or lacks specific details.
@@ -313,18 +309,16 @@ if (!hasContactInfo) {
 
 | Gap Type | Entity | Categories | Detection Method | LLM Prompt? |
 |----------|--------|------------|------------------|-------------|
-| Role Description | `work_item` | `missing_role_description`, `generic_role_description` | Boolean + LLM-as-judge | ✅ Yes (generic check) |
+| Role Description | `work_item` | `missing_role_description`, `role_description_needs_specifics` | Boolean + heuristic | ❌ No |
 | Role Metrics | `work_item` | `missing_role_metrics`, `insufficient_role_metrics` | Rule-based counting | ❌ No |
 | Story Completeness | `approved_content` | `incomplete_story` | Regex pattern matching | ❌ No |
 | Story Missing Metrics | `approved_content` | `missing_metrics` | Boolean check | ❌ No |
-| Story Generic | `approved_content` | `too_generic` | LLM-as-judge | ✅ Yes |
-| Cover Letter Section | `saved_section` | `generic_cover_letter_section`, `incomplete_intro`, `incomplete_cover_letter_section`, `missing_metrics_cover_letter`, `incomplete_signature` | LLM-as-judge + Rule-based | ✅ Yes (generic check) |
+| Story Needs Specifics | `approved_content` | `story_needs_specifics` | Heuristic | ❌ No |
+| Cover Letter Section | `saved_section` | `saved_section_needs_specifics`, `incomplete_intro`, `incomplete_cover_letter_section`, `missing_metrics_cover_letter`, `incomplete_signature` | Heuristic + Rule-based | ❌ No |
 
 ## Notes
 
-- **Generic Content Check** is the only LLM-based prompt and is reused for role descriptions, stories, and cover letter sections
+- “Needs specifics” checks are treated as content standards (heuristic) for beta user-facing gaps
 - All other gap detection uses rule-based logic (regex, boolean checks, counting)
-- Fallback heuristics are used when OpenAI API is unavailable
 - Gaps are deduplicated by `entity_type:entity_id:gap_category` before saving to database
 - **Cover Letter Best Practices**: Current prompt guidance is sufficient - covers generic content, STAR format, and metrics. Section-specific checks (intro, signature) are rule-based.
-

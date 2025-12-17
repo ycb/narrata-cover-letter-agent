@@ -433,6 +433,32 @@ export type Database = {
           updated_at?: string
         }
       }
+      waitlist_signups: {
+        Row: {
+          id: string
+          email: string
+          source: string | null
+          referrer: string | null
+          utm: Json | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          email: string
+          source?: string | null
+          referrer?: string | null
+          utm?: Json | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          email?: string
+          source?: string | null
+          referrer?: string | null
+          utm?: Json | null
+          created_at?: string | null
+        }
+      }
     }
     Views: {
       [_ in never]: never

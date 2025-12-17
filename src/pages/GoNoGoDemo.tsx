@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { GoNoGoGate } from '@/components/cover-letters/GoNoGoGate';
-import type { GoNoGoAnalysis } from '@/services/goNoGoService';
+import { MatchMetricsToolbar } from '@/components/cover-letters/MatchMetricsToolbar';
 import type { MatchMetricsData, MatchJobDescription } from '@/components/cover-letters/useMatchMetricsDetails';
+import type { APhaseInsights } from '@/types/jobs';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -9,8 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 const mockJD: MatchJobDescription = {
   role: 'Senior PM, Growth',
   company: 'ExampleCo',
-  coreRequirements: ['Experimentation', 'Activation', 'Analytics'],
-  preferredRequirements: ['Messaging', 'Lifecycle'],
+  location: 'Remote',
+  salary: '$140k-$170k',
+  workType: 'Remote',
+  structuredData: {
+    standardRequirements: ['Experimentation', 'Activation', 'Analytics'],
+    preferredRequirements: ['Messaging', 'Lifecycle'],
+  },
 };
 
 const mockJDText = `
@@ -28,92 +33,109 @@ Preferred:
 `;
 
 const mockMetrics: MatchMetricsData = {
-  // minimal mock; toolbar can handle partial data
-  overallScore: 72,
-  atsScore: 68,
-  goals: {
-    met: 0,
-    total: 7,
-    items: [
-      { requirement: 'Career growth', demonstrated: false },
-      { requirement: 'Team size', demonstrated: false },
-      { requirement: 'Domain', demonstrated: false },
-    ],
-  },
-  strengths: {
-    met: 0,
-    total: 6,
-    items: [
-      { requirement: 'Experimentation track', demonstrated: false },
-      { requirement: 'Growth playbook', demonstrated: false },
-    ],
-  },
-  coreRequirements: {
-    met: 2,
-    total: 3,
-    items: [
-      { requirement: 'Experimentation', demonstrated: true },
-      { requirement: 'Activation', demonstrated: true },
-      { requirement: 'Analytics', demonstrated: false },
-    ],
-  },
-  preferredRequirements: {
-    met: 1,
-    total: 2,
-    items: [
-      { requirement: 'Messaging', demonstrated: false },
-      { requirement: 'Lifecycle', demonstrated: true },
-    ],
-  },
-};
-
-const mockAnalysis: GoNoGoAnalysis = {
-  decision: 'no-go',
-  confidence: 42,
-  mismatches: [
-    { type: 'core-requirements', severity: 'high', description: 'Missing 1 of 3 core requirements (Analytics).' },
-    { type: 'work-history', severity: 'medium', description: 'Recent scope appears below target role.' },
-    { type: 'preferred', severity: 'low', description: 'Messaging experience not demonstrated.' },
-  ],
+  atsScore: 0,
+  coreRequirementsMet: { met: 0, total: 0 },
+  preferredRequirementsMet: { met: 0, total: 0 },
 };
 
 export default function GoNoGoDemo() {
-  const [tier, setTier] = useState<'high' | 'medium' | 'low' | 'pending' | 'error'>('low');
-  const [analysis, setAnalysis] = useState<GoNoGoAnalysis | null>(mockAnalysis);
+  const [stage, setStage] = useState<'skeleton' | 'partial' | 'ready'>('skeleton');
+  const isLoading = stage !== 'ready';
 
-  const tierAnalysis = useMemo(() => {
-    if (tier === 'pending' || tier === 'error') return null;
-    if (tier === 'high') return { ...mockAnalysis, decision: 'go', confidence: 88, mismatches: [] };
-    if (tier === 'medium') return { ...mockAnalysis, decision: 'go', confidence: 64, mismatches: mockAnalysis.mismatches.slice(0, 2) };
-    return mockAnalysis;
-  }, [tier]);
+  const aPhaseInsights = useMemo<APhaseInsights | undefined>(() => {
+    if (stage === 'skeleton') {
+      return {
+        stageFlags: {
+          hasJdAnalysis: false,
+          hasRequirementAnalysis: false,
+          hasGoalsAndStrengths: false,
+          hasRoleInsights: false,
+          hasJdRequirementSummary: false,
+          hasMws: false,
+          hasCompanyContext: false,
+          hasRequirementAnalysisData: false,
+          phaseComplete: false,
+        },
+      };
+    }
+
+    const requirementAnalysis =
+      stage === 'partial'
+        ? undefined
+        : {
+            coreRequirements: [
+              { id: 'core-0', text: 'Experimentation', met: true, evidence: 'Prior experimentation roadmap ownership.' },
+              { id: 'core-1', text: 'Activation', met: true, evidence: 'Owned onboarding funnel improvements.' },
+              { id: 'core-2', text: 'Analytics', met: false, evidence: '' },
+            ],
+            preferredRequirements: [
+              { id: 'pref-0', text: 'Messaging', met: false, evidence: '' },
+              { id: 'pref-1', text: 'Lifecycle', met: true, evidence: 'Lifecycle strategy across segments.' },
+            ],
+            requirementsMet: 3,
+            totalRequirements: 5,
+          };
+
+    return {
+      jdRequirementSummary: { coreTotal: 3, preferredTotal: 2 },
+      mws:
+        stage === 'partial'
+          ? undefined
+          : {
+              summaryScore: 2,
+              details: [
+                { label: 'Growth product work', strengthLevel: 'strong', explanation: 'Track record in activation.' },
+                { label: 'Experiment design', strengthLevel: 'moderate', explanation: 'Repeated experimentation cycles.' },
+                { label: 'Cross-functional leadership', strengthLevel: 'light', explanation: 'Partnered with Eng/Data/Design.' },
+              ],
+            },
+      roleInsights:
+        stage === 'partial'
+          ? undefined
+          : {
+              inferredRoleLevel: 'Senior PM',
+              inferredRoleScope: 'product',
+              scopeMatch: { scopeRelation: 'stretch' },
+              titleMatch: { exactTitleMatch: false, adjacentTitleMatch: true },
+            },
+      requirementAnalysis,
+      stageFlags: {
+        hasJdAnalysis: true,
+        hasRequirementAnalysis: stage === 'ready',
+        hasGoalsAndStrengths: stage === 'ready',
+        hasRoleInsights: stage === 'ready',
+        hasJdRequirementSummary: true,
+        hasMws: stage === 'ready',
+        hasCompanyContext: false,
+        hasRequirementAnalysisData: stage === 'ready',
+        phaseComplete: stage === 'ready',
+      },
+    };
+  }, [stage]);
 
   return (
     <div className="p-6 space-y-4 max-w-5xl mx-auto">
       <Card className="p-4 flex items-center gap-4">
-        <Select value={tier} onValueChange={(v) => setTier(v as any)}>
+        <Select value={stage} onValueChange={(v) => setStage(v as any)}>
           <SelectTrigger className="w-48">
             <SelectValue placeholder="Tier" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="high">High (auto-continue)</SelectItem>
-            <SelectItem value="medium">Medium (confirm)</SelectItem>
-            <SelectItem value="low">Low (override)</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="error">Error</SelectItem>
+            <SelectItem value="skeleton">Skeleton</SelectItem>
+            <SelectItem value="partial">Partial (counts only)</SelectItem>
+            <SelectItem value="ready">Ready</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="secondary" onClick={() => setAnalysis(mockAnalysis)}>Reset analysis</Button>
+        <Button variant="secondary" onClick={() => setStage('skeleton')}>Reset</Button>
       </Card>
 
-      <GoNoGoGate
-        tier={tier}
-        analysis={tierAnalysis}
+      <MatchMetricsToolbar
+        layout="horizontal"
+        mode="goNoGo"
+        isLoading={isLoading}
         metrics={mockMetrics}
         jobDescription={mockJD}
-        onProceed={() => console.log('proceed')}
-        onOverride={() => console.log('override')}
-        onRetry={() => console.log('retry')}
+        aPhaseInsights={aPhaseInsights}
       />
 
       <Card className="p-4 space-y-3">

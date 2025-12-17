@@ -53,17 +53,41 @@ export function useAPhaseInsights(
 
     const stages = jobState.stages || {};
 
+    const unwrapStageData = <T,>(raw: T): any => {
+      if (!raw || typeof raw !== 'object') return raw;
+      const inner = (raw as any).data;
+      if (!inner || typeof inner !== 'object' || Array.isArray(inner)) return raw;
+      const expectedKeys = [
+        'roleInsights',
+        'jdRequirementSummary',
+        'coreRequirements',
+        'preferredRequirements',
+        'requirementsMet',
+        'totalRequirements',
+        'mws',
+        'companyContext',
+      ];
+      const hasExpectedKey = expectedKeys.some((key) => key in inner);
+      return hasExpectedKey ? inner : raw;
+    };
+
     // Extract stage data with safe accessors
     const jdAnalysisStage = stages.jdAnalysis;
     const goalsAndStrengthsStage = stages.goalsAndStrengths;
+    const companyContextStage = (stages as any).companyContext;
+    const requirementAnalysisStage = stages.requirementAnalysis;
 
-    const jdAnalysisData = jdAnalysisStage?.data;
-    const goalsAndStrengthsData = goalsAndStrengthsStage?.data;
+    const jdAnalysisData = unwrapStageData(jdAnalysisStage?.data);
+    const goalsAndStrengthsData = unwrapStageData(goalsAndStrengthsStage?.data);
+    const companyContextData = unwrapStageData(companyContextStage?.data);
+    const requirementAnalysisData = unwrapStageData(requirementAnalysisStage?.data);
 
     // Compute stage flags (explicit boolean checks)
     const hasJdAnalysis = !!jdAnalysisStage && jdAnalysisStage.status === 'complete';
-    const hasRequirementAnalysis = !!stages.requirementAnalysis && stages.requirementAnalysis.status === 'complete';
-    const hasGoalsAndStrengths = !!goalsAndStrengthsStage && goalsAndStrengthsStage.status === 'complete';
+    const hasRequirementAnalysis =
+      !!stages.requirementAnalysis && stages.requirementAnalysis.status === 'complete';
+    const hasGoalsAndStrengths =
+      !!goalsAndStrengthsStage && goalsAndStrengthsStage.status === 'complete';
 
     // Compute derived flags for specific insights
     const hasRoleInsights = hasJdAnalysis && !!jdAnalysisData?.roleInsights;
@@ -72,8 +96,16 @@ export function useAPhaseInsights(
       !!jdAnalysisData?.jdRequirementSummary &&
       (typeof jdAnalysisData.jdRequirementSummary.coreTotal === 'number' ||
        typeof jdAnalysisData.jdRequirementSummary.preferredTotal === 'number');
-    const hasMws = hasGoalsAndStrengths && !!goalsAndStrengthsData?.mws;
-    const hasCompanyContext = hasGoalsAndStrengths && !!goalsAndStrengthsData?.companyContext;
+    // IMPORTANT: MwS and company context can arrive as partial stage data before stage completion.
+    // Treat presence of the fields as readiness, independent of stage status, so UI can update early.
+    const hasMws = !!goalsAndStrengthsData?.mws;
+    const hasCompanyContext = !!goalsAndStrengthsData?.companyContext || !!companyContextData?.companyContext;
+    const hasRequirementAnalysisData =
+      hasRequirementAnalysis &&
+      Array.isArray(requirementAnalysisData?.coreRequirements) &&
+      Array.isArray(requirementAnalysisData?.preferredRequirements) &&
+      typeof requirementAnalysisData?.requirementsMet === 'number' &&
+      typeof requirementAnalysisData?.totalRequirements === 'number';
 
     // Phase is complete when all three A-phase stages are complete
     // Note: Does NOT check draft state
@@ -91,6 +123,8 @@ export function useAPhaseInsights(
       jdAnalysisDataKeys: jdAnalysisData ? Object.keys(jdAnalysisData) : [],
       jdAnalysisHasRoleInsights: !!jdAnalysisData?.roleInsights,
       jdAnalysisHasJdRequirementSummary: !!jdAnalysisData?.jdRequirementSummary,
+      requirementAnalysisDataKeys: requirementAnalysisData ? Object.keys(requirementAnalysisData) : [],
+      requirementAnalysisHasRequirements: Array.isArray(requirementAnalysisData?.coreRequirements),
       goalsAndStrengthsDataKeys: goalsAndStrengthsData ? Object.keys(goalsAndStrengthsData) : [],
       goalsAndStrengthsHasMws: !!goalsAndStrengthsData?.mws,
       goalsAndStrengthsHasCompanyContext: !!goalsAndStrengthsData?.companyContext,
@@ -121,10 +155,20 @@ export function useAPhaseInsights(
         : undefined,
 
       // Match with Strengths (from goalsAndStrengths stage)
+      // May be available before stage completion.
       mws: goalsAndStrengthsData?.mws,
 
-      // Company context (from goalsAndStrengths stage)
-      companyContext: goalsAndStrengthsData?.companyContext,
+      // Company context may arrive in a dedicated stage (companyContext) so it doesn't block Phase A.
+      companyContext: goalsAndStrengthsData?.companyContext ?? companyContextData?.companyContext,
+
+      requirementAnalysis: hasRequirementAnalysisData
+        ? {
+            coreRequirements: requirementAnalysisData.coreRequirements ?? [],
+            preferredRequirements: requirementAnalysisData.preferredRequirements ?? [],
+            requirementsMet: requirementAnalysisData.requirementsMet ?? 0,
+            totalRequirements: requirementAnalysisData.totalRequirements ?? 0,
+          }
+        : undefined,
 
       // Stage flags
       stageFlags: {
@@ -135,6 +179,7 @@ export function useAPhaseInsights(
         hasJdRequirementSummary,
         hasMws,
         hasCompanyContext,
+        hasRequirementAnalysisData,
         phaseComplete,
       },
     };
@@ -151,4 +196,3 @@ export function useAPhaseInsights(
     return insights;
   }, [jobState]);
 }
-

@@ -59,7 +59,8 @@ interface CoverLetterDraftEditorProps {
   
   // Task 7: A-phase streaming insights for toolbar accordions
   aPhaseInsights?: any; // From useAPhaseInsights(jobState)
-  
+  toolbarIsLoading?: boolean; // Keep toolbar in Phase A streaming mode
+
   // UI state
   isPostHIL?: boolean;
   metricsLoading?: boolean;
@@ -100,6 +101,7 @@ export function CoverLetterDraftEditor({
   progressPercent = 0,
   progressState,
   aPhaseInsights,
+  toolbarIsLoading = false,
   isPostHIL = false,
   metricsLoading = false,
   generationError = null,
@@ -148,6 +150,7 @@ export function CoverLetterDraftEditor({
   // Parent sets this true while streaming OR draft generation OR !draft
   // We simply show skeleton when true, content when false
   const isLoadingSection = isStreaming || metricsLoading;
+  const isToolbarLoading = toolbarIsLoading || metricsLoading || isLoadingSection;
 
   // Calculate job-level totals for requirement denominators
   const totalCoreReqs = draft?.enhancedMatchData?.coreRequirementDetails?.length ?? 0;
@@ -204,7 +207,7 @@ export function CoverLetterDraftEditor({
         <MatchMetricsToolbar
           metrics={matchMetrics} // Draft-only metrics
           isPostHIL={isPostHIL}
-          isLoading={metricsLoading || isLoadingSection}
+          isLoading={isToolbarLoading}
           enhancedMatchData={effectiveEnhancedMatchData} // Draft-only enhanced data
           goNoGoAnalysis={undefined}
           jobDescription={jobDescription ?? undefined}

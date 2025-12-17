@@ -217,3 +217,11 @@ If tags don't save, check which log appears LAST:
 - `src/services/tagService.ts` - Database persistence
 - `src/services/tagSuggestionService.ts` - Tag generation
 
+
+
+
+
+
+
+
+

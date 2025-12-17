@@ -107,6 +107,7 @@ export interface MatchMetricsDetails {
   goalsSummary: MatchMetricSummary;
   coreRequirements: RequirementsWithSummary;
   preferredRequirements: RequirementsWithSummary;
+  goalsComparisonReady: boolean;
 }
 
 export type GoalMatchDisplay = (GoalMatch | GoalMatchDetail) & {
@@ -232,7 +233,8 @@ export function useMatchMetricsDetails({
   enhancedMatchData,
   goNoGoAnalysis,
 }: UseMatchMetricsDetailsArgs): MatchMetricsDetails {
-  const { goals } = useUserGoals();
+  const { goals, isLoading: goalsLoading } = useUserGoals();
+  const goalsComparisonReady = Boolean(jobDescription) && !goalsLoading;
 
   const goalMatches = useMemo<GoalMatchDisplay[]>(() => {
     if (!jobDescription) {
@@ -292,12 +294,13 @@ export function useMatchMetricsDetails({
       
       const analyzed = (id && analyzedById.get(id)) || analyzedByText.get(normalizeReqText(requirementText));
 
+      const sectionId = analyzed?.section ?? analyzed?.sectionId ?? analyzed?.sectionIds?.[0];
       return {
         id: String(id),
         requirement: requirementText,
         demonstrated: analyzed?.demonstrated ?? false,
         evidence: analyzed?.evidence,
-        section: analyzed?.section,
+        section: sectionId ? String(sectionId) : undefined,
       };
     };
 
@@ -307,7 +310,7 @@ export function useMatchMetricsDetails({
         requirement: d.requirement,
         demonstrated: !!d.demonstrated,
         evidence: d.evidence,
-        section: d.section,
+        section: (d.section ?? d.sectionId ?? d.sectionIds?.[0]) ? String(d.section ?? d.sectionId ?? d.sectionIds?.[0]) : undefined,
       })) || [];
 
     const fallbackPreferred =
@@ -316,7 +319,7 @@ export function useMatchMetricsDetails({
         requirement: d.requirement,
         demonstrated: !!d.demonstrated,
         evidence: d.evidence,
-        section: d.section,
+        section: (d.section ?? d.sectionId ?? d.sectionIds?.[0]) ? String(d.section ?? d.sectionId ?? d.sectionIds?.[0]) : undefined,
       })) || [];
 
     return {
@@ -360,7 +363,6 @@ export function useMatchMetricsDetails({
     goalsSummary,
     coreRequirements: { list: coreRequirementList, summary: coreSummary },
     preferredRequirements: { list: preferredRequirementList, summary: preferredSummary },
+    goalsComparisonReady,
   };
 }
-
-

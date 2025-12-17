@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { HelpCircle, AlertTriangle } from 'lucide-react';
+import { HelpCircle, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import { GoalMatchCard } from './GoalMatchCard';
 import { CoverLetterRatingInsights } from './CoverLetterRatingTooltip';
 import { ATSScoreInsights } from './ATSScoreTooltip';
 import { StatusIcon } from './StatusIcon';
+import { computeGoNoGoModel, type GoNoGoModel } from './goNoGoModel';
 import {
   getATSScoreColor,
   getScoreColor,
@@ -22,18 +23,21 @@ import { isDraftReadinessEnabled } from '@/lib/flags';
 import { logReadinessEvent } from '@/lib/telemetry';
 import { useDraftReadiness } from '@/hooks/useDraftReadiness';
 
-type MetricKey = 'gaps' | 'goals' | 'strengths' | 'core' | 'preferred' | 'rating' | 'readiness';
+type MetricKey = 'goNoGo' | 'gaps' | 'goals' | 'strengths' | 'core' | 'preferred' | 'rating' | 'readiness';
 
 interface MatchMetricsToolbarProps {
   metrics: MatchMetricsData;
   className?: string;
   isPostHIL?: boolean;
   isLoading?: boolean;
+  layout?: 'vertical' | 'horizontal';
+  mode?: 'full' | 'goNoGo' | 'fitCheck';
   goNoGoAnalysis?: GoNoGoAnalysis;
   jobDescription?: MatchJobDescription;
   enhancedMatchData?: EnhancedMatchData;
   sections?: Array<{ id: string; type: string; title?: string }>;
   aPhaseInsights?: APhaseInsights; // Task 7: A-phase streaming insights
+  jobId?: string; // Debug: correlate UI ↔ job record
   draftId?: string;
   draftUpdatedAt?: string;
   // Persisted MwS from draft (fallback when aPhaseInsights not available)
@@ -64,38 +68,59 @@ interface ToolbarItem {
   disabled?: boolean;
 }
 
-export function MatchMetricsToolbar({
-  metrics,
-  className,
-  isPostHIL = false,
-  isLoading = false,
-  goNoGoAnalysis,
-  jobDescription,
-  enhancedMatchData,
-  sections = [],
-  aPhaseInsights,
-  onEditGoals,
-  onEnhanceSection,
-  onAddMetrics,
-  draftId,
-  draftUpdatedAt,
-  draftMws,
-}: MatchMetricsToolbarProps) {
-  // Task 5: Dev-only A-phase props logging
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('[A-PHASE] MatchMetricsToolbar received', {
-      hasAPhaseInsights: !!aPhaseInsights,
-      aPhaseStageFlags: aPhaseInsights?.stageFlags,
-      isLoading,
-    });
-  }
-  
+interface MatchMetricsToolbarContentProps extends MatchMetricsToolbarProps {
+  ENABLE_DRAFT_READINESS: boolean;
+  readinessFetchEnabled: boolean;
+  readiness: DraftReadinessEvaluation | null;
+  isReadinessLoading: boolean;
+  readinessError: boolean;
+  readinessErrorDetails: unknown;
+  readinessFeatureDisabled: boolean;
+}
+
+export function MatchMetricsToolbar(props: MatchMetricsToolbarProps) {
+  const {
+    isLoading = false,
+    draftId,
+    draftUpdatedAt,
+    mode = 'full',
+  } = props;
+
   const ENABLE_DRAFT_READINESS = isDraftReadinessEnabled();
-  // Readiness fetch: enabled when feature flag is on AND draft is fully saved (!isLoading) AND draftId exists
-  // The draft must be saved to the database before we can evaluate its readiness
-  // Without !isLoading, the edge function returns 404 because the draft row doesn't exist yet
-  const readinessFetchEnabled = ENABLE_DRAFT_READINESS && !isLoading && Boolean(draftId);
-  
+  const readinessFetchEnabled = ENABLE_DRAFT_READINESS && mode === 'full' && !isLoading && Boolean(draftId);
+
+  if (!readinessFetchEnabled) {
+    return (
+      <MatchMetricsToolbarContent
+        {...props}
+        ENABLE_DRAFT_READINESS={ENABLE_DRAFT_READINESS}
+        readinessFetchEnabled={readinessFetchEnabled}
+        readiness={null}
+        isReadinessLoading={false}
+        readinessError={false}
+        readinessErrorDetails={null}
+        readinessFeatureDisabled={!ENABLE_DRAFT_READINESS}
+      />
+    );
+  }
+
+  return (
+    <MatchMetricsToolbarWithReadiness
+      {...props}
+      ENABLE_DRAFT_READINESS={ENABLE_DRAFT_READINESS}
+      readinessFetchEnabled={readinessFetchEnabled}
+      draftUpdatedAt={draftUpdatedAt}
+    />
+  );
+}
+
+function MatchMetricsToolbarWithReadiness(
+  props: MatchMetricsToolbarProps & {
+    ENABLE_DRAFT_READINESS: boolean;
+    readinessFetchEnabled: boolean;
+  },
+) {
+  const { draftId, draftUpdatedAt, readinessFetchEnabled } = props;
   const {
     data: readiness,
     isLoading: readinessLoading,
@@ -107,7 +132,57 @@ export function MatchMetricsToolbar({
     draftUpdatedAt: draftUpdatedAt ?? null,
     enabled: readinessFetchEnabled,
   });
+
   const isReadinessLoading = readinessFetchEnabled ? readinessLoading : false;
+
+  return (
+    <MatchMetricsToolbarContent
+      {...props}
+      readiness={readiness ?? null}
+      isReadinessLoading={isReadinessLoading}
+      readinessError={readinessError}
+      readinessErrorDetails={readinessErrorDetails}
+      readinessFeatureDisabled={readinessFeatureDisabled}
+    />
+  );
+}
+
+function MatchMetricsToolbarContent({
+  metrics,
+  className,
+  isPostHIL = false,
+  isLoading = false,
+  layout = 'vertical',
+  mode = 'full',
+  goNoGoAnalysis,
+  jobDescription,
+  enhancedMatchData,
+  sections = [],
+  aPhaseInsights,
+  jobId,
+  onEditGoals,
+  onEnhanceSection,
+  onAddMetrics,
+  draftId,
+  draftUpdatedAt,
+  draftMws,
+  ENABLE_DRAFT_READINESS,
+  readinessFetchEnabled,
+  readiness,
+  isReadinessLoading,
+  readinessError,
+  readinessErrorDetails,
+  readinessFeatureDisabled,
+}: MatchMetricsToolbarContentProps) {
+  // Task 5: Dev-only A-phase props logging
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[A-PHASE] MatchMetricsToolbar received', {
+      hasAPhaseInsights: !!aPhaseInsights,
+      aPhaseStageFlags: aPhaseInsights?.stageFlags,
+      jobId,
+      isLoading,
+    });
+  }
   
   // Debug: Comprehensive readiness logging
   if (process.env.NODE_ENV !== 'production') {
@@ -120,7 +195,7 @@ export function MatchMetricsToolbar({
       // 3. Fetch decision
       readinessFetchEnabled,
       // 4. Hook response
-      readinessLoading,
+      readinessLoading: isReadinessLoading,
       readinessError,
       errorDetails: readinessErrorDetails?.message,
       readinessFeatureDisabled,
@@ -171,11 +246,40 @@ export function MatchMetricsToolbar({
       clearTimeout(id);
     };
   }, [readiness?.ttlExpiresAt, draftId, ENABLE_DRAFT_READINESS]);
-  const { goalMatches, goalsSummary, coreRequirements, preferredRequirements } = useMatchMetricsDetails({
+  const { goalMatches, goalsSummary, coreRequirements, preferredRequirements, goalsComparisonReady } = useMatchMetricsDetails({
     jobDescription,
     enhancedMatchData,
     goNoGoAnalysis,
   });
+
+  // Prefer A-phase requirement analysis (JD vs user background) during Fit check and while draft metrics are still loading.
+  const aPhaseRequirementAnalysis = aPhaseInsights?.requirementAnalysis;
+  const hasAPhaseRequirementAnalysis = Boolean(aPhaseRequirementAnalysis);
+  const effectiveCoreRequirements = useMemo<RequirementDisplayItem[]>(() => {
+    const preferAPhase = mode === 'goNoGo' || isLoading;
+    if (preferAPhase && aPhaseRequirementAnalysis?.coreRequirements) {
+      return aPhaseRequirementAnalysis.coreRequirements.map((r) => ({
+        id: String(r.id),
+        requirement: r.text,
+        demonstrated: Boolean(r.met),
+        evidence: r.evidence,
+      }));
+    }
+    return coreRequirements.list;
+  }, [aPhaseRequirementAnalysis?.coreRequirements, coreRequirements.list, isLoading, mode]);
+
+  const effectivePreferredRequirements = useMemo<RequirementDisplayItem[]>(() => {
+    const preferAPhase = mode === 'goNoGo' || isLoading;
+    if (preferAPhase && aPhaseRequirementAnalysis?.preferredRequirements) {
+      return aPhaseRequirementAnalysis.preferredRequirements.map((r) => ({
+        id: String(r.id),
+        requirement: r.text,
+        demonstrated: Boolean(r.met),
+        evidence: r.evidence,
+      }));
+    }
+    return preferredRequirements.list;
+  }, [aPhaseRequirementAnalysis?.preferredRequirements, preferredRequirements.list, isLoading, mode]);
 
   // Normalize section types to handle variations
   const normalizeSectionType = (sectionType: string): string[] => {
@@ -321,6 +425,28 @@ export function MatchMetricsToolbar({
   const aPhaseCoreTot = aPhaseInsights?.jdRequirementSummary?.coreTotal;
   const aPhasePrefTot = aPhaseInsights?.jdRequirementSummary?.preferredTotal;
 
+	  const goNoGoModel = useMemo<GoNoGoModel | null>(() => {
+	    return computeGoNoGoModel({
+	      goalsComparisonReady,
+	      goalsSummaryPercentage: goalsSummary.percentage ?? 0,
+	      goalMatches,
+	      hasAPhaseRequirementAnalysis,
+	      mwsAvailable: hasMwsData,
+	      mwsSummaryScore: hasMwsData ? (effectiveMws?.summaryScore ?? 0) : 0,
+	      effectiveCoreRequirements,
+	      effectivePreferredRequirements,
+	    });
+	  }, [
+	    effectiveCoreRequirements,
+	    effectivePreferredRequirements,
+	    effectiveMws?.summaryScore,
+    goalMatches,
+    goalsComparisonReady,
+    goalsSummary?.percentage,
+    hasAPhaseRequirementAnalysis,
+    hasMwsData,
+  ]);
+
   const toolbarItems: ToolbarItem[] = useMemo(() => {
     const items: ToolbarItem[] = [];
     
@@ -335,21 +461,34 @@ export function MatchMetricsToolbar({
     // 7) Readiness (B-phase)
     // ═══════════════════════════════════════════════════════════════════════════
     
-    // 1) GAPS (Phase B) - shows count when gap data is available
-    // gapsCount comes from enhancedMatchData which is B-phase, so check if it exists
-    const hasGapData = enhancedMatchData?.sectionGapInsights !== undefined;
-    items.push({
-      key: 'gaps',
-      label: 'Gaps',
-      value: hasGapData ? String(gapsCount) : null,
-      badgeClass: gapsCount > 0 ? 'border-warning bg-warning/10 text-warning' : 'border-muted bg-muted/10 text-muted-foreground',
-      disabled: false,
-    });
+    if (mode === 'goNoGo') {
+      items.push({
+        key: 'goNoGo',
+        label: 'Go/No-go',
+        value: goNoGoModel ? `${goNoGoModel.decision === 'go' ? 'Go' : 'No-Go'} · ${goNoGoModel.confidence}%` : null,
+        badgeClass: goNoGoModel
+          ? (goNoGoModel.decision === 'go'
+            ? 'border-success bg-success/10 text-success'
+            : 'border-destructive bg-destructive/10 text-destructive')
+          : 'border-muted bg-muted/10 text-muted-foreground',
+        disabled: false,
+      });
+    } else if (mode === 'full') {
+      // 1) GAPS (Phase B) - shows count when gap data is available
+      // gapsCount comes from enhancedMatchData which is B-phase, so check if it exists
+      const hasGapData = enhancedMatchData?.sectionGapInsights !== undefined;
+      items.push({
+        key: 'gaps',
+        label: 'Gaps',
+        value: hasGapData ? String(gapsCount) : null,
+        badgeClass: gapsCount > 0 ? 'border-warning bg-warning/10 text-warning' : 'border-muted bg-muted/10 text-muted-foreground',
+        disabled: false,
+      });
+    }
     
     // 2) MATCH WITH GOALS (Phase A - shows as soon as goal data available)
     // Shows skeleton until goalsSummary has real data, regardless of isLoading
-    const hasGoalData = goalsSummary.total > 0;
-    const goalsValue = hasGoalData
+    const goalsValue = goalsComparisonReady
       ? (metrics.goalsMatchScore !== undefined 
         ? `${metrics.goalsMatchScore}%` 
         : `${goalsSummary.met}/${goalsSummary.total}`)
@@ -366,49 +505,55 @@ export function MatchMetricsToolbar({
     
     // 3) MATCH WITH STRENGTHS (Phase A streaming OR persisted from draft)
     // Uses effectiveMws which prefers streaming data, falls back to persisted draft data
-    if (hasMwsData && effectiveMws) {
-      const mwsScore = effectiveMws.summaryScore;
-      items.push({
-        key: 'strengths',
-        label: 'Match with Strengths',
-        value: `${mwsScore}/3`,
-        badgeClass: mwsScore !== undefined && mwsScore >= 2 
-          ? 'border-success bg-success/10 text-success'
-          : mwsScore === 1
-          ? 'border-warning bg-warning/10 text-warning'
-          : 'border-muted bg-muted/10 text-muted-foreground',
-        disabled: false,
-      });
-    }
+    const mwsScore = hasMwsData && effectiveMws ? effectiveMws.summaryScore : undefined;
+    items.push({
+      key: 'strengths',
+      label: 'Match with Strengths',
+      value: mwsScore !== undefined ? `${mwsScore}/3` : null,
+      badgeClass: mwsScore !== undefined && mwsScore >= 2 
+        ? 'border-success bg-success/10 text-success'
+        : mwsScore === 1
+        ? 'border-warning bg-warning/10 text-warning'
+        : 'border-muted bg-muted/10 text-muted-foreground',
+      disabled: false,
+    });
     
     // 4) CORE REQUIREMENTS (A-phase totals → B-phase mapping)
-    const coreTotal = hasJdCounts && aPhaseCoreTot !== undefined ? aPhaseCoreTot : coreRequirements.summary.total;
-    const coreMet = coreRequirements.summary.met;
-    const coreValue = hasJdCounts 
-      ? (isLoading ? String(coreTotal) : `${coreMet}/${coreTotal}`)
+    const coreMet = effectiveCoreRequirements.filter((r) => r.demonstrated).length;
+    const coreTotal = effectiveCoreRequirements.length;
+    const coreValue = hasAPhaseRequirementAnalysis
+      ? `${coreMet}/${coreTotal}`
+      : hasJdCounts && aPhaseCoreTot !== undefined
+      ? (isLoading ? String(aPhaseCoreTot) : `${coreMet}/${aPhaseCoreTot}`)
       : (isLoading ? null : `${coreMet}/${coreTotal || 0}`);
     items.push({
         key: 'core',
         label: 'Core Requirements',
       value: coreValue,
-        badgeClass: getATSScoreColor(coreRequirements.summary.percentage),
+        badgeClass: getATSScoreColor(coreTotal > 0 ? (coreMet / coreTotal) * 100 : 0),
       disabled: false,
     });
     
     // 5) PREFERRED REQUIREMENTS (A-phase totals → B-phase mapping)
-    const prefTotal = hasJdCounts && aPhasePrefTot !== undefined ? aPhasePrefTot : preferredRequirements.summary.total;
-    const prefMet = preferredRequirements.summary.met;
-    const prefValue = hasJdCounts 
-      ? (isLoading ? String(prefTotal) : `${prefMet}/${prefTotal}`)
+    const prefMet = effectivePreferredRequirements.filter((r) => r.demonstrated).length;
+    const prefTotal = effectivePreferredRequirements.length;
+    const prefValue = hasAPhaseRequirementAnalysis
+      ? `${prefMet}/${prefTotal}`
+      : hasJdCounts && aPhasePrefTot !== undefined
+      ? (isLoading ? String(aPhasePrefTot) : `${prefMet}/${aPhasePrefTot}`)
       : (isLoading ? null : `${prefMet}/${prefTotal || 0}`);
     items.push({
         key: 'preferred',
         label: 'Pref Requirements',
       value: prefValue,
-        badgeClass: getATSScoreColor(preferredRequirements.summary.percentage),
+        badgeClass: getATSScoreColor(prefTotal > 0 ? (prefMet / prefTotal) * 100 : 0),
       disabled: false,
     });
     
+    if (mode !== 'full') {
+      return items;
+    }
+
     // 6) OVERALL SCORE (Phase B ONLY) - shows ONLY after draft generation complete
     // Must be !isLoading AND have real score - skeleton during all of Phase A
     const hasRealScore = !isLoading && metrics.overallScore !== undefined;
@@ -454,12 +599,22 @@ export function MatchMetricsToolbar({
 
     return items;
   }, [
-    coreRequirements.summary, goalsSummary, gapsCount, isLoading, 
-    metrics.overallScore, metrics.goalsMatchScore, preferredRequirements.summary, 
+    goalsComparisonReady,
+    goalsSummary, gapsCount, isLoading, 
+    metrics.overallScore, metrics.goalsMatchScore,
     isPostHIL, readiness, isReadinessLoading, ENABLE_DRAFT_READINESS, 
     aPhaseInsights, hasMwsData, hasJdCounts, aPhaseCoreTot, aPhasePrefTot,
     effectiveMws, draftMws, // MwS persistence: use streaming OR draft data
+    effectiveCoreRequirements,
+    effectivePreferredRequirements,
+    hasAPhaseRequirementAnalysis,
+    mode,
+    goNoGoModel,
   ]);
+
+  const drawerGoalMatches = goalMatches;
+  const drawerCoreRequirements = effectiveCoreRequirements;
+  const drawerPreferredRequirements = effectivePreferredRequirements;
 
   // During streaming: multiple accordions can be open (Set)
   // After draft ready: single accordion mode (only one open at a time)
@@ -474,9 +629,13 @@ export function MatchMetricsToolbar({
   // During streaming: auto-open accordions as their data arrives (all stay open)
   useEffect(() => {
     if (!isLoading) return;
+    // Fit check should be user-controlled (and single-open); don't auto-open drawers.
+    if (mode === 'fitCheck') return;
     
     // A-phase accordions to auto-open when data arrives
-    const streamingAccordions: MetricKey[] = ['core', 'preferred', 'strengths', 'goals'];
+    const streamingAccordions: MetricKey[] = mode === 'goNoGo'
+      ? ['goNoGo', 'core', 'preferred', 'strengths', 'goals']
+      : ['core', 'preferred', 'strengths', 'goals'];
     
     for (const key of streamingAccordions) {
       const item = toolbarItems.find(i => i.key === key);
@@ -486,22 +645,27 @@ export function MatchMetricsToolbar({
         autoOpenedSectionsRef.current.add(key);
       }
     }
-  }, [isLoading, toolbarItems]);
+  }, [isLoading, mode, toolbarItems]);
 
   // When loading completes: collapse all accordions back to single mode
   useEffect(() => {
     if (prevLoadingRef.current && !isLoading) {
+      // Fit check supports multi-expand even after loading completes.
+      if (layout === 'horizontal' && mode === 'fitCheck') {
+        prevLoadingRef.current = isLoading;
+        return;
+      }
       // Transition from loading → not loading: collapse all
       setOpenAccordions(new Set());
       setActiveMetric(null);
       autoOpenedSectionsRef.current.clear();
     }
     prevLoadingRef.current = isLoading;
-  }, [isLoading]);
+  }, [isLoading, layout, mode]);
 
   // Check if an accordion is open (handles both streaming and single modes)
   const isAccordionOpen = (key: MetricKey) => {
-    if (isLoading) {
+    if (layout === 'vertical' && isLoading) {
       return openAccordions.has(key);
     }
     return activeMetric === key;
@@ -509,7 +673,11 @@ export function MatchMetricsToolbar({
 
   // Toggle accordion (respects streaming vs single mode)
   const toggleAccordion = (key: MetricKey) => {
-    if (isLoading) {
+    if (layout === 'horizontal' && mode === 'fitCheck') {
+      setActiveMetric(prev => (prev === key ? null : key));
+      return;
+    }
+    if (layout === 'vertical' && isLoading) {
       // During streaming: toggle individual accordion
       setOpenAccordions(prev => {
         const next = new Set(prev);
@@ -526,7 +694,119 @@ export function MatchMetricsToolbar({
     }
   };
 
-  const hasExpandedItem = isLoading ? openAccordions.size > 0 : activeMetric !== null;
+  const hasExpandedItem =
+    (layout === 'horizontal' && mode === 'fitCheck')
+      ? activeMetric !== null
+      : (isLoading ? openAccordions.size > 0 : activeMetric !== null);
+
+  if (layout === 'horizontal') {
+    const fitCheckDropdown = mode === 'fitCheck';
+    return (
+      <div className={`w-full ${className || ''}`}>
+        {fitCheckDropdown ? (
+          <div className="grid grid-cols-4 gap-2">
+            {toolbarItems.map((item) => {
+              const isOpen = isAccordionOpen(item.key);
+              const valueIsLoading = item.value === null;
+              return (
+                <div key={item.key} className="min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (valueIsLoading && !isOpen) return;
+                      toggleAccordion(item.key);
+                    }}
+                    className={`w-full rounded-2xl border px-4 h-14 flex items-center text-left transition ${
+                      isOpen
+                        ? 'border-black dark:border-white bg-black dark:bg-white text-white dark:text-black'
+                        : valueIsLoading
+                          ? 'fit-check-loading border-2 border-dashed border-primary/50 bg-primary/5 hover:bg-primary/5'
+                          : 'border-border/60 bg-muted/10 hover:bg-muted/20'
+                    }`}
+                    aria-pressed={isOpen}
+                    aria-expanded={isOpen}
+                    disabled={valueIsLoading && !isOpen}
+                  >
+                    <div className="flex items-center justify-between gap-6 w-full">
+                      <span className={`text-xs uppercase tracking-wide ${isOpen ? 'text-white/80 dark:text-black/80' : 'text-muted-foreground'}`}>
+                        {item.label}
+                      </span>
+                      {valueIsLoading ? (
+                        <div className="h-5 w-16 bg-muted/50 rounded fit-check-loading" />
+                      ) : (
+                        <span className="flex items-center gap-2">
+                          <span className={`text-base font-semibold ${isOpen ? 'text-white dark:text-black' : 'text-foreground'}`}>
+                            {item.value}
+                          </span>
+                          <span className={`${isOpen ? 'text-white/80 dark:text-black/80' : 'text-muted-foreground'}`}>
+                            {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                          </span>
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                </div>
+              );
+            })}
+
+            {activeMetric ? (
+              <div className="col-span-4">
+                <div className="rounded-xl border border-border/40 bg-card shadow-sm">
+                  <MetricDrawerContent
+                    activeMetric={activeMetric}
+                    goalMatches={drawerGoalMatches}
+                    coreRequirements={drawerCoreRequirements}
+                    preferredRequirements={drawerPreferredRequirements}
+                    isPostHIL={isPostHIL}
+                    isLoading={isLoading}
+                    mode={mode}
+                    metrics={metrics}
+                    allGaps={allGaps}
+                    aPhaseInsights={aPhaseInsights}
+                    readiness={readiness ?? undefined}
+                    draftMws={draftMws}
+                    onEditGoals={onEditGoals}
+                    onEnhanceSection={onEnhanceSection}
+                    onAddMetrics={onAddMetrics}
+                    sections={sections}
+                    goNoGoModel={goNoGoModel ?? undefined}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="col-span-4 text-sm text-muted-foreground py-2">
+                Select a metric to see details.
+              </div>
+            )}
+          </div>
+        ) : activeMetric ? (
+          <div className="mt-3 rounded-xl border border-border/40 bg-card">
+            <div className="border-t" id="match-metrics-drawer">
+              <MetricDrawerContent
+                activeMetric={activeMetric}
+                goalMatches={drawerGoalMatches}
+                coreRequirements={drawerCoreRequirements}
+                preferredRequirements={drawerPreferredRequirements}
+                isPostHIL={isPostHIL}
+                isLoading={isLoading}
+                mode={mode}
+                metrics={metrics}
+                allGaps={allGaps}
+                aPhaseInsights={aPhaseInsights}
+                readiness={readiness ?? undefined}
+                draftMws={draftMws}
+                onEditGoals={onEditGoals}
+                onEnhanceSection={onEnhanceSection}
+                onAddMetrics={onAddMetrics}
+                sections={sections}
+                goNoGoModel={goNoGoModel ?? undefined}
+              />
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className={`w-full h-full bg-card border flex flex-col ${className || ''}`}>
@@ -593,11 +873,12 @@ export function MatchMetricsToolbar({
                   <div className="border-t border-b" id="match-metrics-drawer">
                         <MetricDrawerContent
                       activeMetric={item.key}
-                          goalMatches={goalMatches}
-                          coreRequirements={coreRequirements.list}
-                          preferredRequirements={preferredRequirements.list}
+                          goalMatches={drawerGoalMatches}
+                          coreRequirements={drawerCoreRequirements}
+                          preferredRequirements={drawerPreferredRequirements}
                           isPostHIL={isPostHIL}
                       isLoading={isLoading}
+                          mode={mode}
                           metrics={metrics}
                           allGaps={allGaps}
                           aPhaseInsights={aPhaseInsights}
@@ -607,6 +888,7 @@ export function MatchMetricsToolbar({
                           onEnhanceSection={onEnhanceSection}
                           onAddMetrics={onAddMetrics}
                           sections={sections}
+                          goNoGoModel={goNoGoModel ?? undefined}
                         />
                       </div>
                     )}
@@ -626,10 +908,12 @@ interface MetricDrawerContentProps {
   preferredRequirements: RequirementDisplayItem[];
   isPostHIL: boolean;
   isLoading: boolean;
+  mode: 'full' | 'goNoGo' | 'fitCheck';
   metrics: MatchMetricsData;
   allGaps: Array<{ sectionId: string; sectionTitle: string; gap: any }>;
   aPhaseInsights?: APhaseInsights;
   readiness?: DraftReadinessEvaluation;
+  goNoGoModel?: GoNoGoModel;
   // Persisted MwS from draft (fallback when streaming not available)
   draftMws?: {
     summaryScore: 0 | 1 | 2 | 3;
@@ -658,10 +942,12 @@ function MetricDrawerContent({
   preferredRequirements,
   isPostHIL,
   isLoading,
+  mode,
   metrics,
   allGaps,
   aPhaseInsights,
   readiness,
+  goNoGoModel,
   draftMws,
   onEditGoals,
   onEnhanceSection,
@@ -670,7 +956,13 @@ function MetricDrawerContent({
 }: MetricDrawerContentProps) {
   // Compute effectiveMws: streaming data first, then draft fallback
   const effectiveMws = aPhaseInsights?.mws || draftMws;
+  const requirementsStatusContext: 'profile' | 'draft' =
+    mode === 'full' && !isLoading ? 'draft' : 'profile';
   switch (activeMetric) {
+    case 'goNoGo':
+      return goNoGoModel ? <GoNoGoDrawerContent model={goNoGoModel} /> : (
+        <div className="p-2 text-xs text-muted-foreground">Go/No-go verdict not yet available.</div>
+      );
     case 'gaps':
       return <GapsDrawerContent allGaps={allGaps} onEnhanceSection={onEnhanceSection} />;
     case 'goals':
@@ -689,21 +981,25 @@ function MetricDrawerContent({
         <div className="p-2 text-xs text-muted-foreground">Strengths analysis not yet available.</div>
       );
     case 'core':
-      // Phase A: simple list, Phase B: full status (when draft exists)
+      // Phase A (profile) vs Phase B (draft) are driven by mode/isLoading:
+      // - Fit check (goNoGo): always profile-based evidence.
+      // - Draft view: profile evidence while metrics load; draft attribution once complete.
       return (
         <RequirementsDrawerContent
           requirements={coreRequirements}
-          showStatus={!isLoading} // Show status when draft generation complete
+          showStatus
+          statusContext={requirementsStatusContext}
           onEnhanceSection={onEnhanceSection}
           onAddMetrics={onAddMetrics}
         />
       );
     case 'preferred':
-      // Phase A: simple list, Phase B: full status (when draft exists)
+      // Phase A (profile) vs Phase B (draft) are driven by mode/isLoading.
       return (
         <RequirementsDrawerContent
           requirements={preferredRequirements}
-          showStatus={!isLoading} // Show status when draft generation complete
+          showStatus
+          statusContext={requirementsStatusContext}
           onEnhanceSection={onEnhanceSection}
           onAddMetrics={onAddMetrics}
         />
@@ -736,9 +1032,61 @@ function MetricDrawerContent({
   }
 }
 
+function GoNoGoDrawerContent({ model }: { model: GoNoGoModel }) {
+  const summaryClass =
+    model.decision === 'go'
+      ? 'border-success bg-success/10 text-success'
+      : 'border-destructive bg-destructive/10 text-destructive';
+
+  const sortedReasons = useMemo(() => {
+    const rank = (sev: 'high' | 'medium' | 'low') => (sev === 'high' ? 0 : sev === 'medium' ? 1 : 2);
+    return [...model.reasons].sort((a, b) => rank(a.severity) - rank(b.severity));
+  }, [model.reasons]);
+
+  return (
+    <div className="p-3 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-semibold ${summaryClass}`}>
+          <span>{model.decision === 'go' ? 'Go' : 'No-Go'}</span>
+          <span className="opacity-80">·</span>
+          <span>{model.confidence}%</span>
+        </div>
+        <span className="text-xs uppercase tracking-wide text-muted-foreground">Phase A</span>
+      </div>
+
+      <div className="rounded-lg border border-border/40 bg-background">
+        {sortedReasons.length === 0 ? (
+          <div className="p-3 text-sm text-muted-foreground">No blockers detected.</div>
+        ) : (
+          sortedReasons.map((r, idx) => (
+            <div key={`${r.label}-${idx}`} className={`${idx > 0 ? 'border-t border-border/30' : ''} p-3`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-foreground">{r.label}</div>
+                  <div className="text-xs text-muted-foreground mt-1">{r.detail}</div>
+                </div>
+                <span className={`text-xs font-semibold ${
+                  r.severity === 'high'
+                    ? 'text-destructive'
+                    : r.severity === 'medium'
+                    ? 'text-warning'
+                    : 'text-muted-foreground'
+                }`}>
+                  {r.severity.toUpperCase()}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 interface RequirementsDrawerContentProps {
   requirements: RequirementDisplayItem[];
   showStatus?: boolean; // Phase A = false (simple list), Phase B = true (with status)
+  statusContext?: 'profile' | 'draft';
   onEnhanceSection?: (sectionId: string, requirement?: string) => void;
   onAddMetrics?: (sectionId?: string) => void;
 }
@@ -746,6 +1094,7 @@ interface RequirementsDrawerContentProps {
 function RequirementsDrawerContent({
   requirements,
   showStatus = true,
+  statusContext = 'draft',
   onEnhanceSection,
   onAddMetrics,
 }: RequirementsDrawerContentProps) {
@@ -817,14 +1166,17 @@ function RequirementsDrawerContent({
               <div>
                 <span className="font-medium text-foreground/90">Status:</span>{' '}
                 <span className={`${req.demonstrated ? 'text-foreground/80' : 'text-muted-foreground'}`}>
-                  {req.evidence || (req.demonstrated ? 'Mentioned in draft' : 'Not mentioned in draft')}
+                  {req.evidence ||
+                    (statusContext === 'profile'
+                      ? (req.demonstrated ? 'Supported by your background' : 'Not supported by your background')
+                      : (req.demonstrated ? 'Mentioned in draft' : 'Not mentioned in draft'))}
                 </span>
               </div>
             </div>
           </div>
           <div className="flex-shrink-0 p-2 flex items-center gap-2">
             <StatusIcon met={req.demonstrated} />
-            {req.demonstrated && (
+            {statusContext === 'draft' && req.demonstrated && (
               <>
                 {onEnhanceSection && req.section && (
                   <Button
@@ -1140,4 +1492,3 @@ function ReadinessDrawerContent({ readiness }: ReadinessDrawerContentProps) {
     </div>
   );
 }
-

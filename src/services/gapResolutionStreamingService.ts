@@ -130,9 +130,18 @@ ${gap.existingContent ? `"${gap.existingContent}"` : 'No existing content for th
 Generate compelling cover letter content that addresses this gap. The content should:
 1. Be concise and professional (2-4 sentences)
 2. Include specific, quantifiable examples where possible
-3. Naturally incorporate relevant keywords: ${gap.addresses?.join(', ') || 'the requirement'}
-4. Match the tone and style of a strong cover letter
-5. Be ready to insert into the ${gap.paragraphId || 'experience'} section
+3. Match the tone and style of a strong cover letter
+4. Be ready to insert into the ${gap.paragraphId || 'experience'} section
+
+CRITICAL: You must address ALL unmet items provided in this prompt:
+- Requirement gaps (if provided)
+- Content quality criteria (if provided)
+- Standalone content issues described in the gap description/suggestion
+
+If any item cannot be fully addressed due to missing facts, do NOT invent details. Instead, include a short placeholder like:
+[NEEDS-INPUT: specific metric / example / proof point]
+
+Incorporate keywords only when they truthfully map to the candidate's background; otherwise request the missing proof via [NEEDS-INPUT: ...].
 
 `;
 
@@ -257,16 +266,25 @@ ${standards.unmet.map(std => `- ${std.label}${std.suggestion ? `\n  Suggestion: 
 3. EXPAND: Add new content to address the unmet requirements/standards
 4. INTEGRATE: Blend the preserved and new content into a cohesive, natural paragraph
 5. DO NOT go backwards - if a requirement is marked as met, the enhanced content must still meet it
+
+Treat all "met" items above as hard constraints: the revised paragraph must still contain the evidence signals that make them "met".
+Do not remove named tools/skills/metrics already present unless replacing with an equivalent or stronger proof.
 `;
     }
 
     prompt += `
+Before finalizing, internally verify:
+- Every requirement gap has a concrete proof point (or [NEEDS-INPUT: ...])
+- Every content quality criterion gap is improved
+- No "met" requirement/standard was lost
+- The output stays within length/tone constraints
+
 **Output Format:**
-Provide ONLY the new/improved content paragraph. Do not include:
+Provide ONLY the new/improved content paragraph. Output exactly 1 paragraph (no bullets, no headings). Do not include:
 - Any meta-commentary or explanations
 - Labels like "Introduction:" or "Content:"
 - Quotation marks around the content
-- Any formatting markers
+- Any formatting markers (except [NEEDS-INPUT: ...] placeholders when required)
 
 Just output the raw, polished cover letter text ready to be inserted directly into the document.`;
 
@@ -330,4 +348,3 @@ Just output the raw, polished cover letter text ready to be inserted directly in
     return !!this.apiKey;
   }
 }
-

@@ -36,6 +36,13 @@ interface UseJobStreamOptions {
   pollIntervalMs?: number;
 
   /**
+   * Disable SSE and use polling only.
+   * Useful when EventSource is blocked/flaky in the current environment.
+   * @default false
+   */
+  disableSSE?: boolean;
+
+  /**
    * Timeout for job completion (ms)
    * Set to 0 to disable
    * @default 300000 (5 minutes)
@@ -459,11 +466,14 @@ export function useJobStream(
               eventData: e?.data,
               readyState: es.readyState,
             });
-            console.warn('[useJobStream] SSE error; attempting secondary endpoint', e?.data);
+          console.warn('[useJobStream] SSE error; attempting secondary endpoint', e?.data);
             es.close();
             // Retry once using secondary URL, then fall back
             try {
-              console.log('[useJobStream] SSE secondary url:', secondaryUrl);
+              console.log(
+                '[useJobStream] SSE secondary url:',
+                secondaryUrl.replace(/access_token=[^&]+/, 'access_token=***'),
+              );
               es = new EventSource(secondaryUrl);
               es.addEventListener('open', () => console.log('[useJobStream] SSE (secondary) connection opened'));
               es.addEventListener('progress', handleProgress);

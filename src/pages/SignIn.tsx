@@ -9,6 +9,7 @@ import { Eye, EyeOff, Mail, Lock, Linkedin, AlertCircle, Loader2 } from "lucide-
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/contexts/AuthContext";
+import { isWaitlistModeEnabled } from "@/lib/flags";
 
 const SignIn = () => {
   const { signIn, signInWithGoogle, signInWithLinkedIn, loading, error } = useAuth();
@@ -26,6 +27,9 @@ const SignIn = () => {
 
   const from = location.state?.from?.pathname || "/dashboard";
   const redirectError = location.state?.error;
+  const waitlistMode = isWaitlistModeEnabled();
+  const ctaHref = waitlistMode ? "/waitlist" : "/signup";
+  const ctaLabel = waitlistMode ? "Waitlist Signup" : "Get Started";
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -94,12 +98,11 @@ const SignIn = () => {
             <div className="flex-1"></div>
             <h1 className="text-2xl font-bold text-foreground">Narrata</h1>
             <div className="flex-1 flex justify-end">
-              <Link to="/signup" className="text-sm text-accent hover:underline">
-                Get Started
+              <Link to={ctaHref} className="text-sm text-accent hover:underline">
+                {ctaLabel}
               </Link>
             </div>
           </div>
-          <p className="text-muted-foreground">Welcome back to your narrative engine</p>
         </div>
         {/* Error Alert */}
         {(error || formError || redirectError) && (
@@ -113,9 +116,11 @@ const SignIn = () => {
         <Card className="shadow-medium">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl text-center">Sign In</CardTitle>
+            {/*
             <CardDescription className="text-center">
               Access your truth-based cover letter platform
             </CardDescription>
+            */}
           </CardHeader>
 
           <CardContent className="space-y-4">
@@ -147,9 +152,6 @@ const SignIn = () => {
                 Continue with LinkedIn
               </Button>
               
-              <p className="text-xs text-muted-foreground text-center">
-                Having trouble with LinkedIn? Try Google or email sign-in instead.
-              </p>
             </div>
 
             <div className="relative">
@@ -241,10 +243,21 @@ const SignIn = () => {
             </form>
 
             <div className="text-center text-sm text-muted-foreground">
-              Don't have an account?{" "}
-              <Link to="/signup" className="text-accent hover:underline font-medium">
-                Create account
-              </Link>
+              {waitlistMode ? (
+                <>
+                  Want beta access?{" "}
+                  <Link to="/waitlist" className="text-accent hover:underline font-medium">
+                    Join the waitlist
+                  </Link>
+                </>
+              ) : (
+                <>
+                  Don't have an account?{" "}
+                  <Link to="/signup" className="text-accent hover:underline font-medium">
+                    Create account
+                  </Link>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>

@@ -14,8 +14,13 @@ import {
   TrendingUp,
   Lock
 } from "lucide-react";
+import { isWaitlistModeEnabled } from "@/lib/flags";
 
 const Landing = () => {
+  const waitlistMode = isWaitlistModeEnabled();
+  const ctaHref = waitlistMode ? "/waitlist" : "/signup";
+  const ctaLabel = waitlistMode ? "Waitlist Signup" : "Get Started";
+
   const features = [
     {
       icon: Shield,
@@ -63,12 +68,20 @@ const Landing = () => {
           </div>
           
           <div className="flex items-center gap-4">
-            <Link to="/signin">
-              <Button variant="tertiary">Login</Button>
-            </Link>
-                          <Link to="/signup">
-                <Button variant="primary">Get Started</Button>
+            {waitlistMode ? (
+              <Link to="/waitlist">
+                <Button variant="primary">Waitlist Signup</Button>
               </Link>
+            ) : (
+              <>
+                <Link to="/signin">
+                  <Button variant="tertiary">Login</Button>
+                </Link>
+                <Link to={ctaHref}>
+                  <Button variant="primary">{ctaLabel}</Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -95,9 +108,9 @@ const Landing = () => {
           </p>
           
            <div className="flex items-center justify-center gap-4 mb-12">
-             <Link to="/signup">
+             <Link to={ctaHref}>
                <Button variant="primary" size="lg" className="gap-2">
-                 Start Building Your Library
+                 {ctaLabel}
                  <ArrowRight className="h-5 w-5" />
                </Button>
              </Link>
@@ -213,11 +226,11 @@ const Landing = () => {
               Ready to Build Your Truth-Based Library?
             </h2>
             <p className="text-xl opacity-90 mb-8 max-w-2xl mx-auto">
-              Join hundreds of PMs, designers, and marketers who've transformed their job application process.
+             Join hundreds of PMs, designers, and marketers who've transformed their job application process.
             </p>
-             <Link to="/signup">
+             <Link to={ctaHref}>
                <Button variant="secondary" size="lg" className="gap-2">
-                 Get Started Free
+                 {ctaLabel}
                  <ArrowRight className="h-5 w-5" />
                </Button>
              </Link>

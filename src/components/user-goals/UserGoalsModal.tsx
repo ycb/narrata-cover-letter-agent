@@ -47,8 +47,10 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // Load initial goals only when modal opens, not on every initialGoals change
+  // This prevents form reset when context reloads data after save
   useEffect(() => {
-    if (initialGoals) {
+    if (isOpen && initialGoals) {
       setFormData({
         targetTitles: initialGoals.targetTitles,
         minimumSalary: initialGoals.minimumSalary.toString(),
@@ -65,7 +67,7 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
         openToRelocation: initialGoals.openToRelocation
       });
     }
-  }, [initialGoals]);
+  }, [isOpen]); // Only depend on isOpen, not initialGoals
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -283,26 +285,40 @@ export function UserGoalsModal({ isOpen, onClose, onSave, initialGoals }: UserGo
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
+              {formData.targetTitles.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground">Selected</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {formData.targetTitles.map((title) => (
+                      <Badge
+                        key={title}
+                        variant="default"
+                        className="px-3 py-1 flex items-center gap-1"
+                      >
+                        {title}
+                        <X
+                          className="h-3 w-3 cursor-pointer hover:text-destructive"
+                          onClick={() => removeItem('title', title)}
+                        />
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="flex flex-wrap gap-2">
-                {PREDEFINED_TITLES.slice(0, 12).map((title) => (
-                  <Badge
-                    key={title}
-                    variant={formData.targetTitles.includes(title) ? "default" : "outline"}
-                    className="cursor-pointer px-3 py-1 flex items-center gap-1"
-                    onClick={() => togglePredefinedItem('title', title)}
-                  >
-                    {title}
-                    {formData.targetTitles.includes(title) && (
-                      <X 
-                        className="h-3 w-3 cursor-pointer hover:text-destructive" 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeItem('title', title);
-                        }}
-                      />
-                    )}
-                  </Badge>
-                ))}
+                {PREDEFINED_TITLES
+                  .slice(0, 12)
+                  .filter((title) => !formData.targetTitles.includes(title))
+                  .map((title) => (
+                    <Badge
+                      key={title}
+                      variant="outline"
+                      className="cursor-pointer px-3 py-1"
+                      onClick={() => togglePredefinedItem('title', title)}
+                    >
+                      {title}
+                    </Badge>
+                  ))}
               </div>
             </div>
           </div>

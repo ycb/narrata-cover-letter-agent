@@ -2,8 +2,15 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { CheckCircle2 } from 'lucide-react';
+import { isWaitlistModeEnabled } from '@/lib/flags';
 
 const LandingPage = () => {
+  const waitlistMode = isWaitlistModeEnabled();
+  const ctaHref = waitlistMode ? '/waitlist' : '/signup';
+  const ctaLabel = waitlistMode ? 'Waitlist Signup' : 'Get Started (Free)';
+  const headerHref = waitlistMode ? '/waitlist' : '/signin';
+  const headerLabel = waitlistMode ? 'Waitlist Signup' : 'Sign In';
+
   // Analytics tracking helper
   const trackCTA = (location: string) => {
     // LogRocket custom event
@@ -38,10 +45,10 @@ const LandingPage = () => {
               <div className="text-white text-center">⏩ Your Dream Job</div>
             </div>
             
-            {/* Right: Sign In */}
-            <Link to="/signin">
+            {/* Right: Sign In / Waitlist */}
+            <Link to={headerHref}>
               <Button variant="outline" size="sm" className="bg-white text-[#121212] hover:bg-white/90">
-                Sign In
+                {headerLabel}
               </Button>
             </Link>
           </div>
@@ -58,9 +65,9 @@ const LandingPage = () => {
             Narrata builds cover letters from your verified experience and AI helps you refine. Never made up, always in your voice.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Link to="/signup" onClick={() => trackCTA('hero')}>
+            <Link to={ctaHref} onClick={() => trackCTA('hero')}>
               <Button size="lg" className="w-full sm:w-auto text-lg px-8 py-6 bg-cta-primary hover:bg-cta-primary-hover text-cta-primary-foreground">
-                Get Started (Free)
+                {ctaLabel}
               </Button>
             </Link>
           </div>
@@ -644,9 +651,9 @@ const LandingPage = () => {
             Get your first personalized draft in minutes.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Link to="/signup" onClick={() => trackCTA('bottom')}>
+            <Link to={ctaHref} onClick={() => trackCTA('bottom')}>
               <Button size="lg" className="w-full sm:w-auto text-lg px-8 py-6 bg-cta-primary hover:bg-cta-primary-hover text-cta-primary-foreground">
-                Get Started (Free)
+                {ctaLabel}
               </Button>
             </Link>
           </div>
@@ -654,24 +661,9 @@ const LandingPage = () => {
       </section>
 
       {/* Footer */}
-      <footer className="border-t bg-muted/30">
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-            <p className="text-sm text-muted-foreground">© 2024 Narrata. All rights reserved.</p>
-            <div className="flex space-x-6 text-sm text-muted-foreground">
-              <Link to="/terms" className="hover:text-foreground transition-colors">
-                Terms of Service
-              </Link>
-              <Link to="/privacy" className="hover:text-foreground transition-colors">
-                Privacy Policy
-              </Link>
-            </div>
-          </div>
-        </div>
-      </footer>
+   
     </div>
   );
 };
 
 export default LandingPage;
-

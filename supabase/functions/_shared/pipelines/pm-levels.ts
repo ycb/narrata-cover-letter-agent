@@ -294,12 +294,23 @@ export async function executePMLevelsPipeline(
     // STAGE 1: Baseline Assessment
     // =========================================================================
     const baselineStart = Date.now();
+    
+    // Log stage start
+    voidLogEval(supabase, {
+      job_id: job.id,
+      job_type: 'pmLevels',
+      stage: 'baselineAssessment',
+      user_id: job.user_id,
+      started_at: new Date(baselineStart),
+      success: true, // Placeholder
+    });
+    
     try {
       telemetry?.startStage('baselineAssessment');
       results.baselineAssessment = await baselineAssessmentStage.execute(context);
       telemetry?.endStage(true);
       
-      // Log eval metrics
+      // Log stage completion
       voidLogEval(supabase, {
         job_id: job.id,
         job_type: 'pmLevels',
@@ -338,12 +349,23 @@ export async function executePMLevelsPipeline(
     // STAGE 2: Competency Breakdown
     // =========================================================================
     const competencyStart = Date.now();
+    
+    // Log stage start
+    voidLogEval(supabase, {
+      job_id: job.id,
+      job_type: 'pmLevels',
+      stage: 'competencyBreakdown',
+      user_id: job.user_id,
+      started_at: new Date(competencyStart),
+      success: true, // Placeholder
+    });
+    
     try {
       telemetry?.startStage('competencyBreakdown');
       results.competencyBreakdown = await competencyBreakdownStage.execute(context);
       telemetry?.endStage(true);
       
-      // Log eval metrics
+      // Log stage completion
       voidLogEval(supabase, {
         job_id: job.id,
         job_type: 'pmLevels',
@@ -384,12 +406,23 @@ export async function executePMLevelsPipeline(
     // STAGE 3: Specialization Assessment
     // =========================================================================
     const specializationStart = Date.now();
+    
+    // Log stage start
+    voidLogEval(supabase, {
+      job_id: job.id,
+      job_type: 'pmLevels',
+      stage: 'specializationAssessment',
+      user_id: job.user_id,
+      started_at: new Date(specializationStart),
+      success: true, // Placeholder
+    });
+    
     try {
       telemetry?.startStage('specializationAssessment');
       results.specializationAssessment = await specializationAssessmentStage.execute(context);
       telemetry?.endStage(true);
       
-      // Log eval metrics
+      // Log stage completion
       voidLogEval(supabase, {
         job_id: job.id,
         job_type: 'pmLevels',
@@ -483,7 +516,7 @@ export async function executePMLevelsPipeline(
     voidLogEval(supabase, {
       job_id: job.id,
       job_type: 'pmLevels',
-      stage: 'structural_checks',
+      stage: 'structuralChecks',
       user_id: job.user_id,
       started_at: new Date(),
       completed_at: new Date(),

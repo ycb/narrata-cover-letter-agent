@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AuthErrorBoundary } from "@/components/auth/AuthErrorBoundary";
 import { TourProvider } from "@/contexts/TourContext";
@@ -15,7 +15,7 @@ import { Footer } from "@/components/layout/Footer";
 import { FeedbackSystem } from "@/components/feedback/FeedbackSystem";
 import { FeedbackAdmin } from "@/components/feedback/FeedbackAdmin";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import { isExternalLinksEnabled } from "@/lib/flags";
+import { isExternalLinksEnabled, isSignupEnabled } from "@/lib/flags";
 
 // Environment-based feedback system initialization
 const shouldShowFeedbackSystem = (): boolean => {
@@ -34,6 +34,7 @@ const shouldShowFeedbackSystem = (): boolean => {
 };
 import LandingPage from "./pages/LandingPage";
 import Landing from "./pages/Landing";
+import WaitlistSignup from "./pages/WaitlistSignup";
 import Dashboard from "./pages/Dashboard";
 import DashboardRouter from "./pages/DashboardRouter";
 import WorkHistory from "./pages/WorkHistory";
@@ -70,11 +71,14 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 function AppLayout() {
+  const signupEnabled = isSignupEnabled();
+
   return (
     <div className="min-h-screen flex flex-col">
       <div className="flex-1">
         <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/waitlist" element={<WaitlistSignup />} />
         <Route path="/marketing" element={<Landing />} />
         <Route path="/work-history" element={
           <ProtectedRoute>
@@ -275,7 +279,16 @@ function AppLayout() {
             <JobCleaningTest />
           </ProtectedRoute>
         } />
-        <Route path="/signup" element={<ProtectedRoute requireAuth={false}><SignUp /></ProtectedRoute>} />
+        <Route
+          path="/signup"
+          element={
+            signupEnabled ? (
+              <ProtectedRoute requireAuth={false}><SignUp /></ProtectedRoute>
+            ) : (
+              <Navigate to="/waitlist" replace />
+            )
+          }
+        />
         <Route path="/signin" element={<ProtectedRoute requireAuth={false}><SignIn /></ProtectedRoute>} />
         <Route path="/forgot-password" element={<ProtectedRoute requireAuth={false}><ForgotPassword /></ProtectedRoute>} />
         <Route path="/auth/linkedin/callback" element={<LinkedInCallback />} />

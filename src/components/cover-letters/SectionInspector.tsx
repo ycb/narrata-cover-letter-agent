@@ -34,6 +34,14 @@ interface SectionInspectorProps {
   totalCoreReqs?: number;
   totalPrefReqs?: number;
   totalStandards?: number;
+  // Optional deltas for "draft vs existing" comparisons (shown inline in badges)
+  deltaCoreReqs?: number;
+  deltaPrefReqs?: number;
+  deltaStandards?: number;
+  changedToMetLabels?: string[];
+  changedToUnmetLabels?: string[];
+  changedStandardsToMetLabels?: string[];
+  changedStandardsToUnmetLabels?: string[];
 }
 
 /**
@@ -50,6 +58,13 @@ export function SectionInspector({
   totalCoreReqs: jobTotalCoreReqs,
   totalPrefReqs: jobTotalPrefReqs,
   totalStandards: jobTotalStandards,
+  deltaCoreReqs = 0,
+  deltaPrefReqs = 0,
+  deltaStandards = 0,
+  changedToMetLabels = [],
+  changedToUnmetLabels = [],
+  changedStandardsToMetLabels = [],
+  changedStandardsToUnmetLabels = [],
 }: SectionInspectorProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
@@ -78,6 +93,16 @@ export function SectionInspector({
   const totalPrefReqs = jobTotalPrefReqs ?? (data.prefReqs.met.length + data.prefReqs.unmet.length);
   const totalStandards = jobTotalStandards ?? (data.standards.met.length + data.standards.unmet.length);
 
+  const deltaLabel = (delta: number) => {
+    if (!delta) return '';
+    return ` (${delta > 0 ? `+${delta}` : String(delta)})`;
+  };
+
+  const changedToMetSet = new Set(changedToMetLabels);
+  const changedToUnmetSet = new Set(changedToUnmetLabels);
+  const changedStandardsToMetSet = new Set(changedStandardsToMetLabels);
+  const changedStandardsToUnmetSet = new Set(changedStandardsToUnmetLabels);
+
   // Build summary badges - count only with regular tag style
   return (
     <Collapsible
@@ -89,13 +114,13 @@ export function SectionInspector({
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-medium">Requirements Met:</span>
           <Badge variant="secondary" className="text-xs">
-            {coreMetCount} core
+            {coreMetCount} core{deltaLabel(deltaCoreReqs)}
           </Badge>
           <Badge variant="secondary" className="text-xs">
-            {prefMetCount} pref
+            {prefMetCount} pref{deltaLabel(deltaPrefReqs)}
           </Badge>
           <Badge variant="secondary" className="text-xs">
-            {standardsMetCount} standards
+            {standardsMetCount} standards{deltaLabel(deltaStandards)}
           </Badge>
         </div>
         {isOpen ? (
@@ -135,28 +160,65 @@ export function SectionInspector({
 
           <TabsContent value="core" className="space-y-1">
             {data.coreReqs.met.map((req) => (
-              <RequirementItem key={req.id} label={req.label} type="met" evidence={req.evidence} />
+              <RequirementItem
+                key={req.id}
+                label={req.label}
+                type="met"
+                evidence={req.evidence}
+                badgeText={changedToMetSet.has(req.label) ? 'New' : undefined}
+              />
             ))}
             {data.coreReqs.unmet.map((req) => (
-              <RequirementItem key={req.id} label={req.label} type="unmet" />
+              <RequirementItem
+                key={req.id}
+                label={req.label}
+                type="unmet"
+                badgeText={changedToUnmetSet.has(req.label) ? 'Regressed' : undefined}
+                badgeTone={changedToUnmetSet.has(req.label) ? 'regressed' : undefined}
+              />
             ))}
           </TabsContent>
 
           <TabsContent value="pref" className="space-y-1">
             {data.prefReqs.met.map((req) => (
-              <RequirementItem key={req.id} label={req.label} type="met" evidence={req.evidence} />
+              <RequirementItem
+                key={req.id}
+                label={req.label}
+                type="met"
+                evidence={req.evidence}
+                badgeText={changedToMetSet.has(req.label) ? 'New' : undefined}
+              />
             ))}
             {data.prefReqs.unmet.map((req) => (
-              <RequirementItem key={req.id} label={req.label} type="unmet" />
+              <RequirementItem
+                key={req.id}
+                label={req.label}
+                type="unmet"
+                badgeText={changedToUnmetSet.has(req.label) ? 'Regressed' : undefined}
+                badgeTone={changedToUnmetSet.has(req.label) ? 'regressed' : undefined}
+              />
             ))}
           </TabsContent>
 
           <TabsContent value="standards" className="space-y-1">
             {data.standards.met.map((standard) => (
-              <RequirementItem key={standard.id} label={standard.label} type="met" evidence={standard.evidence} />
+              <RequirementItem
+                key={standard.id}
+                label={standard.label}
+                type="met"
+                evidence={standard.evidence}
+                badgeText={changedStandardsToMetSet.has(standard.label) ? 'New' : undefined}
+              />
             ))}
             {data.standards.unmet.map((standard) => (
-              <RequirementItem key={standard.id} label={standard.label} type="unmet" suggestion={standard.suggestion || 'Not mentioned in draft.'} />
+              <RequirementItem
+                key={standard.id}
+                label={standard.label}
+                type="unmet"
+                suggestion={standard.suggestion || 'Not mentioned in draft.'}
+                badgeText={changedStandardsToUnmetSet.has(standard.label) ? 'Regressed' : undefined}
+                badgeTone={changedStandardsToUnmetSet.has(standard.label) ? 'regressed' : undefined}
+              />
             ))}
           </TabsContent>
         </Tabs>

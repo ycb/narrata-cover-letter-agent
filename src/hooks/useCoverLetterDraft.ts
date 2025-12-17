@@ -230,14 +230,16 @@ export const useCoverLetterDraft = (options: UseCoverLetterDraftOptions): UseCov
           metricsLoading: true, // Metrics calculation happening in background (3 parallel calls)
           streamingSections: [], // Clear streaming sections once draft is complete
           pendingSectionInsights: result.heuristicInsights || {}, // AGENT D: Heuristic gaps
-          progress: [
-            ...prev.progress,
-            {
-              phase: 'metrics',
-              message: 'Calculating match metrics (~45 seconds)...',
-              timestamp: Date.now(),
-            },
-          ],
+          progress: prev.progress.some(update => update.phase === 'metrics')
+            ? prev.progress
+            : [
+                ...prev.progress,
+                {
+                  phase: 'metrics',
+                  message: 'Calculating match metrics (~45 seconds)...',
+                  timestamp: Date.now(),
+                },
+              ],
         }));
 
         // PHASE 2: Metrics calculating in background with 3 parallel calls
@@ -255,13 +257,21 @@ export const useCoverLetterDraft = (options: UseCoverLetterDraftOptions): UseCov
                 lastDraft = updatedDraft;
 
                 const hasMetrics = Array.isArray(updatedDraft.metrics) && updatedDraft.metrics.length > 0;
-                const hasEnhancedMatchData =
-                  !!updatedDraft.enhancedMatchData &&
-                  Object.keys(updatedDraft.enhancedMatchData || {}).length > 0;
+                // IMPORTANT:
+                // Phase A can populate enhancedMatchData early (e.g., requirement details) via edge pipeline persistence.
+                // Phase B (gaps/score/content-standards) arrives later and is what should clear metricsLoading.
+                // So we DO NOT treat "any enhancedMatchData keys" as "metrics ready".
+                const hasSectionGapInsights =
+                  updatedDraft.enhancedMatchData?.sectionGapInsights !== undefined;
                 const hasContentStandards = !!(updatedDraft.llmFeedback as any)?.contentStandards;
+                const hasOverallScore =
+                  typeof (updatedDraft as any)?.analytics?.overallScore === 'number';
 
-                // Accept any of the three signals as "ready" so enhanced data can flow even if metrics are empty
-                if (hasMetrics || hasEnhancedMatchData || hasContentStandards) {
+                // Mark Phase B ready when any Phase B artifact lands.
+                // - metrics: classic metrics array (may be empty in some failure cases)
+                // - sectionGapInsights: gaps computed (can be [] for "no gaps")
+                // - contentStandards / overallScore: content quality pass completed
+                if (hasMetrics || hasSectionGapInsights || hasContentStandards || hasOverallScore) {
                   setState(prev => ({
                     ...prev,
                     draft: updatedDraft,
@@ -307,15 +317,21 @@ export const useCoverLetterDraft = (options: UseCoverLetterDraftOptions): UseCov
     [context.jobDescriptionId, context.templateId, options.userId, service],
   );
 
-  // If enhancedMatchData arrives through any path, clear metricsLoading so UI can render data.
+  // If Phase B artifacts arrive through any path, clear metricsLoading so UI can render data.
   useEffect(() => {
     setState(prev => {
-      if (prev.metricsLoading && prev.draft?.enhancedMatchData) {
+      const hasPhaseB =
+        prev.draft?.enhancedMatchData?.sectionGapInsights !== undefined ||
+        !!(prev.draft?.llmFeedback as any)?.contentStandards ||
+        typeof (prev.draft as any)?.analytics?.overallScore === 'number' ||
+        (Array.isArray(prev.draft?.metrics) && (prev.draft?.metrics?.length ?? 0) > 0);
+
+      if (prev.metricsLoading && hasPhaseB) {
         return { ...prev, metricsLoading: false, pendingSectionInsights: {} };
       }
       return prev;
     });
-  }, [state.draft?.enhancedMatchData]);
+  }, [state.draft?.enhancedMatchData, state.draft?.llmFeedback, state.draft?.analytics, state.draft?.metrics]);
 
   const updateSection = useCallback<UseCoverLetterDraftReturn['updateSection']>(
     async ({ sectionId, content }) => {

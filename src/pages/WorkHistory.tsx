@@ -113,7 +113,11 @@ function transformClustersToWorkHistory(
 
       // Count content ITEMS with gaps (not individual gaps)
       // Role-level: check for role description and metrics gaps as distinct items
-      const hasRoleDescriptionItem = allGaps.some(g => g.gap_category === 'missing_role_description' || g.gap_category === 'generic_role_description');
+      const hasRoleDescriptionItem = allGaps.some(g =>
+        g.gap_category === 'missing_role_description' ||
+        g.gap_category === 'generic_role_description' || // back-compat
+        g.gap_category === 'role_description_needs_specifics'
+      );
       const hasRoleMetricsItem = allGaps.some(g => g.gap_category === 'missing_role_metrics' || g.gap_category === 'insufficient_role_metrics');
       const roleLevelItems = (hasRoleDescriptionItem ? 1 : 0) + (hasRoleMetricsItem ? 1 : 0);
       
@@ -813,7 +817,11 @@ export default function WorkHistory() {
           const workItemGaps = (workItemGapsMap.get(item.id) || []) as Array<{ id: string; description: string; gap_category?: string }>;
           
           // Role-level: treat role description and role metrics as two distinct content items
-          const hasRoleDescriptionItem = workItemGaps.some(g => g.gap_category === 'missing_role_description' || g.gap_category === 'generic_role_description');
+          const hasRoleDescriptionItem = workItemGaps.some(g =>
+            g.gap_category === 'missing_role_description' ||
+            g.gap_category === 'generic_role_description' || // back-compat
+            g.gap_category === 'role_description_needs_specifics'
+          );
           const hasRoleMetricsItem = workItemGaps.some(g => g.gap_category === 'missing_role_metrics' || g.gap_category === 'insufficient_role_metrics');
           const roleLevelItems = (hasRoleDescriptionItem ? 1 : 0) + (hasRoleMetricsItem ? 1 : 0);
 

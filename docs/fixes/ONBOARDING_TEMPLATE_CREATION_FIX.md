@@ -86,3 +86,11 @@ for all cover letter uploads, regardless of format.
 Fixes: Generate cover letter button disabled after onboarding
 ```
 
+
+
+
+
+
+
+
+

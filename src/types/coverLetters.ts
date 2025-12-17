@@ -30,6 +30,35 @@ export interface ParsedJobDescription {
   rawSections?: string[];
 }
 
+export interface StorySelectionCandidateDiagnostic {
+  storyId: string;
+  title?: string;
+  score: number;
+  wasUsed: boolean;
+  counts: {
+    requirementsMatched: number;
+    differentiatorsMatched: number;
+    goalsMatched: number;
+    jdKeywordsInContentScore: number;
+    jdKeywordsInTagsScore: number;
+  };
+  adjustments: {
+    reusePenalty: number;
+    shortContentPenalty: number;
+    lowTimesUsedBonus: number;
+    targetTitleTagBonus: number;
+  };
+}
+
+export interface StorySelectionDiagnostics {
+  sectionTitle?: string;
+  selectedStoryId: string | null;
+  selectedScore: number | null;
+  hasUnusedStories: boolean;
+  usedStoryIds: string[];
+  topCandidates: StorySelectionCandidateDiagnostic[];
+}
+
 export interface StoredJobDescription extends ParsedJobDescription {
   id: string;
   userId: string;
@@ -71,6 +100,7 @@ export interface CoverLetterDraftSection {
     requirementsMatched: string[];
     tags: string[];
     wordCount: number;
+    storySelection?: StorySelectionDiagnostics;
   };
   status: {
     hasGaps: boolean;
@@ -511,4 +541,3 @@ export function getDimensionDisplayLabel(strength: ReadinessDimensionStrength): 
     case 'insufficient': return 'Needs Work';
   }
 }
-

@@ -19,6 +19,7 @@ import type {
   ParsedJobDescription,
   RequirementCategory,
   RequirementInsight,
+  StorySelectionDiagnostics,
 } from '@/types/coverLetters';
 import type { CoverLetterSection } from '@/types/workHistory';
 import { UserPreferencesService } from './userPreferencesService';
@@ -463,6 +464,7 @@ interface CachedUserContext<T> {
 
 const userContextCache = {
   stories: null as CachedUserContext<StoryRow[]> | null,
+  storyVariations: null as CachedUserContext<any[]> | null,
   savedSections: null as CachedUserContext<SavedSectionRow[]> | null,
   workHistory: null as CachedUserContext<any[]> | null,
   approvedContent: null as CachedUserContext<any[]> | null,
@@ -496,12 +498,14 @@ export class CoverLetterDraftService {
     if (userId) {
       // Only clear if matching user
       if (userContextCache.stories?.userId === userId) userContextCache.stories = null;
+      if (userContextCache.storyVariations?.userId === userId) userContextCache.storyVariations = null;
       if (userContextCache.savedSections?.userId === userId) userContextCache.savedSections = null;
       if (userContextCache.workHistory?.userId === userId) userContextCache.workHistory = null;
       if (userContextCache.approvedContent?.userId === userId) userContextCache.approvedContent = null;
     } else {
       // Clear all
       userContextCache.stories = null;
+      userContextCache.storyVariations = null;
       userContextCache.savedSections = null;
       userContextCache.workHistory = null;
       userContextCache.approvedContent = null;
@@ -986,14 +990,65 @@ export class CoverLetterDraftService {
       console.warn('[CoverLetterDraftService] Failed to fetch MwS from jobs:', mwsError);
     }
 
+    // Re-read llm_feedback just before persisting metrics so we don't clobber
+    // enhancedMatchData written by the streaming edge pipeline (race-safe).
+    let latestFeedback: Record<string, unknown> = (draftRow.llm_feedback as Record<string, unknown> | null) ?? {};
+    try {
+      const { data: latestRow } = await this.supabaseClient
+        .from('cover_letters')
+        .select('llm_feedback')
+        .eq('id', draftId)
+        .single();
+      if (latestRow?.llm_feedback && typeof latestRow.llm_feedback === 'object') {
+        latestFeedback = latestRow.llm_feedback as Record<string, unknown>;
+      }
+    } catch (e) {
+      // Non-blocking: proceed with the draftRow snapshot if re-read fails.
+      console.warn('[CoverLetterDraftService] Failed to re-read llm_feedback before persist (non-blocking):', e);
+    }
+
+    const existingFeedback = latestFeedback;
+    const existingEnhanced = (existingFeedback.enhancedMatchData as Partial<EnhancedMatchData> | undefined) ?? {};
+    const mergedEnhanced: EnhancedMatchData = {
+      ...(existingEnhanced as EnhancedMatchData),
+      ...(metricResult.enhancedMatchData as EnhancedMatchData),
+    };
+    // Ensure sectionGapInsights is always present so UI doesn't get stuck in skeleton mode.
+    // Prefer computed (draft-based) gaps when available; edge-persisted gaps are template-based.
+    const existingSectionGaps = Array.isArray((existingEnhanced as any).sectionGapInsights)
+      ? (existingEnhanced as any).sectionGapInsights
+      : undefined;
+    const computedSectionGaps = Array.isArray((metricResult.enhancedMatchData as any)?.sectionGapInsights)
+      ? (metricResult.enhancedMatchData as any).sectionGapInsights
+      : undefined;
+    const pickNonEmpty = (value: unknown) =>
+      Array.isArray(value) && value.length > 0 ? value : undefined;
+    (mergedEnhanced as any).sectionGapInsights =
+      pickNonEmpty(computedSectionGaps) ??
+      pickNonEmpty(existingSectionGaps) ??
+      computedSectionGaps ??
+      existingSectionGaps ??
+      [];
+    if (!('coreRequirementDetails' in mergedEnhanced)) {
+      (mergedEnhanced as any).coreRequirementDetails = Array.isArray((existingEnhanced as any).coreRequirementDetails)
+        ? (existingEnhanced as any).coreRequirementDetails
+        : [];
+    }
+    if (!('preferredRequirementDetails' in mergedEnhanced)) {
+      (mergedEnhanced as any).preferredRequirementDetails = Array.isArray((existingEnhanced as any).preferredRequirementDetails)
+        ? (existingEnhanced as any).preferredRequirementDetails
+        : [];
+    }
+
     // Update draft with calculated metrics + MwS from streaming job
     await this.supabaseClient
       .from('cover_letters')
       .update({
         llm_feedback: {
+          ...existingFeedback,
           generatedAt: this.now().toISOString(),
           metrics: metricResult.raw,
-          enhancedMatchData: metricResult.enhancedMatchData,
+          enhancedMatchData: mergedEnhanced,
           ...(ratingData ? { rating: ratingData } : {}),
           ...(contentStandardsResult ? { contentStandards: contentStandardsResult } : {}),
           ...(mwsFromJob ? { mws: mwsFromJob } : {}), // Persist MwS from streaming job
@@ -2177,16 +2232,81 @@ export class CoverLetterDraftService {
     }
 
     const stories = data ?? [];
+
+    // Include story variations (content_variations) as additional story candidates.
+    // This makes HIL-generated story variations eligible for selection in subsequent drafts.
+    const storiesWithVariations = await this.mergeStoryVariations(userId, stories);
     
     // PERF: Update cache
     userContextCache.stories = {
-      data: stories,
+      data: storiesWithVariations,
       fetchedAt: Date.now(),
       userId,
     };
-    console.log(`[CoverLetterDraftService] Stories cache MISS - fetched ${stories.length} items${allowedSourceIds ? ` (filtered by profile)` : ''}`);
+    console.log(`[CoverLetterDraftService] Stories cache MISS - fetched ${stories.length} items${allowedSourceIds ? ` (filtered by profile)` : ''}${storiesWithVariations.length !== stories.length ? ` (+${storiesWithVariations.length - stories.length} variations)` : ''}`);
     
-    return stories;
+    return storiesWithVariations;
+  }
+
+  private async fetchStoryVariations(userId: string): Promise<any[]> {
+    if (isCacheValid(userContextCache.storyVariations, userId)) {
+      return userContextCache.storyVariations.data;
+    }
+
+    const { data, error } = await this.supabaseClient
+      .from('content_variations')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('parent_entity_type', 'approved_content');
+
+    if (error) {
+      console.warn('[CoverLetterDraftService] Failed to load content variations:', error);
+      userContextCache.storyVariations = { data: [], fetchedAt: Date.now(), userId };
+      return [];
+    }
+
+    const variations = data ?? [];
+    userContextCache.storyVariations = { data: variations, fetchedAt: Date.now(), userId };
+    return variations;
+  }
+
+  private async mergeStoryVariations(userId: string, stories: StoryRow[]): Promise<StoryRow[]> {
+    if (stories.length === 0) return stories;
+
+    const variations = await this.fetchStoryVariations(userId);
+    if (!variations.length) return stories;
+
+    const storyById = new Map(stories.map(story => [story.id, story]));
+    const merged: StoryRow[] = [...stories];
+
+    for (const variation of variations) {
+      const parentId = (variation as any).parent_entity_id as string | undefined;
+      if (!parentId) continue;
+      const parent = storyById.get(parentId);
+      if (!parent) continue;
+
+      const content = String((variation as any).content ?? '').trim();
+      if (!content) continue;
+
+      const gapTags = Array.isArray((variation as any).gap_tags) ? (variation as any).gap_tags : [];
+      const parentTags = Array.isArray((parent as any).tags) ? (parent as any).tags : [];
+      const tags = [...parentTags, ...gapTags];
+
+      // Create a synthetic StoryRow candidate:
+      // - Keep `id` as the parent story id so downstream "source.entityId" remains a story id.
+      // - Override content/title/tags to reflect the variation.
+      merged.push({
+        ...(parent as any),
+        id: parent.id,
+        title: (variation as any).title || parent.title,
+        content,
+        tags,
+        times_used: (variation as any).times_used ?? parent.times_used,
+        last_used: (variation as any).last_used ?? parent.last_used,
+      } as StoryRow);
+    }
+
+    return merged;
   }
 
   private async fetchSavedSections(userId: string): Promise<SavedSectionRow[]> {
@@ -2392,6 +2512,10 @@ export class CoverLetterDraftService {
   }): { sections: CoverLetterDraftSection[]; matchState: Record<string, unknown> } {
     const { templateSections, stories, savedSections, jobDescription, userGoals, onSectionBuilt } = input;
     const nowIso = this.now().toISOString();
+    const usedStoryIds = new Set<string>();
+    const includeStorySelectionDiagnostics =
+      process.env.NODE_ENV === 'development' ||
+      process.env.COVER_LETTER_STORY_SELECTION_DIAGNOSTICS === '1';
 
     console.log(`[CoverLetterDraftService] buildSections: ${templateSections.length} template sections, ${stories.length} stories, ${savedSections.length} saved sections`);
     
@@ -2445,10 +2569,17 @@ export class CoverLetterDraftService {
               nowIso,
             });
           } else {
-            const bestStory = this.pickBestStory(section, stories, jobDescription, userGoals);
+            const { story: bestStory, diagnostics } = this.pickBestStory(
+              section,
+              stories,
+              jobDescription,
+              userGoals,
+              { usedStoryIds },
+            );
             if (bestStory && bestStory.content?.trim()) {
               // Only use story if it has actual content
               const requirementsMatched = this.matchRequirements(bestStory.content, jobDescription);
+              usedStoryIds.add(bestStory.id);
               builtSection = this.createSection({
                 id: sectionId,
                 slug,
@@ -2460,6 +2591,7 @@ export class CoverLetterDraftService {
                 source: { kind: 'work_story', entityId: bestStory.id },
                 requirementsMatched,
                 tags: bestStory.tags ?? [],
+                storySelection: includeStorySelectionDiagnostics ? diagnostics : undefined,
                 nowIso,
               });
             } else {
@@ -2485,11 +2617,18 @@ export class CoverLetterDraftService {
             }
           }
         } else {
-          const bestStory = this.pickBestStory(section, stories, jobDescription, userGoals);
+          const { story: bestStory, diagnostics } = this.pickBestStory(
+            section,
+            stories,
+            jobDescription,
+            userGoals,
+            { usedStoryIds },
+          );
           if (bestStory && bestStory.content?.trim()) {
             // Only use story if it has actual content
             const content = this.applyCompanyTokens(bestStory.content, jobDescription.company);
             const requirementsMatched = this.matchRequirements(content, jobDescription);
+            usedStoryIds.add(bestStory.id);
             builtSection = this.createSection({
               id: sectionId,
               slug,
@@ -2501,6 +2640,7 @@ export class CoverLetterDraftService {
               source: { kind: 'work_story', entityId: bestStory.id },
               requirementsMatched,
               tags: bestStory.tags ?? [],
+              storySelection: includeStorySelectionDiagnostics ? diagnostics : undefined,
               nowIso,
             });
           } else {
@@ -2560,6 +2700,7 @@ export class CoverLetterDraftService {
     source: CoverLetterDraftSection['source'];
     requirementsMatched: string[];
     tags: string[];
+    storySelection?: StorySelectionDiagnostics;
     nowIso: string;
   }): CoverLetterDraftSection {
     return {
@@ -2575,6 +2716,7 @@ export class CoverLetterDraftService {
         requirementsMatched: input.requirementsMatched,
         tags: input.tags,
         wordCount: countWords(input.content),
+        ...(input.storySelection ? { storySelection: input.storySelection } : {}),
       },
       status: {
         hasGaps: false,
@@ -2594,17 +2736,87 @@ export class CoverLetterDraftService {
     stories: StoryRow[],
     jobDescription: ParsedJobDescription,
     userGoals: Awaited<ReturnType<typeof UserPreferencesService.loadGoals>> | null,
-  ): StoryRow | null {
+    options?: { usedStoryIds?: Set<string> },
+  ): { story: StoryRow | null; diagnostics: StorySelectionDiagnostics } {
     if (!stories.length) {
       console.log(`[CoverLetterDraftService] No stories available for section "${section.title || 'unnamed'}"`);
-      return null;
+      return {
+        story: null,
+        diagnostics: {
+          sectionTitle: section.title,
+          selectedStoryId: null,
+          selectedScore: null,
+          hasUnusedStories: false,
+          usedStoryIds: Array.from(options?.usedStoryIds ?? []),
+          topCandidates: [],
+        },
+      };
     }
 
     const goals = section.blurbCriteria?.goals ?? [];
     const differentiatorIds = new Set(jobDescription.differentiatorRequirements.map(req => req.id));
+    const usedStoryIds = options?.usedStoryIds;
 
     let bestStory: StoryRow | null = null;
     let bestScore = -Infinity;
+    const candidates: StorySelectionDiagnostics['topCandidates'] = [];
+
+    const hasUnusedStories =
+      !!usedStoryIds && stories.some(story => !!story.content?.trim() && !usedStoryIds.has(story.id));
+
+    const normalisedJdKeywords = (jobDescription.keywords ?? [])
+      .map(keyword => keyword.trim().toLowerCase())
+      .filter(Boolean);
+
+    const genericKeywordStoplist = new Set([
+      'product',
+      'products',
+      'product management',
+      'product manager',
+      'manager',
+      'management',
+      'strategy',
+      'roadmap',
+      'stakeholder',
+      'stakeholders',
+      'cross functional',
+      'cross-functional',
+      'agile',
+      'scrum',
+      'saas',
+      'b2b',
+      'b2c',
+      'gtm',
+      'go-to-market',
+    ]);
+
+    const jdKeywordWeight = (keyword: string): number => {
+      if (!keyword) return 0;
+      if (genericKeywordStoplist.has(keyword)) return 0;
+      if (keyword.length < 4) return 0;
+      if (keyword.includes(' ') || keyword.includes('-')) return 2;
+      return 1;
+    };
+
+    const scoreJdKeywordMatches = (content: string, tags: string[] | null | undefined): { contentScore: number; tagScore: number } => {
+      if (!normalisedJdKeywords.length) return { contentScore: 0, tagScore: 0 };
+      const lowerContent = content.toLowerCase();
+      const lowerTags = (tags ?? []).map(tag => tag.toLowerCase());
+
+      let contentScore = 0;
+      let tagScore = 0;
+
+      for (const keyword of normalisedJdKeywords) {
+        const weight = jdKeywordWeight(keyword);
+        if (!weight) continue;
+
+        const regex = new RegExp(`\\b${escapeRegExp(keyword)}\\b`, 'i');
+        if (regex.test(lowerContent)) contentScore += weight;
+        if (lowerTags.some(tag => tag.includes(keyword))) tagScore += weight;
+      }
+
+      return { contentScore, tagScore };
+    };
 
     for (const story of stories) {
       const content = story.content || '';
@@ -2618,6 +2830,11 @@ export class CoverLetterDraftService {
 
       let score = requirementsMatched.length * 10 + differentiatorMatches.length * 15;
 
+      const { contentScore: jdKeywordsInContentScore, tagScore: jdKeywordsInTagsScore } =
+        scoreJdKeywordMatches(content, story.tags ?? []);
+      score += jdKeywordsInContentScore * 8;
+      score += jdKeywordsInTagsScore * 10;
+
       if (goals.length) {
         const goalMatches = goals.reduce((count, goal) => {
           const regex = new RegExp(`\\b${escapeRegExp(goal)}\\b`, 'i');
@@ -2626,16 +2843,57 @@ export class CoverLetterDraftService {
         score += goalMatches * 8;
       }
 
+      let targetTitleTagBonus = 0;
       if (userGoals?.targetTitles?.length) {
         const tagMatches = (story.tags || []).filter(tag =>
           userGoals.targetTitles.some(title => tag.toLowerCase().includes(title.toLowerCase())),
         );
-        score += tagMatches.length * 4;
+        targetTitleTagBonus = tagMatches.length * 4;
+        score += targetTitleTagBonus;
       }
 
+      let lowTimesUsedBonus = 0;
       if ((story.times_used ?? 0) < 3) {
-        score += 3;
+        lowTimesUsedBonus = 3;
+        score += lowTimesUsedBonus;
       }
+
+      const storyWordCount = countWords(content);
+      let shortContentPenalty = 0;
+      if (storyWordCount < 12) shortContentPenalty = 40;
+      else if (storyWordCount < 25) shortContentPenalty = 20;
+      score -= shortContentPenalty;
+
+      let reusePenalty = 0;
+      if (usedStoryIds?.has(story.id) && hasUnusedStories) {
+        reusePenalty = 1000;
+        score -= reusePenalty;
+      }
+
+      candidates.push({
+        storyId: story.id,
+        title: story.title ?? undefined,
+        score,
+        wasUsed: !!usedStoryIds?.has(story.id),
+        counts: {
+          requirementsMatched: requirementsMatched.length,
+          differentiatorsMatched: differentiatorMatches.length,
+          goalsMatched: goals.length
+            ? goals.reduce((count, goal) => {
+                const regex = new RegExp(`\\b${escapeRegExp(goal)}\\b`, 'i');
+                return count + (regex.test(content) ? 1 : 0);
+              }, 0)
+            : 0,
+          jdKeywordsInContentScore,
+          jdKeywordsInTagsScore,
+        },
+        adjustments: {
+          reusePenalty,
+          shortContentPenalty,
+          lowTimesUsedBonus,
+          targetTitleTagBonus,
+        },
+      });
 
       if (score > bestScore) {
         bestScore = score;
@@ -2651,15 +2909,32 @@ export class CoverLetterDraftService {
       const fallbackStory = stories.find(s => s.content?.trim());
       if (fallbackStory) {
         console.warn(`[CoverLetterDraftService] No story selected for section "${section.title || 'unnamed'}" (${stories.length} stories evaluated, score: ${bestScore}), using fallback with content: "${fallbackStory.title || fallbackStory.id}"`);
-        return fallbackStory;
+        bestStory = fallbackStory;
+        bestScore = bestScore === -Infinity ? 0 : bestScore;
+      } else {
+        // If all stories have empty content, return null so caller can show helpful message
+        console.warn(`[CoverLetterDraftService] All ${stories.length} stories have empty content for section "${section.title || 'unnamed'}"`);
       }
-      // If all stories have empty content, return null so caller can show helpful message
-      console.warn(`[CoverLetterDraftService] All ${stories.length} stories have empty content for section "${section.title || 'unnamed'}"`);
     } else {
       console.warn(`[CoverLetterDraftService] No stories available for section "${section.title || 'unnamed'}"`);
     }
 
-    return bestStory;
+    const diagnostics: StorySelectionDiagnostics = {
+      sectionTitle: section.title,
+      selectedStoryId: bestStory?.id ?? null,
+      selectedScore: Number.isFinite(bestScore) ? bestScore : null,
+      hasUnusedStories,
+      usedStoryIds: Array.from(usedStoryIds ?? []),
+      topCandidates: candidates.sort((a, b) => b.score - a.score).slice(0, 5),
+    };
+
+    if (process.env.COVER_LETTER_STORY_SELECTION_DEBUG === '1') {
+      console.log(
+        `[CoverLetterDraftService] Story selection diagnostics for "${section.title || 'unnamed'}": ${JSON.stringify(diagnostics)}`,
+      );
+    }
+
+    return { story: bestStory, diagnostics };
   }
 
   private pickBestSavedSection(

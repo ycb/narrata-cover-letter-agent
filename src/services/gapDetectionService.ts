@@ -73,6 +73,12 @@ export interface GenericContentGap {
   confidence?: number;
 }
 
+export interface ContentStandardsResult {
+  needsSpecifics: boolean;
+  reasoning?: string;
+  confidence?: number;
+}
+
 /**
  * Gap Summary Interface
  * Aggregated view of gaps by content type and severity
@@ -947,17 +953,17 @@ export class GapDetectionService {
       return gaps; // No need to check generic if description is missing
     }
 
-    // 2. Check for generic description (LLM-as-judge)
-    const genericGap = await this.checkGenericContent(description);
-    if (genericGap.isGeneric) {
+    // 2. Content standards check (MVP heuristic)
+    const standards = this.checkContentStandards(description);
+    if (standards.needsSpecifics) {
       gaps.push({
         user_id: userId,
         entity_type: 'work_item',
         entity_id: workItemId,
         gap_type: 'best_practice',
-        gap_category: 'generic_role_description',
-        severity: genericGap.confidence && genericGap.confidence > 0.8 ? 'high' : 'medium',
-        description: 'May be too generic',
+        gap_category: 'role_description_needs_specifics',
+        severity: standards.confidence && standards.confidence > 0.8 ? 'high' : 'medium',
+        description: 'Needs more specific details and impact',
         suggestions: [
           {
             type: 'add_specifics',
@@ -986,17 +992,17 @@ export class GapDetectionService {
   ): Promise<Gap[]> {
     const gaps: Gap[] = [];
 
-    // Check for generic content (reuse existing prompt)
-    const genericGap = await this.checkGenericContent(section.content);
-    if (genericGap.isGeneric) {
+    // Content standards check (MVP heuristic)
+    const standards = this.checkContentStandards(section.content);
+    if (standards.needsSpecifics) {
       gaps.push({
         user_id: userId,
         entity_type: 'saved_section', // Cover letter sections are saved sections
         entity_id: section.id,
         gap_type: 'best_practice',
-        gap_category: 'generic_cover_letter_section',
-        severity: genericGap.confidence && genericGap.confidence > 0.8 ? 'high' : 'medium',
-        description: 'Section may be too generic',
+        gap_category: 'saved_section_needs_specifics',
+        severity: standards.confidence && standards.confidence > 0.8 ? 'high' : 'medium',
+        description: 'Section needs more specific, personalized content',
         suggestions: [
           {
             type: 'add_specifics',
@@ -1172,17 +1178,17 @@ export class GapDetectionService {
       }
     }
 
-    // 3. Generic Content Gap (LLM-as-judge)
-    const genericGap = await this.checkGenericContent(story.content);
-    if (genericGap.isGeneric) {
+    // 3. Content standards gap (MVP heuristic)
+    const standards = this.checkContentStandards(story.content);
+    if (standards.needsSpecifics) {
       gaps.push({
         user_id: userId,
         entity_type: 'approved_content',
         entity_id: story.id,
         gap_type: 'best_practice',
-        gap_category: 'too_generic',
-        severity: genericGap.confidence && genericGap.confidence > 0.8 ? 'high' : 'medium',
-        description: 'May be too generic',
+        gap_category: 'story_needs_specifics',
+        severity: standards.confidence && standards.confidence > 0.8 ? 'high' : 'medium',
+        description: 'Needs more specific details and outcomes',
         suggestions: [
           {
             type: 'add_specifics',
@@ -1265,6 +1271,33 @@ export class GapDetectionService {
       hasMetrics: false,
       metricCount: 0
     };
+  }
+
+  /**
+   * MVP content standards check (non-LLM).
+   * Framed as "needs more specifics / evidence" rather than a "generic" label.
+   */
+  private static checkContentStandards(content: string): ContentStandardsResult {
+    const text = (content || '').trim();
+    if (!text) {
+      return { needsSpecifics: true, reasoning: 'Content is empty', confidence: 1 };
+    }
+
+    const wordCount = text.split(/\s+/).filter(Boolean).length;
+    if (wordCount < 18) {
+      return { needsSpecifics: true, reasoning: 'Content is very short and likely fragmentary', confidence: 0.85 };
+    }
+
+    const genericSignals = this.fallbackGenericCheck(text);
+    if (genericSignals.isGeneric) {
+      return {
+        needsSpecifics: true,
+        reasoning: genericSignals.reasoning || 'Needs more specific details and evidence',
+        confidence: genericSignals.confidence ?? 0.7,
+      };
+    }
+
+    return { needsSpecifics: false, reasoning: 'Meets baseline specificity standards', confidence: 0.3 };
   }
 
   /**
@@ -1628,18 +1661,24 @@ If content is specific with metrics and clear impact, set isGeneric to false.`;
    * Aggregates gaps by content type and severity for dashboard display
    * 
    * Content Type Mapping:
-   * - approved_content + gap_category (incomplete_story, missing_metrics, too_generic) → Stories
+   * - approved_content + gap_category (incomplete_story, missing_metrics, story_needs_specifics) → Stories
    * - approved_content + gap_category (saved_section gaps) → Saved Sections (future)
-   * - work_item + gap_category (missing_role_description, generic_role_description) → Role Descriptions
+   * - work_item + gap_category (missing_role_description, role_description_needs_specifics) → Role Descriptions
    * - work_item + gap_category (missing_role_metrics, insufficient_role_metrics) → Role Metrics
    * - cover_letter_section (future) → Cover Letter Sections
    */
   static async getGapSummary(userId: string, profileId?: string, accessToken?: string): Promise<GapSummary> {
     try {
-      // Prefer direct gaps list to avoid missing counts in summary cards
-      const gaps = await this.getUserGaps(userId, profileId, accessToken);
+      // IMPORTANT: Gap totals are per-item (distinct content items with >=1 unresolved gap),
+      // not per-gap-row. Use getContentItemsWithGaps() which already expands work_item gaps into
+      // role_summary vs role_metrics items and dedupes at the entity level.
+      const itemsByType = await this.getContentItemsWithGaps(userId, profileId, accessToken);
+      const items = [
+        ...(itemsByType.byContentType.workHistory || []),
+        ...(itemsByType.byContentType.coverLetterSavedSections || []),
+      ];
       const summary: GapSummary = {
-        total: gaps.length,
+        total: items.length,
         byContentType: {
           stories: 0,
           savedSections: 0,
@@ -1655,7 +1694,7 @@ If content is specific with metrics and clear impact, set isGeneric to false.`;
         },
       };
 
-      const mapItemToType = (itemType: string | null | undefined): 'stories' | 'savedSections' | 'roleDescriptions' | 'outcomeMetrics' | 'coverLetterSections' => {
+      const mapItemType = (itemType: ContentItemWithGaps['item_type'] | undefined): 'stories' | 'savedSections' | 'roleDescriptions' | 'outcomeMetrics' | 'coverLetterSections' => {
         if (itemType === 'story') return 'stories';
         if (itemType === 'role_summary') return 'roleDescriptions';
         if (itemType === 'role_metrics') return 'outcomeMetrics';
@@ -1663,9 +1702,9 @@ If content is specific with metrics and clear impact, set isGeneric to false.`;
         return 'roleDescriptions';
       };
 
-      for (const gap of gaps) {
-        const t = mapItemToType((gap as any).item_type);
-        const sev = (gap as any).severity as 'high' | 'medium' | 'low';
+      for (const item of items) {
+        const t = mapItemType(item.item_type);
+        const sev = item.max_severity;
         summary.byContentType[t]++;
         summary.bySeverity[sev]++;
         summary.bySeverityAndType[sev][t]++;
@@ -2073,7 +2112,11 @@ If content is specific with metrics and clear impact, set isGeneric to false.`;
 
           // Check if this is role description or metrics gap
           const isRoleDescription = gapCategories.some(cat => 
-            cat === 'missing_role_description' || cat === 'generic_role_description'
+            cat === 'missing_role_description' ||
+            // Back-compat: legacy category
+            cat === 'generic_role_description' ||
+            // New standards-based category
+            cat === 'role_description_needs_specifics'
           );
           const isRoleMetrics = gapCategories.some(cat => 
             cat === 'missing_role_metrics' || cat === 'insufficient_role_metrics'

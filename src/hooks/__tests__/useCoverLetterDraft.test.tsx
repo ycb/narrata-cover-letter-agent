@@ -111,7 +111,8 @@ describe('useCoverLetterDraft', () => {
   ];
 
   let service: {
-    generateDraft: ReturnType<typeof vi.fn>;
+    generateDraftFast: ReturnType<typeof vi.fn>;
+    getDraft: ReturnType<typeof vi.fn>;
     updateDraftSection: ReturnType<typeof vi.fn>;
     calculateMatchMetrics: ReturnType<typeof vi.fn>;
     finalizeDraft: ReturnType<typeof vi.fn>;
@@ -132,11 +133,12 @@ describe('useCoverLetterDraft', () => {
     };
 
     service = {
-      generateDraft: vi.fn(async ({ onProgress }) => {
+      generateDraftFast: vi.fn(async ({ onProgress }) => {
         onProgress?.({ phase: 'jd_parse', message: 'Parsing', timestamp: 1 });
         onProgress?.({ phase: 'metrics', message: 'Scoring', timestamp: 2 });
-        return { draft: baseDraft, workpad };
+        return { draft: baseDraft, workpad, heuristicInsights: {} };
       }),
+      getDraft: vi.fn(async () => baseDraft),
       updateDraftSection: vi.fn(async () => ({
         ...baseDraft,
         sections: [
@@ -173,7 +175,7 @@ describe('useCoverLetterDraft', () => {
       });
     });
 
-    expect(service.generateDraft).toHaveBeenCalledWith(
+    expect(service.generateDraftFast).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: 'user-1',
         templateId: 'tmpl-1',
@@ -260,5 +262,61 @@ describe('useCoverLetterDraft', () => {
     expect(result.current.progress.some(update => update.phase === 'finalized')).toBe(true);
     expect(result.current.isFinalizing).toBe(false);
   });
-});
 
+  it('keeps metricsLoading true until Phase B artifacts land (sectionGapInsights)', async () => {
+    vi.useFakeTimers();
+
+    const phaseAEnhancedOnly: CoverLetterDraft = {
+      ...baseDraft,
+      enhancedMatchData: {
+        coreRequirementDetails: [{ id: 'core-1', requirement: 'Req', demonstrated: true }],
+        preferredRequirementDetails: [],
+      } as any,
+    };
+
+    const phaseBGapsArrived: CoverLetterDraft = {
+      ...phaseAEnhancedOnly,
+      enhancedMatchData: {
+        ...(phaseAEnhancedOnly.enhancedMatchData as any),
+        sectionGapInsights: [],
+      } as any,
+    };
+
+    let pollCount = 0;
+    service.getDraft = vi.fn(async () => {
+      pollCount += 1;
+      return pollCount < 2 ? phaseAEnhancedOnly : phaseBGapsArrived;
+    });
+
+    const { result } = renderHook(() =>
+      useCoverLetterDraftHook({
+        userId: 'user-1',
+        service: service as any,
+      }),
+    );
+
+    await act(async () => {
+      await result.current.generateDraft({
+        templateId: 'tmpl-1',
+        jobDescriptionId: 'jd-1',
+      });
+    });
+
+    // Immediately after draft generation, metrics polling begins.
+    expect(result.current.metricsLoading).toBe(true);
+
+    // First poll: enhancedMatchData exists, but sectionGapInsights is still undefined -> should remain loading.
+    await act(async () => {
+      vi.advanceTimersByTime(4000);
+    });
+    expect(result.current.metricsLoading).toBe(true);
+
+    // Second poll: sectionGapInsights becomes defined -> should clear loading.
+    await act(async () => {
+      vi.advanceTimersByTime(4000);
+    });
+    expect(result.current.metricsLoading).toBe(false);
+
+    vi.useRealTimers();
+  });
+});

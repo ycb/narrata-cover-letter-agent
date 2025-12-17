@@ -79,4 +79,69 @@ export function isLinkedInScrapingEnabled(): boolean {
   return Boolean(viteExposed);
 }
 
+/**
+ * Feature flags helper for Background Generic Gap Judge.
+ * Canonical name: ENABLE_BACKGROUND_GENERIC_GAP_JUDGE
+ * We also accept VITE_ENABLE_BACKGROUND_GENERIC_GAP_JUDGE for Vite builds, but canonical wins.
+ *
+ * Default: OFF (prevents post-import gap totals changing unexpectedly).
+ */
+export function isBackgroundGenericGapJudgeEnabled(): boolean {
+  // Canonical first
+  const canonical =
+    (typeof process !== 'undefined' && process.env && process.env.ENABLE_BACKGROUND_GENERIC_GAP_JUDGE === 'true') ||
+    (typeof import.meta !== 'undefined' &&
+      (import.meta as any).env &&
+      (import.meta as any).env.ENABLE_BACKGROUND_GENERIC_GAP_JUDGE === 'true');
 
+  if (canonical) return true;
+
+  // Fallback to Vite-exposed name if canonical is not available
+  const viteExposed =
+    (typeof import.meta !== 'undefined' &&
+      (import.meta as any).env &&
+      (import.meta as any).env.VITE_ENABLE_BACKGROUND_GENERIC_GAP_JUDGE === 'true') ||
+    (typeof process !== 'undefined' &&
+      process.env &&
+      process.env.VITE_ENABLE_BACKGROUND_GENERIC_GAP_JUDGE === 'true');
+
+  return Boolean(viteExposed);
+}
+
+const readEnv = (name: string): string | undefined => {
+  const fromNode =
+    typeof process !== 'undefined' && process.env ? (process.env as any)[name] : undefined;
+  const fromVite =
+    typeof import.meta !== 'undefined' && (import.meta as any).env ? (import.meta as any).env[name] : undefined;
+  return fromNode ?? fromVite;
+};
+
+const readBooleanEnv = (name: string): boolean | undefined => {
+  const raw = readEnv(name);
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+  return undefined;
+};
+
+/**
+ * Marketing flag: when signup is disabled, the site should route CTAs to waitlist.
+ * Canonical name: ENABLE_SIGNUP
+ * We also accept VITE_ENABLE_SIGNUP for Vite builds.
+ *
+ * Default: enabled in dev, disabled in prod.
+ */
+export function isSignupEnabled(): boolean {
+  const explicit = readBooleanEnv('ENABLE_SIGNUP') ?? readBooleanEnv('VITE_ENABLE_SIGNUP');
+  if (explicit !== undefined) return explicit;
+
+  const isProd =
+    typeof import.meta !== 'undefined' &&
+    (import.meta as any).env &&
+    Boolean((import.meta as any).env.PROD);
+
+  return !isProd;
+}
+
+export function isWaitlistModeEnabled(): boolean {
+  return !isSignupEnabled();
+}

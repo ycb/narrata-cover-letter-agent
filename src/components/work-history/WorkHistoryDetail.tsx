@@ -271,7 +271,8 @@ export const WorkHistoryDetail = ({
       (gap) =>
         (gap.gap_category || '').includes('role_description') ||
         gap.gap_category === 'missing_role_description' ||
-        gap.gap_category === 'generic_role_description',
+        gap.gap_category === 'generic_role_description' || // back-compat
+        gap.gap_category === 'role_description_needs_specifics',
     );
     if (!gap) {
       toast({
@@ -337,7 +338,8 @@ export const WorkHistoryDetail = ({
       roleGaps,
       (gap) =>
         gap.gap_category === 'missing_role_description' ||
-        gap.gap_category === 'generic_role_description',
+        gap.gap_category === 'generic_role_description' || // back-compat
+        gap.gap_category === 'role_description_needs_specifics',
     );
     if (!gap) {
       toast({
@@ -1701,13 +1703,12 @@ export const WorkHistoryDetail = ({
                 "border w-full",
                 // Show orange border only when description-specific gaps exist
                 (() => {
-                  const descriptionGaps = (selectedRole as any).gaps?.filter((gap: any) => {
-                    // Filter for description-specific gap categories (future: missing_role_description, generic_role_description, etc.)
-                    // For now, we only have metrics gaps, so this will be empty until we add description gap detection
-                    return gap.gap_category?.includes('description') || 
-                           gap.gap_category === 'generic_role_description' ||
-                           gap.gap_category === 'missing_role_description';
-                  }) || [];
+	                  const descriptionGaps = (selectedRole as any).gaps?.filter((gap: any) => {
+	                    return gap.gap_category?.includes('description') || 
+	                           gap.gap_category === 'missing_role_description' ||
+	                           gap.gap_category === 'generic_role_description' || // back-compat
+	                           gap.gap_category === 'role_description_needs_specifics';
+	                  }) || [];
                   return descriptionGaps.length > 0 && !resolvedGaps.has('role-description-gap');
                 })() && "border-warning"
               )}>
@@ -1718,11 +1719,12 @@ export const WorkHistoryDetail = ({
                   
                   {/* Role Description Gap Banner - only description-specific gaps */}
                   {(() => {
-                    const descriptionGaps = (selectedRole as any).gaps?.filter((gap: any) => {
-                      return gap.gap_category?.includes('description') || 
-                             gap.gap_category === 'generic_role_description' ||
-                             gap.gap_category === 'missing_role_description';
-                    }) || [];
+	                    const descriptionGaps = (selectedRole as any).gaps?.filter((gap: any) => {
+	                      return gap.gap_category?.includes('description') || 
+	                             gap.gap_category === 'missing_role_description' ||
+	                             gap.gap_category === 'generic_role_description' || // back-compat
+	                             gap.gap_category === 'role_description_needs_specifics';
+	                    }) || [];
                     const descriptionGapCategories = descriptionGaps
                       .map(gap => gap.gap_category)
                       .filter(Boolean) as string[];

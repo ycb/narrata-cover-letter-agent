@@ -48,6 +48,18 @@ We track both feature-flagged features and commented-out code here.
   - Progress bar treats LinkedIn as "disabled" (auto-advances)
   - UI shows "LinkedIn enrichment temporarily disabled"
 
+### Background Generic Gap Judge
+- **Flag**: `ENABLE_BACKGROUND_GENERIC_GAP_JUDGE` (default: off)
+- **Status**: Implemented but hidden behind feature flag
+- **Scope**:
+  - Post-import background job that runs an LLM batch “generic content” judge and writes additional `gaps` rows
+  - Used by `FileUploadService` after resume/cover letter import
+- **Files**:
+  - `src/services/fileUploadService.ts` (`runBackgroundGenericGapJudge`)
+  - `src/lib/flags.ts` (`isBackgroundGenericGapJudgeEnabled`)
+- **Reactivate**: Set `ENABLE_BACKGROUND_GENERIC_GAP_JUDGE=true` (and optionally `VITE_ENABLE_BACKGROUND_GENERIC_GAP_JUDGE=true`)
+- **Why Hidden**: Can cause post-onboarding gap totals to change asynchronously; revisit after onboarding latency/perf tuning
+
 ## Commented Code (Requires Code Changes to Reactivate)
 
 ### Job Description URL Ingestion

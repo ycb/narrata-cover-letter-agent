@@ -72,6 +72,16 @@ const companyTagsClient = new CompanyTagsClient();
 const ROLE_LEVEL_VALUES: RoleLevel[] = ['APM', 'PM', 'Senior PM', 'Staff', 'Group'];
 const ROLE_SCOPE_VALUES: RoleScope[] = ['feature', 'product', 'product_line', 'multiple_teams', 'org'];
 
+const COVER_LETTER_PIPELINE_VERSION = 'gng_step_v1';
+
+async function sha256Hex(input: string): Promise<string> {
+  const bytes = new TextEncoder().encode(input);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 // Exported for preanalyze-jd edge function
 export const roleInsightsSchema = z
   .object({
@@ -99,9 +109,14 @@ const jdAnalysisStage: PipelineStage = {
 
     const stageData: JdAnalysisStageData = {};
     let stageStatus: 'processing' | 'complete' | 'failed' = 'processing';
+    const stageStartMs = Date.now();
+    let firstPartialMs: number | null = null;
+    let llmUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null = null;
+    let usedCache = false;
 
     const emitPartial = async (partial: Partial<JdAnalysisStageData>) => {
       try {
+        firstPartialMs = firstPartialMs ?? Date.now();
         await send('progress', {
           jobId: job.id,
           stage: 'jdAnalysis',
@@ -131,13 +146,21 @@ const jdAnalysisStage: PipelineStage = {
           // Use cached results directly
           stageData.roleInsights = cachedAnalysis.roleInsights as RoleInsightsPayload;
           stageData.jdRequirementSummary = cachedAnalysis.jdRequirementSummary as JdRequirementSummary;
+          usedCache = true;
           
           // Emit the cached data
           await emitPartial({ jdRequirementSummary: stageData.jdRequirementSummary });
           await emitPartial({ roleInsights: stageData.roleInsights });
           
           // Return early with cached data
-          return { status: 'complete', data: stageData };
+          return {
+            status: 'complete',
+            isPartial: false,
+            data: stageData,
+            usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+            ttfu_ms: firstPartialMs ? firstPartialMs - stageStartMs : null,
+            meta: { usedCache: true },
+          };
         }
       }
       
@@ -154,8 +177,6 @@ const jdAnalysisStage: PipelineStage = {
       await emitPartial({ jdRequirementSummary });
 
       let accumulatedRoleInsights: RoleInsightsPayload | null = null;
-      let llmUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null = null;
-
       try {
         const rolePrompt = buildJdRolePrompt(jdTitle, jd.company, jdText);
         const { data: roleResult, usage: roleUsage } = await streamJsonFromLLM<RawRoleInsights>({
@@ -230,7 +251,9 @@ const jdAnalysisStage: PipelineStage = {
       status: stageStatus,
       isPartial: false,
       data: finalData,
-      usage: llmUsage, // Include token usage for logging
+      usage: llmUsage ?? { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }, // Include token usage for logging
+      ttfu_ms: firstPartialMs ? firstPartialMs - stageStartMs : null,
+      meta: { usedCache },
     };
   },
 };
@@ -333,6 +356,9 @@ const requirementAnalysisStage: PipelineStage = {
   execute: async (ctx: PipelineContext) => {
     const { job, supabase, openaiApiKey, send } = ctx;
     const { jobDescriptionId } = job.input;
+    const stageStartMs = Date.now();
+    let firstPartialMs: number | null = null;
+    let llmUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null = null;
 
     // Fetch data
     const jd = await fetchJobDescription(supabase, jobDescriptionId);
@@ -341,6 +367,7 @@ const requirementAnalysisStage: PipelineStage = {
 
     // Early progress: surface counts so UI can tick forward immediately
     try {
+      firstPartialMs = firstPartialMs ?? Date.now();
       await send('progress', {
         jobId: job.id,
         stage: 'requirementAnalysis',
@@ -406,21 +433,34 @@ Extract 5-10 core and 3-5 preferred requirements. Be specific with evidence.`;
       temperature: 0.4,
       maxTokens: 2500,
     });
+    llmUsage = {
+      prompt_tokens: response?.usage?.prompt_tokens ?? 0,
+      completion_tokens: response?.usage?.completion_tokens ?? 0,
+      total_tokens: response?.usage?.total_tokens ?? 0,
+    };
 
     const result = parseJSONResponse(response.choices[0].message.content);
 
+    const finalPayload = {
+      coreRequirements: result.coreRequirements || [],
+      preferredRequirements: result.preferredRequirements || [],
+      requirementsMet: result.requirementsMet || 0,
+      totalRequirements: result.totalRequirements || 0,
+    };
+
     // Late progress: counts to drive UI micro-steps
     try {
+      firstPartialMs = firstPartialMs ?? Date.now();
       await send('progress', {
         jobId: job.id,
         stage: 'requirementAnalysis',
         isPartial: true,
         data: {
           status: 'requirements_extracted',
-          coreCount: Array.isArray(result.coreRequirements) ? result.coreRequirements.length : 0,
-          preferredCount: Array.isArray(result.preferredRequirements) ? result.preferredRequirements.length : 0,
-          requirementsMet: result.requirementsMet || 0,
-          totalRequirements: result.totalRequirements || 0,
+          coreCount: Array.isArray(finalPayload.coreRequirements) ? finalPayload.coreRequirements.length : 0,
+          preferredCount: Array.isArray(finalPayload.preferredRequirements) ? finalPayload.preferredRequirements.length : 0,
+          requirementsMet: finalPayload.requirementsMet,
+          totalRequirements: finalPayload.totalRequirements,
         },
         timestamp: new Date().toISOString(),
       });
@@ -428,11 +468,24 @@ Extract 5-10 core and 3-5 preferred requirements. Be specific with evidence.`;
       console.warn('[requirementAnalysisStage] Failed to emit requirements_extracted progress', err);
     }
 
+    // Final progress: mark stage complete so client stageFlags can advance
+    try {
+      await send('progress', {
+        jobId: job.id,
+        stage: 'requirementAnalysis',
+        isPartial: false,
+        data: finalPayload,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.warn('[requirementAnalysisStage] Failed to emit final progress event', err);
+    }
+
     return {
-      coreRequirements: result.coreRequirements || [],
-      preferredRequirements: result.preferredRequirements || [],
-      requirementsMet: result.requirementsMet || 0,
-      totalRequirements: result.totalRequirements || 0,
+      ...finalPayload,
+      status: 'complete',
+      usage: llmUsage ?? { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+      ttfu_ms: firstPartialMs ? firstPartialMs - stageStartMs : null,
     };
   },
 };
@@ -474,11 +527,24 @@ const goalsAndStrengthsStage: PipelineStage = {
     const { job, supabase, openaiApiKey, send } = ctx;
     const { jobDescriptionId } = job.input;
 
-    const stageData: GoalsAndStrengthsStageData = {};
-    let stageStatus: 'processing' | 'complete' | 'failed' = 'processing';
+	    const stageData: GoalsAndStrengthsStageData = {};
+	    let stageStatus: 'processing' | 'complete' | 'failed' = 'processing';
+	    const stageStartMs = Date.now();
+	    let firstPartialMs: number | null = null;
+	    // IMPORTANT: These must live in the execute() scope (not inside the inner try blocks),
+	    // otherwise referencing them in the return object throws ReferenceError in Deno.
+	    let mwsUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null = null;
+	    let jdContextUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null = null;
+	    const timings: {
+	      mws_ms?: number;
+	      company_context_ms?: number;
+	      company_tags_ms?: number;
+	      used_company_tags?: boolean;
+	    } = {};
 
     const emitPartial = async () => {
       try {
+        firstPartialMs = firstPartialMs ?? Date.now();
         await send('progress', {
           jobId: job.id,
           stage: 'goalsAndStrengths',
@@ -491,6 +557,36 @@ const goalsAndStrengthsStage: PipelineStage = {
         });
       } catch (error) {
         console.warn('[goalsAndStrengthsStage] Failed to emit partial progress', error);
+      }
+    };
+
+    const completeMwsStage = async () => {
+      try {
+        await send('progress', {
+          jobId: job.id,
+          stage: 'goalsAndStrengths',
+          isPartial: false,
+          data: stageStatus === 'failed' ? {} : { ...(stageData.mws ? { mws: stageData.mws } : {}) },
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.warn('[goalsAndStrengthsStage] Failed to emit final progress (MWS-only)', error);
+      }
+    };
+
+    // Company context is intentionally separated so it cannot block "Phase A complete" UX.
+    // This stage is additive and can finish later (web fallback can be slow).
+    const emitCompanyContext = async (isPartial: boolean, payload: Record<string, unknown>) => {
+      try {
+        await send('progress', {
+          jobId: job.id,
+          stage: 'companyContext',
+          isPartial,
+          data: payload,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.warn('[companyContextStage] Failed to emit progress', error);
       }
     };
 
@@ -509,9 +605,9 @@ const goalsAndStrengthsStage: PipelineStage = {
         jd.company ||
         null;
 
-      // --- MWS STREAMING ---------------------------------------------------
-      let mwsUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null = null;
-      try {
+	      // --- MWS STREAMING ---------------------------------------------------
+	      try {
+        const mwsStart = Date.now();
         const mwsPrompt = buildMwsPrompt(pmProfile, jdSignals, truncatedJd);
         const { data: mwsResult, usage: mwsTokenUsage } = await streamJsonFromLLM<RawMwsSummary>({
           apiKey: openaiApiKey,
@@ -539,6 +635,7 @@ const goalsAndStrengthsStage: PipelineStage = {
           },
         });
 
+        timings.mws_ms = Date.now() - mwsStart;
         mwsUsage = mwsTokenUsage; // Store for return data
         const finalMws = sanitizeMwsSummary(mwsResult);
         if (finalMws) {
@@ -593,10 +690,16 @@ const goalsAndStrengthsStage: PipelineStage = {
         });
       }
 
-      // --- COMPANY CONTEXT (JD FIRST) --------------------------------------
-      let jdContext: CompanyContext | null = null;
-      let jdContextUsage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null = null;
-      try {
+      // Mark the Go/No-go-relevant A-phase stage as complete as soon as MwS is ready.
+      // Company context continues independently and should not block the Fit check buffer step.
+      stageStatus = 'complete';
+      await completeMwsStage();
+
+	      // --- COMPANY CONTEXT (JD FIRST) --------------------------------------
+	      let jdContext: CompanyContext | null = null;
+	      try {
+        const companyContextStart = Date.now();
+        await emitCompanyContext(true, { status: 'starting' });
         const contextPrompt = buildCompanyContextPrompt(companyName, jdSignals, truncatedJd);
         const { data: jdContextRaw, usage: contextTokenUsage } = await streamJsonFromLLM<RawCompanyContext>({
           apiKey: openaiApiKey,
@@ -605,6 +708,7 @@ const goalsAndStrengthsStage: PipelineStage = {
           temperature: 0.2,
           maxTokens: 500,
         });
+        timings.company_context_ms = Date.now() - companyContextStart;
         jdContextUsage = contextTokenUsage; // Store for return data
         const sanitizedContext = sanitizeCompanyContext(jdContextRaw, 'jd');
         if (sanitizedContext) {
@@ -613,7 +717,7 @@ const goalsAndStrengthsStage: PipelineStage = {
             computeCompanyContextConfidence(sanitizedContext, sanitizedContext.source ?? 'jd');
           jdContext = sanitizedContext;
           stageData.companyContext = sanitizedContext;
-          await emitPartial();
+          await emitCompanyContext(true, { companyContext: sanitizedContext });
           await logStreamInfo('[STREAM] goalsAndStrengths companyContext ready', {
             jobId: job.id,
             source: sanitizedContext.source,
@@ -637,6 +741,8 @@ const goalsAndStrengthsStage: PipelineStage = {
         try {
           const webContext = await companyTagsClient.fetchCompanyContext({ companyName });
           const companyTagsDuration = Date.now() - companyTagsStart;
+          timings.company_tags_ms = companyTagsDuration;
+          timings.used_company_tags = true;
           
           // Log company tags LLM call (Phase 0: Cost Tracking)
           voidLogEval(supabase, {
@@ -662,7 +768,7 @@ const goalsAndStrengthsStage: PipelineStage = {
             const merged = mergeCompanyContexts(stageData.companyContext, webContext);
             if (merged) {
               stageData.companyContext = merged;
-              await emitPartial();
+              await emitCompanyContext(true, { companyContext: merged });
               await logStreamInfo('[STREAM] goalsAndStrengths companyContext merged', {
                 jobId: job.id,
                 source: merged.source,
@@ -675,7 +781,7 @@ const goalsAndStrengthsStage: PipelineStage = {
           voidLogEval(supabase, {
             job_id: job.id,
             job_type: 'coverLetter',
-            stage: 'company_tags_extraction',
+            stage: 'companyTags',
             user_id: job.user_id,
             started_at: new Date(companyTagsStart),
             completed_at: new Date(),
@@ -694,7 +800,9 @@ const goalsAndStrengthsStage: PipelineStage = {
         }
       }
 
-      stageStatus = 'complete';
+      await emitCompanyContext(false, {
+        ...(stageData.companyContext ? { companyContext: stageData.companyContext } : {}),
+      });
       await logStreamInfo('[STREAM] goalsAndStrengths complete', {
         jobId: job.id,
         hasMws: Boolean(stageData.mws),
@@ -708,24 +816,6 @@ const goalsAndStrengthsStage: PipelineStage = {
       });
     }
 
-    try {
-      await send('progress', {
-        jobId: job.id,
-        stage: 'goalsAndStrengths',
-        isPartial: false,
-        data:
-          stageStatus === 'failed'
-            ? {}
-            : {
-                ...(stageData.mws ? { mws: stageData.mws } : {}),
-                ...(stageData.companyContext ? { companyContext: stageData.companyContext } : {}),
-              },
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error) {
-      console.warn('[goalsAndStrengthsStage] Failed to emit final progress', error);
-    }
-
     return {
       status: stageStatus,
       isPartial: false,
@@ -734,6 +824,8 @@ const goalsAndStrengthsStage: PipelineStage = {
         mws: mwsUsage,
         companyContext: jdContextUsage,
       },
+      timings,
+      ttfu_ms: firstPartialMs ? firstPartialMs - stageStartMs : null,
     };
   },
 };
@@ -1122,6 +1214,9 @@ export async function executeCoverLetterPipeline(
 ) {
   // Initialize telemetry
   const telemetry = new PipelineTelemetry(job.id, job.type);
+  const jobDescriptionId = job.input?.jobDescriptionId as string | undefined;
+  const templateId = job.input?.templateId as string | undefined;
+  let jdFingerprint: { char_len?: number; hash12?: string } = {};
 
   try {
     // Get OpenAI API key from environment
@@ -1145,17 +1240,41 @@ export async function executeCoverLetterPipeline(
     } catch (_) {}
 
     const results: Record<string, any> = {};
+    try {
+      if (jobDescriptionId) {
+        const jd = await fetchJobDescription(supabase, jobDescriptionId);
+        const jdText = ((jd as any)?.raw_text || (jd as any)?.content || '').trim();
+        jdFingerprint.char_len = jdText.length;
+        if (jdText) {
+          const hex = await sha256Hex(jdText);
+          jdFingerprint.hash12 = hex.slice(0, 12);
+        }
+      }
+    } catch {
+      // Non-blocking: fingerprint is optional
+    }
 
     // =========================================================================
     // LAYER 1: JD Analysis (streaming - must complete first for SSE updates)
     // =========================================================================
     const jdAnalysisStart = Date.now();
+    
+    // Log stage start
+    voidLogEval(supabase, {
+      job_id: job.id,
+      job_type: 'coverLetter',
+      stage: 'jdAnalysis',
+      user_id: job.user_id,
+      started_at: new Date(jdAnalysisStart),
+      success: true, // Placeholder (stage hasn't failed yet)
+    });
+    
     try {
       telemetry?.startStage('jdAnalysis');
       results.jdAnalysis = await jdAnalysisStage.execute(context);
       telemetry?.endStage(true);
       
-      // Log eval metrics (Phase 1b: with token tracking)
+      // Log stage completion
       voidLogEval(supabase, {
         job_id: job.id,
         job_type: 'coverLetter',
@@ -1165,12 +1284,18 @@ export async function executeCoverLetterPipeline(
         completed_at: new Date(),
         duration_ms: Date.now() - jdAnalysisStart,
         success: true,
-        prompt_name: 'buildJdRolePrompt',
+        prompt_name: results.jdAnalysis?.meta?.usedCache ? 'jdAnalysis_cached' : 'buildJdRolePrompt',
         model: 'gpt-4o-mini',
-        prompt_tokens: results.jdAnalysis?.usage?.prompt_tokens,
-        completion_tokens: results.jdAnalysis?.usage?.completion_tokens,
-        total_tokens: results.jdAnalysis?.usage?.total_tokens,
+        prompt_tokens: results.jdAnalysis?.usage?.prompt_tokens ?? 0,
+        completion_tokens: results.jdAnalysis?.usage?.completion_tokens ?? 0,
+        total_tokens: results.jdAnalysis?.usage?.total_tokens ?? 0,
+        ttfu_ms: results.jdAnalysis?.ttfu_ms ?? undefined,
         result_subset: {
+          pipeline_version: COVER_LETTER_PIPELINE_VERSION,
+          jobDescriptionId,
+          templateId,
+          jd_char_len: jdFingerprint.char_len,
+          jd_hash12: jdFingerprint.hash12,
           hasRoleInsights: Boolean(results.jdAnalysis?.data?.roleInsights),
           hasRequirementSummary: Boolean(results.jdAnalysis?.data?.jdRequirementSummary),
         },
@@ -1221,12 +1346,23 @@ export async function executeCoverLetterPipeline(
     const [requirementResult, goalsResult] = await Promise.allSettled([
       (async () => {
         const stageStart = Date.now();
+        
+        // Log stage start
+        voidLogEval(supabase, {
+          job_id: job.id,
+          job_type: 'coverLetter',
+          stage: 'requirementAnalysis',
+          user_id: job.user_id,
+          started_at: new Date(stageStart),
+          success: true, // Placeholder
+        });
+        
         try {
           telemetry?.startStage('requirementAnalysis');
           const result = await requirementAnalysisStage.execute(context);
           telemetry?.endStage(true);
           
-          // Log eval metrics
+          // Log stage completion
           voidLogEval(supabase, {
             job_id: job.id,
             job_type: 'coverLetter',
@@ -1236,7 +1372,18 @@ export async function executeCoverLetterPipeline(
             completed_at: new Date(),
             duration_ms: Date.now() - stageStart,
             success: true,
+            prompt_name: 'requirementAnalysis_prompt',
+            model: 'gpt-4o-mini',
+            prompt_tokens: result?.usage?.prompt_tokens ?? 0,
+            completion_tokens: result?.usage?.completion_tokens ?? 0,
+            total_tokens: result?.usage?.total_tokens ?? 0,
+            ttfu_ms: result?.ttfu_ms ?? undefined,
             result_subset: {
+              pipeline_version: COVER_LETTER_PIPELINE_VERSION,
+              jobDescriptionId,
+              templateId,
+              jd_char_len: jdFingerprint.char_len,
+              jd_hash12: jdFingerprint.hash12,
               coreRequirementsCount: result?.coreRequirements?.length || 0,
               requirementsMet: result?.requirementsMet || 0,
               totalRequirements: result?.totalRequirements || 0,
@@ -1266,55 +1413,73 @@ export async function executeCoverLetterPipeline(
       })(),
       (async () => {
         const stageStart = Date.now();
+        
+        // Log stage start
+        voidLogEval(supabase, {
+          job_id: job.id,
+          job_type: 'coverLetter',
+          stage: 'goalsAndStrengths',
+          user_id: job.user_id,
+          started_at: new Date(stageStart),
+          success: true, // Placeholder
+        });
+        
         try {
           telemetry?.startStage('goalsAndStrengths');
           const result = await goalsAndStrengthsStage.execute(context);
           telemetry?.endStage(true);
           
-          // Log eval metrics for MWS call (Phase 1b: Token Tracking)
-          if (result?.usage?.mws) {
-            voidLogEval(supabase, {
-              job_id: job.id,
-              job_type: 'coverLetter',
-              stage: 'goalsAndStrengths_mws',
-              user_id: job.user_id,
-              started_at: new Date(stageStart),
-              completed_at: new Date(),
-              duration_ms: Date.now() - stageStart,
-              success: Boolean(result?.data?.mws),
-              prompt_name: 'buildMwsPrompt',
-              model: 'gpt-4o-mini',
-              prompt_tokens: result.usage.mws.prompt_tokens,
-              completion_tokens: result.usage.mws.completion_tokens,
-              total_tokens: result.usage.mws.total_tokens,
-              result_subset: {
-                mwsScore: result?.data?.mws?.summaryScore,
-              },
-            });
-          }
+          // Log eval metrics for MWS call (Phase 1b: Token Tracking - Sub-stage)
+          voidLogEval(supabase, {
+            job_id: job.id,
+            job_type: 'coverLetter',
+            stage: 'goalsAndStrengths.mws',
+            user_id: job.user_id,
+            started_at: new Date(stageStart),
+            completed_at: new Date(),
+            duration_ms: result?.timings?.mws_ms ?? (Date.now() - stageStart),
+            success: Boolean(result?.data?.mws),
+            prompt_name: 'buildMwsPrompt',
+            model: 'gpt-4o-mini',
+            prompt_tokens: result?.usage?.mws?.prompt_tokens ?? 0,
+            completion_tokens: result?.usage?.mws?.completion_tokens ?? 0,
+            total_tokens: result?.usage?.mws?.total_tokens ?? 0,
+            result_subset: {
+              pipeline_version: COVER_LETTER_PIPELINE_VERSION,
+              jobDescriptionId,
+              templateId,
+              jd_char_len: jdFingerprint.char_len,
+              jd_hash12: jdFingerprint.hash12,
+              mwsScore: result?.data?.mws?.summaryScore,
+            },
+          });
           
-          // Log eval metrics for Company Context call
-          if (result?.usage?.companyContext) {
-            voidLogEval(supabase, {
-              job_id: job.id,
-              job_type: 'coverLetter',
-              stage: 'goalsAndStrengths_company_context',
-              user_id: job.user_id,
-              started_at: new Date(stageStart),
-              completed_at: new Date(),
-              duration_ms: Date.now() - stageStart,
-              success: Boolean(result?.data?.companyContext),
-              prompt_name: 'buildCompanyContextPrompt',
-              model: 'gpt-4o-mini',
-              prompt_tokens: result.usage.companyContext.prompt_tokens,
-              completion_tokens: result.usage.companyContext.completion_tokens,
-              total_tokens: result.usage.companyContext.total_tokens,
-              result_subset: {
-                source: result?.data?.companyContext?.source,
-                confidence: result?.data?.companyContext?.confidence,
-              },
-            });
-          }
+          // Log eval metrics for Company Context call (Sub-stage)
+          voidLogEval(supabase, {
+            job_id: job.id,
+            job_type: 'coverLetter',
+            stage: 'goalsAndStrengths.companyContext',
+            user_id: job.user_id,
+            started_at: new Date(stageStart),
+            completed_at: new Date(),
+            duration_ms: result?.timings?.company_context_ms ?? (Date.now() - stageStart),
+            success: Boolean(result?.data?.companyContext),
+            prompt_name: 'buildCompanyContextPrompt',
+            model: 'gpt-4o-mini',
+            prompt_tokens: result?.usage?.companyContext?.prompt_tokens ?? 0,
+            completion_tokens: result?.usage?.companyContext?.completion_tokens ?? 0,
+            total_tokens: result?.usage?.companyContext?.total_tokens ?? 0,
+            result_subset: {
+              pipeline_version: COVER_LETTER_PIPELINE_VERSION,
+              jobDescriptionId,
+              templateId,
+              jd_char_len: jdFingerprint.char_len,
+              jd_hash12: jdFingerprint.hash12,
+              source: result?.data?.companyContext?.source,
+              confidence: result?.data?.companyContext?.confidence,
+              used_company_tags: result?.timings?.used_company_tags ?? false,
+            },
+          });
           
           // Log overall stage metrics (backward compatible)
           voidLogEval(supabase, {
@@ -1326,7 +1491,13 @@ export async function executeCoverLetterPipeline(
             completed_at: new Date(),
             duration_ms: Date.now() - stageStart,
             success: true,
+            ttfu_ms: result?.ttfu_ms ?? undefined,
             result_subset: {
+              pipeline_version: COVER_LETTER_PIPELINE_VERSION,
+              jobDescriptionId,
+              templateId,
+              jd_char_len: jdFingerprint.char_len,
+              jd_hash12: jdFingerprint.hash12,
               hasMws: Boolean(result?.data?.mws),
               mwsScore: result?.data?.mws?.summaryScore,
               hasCompanyContext: Boolean(result?.data?.companyContext),
@@ -1378,6 +1549,17 @@ export async function executeCoverLetterPipeline(
     // LAYER 3: Section Gaps (needs requirements data)
     // =========================================================================
     const sectionGapsStart = Date.now();
+    
+    // Log stage start
+    voidLogEval(supabase, {
+      job_id: job.id,
+      job_type: 'coverLetter',
+      stage: 'sectionGaps',
+      user_id: job.user_id,
+      started_at: new Date(sectionGapsStart),
+      success: true, // Placeholder
+    });
+    
     const layer3Heartbeat = setInterval(() => {
       try {
         send('progress', {
@@ -1407,6 +1589,11 @@ export async function executeCoverLetterPipeline(
         duration_ms: Date.now() - sectionGapsStart,
         success: true,
         result_subset: {
+          pipeline_version: COVER_LETTER_PIPELINE_VERSION,
+          jobDescriptionId,
+          templateId,
+          jd_char_len: jdFingerprint.char_len,
+          jd_hash12: jdFingerprint.hash12,
           totalGaps: results.sectionGaps?.totalGaps || 0,
           sectionCount: results.sectionGaps?.sections?.length || 0,
         },
@@ -1474,7 +1661,7 @@ export async function executeCoverLetterPipeline(
     voidLogEval(supabase, {
       job_id: job.id,
       job_type: 'coverLetter',
-      stage: 'structural_checks',
+      stage: 'structuralChecks',
       user_id: job.user_id,
       started_at: new Date(),
       completed_at: new Date(),
@@ -1529,10 +1716,13 @@ export async function executeCoverLetterPipeline(
           .single();
 
         const llmFeedback = (draftRow?.llm_feedback as Record<string, unknown>) || {};
+        const existingEnhanced = (llmFeedback.enhancedMatchData as Record<string, unknown> | null) ?? {};
+        // IMPORTANT: Do not write sectionGapInsights here. Those are draft-dependent and should
+        // come from draft-side gap detection. This pipeline only persists A-phase requirement details.
         const enhancedMatchData = {
+          ...existingEnhanced,
           coreRequirementDetails: results.requirementAnalysis?.coreRequirements || [],
           preferredRequirementDetails: results.requirementAnalysis?.preferredRequirements || [],
-          sectionGapInsights: results.sectionGaps?.sections || [],
         };
 
         await supabase

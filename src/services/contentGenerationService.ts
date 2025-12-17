@@ -188,7 +188,15 @@ export class ContentGenerationService {
             gapStillExists = !this.checkForMetrics(content);
             break;
 
+          // Back-compat: legacy "generic" categories
           case 'generic_role_description':
+          case 'too_generic':
+          case 'generic_cover_letter_section':
+          // New standards-based categories ("needs specifics")
+          case 'role_description_needs_specifics':
+          case 'story_needs_specifics':
+          case 'saved_section_needs_specifics':
+          // Legacy catch-all
           case 'generic_content':
             gapStillExists = this.checkForGenericContent(content);
             break;

@@ -10,7 +10,7 @@ export type GapSummaryContentType = 'role_description' | 'role_metrics' | 'story
 /**
  * Generate a contextual gap summary from gap categories
  * 
- * @param gapCategories - Array of gap category strings (e.g., ['missing_metrics', 'too_generic'])
+ * @param gapCategories - Array of gap category strings (e.g., ['missing_metrics', 'story_needs_specifics'])
  * @param contentType - Type of content being analyzed
  * @returns Human-readable summary string for the gap banner title
  */
@@ -26,7 +26,10 @@ export function generateGapSummary(
   const categoryPriority: Record<string, number> = {
     // Role Description
     'missing_role_description': 10,
+    // Back-compat: legacy category name
     'generic_role_description': 9,
+    // New standards-based category name
+    'role_description_needs_specifics': 9,
     
     // Role Metrics
     'missing_role_metrics': 8,
@@ -35,10 +38,16 @@ export function generateGapSummary(
     // Story
     'incomplete_story': 10,
     'missing_metrics': 8,
+    // Back-compat: legacy category name
     'too_generic': 7,
+    // New standards-based category name
+    'story_needs_specifics': 7,
     
     // Saved Section
+    // Back-compat: legacy category name
     'generic_cover_letter_section': 8,
+    // New standards-based category name
+    'saved_section_needs_specifics': 8,
     'incomplete_intro': 7,
     'incomplete_cover_letter_section': 9,
     'missing_metrics_cover_letter': 6,
@@ -65,6 +74,7 @@ export function generateGapSummary(
     role_description: {
       'missing_role_description': 'Add role description',
       'generic_role_description': 'Add more specific details and quantifiable achievements',
+      'role_description_needs_specifics': 'Add more specific details and quantifiable achievements',
       // Fallback
       'default': 'Add role description details',
     },
@@ -78,6 +88,7 @@ export function generateGapSummary(
       'incomplete_story': 'Add narrative structure (STAR format)',
       'missing_metrics': 'Add quantifiable metrics',
       'too_generic': 'Add more specific details and measurable outcomes',
+      'story_needs_specifics': 'Add more specific details and measurable outcomes',
       // Multiple gaps
       'multiple': 'Add structure, metrics, and specific details',
       // Fallback
@@ -85,6 +96,7 @@ export function generateGapSummary(
     },
     saved_section: {
       'generic_cover_letter_section': 'Add more specific content aligned with job requirements',
+      'saved_section_needs_specifics': 'Add more specific content aligned with job requirements',
       'incomplete_intro': 'Add company and role-specific details',
       'incomplete_cover_letter_section': 'Add narrative structure (STAR format)',
       'missing_metrics_cover_letter': 'Add quantifiable achievements',
@@ -106,4 +118,3 @@ export function generateGapSummary(
   // Use primary category template or fallback
   return typeTemplates[primaryCategory] || typeTemplates.default || 'Gaps Detected';
 }
-

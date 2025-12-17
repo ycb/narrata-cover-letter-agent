@@ -58,6 +58,7 @@ import { HumanReviewService } from './humanReviewService';
 import { AppifyService } from './appifyService';
 import { getSyntheticLocalOnlyFlag, syntheticStorage } from '@/utils/storage';
 import { schedulePMLevelBackgroundRun } from './pmLevelsEdgeClient';
+import { isBackgroundGenericGapJudgeEnabled } from '@/lib/flags';
 
 export class FileUploadService {
   private textExtractionService: TextExtractionService;
@@ -1795,10 +1796,14 @@ source_type: dbSourceType,
       console.log('✅ Structured data processed successfully');
 
       // Kick off background LLM judge for generic content gaps (non-blocking)
-      console.log('⏱️  [TIMING] Queueing background generic gap judge (non-blocking)...');
-      this.runBackgroundGenericGapJudge(sourceId, userId, accessToken).catch((err) => {
-        console.error('[GapDetection] Background generic gap judge failed:', err);
-      });
+      if (isBackgroundGenericGapJudgeEnabled()) {
+        console.log('⏱️  [TIMING] Queueing background generic gap judge (non-blocking)...');
+        this.runBackgroundGenericGapJudge(sourceId, userId, accessToken).catch((err) => {
+          console.error('[GapDetection] Background generic gap judge failed:', err);
+        });
+      } else {
+        console.log('📌 Background generic gap judge disabled by feature flag (ENABLE_BACKGROUND_GENERIC_GAP_JUDGE=false)');
+      }
 
       schedulePMLevelBackgroundRun({
         userId,
@@ -3564,7 +3569,8 @@ source_type: dbSourceType,
           entity_type: isStory ? 'approved_content' : 'work_item',
           entity_id: id,
           gap_type: 'best_practice',
-          gap_category: isStory ? 'generic_story' : 'generic_role_description',
+          // Standards-based categories (legacy generic_* replaced)
+          gap_category: isStory ? 'story_needs_specifics' : 'role_description_needs_specifics',
           severity: gap.confidence && gap.confidence > 0.8 ? 'high' : 'medium',
           description: gap.reasoning || 'Content may be too generic',
         });

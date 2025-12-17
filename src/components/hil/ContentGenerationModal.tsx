@@ -10,6 +10,7 @@ import { ContentGapBanner } from '@/components/shared/ContentGapBanner';
 import type { Gap } from '@/services/gapTransformService';
 import { SectionInspector, type SectionAttributionData } from '@/components/cover-letters/SectionInspector';
 import { supabase } from '@/lib/supabase';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface GapAnalysis {
   id: string;
@@ -42,7 +43,10 @@ interface ContentGenerationModalProps {
   isOpen: boolean;
   onClose: () => void;
   gap?: GapAnalysis | null;
-  onApplyContent?: (content: string) => void;
+  onApplyContent?: (content: string, options?: { saveToSavedSections?: boolean; saveToStories?: boolean }) => void;
+  // Optional toggles for CL draft context; defaults keep checkboxes hidden elsewhere
+  allowSaveToSavedSections?: boolean;
+  allowSaveToStories?: boolean;
   // Tag suggestion mode
   mode?: 'gap-detection' | 'tag-suggestion';
   content?: string;
@@ -73,20 +77,16 @@ export function ContentGenerationModal({
   onGenerateTags,
   isSearching = false,
   searchError = null,
-  onRetry
+  onRetry,
+  allowSaveToSavedSections = false,
+  allowSaveToStories = false
 }: ContentGenerationModalProps) {
-  console.log('ContentGenerationModal render:', { isOpen, mode, suggestedTags, otherTags, isSearching, searchError });
-  console.log('ContentGenerationModal gap data:', {
-    hasGap: !!gap,
-    hasSectionAttribution: !!gap?.sectionAttribution,
-    sectionAttribution: gap?.sectionAttribution,
-    gaps: gap?.gaps,
-    gapSummary: gap?.gapSummary
-  });
   const { toast } = useToast();
   const [generatedContent, setGeneratedContent] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [contentQuality, setContentQuality] = useState<'draft' | 'review' | 'ready'>('draft');
+  const [saveToSavedSections, setSaveToSavedSections] = useState(false);
+  const [saveToStories, setSaveToStories] = useState(false);
 
   // Tag suggestion state
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -269,13 +269,16 @@ export function ContentGenerationModal({
       }
     }
 
-    if (onApplyContent) {
-      onApplyContent(generatedContent);
-    }
+    onApplyContent?.(generatedContent, {
+      saveToSavedSections,
+      saveToStories,
+    });
     onClose();
     // Reset state
     setGeneratedContent('');
     setContentQuality('draft');
+    setSaveToSavedSections(false);
+    setSaveToStories(false);
   };
 
   const handleClose = () => {
@@ -283,6 +286,8 @@ export function ContentGenerationModal({
     // Reset state
     setGeneratedContent('');
     setContentQuality('draft');
+    setSaveToSavedSections(false);
+    setSaveToStories(false);
   };
 
   if (mode === 'gap-detection' && !gap) return null;
@@ -526,11 +531,31 @@ export function ContentGenerationModal({
                       />
 
                       <div className="flex items-center justify-between mt-4">
-                        <div className="flex gap-2">
-                          <Button variant="secondary" onClick={handleRegenerate} disabled={isGenerating}>
-                            <RefreshCw className={`h-4 w-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
-                            Regenerate
-                          </Button>
+                        <div className="flex flex-col gap-3 text-sm text-muted-foreground">
+                          {allowSaveToSavedSections && (
+                            <label className="flex gap-2 items-center">
+                              <Checkbox
+                                checked={saveToSavedSections}
+                                onCheckedChange={(checked) => setSaveToSavedSections(Boolean(checked))}
+                              />
+                              <span>Add to Saved Sections after apply</span>
+                            </label>
+                          )}
+                          {allowSaveToStories && (
+                            <label className="flex gap-2 items-center">
+                              <Checkbox
+                                checked={saveToStories}
+                                onCheckedChange={(checked) => setSaveToStories(Boolean(checked))}
+                              />
+                              <span>Add to Stories after apply</span>
+                            </label>
+                          )}
+                          <div className="flex gap-2">
+                            <Button variant="secondary" onClick={handleRegenerate} disabled={isGenerating} size="sm">
+                              <RefreshCw className={`h-4 w-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
+                              Regenerate
+                            </Button>
+                          </div>
                         </div>
 
                         <div className="flex gap-2">

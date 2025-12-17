@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useMatchMetricsDetails, type MatchMetricsData, type MatchJobDescription } from './useMatchMetricsDetails';
@@ -22,6 +22,8 @@ export function GoNoGoMetricsBar({
   aPhaseInsights,
   isLoading = false,
 }: GoNoGoMetricsBarProps) {
+  const [openKeys, setOpenKeys] = useState<Set<MetricKey>>(new Set());
+
   const { goalMatches, goalsSummary, coreRequirements, preferredRequirements } = useMatchMetricsDetails({
     jobDescription: jobDescription || undefined,
     enhancedMatchData: enhancedMatchData || undefined,
@@ -70,13 +72,29 @@ export function GoNoGoMetricsBar({
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
         {tiles.map((key) => {
           const data = summary[key];
-          const showSkeleton = isLoading || data.total === 0;
+          const showSkeleton = isLoading;
+          const isOpen = openKeys.has(key);
+          const toggle = () => {
+            setOpenKeys(prev => {
+              const next = new Set(prev);
+              if (next.has(key)) {
+                next.delete(key);
+              } else {
+                next.add(key);
+              }
+              return next;
+            });
+          };
           return (
             <div
               key={key}
               className="rounded-2xl border border-border/60 bg-muted/10 px-4 py-3"
             >
-              <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={toggle}
+                className="flex w-full items-center justify-between text-left"
+              >
                 <span className="text-xs uppercase tracking-wide text-muted-foreground">{data.label}</span>
                 {showSkeleton ? (
                   <Skeleton className="h-4 w-12" />
@@ -85,8 +103,8 @@ export function GoNoGoMetricsBar({
                     {data.met}/{data.total}
                   </span>
                 )}
-              </div>
-              {!showSkeleton && data.items.length > 0 && (
+              </button>
+              {!showSkeleton && isOpen && data.items.length > 0 && (
                 <div className="mt-2 rounded-lg border border-border/40 bg-background">
                   {data.items.map((item: any, idx: number) => (
                     <div

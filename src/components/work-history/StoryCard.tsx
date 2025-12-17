@@ -108,7 +108,7 @@ export const StoryCard = ({
         const desc = g.description?.toLowerCase() || '';
         if (desc.includes('structure') || desc.includes('star')) return 'incomplete_story';
         if (desc.includes('metric')) return 'missing_metrics';
-        if (desc.includes('generic')) return 'too_generic';
+        if (desc.includes('generic') || desc.includes('specific')) return 'story_needs_specifics';
         return null;
       }).filter(Boolean) as string[];
       
