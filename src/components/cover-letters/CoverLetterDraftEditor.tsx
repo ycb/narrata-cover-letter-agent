@@ -1,8 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ZoomIn, ZoomOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import { MatchMetricsToolbar } from './MatchMetricsToolbar';
 import { ContentCard } from '@/components/shared/ContentCard';
 import { SectionInsertButton } from '@/components/template-blurbs/SectionInsertButton';
@@ -122,6 +123,24 @@ export function CoverLetterDraftEditor({
   onEditGoals,
 }: CoverLetterDraftEditorProps) {
   
+  // Zoom control state - 30% to 100% in 10% increments
+  const [zoomLevel, setZoomLevel] = useState(100);
+  const MIN_ZOOM = 30;
+  const MAX_ZOOM = 100;
+  const ZOOM_STEP = 10;
+  
+  const handleZoomIn = () => {
+    if (zoomLevel < MAX_ZOOM) {
+      setZoomLevel(Math.min(zoomLevel + ZOOM_STEP, MAX_ZOOM));
+    }
+  };
+  
+  const handleZoomOut = () => {
+    if (zoomLevel > MIN_ZOOM) {
+      setZoomLevel(Math.max(zoomLevel - ZOOM_STEP, MIN_ZOOM));
+    }
+  };
+  
   // ============================================================================
   // DRAFT-ONLY DATA (NO STREAMING)
   // ============================================================================
@@ -225,7 +244,7 @@ export function CoverLetterDraftEditor({
             return sectionList;
           })()}
           aPhaseInsights={aPhaseInsights} // Task 7: A-phase streaming insights
-          draftMws={draft?.mws} // Persisted MwS from draft (fallback when streaming not available)
+          draftMws={draft?.mws ?? ((draft?.llmFeedback as any)?.mws ?? undefined)} // Persisted MwS from draft (fallback when streaming not available)
           onEditGoals={onEditGoals}
           onEnhanceSection={(sectionId, requirement, ratingCriteria) => {
             // Open section enhancement flow with rating criteria if provided
@@ -322,9 +341,23 @@ export function CoverLetterDraftEditor({
             />
           )}
 
-          <div className="space-y-4">
-            {/* Add Section button at the top */}
-            {!isLoadingSection && <SectionInsertButton onClick={() => onInsertBetweenSections(0)} />}
+          {/* Zoomable content wrapper - includes everything */}
+          <div 
+            className="origin-top"
+            style={{ 
+              transform: `scale(${zoomLevel / 100})`,
+              transformOrigin: 'top center',
+              width: `${100 / (zoomLevel / 100)}%`, // Compensate for scale to maintain full width
+            }}
+          >
+            <div className="space-y-4">
+              {/* Top controls: Add section (centered) */}
+              <div className="flex items-center justify-center">
+                {/* Add Section button - centered */}
+                {!isLoadingSection && (
+                  <SectionInsertButton onClick={() => onInsertBetweenSections(0)} />
+                )}
+              </div>
             
             {sectionsToRender.map((section, sectionIndex) => {
               const editedContent = sectionDrafts[section.id] ?? section.content;
@@ -504,7 +537,35 @@ export function CoverLetterDraftEditor({
                 </div>
               );
             })}
-          </div>
+            </div> {/* End space-y-4 */}
+          </div> {/* End zoomable content wrapper */}
+        </div>
+
+        {/* Floating zoom controls - bottom right of viewport */}
+        <div className="fixed bottom-6 right-6 flex items-center gap-1 bg-background/95 backdrop-blur-sm border border-border rounded-lg px-2 py-1.5 shadow-lg z-50">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleZoomOut}
+            disabled={zoomLevel === MIN_ZOOM}
+            className="h-7 w-7 p-0"
+            title="Zoom out (10%)"
+          >
+            <ZoomOut className="h-4 w-4" />
+          </Button>
+          <span className="text-xs font-medium text-muted-foreground px-2 tabular-nums min-w-[3ch] text-center">
+            {zoomLevel}%
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleZoomIn}
+            disabled={zoomLevel === MAX_ZOOM}
+            className="h-7 w-7 p-0"
+            title="Zoom in (10%)"
+          >
+            <ZoomIn className="h-4 w-4" />
+          </Button>
         </div>
       </div>
     </div>

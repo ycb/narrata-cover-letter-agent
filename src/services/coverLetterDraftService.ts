@@ -2,6 +2,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { streamText } from 'ai';
 import { OPENAI_CONFIG } from '@/lib/config/fileUpload';
 import { supabase } from '@/lib/supabase';
+import { EvalsLogger } from './evalsLogger';
 import type { Database, Json } from '@/types/supabase';
 import type {
   CoverLetterAnalytics,
@@ -1065,21 +1066,26 @@ export class CoverLetterDraftService {
 
     this.emitProgress(onProgress, 'metrics', 'Match metrics calculated successfully!');
 
-    // Log evaluation result for QA tracking
+    // Log evaluation result for QA tracking (best effort - don't block on errors)
     const metricsEndTime = Date.now();
-    await this.logDraftCoverLetterResult({
-      userId,
-      draftId,
-      jobDescriptionId,
-      sections,
-      enhancedMatchData: metricResult.enhancedMatchData,
-      metrics: metricResult.metrics,
-      contentStandards: contentStandardsResult,
-      overallScore: contentStandardsResult?.aggregated?.overallScore,
-      mws: mwsFromJob || mwsData, // Include MwS in eval logging (prefer job result, fallback to draft/JD)
-      phaseBLatencyMs: metricsEndTime - metricsStartTime,
-      status: 'success',
-    });
+    try {
+      await this.logDraftCoverLetterResult({
+        userId,
+        draftId,
+        jobDescriptionId,
+        sections,
+        enhancedMatchData: metricResult.enhancedMatchData,
+        metrics: metricResult.metrics,
+        contentStandards: contentStandardsResult,
+        overallScore: contentStandardsResult?.aggregated?.overallScore,
+        mws: mwsFromJob || mwsData, // Include MwS in eval logging (prefer job result, fallback to draft/JD)
+        phaseBLatencyMs: metricsEndTime - metricsStartTime,
+        status: 'success',
+      });
+    } catch (error) {
+      // Don't block draft generation if evaluation logging fails
+      console.warn('[CoverLetterDraftService] Failed to log evaluation result (non-blocking):', error);
+    }
 
     return metricResult.enhancedMatchData;
   }
@@ -1558,10 +1564,20 @@ export class CoverLetterDraftService {
      * - Attempt 4: Wait 4s
      * - If all fail: Use fallback defaults
      */
+    
+    // Initialize evals logger for Phase B (draft generation)
+    const evalsLogger = new EvalsLogger({
+      userId,
+      stage: 'coverLetter.phaseB.metrics',
+    });
+    evalsLogger.start();
+    
     let metricResult;
     let lastError: Error | null = null;
+    let attemptCount = 0;
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      attemptCount++;
       try {
         if (attempt > 0) {
           const delay = RETRY_DELAYS_MS[attempt - 1] ?? RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1];
@@ -1583,6 +1599,18 @@ export class CoverLetterDraftService {
           // Don't emit on every token - causes infinite progress list
           onToken: undefined,
         });
+        
+        // Log success
+        await evalsLogger.success({
+          model: 'gpt-4',
+          result_subset: {
+            attemptCount,
+            usedFallback: false,
+            metricsCalculated: metricResult.metrics.length,
+            atsScore: metricResult.atsScore,
+          },
+        });
+        
         break; // Success, exit retry loop
       } catch (error) {
         lastError = error instanceof Error ? error : new Error('Unknown error during metrics calculation');
@@ -1611,6 +1639,17 @@ export class CoverLetterDraftService {
           
           // GRACEFUL FALLBACK: Provide default metrics
           metricResult = this.createFallbackMetrics();
+          
+          // Log failure with fallback used
+          await evalsLogger.success({
+            model: 'gpt-4',
+            result_subset: {
+              attemptCount,
+              usedFallback: true,
+              fallbackReason: lastError.message,
+            },
+          });
+          
           break;
         }
       }
@@ -1619,6 +1658,16 @@ export class CoverLetterDraftService {
     if (!metricResult) {
       // This should never happen due to fallback, but TypeScript needs it
       metricResult = this.createFallbackMetrics();
+      
+      // Log unexpected fallback
+      await evalsLogger.success({
+        model: 'gpt-4',
+        result_subset: {
+          attemptCount,
+          usedFallback: true,
+          fallbackReason: 'Unexpected null result',
+        },
+      });
     }
 
     const differentiatorSummary = this.buildDifferentiatorSummary(jobDescription, sections);
@@ -2514,8 +2563,11 @@ export class CoverLetterDraftService {
     const nowIso = this.now().toISOString();
     const usedStoryIds = new Set<string>();
     const includeStorySelectionDiagnostics =
-      process.env.NODE_ENV === 'development' ||
-      process.env.COVER_LETTER_STORY_SELECTION_DIAGNOSTICS === '1';
+      Boolean((import.meta as any)?.env?.DEV) ||
+      (import.meta as any)?.env?.VITE_COVER_LETTER_STORY_SELECTION_DIAGNOSTICS === '1' ||
+      (typeof process !== 'undefined' &&
+        (process.env.NODE_ENV === 'development' ||
+          process.env.COVER_LETTER_STORY_SELECTION_DIAGNOSTICS === '1'));
 
     console.log(`[CoverLetterDraftService] buildSections: ${templateSections.length} template sections, ${stories.length} stories, ${savedSections.length} saved sections`);
     
@@ -2928,7 +2980,10 @@ export class CoverLetterDraftService {
       topCandidates: candidates.sort((a, b) => b.score - a.score).slice(0, 5),
     };
 
-    if (process.env.COVER_LETTER_STORY_SELECTION_DEBUG === '1') {
+    const storySelectionDebugEnabled =
+      (import.meta as any)?.env?.VITE_COVER_LETTER_STORY_SELECTION_DEBUG === '1' ||
+      (typeof process !== 'undefined' && process.env.COVER_LETTER_STORY_SELECTION_DEBUG === '1');
+    if (storySelectionDebugEnabled) {
       console.log(
         `[CoverLetterDraftService] Story selection diagnostics for "${section.title || 'unnamed'}": ${JSON.stringify(diagnostics)}`,
       );
@@ -3129,7 +3184,7 @@ export class CoverLetterDraftService {
     atsScore: number,
   ): CoverLetterDraft {
     // Diagnostic logging (Task 1.2)
-    if (process.env.NODE_ENV === 'development') {
+    if (Boolean((import.meta as any)?.env?.DEV) || (typeof process !== 'undefined' && process.env.NODE_ENV === 'development')) {
       console.log('[mapCoverLetterRow] Top-level metrics parameter:', metrics);
       console.log('[mapCoverLetterRow] Top-level metrics isArray:', Array.isArray(metrics));
       console.log('[mapCoverLetterRow] Top-level metrics length:', metrics?.length);
@@ -3150,7 +3205,7 @@ export class CoverLetterDraftService {
     };
     
     // Diagnostic logging (Task 1.1)
-    if (process.env.NODE_ENV === 'development') {
+    if (Boolean((import.meta as any)?.env?.DEV) || (typeof process !== 'undefined' && process.env.NODE_ENV === 'development')) {
       console.log('[mapCoverLetterRow] llmFeedback.metrics:', llmFeedback?.metrics);
       console.log('[mapCoverLetterRow] llmFeedback.metrics type:', typeof llmFeedback?.metrics);
       console.log('[mapCoverLetterRow] llmFeedback.metrics isArray:', Array.isArray(llmFeedback?.metrics));
@@ -3183,21 +3238,21 @@ export class CoverLetterDraftService {
 
   private normaliseMatchMetrics(payload: CoverLetterRow['metrics']): CoverLetterMatchMetric[] {
     // Diagnostic logging (Task 1.2)
-    if (process.env.NODE_ENV === 'development') {
+    if (Boolean((import.meta as any)?.env?.DEV) || (typeof process !== 'undefined' && process.env.NODE_ENV === 'development')) {
       console.log('[normaliseMatchMetrics] Input payload:', payload);
       console.log('[normaliseMatchMetrics] Payload type:', typeof payload);
       console.log('[normaliseMatchMetrics] Payload isArray:', Array.isArray(payload));
     }
     
     if (!payload) {
-      if (process.env.NODE_ENV === 'development') {
+      if (Boolean((import.meta as any)?.env?.DEV) || (typeof process !== 'undefined' && process.env.NODE_ENV === 'development')) {
         console.warn('[normaliseMatchMetrics] Payload is null/undefined, returning empty array');
       }
       return [];
     }
     if (Array.isArray(payload)) {
       const result = payload as CoverLetterMatchMetric[];
-      if (process.env.NODE_ENV === 'development') {
+      if (Boolean((import.meta as any)?.env?.DEV) || (typeof process !== 'undefined' && process.env.NODE_ENV === 'development')) {
         console.log('[normaliseMatchMetrics] Returning array with', result.length, 'metrics');
       }
       return result;

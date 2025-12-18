@@ -13,16 +13,19 @@ import { AddStoryModal } from "@/components/work-history/AddStoryModal";
 import { ContentCard } from "@/components/shared/ContentCard";
 import { OutcomeMetrics } from "@/components/work-history/OutcomeMetrics";
 import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
+import { ContentGenerationModalV3Baseline } from "@/components/hil/ContentGenerationModalV3Baseline";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { StoriesEmptyState } from "@/components/work-history/EmptyStates";
+import { isHilV3Enabled } from "@/utils/featureFlags";
 
 // REMOVED: Mock data - now using empty states instead
 // Mock data has been moved to usability-test branch for future reference
 
 export default function ShowAllStories() {
   const { user } = useAuth();
+  const hilV3BaselineOn = isHilV3Enabled();
   const [stories, setStories] = useState<Story[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -624,15 +627,30 @@ export default function ShowAllStories() {
       )}
 
       {/* Content Generation Modal */}
-      <ContentGenerationModal
-        isOpen={isContentModalOpen}
-        onClose={() => {
-          setIsContentModalOpen(false);
-          setSelectedGap(null);
-        }}
-        gap={selectedGap}
-        onApplyContent={handleApplyContent}
-      />
+      {hilV3BaselineOn ? (
+        <ContentGenerationModalV3Baseline
+          isOpen={isContentModalOpen}
+          onClose={() => {
+            setIsContentModalOpen(false);
+            setSelectedGap(null);
+          }}
+          gap={selectedGap}
+          userId={user?.id}
+          entityType="approved_content"
+          entityId={viewingStory?.id}
+          onApplyContent={handleApplyContent}
+        />
+      ) : (
+        <ContentGenerationModal
+          isOpen={isContentModalOpen}
+          onClose={() => {
+            setIsContentModalOpen(false);
+            setSelectedGap(null);
+          }}
+          gap={selectedGap}
+          onApplyContent={handleApplyContent}
+        />
+      )}
     </>
   );
 }

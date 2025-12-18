@@ -231,41 +231,26 @@ export function DraftProgressBanner(props: DraftProgressBannerProps) {
 
   return (
     <Alert className="border-primary/20 bg-primary/5">
-      <AlertTitle className="flex items-center gap-2">
-        {allComplete ? (
-          <Check className="h-4 w-4 text-success" />
-        ) : (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        )}
-        {allComplete ? 'Cover letter ready!' : 'Drafting your cover letter…'}
-      </AlertTitle>
       <AlertDescription>
         <div className="space-y-3">
-          {/* Time hint */}
-          {!allComplete && (
-            <div className="text-sm text-muted-foreground">
-              This may take 60–90 seconds…
+          {/* Compact header: Icon + Message + Progress % */}
+          <div className="flex items-center gap-3">
+            {allComplete ? (
+              <Check className="h-5 w-5 text-success flex-shrink-0" />
+            ) : (
+              <Loader2 className="h-5 w-5 animate-spin text-primary flex-shrink-0" />
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground">
+                {allComplete 
+                  ? 'Cover letter ready!' 
+                  : (currentStep?.headlineLabel || 'Drafting your cover letter…')}
+              </p>
             </div>
-          )}
-
-          {/* Current step + last completed result */}
-          {currentStep && !allComplete && (
-            <div className="text-sm space-y-1">
-              {/* Show current active step */}
-              <div className="text-muted-foreground">
-                Current step: {currentStep.headlineLabel}
-              </div>
-              {/* Show last completed step's result if available */}
-              {(() => {
-                const lastDone = steps.filter(s => s.status === 'done' && s.result).pop();
-                return lastDone ? (
-                  <div className="text-foreground">
-                    {lastDone.headlineLabel} → <span className="text-primary font-medium">{lastDone.result}</span>
-                  </div>
-                ) : null;
-              })()}
-            </div>
-          )}
+            <span className="text-sm font-medium text-muted-foreground tabular-nums">
+              {progress}%
+            </span>
+          </div>
 
           {/* Progress bar */}
           <div className="w-full bg-muted rounded-full h-2">
@@ -278,7 +263,7 @@ export function DraftProgressBanner(props: DraftProgressBannerProps) {
             />
           </div>
 
-          {/* Step list (bottom line) */}
+          {/* Step indicators with visual status */}
           <div className="flex gap-2 flex-wrap text-xs">
             {steps.map((step) => (
               <span

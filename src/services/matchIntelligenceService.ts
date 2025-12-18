@@ -12,6 +12,7 @@
  */
 
 import { LLMAnalysisService } from './openaiService';
+import { EvalsLogger } from './evalsLogger';
 import { buildMatchIntelligencePrompt } from '@/prompts/matchIntelligence';
 import type { UserGoals } from '@/types/userGoals';
 import type { GoalsMatchResult } from './goalsMatchService';
@@ -111,8 +112,17 @@ export class MatchIntelligenceService {
     workItems: WorkItem[],
     approvedContent: ApprovedContent[],
     sections: CoverLetterSection[],
-    goNoGoAnalysis?: any
+    goNoGoAnalysis?: any,
+    userId?: string
   ): Promise<MatchIntelligenceResult> {
+    // Initialize evals logger if userId is available
+    const evalsLogger = userId ? new EvalsLogger({
+      userId,
+      stage: 'qualityGate.matchIntelligence',
+    }) : null;
+    
+    evalsLogger?.start();
+    
     try {
       // Build consolidated prompt
       const prompt = buildMatchIntelligencePrompt(
@@ -133,6 +143,9 @@ export class MatchIntelligenceService {
       const response = await this.llmService.callOpenAI(prompt, 3000);
 
       if (!response.success || !response.data) {
+        await evalsLogger?.failure(new Error(response.error || 'Failed to analyze match intelligence'), {
+          model: 'gpt-4o-mini',
+        });
         throw new Error(response.error || 'Failed to analyze match intelligence');
       }
 
@@ -142,6 +155,9 @@ export class MatchIntelligenceService {
       // Validate structure
       if (!this.isValidMatchIntelligenceResult(parsed)) {
         console.error('Invalid match intelligence result:', parsed);
+        await evalsLogger?.failure(new Error('Invalid response structure from LLM'), {
+          model: 'gpt-4o-mini',
+        });
         throw new Error('Invalid response structure from LLM');
       }
 
@@ -158,9 +174,33 @@ export class MatchIntelligenceService {
         approvedContent
       );
 
+      // Log success
+      await evalsLogger?.success({
+        model: 'gpt-4o-mini',
+        tokens: response.usage ? {
+          promptTokens: response.usage.prompt_tokens,
+          completionTokens: response.usage.completion_tokens,
+          totalTokens: response.usage.total_tokens,
+        } : undefined,
+        result_subset: {
+          goalsMatchScore: parsed.goalsMatch?.overallScore,
+          coreReqsMatched: parsed.requirementsMatch?.coreMatched,
+          preferredReqsMatched: parsed.requirementsMatch?.preferredMatched,
+          gapFlagsCount: (parsed.gapFlags?.missingGoalAlignment?.length || 0) +
+                        (parsed.gapFlags?.missingRequirementsInDraft?.length || 0) +
+                        (parsed.gapFlags?.missingExperience?.length || 0),
+        },
+      });
+
       return parsed;
     } catch (error) {
       console.error('Error in match intelligence analysis:', error);
+
+      // Log failure
+      await evalsLogger?.failure(
+        error instanceof Error ? error : new Error(String(error)),
+        { model: 'gpt-4o-mini' }
+      );
 
       // Return fallback result on error
       return this.getFallbackResult(

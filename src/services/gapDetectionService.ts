@@ -14,6 +14,7 @@
  */
 
 import { supabase } from '@/lib/supabase';
+import { EvalsLogger } from './evalsLogger';
 import { UserPreferencesService } from './userPreferencesService';
 import type { PMLevelInference } from '@/types/content';
 
@@ -62,6 +63,20 @@ export interface MetricGap {
   storyTitle: string;
   hasMetrics: boolean;
   metricCount: number;
+}
+
+function extractMetricText(metric: unknown): string {
+  if (typeof metric === 'string') return metric;
+  if (!metric || typeof metric !== 'object') return '';
+  const value = (metric as any).value;
+  const context = (metric as any).context;
+  if (typeof value === 'string' && typeof context === 'string') return `${value} ${context}`.trim();
+  if (typeof value === 'string') return value.trim();
+  return '';
+}
+
+function countNonEmptyMetrics(metrics: unknown[]): number {
+  return (metrics || []).map(extractMetricText).filter((text) => text.trim().length > 0).length;
 }
 
 export interface GenericContentGap {
@@ -617,9 +632,8 @@ export class GapDetectionService {
   ): Gap[] {
     const gaps: Gap[] = [];
 
-    // Count valid metrics (with value)
-    const validMetrics = outcomeMetrics?.filter(m => m?.value && m.value.trim()) || [];
-    const metricCount = validMetrics.length;
+    // Count valid metrics (supports legacy string[] and JSON metrics[{value, context, ...}])
+    const metricCount = countNonEmptyMetrics(outcomeMetrics || []);
 
     // Check for missing metrics
     if (metricCount === 0) {
@@ -659,6 +673,46 @@ export class GapDetectionService {
     }
 
     return gaps;
+  }
+
+  /**
+   * Resolve role-level metrics gaps when the underlying metrics now satisfy the requirement.
+   * This is a heuristic (non-LLM) sync to prevent stale gaps from persisting after edits.
+   */
+  static async resolveSatisfiedRoleMetricsGaps(params: {
+    userId: string;
+    workItemId: string;
+    metrics: unknown[];
+  }): Promise<void> {
+    const metricCount = countNonEmptyMetrics(params.metrics || []);
+
+    try {
+      const { data, error } = await supabase
+        .from('gaps')
+        .select('id, gap_category')
+        .eq('user_id', params.userId)
+        .eq('entity_type', 'work_item')
+        .eq('entity_id', params.workItemId)
+        .in('gap_category', ['missing_role_metrics', 'insufficient_role_metrics'])
+        .or('resolved.is.null,resolved.eq.false');
+
+      if (error) throw error;
+      const gaps = (data || []) as Array<{ id: string; gap_category: string }>;
+
+      const shouldResolveCategory = (category: string) => {
+        if (category === 'missing_role_metrics') return metricCount > 0;
+        if (category === 'insufficient_role_metrics') return metricCount >= 3;
+        return false;
+      };
+
+      for (const gap of gaps) {
+        if (!gap?.id) continue;
+        if (!shouldResolveCategory(gap.gap_category)) continue;
+        await this.resolveGap(gap.id, params.userId, 'no_longer_applicable');
+      }
+    } catch (e) {
+      console.error('[GapDetectionService.resolveSatisfiedRoleMetricsGaps] Error:', e);
+    }
   }
 
   /**
@@ -1331,7 +1385,7 @@ export class GapDetectionService {
    */
   static async checkGenericContentBatch(
     items: Array<{ id: string; content: string; type: 'work_item' | 'story' | 'section' }>,
-    options?: { useLLM?: boolean }
+    options?: { useLLM?: boolean; userId?: string }
   ): Promise<Map<string, GenericContentGap>> {
     const results = new Map<string, GenericContentGap>();
     
@@ -1354,6 +1408,14 @@ export class GapDetectionService {
       }
       return results;
     }
+
+    // Initialize evals logger if userId is available
+    const evalsLogger = options?.userId ? new EvalsLogger({
+      userId: options.userId,
+      stage: 'qualityGate.gapDetection.batch',
+    }) : null;
+    
+    evalsLogger?.start();
 
     try {
       const apiKey = (import.meta.env?.VITE_OPENAI_KEY) || (typeof process !== 'undefined' ? process.env.VITE_OPENAI_KEY : undefined) || '';
@@ -1453,9 +1515,32 @@ If content is specific with metrics and clear impact, set isGeneric to false.`;
         }
       }
 
+      // Log success
+      const genericCount = Array.from(results.values()).filter(r => r.isGeneric).length;
+      await evalsLogger?.success({
+        model: 'gpt-4o-mini',
+        tokens: data.usage ? {
+          promptTokens: data.usage.prompt_tokens,
+          completionTokens: data.usage.completion_tokens,
+          totalTokens: data.usage.total_tokens,
+        } : undefined,
+        result_subset: {
+          itemsEvaluated: items.length,
+          genericCount,
+          specificCount: items.length - genericCount,
+        },
+      });
+
       return results;
     } catch (error) {
       console.error('[GapDetection] Batch generic content check failed:', error);
+      
+      // Log failure
+      await evalsLogger?.failure(
+        error instanceof Error ? error : new Error(String(error)),
+        { model: 'gpt-4o-mini' }
+      );
+      
       // Fallback: use heuristics for all items
       for (const item of items) {
         results.set(item.id, this.fallbackGenericCheck(item.content));

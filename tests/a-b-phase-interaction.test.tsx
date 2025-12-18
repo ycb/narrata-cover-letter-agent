@@ -384,9 +384,9 @@ describe('A+B Phase Interaction', () => {
         />
       );
 
-      // Progress banner should be visible
+      // Progress banner should be visible with compact layout
       expect(screen.getByText(/Drafting your cover letter/i)).toBeInTheDocument();
-      expect(screen.getByText(/This may take 60–90 seconds/i)).toBeInTheDocument();
+      // Note: Time estimate removed in compact layout for space efficiency
     });
   });
 

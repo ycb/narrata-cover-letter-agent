@@ -5,6 +5,8 @@
 import { supabase } from '@/lib/supabase';
 import { GapDetectionService, type Gap } from './gapDetectionService';
 import { EvaluationEventLogger } from './evaluationEventLogger';
+import { EvalsLogger } from './evalsLogger';
+import { getHilGenerationModelId } from './openaiModel';
 import {
   buildStoryGenerationPrompt,
   buildRoleDescriptionPrompt,
@@ -99,6 +101,20 @@ export class ContentGenerationService {
   ): Promise<string> {
     const startTime = options?.startTime || Date.now();
     
+    // Determine stage name based on entity type
+    const stageName = 
+      request.entityType === 'approved_content' ? 'hil.contentGeneration.story' :
+      request.entityType === 'work_item' ? 'hil.contentGeneration.roleDesc' :
+      'hil.contentGeneration.savedSection';
+    
+    // Initialize evals logger if userId is available
+    const evalsLogger = options?.userId ? new EvalsLogger({
+      userId: options.userId,
+      stage: stageName,
+    }) : null;
+    
+    evalsLogger?.start();
+    
     try {
       // Build appropriate prompt based on entity type
       let userPrompt: string;
@@ -136,10 +152,16 @@ export class ContentGenerationService {
       }
 
       // Call OpenAI API
+      const modelId = getHilGenerationModelId();
       const response = await this.callOpenAI(userPrompt, 1000);
 
       if (!response.success) {
-        // Log failure for story/saved section generation
+        // Log failure to evals
+        await evalsLogger?.failure(new Error(response.error || 'Content generation failed'), {
+          model: modelId,
+        });
+        
+        // Log failure for story/saved section generation (existing logging)
         if (options?.userId && (request.entityType === 'approved_content' || request.entityType === 'saved_section')) {
           await this.logGenerationFailure(request, options, startTime, response.error);
         }
@@ -147,15 +169,34 @@ export class ContentGenerationService {
       }
 
       if (!response.data || response.data.trim().length === 0) {
+        // Log failure to evals
+        await evalsLogger?.failure(new Error('Generated content is empty'), {
+          model: modelId,
+        });
+        
         if (options?.userId && (request.entityType === 'approved_content' || request.entityType === 'saved_section')) {
           await this.logGenerationFailure(request, options, startTime, 'Generated content is empty');
         }
         throw new Error('Generated content is empty');
       }
 
+      // Log success to evals
+      await evalsLogger?.success({
+        model: modelId,
+        tokens: response.usage ? {
+          promptTokens: response.usage.prompt_tokens,
+          completionTokens: response.usage.completion_tokens,
+          totalTokens: response.usage.total_tokens,
+        } : undefined,
+      });
+
       return response.data.trim();
 
     } catch (error) {
+      // Log failure to evals if not already logged
+      if (evalsLogger && error instanceof Error) {
+        await evalsLogger.failure(error, { model: getHilGenerationModelId() });
+      }
       console.error('Content generation error:', error);
       throw error;
     }
@@ -510,6 +551,7 @@ export class ContentGenerationService {
    */
   private async callOpenAI(userPrompt: string, maxTokens: number = 1000): Promise<OpenAIResponse> {
     try {
+      const modelId = getHilGenerationModelId();
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
@@ -517,7 +559,7 @@ export class ContentGenerationService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini', // Use cheaper model for content generation
+          model: modelId,
           messages: [
             {
               role: 'system',

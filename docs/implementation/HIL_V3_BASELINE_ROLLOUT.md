@@ -46,7 +46,10 @@ For each:
 ### Phase 4 — Cleanup & flags
 - [ ] Remove legacy HIL env/debug UI.
 - [ ] Deprecate `VITE_HIL_COVER_LETTER_V2` once V3 is default.
-- [ ] Add/keep a single global flag for staged rollout (optional): `VITE_HIL_V3_BASELINE`.
+- [ ] Consolidate flags:
+  - Primary: `VITE_ENABLE_HIL_V3=true` (enables V3 everywhere)
+  - Rollback: `VITE_FORCE_HIL_LEGACY=true` (forces legacy HIL everywhere)
+  - Back-compat aliases (temporary): `VITE_HIL_COVER_LETTER_V3`, `VITE_ENABLE_HIL_V3_BASELINE`
 
 ## Migration Checklist (per caller)
 For each place that opens HIL:
@@ -60,4 +63,3 @@ For each place that opens HIL:
   - Stories: replace or create variation.
   - Saved sections: replace or create variation.
   - Roles: replace description/summary fields.
-

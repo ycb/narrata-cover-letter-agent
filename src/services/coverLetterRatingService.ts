@@ -39,8 +39,17 @@ export class CoverLetterRatingService {
     coverLetterDraft: string,
     jobDescription: string,
     userVoicePrompt?: string,
-    pmLevel?: string
+    pmLevel?: string,
+    userId?: string
   ): Promise<CoverLetterRatingResult> {
+    // Initialize evals logger if userId is available
+    const evalsLogger = userId ? new EvalsLogger({
+      userId,
+      stage: 'qualityGate.clRating',
+    }) : null;
+    
+    evalsLogger?.start();
+    
     try {
       // Build prompt
       const prompt = buildCoverLetterRatingPrompt(
@@ -54,6 +63,9 @@ export class CoverLetterRatingService {
       const response = await this.llmService.callOpenAI(prompt, 1500);
 
       if (!response.success || !response.data) {
+        await evalsLogger?.failure(new Error(response.error || 'Failed to evaluate cover letter'), {
+          model: 'gpt-4o-mini',
+        });
         throw new Error(response.error || 'Failed to evaluate cover letter');
       }
 
@@ -65,6 +77,9 @@ export class CoverLetterRatingService {
       };
 
       if (!parsed.criteria || !Array.isArray(parsed.criteria)) {
+        await evalsLogger?.failure(new Error('Invalid response structure from LLM'), {
+          model: 'gpt-4o-mini',
+        });
         throw new Error('Invalid response structure from LLM');
       }
 
@@ -80,15 +95,38 @@ export class CoverLetterRatingService {
       const metCount = criteria.filter(c => c.met).length;
       const totalCount = criteria.length;
 
-      return {
+      const result = {
         criteria,
         overallRating: parsed.overallRating || 'weak',
         summary: parsed.summary || 'Unable to generate summary',
         metCount,
         totalCount,
       };
+
+      // Log success
+      await evalsLogger?.success({
+        model: 'gpt-4o-mini',
+        tokens: response.usage ? {
+          promptTokens: response.usage.prompt_tokens,
+          completionTokens: response.usage.completion_tokens,
+          totalTokens: response.usage.total_tokens,
+        } : undefined,
+        result_subset: {
+          overallRating: result.overallRating,
+          metCount,
+          totalCount,
+        },
+      });
+
+      return result;
     } catch (error) {
       console.error('Error evaluating cover letter:', error);
+
+      // Log failure
+      await evalsLogger?.failure(
+        error instanceof Error ? error : new Error(String(error)),
+        { model: 'gpt-4o-mini' }
+      );
 
       // Return fallback result on error
       const fallbackCriteria = this.generateFallbackCriteria();

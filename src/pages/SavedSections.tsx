@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { FileText, CheckCircle, X, BookOpen } from "lucide-react";
 import { TemplateBlurbHierarchical } from "@/components/template-blurbs/TemplateBlurbHierarchical";
 import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
+import { ContentGenerationModalV3Baseline } from "@/components/hil/ContentGenerationModalV3Baseline";
+import { isHilV3Enabled } from "@/utils/featureFlags";
 import { CoverLetterTemplateService, type SavedSection } from "@/services/coverLetterTemplateService";
 import { useUserGoals } from "@/contexts/UserGoalsContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -69,6 +71,11 @@ export default function SavedSections() {
   // HIL Content Generation state
   const [isContentModalOpen, setIsContentModalOpen] = useState(false);
   const [selectedGap, setSelectedGap] = useState<any>(null);
+  const hilV3BaselineOn = isHilV3Enabled();
+  const [hilEntityContext, setHilEntityContext] = useState<{
+    entityId: string;
+    savedSectionType: 'introduction' | 'closer' | 'signature' | 'custom';
+  } | null>(null);
   const [resolvedGaps, setResolvedGaps] = useState<Set<string>>(new Set());
   const [dismissedSuccessCards, setDismissedSuccessCards] = useState<Set<string>>(new Set());
 
@@ -367,6 +374,18 @@ export default function SavedSections() {
       .replace(/\b\w/g, (char) => char.toUpperCase());
 
   const handleGenerateContent = (section: HierarchicalBlurb) => {
+    const rawType = String(section.type ?? '').toLowerCase();
+    const savedSectionType =
+      rawType === 'intro' || rawType === 'introduction'
+        ? 'introduction'
+        : rawType === 'closer' || rawType === 'closing' || rawType === 'conclusion'
+          ? 'closer'
+          : rawType === 'signature'
+            ? 'signature'
+            : 'custom';
+
+    setHilEntityContext({ entityId: section.id, savedSectionType });
+
     const categories = (section.gapCategories ?? []) as string[];
     const formattedCategories = categories.map(formatGapCategory);
     const severity = (section.maxGapSeverity ?? "medium") as "high" | "medium" | "low";
@@ -709,15 +728,33 @@ export default function SavedSections() {
 
       {/* HIL Content Generation Modal */}
       {isContentModalOpen && selectedGap && (
-        <ContentGenerationModal
-          gap={selectedGap}
-          isOpen={isContentModalOpen}
-          onClose={() => {
-            setIsContentModalOpen(false);
-            setSelectedGap(null);
-          }}
-          onApplyContent={handleApplyContent}
-        />
+        hilV3BaselineOn ? (
+          <ContentGenerationModalV3Baseline
+            gap={selectedGap}
+            isOpen={isContentModalOpen}
+            onClose={() => {
+              setIsContentModalOpen(false);
+              setSelectedGap(null);
+              setHilEntityContext(null);
+            }}
+            onApplyContent={handleApplyContent}
+            userId={user?.id}
+            entityType="saved_section"
+            entityId={hilEntityContext?.entityId}
+            savedSectionType={hilEntityContext?.savedSectionType}
+          />
+        ) : (
+          <ContentGenerationModal
+            gap={selectedGap}
+            isOpen={isContentModalOpen}
+            onClose={() => {
+              setIsContentModalOpen(false);
+              setSelectedGap(null);
+              setHilEntityContext(null);
+            }}
+            onApplyContent={handleApplyContent}
+          />
+        )
       )}
 
       {/* Add Reusable Content Modal */}

@@ -7,6 +7,7 @@
  */
 
 import { OPENAI_CONFIG } from '@/lib/config/fileUpload';
+import { EvalsLogger } from './evalsLogger';
 import {
   buildSectionStandardsPrompt,
 } from '@/prompts/sectionContentStandards';
@@ -65,8 +66,17 @@ export class ContentStandardsEvaluationService {
     sectionId: string,
     sectionContent: string,
     sectionType: 'intro' | 'body' | 'closing',
-    jobDescription?: string
+    jobDescription?: string,
+    userId?: string
   ): Promise<SectionStandardResult | null> {
+    // Initialize evals logger if userId is available
+    const evalsLogger = userId ? new EvalsLogger({
+      userId,
+      stage: 'qualityGate.contentStandards.section',
+    }) : null;
+    
+    evalsLogger?.start();
+    
     try {
       // Get applicable standards for this section type
       const applicableStandards = getApplicableStandards(sectionType);
@@ -92,6 +102,9 @@ export class ContentStandardsEvaluationService {
 
       if (!response.success || !response.data) {
         console.error('[ContentStandardsEvaluationService] Section evaluation failed:', response.error);
+        await evalsLogger?.failure(new Error(response.error || 'Section evaluation failed'), {
+          model: 'gpt-4o-mini',
+        });
         return null;
       }
 
@@ -102,12 +115,26 @@ export class ContentStandardsEvaluationService {
         evidence: s.evidence || '',
       }));
 
+      // Log success
+      await evalsLogger?.success({
+        model: 'gpt-4o-mini',
+        result_subset: {
+          sectionType,
+          standardsEvaluated: standards.length,
+          metCount: standards.filter(s => s.status === 'met').length,
+        },
+      });
+
       return {
         sectionId,
         standards,
       };
     } catch (error) {
       console.error('[ContentStandardsEvaluationService] Section evaluation error:', error);
+      await evalsLogger?.failure(
+        error instanceof Error ? error : new Error(String(error)),
+        { model: 'gpt-4o-mini' }
+      );
       return null;
     }
   }
@@ -123,8 +150,17 @@ export class ContentStandardsEvaluationService {
   async evaluateLetter(
     fullLetterText: string,
     wordCount?: number,
-    paragraphCount?: number
+    paragraphCount?: number,
+    userId?: string
   ): Promise<LetterStandardResult[]> {
+    // Initialize evals logger if userId is available
+    const evalsLogger = userId ? new EvalsLogger({
+      userId,
+      stage: 'qualityGate.contentStandards.letter',
+    }) : null;
+    
+    evalsLogger?.start();
+    
     try {
       // Get letter-scoped standards
       const letterStandards = getLetterScopedStandards();
@@ -147,6 +183,9 @@ export class ContentStandardsEvaluationService {
 
       if (!response.success || !response.data) {
         console.error('[ContentStandardsEvaluationService] Letter evaluation failed:', response.error);
+        await evalsLogger?.failure(new Error(response.error || 'Letter evaluation failed'), {
+          model: 'gpt-4o-mini',
+        });
         return [];
       }
 
@@ -157,9 +196,24 @@ export class ContentStandardsEvaluationService {
         evidence: s.evidence || '',
       }));
 
+      // Log success
+      await evalsLogger?.success({
+        model: 'gpt-4o-mini',
+        result_subset: {
+          standardsEvaluated: standards.length,
+          metCount: standards.filter(s => s.status === 'met').length,
+          wordCount,
+          paragraphCount,
+        },
+      });
+
       return standards;
     } catch (error) {
       console.error('[ContentStandardsEvaluationService] Letter evaluation error:', error);
+      await evalsLogger?.failure(
+        error instanceof Error ? error : new Error(String(error)),
+        { model: 'gpt-4o-mini' }
+      );
       return [];
     }
   }

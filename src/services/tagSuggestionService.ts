@@ -5,6 +5,7 @@
  */
 
 import { LLMAnalysisService } from './openaiService';
+import { EvalsLogger } from './evalsLogger';
 import { BrowserSearchService, type CompanyResearchResult } from './browserSearchService';
 import { buildContentTaggingPrompt, type GapContext } from '@/prompts/contentTagging';
 
@@ -79,49 +80,66 @@ export class TagSuggestionService {
     }
   }
 
-  static async suggestTags(request: TagSuggestionRequest): Promise<TagSuggestion[]> {
+  static async suggestTags(request: TagSuggestionRequest, userId?: string): Promise<TagSuggestion[]> {
     // Validate request before processing
     this.validateRequest(request);
 
-    // 1. For company tags, research company via browser search
-    let companyResearch: CompanyResearchResult | null = null;
-    if (request.contentType === 'company') {
-      // TypeScript now knows companyName is required for 'company' type
-      const companyName = request.companyName;
-      try {
-        // Use caching to avoid repeated API calls for the same company
-        // Cache layers: in-memory (session) → localStorage (24h) → database (persistent)
-        companyResearch = await BrowserSearchService.researchCompany(companyName, true);
-      } catch (error) {
-        // Don't silently fail - throw error so UI can show retry option
-        throw new Error(`Failed to research company: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
-    }
+    // Initialize evals logger if userId is available
+    const evalsLogger = userId ? new EvalsLogger({
+      userId,
+      stage: 'auxiliary.tagSuggestion',
+    }) : null;
+    
+    evalsLogger?.start();
 
-    // 2. Build prompt with user goals context, company research, and gap context
-    const prompt = buildContentTaggingPrompt(
-      request.content,
-      request.contentType,
-      request.userGoals,
-      companyResearch,
-      request.gapContext
-    );
-
-    // 3. Call OpenAI
-    const response = await this.callOpenAIForTags(prompt);
-    console.log('🤖 OpenAI raw response:', response.substring(0, 500));
-
-    // 4. Parse response JSON
-    let parsed: any;
     try {
-      // Remove markdown code blocks if present
-      const cleanedResponse = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      parsed = JSON.parse(cleanedResponse);
-      console.log('🤖 Parsed AI response:', parsed);
-    } catch (error) {
-      console.error('Error parsing tag suggestions:', error);
-      throw new Error('Failed to parse tag suggestions from AI response');
-    }
+      // 1. For company tags, research company via browser search
+      let companyResearch: CompanyResearchResult | null = null;
+      if (request.contentType === 'company') {
+        // TypeScript now knows companyName is required for 'company' type
+        const companyName = request.companyName;
+        try {
+          // Use caching to avoid repeated API calls for the same company
+          // Cache layers: in-memory (session) → localStorage (24h) → database (persistent)
+          companyResearch = await BrowserSearchService.researchCompany(companyName, true);
+        } catch (error) {
+          // Don't silently fail - throw error so UI can show retry option
+          await evalsLogger?.failure(
+            error instanceof Error ? error : new Error(String(error)),
+            { model: 'gpt-4o-mini' }
+          );
+          throw new Error(`Failed to research company: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+
+      // 2. Build prompt with user goals context, company research, and gap context
+      const prompt = buildContentTaggingPrompt(
+        request.content,
+        request.contentType,
+        request.userGoals,
+        companyResearch,
+        request.gapContext
+      );
+
+      // 3. Call OpenAI
+      const response = await this.callOpenAIForTags(prompt);
+      console.log('🤖 OpenAI raw response:', response.substring(0, 500));
+
+      // 4. Parse response JSON
+      let parsed: any;
+      try {
+        // Remove markdown code blocks if present
+        const cleanedResponse = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        parsed = JSON.parse(cleanedResponse);
+        console.log('🤖 Parsed AI response:', parsed);
+      } catch (error) {
+        console.error('Error parsing tag suggestions:', error);
+        await evalsLogger?.failure(
+          error instanceof Error ? error : new Error('Failed to parse tag suggestions from AI response'),
+          { model: 'gpt-4o-mini' }
+        );
+        throw new Error('Failed to parse tag suggestions from AI response');
+      }
 
     // 5. Transform to TagSuggestion format
     const suggestions: TagSuggestion[] = [];
@@ -249,10 +267,29 @@ export class TagSuggestionService {
     );
     console.log('🤖 After filtering:', filtered.length, 'suggestions');
 
-    // 9. Limit to top 10 suggestions
-    const final = filtered.slice(0, 10);
-    console.log('🤖 Returning:', final);
-    return final;
+      // 9. Limit to top 10 suggestions
+      const final = filtered.slice(0, 10);
+      console.log('🤖 Returning:', final);
+      
+      // Log success
+      await evalsLogger?.success({
+        model: 'gpt-4o-mini',
+        result_subset: {
+          contentType: request.contentType,
+          suggestionsGenerated: suggestions.length,
+          suggestionsReturned: final.length,
+          hasCompanyResearch: !!companyResearch,
+        },
+      });
+      
+      return final;
+    } catch (error) {
+      // Log failure if not already logged
+      if (error instanceof Error && !error.message.includes('Failed to research company') && !error.message.includes('Failed to parse')) {
+        await evalsLogger?.failure(error, { model: 'gpt-4o-mini' });
+      }
+      throw error;
+    }
   }
 
   private static async callOpenAIForTags(prompt: string): Promise<string> {

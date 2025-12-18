@@ -1671,6 +1671,47 @@ export async function executeCoverLetterPipeline(
       quality_score: qualityScore,
     });
     
+    // =========================================================================
+    // PHASE A AGGREGATE: Log total Phase A (analysis) duration
+    // =========================================================================
+    const phaseAStages = ['jdAnalysis', 'requirementAnalysis', 'goalsAndStrengths', 'sectionGaps'];
+    const phaseADuration = phaseAStages.reduce((sum, stageName) => {
+      const stageResult = results[stageName];
+      if (stageResult?.duration_ms) {
+        return sum + stageResult.duration_ms;
+      }
+      // Fallback: calculate from usage if available
+      if (stageResult?.usage?.total_tokens) {
+        // Rough estimate: 1 token ≈ 10ms processing time
+        return sum + (stageResult.usage.total_tokens * 10);
+      }
+      return sum;
+    }, 0);
+    
+    const phaseASuccess = phaseAStages.every(stageName => {
+      const stageResult = results[stageName];
+      return stageResult && stageResult.status !== 'failed';
+    });
+    
+    voidLogEval(supabase, {
+      job_id: job.id,
+      job_type: 'coverLetter',
+      stage: 'coverLetter.phaseA',
+      user_id: job.user_id,
+      started_at: new Date(Date.now() - phaseADuration), // Backdate to pipeline start
+      completed_at: new Date(),
+      duration_ms: phaseADuration,
+      success: phaseASuccess,
+      result_subset: {
+        stagesCompleted: phaseAStages.filter(s => results[s] && results[s].status !== 'failed'),
+        stageCount: phaseAStages.length,
+        requirementsMet: results.requirementAnalysis?.requirementsMet || 0,
+        totalRequirements: results.requirementAnalysis?.totalRequirements || 0,
+        totalGaps: results.sectionGaps?.totalGaps || 0,
+        qualityScore,
+      },
+    });
+    
     try { 
       const { elog } = await import('../log.ts'); 
       elog.info('[Pipeline] Structural validation complete', { 

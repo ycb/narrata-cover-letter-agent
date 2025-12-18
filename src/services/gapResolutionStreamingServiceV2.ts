@@ -9,7 +9,9 @@
 
 import { streamText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
+import { EvalsLogger } from './evalsLogger';
 import type { Gap } from './gapTransformService';
+import { getHilGenerationModelId } from './openaiModel';
 
 export interface StreamingOptions {
   onUpdate?: (content: string) => void;
@@ -58,9 +60,11 @@ function truncate(value: string, maxChars: number): string {
 export class GapResolutionStreamingServiceV2 {
   private apiKey: string;
   private openai: ReturnType<typeof createOpenAI>;
+  private modelId: string;
 
   constructor() {
     this.apiKey = import.meta.env.VITE_OPENAI_KEY || '';
+    this.modelId = getHilGenerationModelId();
     this.openai = createOpenAI({ apiKey: this.apiKey });
   }
 
@@ -71,29 +75,52 @@ export class GapResolutionStreamingServiceV2 {
     options: StreamingOptions = {},
     promptOptions?: { allowNeedsInputPlaceholders?: boolean },
   ): Promise<string> {
+    // Initialize evals logger if userId is available
+    const evalsLogger = options.userId ? new EvalsLogger({
+      userId: options.userId,
+      stage: 'hil.gapResolutionV2.stream',
+    }) : null;
+    
+    evalsLogger?.start();
+    
     try {
       const prompt = this.buildPrompt(gap, job, context, {
         allowNeedsInputPlaceholders: promptOptions?.allowNeedsInputPlaceholders ?? true,
       });
       let fullContent = '';
+      let firstChunkTime: number | null = null;
 
       const result = await streamText({
-        model: this.openai('gpt-4'),
+        model: this.openai(this.modelId),
         prompt,
         temperature: 0.4,
         maxTokens: 900,
       });
 
       for await (const chunk of result.textStream) {
+        if (!firstChunkTime) {
+          firstChunkTime = Date.now();
+        }
         fullContent += chunk;
         options.onUpdate?.(fullContent);
       }
 
       fullContent = this.stripWrappingQuotes(fullContent);
+      
+      // Log success to evals
+      await evalsLogger?.success({
+        model: this.modelId,
+        ttfu_ms: firstChunkTime ? firstChunkTime - (evalsLogger as any).startTime : undefined,
+      });
+      
       options.onComplete?.(fullContent);
       return fullContent;
     } catch (error) {
       const err = error instanceof Error ? error : new Error('Unknown error during streaming');
+      
+      // Log failure to evals
+      await evalsLogger?.failure(err, { model: this.modelId });
+      
       options.onError?.(err);
       throw err;
     }
@@ -109,27 +136,50 @@ export class GapResolutionStreamingServiceV2 {
     },
     options: StreamingOptions = {},
   ): Promise<string> {
+    // Initialize evals logger if userId is available
+    const evalsLogger = options.userId ? new EvalsLogger({
+      userId: options.userId,
+      stage: 'hil.gapResolutionV2.refine',
+    }) : null;
+    
+    evalsLogger?.start();
+    
     try {
       const prompt = this.buildRefinePrompt(params);
       let fullContent = '';
+      let firstChunkTime: number | null = null;
 
       const result = await streamText({
-        model: this.openai('gpt-4'),
+        model: this.openai(this.modelId),
         prompt,
         temperature: 0.3,
         maxTokens: 900,
       });
 
       for await (const chunk of result.textStream) {
+        if (!firstChunkTime) {
+          firstChunkTime = Date.now();
+        }
         fullContent += chunk;
         options.onUpdate?.(fullContent);
       }
 
       fullContent = this.stripWrappingQuotes(fullContent);
+      
+      // Log success to evals
+      await evalsLogger?.success({
+        model: this.modelId,
+        ttfu_ms: firstChunkTime ? firstChunkTime - (evalsLogger as any).startTime : undefined,
+      });
+      
       options.onComplete?.(fullContent);
       return fullContent;
     } catch (error) {
       const err = error instanceof Error ? error : new Error('Unknown error during streaming');
+      
+      // Log failure to evals
+      await evalsLogger?.failure(err, { model: this.modelId });
+      
       options.onError?.(err);
       throw err;
     }
@@ -149,7 +199,7 @@ export class GapResolutionStreamingServiceV2 {
       let fullContent = '';
 
       const result = await streamText({
-        model: this.openai('gpt-4'),
+        model: this.openai(this.modelId),
         prompt,
         temperature: 0.25,
         maxTokens: 900,
@@ -184,7 +234,7 @@ export class GapResolutionStreamingServiceV2 {
       let fullContent = '';
 
       const result = await streamText({
-        model: this.openai('gpt-4'),
+        model: this.openai(this.modelId),
         prompt,
         temperature: 0.25,
         maxTokens: 650,

@@ -7,6 +7,7 @@
 
 import { streamText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
+import { EvalsLogger } from './evalsLogger';
 import type { Gap } from './gapTransformService';
 import type { CoverLetterSection } from './coverLetterDraftService';
 
@@ -14,6 +15,7 @@ export interface StreamingOptions {
   onUpdate?: (content: string) => void;
   onComplete?: (content: string) => void;
   onError?: (error: Error) => void;
+  userId?: string; // For evals logging
 }
 
 export class GapResolutionStreamingService {
@@ -45,10 +47,19 @@ export class GapResolutionStreamingService {
     },
     options: StreamingOptions = {}
   ): Promise<string> {
+    // Initialize evals logger if userId is available
+    const evalsLogger = options.userId ? new EvalsLogger({
+      userId: options.userId,
+      stage: 'hil.gapResolution.stream',
+    }) : null;
+    
+    evalsLogger?.start();
+    
     try {
       const prompt = this.buildGapResolutionPrompt(gap, jobDescription);
       
       let fullContent = '';
+      let firstChunkTime: number | null = null;
 
       const result = await streamText({
         model: this.openai('gpt-4'),
@@ -59,6 +70,9 @@ export class GapResolutionStreamingService {
 
       // Stream the content
       for await (const chunk of result.textStream) {
+        if (!firstChunkTime) {
+          firstChunkTime = Date.now();
+        }
         fullContent += chunk;
         options.onUpdate?.(fullContent);
       }
@@ -66,10 +80,20 @@ export class GapResolutionStreamingService {
       // Post-process: Remove wrapping quotes if LLM added them
       fullContent = this.stripWrappingQuotes(fullContent);
 
+      // Log success to evals
+      await evalsLogger?.success({
+        model: 'gpt-4',
+        ttfu_ms: firstChunkTime ? firstChunkTime - (evalsLogger as any).startTime : undefined,
+      });
+
       options.onComplete?.(fullContent);
       return fullContent;
     } catch (error) {
       const err = error instanceof Error ? error : new Error('Unknown error during streaming');
+      
+      // Log failure to evals
+      await evalsLogger?.failure(err, { model: 'gpt-4' });
+      
       options.onError?.(err);
       throw err;
     }

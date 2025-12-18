@@ -32,9 +32,11 @@ import {
   CheckCircle
 } from "lucide-react";
 import { ContentGenerationModal } from "@/components/hil/ContentGenerationModal";
+import { ContentGenerationModalV3Baseline } from "@/components/hil/ContentGenerationModalV3Baseline";
 import { TagSuggestionButton } from "@/components/ui/TagSuggestionButton";
 import { ContentGapBanner } from "@/components/shared/ContentGapBanner";
 import { generateGapSummary } from "@/utils/gapSummaryGenerator";
+import { isHilV3Enabled } from "@/utils/featureFlags";
 import { LinkedInDataSource } from "./LinkedInDataSource";
 import { ResumeDataSource } from "./ResumeDataSource";
 import { useAuth } from "@/contexts/AuthContext";
@@ -137,6 +139,7 @@ export const WorkHistoryDetail = ({
     entityType: 'work_item' | 'approved_content' | 'saved_section' | 'company';
     entityId: string;
   } | null>(null);
+  const hilV3BaselineOn = isHilV3Enabled();
 
   // Tag suggestion state
   const [isTagModalOpen, setIsTagModalOpen] = useState(false);
@@ -177,6 +180,37 @@ export const WorkHistoryDetail = ({
       onRefresh?.();
     },
   });
+
+  const contentGenerationGap = useMemo(() => {
+    const gap = activeGapContext?.gap;
+    if (!gap) return null;
+
+    const modalType =
+      gap.gap_type === 'data_quality'
+        ? 'core-requirement'
+        : gap.gap_type === 'role_expectation'
+          ? 'preferred-requirement'
+          : 'best-practice';
+
+    const suggestionValue = Array.isArray(gap.suggestions) && gap.suggestions.length ? gap.suggestions[0] : undefined;
+    const suggestion =
+      typeof suggestionValue === 'string'
+        ? suggestionValue
+        : typeof (suggestionValue as any)?.suggestion === 'string'
+          ? (suggestionValue as any).suggestion
+          : 'Improve content quality';
+
+    return {
+      id: String(gap.id ?? `${activeGapContext?.entityType}-${activeGapContext?.entityId}-${gap.gap_category}`),
+      type: modalType as any,
+      severity: gap.severity,
+      description: String(gap.description || gap.gap_category || 'Content needs improvement'),
+      suggestion,
+      paragraphId: gap.entity_type === 'approved_content' ? 'story-content' : gap.entity_type === 'work_item' ? 'role' : 'saved-section',
+      origin: 'ai' as const,
+      existingContent: String((contentGenerationModalProps as any)?.existingContent ?? ''),
+    };
+  }, [activeGapContext?.entityId, activeGapContext?.entityType, activeGapContext?.gap, contentGenerationModalProps]);
 
   useEffect(() => {
     const fetchGaps = async () => {
@@ -1771,20 +1805,6 @@ export const WorkHistoryDetail = ({
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">Outcome Metrics</CardTitle>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                          <span className="sr-only">Open menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={handleRoleMetricsGenerate}>
-                          <Sparkles className="mr-2 h-4 w-4" />
-                          Generate Content
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
@@ -1972,13 +1992,25 @@ export const WorkHistoryDetail = ({
             )}
         
         {/* Gap Detection Modal */}
-        <ContentGenerationModal
-          isOpen={isContentGenerationModalOpen}
-          onClose={closeContentGenerationModal}
-          gap={activeGapContext?.gap}
-          onApplyContent={handleApplyContent}
-          mode="gap-detection"
-        />
+        {hilV3BaselineOn && activeGapContext?.entityType !== 'company' ? (
+          <ContentGenerationModalV3Baseline
+            isOpen={isContentGenerationModalOpen}
+            onClose={closeContentGenerationModal}
+            gap={contentGenerationGap as any}
+            onApplyContent={handleApplyContent}
+            userId={user?.id}
+            entityType={activeGapContext?.entityType as any}
+            entityId={activeGapContext?.entityId}
+          />
+        ) : (
+          <ContentGenerationModal
+            isOpen={isContentGenerationModalOpen}
+            onClose={closeContentGenerationModal}
+            gap={contentGenerationGap as any}
+            onApplyContent={handleApplyContent}
+            mode="gap-detection"
+          />
+        )}
 
         {/* Tag Suggestion Modal - separate from gap detection */}
         <ContentGenerationModal

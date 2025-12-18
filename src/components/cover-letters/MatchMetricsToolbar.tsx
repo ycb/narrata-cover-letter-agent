@@ -406,7 +406,7 @@ function MatchMetricsToolbarContent({
                       aPhaseInsights?.jdRequirementSummary?.preferredTotal !== undefined;
 
   // Dev-only: log A-phase data availability
-  if (process.env.NODE_ENV !== 'production') {
+  if (import.meta.env?.DEV) {
     console.log('[Toolbar] A-phase data check', {
       hasMwsData,
       mwsSummaryScore: effectiveMws?.summaryScore,

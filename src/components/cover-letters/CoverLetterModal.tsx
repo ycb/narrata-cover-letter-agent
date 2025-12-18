@@ -331,9 +331,14 @@ export const CoverLetterModal = ({
   const [animatedDraftProgress, setAnimatedDraftProgress] = useState(30);
   const enhancedHydratedRef = useRef(false);
   
-  // Set initial tab when modal opens based on mode
+  // Set initial tab when modal FIRST opens based on mode
+  // Use prevIsOpen ref to only run when transitioning from closed → open
+  const prevIsOpenRef = useRef(isOpen);
   useEffect(() => {
-    if (isOpen) {
+    const wasClosedNowOpen = !prevIsOpenRef.current && isOpen;
+    prevIsOpenRef.current = isOpen;
+    
+    if (wasClosedNowOpen) {
       setMainTab(mode === 'create' ? 'job-description' : 'cover-letter');
     }
   }, [isOpen, mode]);
@@ -354,9 +359,30 @@ export const CoverLetterModal = ({
   // IMPORTANT: use direct `import.meta.env.VITE_*` access so Vite can statically replace it in builds.
   const useHilV3 = (() => {
     if (typeof window === 'undefined') return false;
-    const lsFlag = String(window.localStorage.getItem('hil_cover_letter_v3') ?? '').toLowerCase();
-    const envFlag = String(import.meta.env.VITE_HIL_COVER_LETTER_V3 ?? '').toLowerCase();
-    return lsFlag === '1' || lsFlag === 'true' || envFlag === '1' || envFlag === 'true';
+    const lsForceLegacy = String(window.localStorage.getItem('hil_force_legacy') ?? '').toLowerCase();
+    const envForceLegacy = String(import.meta.env.VITE_FORCE_HIL_LEGACY ?? '').toLowerCase();
+    const forceLegacy =
+      lsForceLegacy === '1' || lsForceLegacy === 'true' || envForceLegacy === '1' || envForceLegacy === 'true';
+    if (forceLegacy) return false;
+
+    // New unified flag
+    const envEnabled = String(import.meta.env.VITE_ENABLE_HIL_V3 ?? '').toLowerCase();
+    const lsEnabled = String(window.localStorage.getItem('hil_v3') ?? '').toLowerCase();
+
+    // Back-compat (temporary)
+    const lsCoverLetter = String(window.localStorage.getItem('hil_cover_letter_v3') ?? '').toLowerCase();
+    const envCoverLetter = String(import.meta.env.VITE_HIL_COVER_LETTER_V3 ?? '').toLowerCase();
+
+    return (
+      lsEnabled === '1' ||
+      lsEnabled === 'true' ||
+      envEnabled === '1' ||
+      envEnabled === 'true' ||
+      lsCoverLetter === '1' ||
+      lsCoverLetter === 'true' ||
+      envCoverLetter === '1' ||
+      envCoverLetter === 'true'
+    );
   })();
 
   // Feature flag: enable Cover Letter HIL V2.
@@ -1988,36 +2014,52 @@ export const CoverLetterModal = ({
       <div className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg font-semibold">Job description</CardTitle>
-            <CardDescription>
-              Paste the full role description so we can analyze requirements and tailor your draft.
-            </CardDescription>
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex-1">
+                <CardTitle className="text-lg font-semibold">Job description</CardTitle>
+                <CardDescription>
+                  Paste the full role description so we can analyze requirements and tailor your draft.
+                </CardDescription>
+              </div>
+              {/* Generate button - only show if draft hasn't been generated yet */}
+              {!draft && (
+                <Button
+                  type="button"
+                  className="gap-2"
+                  onClick={handleGenerateDraft}
+                  disabled={
+                    isBusy ||
+                    !user?.id ||
+                    !selectedTemplateId ||
+                    templates.length === 0
+                  }
+                >
+                  {isParsingJobDescription || isGenerating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Generating
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="h-4 w-4" />
+                      Generate cover letter
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Pro tip for LinkedIn copying */}
-            <Alert className="bg-primary/5 border-primary/20">
-              <AlertTitle className="flex items-center gap-2 text-sm font-medium">
-                💡 Pro tip for LinkedIn job posts
-              </AlertTitle>
-              <AlertDescription className="text-xs mt-2 space-y-2">
-                <p>
-                  When copying from LinkedIn, click "Show more" first, then select everything that describes the role and the company. Narrata uses that context to tailor your letter.
-                </p>
-                <p className="text-muted-foreground">
-                  To get the best results, try to avoid extra UI text (comments, buttons, "people also viewed," etc.).
-                </p>
-              </AlertDescription>
-            </Alert>
-            
             {/* TODO: Re-enable job description URL ingestion once MVP supports remote fetching. Tracked in docs/backlog/HIDDEN_FEATURES.md */}
             <div className="relative">
               <Textarea
                 placeholder="Paste job description here..."
-                rows={16}
+                rows={8}
                 value={jobContent}
                 onChange={event => setJobContent(event.target.value)}
                 disabled={isBusy}
                 autoFocus={mode === 'create' && !draft}
+                className="resize-y"
               />
               {isPreParsing && (
                 <div className="absolute top-2 right-2 flex items-center gap-2 text-xs text-muted-foreground bg-background/80 backdrop-blur-sm px-2 py-1 rounded-md border border-muted">
@@ -2026,6 +2068,8 @@ export const CoverLetterModal = ({
                 </div>
               )}
             </div>
+
+            {/* Character count below textarea for focus */}
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>{jobContent.trim().length} characters</span>
               <span>Minimum {MIN_JOB_DESCRIPTION_LENGTH} characters required</span>
@@ -2038,32 +2082,17 @@ export const CoverLetterModal = ({
               </Alert>
             )}
 
-            <div className="flex flex-wrap items-center justify-end gap-3">
-              {/* Generate button - primary CTA */}
-              <Button
-                type="button"
-                className="gap-2"
-                onClick={handleGenerateDraft}
-                disabled={
-                  isBusy ||
-                  !user?.id ||
-                  !selectedTemplateId ||
-                  templates.length === 0
-                }
-              >
-                {isParsingJobDescription || isGenerating ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Generating
-                  </>
-                ) : (
-                  <>
-                    <Wand2 className="h-4 w-4" />
-                    Generate cover letter
-                  </>
-                )}
-              </Button>
-            </div>
+            {/* Pro tip for LinkedIn copying - moved to bottom */}
+            <Alert className="bg-primary/5 border-primary/20">
+              <AlertTitle className="flex items-center gap-2 text-sm font-medium">
+                💡 Pro tip for LinkedIn job posts
+              </AlertTitle>
+              <AlertDescription className="text-xs mt-2">
+                <p>
+                  When copying from LinkedIn, click "Show more" first, then select everything that describes the role and the company. Narrata uses that context to tailor your letter.
+                </p>
+              </AlertDescription>
+            </Alert>
           </CardContent>
         </Card>
       </div>
@@ -2104,7 +2133,7 @@ export const CoverLetterModal = ({
     const analyticsScore = draft?.analytics?.overallScore;
     if (analyticsScore !== undefined && analyticsScore !== null) {
       matchMetrics.overallScore = analyticsScore;
-      if (process.env.NODE_ENV === 'development') {
+      if (import.meta.env?.DEV) {
         console.log('[CoverLetterCreateModal] Using analytics.overallScore:', analyticsScore);
       }
     }
@@ -2117,7 +2146,7 @@ export const CoverLetterModal = ({
         if (totalCount > 0) {
           const calculatedScore = Math.round((metCount / totalCount) * 100);
           matchMetrics.overallScore = calculatedScore;
-          if (process.env.NODE_ENV === 'development') {
+          if (import.meta.env?.DEV) {
             console.log(
               '[CoverLetterCreateModal] Calculated score from criteria:',
               calculatedScore,
@@ -2132,7 +2161,7 @@ export const CoverLetterModal = ({
         // Drafts are not finalized, so isPostHIL=false
         const calculatedScore = 27;
         matchMetrics.overallScore = calculatedScore;
-        if (process.env.NODE_ENV === 'development') {
+        if (import.meta.env?.DEV) {
           console.log(
             '[CoverLetterCreateModal] Calculated score from draft status (draft, not finalized):',
             calculatedScore,
@@ -2296,7 +2325,7 @@ export const CoverLetterModal = ({
 		              jobId={jobState?.jobId || streamingJobId || undefined}
 		              draftId={draft?.id}
 		              draftUpdatedAt={draft?.updatedAt}
-		              draftMws={draft?.mws}
+		              draftMws={draft?.mws ?? ((draft?.llmFeedback as any)?.mws ?? undefined)}
 		              onEditGoals={() => setShowGoalsModal(true)}
 		              className="border-0"
 		            />
@@ -2477,8 +2506,8 @@ export const CoverLetterModal = ({
     <Dialog open={isOpen} onOpenChange={open => (!open ? handleClose() : undefined)}>
       <DialogContent
         className={cn(
-          "dialog-top-anchored max-w-6xl flex flex-col",
-          isFitCheckStep ? "max-h-[calc(100vh-4rem)] overflow-y-auto" : "h-[85vh] overflow-hidden",
+          "max-w-6xl flex flex-col h-[100vh] max-h-[100vh]",
+          isFitCheckStep ? "overflow-y-auto" : "overflow-hidden",
         )}
         hideCloseButton={isFitCheckStep}
       >

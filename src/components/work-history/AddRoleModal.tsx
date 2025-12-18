@@ -20,6 +20,7 @@ import { X, Loader2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { GapDetectionService } from "@/services/gapDetectionService";
 import type { WorkHistoryCompany, WorkHistoryRole } from "@/types/workHistory";
 
 interface AddRoleModalProps {
@@ -174,12 +175,19 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded, onRoleD
             description: description.trim(),
             tags,
             metrics: metricsJson,
+            achievements: outcomeMetrics,
             updated_at: new Date().toISOString(),
           })
           .eq('id', workItemId)
           .eq('user_id', user.id);
 
         if (error) throw error;
+
+        await GapDetectionService.resolveSatisfiedRoleMetricsGaps({
+          userId: user.id,
+          workItemId,
+          metrics: metricsJson,
+        });
 
         toast({
           title: "Role updated",
@@ -198,6 +206,7 @@ export function AddRoleModal({ open, onOpenChange, company, onRoleAdded, onRoleD
             description: description.trim(),
             tags,
             metrics: metricsJson,
+            achievements: outcomeMetrics,
           });
 
         if (error) throw error;
