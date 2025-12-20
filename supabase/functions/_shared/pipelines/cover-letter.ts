@@ -1120,14 +1120,20 @@ You MUST respond with ONLY a valid JSON object (no markdown, no explanation) wit
 
 Analyze ALL section IDs in the template. Focus on 1-3 gaps per section where applicable.`;
 
+    const llmStart = Date.now();
     const response = await callOpenAI({
       apiKey: openaiApiKey,
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.5,
       maxTokens: 3500,
     });
+    const llmDuration = Date.now() - llmStart;
 
     const result = parseJSONResponse(response.choices[0].message.content);
+    
+    // Extract usage metrics from response
+    const usage = response.usage || {};
+    const model = 'gpt-4o-mini'; // Known from callOpenAI default
 
     // Late progress: total gaps + section count for UI ticks
     try {
@@ -1165,6 +1171,9 @@ Analyze ALL section IDs in the template. Focus on 1-3 gaps per section where app
       totalGaps: validatedSections.reduce((sum: number, s: any) => 
         sum + (s.requirementGaps?.length || 0), 0
       ),
+      usage,
+      llmDuration,
+      model,
     };
   },
 };
@@ -1588,6 +1597,12 @@ export async function executeCoverLetterPipeline(
         completed_at: new Date(),
         duration_ms: Date.now() - sectionGapsStart,
         success: true,
+        prompt_name: 'sectionGaps',
+        model: results.sectionGaps?.model || 'gpt-4o-mini',
+        prompt_tokens: results.sectionGaps?.usage?.prompt_tokens ?? 0,
+        completion_tokens: results.sectionGaps?.usage?.completion_tokens ?? 0,
+        total_tokens: results.sectionGaps?.usage?.total_tokens ?? 0,
+        ttfu_ms: results.sectionGaps?.llmDuration ?? undefined,
         result_subset: {
           pipeline_version: COVER_LETTER_PIPELINE_VERSION,
           jobDescriptionId,
