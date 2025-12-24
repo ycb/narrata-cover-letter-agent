@@ -9,8 +9,11 @@ interface AuthContextType {
   user: User | null
   session: Session | null
   profile: Profile | null
+  isDemo: boolean
+  demoSlug: string | null
   loading: boolean
   error: string | null
+  enterDemo: (slug: string) => Promise<{ error: any }>
   signUp: (email: string, password: string, fullName?: string, acceptedTerms?: boolean) => Promise<{ error: any; message?: string }>
   signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ error: any }>
   signInWithMagicLink: (email: string) => Promise<{ error: any }>
@@ -31,6 +34,27 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
+const DEMO_SLUG_STORAGE_KEY = 'narrata_demo_slug';
+
+const getDemoSlugFromStorageOrPath = (): string | null => {
+  try {
+    const stored = localStorage.getItem(DEMO_SLUG_STORAGE_KEY);
+    if (stored && stored.trim()) return stored.trim();
+  } catch {
+    // ignore
+  }
+
+  try {
+    const path = window.location.pathname || '';
+    const match = path.match(/^\/demo\/([^/]+)/);
+    if (match?.[1]) return match[1];
+    if (path === '/peter' || path.startsWith('/peter/')) return 'peter';
+  } catch {
+    // ignore
+  }
+
+  return null;
+};
 
 // Note: Using existing profile columns only (full_name, avatar_url)
 // No additional OAuth metadata storage needed
@@ -121,15 +145,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [isDemo, setIsDemo] = useState(false)
+  const [demoSlug, setDemoSlug] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isSigningOut, setIsSigningOut] = useState(false)
+  const isDemoRef = useRef(false)
+
+  useEffect(() => {
+    isDemoRef.current = isDemo
+  }, [isDemo])
+
+  const loadDemoProfile = useCallback(async (slug: string) => {
+    const { data: demoProfile, error: demoProfileError } = await supabase
+      .from('public_demo_profiles')
+      .select('user_id')
+      .eq('slug', slug)
+      .single()
+
+    if (demoProfileError || !demoProfile?.user_id) {
+      throw new Error('Demo not found')
+    }
+
+    const { data: profileRow } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', demoProfile.user_id)
+      .maybeSingle()
+
+    setIsDemo(true)
+    setDemoSlug(slug)
+    setSession(null)
+    setProfile((profileRow as Profile) ?? null)
+    setUser(({ id: demoProfile.user_id, email: (profileRow as any)?.email ?? null } as unknown) as User)
+    setError(null)
+  }, [])
 
   // Load user profile when user changes - memoized to prevent unnecessary re-renders
   const loadUserProfile = useCallback(async (userId: string) => {
     try {
       console.log('👤 Loading user profile for ID:', userId);
       let profileData = await getUserProfile(userId)
+
+      // Demo mode: never attempt to create/update a profile (no real auth.uid()).
+      if (isDemo) {
+        setProfile(profileData)
+        return
+      }
       
       // If profile doesn't exist, create it based on auth method
       if (!profileData) {
@@ -191,13 +253,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       console.log('🎯 Setting profile in state:', profileData);
+      console.log('🔍 Profile preferred_dashboard:', (profileData as any)?.preferred_dashboard);
       setProfile(profileData)
     } catch (err: any) {
       console.error('Error loading user profile:', err)
       // Don't show toast for profile loading errors - they're not critical
       // The user can still use the app without a complete profile
     }
-  }, [])
+  }, [isDemo])
 
   useEffect(() => {
     let mounted = true
@@ -205,6 +268,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Get initial session
     const getInitialSession = async () => {
       try {
+        const demoSlug = getDemoSlugFromStorageOrPath();
+        if (demoSlug) {
+          await loadDemoProfile(demoSlug)
+          return
+        }
+
         const { data: { session }, error } = await supabase.auth.getSession()
         
         if (!mounted) return
@@ -230,6 +299,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     getInitialSession()
 
+    // Demo mode: do not subscribe to auth events (no real session lifecycle)
+    const demoSlug = getDemoSlugFromStorageOrPath()
+    if (demoSlug) {
+      return () => {
+        mounted = false
+      }
+    }
+
     // Listen for auth changes
     const {
       data: { subscription },
@@ -239,6 +316,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('🔗 Provider:', session?.user?.app_metadata?.provider);
       
       if (!mounted) return
+
+      // If we are in demo mode, ignore auth state changes entirely.
+      if (isDemoRef.current) {
+        return
+      }
       
       // Don't process auth state changes during logout
       if (isSigningOut) {
@@ -402,6 +484,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setError(null)
       setIsSigningOut(true)
+
+      try {
+        localStorage.removeItem(DEMO_SLUG_STORAGE_KEY)
+      } catch {
+        // ignore
+      }
+      setIsDemo(false)
+      setDemoSlug(null)
       
       console.log('Starting sign out process...')
       
@@ -455,6 +545,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsSigningOut(false)
     }
   }
+
+  const enterDemo = useCallback(async (slug: string) => {
+    try {
+      setError(null)
+      setLoading(true)
+      try {
+        localStorage.setItem(DEMO_SLUG_STORAGE_KEY, slug)
+      } catch {
+        // ignore
+      }
+      await loadDemoProfile(slug)
+      return { error: null }
+    } catch (err: any) {
+      const message = err instanceof Error ? err.message : 'Demo not found'
+      setError(message)
+      return { error: err }
+    } finally {
+      setLoading(false)
+    }
+  }, [loadDemoProfile])
 
   const resetPassword = async (email: string) => {
     try {
@@ -643,8 +753,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     session,
     profile,
+    isDemo,
+    demoSlug,
     loading,
     error,
+    enterDemo,
     signUp,
     signIn,
     signInWithMagicLink,
@@ -661,8 +774,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     session,
     profile,
+    isDemo,
+    demoSlug,
     loading,
     error,
+    enterDemo,
     signUp,
     signIn,
     signInWithMagicLink,

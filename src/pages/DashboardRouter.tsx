@@ -17,16 +17,44 @@ export default function DashboardRouter() {
   const navigate = useNavigate();
   const { profile, loading } = useAuth();
 
+  console.log('🔀 [DashboardRouter] Component render:', {
+    loading,
+    hasProfile: !!profile,
+    profileId: profile?.id,
+    preferredDashboard: (profile as any)?.preferred_dashboard
+  });
+
   useEffect(() => {
-    if (loading) return;
+    console.log('🔀 [DashboardRouter] useEffect triggered:', { loading, hasProfile: !!profile });
+    
+    if (loading) {
+      console.log('⏳ [DashboardRouter] Still loading auth, waiting...');
+      return;
+    }
+
+    if (!profile) {
+      console.log('⏳ [DashboardRouter] Profile not loaded yet, waiting...');
+      return;
+    }
 
     // Get preferred dashboard from profile (default: 'onboarding')
     const preferredDashboard = (profile as any)?.preferred_dashboard || 'onboarding';
 
+    console.log('🔀 [DashboardRouter] Routing decision:', {
+      loading,
+      hasProfile: !!profile,
+      profileId: profile?.id,
+      preferredDashboard,
+      rawPreferredValue: (profile as any)?.preferred_dashboard,
+      willNavigateTo: preferredDashboard === 'main' ? '/dashboard/main' : '/dashboard/onboarding'
+    });
+
     // Redirect to preferred view
     if (preferredDashboard === 'main') {
+      console.log('✅ [DashboardRouter] Navigating to /dashboard/main');
       navigate('/dashboard/main', { replace: true });
     } else {
+      console.log('⚠️ [DashboardRouter] Navigating to /dashboard/onboarding');
       navigate('/dashboard/onboarding', { replace: true });
     }
   }, [profile, loading, navigate]);

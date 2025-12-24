@@ -14,7 +14,7 @@ export function ProtectedRoute({
   requireAuth = true, 
   requireProfile = false 
 }: ProtectedRouteProps) {
-  const { user, profile, loading, error } = useAuth()
+  const { user, profile, loading, error, isDemo } = useAuth()
   const location = useLocation()
 
   console.log('ProtectedRoute check:', { 
@@ -33,6 +33,22 @@ export function ProtectedRoute({
         <LoadingSpinner size="lg" />
       </div>
     )
+  }
+
+  // Demo mode: never redirect to auth pages; treat demo "user" as the source of truth.
+  if (isDemo) {
+    // If the demo profile hasn't been hydrated yet, keep showing a loading state.
+    if (requireProfile && user && !profile) {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <LoadingSpinner size="lg" className="mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading your profile...</p>
+          </div>
+        </div>
+      )
+    }
+    return <>{children}</>
   }
 
   // If there's an error, redirect to sign-in instead of showing full-page error
@@ -57,19 +73,9 @@ export function ProtectedRoute({
     )
   }
 
-  if (!requireAuth && user) {
+  if (!requireAuth && user && !isDemo) {
     // Redirect authenticated users away from auth pages
     return <Navigate to="/dashboard" replace />
-  }
-
-  // Onboarding guard: if user is not marked as completed, force /new-user
-  // Default new users to the onboarding dashboard
-  const preferredDashboard = (profile as any)?.preferred_dashboard ?? 'onboarding';
-  const isOnboarding = preferredDashboard !== 'main';
-  const isOnboardingRoute = location.pathname.startsWith('/dashboard/onboarding');
-  // If user is not on main dashboard routes yet, send them to onboarding dashboard
-  if (isOnboarding && !isOnboardingRoute && (location.pathname === '/' || location.pathname === '/dashboard' || location.pathname === '/dashboard/main')) {
-    return <Navigate to="/dashboard/onboarding" replace />
   }
 
   return <>{children}</>
