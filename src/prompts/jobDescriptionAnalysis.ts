@@ -60,7 +60,10 @@ Return ONLY valid JSON with this exact structure. ALL FIELDS ARE REQUIRED:
   "role": "Job Title / Role Name",
   "salary": "Salary range (e.g., '$160,000-200,000', '$180K-220K', '180-200k') or null",
   "companyIndustry": "Industry name (e.g., 'Legal Tech', 'Fintech', 'Healthcare SaaS') or null",
+  "companyVertical": "Sub-industry or vertical (e.g., 'Solar SaaS', 'Construction Tech', 'Retail Analytics') or null",
   "companyBusinessModel": "Business model (e.g., 'B2B SaaS', 'B2C Marketplace', 'Enterprise Platform') or null",
+  "buyerSegment": "Primary buyer segment(s) (e.g., 'SMB', 'Mid-market', 'Enterprise', 'Consumer') or null",
+  "userSegment": "Primary end-user segment(s) (e.g., 'Installers', 'Operations teams', 'Consumers') or null",
   "companyMaturity": "startup|growth-stage|late-stage|enterprise or null",
   "companyMission": "Company mission statement or purpose (1-2 sentences) or null",
   "companyValues": ["value 1", "value 2", "value 3"] or [],
@@ -105,33 +108,48 @@ EXTRACTION RULES:
    - If the company builds AI/ML products for a specific industry, name the industry (e.g., "Legal Tech" not "AI")
    - Return null ONLY if no industry clues exist anywhere in the JD
 
-5. COMPANY BUSINESS MODEL:
+5. COMPANY VERTICAL:
+   - Extract the specific vertical or sub-industry the company serves
+   - Examples: "Solar SaaS", "Construction Tech", "Retail Analytics", "Healthcare Billing"
+   - Return null if no vertical is mentioned or implied
+
+6. COMPANY BUSINESS MODEL:
    - Extract how the company makes money or their customer model
    - Look for: B2B/B2C, SaaS/Platform/Marketplace mentions
    - Examples: "B2B SaaS", "B2C Marketplace", "Enterprise Platform", "Developer Platform"
    - Return null if not mentioned in JD
 
-6. COMPANY MATURITY:
+7. BUYER SEGMENT:
+   - Identify the primary buyer segment(s)
+   - Look for: "enterprise", "mid-market", "SMB", "small business", "consumer"
+   - Return null if not mentioned or implied
+
+8. USER SEGMENT:
+   - Identify the primary end-users or user personas
+   - Look for: "users", "customers", "operators", "installers", "admins", "consumers"
+   - Return null if not mentioned or implied
+
+9. COMPANY MATURITY:
    - Determine company stage based on context clues
    - Look for: funding stage, company size, years in business, "startup"/"established" mentions
    - Options: "startup" (early-stage, seed/Series A), "growth-stage" (Series B/C, scaling), 
      "late-stage" (Series D+, pre-IPO), "enterprise" (public company, large established)
    - Return null if not enough information
 
-7. WORK TYPE:
+10. WORK TYPE:
    - Extract the work arrangement or location flexibility
    - Look for: "remote", "hybrid", "in-office", "on-site", "flexible"
    - Examples: "Remote", "Hybrid", "In-person", "Remote (US only)", "Hybrid (2 days/week)"
    - If JD explicitly says remote (or location type: remote), return "Remote" (or the exact remote variant)
    - Return null only if not mentioned in JD
 
-8. LOCATION:
+11. LOCATION:
    - Extract the primary work location or office location
    - Look for: city, state, region mentioned
    - Examples: "Seattle, WA", "San Francisco Bay Area", "New York, NY", "Austin, TX"
    - Return null if not mentioned or if fully remote and no location is specified
 
-9. COMPANY MISSION:
+12. COMPANY MISSION:
    - Extract the company's mission statement or purpose
    - Look for: "about us", "our mission", "we exist to", "our purpose is", mission-like statements
    - Should be 1-2 sentences describing what the company aims to achieve or why they exist
@@ -139,7 +157,7 @@ EXTRACTION RULES:
    - Extract verbatim if possible, or summarize if mission is implied across multiple statements
    - Return null if no mission statement exists in JD
 
-10. COMPANY VALUES:
+13. COMPANY VALUES:
    - Extract stated company values or cultural principles
    - Look for: "our values", "we believe", "our principles", "culture" sections, repeated themes
    - Can be explicitly listed (e.g., "Innovation, Integrity, Impact") or inferred from descriptions

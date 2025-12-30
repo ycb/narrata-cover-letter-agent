@@ -44,12 +44,20 @@ export interface StorySelectionCandidateDiagnostic {
     goalsMatched: number;
     jdKeywordsInContentScore: number;
     jdKeywordsInTagsScore: number;
+    industryMatches?: number;
+    verticalMatches?: number;
+    buyerMatches?: number;
+    userMatches?: number;
   };
   adjustments: {
     reusePenalty: number;
     shortContentPenalty: number;
     lowTimesUsedBonus: number;
     targetTitleTagBonus: number;
+    industryMatchBonus?: number;
+    verticalMatchBonus?: number;
+    buyerMatchBonus?: number;
+    userMatchBonus?: number;
   };
 }
 

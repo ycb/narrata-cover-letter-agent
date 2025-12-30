@@ -108,6 +108,90 @@ const ensureStringArray = (value: unknown): string[] =>
         .filter((item): item is string => Boolean(item))
     : [];
 
+const normalizeWhitespace = (value: string): string => value.trim().replace(/\s+/g, ' ');
+
+const toTitleCase = (value: string): string =>
+  value.replace(/\w\S*/g, (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
+
+const normalizeTitleIfLowercase = (value: string): string => {
+  const normalized = normalizeWhitespace(value);
+  if (!normalized) return normalized;
+  if (/[A-Z]/.test(normalized) || /\d/.test(normalized)) return normalized;
+  return toTitleCase(normalized);
+};
+
+const splitDelimitedTokens = (value: string): string[] =>
+  value
+    .split(/[,/|]/)
+    .map(token => normalizeWhitespace(token))
+    .filter(Boolean);
+
+const normalizeCompanyMaturity = (value: string | null): string | null => {
+  if (!value) return null;
+  const lower = value.toLowerCase();
+  if (lower.includes('growth')) return 'growth-stage';
+  if (lower.includes('late')) return 'late-stage';
+  if (lower.includes('enterprise') || lower.includes('public')) return 'enterprise';
+  if (lower.includes('startup') || lower.includes('early')) return 'startup';
+  return normalizeWhitespace(value);
+};
+
+const normalizeBusinessModelToken = (raw: string): string | null => {
+  const lower = raw.toLowerCase();
+  const hasB2B2C = /b2b2c/.test(lower);
+  const hasB2B = /b2b|business[-\s]?to[-\s]?business/.test(lower);
+  const hasB2C = /b2c|business[-\s]?to[-\s]?consumer/.test(lower);
+  const hasD2C = /d2c|direct[-\s]?to[-\s]?consumer/.test(lower);
+  const hasSaaS = /saas|software as a service/.test(lower);
+  const hasMarketplace = /marketplace/.test(lower);
+  const hasPlatform = /platform/.test(lower);
+  const hasEnterprise = /enterprise/.test(lower);
+  const hasSMB = /\bsmb\b|small[-\s]?business/.test(lower);
+  const hasConsumer = /consumer/.test(lower);
+  const hasDeveloperTools = /developer\s+tools|dev\s+tools/.test(lower);
+
+  if (hasB2B2C) return 'B2B2C';
+  if (hasB2B && hasSaaS) return 'B2B SaaS';
+  if (hasB2C && hasSaaS) return 'B2C SaaS';
+  if (hasD2C && hasSaaS) return 'D2C SaaS';
+  if (hasB2B && hasMarketplace) return 'B2B Marketplace';
+  if (hasB2C && hasMarketplace) return 'B2C Marketplace';
+  if (hasB2B && hasPlatform) return 'B2B Platform';
+  if (hasB2C && hasPlatform) return 'B2C Platform';
+  if (hasD2C) return 'D2C';
+  if (hasB2B) return 'B2B';
+  if (hasB2C) return 'B2C';
+  if (hasSaaS) return 'SaaS';
+  if (hasMarketplace) return 'Marketplace';
+  if (hasPlatform) return 'Platform';
+  if (hasEnterprise) return 'Enterprise';
+  if (hasSMB) return 'SMB';
+  if (hasConsumer) return 'Consumer';
+  if (hasDeveloperTools) return 'Developer Tools';
+  return normalizeTitleIfLowercase(raw);
+};
+
+const normalizeSegmentToken = (raw: string): string | null => {
+  const lower = raw.toLowerCase();
+  if (/\bsmb\b|small[-\s]?business/.test(lower)) return 'SMB';
+  if (/mid[-\s]?market/.test(lower)) return 'Mid-market';
+  if (/enterprise/.test(lower)) return 'Enterprise';
+  if (/consumer/.test(lower)) return 'Consumer';
+  return normalizeTitleIfLowercase(raw);
+};
+
+const normalizeDelimitedValue = (
+  value: string | null,
+  tokenNormalizer: (raw: string) => string | null,
+): string | null => {
+  if (!value) return null;
+  const tokens = splitDelimitedTokens(value)
+    .map(tokenNormalizer)
+    .filter((token): token is string => Boolean(token));
+  const deduped = Array.from(new Set(tokens));
+  return deduped.length ? deduped.join(' / ') : null;
+};
+
 const normaliseRequirement = (
   input: unknown,
   fallbackCategory: RequirementCategory,
@@ -187,6 +271,16 @@ const normaliseStructuredData = (value: unknown): Record<string, Json> => {
       location: null,
       employmentType: null,
       compensation: null,
+      companyIndustry: null,
+      companyVertical: null,
+      companyBusinessModel: null,
+      buyerSegment: null,
+      userSegment: null,
+      companyMaturity: null,
+      companyMission: null,
+      companyValues: [],
+      workType: null,
+      salary: null,
     };
   }
 
@@ -206,6 +300,16 @@ const normaliseStructuredData = (value: unknown): Record<string, Json> => {
     location: getString('location'),
     employmentType: getString('employmentType'),
     compensation: getString('compensation'),
+    companyIndustry: getString('companyIndustry'),
+    companyVertical: getString('companyVertical'),
+    companyBusinessModel: getString('companyBusinessModel'),
+    buyerSegment: getString('buyerSegment'),
+    userSegment: getString('userSegment'),
+    companyMaturity: getString('companyMaturity'),
+    companyMission: getString('companyMission'),
+    companyValues: ensureStringArray(value.companyValues),
+    workType: getString('workType'),
+    salary: getString('salary'),
   };
 };
 
@@ -796,14 +900,35 @@ export class JobDescriptionService {
     }
 
     // Extract new structured fields
-    const salary = typeof payload.salary === 'string' ? payload.salary : null;
-    const companyIndustry = typeof payload.companyIndustry === 'string' ? payload.companyIndustry : null;
-    const companyBusinessModel = typeof payload.companyBusinessModel === 'string' ? payload.companyBusinessModel : null;
-    const companyMaturity = typeof payload.companyMaturity === 'string' ? payload.companyMaturity : null;
-    const companyMission = typeof payload.companyMission === 'string' ? payload.companyMission : null;
-    const companyValues = ensureStringArray(payload.companyValues);
-    const workType = typeof payload.workType === 'string' ? payload.workType : null;
-    const location = typeof payload.location === 'string' ? payload.location : null;
+    const salary = typeof payload.salary === 'string' ? normalizeWhitespace(payload.salary) : null;
+    const companyIndustry = typeof payload.companyIndustry === 'string'
+      ? normalizeTitleIfLowercase(payload.companyIndustry)
+      : null;
+    const companyVertical = typeof payload.companyVertical === 'string'
+      ? normalizeTitleIfLowercase(payload.companyVertical)
+      : null;
+    const companyBusinessModel = typeof payload.companyBusinessModel === 'string'
+      ? normalizeDelimitedValue(payload.companyBusinessModel, normalizeBusinessModelToken)
+      : null;
+    const buyerSegment = typeof payload.buyerSegment === 'string'
+      ? normalizeDelimitedValue(payload.buyerSegment, normalizeSegmentToken)
+      : null;
+    const userSegment = typeof payload.userSegment === 'string'
+      ? normalizeDelimitedValue(payload.userSegment, normalizeSegmentToken)
+      : null;
+    const companyMaturity = normalizeCompanyMaturity(
+      typeof payload.companyMaturity === 'string' ? payload.companyMaturity : null,
+    );
+    const companyMission = typeof payload.companyMission === 'string'
+      ? normalizeWhitespace(payload.companyMission)
+      : null;
+    const companyValues = ensureStringArray(payload.companyValues).map(normalizeWhitespace);
+    const workType = typeof payload.workType === 'string'
+      ? normalizeWhitespace(payload.workType)
+      : null;
+    const location = typeof payload.location === 'string'
+      ? normalizeWhitespace(payload.location)
+      : null;
 
     // Build enhanced structuredData with new fields
     const structuredData = {
@@ -816,7 +941,10 @@ export class JobDescriptionService {
       compensation: salary,
       // New fields
       companyIndustry,
+      companyVertical,
       companyBusinessModel,
+      buyerSegment,
+      userSegment,
       companyMaturity,
       companyMission,
       companyValues,
@@ -829,12 +957,16 @@ export class JobDescriptionService {
     // Generate keywords from company industry, business model, and requirements
     const keywords: string[] = [];
     if (companyIndustry) keywords.push(companyIndustry);
+    if (companyVertical) keywords.push(companyVertical);
     if (companyBusinessModel) keywords.push(companyBusinessModel);
+    if (buyerSegment) keywords.push(buyerSegment);
+    if (userSegment) keywords.push(userSegment);
     keywords.push(...coreRequirementsStrings.slice(0, 3).map(req => req.split(' ')[0])); // First word of each req
     
     const boilerplateSignals: string[] = [];
     const differentiatorSignals: string[] = [];
     if (companyIndustry) differentiatorSignals.push(`Industry: ${companyIndustry}`);
+    if (companyVertical) differentiatorSignals.push(`Vertical: ${companyVertical}`);
     if (companyMission) differentiatorSignals.push('Mission-driven');
 
     const analysis: Record<string, Json> = {
@@ -865,4 +997,3 @@ export class JobDescriptionService {
 }
 
 export const jobDescriptionService = new JobDescriptionService();
-

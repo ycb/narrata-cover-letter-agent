@@ -1759,9 +1759,10 @@ export const CoverLetterModal = ({
           }).then(() => {
             console.log('[CoverLetterModal] Pre-analysis triggered for JD:', record.id);
           }).catch((err) => {
-          // Non-blocking - if it fails, the main pipeline will just do the analysis
-          console.warn('[CoverLetterModal] Pre-analysis failed (non-blocking):', err);
-        });
+            // Non-blocking - if it fails, the main pipeline will just do the analysis
+            console.warn('[CoverLetterModal] Pre-analysis failed (non-blocking):', err);
+          });
+        }
       } catch (error) {
         if (controller.signal.aborted) {
           return;

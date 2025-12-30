@@ -3320,6 +3320,36 @@ export class CoverLetterDraftService {
       .map(keyword => keyword.trim().toLowerCase())
       .filter(Boolean);
 
+    const structured = (jobDescription.structuredData ?? jobDescription.structuredInsights ?? {}) as Record<string, unknown>;
+    const companyIndustry =
+      typeof structured.companyIndustry === 'string' ? structured.companyIndustry : '';
+    const companyVertical =
+      typeof structured.companyVertical === 'string' ? structured.companyVertical : '';
+    const companyBusinessModel =
+      typeof structured.companyBusinessModel === 'string' ? structured.companyBusinessModel : '';
+    const buyerSegment =
+      typeof structured.buyerSegment === 'string' ? structured.buyerSegment : '';
+    const userSegment =
+      typeof structured.userSegment === 'string' ? structured.userSegment : '';
+
+    const normalizeTokenList = (value: string): string[] => {
+      if (!value) return [];
+      return value
+        .split(/[,/|]/)
+        .map(token => token.trim().toLowerCase())
+        .filter(token => token.length > 2);
+    };
+
+    const industryTokens = normalizeTokenList(companyIndustry);
+    const verticalTokens = normalizeTokenList(companyVertical);
+    const buyerSegmentTokens = Array.from(
+      new Set([
+        ...normalizeTokenList(companyBusinessModel),
+        ...normalizeTokenList(buyerSegment),
+      ]),
+    );
+    const userSegmentTokens = normalizeTokenList(userSegment);
+
     const genericKeywordStoplist = new Set([
       'product',
       'products',
@@ -3370,6 +3400,35 @@ export class CoverLetterDraftService {
       return { contentScore, tagScore };
     };
 
+    const scoreDomainMatches = (
+      content: string,
+      tags: string[] | null | undefined,
+      tokens: string[],
+      weights: { content: number; tags: number; cap: number },
+    ): { score: number; matches: number } => {
+      if (!tokens.length) return { score: 0, matches: 0 };
+      const lowerContent = content.toLowerCase();
+      const lowerTags = (tags ?? []).map(tag => tag.toLowerCase());
+      let matches = 0;
+      let score = 0;
+
+      tokens.forEach(token => {
+        if (!token) return;
+        const regex = new RegExp(`\\b${escapeRegExp(token)}\\b`, 'i');
+        if (regex.test(lowerContent)) {
+          matches += 1;
+          score += weights.content;
+        }
+        if (lowerTags.some(tag => tag.includes(token))) {
+          matches += 1;
+          score += weights.tags;
+        }
+      });
+
+      if (score > weights.cap) score = weights.cap;
+      return { score, matches };
+    };
+
     for (const story of stories) {
       const content = story.content || '';
       if (!content.trim()) {
@@ -3394,6 +3453,35 @@ export class CoverLetterDraftService {
         }, 0);
         score += goalMatches * 8;
       }
+
+      const industryMatch = scoreDomainMatches(
+        content,
+        story.tags ?? [],
+        industryTokens,
+        { content: 8, tags: 12, cap: 30 },
+      );
+      const verticalMatch = scoreDomainMatches(
+        content,
+        story.tags ?? [],
+        verticalTokens,
+        { content: 12, tags: 16, cap: 40 },
+      );
+      const buyerMatch = scoreDomainMatches(
+        content,
+        story.tags ?? [],
+        buyerSegmentTokens,
+        { content: 12, tags: 16, cap: 40 },
+      );
+      const userMatch = scoreDomainMatches(
+        content,
+        story.tags ?? [],
+        userSegmentTokens,
+        { content: 8, tags: 12, cap: 24 },
+      );
+      score += industryMatch.score;
+      score += verticalMatch.score;
+      score += buyerMatch.score;
+      score += userMatch.score;
 
       let targetTitleTagBonus = 0;
       if (userGoals?.targetTitles?.length) {
@@ -3438,12 +3526,20 @@ export class CoverLetterDraftService {
             : 0,
           jdKeywordsInContentScore,
           jdKeywordsInTagsScore,
+          industryMatches: industryMatch.matches,
+          verticalMatches: verticalMatch.matches,
+          buyerMatches: buyerMatch.matches,
+          userMatches: userMatch.matches,
         },
         adjustments: {
           reusePenalty,
           shortContentPenalty,
           lowTimesUsedBonus,
           targetTitleTagBonus,
+          industryMatchBonus: industryMatch.score,
+          verticalMatchBonus: verticalMatch.score,
+          buyerMatchBonus: buyerMatch.score,
+          userMatchBonus: userMatch.score,
         },
       });
 

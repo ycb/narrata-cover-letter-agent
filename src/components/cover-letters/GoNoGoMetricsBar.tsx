@@ -31,6 +31,20 @@ export function GoNoGoMetricsBar({
   });
 
   const mws = aPhaseInsights?.mws;
+  const derivedMwsScore = useMemo(() => {
+    if (!mws) return 0;
+    if (Array.isArray(mws.details) && mws.details.length) {
+      return Math.min(
+        3,
+        mws.details.reduce(
+          (count: number, detail: any) =>
+            count + (detail.strengthLevel === 'strong' || detail.strengthLevel === 'moderate' ? 1 : 0),
+          0,
+        ),
+      );
+    }
+    return mws.summaryScore ?? 0;
+  }, [mws]);
 
   const summary = useMemo(() => {
     return {
@@ -42,12 +56,12 @@ export function GoNoGoMetricsBar({
       },
       strengths: {
         label: 'Match w/ Strengths',
-        met: mws?.summaryScore ?? 0,
+        met: derivedMwsScore,
         total: 3,
         items: (mws?.details || []).map((detail: any, idx: number) => ({
           id: detail.label || `mws-${idx}`,
           requirement: detail.label || 'Strength',
-          demonstrated: true,
+          demonstrated: detail.strengthLevel === 'strong' || detail.strengthLevel === 'moderate',
         })),
       },
       core: {
@@ -63,7 +77,7 @@ export function GoNoGoMetricsBar({
         items: preferredRequirements?.list || [],
       },
     };
-  }, [goalMatches, goalsSummary, coreRequirements, preferredRequirements, mws]);
+  }, [goalMatches, goalsSummary, coreRequirements, preferredRequirements, mws, derivedMwsScore]);
 
   const tiles: MetricKey[] = ['goals', 'strengths', 'core', 'preferred'];
 

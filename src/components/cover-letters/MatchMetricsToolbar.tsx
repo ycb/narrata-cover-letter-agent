@@ -86,6 +86,22 @@ interface MatchMetricsToolbarContentProps extends MatchMetricsToolbarProps {
   readinessFeatureDisabled: boolean;
 }
 
+const deriveMwsSummaryScore = (mws?: {
+  summaryScore?: number;
+  details?: Array<{ strengthLevel: 'strong' | 'moderate' | 'light' }>;
+}): number | undefined => {
+  if (!mws) return undefined;
+  if (Array.isArray(mws.details) && mws.details.length) {
+    const metCount = mws.details.reduce(
+      (count, detail) =>
+        count + (detail.strengthLevel === 'strong' || detail.strengthLevel === 'moderate' ? 1 : 0),
+      0,
+    );
+    return Math.min(3, metCount);
+  }
+  return typeof mws.summaryScore === 'number' ? mws.summaryScore : undefined;
+};
+
 export function MatchMetricsToolbar(props: MatchMetricsToolbarProps) {
   const {
     isLoading = false,
@@ -605,7 +621,8 @@ function MatchMetricsToolbarContent({
   // MwS: Use streaming data first, then fall back to persisted draft data
   // This ensures no flicker - streaming populates during generation, draft data persists after
   const effectiveMws = aPhaseInsights?.mws || draftMws;
-  const hasMwsData = effectiveMws?.summaryScore !== undefined;
+  const derivedMwsScore = deriveMwsSummaryScore(effectiveMws);
+  const hasMwsData = derivedMwsScore !== undefined;
   // Requirements: check if JD counts exist
   const hasJdCounts = aPhaseInsights?.jdRequirementSummary?.coreTotal !== undefined || 
                       aPhaseInsights?.jdRequirementSummary?.preferredTotal !== undefined;
@@ -614,7 +631,7 @@ function MatchMetricsToolbarContent({
   if (import.meta.env?.DEV) {
     console.log('[Toolbar] A-phase data check', {
       hasMwsData,
-      mwsSummaryScore: effectiveMws?.summaryScore,
+      mwsSummaryScore: derivedMwsScore,
       mwsFromStreaming: !!aPhaseInsights?.mws,
       mwsFromDraft: !!draftMws,
       effectiveMws,
@@ -637,14 +654,14 @@ function MatchMetricsToolbarContent({
 	      goalMatches,
 	      hasAPhaseRequirementAnalysis,
 	      mwsAvailable: hasMwsData,
-	      mwsSummaryScore: hasMwsData ? (effectiveMws?.summaryScore ?? 0) : 0,
+	      mwsSummaryScore: hasMwsData ? (derivedMwsScore ?? 0) : 0,
 	      effectiveCoreRequirements,
 	      effectivePreferredRequirements,
 	    });
 	  }, [
 	    effectiveCoreRequirements,
 	    effectivePreferredRequirements,
-	    effectiveMws?.summaryScore,
+	    derivedMwsScore,
     goalMatches,
     goalsComparisonReady,
     goalsSummary?.percentage,
@@ -710,7 +727,7 @@ function MatchMetricsToolbarContent({
     
 	    // 3) MATCH WITH STRENGTHS (Phase A streaming OR persisted from draft)
 	    // Uses effectiveMws which prefers streaming data, falls back to persisted draft data
-	    const mwsScore = hasMwsData && effectiveMws ? effectiveMws.summaryScore : undefined;
+	    const mwsScore = hasMwsData ? derivedMwsScore : undefined;
 	    items.push({
 	      key: 'strengths',
 	      label: 'Match with Strengths',
